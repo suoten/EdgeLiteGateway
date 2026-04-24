@@ -1,0 +1,123 @@
+# EdgeLiteGateway 配置示例
+# 复制此文件为 config.yaml 并修改配置
+# 敏感字段请替换为实际值，切勿提交真实密钥到版本库
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  cors_origins:
+    - "http://localhost:3000"
+
+database:
+  sqlite_path: "data/edgelite.db"
+  backup_dir: "data/backups"
+
+influxdb:
+  url: "http://localhost:8086"
+  token: "your-influxdb-token-here"
+  org: "edgelite"
+  bucket: "edgelite"
+  batch_size: 1000
+  flush_interval: 5000
+
+mqtt:
+  broker: "localhost"
+  port: 1883
+  username: ""
+  password: ""
+  topic_prefix: "edgelite"
+
+# 内置 MQTT Server（南向仿真）
+mqtt_server:
+  enabled: false
+  host: "0.0.0.0"
+  port: 1888
+  ws_port: null
+  username: ""
+  password: ""
+
+# 内置 OPC UA Server（南向仿真）
+opcua_server:
+  enabled: false
+  host: "0.0.0.0"
+  port: 4840
+  namespace: "urn:edgelite:gateway"
+
+# 内置 Modbus Slave（南向仿真）
+modbus_slave:
+  enabled: false
+  host: "0.0.0.0"
+  port: 502
+  holding_size: 1000
+  input_size: 1000
+
+video:
+  pygbsentry:
+    endpoint: "http://your-pygbsentry-host:8080"
+    api_key: "your-pygbsentry-api-key"
+    timeout: 10
+
+security:
+  secret_key: "your-secret-key-at-least-32-characters"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  algorithm: "HS256"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+
+simulator:
+  auto_create: true
+  default_devices:
+    - device_id: "sim-temperature-01"
+      name: "温度传感器模拟"
+      points:
+        - name: "temperature"
+          data_type: "float32"
+          unit: "°C"
+          address: "0"
+          access_mode: "r"
+          min: 15.0
+          max: 35.0
+          mode: "sine"
+        - name: "humidity"
+          data_type: "float32"
+          unit: "%"
+          address: "1"
+          access_mode: "r"
+          min: 30.0
+          max: 90.0
+          mode: "random_walk"
+      collect_interval: 5
+
+# 告警通知渠道
+notify:
+  dingtalk:
+    webhook_url: ""
+    secret: ""
+  email:
+    smtp_host: ""
+    smtp_port: 465
+    smtp_user: ""
+    smtp_password: ""
+    use_tls: true
+    from_addr: ""
+    to_addrs: []
+  wechat:
+    webhook_url: ""
+  webhook:
+    url: ""
+    headers: {}
+
+# 北向平台对接
+platforms: {}
+# platforms:
+#   iotsharp:
+#     enabled: true
+#     endpoint: "http://your-iotsharp:8080"
+#     api_key: "your-iotsharp-api-key"
+#   thingsboard:
+#     enabled: true
+#     endpoint: "http://your-thingsboard:8080"
+#     token: "your-thingsboard-token"

@@ -1,0 +1,71 @@
+# ============================================
+# EdgeLiteGateway .gitignore
+# ============================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+
+# ---------- Python 测试/覆盖率 ----------
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# ---------- Cython编译产物 ----------
+*.so
+*.pyd
+src/edgelite/_cython/*.c
+
+# ---------- 前端 ----------
+node_modules/
+web/dist/
+
+# ---------- 配置与敏感文件 ----------
+configs/config.yaml
+configs/config.local.yaml
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# ---------- 运行时数据 ----------
+data/
+logs/
+backups/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ---------- Docker运行时 ----------
+docker/data/
+
+# ---------- IDE ----------
+.idea/
+.vscode/
+.arts/
+.codeartsdoer/
+.jlsp/
+.preferences/
+.project-meta/
+*.swp
+*.swo
+*~
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ---------- 构建工具 ----------
+.ruff_cache/

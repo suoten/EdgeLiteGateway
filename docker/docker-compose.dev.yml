@@ -1,0 +1,56 @@
+# EdgeLiteGateway Docker Compose (Development)
+version: "3.8"
+
+services:
+  edgelite:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: edgelite-gateway-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../src/edgelite:/app/edgelite
+      - ../configs:/app/configs
+      - ../data:/app/data
+    environment:
+      - EDGELITE_INFLUXDB_URL=http://influxdb:8086
+      - EDGELITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
+      - EDGELITE_MQTT_BROKER=mosquitto
+      - EDGELITE_SECURITY_SECRET_KEY=dev-secret-key-not-for-production
+    command: python -m edgelite --host 0.0.0.0 --port 8080 --reload
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    restart: unless-stopped
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: edgelite-influxdb-dev
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=edgelite
+      - DOCKER_INFLUXDB_INIT_BUCKET=edgelite
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=edgelite-token-change-me
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2-openssl
+    container_name: edgelite-mosquitto-dev
+    ports:
+      - "1883:1883"
+
+volumes:
+  influxdb-data:
