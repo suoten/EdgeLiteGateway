@@ -158,6 +158,11 @@ class InfluxDBStorage:
             self._available = False
             return False
 
+    @staticmethod
+    def _escape_flux_value(value: str) -> str:
+        """转义 Flux 查询中的字符串值，防止注入"""
+        return value.replace('"', '\\"').replace("\\", "\\\\")
+
     async def query_points(
         self,
         device_id: str,
@@ -170,16 +175,22 @@ class InfluxDBStorage:
         if not self._available or not self._query_api:
             return []
 
-        stop_clause = f", stop: {stop}" if stop else ""
+        safe_device_id = self._escape_flux_value(device_id)
+        safe_point_name = self._escape_flux_value(point_name)
+        safe_start = self._escape_flux_value(start)
+        safe_stop = self._escape_flux_value(stop) if stop else ""
+
+        stop_clause = f", stop: {safe_stop}" if stop else ""
         flux = f"""
 from(bucket: "{self._bucket}")
-  |> range(start: {start}{stop_clause})
+  |> range(start: {safe_start}{stop_clause})
   |> filter(fn: (r) => r._measurement == "device_points")
-  |> filter(fn: (r) => r.device_id == "{device_id}")
-  |> filter(fn: (r) => r.point_name == "{point_name}")
+  |> filter(fn: (r) => r.device_id == "{safe_device_id}")
+  |> filter(fn: (r) => r.point_name == "{safe_point_name}")
 """
         if aggregate:
-            flux += f'  |> aggregateWindow(every: {aggregate}, fn: mean, createEmpty: false)\n'
+            safe_agg = self._escape_flux_value(aggregate)
+            flux += f'  |> aggregateWindow(every: {safe_agg}, fn: mean, createEmpty: false)\n'
 
         flux += '  |> yield(name: "result")'
 
@@ -207,16 +218,17 @@ from(bucket: "{self._bucket}")
         if not self._available or not self._query_api:
             return {}
 
+        safe_device_id = self._escape_flux_value(device_id)
         point_filter = ""
         if point_names:
-            names = '", "'.join(point_names)
-            point_filter = f'  |> filter(fn: (r) => r.point_name == "{names}" or r.point_name == "{names}")\n'
+            safe_names = ", ".join(f'"{self._escape_flux_value(n)}"' for n in point_names)
+            point_filter = f"  |> filter(fn: (r) => contains(value: r.point_name, set: [{safe_names}]))\n"
 
         flux = f"""
 from(bucket: "{self._bucket}")
   |> range(start: -1h)
   |> filter(fn: (r) => r._measurement == "device_points")
-  |> filter(fn: (r) => r.device_id == "{device_id}")
+  |> filter(fn: (r) => r.device_id == "{safe_device_id}")
   {point_filter}
   |> last()
 """

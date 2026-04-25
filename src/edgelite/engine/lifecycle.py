@@ -62,3 +62,7 @@ class DeviceLifecycleManager:
     def get_status(self, device_id: str) -> str:
         """获取设备当前状态"""
         return self._status_map.get(device_id, "offline")
+
+    def remove_device(self, device_id: str) -> None:
+        """移除设备状态记录"""
+        self._status_map.pop(device_id, None)

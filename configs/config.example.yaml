@@ -1,86 +1,96 @@
 # EdgeLiteGateway 配置示例
 # 复制此文件为 config.yaml 并修改配置
 # 敏感字段请替换为实际值，切勿提交真实密钥到版本库
+# 支持环境变量覆盖：EDGELITE_<SECTION>_<KEY>（如 EDGELITE_INFLUXDB_TOKEN）
 
+# ── 服务配置 ──────────────────────────────────────────────
 server:
-  host: "0.0.0.0"
-  port: 8080
-  cors_origins:
-    - "http://localhost:3000"
+  host: "0.0.0.0"          # 监听地址，0.0.0.0 表示所有网卡
+  port: 8080                # 监听端口，默认 8080
+  cors_origins:             # CORS 允许源列表，生产环境限制为实际域名
+    - "http://localhost:3000"  # Vite 开发服务器默认端口
+    # - "https://edgelite.example.com"  # 生产环境前端域名
 
+# ── 数据库配置 ────────────────────────────────────────────
 database:
-  sqlite_path: "data/edgelite.db"
-  backup_dir: "data/backups"
+  sqlite_path: "data/edgelite.db"  # SQLite 数据库文件路径（相对路径基于工作目录）
+  backup_dir: "data/backups"       # 数据库备份目录
 
+# ── InfluxDB 时序数据库 ──────────────────────────────────
 influxdb:
-  url: "http://localhost:8086"
-  token: "your-influxdb-token-here"
-  org: "edgelite"
-  bucket: "edgelite"
-  batch_size: 1000
-  flush_interval: 5000
+  url: "http://localhost:8086"     # InfluxDB 服务地址
+  token: "your-influxdb-token-here"  # API Token（建议通过 EDGELITE_INFLUXDB_TOKEN 环境变量设置）
+  org: "edgelite"                  # 组织名（需与 InfluxDB 初始化时一致）
+  bucket: "edgelite"               # Bucket 名（需与 InfluxDB 初始化时一致）
+  batch_size: 1000                 # 批量写入数据点数，增大可提高吞吐量（范围：100-10000）
+  flush_interval: 5000             # 批量刷新间隔（毫秒），增大可减少写入频率（范围：1000-30000）
 
+# ── MQTT 北向转发 ────────────────────────────────────────
 mqtt:
-  broker: "localhost"
-  port: 1883
-  username: ""
-  password: ""
-  topic_prefix: "edgelite"
+  broker: "localhost"              # MQTT Broker 地址
+  port: 1883                       # Broker 端口（TCP）
+  username: ""                     # 认证用户名（空则不认证）
+  password: ""                     # 认证密码
+  topic_prefix: "edgelite"         # 发布主题前缀，完整主题：{prefix}/{device_id}/{point_name}
 
-# 内置 MQTT Server（南向仿真）
+# ── 内置 MQTT Server（南向仿真）──────────────────────────
 mqtt_server:
-  enabled: false
-  host: "0.0.0.0"
-  port: 1888
-  ws_port: null
-  username: ""
-  password: ""
+  enabled: false                   # 是否启用内置 MQTT Server
+  host: "0.0.0.0"                  # 监听地址
+  port: 1888                       # TCP 监听端口（避免与系统 MQTT Broker 冲突）
+  ws_port: null                    # WebSocket 端口，null 表示不启用 WebSocket
+  username: ""                     # 客户端认证用户名（空则不认证）
+  password: ""                     # 客户端认证密码
 
-# 内置 OPC UA Server（南向仿真）
+# ── 内置 OPC UA Server（南向仿真）────────────────────────
 opcua_server:
-  enabled: false
-  host: "0.0.0.0"
-  port: 4840
-  namespace: "urn:edgelite:gateway"
+  enabled: false                   # 是否启用内置 OPC UA Server
+  host: "0.0.0.0"                  # 监听地址
+  port: 4840                       # 监听端口（OPC UA 默认端口）
+  namespace: "urn:edgelite:gateway"  # 命名空间 URI
 
-# 内置 Modbus Slave（南向仿真）
+# ── 内置 Modbus Slave（南向仿真）─────────────────────────
 modbus_slave:
-  enabled: false
-  host: "0.0.0.0"
-  port: 502
-  holding_size: 1000
-  input_size: 1000
+  enabled: false                   # 是否启用内置 Modbus Slave
+  host: "0.0.0.0"                  # 监听地址
+  port: 502                        # 监听端口（Modbus TCP 默认端口，需 root 权限）
+  holding_size: 1000               # 保持寄存器数量（地址 0-999）
+  input_size: 1000                 # 输入寄存器数量（地址 0-999）
 
+# ── 视频接入（PyGBSentry）────────────────────────────────
 video:
   pygbsentry:
-    endpoint: "http://your-pygbsentry-host:8080"
-    api_key: "your-pygbsentry-api-key"
-    timeout: 10
+    endpoint: "http://your-pygbsentry-host:8080"  # PyGBSentry 服务地址
+    api_key: "your-pygbsentry-api-key"            # PyGBSentry API Key
+    timeout: 10                    # 请求超时（秒）
 
+# ── 安全配置 ─────────────────────────────────────────────
 security:
-  secret_key: "your-secret-key-at-least-32-characters"
-  access_token_expire_minutes: 30
-  refresh_token_expire_days: 7
-  algorithm: "HS256"
+  secret_key: "your-secret-key-at-least-32-characters"  # JWT 签名密钥（至少 32 字符，建议通过 EDGELITE_SECURITY_SECRET_KEY 环境变量设置）
+  access_token_expire_minutes: 30  # access_token 过期时间（分钟）
+  refresh_token_expire_days: 7     # refresh_token 过期时间（天）
+  algorithm: "HS256"               # JWT 签名算法，可选：HS256 / HS384 / HS512
 
+# ── 日志配置 ─────────────────────────────────────────────
 logging:
-  level: "INFO"
-  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+  level: "INFO"                    # 日志级别：DEBUG / INFO / WARNING / ERROR / CRITICAL（生产环境建议 WARNING）
+  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"  # 日志格式
 
+# ── 模拟器配置 ───────────────────────────────────────────
 simulator:
-  auto_create: true
-  default_devices:
-    - device_id: "sim-temperature-01"
-      name: "温度传感器模拟"
-      points:
-        - name: "temperature"
-          data_type: "float32"
-          unit: "°C"
-          address: "0"
-          access_mode: "r"
-          min: 15.0
-          max: 35.0
-          mode: "sine"
+  auto_create: true                # 启动时是否自动创建 default_devices 中的模拟设备（生产环境建议 false）
+  default_devices:                 # 默认模拟设备列表
+    - device_id: "sim-temperature-01"  # 设备唯一标识
+      name: "温度传感器模拟"            # 设备名称
+      points:                          # 测点定义
+        - name: "temperature"          # 测点名称
+          data_type: "float32"         # 数据类型：bool / int16 / uint16 / float32
+          unit: "°C"                   # 单位
+          address: "0"                 # 地址（模拟器中仅作标识）
+          access_mode: "r"            # 访问模式：r(只读) / w(可写) / rw(读写)
+          min: 15.0                    # 最小值（用于 sine/random_walk/random 模式）
+          max: 35.0                    # 最大值
+          mode: "sine"                 # 模拟模式：fixed(固定值) / sine(正弦波) / random_walk(随机游走) / random(均匀随机)
         - name: "humidity"
           data_type: "float32"
           unit: "%"
@@ -89,35 +99,35 @@ simulator:
           min: 30.0
           max: 90.0
           mode: "random_walk"
-      collect_interval: 5
+      collect_interval: 5             # 采集间隔（秒）
 
-# 告警通知渠道
+# ── 告警通知渠道 ─────────────────────────────────────────
 notify:
   dingtalk:
-    webhook_url: ""
-    secret: ""
+    webhook_url: ""                 # 钉钉机器人 Webhook URL（https://oapi.dingtalk.com/robot/send?access_token=xxx）
+    secret: ""                      # 加签密钥（机器人安全设置中的加签密钥）
   email:
-    smtp_host: ""
-    smtp_port: 465
-    smtp_user: ""
-    smtp_password: ""
-    use_tls: true
-    from_addr: ""
-    to_addrs: []
+    smtp_host: ""                   # SMTP 服务器地址
+    smtp_port: 465                  # SMTP 端口（465=SSL, 587=STARTTLS）
+    smtp_user: ""                   # SMTP 认证用户名
+    smtp_password: ""               # SMTP 认证密码
+    use_tls: true                   # 是否使用 TLS/SSL
+    from_addr: ""                   # 发件人地址（空则使用 smtp_user）
+    to_addrs: []                    # 收件人地址列表
   wechat:
-    webhook_url: ""
+    webhook_url: ""                 # 企业微信机器人 Webhook URL（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx）
   webhook:
-    url: ""
-    headers: {}
+    url: ""                         # 自定义 Webhook URL
+    headers: {}                     # 自定义请求头（如 {"Authorization": "Bearer xxx"}）
 
-# 北向平台对接
+# ── 北向平台对接 ─────────────────────────────────────────
 platforms: {}
 # platforms:
-#   iotsharp:
+#   iotsharp:                        # IoTSharp 平台
 #     enabled: true
-#     endpoint: "http://your-iotsharp:8080"
-#     api_key: "your-iotsharp-api-key"
-#   thingsboard:
+#     endpoint: "http://your-iotsharp:8080"  # IoTSharp 服务地址
+#     api_key: "your-iotsharp-api-key"       # API Key
+#   thingsboard:                     # ThingsBoard 平台
 #     enabled: true
-#     endpoint: "http://your-thingsboard:8080"
-#     token: "your-thingsboard-token"
+#     endpoint: "http://your-thingsboard:8080"  # ThingsBoard 服务地址
+#     token: "your-thingsboard-token"            # 访问 Token

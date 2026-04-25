@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import aiosqlite
 from pathlib import Path
 
@@ -84,11 +85,6 @@ CREATE TABLE IF NOT EXISTS cache_queue (
 );
 """
 
-_DEFAULT_ADMIN = """
-INSERT OR IGNORE INTO users (user_id, username, password, role, enabled)
-VALUES ('admin', 'admin', '$2b$12$LJ3m4ys3Hzt6Z8K5X9vWqO6N8R2M4P7Q9S1U3V5W7X9Y1A3C5E7G', 'admin', 1);
-"""
-
 
 class Database:
     """SQLite数据库管理"""
@@ -97,6 +93,7 @@ class Database:
         config = get_config()
         self.db_path = db_path or config.database.sqlite_path
         self._conn: aiosqlite.Connection | None = None
+        self._write_lock = asyncio.Lock()
 
     async def connect(self) -> aiosqlite.Connection:
         """建立数据库连接"""

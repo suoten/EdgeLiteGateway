@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 
@@ -189,7 +190,12 @@ def _load_env_overrides() -> dict[str, Any]:
 
 
 def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
-    """加载配置文件，支持环境变量覆盖"""
+    """加载配置文件，支持 .env 文件和环境变量覆盖"""
+    # 自动加载 .env 文件（如果存在）
+    env_path = Path(".env")
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=False)
+
     config_data: dict[str, Any] = {}
 
     path = Path(config_path)
@@ -197,7 +203,7 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
         with open(path, "r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f) or {}
 
-    # 环境变量覆盖
+    # 环境变量覆盖（优先级：环境变量 > .env > config.yaml）
     env_overrides = _load_env_overrides()
     if env_overrides:
         config_data = _deep_merge(config_data, env_overrides)

@@ -29,7 +29,12 @@ class RuleService:
         return await self._repo.update(rule_id, data)
 
     async def delete_rule(self, rule_id: str) -> bool:
-        return await self._repo.delete(rule_id)
+        result = await self._repo.delete(rule_id)
+        if result:
+            from edgelite.app import _app_state
+            if _app_state.evaluator:
+                _app_state.evaluator.cleanup_duration_tracker(rule_id)
+        return result
 
     async def enable_rule(self, rule_id: str) -> dict | None:
         return await self._repo.toggle(rule_id, True)

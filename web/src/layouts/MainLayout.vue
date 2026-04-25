@@ -84,15 +84,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h } from 'vue'
+import { ref, computed, h, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { NIcon, useDialog } from 'naive-ui'
 import {
   SpeedometerOutline, HardwareChip, SettingsOutline, AlertCircleOutline,
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
-  LogOutOutline,
+  LogOutOutline, StatsChartOutline, ServerOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
+import { alarmApi } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -100,12 +101,14 @@ const auth = useAuthStore()
 const dialog = useDialog()
 const collapsed = ref(false)
 const alarmCount = ref(0)
+let alarmTimer: number | null = null
 
 const currentRoute = computed(() => route.name as string)
 const currentTitle = computed(() => {
   const titles: Record<string, string> = {
     Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
-    Rules: '规则管理', Alarms: '告警中心', System: '系统管理', Users: '用户管理',
+    Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
+    System: '系统管理', Users: '用户管理',
   }
   return titles[route.name as string] || 'EdgeLiteGateway'
 })
@@ -120,7 +123,8 @@ const menuOptions = [
   { label: '设备管理', key: 'Devices', icon: renderIcon(HardwareChip) },
   { label: '规则管理', key: 'Rules', icon: renderIcon(SettingsOutline) },
   { label: '告警中心', key: 'Alarms', icon: renderIcon(AlertCircleOutline) },
-  { label: '系统管理', key: 'System', icon: renderIcon(DesktopOutline) },
+  { label: '数据查询', key: 'DataQuery', icon: renderIcon(StatsChartOutline) },
+  { label: '系统管理', key: 'System', icon: renderIcon(ServerOutline) },
   { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
 ]
 
@@ -141,6 +145,16 @@ function handleUserSelect(key: string) {
     })
   }
 }
+
+async function fetchAlarmCount() {
+  try {
+    const data = await alarmApi.list({ page: 1, size: 1, status: 'firing' })
+    alarmCount.value = data.total
+  } catch {}
+}
+
+onMounted(() => { fetchAlarmCount(); alarmTimer = window.setInterval(fetchAlarmCount, 30000) })
+onUnmounted(() => { if (alarmTimer) clearInterval(alarmTimer) })
 </script>
 
 <style scoped>

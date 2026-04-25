@@ -20,12 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: IoT",
 ]
-
-[project.urls]
-Homepage = "https://github.com/suoten/EdgeLiteGateway"
-Documentation = "https://github.com/suoten/EdgeLiteGateway#readme"
-Repository = "https://github.com/suoten/EdgeLiteGateway"
-Issues = "https://github.com/suoten/EdgeLiteGateway/issues"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
@@ -42,7 +36,14 @@ dependencies = [
     "psutil>=5.9.0",
     "aiomqtt>=2.1.0",
     "asyncua>=1.1.0",
+    "python-dotenv>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/suoten/EdgeLiteGateway"
+Documentation = "https://github.com/suoten/EdgeLiteGateway#readme"
+Repository = "https://github.com/suoten/EdgeLiteGateway"
+Issues = "https://github.com/suoten/EdgeLiteGateway/issues"
 
 [project.optional-dependencies]
 all = [

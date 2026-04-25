@@ -20,8 +20,9 @@ const router = createRouter({
         { path: 'devices/:id', name: 'DeviceDetail', component: () => import('@/views/device/DeviceDetail.vue') },
         { path: 'rules', name: 'Rules', component: () => import('@/views/rule/RuleList.vue') },
         { path: 'alarms', name: 'Alarms', component: () => import('@/views/alarm/AlarmList.vue') },
+        { path: 'data', name: 'DataQuery', component: () => import('@/views/data/DataQuery.vue') },
         { path: 'system', name: 'System', component: () => import('@/views/system/SystemStatus.vue') },
-        { path: 'users', name: 'Users', component: () => import('@/views/system/UserManage.vue') },
+        { path: 'users', name: 'Users', component: () => import('@/views/system/UserManage.vue'), meta: { requiredRole: 'admin' } },
       ],
     },
   ],
@@ -31,6 +32,9 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
     return { name: 'Login' }
+  }
+  if (to.meta.requiredRole && auth.role !== 'admin') {
+    return { name: 'Dashboard' }
   }
 })
 

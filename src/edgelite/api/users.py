@@ -22,13 +22,10 @@ def _get_user_repo():
 @router.get("", response_model=PagedResponse[UserResponse])
 async def list_users(
     user: CurrentUser = require_permission(Permission.USER_READ),
-    page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=1000),
 ):
     repo = _get_user_repo()
     users, total = await repo.list_all(page, size)
-    # 隐藏密码字段
-    for u in users:
-        u.pop("password", None)
     return PagedResponse(data=users, total=total, page=page, size=size)
 
 
@@ -41,7 +38,6 @@ async def create_user(body: UserCreate, user: CurrentUser = require_permission(P
     data = body.model_dump()
     data["password"] = hash_password(data["password"])
     new_user = await repo.create(data)
-    new_user.pop("password", None)
     return ApiResponse(data=new_user)
 
 
@@ -54,7 +50,6 @@ async def update_user(user_id: str, body: UserUpdate, user: CurrentUser = requir
     updated = await repo.update(user_id, data)
     if updated is None:
         raise HTTPException(status_code=404, detail="用户不存在")
-    updated.pop("password", None)
     return ApiResponse(data=updated)
 
 

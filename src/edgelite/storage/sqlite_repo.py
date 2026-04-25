@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -24,8 +25,17 @@ def _uuid() -> str:
 class DeviceRepo:
     """设备数据访问"""
 
-    def __init__(self, conn: aiosqlite.Connection):
+    def __init__(self, conn: aiosqlite.Connection, write_lock: asyncio.Lock | None = None):
         self.conn = conn
+        self._write_lock = write_lock
+
+    async def _commit(self) -> None:
+        """带写锁的commit，防止并发写入冲突"""
+        if self._write_lock:
+            async with self._write_lock:
+                await self.conn.commit()
+        else:
+            await self.conn.commit()
 
     async def create(self, data: dict) -> dict:
         now = _now()
@@ -133,8 +143,16 @@ class DeviceRepo:
 class RuleRepo:
     """规则数据访问"""
 
-    def __init__(self, conn: aiosqlite.Connection):
+    def __init__(self, conn: aiosqlite.Connection, write_lock: asyncio.Lock | None = None):
         self.conn = conn
+        self._write_lock = write_lock
+
+    async def _commit(self) -> None:
+        if self._write_lock:
+            async with self._write_lock:
+                await self.conn.commit()
+        else:
+            await self.conn.commit()
 
     async def create(self, data: dict) -> dict:
         rule_id = _uuid()
@@ -237,8 +255,16 @@ class RuleRepo:
 class AlarmRepo:
     """告警数据访问"""
 
-    def __init__(self, conn: aiosqlite.Connection):
+    def __init__(self, conn: aiosqlite.Connection, write_lock: asyncio.Lock | None = None):
         self.conn = conn
+        self._write_lock = write_lock
+
+    async def _commit(self) -> None:
+        if self._write_lock:
+            async with self._write_lock:
+                await self.conn.commit()
+        else:
+            await self.conn.commit()
 
     async def create(self, data: dict) -> dict:
         alarm_id = _uuid()
@@ -341,8 +367,16 @@ class AlarmRepo:
 class UserRepo:
     """用户数据访问"""
 
-    def __init__(self, conn: aiosqlite.Connection):
+    def __init__(self, conn: aiosqlite.Connection, write_lock: asyncio.Lock | None = None):
         self.conn = conn
+        self._write_lock = write_lock
+
+    async def _commit(self) -> None:
+        if self._write_lock:
+            async with self._write_lock:
+                await self.conn.commit()
+        else:
+            await self.conn.commit()
 
     async def create(self, data: dict) -> dict:
         user_id = _uuid()
@@ -359,10 +393,21 @@ class UserRepo:
         row = await cursor.fetchone()
         return _row_to_user(row) if row else None
 
-    async def get_by_username(self, username: str) -> dict | None:
+    async def get_by_username(self, username: str, include_password: bool = False) -> dict | None:
         cursor = await self.conn.execute("SELECT * FROM users WHERE username = ?", (username,))
         row = await cursor.fetchone()
-        return _row_to_user(row) if row else None
+        if not row:
+            return None
+        if include_password:
+            return {
+                "user_id": row["user_id"],
+                "username": row["username"],
+                "password": row["password"],
+                "role": row["role"],
+                "enabled": bool(row["enabled"]),
+                "created_at": row["created_at"],
+            }
+        return _row_to_user(row)
 
     async def list_all(self, page: int = 1, size: int = 20) -> tuple[list[dict], int]:
         cursor = await self.conn.execute("SELECT COUNT(*) FROM users")
@@ -478,7 +523,6 @@ def _row_to_user(row: aiosqlite.Row) -> dict:
     return {
         "user_id": row["user_id"],
         "username": row["username"],
-        "password": row["password"],
         "role": row["role"],
         "enabled": bool(row["enabled"]),
         "created_at": row["created_at"],

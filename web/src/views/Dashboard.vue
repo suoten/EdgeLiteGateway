@@ -45,6 +45,30 @@
       </n-gi>
     </n-grid>
 
+    <!-- ECharts 图表区域 -->
+    <n-grid :cols="2" :x-gap="16" :y-gap="16">
+      <n-gi>
+        <n-card title="设备状态分布" :bordered="false">
+          <v-chart :option="deviceStatusOption" autoresize style="height: 280px" />
+        </n-card>
+      </n-gi>
+      <n-gi>
+        <n-card title="协议接入分布" :bordered="false">
+          <v-chart :option="protocolOption" autoresize style="height: 280px" />
+        </n-card>
+      </n-gi>
+      <n-gi>
+        <n-card title="告警趋势（近24小时）" :bordered="false">
+          <v-chart :option="alarmTrendOption" autoresize style="height: 280px" />
+        </n-card>
+      </n-gi>
+      <n-gi>
+        <n-card title="资源使用趋势" :bordered="false">
+          <v-chart :option="resourceTrendOption" autoresize style="height: 280px" />
+        </n-card>
+      </n-gi>
+    </n-grid>
+
     <!-- 系统资源监控 -->
     <n-grid :cols="3" :x-gap="16" :y-gap="16">
       <n-gi>
@@ -82,10 +106,11 @@
         <n-descriptions-item label="版本">{{ status?.version ?? '-' }}</n-descriptions-item>
         <n-descriptions-item label="协议支持">
           <n-space>
-            <n-tag size="small" type="info">Modbus</n-tag>
-            <n-tag size="small" type="info">MQTT</n-tag>
+            <n-tag size="small" type="info">Modbus TCP</n-tag>
             <n-tag size="small" type="info">OPC-UA</n-tag>
+            <n-tag size="small" type="info">MQTT</n-tag>
             <n-tag size="small" type="info">HTTP</n-tag>
+            <n-tag size="small" type="info">Simulator</n-tag>
           </n-space>
         </n-descriptions-item>
       </n-descriptions>
@@ -96,9 +121,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { HardwareChip, SettingsOutline, AlertCircleOutline, PulseOutline } from '@vicons/ionicons5'
-import { systemApi, type SystemStatus } from '@/api'
+import { use } from 'echarts/core'
+import { PieChart, LineChart, BarChart } from 'echarts/charts'
+import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
+import { systemApi, deviceApi, alarmApi, type SystemStatus } from '@/api'
+
+use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
 
 const status = ref<SystemStatus | null>(null)
+const devices = ref<any[]>([])
+const alarms = ref<any[]>([])
+const resourceHistory = ref<{ time: string; cpu: number; mem: number }[]>([])
 let timer: number | null = null
 
 const cpuColor = computed(() => {
@@ -114,8 +149,140 @@ const diskColor = computed(() => {
   return p > 90 ? '#f56c6c' : p > 80 ? '#e6a23c' : '#67c23a'
 })
 
+// 设备状态饼图
+const deviceStatusOption = computed(() => {
+  const total = status.value?.device_total ?? 0
+  const online = status.value?.device_online ?? 0
+  const offline = total - online
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
+    series: [{
+      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      label: { show: true, formatter: '{b}\n{c}', fontSize: 12 },
+      data: [
+        { value: online, name: '在线', itemStyle: { color: '#67c23a' } },
+        { value: offline, name: '离线', itemStyle: { color: '#909399' } },
+      ],
+    }],
+  }
+})
+
+// 协议分布饼图
+const protocolOption = computed(() => {
+  const protoMap: Record<string, number> = {}
+  devices.value.forEach(d => { protoMap[d.protocol] = (protoMap[d.protocol] || 0) + 1 })
+  const colors = ['#667eea', '#11998e', '#f093fb', '#4facfe', '#f5576c', '#764ba2']
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
+    series: [{
+      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      label: { show: true, formatter: '{b}\n{c}', fontSize: 12 },
+      data: Object.entries(protoMap).map(([name, value], i) => ({
+        value, name: protocolLabel(name), itemStyle: { color: colors[i % colors.length] },
+      })),
+    }],
+  }
+})
+
+// 告警趋势折线图（按小时统计近24小时告警数量）
+const alarmTrendOption = computed(() => {
+  const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`)
+
+  // 按小时和严重级别统计告警
+  const counts: Record<string, Record<string, number>> = {}
+  hours.forEach(h => { counts[h] = { critical: 0, warning: 0, info: 0 } })
+
+  const now = new Date()
+  alarms.value.forEach((alarm: any) => {
+    const fired = new Date(alarm.fired_at)
+    const diffHours = (now.getTime() - fired.getTime()) / (1000 * 60 * 60)
+    if (diffHours >= 0 && diffHours < 24) {
+      const hourKey = `${String(fired.getHours()).padStart(2, '0')}:00`
+      if (counts[hourKey]) {
+        const sev = alarm.severity || 'info'
+        if (sev === 'critical' || sev === 'error') counts[hourKey].critical++
+        else if (sev === 'warning') counts[hourKey].warning++
+        else counts[hourKey].info++
+      }
+    }
+  })
+
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
+    grid: { left: 40, right: 16, top: 16, bottom: 40 },
+    xAxis: { type: 'category', data: hours, axisLabel: { fontSize: 10, interval: 3 } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 10 } },
+    series: [
+      { name: '严重', type: 'line', data: hours.map(h => counts[h].critical), smooth: true, itemStyle: { color: '#f56c6c' }, areaStyle: { color: 'rgba(245,108,108,0.1)' } },
+      { name: '警告', type: 'line', data: hours.map(h => counts[h].warning), smooth: true, itemStyle: { color: '#e6a23c' }, areaStyle: { color: 'rgba(230,162,60,0.1)' } },
+      { name: '信息', type: 'line', data: hours.map(h => counts[h].info), smooth: true, itemStyle: { color: '#909399' }, areaStyle: { color: 'rgba(144,147,153,0.1)' } },
+    ],
+  }
+})
+
+// 资源使用趋势
+const resourceTrendOption = computed(() => {
+  const times = resourceHistory.value.map(r => r.time)
+  const cpuData = resourceHistory.value.map(r => r.cpu)
+  const memData = resourceHistory.value.map(r => r.mem)
+  const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return {
+    tooltip: { trigger: 'axis', formatter: (params: any) => {
+      let s = escapeHtml(params[0].axisValueLabel)
+      params.forEach((p: any) => { s += `<br/>${p.marker} ${escapeHtml(p.seriesName)}: ${p.value}%` })
+      return s
+    }},
+    legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
+    grid: { left: 40, right: 16, top: 16, bottom: 40 },
+    xAxis: { type: 'category', data: times, axisLabel: { fontSize: 10, interval: 'auto' } },
+    yAxis: { type: 'value', max: 100, axisLabel: { fontSize: 10, formatter: '{value}%' } },
+    series: [
+      { name: 'CPU', type: 'line', data: cpuData, smooth: true, itemStyle: { color: '#667eea' }, areaStyle: { color: 'rgba(102,126,234,0.15)' } },
+      { name: '内存', type: 'line', data: memData, smooth: true, itemStyle: { color: '#11998e' }, areaStyle: { color: 'rgba(17,153,142,0.15)' } },
+    ],
+  }
+})
+
+function protocolLabel(p: string) {
+  const map: Record<string, string> = { modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP', simulator: 'Simulator', video: 'Video' }
+  return map[p] || p
+}
+
 async function fetchStatus() {
-  try { status.value = await systemApi.getStatus() } catch {}
+  try {
+    status.value = await systemApi.getStatus()
+  } catch (e: any) {
+    console.error('获取系统状态失败:', e)
+  }
+}
+
+async function fetchDevices() {
+  try {
+    const data = await deviceApi.list({ page: 1, size: 1000 })
+    devices.value = data.data
+  } catch (e: any) {
+    console.error('获取设备列表失败:', e)
+  }
+}
+
+async function fetchAlarms() {
+  try {
+    const data = await alarmApi.list({ page: 1, size: 1000 })
+    alarms.value = data.data
+  } catch (e: any) {
+    console.error('获取告警列表失败:', e)
+  }
+}
+
+function updateResourceHistory() {
+  if (!status.value) return
+  const now = new Date()
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+  resourceHistory.value.push({ time, cpu: status.value.cpu_percent, mem: status.value.memory_percent })
+  if (resourceHistory.value.length > 60) resourceHistory.value.shift()
 }
 
 function formatBytes(bytes?: number) {
@@ -126,7 +293,10 @@ function formatBytes(bytes?: number) {
   return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB'
 }
 
-onMounted(() => { fetchStatus(); timer = window.setInterval(fetchStatus, 5000) })
+onMounted(() => {
+  fetchStatus(); fetchDevices(); fetchAlarms()
+  timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
+})
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 
@@ -134,16 +304,25 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .stat-card {
   border-radius: 12px;
   transition: all 0.3s ease;
+  color: #fff !important;
 }
 .stat-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0,0,0,0.1);
 }
-.stat-card-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
-.stat-card-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: #fff; }
-.stat-card-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #fff; }
-.stat-card-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #fff; }
-.stat-footer { margin-top: 8px; font-size: 13px; }
+.stat-card-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-card-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.stat-card-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.stat-card-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.stat-card :deep(.n-statistic .n-statistic-value__content),
+.stat-card :deep(.n-statistic .n-statistic-value),
+.stat-card :deep(.n-statistic .n-statistic-value__integer),
+.stat-card :deep(.n-statistic .n-statistic-value__fraction),
+.stat-card :deep(.n-statistic__label),
+.stat-card :deep(.n-icon) {
+  color: #fff !important;
+}
+.stat-footer { margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.8); }
 .resource-card { text-align: center; }
 .resource-info { margin-top: 12px; }
 </style>

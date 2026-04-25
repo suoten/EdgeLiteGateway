@@ -22,7 +22,7 @@
 - 北向平台对接：IoTSharp、ThingsBoard
 - 内置服务：MQTT Server、OPC UA Server、Modbus Slave
 - 视频接入：PyGBSentry (GB28181) 适配器
-- JWT 认证 + RBAC 权限（admin/operator/viewer 三角色 17 权限）
+- JWT 认证 + RBAC 权限（admin/operator/viewer 三角色 21 权限）
 - Cython 加速模块（可选，纯 Python 回退保证兼容性）
 - Vue 3 + Naive UI Web 管理界面
 - Docker Compose 部署（生产 + 开发模式）

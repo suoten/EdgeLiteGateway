@@ -43,41 +43,18 @@ class DeviceService:
 
     async def create_device(self, data: dict) -> dict:
         """创建设备"""
-        # 创建数据库记录
-        device = await self._repo.create(data)
-
-        # 获取驱动并启动
         protocol = data["protocol"]
         driver_class = self._registry.get_driver_class(protocol)
         if driver_class is None:
             logger.warning("不支持的协议: %s", protocol)
-            return device
 
-        if protocol == "simulator":
-            driver = await self._get_simulator_driver()
-            driver.add_device(device["device_id"], data.get("points", []))
-            self._driver_instances[device["device_id"]] = driver
-            # 模拟器立即上线
-            await self._lifecycle.on_device_online(device["device_id"])
-            await self._repo.update_status(device["device_id"], "online")
-            # 启动采集
-            await self._scheduler.start_collect(
-                device["device_id"],
-                driver,
-                data.get("points", []),
-                data.get("collect_interval", 5),
-            )
-        elif protocol == "modbus_tcp":
-            driver = driver_class()
-            await driver.start({})
-            await driver.add_device(
-                device["device_id"],
-                data.get("config", {}),
-                data.get("points", []),
-            )
-            self._driver_instances[device["device_id"]] = driver
-            # Modbus连接成功则上线
-            if driver._clients.get(device["device_id"]) and driver._clients[device["device_id"]].connected:
+        device = await self._repo.create(data)
+
+        try:
+            if protocol == "simulator":
+                driver = await self._get_simulator_driver()
+                driver.add_device(device["device_id"], data.get("points", []))
+                self._driver_instances[device["device_id"]] = driver
                 await self._lifecycle.on_device_online(device["device_id"])
                 await self._repo.update_status(device["device_id"], "online")
                 await self._scheduler.start_collect(
@@ -86,9 +63,30 @@ class DeviceService:
                     data.get("points", []),
                     data.get("collect_interval", 5),
                 )
-        else:
-            # 其他协议：创建驱动实例但暂不连接
-            logger.info("设备创建: %s (协议=%s，待实现驱动连接)", device["device_id"], protocol)
+            elif protocol == "modbus_tcp":
+                driver = driver_class()
+                await driver.start({})
+                await driver.add_device(
+                    device["device_id"],
+                    data.get("config", {}),
+                    data.get("points", []),
+                )
+                self._driver_instances[device["device_id"]] = driver
+                if driver._clients.get(device["device_id"]) and driver._clients[device["device_id"]].connected:
+                    await self._lifecycle.on_device_online(device["device_id"])
+                    await self._repo.update_status(device["device_id"], "online")
+                    await self._scheduler.start_collect(
+                        device["device_id"],
+                        driver,
+                        data.get("points", []),
+                        data.get("collect_interval", 5),
+                    )
+            else:
+                logger.info("设备创建: %s (协议=%s，待实现驱动连接)", device["device_id"], protocol)
+        except Exception as e:
+            logger.error("设备驱动启动失败，回滚数据库记录: %s - %s", device["device_id"], e)
+            await self._repo.delete(device["device_id"])
+            raise ValueError(f"设备驱动启动失败: {e}")
 
         return device
 

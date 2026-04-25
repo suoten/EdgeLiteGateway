@@ -54,6 +54,15 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     config = get_config()
 
+    # 安全检查：检测默认密钥
+    _WEAK_SECRET_KEYS = {"change-me-in-production", "your-secret-key-at-least-32-characters"}
+    if config.security.secret_key in _WEAK_SECRET_KEYS or len(config.security.secret_key) < 32:
+        logger.warning("⚠️  安全警告: JWT密钥使用默认值或过短(%d字符)，请通过 EDGELITE_SECURITY_SECRET_KEY 环境变量设置至少32字符的随机密钥！", len(config.security.secret_key))
+
+    _WEAK_INFLUX_TOKENS = {"edgelite-token-change-me", "your-influxdb-token-here"}
+    if config.influxdb.token in _WEAK_INFLUX_TOKENS:
+        logger.warning("⚠️  安全警告: InfluxDB Token使用默认值，请通过 EDGELITE_INFLUXDB_TOKEN 环境变量设置！")
+
     # 配置日志
     logging.basicConfig(level=config.logging.level, format=config.logging.format)
 
@@ -85,10 +94,11 @@ async def lifespan(app: FastAPI):
 
     # 5. 初始化仓储
     from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo, AuditRepo
-    device_repo = DeviceRepo(conn)
-    rule_repo = RuleRepo(conn)
-    alarm_repo = AlarmRepo(conn)
-    user_repo = UserRepo(conn)
+    write_lock = database._write_lock
+    device_repo = DeviceRepo(conn, write_lock)
+    rule_repo = RuleRepo(conn, write_lock)
+    alarm_repo = AlarmRepo(conn, write_lock)
+    user_repo = UserRepo(conn, write_lock)
 
     # 6. 初始化采集调度器
     from edgelite.engine.scheduler import CollectScheduler
@@ -253,6 +263,9 @@ async def lifespan(app: FastAPI):
     await ws_channels.stop()
     await evaluator.stop()
     await scheduler.stop_all()
+    # 注销所有事件处理器
+    if _app_state.event_bus:
+        _app_state.event_bus.unregister_all()
     # 关闭平台对接
     for name, handler in _app_state.platform_handlers.items():
         try:
@@ -291,8 +304,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=config.server.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key"],
     )
 
     # 注册路由
@@ -315,6 +328,10 @@ def create_app() -> FastAPI:
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+        finally:
             await _app_state.ws_manager.disconnect(websocket, "realtime")
 
     @app.websocket("/ws/v1/alarm")
@@ -325,6 +342,10 @@ def create_app() -> FastAPI:
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+        finally:
             await _app_state.ws_manager.disconnect(websocket, "alarm")
 
     @app.websocket("/ws/v1/device")
@@ -335,6 +356,10 @@ def create_app() -> FastAPI:
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+        finally:
             await _app_state.ws_manager.disconnect(websocket, "device")
 
     return app

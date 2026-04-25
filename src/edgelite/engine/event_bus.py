@@ -78,6 +78,17 @@ class EventBus:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
 
+    def unregister_handler(self, event_type: str, handler: Callable) -> None:
+        """注销事件处理器"""
+        if event_type in self._handlers:
+            self._handlers[event_type] = [h for h in self._handlers[event_type] if h is not handler]
+            if not self._handlers[event_type]:
+                del self._handlers[event_type]
+
+    def unregister_all(self) -> None:
+        """注销所有事件处理器"""
+        self._handlers.clear()
+
     async def publish(self, event: Event) -> None:
         """发布事件到所有订阅者"""
         for name, queue in self._subscribers.items():

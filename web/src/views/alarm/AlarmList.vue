@@ -1,6 +1,7 @@
 <template>
   <n-space vertical :size="16">
     <n-space>
+      <n-input v-model:value="searchText" placeholder="搜索告警ID/设备ID" clearable style="width: 200px" @update:value="fetchAlarms" />
       <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="fetchAlarms" />
       <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="fetchAlarms" />
     </n-space>
@@ -11,12 +12,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage } from 'naive-ui'
+import { NButton, NTag, NSpace, NTooltip, useMessage } from 'naive-ui'
 import { alarmApi, type Alarm } from '@/api'
 
 const message = useMessage()
 const alarms = ref<Alarm[]>([])
 const loading = ref(false)
+const searchText = ref('')
 const filterStatus = ref<string | null>(null)
 const filterSeverity = ref<string | null>(null)
 
@@ -51,6 +53,10 @@ const columns = [
     render: (r: Alarm) => h(NTag, { type: statusColor[r.status] || 'default', size: 'small' }, { default: () => statusLabel[r.status] || r.status }),
   },
   { title: '触发次数', key: 'trigger_count', width: 80 },
+  {
+    title: '触发值', key: 'trigger_value', width: 160,
+    render: (r: Alarm) => r.trigger_value ? h(NTooltip, {}, { trigger: () => h('span', { style: 'max-width:140px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, JSON.stringify(r.trigger_value)), default: () => JSON.stringify(r.trigger_value) }) : '-',
+  },
   { title: '触发时间', key: 'fired_at', width: 180 },
   { title: '确认人', key: 'acknowledged_by', width: 100, render: (r: Alarm) => r.acknowledged_by || '-' },
   { title: '恢复时间', key: 'recovered_at', width: 180, render: (r: Alarm) => r.recovered_at || '-' },

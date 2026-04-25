@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Header, Query, status
 
 from edgelite.models.device import DeviceCreate, DeviceUpdate, DeviceResponse, SimulatorCreate, WritePointRequest, DiscoverRequest
 from edgelite.models.common import ApiResponse, PagedResponse
@@ -21,7 +21,7 @@ def _get_device_service():
 async def list_devices(
     user: CurrentUser = require_permission(Permission.DEVICE_READ),
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=1000),
     status: str | None = None,
     protocol: str | None = None,
 ):
@@ -113,11 +113,15 @@ async def discover_devices(
 
 
 @router.post("/{device_id}/push", response_model=ApiResponse)
-async def push_device_data(device_id: str, body: dict):
-    """HTTP Webhook数据推送端点（设备主动上报数据，无需认证）"""
+async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(default="")):
+    """HTTP Webhook数据推送端点（需API Key认证）"""
     from edgelite.app import _app_state
 
-    # 查找HTTP Webhook驱动
+    config = _app_state.config if hasattr(_app_state, 'config') else None
+    if config and hasattr(config, 'server') and hasattr(config.server, 'webhook_api_key') and config.server.webhook_api_key:
+        if x_api_key != config.server.webhook_api_key:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
+
     driver = _app_state.driver_registry.get_driver_class("http_webhook")
     if driver and hasattr(driver, "receive_data"):
         await driver.receive_data(device_id, body)

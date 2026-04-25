@@ -1,147 +1,177 @@
-# Contributing to EdgeLiteGateway
+# 贡献指南
 
-感谢你对 EdgeLiteGateway 的关注！本文档描述如何参与项目贡献。
+感谢你对 EdgeLiteGateway 的关注！欢迎提交 Issue 和 Pull Request。
 
-## 开发环境搭建
-
-### 后端
+## 开发环境
 
 ```bash
-# 克隆仓库
-git clone https://github.com/suoten/EdgeLiteGateway.git
+# 1. Fork 并克隆
+git clone https://github.com/<your-username>/EdgeLiteGateway.git
 cd EdgeLiteGateway
 
-# 创建虚拟环境
-python -m venv .venv
-# Linux/macOS
-source .venv/bin/activate
-# Windows
-.venv\Scripts\activate
-
-# 安装开发依赖
+# 2. 后端环境
+python -m venv venv
+source venv/bin/activate
 pip install -e ".[dev]"
-```
 
-### 前端
+# 3. 前端环境
+cd web && npm install && cd ..
 
-```bash
-cd web
-npm install
+# 4. 启动开发服务
+python -m edgelite --reload   # 后端
+cd web && npm run dev          # 前端
 ```
 
 ## 代码规范
 
-### Python（Ruff）
+### Python 后端
 
-项目使用 [Ruff](https://docs.astral.sh/ruff/) 进行代码检查和格式化：
+- **格式化 & Lint**：Ruff
+  ```bash
+  ruff check src/ tests/
+  ruff format src/ tests/
+  ```
+- **类型注解**：Python 3.11+ 风格（`list[str]`、`dict[str, Any]`）
+- **异步**：全部 `async/await`，禁止同步阻塞
+- **日志**：`logging.getLogger(__name__)`，不使用 `print()`
+- **导入**：`from __future__ import annotations` 置顶
 
-```bash
-# 检查
-ruff check src/
+### Vue 前端
 
-# 格式化
-ruff format src/
-```
-
-配置（`pyproject.toml`）：
-- `target-version = "py311"`
-- `line-length = 100`
-- 规则集：E, F, W, I, N, UP, B, A, SIM
-
-### TypeScript / Vue
-
-前端使用 TypeScript 严格模式，构建时自动检查类型：
-
-```bash
-cd web
-npx vue-tsc --noEmit
-```
+- **组件**：`<script setup lang="ts">` + SFC
+- **状态**：Pinia stores
+- **样式**：Scoped CSS + Naive UI 主题变量
+- **Lint**：ESLint + Prettier
+  ```bash
+  cd web && npm run lint
+  ```
 
 ## 提交规范
 
-使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+使用 [Conventional Commits](https://www.conventionalcommits.org/)：
 
 ```
 <type>(<scope>): <subject>
-
-<body>
-
-<footer>
 ```
 
-### Type
-
-| 类型 | 说明 |
+| type | 说明 |
 |------|------|
 | feat | 新功能 |
 | fix | 修复 Bug |
 | docs | 文档变更 |
 | style | 代码格式（不影响逻辑） |
-| refactor | 重构（非新功能/非修复） |
-| test | 测试相关 |
-| chore | 构建/工具/依赖 |
+| refactor | 重构 |
+| perf | 性能优化 |
+| test | 测试 |
+| chore | 构建/工具 |
 
-### 示例
-
-```
-feat(drivers): 添加 BACnet 协议驱动
-fix(scheduler): 修复采集超时后任务未清理的问题
-docs: 更新部署指南
-```
+| scope | 说明 |
+|-------|------|
+| driver | 协议驱动 |
+| engine | 核心引擎 |
+| api | API 路由 |
+| ui | 前端界面 |
+| config | 配置 |
+| storage | 存储层 |
+| security | 安全 |
+| notify | 通知 |
 
 ## 分支策略
 
-- `main` - 稳定发布分支
-- `develop` - 开发集成分支
-- `feature/*` - 功能分支
-- `fix/*` - 修复分支
+- `main`：稳定版本
+- `dev`：开发分支
+- `feat/<name>`：功能分支
+- `fix/<name>`：修复分支
 
-## PR 提交流程
+## PR 流程
 
-1. Fork 仓库
-2. 从 `develop` 创建功能分支：`git checkout -b feature/my-feature develop`
-3. 编写代码并添加测试
-4. 确保所有测试通过：`pytest tests/ -v`
-5. 确保代码检查通过：`ruff check src/`
-6. 提交并推送到 Fork 仓库
-7. 创建 Pull Request 到 `develop` 分支
-8. 等待代码审查
+1. 从 `dev` 创建功能分支：`git checkout -b feat/my-feature dev`
+2. 开发并提交（遵循提交规范）
+3. 确保测试通过：`pytest tests/ -v`
+4. 确保代码检查通过：`ruff check src/`
+5. 推送分支：`git push origin feat/my-feature`
+6. 创建 Pull Request 到 `dev` 分支
 
-## 测试要求
+### PR 检查清单
 
-### 运行测试
-
-```bash
-# 全部测试
-pytest tests/ -v
-
-# 带覆盖率
-pytest tests/ --cov=edgelite --cov-report=html
-
-# 特定测试文件
-pytest tests/test_event_bus.py -v
-```
-
-### 编写测试
-
-- 测试文件放在 `tests/` 目录
-- 文件名以 `test_` 开头
-- 异步测试使用 `pytest.mark.asyncio`
-- 使用 `conftest.py` 共享 fixture
-
-### 测试覆盖
-
-- 新功能必须附带测试
-- Bug 修复必须附带回归测试
-- 目标覆盖率：核心模块 > 80%
+- [ ] 代码通过 Ruff 检查（`ruff check src/`）
+- [ ] 代码通过格式化（`ruff format --check src/`）
+- [ ] 测试通过（`pytest tests/ -v`）
+- [ ] 新功能有对应测试
+- [ ] 提交信息遵循 Conventional Commits
+- [ ] 无硬编码密钥或敏感信息
+- [ ] 文档已更新（如涉及 API 变更）
 
 ## 驱动开发
 
-添加新协议驱动：
+### 创建新协议驱动
 
-1. 在 `src/edgelite/drivers/` 创建驱动文件
-2. 继承 `DriverPlugin` 基类
-3. 实现必要接口：`start()`, `stop()`, `read_points()`, `write_point()`
-4. 驱动注册表会自动发现并注册
+1. 在 `src/edgelite/drivers/` 创建驱动文件，继承 `DriverPlugin`
+2. 实现必要方法：`start()`, `stop()`, `read_points()`, `write_point()`
+3. 可选实现：`discover_devices()`, `on_data()`
+4. 在 `registry.py` 中注册驱动
+5. 编写测试（`tests/`）
+6. 更新文档
 
-详见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+### DriverPlugin 接口
+
+```python
+class DriverPlugin(ABC):
+    plugin_name: str           # 驱动标识
+    plugin_version: str        # 版本号
+    supported_protocols: list  # 支持的协议列表
+
+    async def start(self, config: dict) -> None
+    async def stop(self) -> None
+    async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]
+    async def write_point(self, device_id: str, point: str, value: Any) -> bool
+    async def discover_devices(self, config: dict) -> list[dict]  # 可选
+    def on_data(self, callback: Callable) -> None                  # 可选
+    @property
+    def is_running(self) -> bool
+```
+
+### 驱动测试模板
+
+```python
+import pytest
+from edgelite.drivers.my_driver import MyDriver
+
+@pytest.fixture
+def driver():
+    return MyDriver()
+
+@pytest.mark.asyncio
+async def test_lifecycle(driver):
+    await driver.start({"host": "localhost", "port": 9000})
+    assert driver.is_running
+    await driver.stop()
+    assert not driver.is_running
+
+@pytest.mark.asyncio
+async def test_read_points(driver):
+    await driver.start({"host": "localhost", "port": 9000})
+    result = await driver.read_points("dev-001", ["point1"])
+    assert isinstance(result, dict)
+    await driver.stop()
+```
+
+## Cython 加速模块
+
+如需修改 Cython 加速模块：
+
+1. 修改 `.pyx` 文件
+2. 同步修改 `_py.py` 纯 Python 回退
+3. 编译测试：`pip install cython && python setup.py build_ext --inplace`
+4. 确保纯 Python 回退也能正常工作
+
+## Issue 模板
+
+提交 Issue 时请包含：
+
+- **Bug 报告**：环境信息、复现步骤、期望行为、实际行为、日志
+- **功能请求**：使用场景、期望行为、替代方案
+
+## 许可证
+
+贡献的代码遵循 GPL-3.0 许可证。

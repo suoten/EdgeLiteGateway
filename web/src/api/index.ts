@@ -20,7 +20,7 @@ export const authApi = {
     http.post<ApiResponse<TokenData>>('/auth/login', data).then((r) => r.data.data),
 
   refresh: (refreshToken: string) =>
-    http.post<ApiResponse<TokenData>>('/auth/refresh', refreshToken).then((r) => r.data.data),
+    http.post<ApiResponse<TokenData>>('/auth/refresh', { refresh: refreshToken }).then((r) => r.data.data),
 }
 
 // ─── 设备 ───
@@ -81,6 +81,9 @@ export const deviceApi = {
 
   createSimulator: (data: Omit<DeviceCreateParams, 'protocol'>) =>
     http.post<ApiResponse<Device>>('/devices/simulator', { ...data, protocol: 'simulator' }).then((r) => r.data.data),
+
+  discover: (params: { protocol: string; host?: string; port?: number }) =>
+    http.post<ApiResponse<any[]>>('/devices/discover', params).then((r) => r.data.data),
 }
 
 // ─── 规则 ───
@@ -215,6 +218,9 @@ export const systemApi = {
 
   createBackup: () =>
     http.post<ApiResponse<any>>('/system/backup').then((r) => r.data.data),
+
+  restore: (backupId: string) =>
+    http.post<ApiResponse<any>>('/system/restore', { backup_id: backupId }).then((r) => r.data.data),
 }
 
 // ─── 用户管理 ───

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Header, Query, Depends
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -10,10 +12,20 @@ from edgelite.security.rbac import Permission
 
 router = APIRouter(prefix="/api/v1/video", tags=["视频接入"])
 
+_PTZ_ACTIONS = Literal["up", "down", "left", "right", "up_left", "up_right", "down_left", "down_right", "zoom_in", "zoom_out", "focus_in", "focus_out", "stop"]
+
 
 def _get_video_service():
     from edgelite.app import _app_state
     return _app_state.video_service
+
+
+def _verify_webhook_key(x_api_key: str = Header(default="")) -> None:
+    from edgelite.app import _app_state
+    config = _app_state.config if hasattr(_app_state, 'config') else None
+    if config and hasattr(config, 'server') and hasattr(config.server, 'webhook_api_key') and config.server.webhook_api_key:
+        if x_api_key != config.server.webhook_api_key:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
 
 
 @router.get("/{device_id}/stream", response_model=ApiResponse)
@@ -32,7 +44,7 @@ async def get_stream_url(
 @router.post("/{device_id}/ptz", response_model=ApiResponse)
 async def ptz_control(
     device_id: str,
-    action: str,
+    action: _PTZ_ACTIONS,
     channel_id: str = "1",
     user: CurrentUser = require_permission(Permission.VIDEO_CONTROL),
 ):
@@ -44,7 +56,7 @@ async def ptz_control(
 
 
 @router.post("/webhook", response_model=ApiResponse)
-async def video_webhook(event_data: dict):
+async def video_webhook(event_data: dict, auth: None = Depends(_verify_webhook_key)):
     """接收PyGBSentry Webhook回调"""
     svc = _get_video_service()
     await svc.handle_webhook(event_data)

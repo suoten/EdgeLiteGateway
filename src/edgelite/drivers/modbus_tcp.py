@@ -99,6 +99,7 @@ class ModbusTcpDriver(DriverPlugin):
             client.close()
         self._device_configs.pop(device_id, None)
         self._device_points.pop(device_id, None)
+        self._retry_count.pop(device_id, None)
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         """读取测点值"""

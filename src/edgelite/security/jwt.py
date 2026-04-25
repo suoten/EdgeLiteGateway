@@ -40,9 +40,13 @@ def verify_token(token: str, token_type: str = "access") -> dict:
     return payload
 
 
-def decode_token(token: str) -> dict:
-    """解码Token（不验证过期），用于调试"""
+def decode_token(token: str, verify_exp: bool = True) -> dict:
+    """解码Token。默认验证过期，仅调试时可设 verify_exp=False"""
+    import warnings
     config = get_config()
+    if not verify_exp:
+        warnings.warn("decode_token(verify_exp=False) 仅用于调试，生产环境请勿使用", stacklevel=2)
     return jwt.decode(
-        token, config.security.secret_key, algorithms=[config.security.algorithm], options={"verify_exp": False}
+        token, config.security.secret_key, algorithms=[config.security.algorithm],
+        options={"verify_exp": verify_exp},
     )

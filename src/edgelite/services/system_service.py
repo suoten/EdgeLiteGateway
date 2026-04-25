@@ -42,10 +42,12 @@ class SystemService:
 
     async def get_status(self) -> dict:
         """获取系统运行状态"""
-        # 系统资源
-        cpu_percent = psutil.cpu_percent(interval=0.1)
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage("/")
+        import asyncio
+        # 系统资源（psutil 是同步阻塞调用，放到线程池中执行）
+        loop = asyncio.get_event_loop()
+        cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
+        memory = await loop.run_in_executor(None, psutil.virtual_memory)
+        disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("/"))
 
         # 设备统计
         devices, device_total = await self._device_repo.list_all(page=1, size=1)

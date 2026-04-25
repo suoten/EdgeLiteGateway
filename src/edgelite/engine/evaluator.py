@@ -40,14 +40,18 @@ class RuleEvaluator:
         now = time.time()
         cache_key = f"{device_id}:{point_name}"
         
-        # 缓存有效期内直接返回
-        if cache_key in self._rule_cache and (now - self._cache_time) < self._cache_ttl:
+        # 缓存过期时清空整个缓存，防止无限增长
+        if (now - self._cache_time) >= self._cache_ttl:
+            self._rule_cache.clear()
+            self._cache_time = now
+        
+        # 缓存命中
+        if cache_key in self._rule_cache:
             return self._rule_cache[cache_key]
         
         # 查询数据库并更新缓存
         rules = await self._rule_repo.list_enabled_by_point(device_id, point_name)
         self._rule_cache[cache_key] = rules
-        self._cache_time = now
         return rules
 
     async def stop(self) -> None:
@@ -58,7 +62,15 @@ class RuleEvaluator:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        self._rule_cache.clear()
+        self._duration_tracker.clear()
         logger.info("规则评估器停止")
+
+    def cleanup_duration_tracker(self, rule_id: str) -> None:
+        """清理已删除规则的持续时间追踪器"""
+        keys_to_remove = [k for k in self._duration_tracker if k[0] == rule_id]
+        for k in keys_to_remove:
+            del self._duration_tracker[k]
 
     async def _eval_loop(self, queue: asyncio.Queue) -> None:
         """评估循环"""

@@ -11,14 +11,14 @@ class UserCreate(BaseModel):
     """创建用户请求"""
 
     username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
-    password: str = Field(min_length=8, description="密码至少8字符，包含字母和数字")
+    password: str = Field(min_length=8, max_length=72, pattern=r"^(?=.*[a-zA-Z])(?=.*\d).+$", description="密码8-72字符，必须包含字母和数字")
     role: Literal["admin", "operator", "viewer"]
 
 
 class UserUpdate(BaseModel):
     """更新用户请求"""
 
-    password: str | None = Field(default=None, min_length=8)
+    password: str | None = Field(default=None, min_length=8, max_length=72, pattern=r"^(?=.*[a-zA-Z])(?=.*\d).+$")
     role: Literal["admin", "operator", "viewer"] | None = None
     enabled: bool | None = None
 

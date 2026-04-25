@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, HTTPException
 
 from edgelite.models.common import ApiResponse
@@ -39,6 +41,8 @@ async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM
 
 @router.post("/restore", response_model=ApiResponse)
 async def restore_backup(backup_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
+    if not re.match(r'^[a-zA-Z0-9_-]+$', backup_id):
+        raise HTTPException(status_code=400, detail="无效的备份ID")
     svc = _get_system_service()
     success = await svc.restore_backup(backup_id)
     if not success:

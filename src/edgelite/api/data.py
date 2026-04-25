@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
@@ -17,6 +19,11 @@ router = APIRouter(prefix="/api/v1/data", tags=["数据查询"])
 def _get_data_service():
     from edgelite.app import _app_state
     return _app_state.data_service
+
+
+def _safe_filename(name: str) -> str:
+    """清理文件名中的特殊字符，防止HTTP头注入"""
+    return re.sub(r'[^\w\-.]', '_', name)
 
 
 @router.get("/query", response_model=ApiResponse)
@@ -46,7 +53,7 @@ async def export_data(
     content = await svc.export_data(device_id, point_name, start, stop, format)
 
     media_type = "text/csv" if format == "csv" else "application/json"
-    filename = f"{device_id}_{point_name}.{format}"
+    filename = f"{_safe_filename(device_id)}_{_safe_filename(point_name)}.{format}"
 
     return StreamingResponse(
         io.StringIO(content),
