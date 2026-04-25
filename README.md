@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.svg" width="128" height="128" alt="EdgeLiteGateway Logo" />
+</div>
+
 # EdgeLiteGateway Community Edition
 
 **轻量级边缘计算物联网网关**

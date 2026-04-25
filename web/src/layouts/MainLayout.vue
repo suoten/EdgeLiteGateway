@@ -12,8 +12,25 @@
     >
       <div class="logo">
         <div class="logo-icon">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.07 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+          <svg viewBox="0 0 128 128" width="28" height="28">
+            <defs>
+              <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <polygon points="64,36 90,50 90,78 64,92 38,78 38,50" fill="url(#lg1)"/>
+            <path d="M 54 64 L 74 64" stroke="white" stroke-width="5" stroke-linecap="round"/>
+            <path d="M 69 57 L 76 64 L 69 71" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 59 57 L 52 64 L 59 71" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="26" cy="44" r="6" fill="#667eea" opacity="0.7"/>
+            <circle cx="26" cy="84" r="6" fill="#667eea" opacity="0.7"/>
+            <circle cx="102" cy="44" r="6" fill="#a855f7" opacity="0.7"/>
+            <circle cx="102" cy="84" r="6" fill="#a855f7" opacity="0.7"/>
+            <line x1="30" y1="46" x2="42" y2="54" stroke="#667eea" stroke-width="2" opacity="0.5"/>
+            <line x1="30" y1="82" x2="42" y2="74" stroke="#667eea" stroke-width="2" opacity="0.5"/>
+            <line x1="98" y1="46" x2="86" y2="54" stroke="#a855f7" stroke-width="2" opacity="0.5"/>
+            <line x1="98" y1="82" x2="86" y2="74" stroke="#a855f7" stroke-width="2" opacity="0.5"/>
           </svg>
         </div>
         <transition name="fade">
@@ -138,7 +155,7 @@ function handleUserSelect(key: string) {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
 }
-.logo-icon { color: #667eea; display: flex; align-items: center; }
+.logo-icon { display: flex; align-items: center; }
 .logo-text { display: flex; flex-direction: column; line-height: 1.2; }
 .logo-title { font-size: 18px; font-weight: 700; color: #333; }
 .logo-subtitle { font-size: 11px; color: #999; letter-spacing: 2px; }

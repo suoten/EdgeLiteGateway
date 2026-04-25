@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="!00%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.8" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="none" stroke="url(#grad1)" stroke-width="1.5" opacity="0.3"/>
+  <path d="M 24 44 A 40 40 0 0 1 44 24" fill="none" stroke="#667eea" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 20 56 A 48 48 0 0 1 56 20" fill="none" stroke="#667eea" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+  <path d="M 104 84 A 40 40 0 0 1 84 104" fill="none" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 108 72 A 48 48 0 0 1 72 108" fill="none" stroke="#a855f7" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+  <line x1="30" y1="82" x2="48" y2="68" stroke="#667eea" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  <line x1="30" y1="46" x2="48" y2="56" stroke="#667eea" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  <line x1="98" y1="46" x2="80" y2="56" stroke="#a855f7" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  <line x1="98" y1="82" x2="80" y2="68" stroke="#a855f7" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  <polygon points="64,40 86,52 86,76 64,88 42,76 42,52" fill="url(#grad1)" filter="url(#glow)"/>
+  <polygon points="64,46 82,55 82,73 64,82 46,73 46,55" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <path d="M 56 64 L 72 64" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 68 59 L 73 64 L 68 69" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 60 59 L 55 64 L 60 69" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="28" cy="44" r="5" fill="#667eea" opacity="0.8"/>
+  <circle cx="28" cy="44" r="2.5" fill="white" opacity="0.6"/>
+  <circle cx="28" cy="84" r="5" fill="#667eea" opacity="0.8"/>
+  <circle cx="28" cy="84" r="2.5" fill="white" opacity="0.6"/>
+  <circle cx="100" cy="44" r="5" fill="#a855f7" opacity="0.8"/>
+  <circle cx="100" cy="44" r="2.5" fill="white" opacity="0.6"/>
+  <circle cx="100" cy="84" r="5" fill="#a855f7" opacity="0.8"/>
+  <circle cx="100" cy="84" r="2.5" fill="white" opacity="0.6"/>
+  <circle cx="64" cy="106" r="3.5" fill="url(#grad2)" opacity="0.6"/>
+  <line x1="64" y1="88" x2="64" y2="103" stroke="url(#grad2)" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
+</svg>
