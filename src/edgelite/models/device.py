@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PointDef(BaseModel):
     """测点定义"""
 
     name: str
-    data_type: Literal["int16", "uint16", "float32", "bool", "string"] = "float32"
+    data_type: Literal["bool", "int16", "int32", "uint16", "uint32", "float32", "float64", "string"] = "float32"
     unit: str = ""
     address: str = "0"
     access_mode: Literal["r", "w", "rw"] = "r"
     min: float | None = None
     max: float | None = None
-    mode: str | None = None  # 模拟器模式: sine/random_walk/fixed/random
+    mode: str | None = None
 
 
 class ModbusConfig(BaseModel):
@@ -48,10 +48,26 @@ class DeviceCreate(BaseModel):
 
     device_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$")
     name: str = Field(min_length=1, max_length=64)
-    protocol: Literal["modbus_tcp", "modbus_rtu", "opcua", "mqtt", "http", "simulator", "video"]
+    protocol: str
     config: dict[str, Any] = {}
     points: list[PointDef] = Field(min_length=1)
     collect_interval: int = Field(default=5, ge=1)
+
+    @field_validator("protocol")
+    @classmethod
+    def validate_protocol(cls, v: str) -> str:
+        try:
+            from edgelite.drivers.registry import get_driver_registry
+            registry = get_driver_registry()
+            supported = registry.get_supported_protocols()
+            if v not in supported and v not in ("video", "simulator", "modbus_rtu"):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Protocol '%s' not in driver registry (available: %s)", v, supported,
+                )
+        except ImportError:
+            pass
+        return v
 
 
 class DeviceUpdate(BaseModel):

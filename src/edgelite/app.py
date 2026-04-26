@@ -43,6 +43,9 @@ class AppState:
     modbus_slave: Any = None
     platform_handlers: dict = field(default_factory=dict)
     start_time: float = field(default_factory=time.time)
+    integration_endpoint: Any = None
+    integration_dispatcher: Any = None
+    backhaul_manager: Any = None
 
 
 # 全局应用状态
@@ -254,12 +257,33 @@ async def lifespan(app: FastAPI):
 
     event_bus.register_handler("AlarmEvent", handle_alarm_for_notify)
 
+    # 16. 初始化联调集成端点
+    try:
+        from edgelite.engine.integration.endpoint import IntegrationEndpoint
+        from edgelite.engine.integration.dispatcher import MessageDispatcher
+        from edgelite.engine.integration.backhaul import BackhaulManager
+
+        integration_dispatcher = MessageDispatcher()
+        integration_dispatcher.register_service("device_service", device_service)
+        integration_endpoint = IntegrationEndpoint(dispatcher=integration_dispatcher)
+        _app_state.integration_dispatcher = integration_dispatcher
+        _app_state.integration_endpoint = integration_endpoint
+
+        backhaul_manager = BackhaulManager(event_bus=event_bus, endpoint=integration_endpoint, buffer_size=1000)
+        _app_state.backhaul_manager = backhaul_manager
+        await backhaul_manager.start()
+        logger.info("联调集成端点已初始化")
+    except ImportError:
+        logger.warning("联调集成模块不可用")
+
     logger.info("EdgeLiteGateway 启动完成 (port=%d)", config.server.port)
 
     yield
 
     # 关闭
     logger.info("EdgeLiteGateway 关闭中...")
+    if _app_state.backhaul_manager:
+        await _app_state.backhaul_manager.stop()
     await ws_channels.stop()
     await evaluator.stop()
     await scheduler.stop_all()
@@ -319,6 +343,13 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(users.router)
 
+    # 联调集成路由
+    try:
+        from edgelite.api.integration import router as integration_router
+        app.include_router(integration_router)
+    except ImportError:
+        pass
+
     # WebSocket路由
     @app.websocket("/ws/v1/realtime")
     async def ws_realtime(websocket: WebSocket, token: str = Query(...)):
@@ -361,5 +392,43 @@ def create_app() -> FastAPI:
             pass
         finally:
             await _app_state.ws_manager.disconnect(websocket, "device")
+
+    # 联调集成WebSocket端点
+    @app.websocket("/ws/v1/integration")
+    async def ws_integration(websocket: WebSocket, token: str = Query(...)):
+        if not _app_state.integration_endpoint:
+            await websocket.close(code=1003, reason="Integration not available")
+            return
+        from edgelite.security.jwt import decode_token
+        try:
+            if not decode_token(token):
+                await websocket.close(code=4001, reason="Invalid token")
+                return
+        except Exception:
+            await websocket.close(code=4001, reason="Auth failed")
+            return
+        await websocket.accept()
+        session_id = None
+        try:
+            handshake_msg = await websocket.receive_text()
+            import json as _json
+            handshake_data = _json.loads(handshake_msg)
+            if handshake_data.get("type") == "handshake":
+                response = await _app_state.integration_endpoint.handle_handshake(handshake_data)
+                session_id = response.get("session_id", "")
+                await websocket.send(_json.dumps(response))
+                await _app_state.integration_endpoint.register_connection(session_id, websocket)
+            while True:
+                data = await websocket.receive_text()
+                result = await _app_state.integration_endpoint.handle_message(session_id or "", data)
+                if result:
+                    await websocket.send(_json.dumps(result))
+        except WebSocketDisconnect:
+            pass
+        except Exception as e:
+            logger.warning("Integration WebSocket error: %s", e)
+        finally:
+            if session_id:
+                await _app_state.integration_endpoint.unregister_connection(session_id)
 
     return app
