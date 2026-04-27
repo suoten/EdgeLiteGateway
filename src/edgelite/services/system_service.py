@@ -75,7 +75,7 @@ class SystemService:
             "alarm_firing": firing_count,
             "collect_task_count": self._scheduler.get_task_count(),
             "uptime": uptime,
-            "version": "0.1.0",
+            "version": "1.0.0",
         }
 
     async def create_backup(self) -> dict:
@@ -143,7 +143,7 @@ class SystemService:
         users, _ = await self._user_repo.list_all(page=1, size=10000)
 
         return {
-            "version": "0.1.0",
+            "version": "1.0.0",
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "devices": devices,
             "rules": rules,
