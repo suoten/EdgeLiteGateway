@@ -370,36 +370,36 @@ def create_app() -> FastAPI:
     try:
         from edgelite.api.audit import router as audit_router
         app.include_router(audit_router)
-    except ImportError:
-        pass
+    except Exception as e:
+        logger.warning("审计日志路由注册失败: %s", e)
 
     # 驱动配置管理路由
     try:
         from edgelite.api.drivers import router as drivers_router
         app.include_router(drivers_router)
-    except ImportError:
-        pass
+    except Exception as e:
+        logger.warning("驱动配置路由注册失败: %s", e)
 
     # 平台配置管理路由
     try:
         from edgelite.api.platforms import router as platforms_router
         app.include_router(platforms_router)
-    except ImportError:
-        pass
+    except Exception as e:
+        logger.warning("平台配置路由注册失败: %s", e)
 
     # 表达式管理路由
     try:
         from edgelite.api.expressions import router as expressions_router
         app.include_router(expressions_router)
-    except ImportError:
-        pass
+    except Exception as e:
+        logger.warning("表达式管理路由注册失败: %s", e)
 
     # 联调集成路由
     try:
         from edgelite.api.integration import router as integration_router
         app.include_router(integration_router)
-    except ImportError:
-        pass
+    except Exception as e:
+        logger.warning("联调集成路由注册失败: %s", e)
 
     # WebSocket路由
     @app.websocket("/ws/v1/realtime")

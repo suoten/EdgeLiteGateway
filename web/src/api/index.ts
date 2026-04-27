@@ -83,7 +83,7 @@ export const deviceApi = {
     http.post<ApiResponse<Device>>('/devices/simulator', { ...data, protocol: 'simulator' }).then((r) => r.data.data),
 
   discover: (params: { protocol: string; host?: string; port?: number }) =>
-    http.post<ApiResponse<any[]>>('/devices/discover', params).then((r) => r.data.data),
+    http.post<ApiResponse<any[]>>('/devices/discover', { protocol: params.protocol, config: { host: params.host, port: params.port } }).then((r) => r.data.data),
 }
 
 // ─── 规则 ───

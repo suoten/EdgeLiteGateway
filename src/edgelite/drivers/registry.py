@@ -37,129 +37,38 @@ class DriverRegistry:
 
     def auto_discover(self) -> None:
         """自动发现并注册所有内置驱动"""
-        # Modbus TCP
-        try:
-            from edgelite.drivers.modbus_tcp import ModbusTcpDriver
-            self.register(ModbusTcpDriver)
-        except ImportError as e:
-            logger.warning("Modbus TCP驱动加载失败: %s", e)
+        _driver_modules = [
+            ("Modbus TCP", "edgelite.drivers.modbus_tcp", "ModbusTcpDriver"),
+            ("模拟器", "edgelite.drivers.simulator", "SimulatorDriver"),
+            ("MQTT Client", "edgelite.drivers.mqtt_client", "MqttClientDriver"),
+            ("HTTP Webhook", "edgelite.drivers.http_webhook", "HttpWebhookDriver"),
+            ("OPC-UA", "edgelite.drivers.opcua", "OpcUaDriver"),
+            ("西门子S7", "edgelite.drivers.s7", "S7Driver"),
+            ("三菱MC", "edgelite.drivers.mc", "McDriver"),
+            ("欧姆龙FINS", "edgelite.drivers.fins", "OmronFinsDriver"),
+            ("Allen-Bradley", "edgelite.drivers.allen_bradley", "AllenBradleyDriver"),
+            ("OPC DA", "edgelite.drivers.opc_da", "OpcDaDriver"),
+            ("FANUC CNC", "edgelite.drivers.fanuc", "FanucCncDriver"),
+            ("MTConnect", "edgelite.drivers.mtconnect", "MTConnectDriver"),
+            ("托利多称重", "edgelite.drivers.toledo", "ToledoDriver"),
+            ("BACnet", "edgelite.drivers.bacnet", "BACnetDriver"),
+            ("串口设备", "edgelite.drivers.serial_port", "SerialPortDriver"),
+            ("数据库接入", "edgelite.drivers.database_source", "DatabaseSourceDriver"),
+            ("扫码枪", "edgelite.drivers.barcode_scanner", "BarcodeScannerDriver"),
+        ]
 
-        # 模拟器
-        try:
-            from edgelite.drivers.simulator import SimulatorDriver
-            self.register(SimulatorDriver)
-        except ImportError as e:
-            logger.warning("模拟器驱动加载失败: %s", e)
-
-        # MQTT Client
-        try:
-            from edgelite.drivers.mqtt_client import MqttClientDriver
-            self.register(MqttClientDriver)
-        except ImportError as e:
-            logger.warning("MQTT Client驱动加载失败: %s", e)
-
-        # HTTP Webhook
-        try:
-            from edgelite.drivers.http_webhook import HttpWebhookDriver
-            self.register(HttpWebhookDriver)
-        except ImportError as e:
-            logger.warning("HTTP Webhook驱动加载失败: %s", e)
-
-        # OPC-UA
-        try:
-            from edgelite.drivers.opcua import OpcUaDriver
-            self.register(OpcUaDriver)
-        except ImportError as e:
-            logger.warning("OPC-UA驱动加载失败: %s", e)
-
-        # 西门子S7 (Pro版)
-        try:
-            from edgelite.drivers.s7 import S7Driver
-            self.register(S7Driver)
-        except ImportError as e:
-            logger.warning("西门子S7驱动加载失败: %s", e)
-
-        # 三菱MC (Pro版)
-        try:
-            from edgelite.drivers.mc import McDriver
-            self.register(McDriver)
-        except ImportError as e:
-            logger.warning("三菱MC驱动加载失败: %s", e)
-
-        # 欧姆龙FINS (Pro版)
-        try:
-            from edgelite.drivers.fins import OmronFinsDriver
-            self.register(OmronFinsDriver)
-        except ImportError as e:
-            logger.warning("欧姆龙FINS驱动加载失败: %s", e)
-
-        # Allen-Bradley (Pro版)
-        try:
-            from edgelite.drivers.allen_bradley import AllenBradleyDriver
-            self.register(AllenBradleyDriver)
-        except ImportError as e:
-            logger.warning("Allen-Bradley驱动加载失败: %s", e)
-
-        # OPC DA Client (Pro版)
-        try:
-            from edgelite.drivers.opc_da import OpcDaDriver
-            self.register(OpcDaDriver)
-        except ImportError as e:
-            logger.warning("OPC DA驱动加载失败: %s", e)
-
-        # FANUC CNC (Pro版)
-        try:
-            from edgelite.drivers.fanuc import FanucCncDriver
-            self.register(FanucCncDriver)
-        except ImportError as e:
-            logger.warning("FANUC CNC驱动加载失败: %s", e)
-
-        # MTConnect (Pro版)
-        try:
-            from edgelite.drivers.mtconnect import MTConnectDriver
-            self.register(MTConnectDriver)
-        except ImportError as e:
-            logger.warning("MTConnect驱动加载失败: %s", e)
-
-        # 托利多称重 (Pro版)
-        try:
-            from edgelite.drivers.toledo import ToledoDriver
-            self.register(ToledoDriver)
-        except ImportError as e:
-            logger.warning("托利多称重驱动加载失败: %s", e)
-
-        # BACnet楼宇自控
-        try:
-            from edgelite.drivers.bacnet import BACnetDriver
-            self.register(BACnetDriver)
-        except ImportError as e:
-            logger.warning("BACnet驱动加载失败: %s", e)
-
-        # 串口设备
-        try:
-            from edgelite.drivers.serial_port import SerialPortDriver
-            self.register(SerialPortDriver)
-        except ImportError as e:
-            logger.warning("串口设备驱动加载失败: %s", e)
-
-        # 数据库接入
-        try:
-            from edgelite.drivers.database_source import DatabaseSourceDriver
-            self.register(DatabaseSourceDriver)
-        except ImportError as e:
-            logger.warning("数据库接入驱动加载失败: %s", e)
-
-        # 扫码枪
-        try:
-            from edgelite.drivers.barcode_scanner import BarcodeScannerDriver
-            self.register(BarcodeScannerDriver)
-        except ImportError as e:
-            logger.warning("扫码枪驱动加载失败: %s", e)
+        for label, module_path, class_name in _driver_modules:
+            try:
+                import importlib
+                module = importlib.import_module(module_path)
+                driver_cls = getattr(module, class_name)
+                self.register(driver_cls)
+            except Exception as e:
+                logger.warning("%s驱动加载失败: %s", label, e)
 
         logger.info("驱动自动发现完成，支持协议: %s", self.get_supported_protocols())
 
 
-# 全局驱动注册表
 _registry: DriverRegistry | None = None
 
 

@@ -155,17 +155,18 @@ async def get_driver_config_schema(
 async def discover_devices(
     driver_name: str,
     config: dict = None,
-    user: CurrentUser = require_permission(Permission.DEVICE_MANAGE),
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     registry = _get_registry()
     if not registry:
         raise HTTPException(status_code=501, detail="驱动注册表未初始化")
 
-    driver = registry.get_driver(driver_name)
-    if not driver:
+    driver_cls = registry.get_driver_class(driver_name)
+    if not driver_cls:
         raise HTTPException(status_code=404, detail=f"驱动 {driver_name} 不存在")
 
     try:
+        driver = driver_cls()
         devices = await driver.discover_devices(config or {})
         return ApiResponse(data={"devices": devices})
     except Exception as e:

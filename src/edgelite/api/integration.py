@@ -11,11 +11,10 @@ router = APIRouter(prefix="/api/v1/integration", tags=["integration"])
 
 
 def _get_integration_endpoint():
-    from edgelite.app import get_app_state
-    state = get_app_state()
-    if not hasattr(state, "integration_endpoint") or not state.integration_endpoint:
+    from edgelite.app import _app_state
+    if not hasattr(_app_state, "integration_endpoint") or not _app_state.integration_endpoint:
         raise HTTPException(status_code=503, detail="Integration not available")
-    return state.integration_endpoint
+    return _app_state.integration_endpoint
 
 
 @router.post("/handshake")
