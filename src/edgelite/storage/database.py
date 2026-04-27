@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     record_hash   TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(timestamp);
 
 CREATE TABLE IF NOT EXISTS cache_queue (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

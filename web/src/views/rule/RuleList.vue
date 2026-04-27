@@ -169,6 +169,13 @@ async function handleCreate() {
     await ruleApi.create(createForm as any)
     message.success('规则创建成功')
     showCreateModal.value = false
+    createForm.name = ''
+    createForm.device_id = ''
+    createForm.logic = 'AND'
+    createForm.duration = 0
+    createForm.severity = 'warning'
+    createForm.notify_channels = ['dingtalk']
+    createForm.conditions = [{ point: '', operator: '>', threshold: 0 }]
     fetchRules()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '创建失败')

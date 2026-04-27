@@ -244,7 +244,13 @@ const resourceTrendOption = computed(() => {
 })
 
 function protocolLabel(p: string) {
-  const map: Record<string, string> = { modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP', simulator: 'Simulator', video: 'Video' }
+  const map: Record<string, string> = {
+    modbus_tcp: 'Modbus TCP', modbus_rtu: 'Modbus RTU', opcua: 'OPC-UA', opc_da: 'OPC DA',
+    mqtt: 'MQTT', mqtt_client: 'MQTT', http: 'HTTP', http_webhook: 'HTTP',
+    simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
+    allen_bradley: 'AB', fanuc: 'FANUC', mtconnect: 'MTConnect', toledo: 'Toledo',
+    bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB', barcode_scanner: 'Scanner',
+  }
   return map[p] || p
 }
 

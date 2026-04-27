@@ -326,6 +326,12 @@ async function handleCreate() {
     await deviceApi.create(createForm as any)
     message.success('设备创建成功')
     showCreateModal.value = false
+    createForm.device_id = ''
+    createForm.name = ''
+    createForm.protocol = 'modbus_tcp'
+    createForm.collect_interval = 5
+    createForm.config = { ...defaultConfig.modbus_tcp }
+    createForm.points = [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }]
     fetchDevices()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '创建失败')
@@ -340,6 +346,10 @@ async function handleCreateSim() {
     await deviceApi.createSimulator(simForm as any)
     message.success('模拟设备创建成功')
     showSimModal.value = false
+    simForm.device_id = ''
+    simForm.name = ''
+    simForm.collect_interval = 5
+    simForm.points = [{ name: 'temperature', data_type: 'float32', unit: '°C', address: '0', access_mode: 'r', min: 15, max: 35, mode: 'sine' }]
     fetchDevices()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '创建失败')

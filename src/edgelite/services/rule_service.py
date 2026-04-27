@@ -51,6 +51,9 @@ class RuleService:
         conditions = rule["conditions"]
         logic = rule["logic"]
 
+        if not conditions:
+            return {"rule_id": rule_id, "logic": logic, "condition_results": [], "all_matched": False}
+
         results = []
         for cond in conditions:
             point = cond["point"]
