@@ -11,7 +11,7 @@
     <n-data-table :columns="columns" :data="rules" :loading="loading" :pagination="pagination" :row-key="(r: Rule) => r.rule_id" />
 
     <n-modal v-model:show="showCreateModal" title="创建告警规则" preset="card" style="width: 640px">
-      <n-form :model="createForm" label-placement="left" label-width="90" :rules="createRules">
+      <n-form :model="createForm" label-placement="left" label-width="90" :rules="createRules" ref="createFormRef">
         <n-form-item label="规则名称" path="name"><n-input v-model:value="createForm.name" placeholder="如：温度超限告警" /></n-form-item>
         <n-form-item label="关联设备" path="device_id">
           <n-select v-model:value="createForm.device_id" :options="deviceOptions" placeholder="选择关联设备" filterable />
@@ -62,6 +62,7 @@ const showCreateModal = ref(false)
 const creating = ref(false)
 const searchText = ref('')
 const filterSeverity = ref<string | null>(null)
+const createFormRef = ref<any>(null)
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchRules() } })
 
@@ -160,6 +161,9 @@ async function fetchDevices() {
 }
 
 async function handleCreate() {
+  try {
+    await createFormRef.value?.validate()
+  } catch { return }
   creating.value = true
   try {
     await ruleApi.create(createForm as any)

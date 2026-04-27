@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
 import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NForm, NFormItem, NSelect, NInput, NInputNumber, NGrid, NGi, NThing, useMessage } from 'naive-ui'
-import { platformApi } from '../../api'
+import { platformApi } from '@/api'
 
 const message = useMessage()
 const platforms = ref<any[]>([])

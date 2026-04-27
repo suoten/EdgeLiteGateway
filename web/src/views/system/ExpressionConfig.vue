@@ -52,7 +52,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, useMessage } from 'naive-ui'
-import { expressionApi } from '../../api'
+import { expressionApi } from '@/api'
 
 const message = useMessage()
 const expression = ref('')

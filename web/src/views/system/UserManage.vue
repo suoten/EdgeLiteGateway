@@ -40,16 +40,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
-import http from '@/api/http'
-import type { ApiResponse } from '@/api/http'
-
-interface User {
-  user_id: string
-  username: string
-  role: string
-  created_at: string
-  updated_at: string
-}
+import { userApi, type User } from '@/api'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -60,6 +51,7 @@ const showEditModal = ref(false)
 const creating = ref(false)
 const editing = ref(false)
 const searchText = ref('')
+const createFormRef = ref<any>(null)
 
 const filteredUsers = computed(() => {
   if (!searchText.value) return users.value
@@ -113,8 +105,7 @@ function filterUsers() {}
 async function fetchUsers() {
   loading.value = true
   try {
-    const resp = await http.get<ApiResponse<User[]>>('/users')
-    users.value = resp.data.data
+    users.value = await userApi.list()
   } catch (e: any) {
     message.error(e?.message || '获取用户列表失败')
   } finally {
@@ -123,9 +114,12 @@ async function fetchUsers() {
 }
 
 async function handleCreate() {
+  try {
+    await createFormRef.value?.validate()
+  } catch { return }
   creating.value = true
   try {
-    await http.post('/users', createForm)
+    await userApi.create(createForm)
     message.success('用户创建成功')
     showCreateModal.value = false
     createForm.username = ''
@@ -152,7 +146,7 @@ async function handleEdit() {
   try {
     const data: any = { role: editForm.role }
     if (editForm.password) data.password = editForm.password
-    await http.put(`/users/${editForm.user_id}`, data)
+    await userApi.update(editForm.user_id, data)
     message.success('用户更新成功')
     showEditModal.value = false
     fetchUsers()
@@ -171,7 +165,7 @@ function handleDelete(row: User) {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await http.delete(`/users/${row.user_id}`)
+        await userApi.delete(row.user_id)
         message.success('删除成功')
         fetchUsers()
       } catch (e: any) {

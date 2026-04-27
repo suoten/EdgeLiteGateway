@@ -148,6 +148,7 @@ const showSimModal = ref(false)
 const creating = ref(false)
 const discovering = ref(false)
 const checkedKeys = ref<string[]>([])
+const createFormRef = ref<any>(null)
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchDevices() } })
 
@@ -317,6 +318,9 @@ async function fetchDevices() {
 }
 
 async function handleCreate() {
+  try {
+    await createFormRef.value?.validate()
+  } catch { return }
   creating.value = true
   try {
     await deviceApi.create(createForm as any)

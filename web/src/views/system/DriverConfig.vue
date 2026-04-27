@@ -66,7 +66,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
 import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NEmpty, NSpin, NAlert, NText, useMessage } from 'naive-ui'
-import { driverApi } from '../../api'
+import { driverApi } from '@/api'
 
 const message = useMessage()
 const drivers = ref<any[]>([])

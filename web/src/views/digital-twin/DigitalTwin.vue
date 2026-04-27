@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { NCard, NButton, NSpace, NSelect, NGrid, NGi, NTag } from 'naive-ui'
+import { deviceApi } from '@/api'
 
 const containerRef = ref<HTMLElement | null>(null)
 const selectedScene = ref('factory')
@@ -102,8 +103,16 @@ function toggleAutoRotate() {
   autoRotate.value = !autoRotate.value
 }
 
+async function fetchDevices() {
+  try {
+    const data = await deviceApi.list({ page: 1, size: 100 })
+    deviceList.value = data?.data ?? []
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
   loadScene()
+  fetchDevices()
 })
 
 onUnmounted(() => {

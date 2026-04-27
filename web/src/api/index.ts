@@ -160,7 +160,7 @@ export interface Alarm {
 }
 
 export const alarmApi = {
-  list: (params?: { page?: number; size?: number; status?: string; severity?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string }) =>
     http.get<PagedData<Alarm>>('/alarms', { params }).then((r) => r.data),
 
   get: (id: string) =>

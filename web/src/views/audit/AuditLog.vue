@@ -24,16 +24,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, h } from 'vue'
 import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, useMessage } from 'naive-ui'
-import { auditApi } from '../../api'
+import { auditApi } from '@/api'
 
 const message = useMessage()
 const logs = ref<any[]>([])
 const loading = ref(false)
 const filterAction = ref(null)
 const timeRange = ref<[number, number] | null>(null)
-const pagination = ref({ page: 1, pageSize: 20, itemCount: 0 })
+const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (page: number) => { pagination.page = page; loadLogs() } })
 const showCleanupModal = ref(false)
 const retentionDays = ref(90)
 
@@ -68,7 +68,7 @@ const columns = [
 async function loadLogs() {
   loading.value = true
   try {
-    const params: any = { page: pagination.value.page, size: pagination.value.pageSize }
+    const params: any = { page: pagination.page, size: pagination.pageSize }
     if (filterAction.value) params.action = filterAction.value
     if (timeRange.value) {
       params.start_time = new Date(timeRange.value[0]).toISOString()
@@ -76,7 +76,7 @@ async function loadLogs() {
     }
     const data = await auditApi.list(params)
     logs.value = data?.logs || []
-    pagination.value.itemCount = data?.total || 0
+    pagination.itemCount = data?.total || 0
   } catch (e) {
     message.error('加载审计日志失败')
   } finally { loading.value = false }
