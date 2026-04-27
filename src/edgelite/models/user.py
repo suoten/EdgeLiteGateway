@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class UserCreate(BaseModel):
     """创建用户请求"""
 
     username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
-    password: str = Field(min_length=8, max_length=72, pattern=r"^(?=.*[a-zA-Z])(?=.*\d).+$", description="密码8-72字符，必须包含字母和数字")
+    password: str = Field(min_length=8, max_length=72, description="密码8-72字符，必须包含字母和数字")
     role: Literal["admin", "operator", "viewer"]
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if not re.search(r"[a-zA-Z]", v):
+            raise ValueError("密码必须包含字母")
+        if not re.search(r"\d", v):
+            raise ValueError("密码必须包含数字")
+        return v
 
 
 class UserUpdate(BaseModel):
