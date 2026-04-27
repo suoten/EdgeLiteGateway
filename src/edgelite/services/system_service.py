@@ -55,6 +55,9 @@ class SystemService:
 
         # 规则统计
         _, rule_total = await self._rule_repo.list_all(page=1, size=1)
+        # 启用的规则数
+        cursor = await self._rule_repo.conn.execute("SELECT COUNT(*) FROM rules WHERE enabled = 1")
+        rule_enabled = (await cursor.fetchone())[0]
 
         # 告警统计
         _, firing_count = await self._alarm_repo.list_all(page=1, size=1, status="firing")
@@ -72,6 +75,7 @@ class SystemService:
             "device_total": device_total,
             "device_online": online_devices,
             "rule_total": rule_total,
+            "rule_enabled": rule_enabled,
             "alarm_firing": firing_count,
             "collect_task_count": self._scheduler.get_task_count(),
             "uptime": uptime,

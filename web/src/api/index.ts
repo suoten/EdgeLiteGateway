@@ -203,6 +203,7 @@ export interface SystemStatus {
   device_total: number
   device_online: number
   rule_total: number
+  rule_enabled: number
   alarm_firing: number
   collect_task_count: number
   uptime: number
