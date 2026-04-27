@@ -7,19 +7,39 @@
       <n-data-table :columns="columns" :data="drivers" :loading="loading" />
     </n-card>
 
-    <n-modal v-model:show="showSchemaModal" preset="card" title="驱动配置模板" style="width: 600px">
-      <n-descriptions bordered :column="1" label-placement="left" v-if="currentSchema">
+    <!-- 配置模板弹窗 -->
+    <n-modal v-model:show="showSchemaModal" preset="card" :title="currentSchemaTitle" style="width: 700px">
+      <n-alert v-if="currentSchema?.description" type="info" :show-icon="false" style="margin-bottom: 16px">
+        {{ currentSchema.description }}
+      </n-alert>
+      <n-empty v-if="!currentSchema?.fields?.length" description="暂无配置说明" />
+      <n-descriptions v-else bordered :column="1" label-placement="left">
         <n-descriptions-item v-for="field in currentSchema.fields" :key="field.name" :label="field.label || field.name">
-          <n-space align="center">
-            <n-tag size="small" :type="field.required ? 'error' : 'default'">{{ field.required ? '必填' : '可选' }}</n-tag>
-            <n-tag size="small">{{ field.type }}</n-tag>
-            <span v-if="field.default" style="color: #999">默认: {{ field.default }}</span>
-            <span v-if="field.options" style="color: #666">选项: {{ field.options.join(' / ') }}</span>
+          <n-space vertical :size="4">
+            <!-- 参数说明 -->
+            <n-space align="center" :size="8">
+              <n-tag size="small" :type="field.required ? 'error' : 'default'">{{ field.required ? '必填' : '可选' }}</n-tag>
+              <n-tag size="small" type="info">{{ typeMap[field.type] || field.type }}</n-tag>
+              <n-tag v-if="field.secret" size="small" type="warning">敏感</n-tag>
+            </n-space>
+            <!-- 描述文字 -->
+            <n-text v-if="field.description" depth="3" style="font-size: 13px">
+              {{ field.description }}
+            </n-text>
+            <!-- 默认值 -->
+            <n-text v-if="field.default !== undefined && field.default !== ''" depth="3" style="font-size: 13px">
+              默认值: <n-text code style="font-size: 12px">{{ field.default }}</n-text>
+            </n-text>
+            <!-- 可选项 -->
+            <n-space v-if="field.options" :size="8" style="flex-wrap: wrap">
+              <n-tag v-for="opt in field.options" :key="opt" size="small" type="success">{{ opt }}</n-tag>
+            </n-space>
           </n-space>
         </n-descriptions-item>
       </n-descriptions>
     </n-modal>
 
+    <!-- 设备发现弹窗 -->
     <n-modal v-model:show="showDiscoverModal" preset="card" title="设备发现" style="width: 500px">
       <n-spin :show="discovering">
         <n-empty v-if="discoveredDevices.length === 0 && !discovering" description="点击发现按钮搜索设备" />
@@ -44,8 +64,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NEmpty, NSpin, useMessage } from 'naive-ui'
+import { ref, computed, onMounted, h } from 'vue'
+import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NEmpty, NSpin, NAlert, NText, useMessage } from 'naive-ui'
 import { driverApi } from '../../api'
 
 const message = useMessage()
@@ -53,10 +73,29 @@ const drivers = ref<any[]>([])
 const loading = ref(false)
 const showSchemaModal = ref(false)
 const currentSchema = ref<any>(null)
+const currentDriverName = ref('')
 const showDiscoverModal = ref(false)
 const discovering = ref(false)
 const discoveredDevices = ref<any[]>([])
-const currentDriverName = ref('')
+
+const currentSchemaTitle = computed(() => {
+  const name = currentDriverName.value
+  const schema = currentSchema.value
+  if (schema?.description) {
+    return `${name} - 配置模板`
+  }
+  return `${name} - 配置模板`
+})
+
+// 类型映射：把技术类型转为中文
+const typeMap: Record<string, string> = {
+  string: '文本',
+  integer: '整数',
+  number: '数值',
+  boolean: '布尔',
+  array: '数组',
+  object: '对象',
+}
 
 const columns = [
   { title: '驱动名称', key: 'name', width: 160 },
@@ -78,9 +117,13 @@ async function loadDrivers() {
 }
 
 async function viewSchema(name: string) {
+  currentDriverName.value = name
   try {
     const data = await driverApi.configSchema(name)
-    if (data) { currentSchema.value = data.schema; showSchemaModal.value = true }
+    if (data) {
+      currentSchema.value = data.schema
+      showSchemaModal.value = true
+    }
   } catch (e) { message.error('获取配置模板失败') }
 }
 
