@@ -261,19 +261,21 @@ async function fetchStatus() {
 
 async function fetchDevices() {
   try {
-    const data = await deviceApi.list({ page: 1, size: 1000 })
-    devices.value = data.data
+    const data = await deviceApi.list({ page: 1, size: 100 })
+    devices.value = data?.data ?? []
   } catch (e: any) {
     console.error('获取设备列表失败:', e)
+    devices.value = []
   }
 }
 
 async function fetchAlarms() {
   try {
-    const data = await alarmApi.list({ page: 1, size: 1000 })
-    alarms.value = data.data
+    const data = await alarmApi.list({ page: 1, size: 100 })
+    alarms.value = data?.data ?? []
   } catch (e: any) {
     console.error('获取告警列表失败:', e)
+    alarms.value = []
   }
 }
 
