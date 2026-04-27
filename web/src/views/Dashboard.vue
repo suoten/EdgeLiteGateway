@@ -268,7 +268,7 @@ async function fetchProtocols() {
     const drivers = data?.drivers || []
     supportedProtocols.value = drivers.flatMap((d: any) => d.protocols || [])
   } catch {
-    supportedProtocols.value = ['Modbus TCP', 'OPC-UA', 'MQTT', 'HTTP', 'Simulator']
+    supportedProtocols.value = ['modbus_tcp', 'opcua', 'mqtt', 'http', 'simulator']
   }
 }
 

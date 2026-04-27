@@ -1,7 +1,7 @@
 <template>
   <n-space vertical :size="16">
     <n-space>
-      <n-input v-model:value="searchText" placeholder="搜索告警ID/设备ID" clearable style="width: 200px" @update:value="fetchAlarms" />
+      <n-input v-model:value="searchText" placeholder="搜索设备ID" clearable style="width: 200px" @update:value="fetchAlarms" />
       <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="fetchAlarms" />
       <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="fetchAlarms" />
     </n-space>

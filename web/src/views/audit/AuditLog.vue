@@ -25,10 +25,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, useMessage } from 'naive-ui'
+import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, useMessage, useDialog } from 'naive-ui'
 import { auditApi } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const logs = ref<any[]>([])
 const loading = ref(false)
 const filterAction = ref(null)
@@ -105,8 +106,13 @@ async function verifyIntegrity() {
   try {
     const data = await auditApi.integrity()
     if (data) {
-      const msg = `完整性校验: ${data.valid ? '通过 ✓' : '未通过 ✗'}\n总记录: ${data.total}\n断裂位置: ${data.broken_at?.length ? data.broken_at.join(', ') : '无'}`
-      alert(msg)
+      const valid = data.valid ? '通过 ✓' : '未通过 ✗'
+      const broken = data.broken_at?.length ? data.broken_at.join(', ') : '无'
+      dialog.info({
+        title: '完整性校验结果',
+        content: `校验: ${valid}\n总记录: ${data.total}\n断裂位置: ${broken}`,
+        positiveText: '确定',
+      })
     }
   } catch (e) { message.error('校验失败') }
 }

@@ -131,7 +131,11 @@ const collapsed = ref(false)
 const alarmCount = ref(0)
 let alarmTimer: number | null = null
 
-const currentRoute = computed(() => route.name as string)
+const currentRoute = computed(() => {
+  const name = route.name as string
+  if (name === 'DeviceDetail') return 'Devices'
+  return name
+})
 const currentTitle = computed(() => {
   const titles: Record<string, string> = {
     Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',

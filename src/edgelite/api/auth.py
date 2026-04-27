@@ -6,7 +6,7 @@ import time
 from collections import defaultdict
 from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Body, HTTPException, Request, status
 
 from edgelite.models.user import LoginRequest, TokenResponse
 from edgelite.models.common import ApiResponse
@@ -75,7 +75,7 @@ async def login(req: LoginRequest, request: Request):
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
-async def refresh_token(refresh: str):
+async def refresh_token(refresh: str = Body(..., embed=True)):
     """刷新Access Token"""
     try:
         payload = verify_token(refresh, token_type="refresh")

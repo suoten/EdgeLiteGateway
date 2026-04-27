@@ -43,6 +43,7 @@ const sceneOptions = [
 
 let renderer: any = null
 let animationId: number | null = null
+let controls: any = null
 
 async function loadScene() {
   if (!containerRef.value) return
@@ -69,9 +70,10 @@ async function loadScene() {
     containerRef.value.innerHTML = ''
     containerRef.value.appendChild(renderer.domElement)
 
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true
-    controls.autoRotate = autoRotate.value
+    const orbitControls = new OrbitControls(camera, renderer.domElement)
+    orbitControls.enableDamping = true
+    orbitControls.autoRotate = autoRotate.value
+    controls = orbitControls
 
     const ambientLight = new THREE.AmbientLight(0x404040, 2)
     scene.add(ambientLight)
@@ -101,6 +103,7 @@ async function loadScene() {
 
 function toggleAutoRotate() {
   autoRotate.value = !autoRotate.value
+  if (controls) controls.autoRotate = autoRotate.value
 }
 
 async function fetchDevices() {

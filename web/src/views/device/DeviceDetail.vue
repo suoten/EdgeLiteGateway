@@ -12,11 +12,20 @@
     <n-tabs v-model:value="activeTab" type="line" animated>
       <!-- 概览 -->
       <n-tab-pane name="overview" tab="概览">
-        <n-grid :cols="2" :x-gap="16">
+        <n-space vertical :size="12">
+          <n-space justify="end">
+            <n-button v-if="!editing" type="primary" @click="startEdit">编辑设备</n-button>
+            <template v-else>
+              <n-button type="primary" @click="handleSave" :loading="saving">保存</n-button>
+              <n-button @click="cancelEdit">取消</n-button>
+            </template>
+          </n-space>
+          <n-grid :cols="2" :x-gap="16">
           <n-gi>
             <n-card title="设备信息" size="small">
-              <n-descriptions label-placement="left" :column="1" bordered>
+              <n-descriptions v-if="!editing" label-placement="left" :column="1" bordered>
                 <n-descriptions-item label="设备ID">{{ device?.device_id }}</n-descriptions-item>
+                <n-descriptions-item label="名称">{{ device?.name }}</n-descriptions-item>
                 <n-descriptions-item label="协议">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-descriptions-item>
                 <n-descriptions-item label="状态">
                   <n-tag :type="statusColor[device?.status ?? ''] || 'default'" size="small">{{ device?.status }}</n-tag>
@@ -25,19 +34,29 @@
                 <n-descriptions-item label="创建时间">{{ device?.created_at }}</n-descriptions-item>
                 <n-descriptions-item label="更新时间">{{ device?.updated_at }}</n-descriptions-item>
               </n-descriptions>
+              <n-form v-else :model="editForm" label-placement="left" label-width="80">
+                <n-form-item label="名称"><n-input v-model:value="editForm.name" /></n-form-item>
+                <n-form-item label="采集间隔"><n-input-number v-model:value="editForm.collect_interval" :min="1" :max="3600" /></n-form-item>
+              </n-form>
             </n-card>
           </n-gi>
           <n-gi>
             <n-card title="连接配置" size="small">
-              <n-descriptions label-placement="left" :column="1" bordered>
+              <n-descriptions v-if="!editing" label-placement="left" :column="1" bordered>
                 <n-descriptions-item v-for="(val, key) in device?.config" :key="key" :label="String(key)">
                   <n-text v-if="key === 'password' || key === 'token'">••••••</n-text>
                   <n-text v-else>{{ val }}</n-text>
                 </n-descriptions-item>
               </n-descriptions>
+              <n-form v-else :model="editForm" label-placement="left" label-width="80">
+                <n-form-item v-for="(_, key) in editForm.config" :key="key" :label="String(key)">
+                  <n-input v-model:value="editForm.config[key]" :type="key === 'password' || key === 'token' ? 'password' : 'text'" />
+                </n-form-item>
+              </n-form>
             </n-card>
           </n-gi>
         </n-grid>
+        </n-space>
       </n-tab-pane>
 
       <!-- 测点定义 -->
@@ -92,9 +111,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, h, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NInput, NSpace, NTag, NText, useMessage } from 'naive-ui'
+import { NButton, NInput, NInputNumber, NSpace, NTag, NText, useMessage } from 'naive-ui'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } from 'echarts/components'
@@ -119,7 +138,11 @@ const chartPoint = ref('')
 const chartRange = ref('-1h')
 const chartLoading = ref(false)
 const chartData = ref<{ time: string; value: number }[]>([])
+const editing = ref(false)
+const saving = ref(false)
+const editForm = reactive({ name: '', collect_interval: 5, config: {} as Record<string, any> })
 let ws: WebSocket | null = null
+let wsReconnectTimer: number | null = null
 
 const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 const protocolLabel: Record<string, string> = {
@@ -211,6 +234,30 @@ const chartOption = computed(() => ({
   }],
 }))
 
+function startEdit() {
+  if (!device.value) return
+  editForm.name = device.value.name
+  editForm.collect_interval = device.value.collect_interval
+  editForm.config = { ...device.value.config }
+  editing.value = true
+}
+
+function cancelEdit() { editing.value = false }
+
+async function handleSave() {
+  saving.value = true
+  try {
+    await deviceApi.update(deviceId.value, { name: editForm.name, collect_interval: editForm.collect_interval, config: editForm.config })
+    message.success('设备更新成功')
+    editing.value = false
+    fetchDevice()
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '更新失败')
+  } finally {
+    saving.value = false
+  }
+}
+
 async function fetchDevice() {
   try {
     device.value = await deviceApi.get(deviceId.value)
@@ -275,7 +322,13 @@ function toggleWS(val: boolean) {
         console.warn('WebSocket消息解析失败:', err)
       }
     }
-    ws.onclose = () => { wsConnected.value = false }
+    ws.onclose = () => {
+      wsConnected.value = false
+      if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+      wsReconnectTimer = window.setTimeout(() => {
+        if (!wsConnected.value) toggleWS(true)
+      }, 5000)
+    }
     ws.onerror = () => { wsConnected.value = false; message.error('WebSocket 连接失败') }
   } else {
     ws?.close()
@@ -286,4 +339,12 @@ function toggleWS(val: boolean) {
 
 onMounted(() => { fetchDevice(); fetchPoints() })
 onUnmounted(() => { ws?.close() })
+
+watch(deviceId, () => {
+  ws?.close()
+  ws = null
+  wsConnected.value = false
+  fetchDevice()
+  fetchPoints()
+})
 </script>

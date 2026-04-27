@@ -105,6 +105,8 @@ http.interceptors.response.use(
         return http(originalRequest)
       } catch (refreshError) {
         isRefreshing = false
+        refreshSubscribers.forEach(cb => cb(''))
+        refreshSubscribers = []
         auth.logout()
         window.location.href = '/login'
         return Promise.reject(refreshError)
