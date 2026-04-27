@@ -42,9 +42,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NForm, NFormItem, NSelect, NInput, NInputNumber, NGrid, NGi, NThing } from 'naive-ui'
-import http from '../../api/http'
+import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NForm, NFormItem, NSelect, NInput, NInputNumber, NGrid, NGi, NThing, useMessage } from 'naive-ui'
+import { platformApi } from '../../api'
 
+const message = useMessage()
 const platforms = ref<any[]>([])
 const supportedPlatforms = ref<any[]>([])
 const loading = ref(false)
@@ -65,12 +66,10 @@ const columns = [
 async function loadPlatforms() {
   loading.value = true
   try {
-    const res = await http.get('/api/v1/platforms/list')
-    if (res.data?.data) {
-      platforms.value = res.data.data.platforms || []
-      supportedPlatforms.value = res.data.data.supported || []
-    }
-  } catch (e) { console.error('加载平台列表失败:', e) }
+    const data = await platformApi.list()
+    platforms.value = data?.platforms || []
+    supportedPlatforms.value = data?.supported || []
+  } catch (e) { message.error('加载平台列表失败') }
   finally { loading.value = false }
 }
 
@@ -78,32 +77,34 @@ async function selectPlatform(p: any) {
   formData.value.platform_name = p.name
   formData.value.config = {}
   try {
-    const res = await http.get(`/api/v1/platforms/config-schema/${p.name}`)
-    if (res.data?.data?.schema?.fields) {
-      platformFields.value = res.data.data.schema.fields
+    const data = await platformApi.configSchema(p.name)
+    if (data?.schema?.fields) {
+      platformFields.value = data.schema.fields
       for (const f of platformFields.value) {
         formData.value.config[f.name] = f.default ?? null
       }
     }
-  } catch (e) { console.error('获取配置模板失败:', e) }
+  } catch (e) { message.error('获取配置模板失败') }
   showAddModal.value = true
 }
 
 async function connectPlatform() {
   connecting.value = true
   try {
-    await http.post(`/api/v1/platforms/connect/${formData.value.platform_name}`, formData.value.config)
+    await platformApi.connect(formData.value.platform_name, formData.value.config)
     showAddModal.value = false
     await loadPlatforms()
-  } catch (e) { console.error('连接失败:', e) }
+    message.success('平台连接成功')
+  } catch (e) { message.error('连接失败') }
   finally { connecting.value = false }
 }
 
 async function disconnectPlatform(name: string) {
   try {
-    await http.post(`/api/v1/platforms/disconnect/${name}`)
+    await platformApi.disconnect(name)
     await loadPlatforms()
-  } catch (e) { console.error('断开失败:', e) }
+    message.success('已断开')
+  } catch (e) { message.error('断开失败') }
 }
 
 onMounted(() => { loadPlatforms() })

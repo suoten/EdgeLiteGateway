@@ -51,9 +51,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode } from 'naive-ui'
-import http from '../../api/http'
+import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, useMessage } from 'naive-ui'
+import { expressionApi } from '../../api'
 
+const message = useMessage()
 const expression = ref('')
 const variables = ref<{ key: string; value: string }[]>([])
 const evaluating = ref(false)
@@ -85,11 +86,9 @@ async function evaluate() {
   evaluating.value = true
   result.value = null
   try {
-    const res = await http.post('/api/v1/expressions/evaluate', { expression: expression.value, variables: buildVarMap() })
-    if (res.data?.data) {
-      result.value = String(res.data.data.result ?? 'null')
-      resultValid.value = true
-    }
+    const data = await expressionApi.evaluate(expression.value, buildVarMap())
+    result.value = String(data?.result ?? 'null')
+    resultValid.value = true
   } catch (e: any) {
     result.value = e.response?.data?.detail || '计算失败'
     resultValid.value = false
@@ -98,10 +97,10 @@ async function evaluate() {
 
 async function validate() {
   try {
-    const res = await http.post('/api/v1/expressions/validate', { expression: expression.value, variables: buildVarMap() })
-    if (res.data?.data) {
-      result.value = res.data.data.valid ? '语法正确 ✓' : `语法错误: ${res.data.data.error}`
-      resultValid.value = res.data.data.valid
+    const data = await expressionApi.validate(expression.value, buildVarMap())
+    if (data) {
+      result.value = data.valid ? '语法正确 ✓' : `语法错误: ${data.error}`
+      resultValid.value = data.valid
     }
   } catch (e: any) {
     result.value = e.response?.data?.detail || '验证失败'
@@ -112,8 +111,8 @@ async function validate() {
 async function evaluateBatch() {
   try {
     const exprs = JSON.parse(batchExpr.value)
-    const res = await http.post('/api/v1/expressions/evaluate-batch', { expressions: exprs, variables: buildVarMap() })
-    if (res.data?.data) batchResult.value = JSON.stringify(res.data.data.results, null, 2)
+    const data = await expressionApi.evaluateBatch(exprs, buildVarMap())
+    batchResult.value = JSON.stringify(data?.results, null, 2)
   } catch (e: any) {
     batchResult.value = '错误: ' + (e.response?.data?.detail || e.message)
   }
@@ -121,12 +120,10 @@ async function evaluateBatch() {
 
 async function loadFunctions() {
   try {
-    const res = await http.get('/api/v1/expressions/functions')
-    if (res.data?.data) {
-      functions.value = res.data.data.functions || []
-      operators.value = res.data.data.operators || []
-    }
-  } catch (e) { console.error('加载函数列表失败:', e) }
+    const data = await expressionApi.functions()
+    functions.value = data?.functions || []
+    operators.value = data?.operators || []
+  } catch (e) { message.error('加载函数列表失败') }
 }
 
 onMounted(() => { loadFunctions() })

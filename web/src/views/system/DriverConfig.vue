@@ -45,9 +45,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NEmpty, NSpin } from 'naive-ui'
-import http from '../../api/http'
+import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NEmpty, NSpin, useMessage } from 'naive-ui'
+import { driverApi } from '../../api'
 
+const message = useMessage()
 const drivers = ref<any[]>([])
 const loading = ref(false)
 const showSchemaModal = ref(false)
@@ -70,17 +71,17 @@ const columns = [
 async function loadDrivers() {
   loading.value = true
   try {
-    const res = await http.get('/api/v1/drivers/list')
-    if (res.data?.data) drivers.value = res.data.data.drivers || []
-  } catch (e) { console.error('加载驱动列表失败:', e) }
+    const data = await driverApi.list()
+    drivers.value = data?.drivers || []
+  } catch (e) { message.error('加载驱动列表失败') }
   finally { loading.value = false }
 }
 
 async function viewSchema(name: string) {
   try {
-    const res = await http.get(`/api/v1/drivers/${name}/config-schema`)
-    if (res.data?.data) { currentSchema.value = res.data.data.schema; showSchemaModal.value = true }
-  } catch (e) { console.error('获取配置模板失败:', e) }
+    const data = await driverApi.configSchema(name)
+    if (data) { currentSchema.value = data.schema; showSchemaModal.value = true }
+  } catch (e) { message.error('获取配置模板失败') }
 }
 
 function startDiscover(name: string) {
@@ -92,9 +93,9 @@ function startDiscover(name: string) {
 async function doDiscover() {
   discovering.value = true
   try {
-    const res = await http.post(`/api/v1/drivers/${currentDriverName.value}/discover`, {})
-    if (res.data?.data) discoveredDevices.value = res.data.data.devices || []
-  } catch (e) { console.error('设备发现失败:', e) }
+    const data = await driverApi.discover(currentDriverName.value)
+    discoveredDevices.value = data?.devices || []
+  } catch (e) { message.error('设备发现失败') }
   finally { discovering.value = false }
 }
 

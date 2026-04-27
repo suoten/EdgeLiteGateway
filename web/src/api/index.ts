@@ -246,3 +246,70 @@ export const userApi = {
   delete: (id: string) =>
     http.delete(`/users/${id}`),
 }
+
+// ─── 审计日志 ───
+
+export const auditApi = {
+  list: (params?: { page?: number; size?: number; user_id?: string; action?: string; start_time?: string; end_time?: string }) =>
+    http.get<ApiResponse<{ logs: any[]; total: number }>>('/audit/logs', { params }).then((r) => r.data.data),
+
+  integrity: () =>
+    http.get<ApiResponse<{ valid: boolean; total: number; broken_at: number[] }>>('/audit/integrity').then((r) => r.data.data),
+
+  exportCsv: (params?: { start_time?: string; end_time?: string }) =>
+    http.get<ApiResponse<{ content: string }>>('/audit/export/csv', { params }).then((r) => r.data.data),
+
+  cleanup: (retentionDays: number = 90) =>
+    http.post<ApiResponse<{ deleted: number }>>('/audit/cleanup', null, { params: { retention_days: retentionDays } }).then((r) => r.data.data),
+}
+
+// ─── 驱动配置 ───
+
+export const driverApi = {
+  list: () =>
+    http.get<ApiResponse<{ drivers: any[]; total: number }>>('/drivers/list').then((r) => r.data.data),
+
+  protocols: () =>
+    http.get<ApiResponse<{ protocols: string[] }>>('/drivers/protocols').then((r) => r.data.data),
+
+  configSchema: (driverName: string) =>
+    http.get<ApiResponse<{ driver_name: string; schema: any }>>(`/drivers/${driverName}/config-schema`).then((r) => r.data.data),
+
+  discover: (driverName: string, config?: Record<string, any>) =>
+    http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, config || {}).then((r) => r.data.data),
+}
+
+// ─── 平台对接 ───
+
+export const platformApi = {
+  list: () =>
+    http.get<ApiResponse<{ platforms: any[]; supported: any[] }>>('/platforms/list').then((r) => r.data.data),
+
+  configSchema: (platformName: string) =>
+    http.get<ApiResponse<{ platform_name: string; schema: any }>>(`/platforms/config-schema/${platformName}`).then((r) => r.data.data),
+
+  connect: (platformName: string, config: Record<string, any>) =>
+    http.post<ApiResponse<{ status: string }>>(`/platforms/connect/${platformName}`, config).then((r) => r.data.data),
+
+  disconnect: (platformName: string) =>
+    http.post<ApiResponse<{ status: string }>>(`/platforms/disconnect/${platformName}`).then((r) => r.data.data),
+
+  status: (platformName: string) =>
+    http.get<ApiResponse<{ connected: boolean; name: string; version: string }>>(`/platforms/status/${platformName}`).then((r) => r.data.data),
+}
+
+// ─── 计算表达式 ───
+
+export const expressionApi = {
+  evaluate: (expression: string, variables?: Record<string, any>) =>
+    http.post<ApiResponse<{ expression: string; result: any }>>('/expressions/evaluate', { expression, variables }).then((r) => r.data.data),
+
+  evaluateBatch: (expressions: Record<string, string>, variables?: Record<string, any>) =>
+    http.post<ApiResponse<{ results: Record<string, any> }>>('/expressions/evaluate-batch', { expressions, variables }).then((r) => r.data.data),
+
+  validate: (expression: string, variables?: Record<string, any>) =>
+    http.post<ApiResponse<{ valid: boolean; expression: string; error?: string }>>('/expressions/validate', { expression, variables }).then((r) => r.data.data),
+
+  functions: () =>
+    http.get<ApiResponse<{ functions: any[]; operators: any[] }>>('/expressions/functions').then((r) => r.data.data),
+}

@@ -335,6 +335,17 @@ EdgeLiteGateway/
 │   ├── notify/             # 告警通知渠道（钉钉/邮件/企微/Webhook）
 │   └── _cython/            # Cython 加速模块（可选）
 ├── web/                    # 前端源码（Vue 3 + Naive UI）
+│   └── src/
+│       ├── api/index.ts    #   API 封装层（统一 HTTP 调用入口）
+│       ├── views/
+│       │   ├── system/
+│       │   │   ├── DriverConfig.vue     #   驱动配置页
+│       │   │   ├── PlatformConfig.vue   #   平台对接配置页
+│       │   │   └── ExpressionConfig.vue #   表达式编辑器页
+│       │   ├── audit/AuditLog.vue       #   审计日志页（含清理/导出/校验）
+│       │   ├── digital-twin/DigitalTwin.vue # 3D数字孪生页
+│       │   └── scada/ScadaEditor.vue    #   Web组态编辑器页
+│       └── ...
 ├── configs/                # 配置文件
 ├── docker/                 # Docker 配置
 ├── nginx/                  # Nginx 反向代理配置 + 宝塔部署指南

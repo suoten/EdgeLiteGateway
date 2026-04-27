@@ -8,23 +8,34 @@
           <n-button type="primary" @click="loadLogs">查询</n-button>
           <n-button @click="exportCSV">导出CSV</n-button>
           <n-button @click="verifyIntegrity">完整性校验</n-button>
+          <n-button type="warning" @click="showCleanupModal = true">清理日志</n-button>
         </n-space>
       </template>
       <n-data-table :columns="columns" :data="logs" :pagination="pagination" :loading="loading" />
     </n-card>
+
+    <n-modal v-model:show="showCleanupModal" preset="dialog" title="清理过期审计日志" positive-text="确认清理" negative-text="取消" @positive-click="doCleanup">
+      <n-form-item label="保留天数">
+        <n-input-number v-model:value="retentionDays" :min="1" :max="3650" />
+      </n-form-item>
+      <p style="color: #999; font-size: 13px">将删除超过保留天数的审计日志记录，此操作不可恢复。</p>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
-import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag } from 'naive-ui'
-import http from '../../api/http'
+import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, useMessage } from 'naive-ui'
+import { auditApi } from '../../api'
 
+const message = useMessage()
 const logs = ref<any[]>([])
 const loading = ref(false)
 const filterAction = ref(null)
 const timeRange = ref<[number, number] | null>(null)
 const pagination = ref({ page: 1, pageSize: 20, itemCount: 0 })
+const showCleanupModal = ref(false)
+const retentionDays = ref(90)
 
 const actionOptions = [
   { label: '登录', value: 'login' },
@@ -46,11 +57,11 @@ const actionOptions = [
 const columns = [
   { title: '时间', key: 'timestamp', width: 180 },
   { title: '用户', key: 'username', width: 100 },
-  { title: '操作', key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, { default: () => row.action }) },
+  { title: '操作', key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, () => row.action) },
   { title: '资源类型', key: 'resource_type', width: 100 },
   { title: '资源ID', key: 'resource_id', width: 120 },
   { title: 'IP地址', key: 'ip_address', width: 130 },
-  { title: '状态', key: 'status', width: 80, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'warning' }, { default: () => row.status }) },
+  { title: '状态', key: 'status', width: 80, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'warning' }, () => row.status) },
   { title: '详情', key: 'details', ellipsis: { tooltip: true } },
 ]
 
@@ -63,16 +74,12 @@ async function loadLogs() {
       params.start_time = new Date(timeRange.value[0]).toISOString()
       params.end_time = new Date(timeRange.value[1]).toISOString()
     }
-    const res = await http.get('/api/v1/audit/logs', { params })
-    if (res.data?.data) {
-      logs.value = res.data.data.logs || []
-      pagination.value.itemCount = res.data.data.total || 0
-    }
+    const data = await auditApi.list(params)
+    logs.value = data?.logs || []
+    pagination.value.itemCount = data?.total || 0
   } catch (e) {
-    console.error('加载审计日志失败:', e)
-  } finally {
-    loading.value = false
-  }
+    message.error('加载审计日志失败')
+  } finally { loading.value = false }
 }
 
 async function exportCSV() {
@@ -83,29 +90,33 @@ async function exportCSV() {
       params.start_time = new Date(timeRange.value[0]).toISOString()
       params.end_time = new Date(timeRange.value[1]).toISOString()
     }
-    const res = await http.get('/api/v1/audit/export/csv', { params })
-    if (res.data?.data?.content) {
-      const blob = new Blob([res.data.data.content], { type: 'text/csv' })
+    const data = await auditApi.exportCsv(params)
+    if (data?.content) {
+      const blob = new Blob([data.content], { type: 'text/csv' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url; a.download = 'audit_logs.csv'; a.click()
       URL.revokeObjectURL(url)
     }
-  } catch (e) {
-    console.error('导出失败:', e)
-  }
+  } catch (e) { message.error('导出失败') }
 }
 
 async function verifyIntegrity() {
   try {
-    const res = await http.get('/api/v1/audit/integrity')
-    if (res.data?.data) {
-      const { valid, total, broken_at } = res.data.data
-      alert(`完整性校验: ${valid ? '通过' : '未通过'}\n总记录: ${total}\n断裂位置: ${broken_at.length ? broken_at.join(', ') : '无'}`)
+    const data = await auditApi.integrity()
+    if (data) {
+      const msg = `完整性校验: ${data.valid ? '通过 ✓' : '未通过 ✗'}\n总记录: ${data.total}\n断裂位置: ${data.broken_at?.length ? data.broken_at.join(', ') : '无'}`
+      alert(msg)
     }
-  } catch (e) {
-    console.error('校验失败:', e)
-  }
+  } catch (e) { message.error('校验失败') }
+}
+
+async function doCleanup() {
+  try {
+    const data = await auditApi.cleanup(retentionDays.value)
+    message.success(`已清理 ${data?.deleted ?? 0} 条过期日志`)
+    await loadLogs()
+  } catch (e) { message.error('清理失败') }
 }
 
 onMounted(() => { loadLogs() })
