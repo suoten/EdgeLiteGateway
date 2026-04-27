@@ -42,56 +42,33 @@
         <!-- 协议专业配置 -->
         <n-divider>连接配置</n-divider>
         <n-grid :cols="2" :x-gap="16">
-          <n-gi v-if="createForm.protocol === 'modbus_tcp'">
-            <n-form-item label="主机"><n-input v-model:value="createForm.config.host" placeholder="192.168.1.100" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'modbus_tcp'">
-            <n-form-item label="端口"><n-input-number v-model:value="createForm.config.port" :min="1" :max="65535" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'modbus_tcp'">
-            <n-form-item label="Unit ID"><n-input-number v-model:value="createForm.config.unit_id" :min="0" :max="255" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'modbus_tcp'">
-            <n-form-item label="超时(ms)"><n-input-number v-model:value="createForm.config.timeout" :min="100" :max="30000" /></n-form-item>
-          </n-gi>
-
-          <n-gi v-if="createForm.protocol === 'opcua'">
-            <n-form-item label="端点URL"><n-input v-model:value="createForm.config.endpoint" placeholder="opc.tcp://192.168.1.100:4840" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'opcua'">
-            <n-form-item label="安全模式">
-              <n-select v-model:value="createForm.config.security_mode" :options="opcuaSecurityOptions" />
-            </n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'opcua'">
-            <n-form-item label="用户名"><n-input v-model:value="createForm.config.username" placeholder="匿名留空" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'opcua'">
-            <n-form-item label="密码"><n-input v-model:value="createForm.config.password" type="password" /></n-form-item>
-          </n-gi>
-
-          <n-gi v-if="createForm.protocol === 'mqtt'">
-            <n-form-item label="Broker"><n-input v-model:value="createForm.config.broker" placeholder="localhost" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'mqtt'">
-            <n-form-item label="端口"><n-input-number v-model:value="createForm.config.port" :min="1" :max="65535" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'mqtt'">
-            <n-form-item label="订阅主题"><n-input v-model:value="createForm.config.topic" placeholder="device/data/+" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'mqtt'">
-            <n-form-item label="QoS">
-              <n-select v-model:value="createForm.config.qos" :options="mqttQosOptions" />
-            </n-form-item>
-          </n-gi>
-
-          <n-gi v-if="createForm.protocol === 'http'">
-            <n-form-item label="Webhook路径"><n-input v-model:value="createForm.config.path" placeholder="/push" /></n-form-item>
-          </n-gi>
-          <n-gi v-if="createForm.protocol === 'http'">
-            <n-form-item label="数据格式">
-              <n-select v-model:value="createForm.config.format" :options="httpFormatOptions" />
-            </n-form-item>
+          <template v-for="field in currentProtocolFields" :key="field.name">
+            <n-gi>
+              <n-form-item :label="field.label || field.name" :path="'config.' + field.name">
+                <n-select
+                  v-if="field.options"
+                  v-model:value="createForm.config[field.name]"
+                  :options="field.options.map((o: any) => ({ label: String(o), value: o }))"
+                  :placeholder="field.description || ''"
+                />
+                <n-input-number
+                  v-else-if="field.type === 'integer' || field.type === 'number'"
+                  v-model:value="createForm.config[field.name]"
+                  :placeholder="field.description || ''"
+                  :min="field.name === 'port' ? 1 : undefined"
+                  :max="field.name === 'port' ? 65535 : undefined"
+                />
+                <n-input
+                  v-else
+                  v-model:value="createForm.config[field.name]"
+                  :type="field.secret ? 'password' : 'text'"
+                  :placeholder="field.description || field.default?.toString() || ''"
+                />
+              </n-form-item>
+            </n-gi>
+          </template>
+          <n-gi v-if="currentProtocolFields.length === 0">
+            <n-text depth="3">该协议无需额外连接配置</n-text>
           </n-gi>
         </n-grid>
 
@@ -147,7 +124,7 @@
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NTag, NSpace, NTooltip, useMessage, useDialog } from 'naive-ui'
-import { deviceApi, type Device } from '@/api'
+import { deviceApi, driverApi, type Device } from '@/api'
 
 const router = useRouter()
 const message = useMessage()
@@ -183,8 +160,20 @@ const statusOptions = [
 const protocolOptions = [
   { label: 'Modbus TCP', value: 'modbus_tcp' },
   { label: 'OPC-UA', value: 'opcua' },
-  { label: 'MQTT', value: 'mqtt' },
-  { label: 'HTTP', value: 'http' },
+  { label: 'MQTT Client', value: 'mqtt' },
+  { label: 'HTTP Webhook', value: 'http' },
+  { label: '西门子 S7', value: 's7' },
+  { label: '三菱 MC', value: 'mc' },
+  { label: '欧姆龙 FINS', value: 'fins' },
+  { label: 'Allen Bradley', value: 'allen_bradley' },
+  { label: 'OPC DA', value: 'opc_da' },
+  { label: 'FANUC CNC', value: 'fanuc' },
+  { label: 'MTConnect', value: 'mtconnect' },
+  { label: '托利多', value: 'toledo' },
+  { label: 'BACnet', value: 'bacnet' },
+  { label: '串口设备', value: 'serial_port' },
+  { label: '数据库接入', value: 'database_source' },
+  { label: '扫码枪', value: 'barcode_scanner' },
   { label: '模拟器', value: 'simulator' },
   { label: '视频', value: 'video' },
 ]
@@ -198,12 +187,6 @@ const dataTypeOptions = [
   { label: 'STRING', value: 'string' },
 ]
 
-const accessModeOptions = [
-  { label: '只读', value: 'r' },
-  { label: '只写', value: 'w' },
-  { label: '读写', value: 'rw' },
-]
-
 const simModeOptions = [
   { label: '正弦波', value: 'sine' },
   { label: '随机游走', value: 'random_walk' },
@@ -211,24 +194,19 @@ const simModeOptions = [
   { label: '固定值', value: 'fixed' },
 ]
 
-const opcuaSecurityOptions = [
-  { label: 'None', value: 'None' },
-  { label: 'Sign', value: 'Sign' },
-  { label: 'SignAndEncrypt', value: 'SignAndEncrypt' },
+const accessModeOptions = [
+  { label: '只读', value: 'r' },
+  { label: '只写', value: 'w' },
+  { label: '读写', value: 'rw' },
 ]
 
-const mqttQosOptions = [
-  { label: 'QoS 0 (最多一次)', value: 0 },
-  { label: 'QoS 1 (至少一次)', value: 1 },
-  { label: 'QoS 2 (恰好一次)', value: 2 },
-]
-
-const httpFormatOptions = [
-  { label: 'JSON', value: 'json' },
-  { label: 'Form', value: 'form' },
-]
-
-const protocolLabel: Record<string, string> = { modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP', simulator: 'Simulator', video: 'Video' }
+const protocolLabel: Record<string, string> = {
+  modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
+  simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
+  allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
+  toledo: 'Toledo', bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB',
+  barcode_scanner: 'Scanner',
+}
 const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 
 const columns = [
@@ -265,16 +243,49 @@ const createRules = {
   protocol: { required: true, message: '请选择协议', trigger: 'change' },
 }
 
+const driverSchemas = ref<Record<string, any>>({})
+
+const currentProtocolFields = computed(() => {
+  const schema = driverSchemas.value[createForm.protocol]
+  return schema?.fields || []
+})
+
+async function loadDriverSchemas() {
+  try {
+    const protocols = ['modbus_tcp', 'opcua', 's7', 'bacnet', 'serial_port', 'database_source', 'barcode_scanner', 'mqtt', 'http']
+    for (const p of protocols) {
+      try {
+        const data = await driverApi.configSchema(p)
+        if (data?.schema) driverSchemas.value[p] = data.schema
+      } catch { /* skip */ }
+    }
+  } catch { /* ignore */ }
+}
+
 const defaultConfig: Record<string, any> = {
-  modbus_tcp: { host: '192.168.1.100', port: 502, unit_id: 1, timeout: 3000 },
+  modbus_tcp: { host: '192.168.1.100', port: 502, slave_id: 1, timeout: 3.0 },
   opcua: { endpoint: 'opc.tcp://localhost:4840', security_mode: 'None', username: '', password: '' },
-  mqtt: { broker: 'localhost', port: 1883, topic: 'device/data/+', qos: 0, username: '', password: '' },
-  http: { path: '/push', format: 'json' },
+  mqtt: { broker: 'localhost', port: 1883, topic: 'device/data/+', username: '', password: '' },
+  http: { path: '/webhook/data', method: 'POST' },
+  s7: { host: '192.168.1.1', rack: 0, slot: 1 },
+  bacnet: { ip: '', port: 47808, device_id: '', subnet: '' },
+  serial_port: { port: 'COM1', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, protocol: 'raw' },
+  database_source: { db_type: 'mysql', host: 'localhost', port: 3306, database: '', username: '', password: '' },
+  barcode_scanner: { port: 'COM1', baudrate: 9600, prefix: '', suffix: '\\r' },
   video: { endpoint: '', api_key: '' },
 }
 
 function onProtocolChange(val: string) {
-  createForm.config = { ...(defaultConfig[val] || {}) }
+  const schema = driverSchemas.value[val]
+  if (schema?.fields) {
+    const config: Record<string, any> = {}
+    for (const field of schema.fields) {
+      config[field.name] = field.default !== undefined ? field.default : ''
+    }
+    createForm.config = config
+  } else {
+    createForm.config = { ...(defaultConfig[val] || {}) }
+  }
 }
 
 const createForm = reactive({
@@ -372,5 +383,5 @@ function handleDelete(row: Device) {
   })
 }
 
-onMounted(fetchDevices)
+onMounted(() => { fetchDevices(); loadDriverSchemas() })
 </script>

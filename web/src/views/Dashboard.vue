@@ -105,12 +105,8 @@
         </n-descriptions-item>
         <n-descriptions-item label="版本">{{ status?.version ?? '-' }}</n-descriptions-item>
         <n-descriptions-item label="协议支持">
-          <n-space>
-            <n-tag size="small" type="info">Modbus TCP</n-tag>
-            <n-tag size="small" type="info">OPC-UA</n-tag>
-            <n-tag size="small" type="info">MQTT</n-tag>
-            <n-tag size="small" type="info">HTTP</n-tag>
-            <n-tag size="small" type="info">Simulator</n-tag>
+          <n-space :size="6">
+            <n-tag v-for="p in supportedProtocols" :key="p" size="small" type="info">{{ p }}</n-tag>
           </n-space>
         </n-descriptions-item>
       </n-descriptions>
@@ -126,13 +122,14 @@ import { PieChart, LineChart, BarChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-import { systemApi, deviceApi, alarmApi, type SystemStatus } from '@/api'
+import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/api'
 
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
 
 const status = ref<SystemStatus | null>(null)
 const devices = ref<any[]>([])
 const alarms = ref<any[]>([])
+const supportedProtocols = ref<string[]>([])
 const resourceHistory = ref<{ time: string; cpu: number; mem: number }[]>([])
 let timer: number | null = null
 
@@ -259,6 +256,16 @@ async function fetchStatus() {
   }
 }
 
+async function fetchProtocols() {
+  try {
+    const data = await driverApi.list()
+    const drivers = data?.drivers || []
+    supportedProtocols.value = drivers.flatMap((d: any) => d.protocols || [])
+  } catch {
+    supportedProtocols.value = ['Modbus TCP', 'OPC-UA', 'MQTT', 'HTTP', 'Simulator']
+  }
+}
+
 async function fetchDevices() {
   try {
     const data = await deviceApi.list({ page: 1, size: 100 })
@@ -296,7 +303,7 @@ function formatBytes(bytes?: number) {
 }
 
 onMounted(() => {
-  fetchStatus(); fetchDevices(); fetchAlarms()
+  fetchStatus(); fetchDevices(); fetchAlarms(); fetchProtocols()
   timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
 })
 onUnmounted(() => { if (timer) clearInterval(timer) })
