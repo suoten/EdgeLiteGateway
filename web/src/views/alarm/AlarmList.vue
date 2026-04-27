@@ -78,9 +78,10 @@ async function fetchAlarms() {
       status: filterStatus.value ?? undefined,
       severity: filterSeverity.value ?? undefined,
     })
-    alarms.value = data.data
+    alarms.value = data?.data ?? []
     pagination.itemCount = data.total
   } catch (e: any) {
+    alarms.value = []
     message.error(e?.message || '获取告警列表失败')
   } finally {
     loading.value = false

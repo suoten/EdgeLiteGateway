@@ -295,9 +295,10 @@ async function fetchDevices() {
       page: pagination.page, size: pagination.pageSize,
       status: filterStatus.value ?? undefined, protocol: filterProtocol.value ?? undefined,
     })
-    devices.value = data.data
+    devices.value = data?.data ?? []
     pagination.itemCount = data.total
   } catch (e: any) {
+    devices.value = []
     message.error(e?.message || '获取设备列表失败')
   } finally {
     loading.value = false

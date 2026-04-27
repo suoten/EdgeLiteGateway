@@ -137,9 +137,10 @@ async function fetchRules() {
   loading.value = true
   try {
     const data = await ruleApi.list({ page: pagination.page, size: pagination.pageSize })
-    rules.value = data.data
+    rules.value = data?.data ?? []
     pagination.itemCount = data.total
   } catch (e: any) {
+    rules.value = []
     message.error(e?.message || '获取规则列表失败')
   } finally {
     loading.value = false
@@ -148,10 +149,14 @@ async function fetchRules() {
 
 async function fetchDevices() {
   try {
-    const data = await deviceApi.list({ page: 1, size: 1000 })
-    devices.value = data.data
-    deviceOptions.value = data.data.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))
-  } catch {}
+    const data = await deviceApi.list({ page: 1, size: 100 })
+    const devs = data?.data ?? []
+    devices.value = devs
+    deviceOptions.value = devs.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))
+  } catch {
+    devices.value = []
+    deviceOptions.value = []
+  }
 }
 
 async function handleCreate() {
