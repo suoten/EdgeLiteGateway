@@ -28,9 +28,20 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """更新用户请求"""
 
-    password: str | None = Field(default=None, min_length=8, max_length=72, pattern=r"^(?=.*[a-zA-Z])(?=.*\d).+$")
+    password: str | None = Field(default=None, min_length=8, max_length=72)
     role: Literal["admin", "operator", "viewer"] | None = None
     enabled: bool | None = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not re.search(r"[a-zA-Z]", v):
+            raise ValueError("密码必须包含字母")
+        if not re.search(r"\d", v):
+            raise ValueError("密码必须包含数字")
+        return v
 
 
 class UserResponse(BaseModel):
