@@ -22,7 +22,7 @@ def _get_audit_service():
 async def query_audit_logs(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=1000),
     user_id: str | None = None,
     action: str | None = None,
     resource_type: str | None = None,

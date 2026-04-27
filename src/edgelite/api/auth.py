@@ -38,7 +38,7 @@ def _record_login_attempt(ip: str) -> None:
 
 def _get_user_repo() -> UserRepo:
     from edgelite.app import _app_state
-    return UserRepo(_app_state.db_conn)
+    return UserRepo(_app_state.db_conn, getattr(_app_state, 'write_lock', None))
 
 
 @router.post("/login", response_model=ApiResponse[TokenResponse])

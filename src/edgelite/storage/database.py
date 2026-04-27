@@ -13,7 +13,7 @@ _TABLES = """
 CREATE TABLE IF NOT EXISTS devices (
     device_id   TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
-    protocol    TEXT NOT NULL CHECK(protocol IN ('modbus_tcp','modbus_rtu','opcua','mqtt','http','simulator','video')),
+    protocol    TEXT NOT NULL CHECK(protocol IN ('modbus_tcp','modbus_rtu','opcua','opc_da','mqtt','mqtt_client','http','http_webhook','simulator','video','s7','mc','fins','allen_bradley','fanuc','mtconnect','toledo','bacnet','serial_port','database_source','barcode_scanner')),
     status      TEXT NOT NULL DEFAULT 'offline' CHECK(status IN ('online','offline','unknown')),
     config      TEXT NOT NULL,
     points      TEXT NOT NULL,
@@ -62,14 +62,20 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    TEXT NOT NULL,
-    action     TEXT NOT NULL,
-    resource   TEXT NOT NULL,
-    resource_id TEXT,
-    detail     TEXT,
-    result     TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp     TEXT NOT NULL DEFAULT (datetime('now')),
+    user_id       TEXT NOT NULL,
+    username      TEXT,
+    action        TEXT NOT NULL,
+    resource_type TEXT,
+    resource_id   TEXT,
+    ip_address    TEXT,
+    user_agent    TEXT,
+    details       TEXT,
+    status        TEXT NOT NULL DEFAULT 'success',
+    error_message TEXT,
+    prev_hash     TEXT,
+    record_hash   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(created_at);

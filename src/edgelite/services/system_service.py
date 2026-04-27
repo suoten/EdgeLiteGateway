@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,7 +48,7 @@ class SystemService:
         loop = asyncio.get_event_loop()
         cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
         memory = await loop.run_in_executor(None, psutil.virtual_memory)
-        disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("/"))
+        disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/"))
 
         # 设备统计
         devices, device_total = await self._device_repo.list_all(page=1, size=1)

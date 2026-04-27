@@ -67,6 +67,13 @@ http.interceptors.response.use(
         return Promise.reject(error)
       }
 
+      // 已重试过，直接登出
+      if (originalRequest._retry) {
+        auth.logout()
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
       // 正在刷新中，加入队列等待
       if (isRefreshing) {
         return new Promise((resolve) => {

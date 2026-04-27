@@ -5,6 +5,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.security.rbac import Permission
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/integration", tags=["integration"])
@@ -18,13 +21,18 @@ def _get_integration_endpoint():
 
 
 @router.post("/handshake")
-async def handshake(request: dict[str, Any]):
+async def handshake(
+    request: dict[str, Any],
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
     endpoint = _get_integration_endpoint()
     response = await endpoint.handle_handshake(request)
     return response
 
 
 @router.get("/status")
-async def get_integration_status():
+async def get_integration_status(
+    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+):
     endpoint = _get_integration_endpoint()
     return {"sessions": endpoint.session_count, "session_ids": list(endpoint._sessions.keys())}

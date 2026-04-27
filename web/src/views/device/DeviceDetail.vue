@@ -122,7 +122,13 @@ const chartData = ref<{ time: string; value: number }[]>([])
 let ws: WebSocket | null = null
 
 const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
-const protocolLabel: Record<string, string> = { modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP', simulator: 'Simulator', video: 'Video' }
+const protocolLabel: Record<string, string> = {
+  modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
+  simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
+  allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
+  toledo: 'Toledo', bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB',
+  barcode_scanner: 'Scanner', mqtt_client: 'MQTT Client', http_webhook: 'HTTP Webhook',
+}
 
 const deviceId = computed(() => route.params.id as string)
 
