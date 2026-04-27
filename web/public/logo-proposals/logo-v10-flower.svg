@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="f10a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+    <linearGradient id="f10b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="f10c" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#d946ef"/>
+    </linearGradient>
+    <filter id="f10g" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="64" cy="64" r="58" fill="none" stroke="url(#f10a)" stroke-width="0.5" opacity="0.2"/>
+
+  <!-- 花瓣1 -->
+  <ellipse cx="64" cy="32" rx="14" ry="22" fill="url(#f10a)" opacity="0.85" filter="url(#f10g)"/>
+  <!-- 花瓣2 -->
+  <ellipse cx="90" cy="48" rx="14" ry="22" fill="url(#f10b)" opacity="0.85" filter="url(#f10g)" transform="rotate(60 90 48)"/>
+  <!-- 花瓣3 -->
+  <ellipse cx="82" cy="82" rx="14" ry="22" fill="url(#f10c)" opacity="0.85" filter="url(#f10g)" transform="rotate(120 82 82)"/>
+  <!-- 花瓣4 -->
+  <ellipse cx="46" cy="82" rx="14" ry="22" fill="url(#f10a)" opacity="0.85" filter="url(#f10g)" transform="rotate(180 46 82)"/>
+  <!-- 花瓣5 -->
+  <ellipse cx="38" cy="48" rx="14" ry="22" fill="url(#f10b)" opacity="0.85" filter="url(#f10g)" transform="rotate(240 38 48)"/>
+  <!-- 花瓣6 -->
+  <ellipse cx="64" cy="32" rx="14" ry="22" fill="url(#f10c)" opacity="0.85" filter="url(#f10g)" transform="rotate(300 64 32)"/>
+
+  <!-- 中心圆 -->
+  <circle cx="64" cy="64" r="18" fill="white" opacity="0.95"/>
+  <circle cx="64" cy="64" r="12" fill="url(#f10a)"/>
+  <circle cx="64" cy="64" r="5" fill="white"/>
+
+  <!-- 外围小点 -->
+  <circle cx="64" cy="10" r="3" fill="url(#f10a)"/>
+  <circle cx="112" cy="40" r="3" fill="url(#f10b)"/>
+  <circle cx="100" cy="96" r="3" fill="url(#f10c)"/>
+  <circle cx="28" cy="96" r="3" fill="url(#f10a)"/>
+  <circle cx="16" cy="40" r="3" fill="url(#f10b)"/>
+</svg>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="v5g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="50%" style="stop-color:#312e81"/>
+      <stop offset="100%" style="stop-color:#4338ca"/>
+    </linearGradient>
+    <linearGradient id="v5g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="50%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+    <linearGradient id="v5g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e0e7ff"/>
+      <stop offset="100%" style="stop-color:#c7d2fe"/>
+    </linearGradient>
+    <filter id="v5glow">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 背景深圆 -->
+  <circle cx="64" cy="64" r="60" fill="url(#v5g1)" opacity="0.05"/>
+  <circle cx="64" cy="64" r="60" fill="none" stroke="url(#v5g2)" stroke-width="0.6" opacity="0.3"/>
+  
+  <!-- 外菱形 -->
+  <polygon points="64,10 114,64 64,118 14,64" fill="none" stroke="url(#v5g2)" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
+  
+  <!-- 中菱形 -->
+  <polygon points="64,22 102,64 64,106 26,64" fill="url(#v5g1)" opacity="0.08" stroke="url(#v5g2)" stroke-width="1.2" stroke-linejoin="round"/>
+  
+  <!-- 内菱形 -->
+  <polygon points="64,34 90,64 64,94 38,64" fill="url(#v5g2)" opacity="0.15" filter="url(#v5glow)"/>
+  
+  <!-- 核心菱形 -->
+  <polygon points="64,44 82,64 64,84 46,64" fill="url(#v5g2)" opacity="0.9" filter="url(#v5glow)"/>
+  
+  <!-- 中心E字母 -->
+  <text x="64" y="69" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="800" fill="#1e1b4b">E</text>
+  
+  <!-- 四角装饰 -->
+  <circle cx="64" cy="10" r="4" fill="url(#v5g2)"/>
+  <circle cx="64" cy="10" r="2" fill="white"/>
+  
+  <circle cx="114" cy="64" r="4" fill="url(#v5g2)"/>
+  <circle cx="114" cy="64" r="2" fill="white"/>
+  
+  <circle cx="64" cy="118" r="4" fill="url(#v5g2)"/>
+  <circle cx="64" cy="118" r="2" fill="white"/>
+  
+  <circle cx="14" cy="64" r="4" fill="url(#v5g2)"/>
+  <circle cx="14" cy="64" r="2" fill="white"/>
+  
+  <!-- 十字连接线 -->
+  <line x1="64" y1="14" x2="64" y2="34" stroke="url(#v5g2)" stroke-width="1" opacity="0.5"/>
+  <line x1="110" y1="64" x2="90" y2="64" stroke="url(#v5g2)" stroke-width="1" opacity="0.5"/>
+  <line x1="64" y1="114" x2="64" y2="94" stroke="url(#v5g2)" stroke-width="1" opacity="0.5"/>
+  <line x1="18" y1="64" x2="38" y2="64" stroke="url(#v5g2)" stroke-width="1" opacity="0.5"/>
+  
+  <!-- 对角线装饰 -->
+  <line x1="26" y1="26" x2="38" y2="38" stroke="url(#v5g3)" stroke-width="0.8" opacity="0.3"/>
+  <line x1="102" y1="26" x2="90" y2="38" stroke="url(#v5g3)" stroke-width="0.8" opacity="0.3"/>
+  <line x1="26" y1="102" x2="38" y2="90" stroke="url(#v5g3)" stroke-width="0.8" opacity="0.3"/>
+  <line x1="102" y1="102" x2="90" y2="90" stroke="url(#v5g3)" stroke-width="0.8" opacity="0.3"/>
+</svg>

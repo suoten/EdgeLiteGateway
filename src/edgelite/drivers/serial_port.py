@@ -1,0 +1,280 @@
+"""串口设备驱动 - 基于pyserial，支持RS232/RS485串口设备接入
+
+支持：
+- RS232/RS485串口通信
+- 自定义波特率、数据位、停止位、校验位
+- Modbus RTU从站通信
+- 通用串口数据帧解析（自定义协议）
+- 扫码枪等串口外设
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+from edgelite.drivers.base import DriverPlugin
+
+logger = logging.getLogger(__name__)
+
+
+class SerialPortDriver(DriverPlugin):
+    """串口设备驱动
+
+    配置参数:
+        port: 串口设备路径 (如 /dev/ttyUSB0, COM3)
+        baudrate: 波特率 (默认9600)
+        bytesize: 数据位 5/6/7/8 (默认8)
+        parity: 校验位 N/E/O/M/S (默认N)
+        stopbits: 停止位 1/1.5/2 (默认1)
+        timeout: 读超时秒数 (默认1.0)
+        protocol: 上层协议 modbus_rtu / raw / custom (默认raw)
+        frame_delimiter: 帧分隔符 (raw模式，默认\\r\\n)
+        frame_length: 固定帧长度 (raw模式，可选)
+    """
+
+    plugin_name = "serial_port"
+    plugin_version = "1.0.0"
+    supported_protocols = ["serial", "serial_modbus_rtu", "serial_raw"]
+
+    def __init__(self):
+        self._running = False
+        self._serial = None
+        self._config: dict = {}
+        self._lock = asyncio.Lock()
+        self._read_buffer: bytes = b""
+        self._read_task: asyncio.Task | None = None
+        self._data_callback = None
+
+    async def start(self, config: dict) -> None:
+        try:
+            import serial
+        except ImportError:
+            raise ImportError("pyserial未安装，请执行: pip install pyserial")
+
+        self._config = config
+        port = config.get("port", "COM1")
+        baudrate = int(config.get("baudrate", 9600))
+        bytesize = int(config.get("bytesize", 8))
+        parity = config.get("parity", "N")
+        stopbits = float(config.get("stopbits", 1))
+        timeout = float(config.get("timeout", 1.0))
+
+        parity_map = {"N": serial.PARITY_NONE, "E": serial.PARITY_EVEN, "O": serial.PARITY_ODD, "M": serial.PARITY_MARK, "S": serial.PARITY_SPACE}
+        bytesize_map = {5: serial.FIVEBITS, 6: serial.SIXBITS, 7: serial.SEVENBITS, 8: serial.EIGHTBITS}
+        stopbits_map = {1: serial.STOPBITS_ONE, 1.5: serial.STOPBITS_ONE_POINT_FIVE, 2: serial.STOPBITS_TWO}
+
+        try:
+            self._serial = serial.Serial(
+                port=port,
+                baudrate=baudrate,
+                bytesize=bytesize_map.get(bytesize, serial.EIGHTBITS),
+                parity=parity_map.get(parity, serial.PARITY_NONE),
+                stopbits=stopbits_map.get(stopbits, serial.STOPBITS_ONE),
+                timeout=timeout,
+            )
+            self._running = True
+            logger.info("串口驱动启动成功 (port=%s, baudrate=%d)", port, baudrate)
+
+            protocol = config.get("protocol", "raw")
+            if protocol == "raw":
+                self._read_task = asyncio.create_task(self._raw_read_loop(), name="serial-raw-read")
+        except Exception as e:
+            logger.error("串口驱动启动失败: %s", e)
+            raise
+
+    async def stop(self) -> None:
+        self._running = False
+        if self._read_task and not self._read_task.done():
+            self._read_task.cancel()
+            try:
+                await self._read_task
+            except asyncio.CancelledError:
+                pass
+        if self._serial and self._serial.is_open:
+            try:
+                self._serial.close()
+            except Exception as e:
+                logger.warning("串口关闭异常: %s", e)
+        self._serial = None
+        logger.info("串口驱动已停止")
+
+    async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
+        if not self._running or not self._serial:
+            return {}
+
+        protocol = self._config.get("protocol", "raw")
+
+        if protocol == "modbus_rtu":
+            return await self._read_modbus_rtu(points)
+        else:
+            return await self._read_raw(points)
+
+    async def _read_modbus_rtu(self, points: list[str]) -> dict[str, Any]:
+        try:
+            from pymodbus.client import AsyncModbusSerialClient
+        except ImportError:
+            logger.error("pymodbus未安装，Modbus RTU不可用")
+            return {}
+
+        result = {}
+        slave_id = int(self._config.get("slave_id", 1))
+
+        for point in points:
+            try:
+                parts = point.split(":")
+                if len(parts) >= 2:
+                    addr = int(parts[0])
+                    count = int(parts[1])
+                    func = int(parts[2]) if len(parts) >= 3 else 3
+                else:
+                    addr = int(point)
+                    count = 1
+                    func = 3
+
+                async with self._lock:
+                    if func == 1:
+                        rr = await asyncio.to_thread(self._read_coils, slave_id, addr, count)
+                    elif func == 3:
+                        rr = await asyncio.to_thread(self._read_holding, slave_id, addr, count)
+                    elif func == 4:
+                        rr = await asyncio.to_thread(self._read_input, slave_id, addr, count)
+                    else:
+                        rr = None
+
+                if rr is not None:
+                    result[point] = rr
+                else:
+                    result[point] = None
+            except Exception as e:
+                logger.warning("Modbus RTU读取失败 %s: %s", point, e)
+                result[point] = None
+
+        return result
+
+    def _read_holding(self, slave_id: int, addr: int, count: int) -> list[int] | None:
+        try:
+            from pymodbus.client import ModbusSerialClient
+            client = ModbusSerialClient(
+                port=self._serial.port,
+                baudrate=self._serial.baudrate,
+                parity=self._serial.parity,
+            )
+            client.connect()
+            rr = client.read_holding_registers(addr, count, slave=slave_id)
+            client.close()
+            if not rr.isError():
+                return rr.registers
+        except Exception as e:
+            logger.warning("Modbus RTU Holding读取异常: %s", e)
+        return None
+
+    def _read_input(self, slave_id: int, addr: int, count: int) -> list[int] | None:
+        try:
+            from pymodbus.client import ModbusSerialClient
+            client = ModbusSerialClient(
+                port=self._serial.port,
+                baudrate=self._serial.baudrate,
+                parity=self._serial.parity,
+            )
+            client.connect()
+            rr = client.read_input_registers(addr, count, slave=slave_id)
+            client.close()
+            if not rr.isError():
+                return rr.registers
+        except Exception as e:
+            logger.warning("Modbus RTU Input读取异常: %s", e)
+        return None
+
+    def _read_coils(self, slave_id: int, addr: int, count: int) -> list[bool] | None:
+        try:
+            from pymodbus.client import ModbusSerialClient
+            client = ModbusSerialClient(
+                port=self._serial.port,
+                baudrate=self._serial.baudrate,
+                parity=self._serial.parity,
+            )
+            client.connect()
+            rr = client.read_coils(addr, count, slave=slave_id)
+            client.close()
+            if not rr.isError():
+                return rr.bits[:count]
+        except Exception as e:
+            logger.warning("Modbus RTU Coil读取异常: %s", e)
+        return None
+
+    async def _read_raw(self, points: list[str]) -> dict[str, Any]:
+        result = {}
+        for point in points:
+            try:
+                cmd = self._config.get("commands", {}).get(point, "")
+                if cmd:
+                    async with self._lock:
+                        await asyncio.to_thread(self._serial.write, cmd.encode("utf-8"))
+                        await asyncio.sleep(0.1)
+                        data = await asyncio.to_thread(self._serial.read, self._serial.in_waiting or 1024)
+                    result[point] = data.decode("utf-8", errors="replace").strip() if data else None
+                else:
+                    result[point] = None
+            except Exception as e:
+                logger.warning("串口原始读取失败 %s: %s", point, e)
+                result[point] = None
+        return result
+
+    async def _raw_read_loop(self) -> None:
+        while self._running:
+            try:
+                if self._serial and self._serial.in_waiting > 0:
+                    data = await asyncio.to_thread(self._serial.read, self._serial.in_waiting)
+                    if data and self._data_callback:
+                        await self._data_callback(data)
+                await asyncio.sleep(0.05)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning("串口读取循环异常: %s", e)
+                await asyncio.sleep(0.5)
+
+    async def write_point(self, device_id: str, point: str, value: Any) -> bool:
+        if not self._running or not self._serial:
+            return False
+
+        try:
+            async with self._lock:
+                if isinstance(value, str):
+                    data = value.encode("utf-8")
+                elif isinstance(value, bytes):
+                    data = value
+                else:
+                    data = str(value).encode("utf-8")
+                await asyncio.to_thread(self._serial.write, data)
+            return True
+        except Exception as e:
+            logger.error("串口写入失败 %s: %s", point, e)
+            return False
+
+    def on_data(self, callback) -> None:
+        self._data_callback = callback
+
+    async def discover_devices(self, config: dict) -> list[dict]:
+        try:
+            import serial.tools.list_ports
+        except ImportError:
+            return []
+
+        ports = serial.tools.list_ports.comports()
+        result = []
+        for p in ports:
+            result.append({
+                "device_id": p.device,
+                "name": p.description,
+                "ip": p.device,
+                "protocol": "serial",
+                "details": {
+                    "hwid": p.hwid,
+                    "manufacturer": p.manufacturer,
+                    "serial_number": p.serial_number,
+                },
+            })
+        return result

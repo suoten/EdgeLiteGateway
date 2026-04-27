@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="v4g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+    <linearGradient id="v4g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#11998e"/>
+      <stop offset="100%" style="stop-color:#38ef7d"/>
+    </linearGradient>
+    <linearGradient id="v4g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe"/>
+      <stop offset="100%" style="stop-color:#00f2fe"/>
+    </linearGradient>
+    <filter id="v4glow">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 外圈 -->
+  <circle cx="64" cy="64" r="60" fill="none" stroke="url(#v4g1)" stroke-width="0.8" opacity="0.2"/>
+  
+  <!-- 3D 立方体 - 顶面 -->
+  <polygon points="64,24 96,42 64,60 32,42" fill="url(#v4g3)" opacity="0.9" filter="url(#v4glow)"/>
+  
+  <!-- 3D 立方体 - 右面 -->
+  <polygon points="64,60 96,42 96,78 64,96" fill="url(#v4g1)" opacity="0.85" filter="url(#v4glow)"/>
+  
+  <!-- 3D 立方体 - 左面 -->
+  <polygon points="64,60 32,42 32,78 64,96" fill="url(#v4g2)" opacity="0.85" filter="url(#v4glow)"/>
+  
+  <!-- 顶面高光线条 -->
+  <line x1="64" y1="24" x2="96" y2="42" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="64" y1="24" x2="32" y2="42" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="64" y1="24" x2="64" y2="60" stroke="white" stroke-width="0.8" opacity="0.3"/>
+  
+  <!-- 中心连接点 -->
+  <circle cx="64" cy="60" r="5" fill="white" opacity="0.9"/>
+  <circle cx="64" cy="60" r="2.5" fill="url(#v4g1)"/>
+  
+  <!-- 底部装饰节点 -->
+  <circle cx="32" cy="78" r="3" fill="url(#v4g2)" opacity="0.8"/>
+  <circle cx="96" cy="78" r="3" fill="url(#v4g1)" opacity="0.8"/>
+  <circle cx="64" cy="96" r="3" fill="url(#v4g3)" opacity="0.8"/>
+  
+  <!-- 数据流动线 -->
+  <path d="M 20 64 Q 32 64 32 78" fill="none" stroke="url(#v4g2)" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  <path d="M 108 64 Q 96 64 96 78" fill="none" stroke="url(#v4g1)" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  <path d="M 64 108 Q 64 96 64 96" fill="none" stroke="url(#v4g3)" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+  
+  <!-- 外围节点 -->
+  <circle cx="20" cy="64" r="4" fill="url(#v4g2)" opacity="0.7"/>
+  <circle cx="108" cy="64" r="4" fill="url(#v4g1)" opacity="0.7"/>
+  <circle cx="64" cy="112" r="4" fill="url(#v4g3)" opacity="0.7"/>
+</svg>

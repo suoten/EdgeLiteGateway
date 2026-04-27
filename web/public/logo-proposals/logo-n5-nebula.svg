@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="nebulaGrad1" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" style="stop-color:#38bdf8;stop-opacity:0.8" />
+      <stop offset="40%" style="stop-color:#818cf8;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
+    </radialGradient>
+    <radialGradient id="nebulaGrad2" cx="70%" cy="70%" r="60%">
+      <stop offset="0%" style="stop-color:#f472b6;stop-opacity:0.7" />
+      <stop offset="50%" style="stop-color:#a78bfa;stop-opacity:0.5" />
+      <stop offset="100%" style="stop-color:#0f172a;stop-opacity:0.9" />
+    </radialGradient>
+    <linearGradient id="nebulaGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ec4899;stop-opacity:1" />
+    </linearGradient>
+    <filter id="nebulaGlow">
+      <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="starGlow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="url(#nebulaGrad1)"/>
+  <circle cx="64" cy="64" r="52" fill="url(#nebulaGrad2)" opacity="0.7"/>
+  <ellipse cx="50" cy="50" rx="35" ry="20" fill="url(#nebulaGrad3)" opacity="0.3" transform="rotate(-30 50 50)"/>
+  <ellipse cx="78" cy="78" rx="30" ry="18" fill="url(#nebulaGrad3)" opacity="0.25" transform="rotate(40 78 78)"/>
+  <ellipse cx="64" cy="64" rx="44" ry="44" fill="none" stroke="url(#nebulaGrad3)" stroke-width="1.5" opacity="0.4" stroke-dasharray="4,4"/>
+  <ellipse cx="64" cy="64" rx="36" ry="36" fill="none" stroke="url(#nebulaGrad3)" stroke-width="1" opacity="0.3" stroke-dasharray="3,3"/>
+  <ellipse cx="64" cy="64" rx="28" ry="28" fill="none" stroke="url(#nebulaGrad3)" stroke-width="0.8" opacity="0.25"/>
+  <path d="M 64 16 Q 88 32 88 64 Q 88 96 64 112 Q 40 96 40 64 Q 40 32 64 16" fill="white" opacity="0.95" filter="url(#nebulaGlow)"/>
+  <polygon points="64,26 82,38 82,66 64,78 46,66 46,38" fill="url(#nebulaGrad3)"/>
+  <polygon points="64,32 76,42 76,62 64,72 52,62 52,42" fill="white" opacity="0.9"/>
+  <polygon points="64,38 70,45 70,59 64,66 58,59 58,45" fill="url(#nebulaGrad3)"/>
+  <polygon points="64,42 68,46 68,58 64,62 60,58 60,46" fill="white" opacity="0.85"/>
+  <path d="M 58 54 L 70 54" stroke="url(#nebulaGrad3)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 66 49 L 71 54 L 66 59" fill="none" stroke="url(#nebulaGrad3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 62 49 L 57 54 L 62 59" fill="none" stroke="url(#nebulaGrad3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="28" r="3" fill="white" opacity="0.9" filter="url(#starGlow)"/>
+  <circle cx="96" cy="28" r="2.5" fill="white" opacity="0.85" filter="url(#starGlow)"/>
+  <circle cx="28" cy="76" r="2.5" fill="white" opacity="0.8" filter="url(#starGlow)"/>
+  <circle cx="100" cy="76" r="3" fill="white" opacity="0.85" filter="url(#starGlow)"/>
+  <circle cx="48" cy="20" r="1.5" fill="#38bdf8" opacity="0.9"/>
+  <circle cx="80" cy="22" r="1.5" fill="#f472b6" opacity="0.9"/>
+  <circle cx="24" cy="52" r="1.5" fill="#818cf8" opacity="0.9"/>
+  <circle cx="104" cy="52" r="1.5" fill="#a78bfa" opacity="0.9"/>
+  <circle cx="44" cy="104" r="1.5" fill="#0ea5e9" opacity="0.9"/>
+  <circle cx="84" cy="102" r="1.5" fill="#ec4899" opacity="0.9"/>
+  <circle cx="64" cy="10" r="2" fill="white" opacity="0.7" filter="url(#starGlow)"/>
+  <circle cx="64" cy="118" r="2" fill="white" opacity="0.7" filter="url(#starGlow)"/>
+  <circle cx="10" cy="64" r="1.5" fill="white" opacity="0.6" filter="url(#starGlow)"/>
+  <circle cx="118" cy="64" r="1.5" fill="white" opacity="0.6" filter="url(#starGlow)"/>
+</svg>

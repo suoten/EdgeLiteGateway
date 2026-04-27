@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="layerGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="layerGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="layerGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ec4899;stop-opacity:1" />
+    </linearGradient>
+    <filter id="layerDropShadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+    <filter id="layerGlow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <polygon points="64,4 120,64 64,124 8,64" fill="url(#layerGrad1)" opacity="0.1"/>
+  <polygon points="64,12 112,64 64,116 16,64" fill="url(#layerGrad2)" opacity="0.15"/>
+  <polygon points="64,20 104,64 64,108 24,64" fill="url(#layerGrad1)" filter="url(#layerDropShadow)"/>
+  <polygon points="64,26 98,64 64,102 30,64" fill="url(#layerGrad2)" opacity="0.95"/>
+  <polygon points="64,32 92,64 64,96 36,64" fill="url(#layerGrad3)" opacity="0.9"/>
+  <polygon points="64,36 88,64 64,92 40,64" fill="url(#layerGrad1)" opacity="0.85"/>
+  <polygon points="64,42 82,64 64,86 46,64" fill="white" opacity="0.95"/>
+  <polygon points="64,46 78,64 64,82 50,64" fill="url(#layerGrad2)"/>
+  <polygon points="64,50 74,64 64,78 54,64" fill="url(#layerGrad1)"/>
+  <polygon points="64,54 70,64 64,74 58,64" fill="white" opacity="0.9"/>
+  <polygon points="64,56 68,64 64,72 60,64" fill="url(#layerGrad3)"/>
+  <polygon points="64,58 66,64 64,70 62,64" fill="url(#layerGrad2)" filter="url(#layerGlow)"/>
+  <polygon points="64,50 74,64 64,78 54,64" fill="none" stroke="url(#layerGrad3)" stroke-width="1" opacity="0.3"/>
+  <polygon points="64,54 70,64 64,74 58,64" fill="none" stroke="white" stroke-width="0.5" opacity="0.2"/>
+  <polygon points="64,44 80,64 64,84 48,64" fill="none" stroke="url(#layerGrad1)" stroke-width="0.8" opacity="0.4"/>
+  <line x1="56" y1="64" x2="72" y2="64" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+  <path d="M 68 60 L 73 64 L 68 68" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <path d="M 60 60 L 55 64 L 60 68" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <circle cx="36" cy="40" r="3" fill="#0ea5e9" opacity="0.85"/>
+  <circle cx="36" cy="40" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="92" cy="40" r="3" fill="#a855f7" opacity="0.85"/>
+  <circle cx="92" cy="40" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="36" cy="88" r="3" fill="#7c3aed" opacity="0.85"/>
+  <circle cx="36" cy="88" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="92" cy="88" r="3" fill="#ec4899" opacity="0.85"/>
+  <circle cx="92" cy="88" r="1.5" fill="white" opacity="0.6"/>
+  <polygon points="64,20 64,26 98,64 92,64" fill="white" opacity="0.15"/>
+  <polygon points="64,20 64,26 30,64 36,64" fill="white" opacity="0.1"/>
+  <polygon points="64,102 64,96 30,64 36,64" fill="white" opacity="0.15"/>
+  <polygon points="64,102 64,96 98,64 92,64" fill="white" opacity="0.1"/>
+</svg>

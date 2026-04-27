@@ -59,6 +59,16 @@ class SecurityConfig(BaseModel):
 class LoggingConfig(BaseModel):
     level: str = "INFO"
     format: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+    json_format: bool = False
+    log_dir: str = "data/logs"
+    max_bytes: int = 52428800
+    backup_count: int = 10
+
+
+class AuditConfig(BaseModel):
+    enabled: bool = True
+    tamper_proof: bool = True
+    retention_days: int = 90
 
 
 class SimulatorPointConfig(BaseModel):
@@ -153,6 +163,7 @@ class AppConfig(BaseModel):
     video: VideoConfig = VideoConfig()
     security: SecurityConfig = SecurityConfig()
     logging: LoggingConfig = LoggingConfig()
+    audit: AuditConfig = AuditConfig()
     simulator: SimulatorConfig = SimulatorConfig()
     notify: NotifyConfig = NotifyConfig()
     platforms: dict[str, Any] = {}

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="v1g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="50%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#d946ef"/>
+    </linearGradient>
+    <linearGradient id="v1g2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <filter id="v1glow">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- 外环 -->
+  <circle cx="64" cy="64" r="60" fill="none" stroke="url(#v1g1)" stroke-width="1" opacity="0.25"/>
+  <circle cx="64" cy="64" r="54" fill="none" stroke="url(#v1g1)" stroke-width="0.8" opacity="0.15" stroke-dasharray="4 4"/>
+  
+  <!-- 主六边形 - 外框 -->
+  <polygon points="64,18 108,42 108,86 64,110 20,86 20,42" fill="none" stroke="url(#v1g1)" stroke-width="2.5" stroke-linejoin="round" opacity="0.9"/>
+  
+  <!-- 主六边形 - 填充 -->
+  <polygon points="64,24 102,45 102,83 64,104 26,83 26,45" fill="url(#v1g1)" opacity="0.12"/>
+  
+  <!-- 内部核心六边形 -->
+  <polygon points="64,38 88,52 88,76 64,90 40,76 40,52" fill="url(#v1g2)" opacity="0.9" filter="url(#v1glow)"/>
+  
+  <!-- 中心E字母 -->
+  <text x="64" y="74" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="800" fill="white" letter-spacing="-1">E</text>
+  
+  <!-- 装饰节点 -->
+  <circle cx="64" cy="18" r="3.5" fill="url(#v1g1)"/>
+  <circle cx="108" cy="42" r="3.5" fill="url(#v1g1)"/>
+  <circle cx="108" cy="86" r="3.5" fill="url(#v1g1)"/>
+  <circle cx="64" cy="110" r="3.5" fill="url(#v1g1)"/>
+  <circle cx="20" cy="86" r="3.5" fill="url(#v1g1)"/>
+  <circle cx="20" cy="42" r="3.5" fill="url(#v1g1)"/>
+  
+  <!-- 连接线 -->
+  <line x1="64" y1="18" x2="64" y2="38" stroke="url(#v1g1)" stroke-width="1" opacity="0.5"/>
+  <line x1="108" y1="42" x2="88" y2="52" stroke="url(#v1g1)" stroke-width="1" opacity="0.5"/>
+  <line x1="108" y1="86" x2="88" y2="76" stroke="url(#v1g1)" stroke-width="1" opacity="0.5"/>
+  <line x1="64" y1="110" x2="64" y2="90" stroke="url(#v1g1)" stroke-width="1" opacity="0.5"/>
+  <line x1="20" y1="86" x2="40" y2="76" stroke="url(#v1g1)" stroke-width="1" opacity="0.5"/>
+  <line x1="20" y1="42" x2="40" y2="52" stroke="url(#v1g1)" stroke-width="1" opacity="0.5"/>
+</svg>

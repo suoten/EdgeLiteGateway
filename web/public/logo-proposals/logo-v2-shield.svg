@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="v2g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9"/>
+      <stop offset="50%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <linearGradient id="v2g2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#38bdf8"/>
+      <stop offset="100%" style="stop-color:#818cf8"/>
+    </linearGradient>
+    <linearGradient id="v2g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f472b6"/>
+      <stop offset="100%" style="stop-color:#fb7185"/>
+    </linearGradient>
+    <filter id="v2shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#6366f1" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- 背景圆 -->
+  <circle cx="64" cy="64" r="58" fill="#0f172a" opacity="0.05"/>
+  
+  <!-- 外环轨道 -->
+  <ellipse cx="64" cy="64" rx="56" ry="56" fill="none" stroke="url(#v2g1)" stroke-width="0.6" opacity="0.2" stroke-dasharray="8 4"/>
+  
+  <!-- 主盾牌轮廓 -->
+  <path d="M64 14 C64 14 24 24 24 56 C24 88 64 114 64 114 C64 114 104 88 104 56 C104 24 64 14 64 14Z" 
+        fill="url(#v2g1)" opacity="0.1" stroke="url(#v2g1)" stroke-width="2.5" stroke-linejoin="round"/>
+  
+  <!-- 盾牌内层 -->
+  <path d="M64 22 C64 22 32 30 32 56 C32 82 64 104 64 104 C64 104 96 82 96 56 C96 30 64 22 64 22Z" 
+        fill="url(#v2g1)" opacity="0.15"/>
+  
+  <!-- 中心芯片/电路图案 -->
+  <rect x="48" y="44" width="32" height="32" rx="6" fill="url(#v2g2)" filter="url(#v2shadow)"/>
+  
+  <!-- 芯片内部线路 -->
+  <rect x="54" y="50" width="20" height="20" rx="3" fill="none" stroke="white" stroke-width="1.2" opacity="0.6"/>
+  <line x1="60" y1="50" x2="60" y2="46" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="68" y1="50" x2="68" y2="46" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="60" y1="70" x2="60" y2="74" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="68" y1="70" x2="68" y2="74" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="54" y1="56" x2="50" y2="56" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="54" y1="64" x2="50" y2="64" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="80" y1="56" x2="84" y2="56" stroke="white" stroke-width="1" opacity="0.4"/>
+  <line x1="80" y1="64" x2="84" y2="64" stroke="white" stroke-width="1" opacity="0.4"/>
+  
+  <!-- 中心点 -->
+  <circle cx="64" cy="60" r="4" fill="white" opacity="0.9"/>
+  
+  <!-- 顶部装饰 -->
+  <circle cx="64" cy="34" r="3" fill="url(#v2g3)"/>
+  <line x1="64" y1="37" x2="64" y2="44" stroke="url(#v2g3)" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- 底部数据流 -->
+  <circle cx="52" cy="92" r="2" fill="#38bdf8" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="64" cy="96" r="2" fill="#818cf8" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="76" cy="92" r="2" fill="#a855f7" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" begin="1s" repeatCount="indefinite"/>
+  </circle>
+</svg>

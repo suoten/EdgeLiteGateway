@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="fluidGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="25%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ec4899;stop-opacity:1" />
+      <stop offset="75%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="fluidGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:0.9" />
+      <stop offset="50%" style="stop-color:#a78bfa;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#f472b6;stop-opacity:0.9" />
+    </linearGradient>
+    <radialGradient id="fluidGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.5" />
+      <stop offset="70%" style="stop-color:#ffffff;stop-opacity:0" />
+    </radialGradient>
+    <filter id="fluidBlur">
+      <feGaussianBlur stdDeviation="0.5" result="blur"/>
+      <feBlend in="SourceGraphic" in2="blur"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="url(#fluidGrad1)" opacity="0.15"/>
+  <path d="M 64 6 C 96 6 122 32 122 64 C 122 96 96 122 64 122 C 32 122 6 96 6 64 C 6 32 32 6 64 6 Z M 64 16 C 38 16 16 38 16 64 C 16 90 38 112 64 112 C 90 112 112 90 112 64 C 112 38 90 16 64 16 Z" fill="url(#fluidGrad1)" opacity="0.8"/>
+  <path d="M 64 6 C 84 10 106 26 116 48 C 120 64 118 84 108 100 C 96 112 80 118 64 120 C 48 118 32 110 20 96 C 10 78 8 58 16 40 C 28 20 46 10 64 6 Z" fill="url(#fluidGrad2)" opacity="0.95"/>
+  <path d="M 64 14 Q 86 18 100 34 Q 108 48 106 64 Q 104 80 94 92 Q 82 102 64 106 Q 46 102 34 92 Q 24 80 22 64 Q 20 48 28 34 Q 42 18 64 14" fill="url(#fluidGlow)" opacity="0.4"/>
+  <ellipse cx="64" cy="64" rx="42" ry="42" fill="url(#fluidGrad1)" opacity="0.3"/>
+  <ellipse cx="64" cy="64" rx="36" ry="36" fill="white" opacity="0.9"/>
+  <polygon points="64,38 82,48 82,72 64,82 46,72 46,48" fill="url(#fluidGrad1)"/>
+  <polygon points="64,43 77,51 77,69 64,77 51,69 51,51" fill="white" opacity="0.85"/>
+  <polygon points="64,48 72,53 72,67 64,72 56,67 56,53" fill="url(#fluidGrad2)"/>
+  <path d="M 58 60 L 70 60" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M 67 55 L 72 60 L 67 65" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 61 55 L 56 60 L 61 65" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="40" cy="32" r="2.5" fill="#06b6d4" opacity="0.9"/>
+  <circle cx="88" cy="32" r="2.5" fill="#ec4899" opacity="0.9"/>
+  <circle cx="40" cy="96" r="2.5" fill="#8b5cf6" opacity="0.9"/>
+  <circle cx="88" cy="96" r="2.5" fill="#10b981" opacity="0.9"/>
+  <ellipse cx="64" cy="64" rx="32" ry="32" fill="none" stroke="url(#fluidGrad1)" stroke-width="1" opacity="0.3"/>
+  <ellipse cx="64" cy="64" rx="28" ry="28" fill="none" stroke="url(#fluidGrad2)" stroke-width="0.5" opacity="0.2"/>
+</svg>

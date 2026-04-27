@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="g7a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:0.9"/>
+    </linearGradient>
+    <linearGradient id="g7b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.8"/>
+    </linearGradient>
+    <linearGradient id="g7shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.4"/>
+      <stop offset="50%" style="stop-color:white;stop-opacity:0"/>
+      <stop offset="100%" style="stop-color:white;stop-opacity:0.1"/>
+    </linearGradient>
+    <filter id="g7blur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 背景光晕 -->
+  <circle cx="64" cy="64" r="50" fill="url(#g7a)" opacity="0.15" filter="url(#g7blur)"/>
+
+  <!-- 主球体 -->
+  <circle cx="64" cy="64" r="42" fill="url(#g7a)"/>
+  <circle cx="64" cy="64" r="42" fill="url(#g7shine)"/>
+
+  <!-- 内环 -->
+  <circle cx="64" cy="64" r="32" fill="none" stroke="url(#g7b)" stroke-width="1.5" opacity="0.6"/>
+
+  <!-- 核心 -->
+  <circle cx="64" cy="64" r="18" fill="url(#g7b)" opacity="0.9"/>
+  <circle cx="64" cy="64" r="8" fill="white" opacity="0.9"/>
+
+  <!-- 高光点 -->
+  <ellipse cx="48" cy="44" rx="10" ry="6" fill="white" opacity="0.25" transform="rotate(-30 48 44)"/>
+
+  <!-- 环绕粒子 -->
+  <circle cx="64" cy="14" r="3" fill="url(#g7b)"/>
+  <circle cx="110" cy="64" r="3" fill="url(#g7a)"/>
+  <circle cx="64" cy="114" r="3" fill="url(#g7b)"/>
+  <circle cx="18" cy="64" r="3" fill="url(#g7a)"/>
+
+  <!-- 轨道线 -->
+  <ellipse cx="64" cy="64" rx="54" ry="54" fill="none" stroke="url(#g7b)" stroke-width="0.5" opacity="0.3" stroke-dasharray="4 8"/>
+</svg>

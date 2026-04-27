@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="auroraGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="auroraGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#ec4899;stop-opacity:0.8" />
+    </linearGradient>
+    <radialGradient id="auroraGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </radialGradient>
+    <filter id="glowFilter">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softShadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="52" fill="none" stroke="url(#auroraGrad1)" stroke-width="1" opacity="0.2"/>
+  <circle cx="64" cy="64" r="46" fill="none" stroke="url(#auroraGrad1)" stroke-width="0.8" opacity="0.15"/>
+  <circle cx="64" cy="64" r="60" fill="none" stroke="url(#auroraGrad1)" stroke-width="0.5" opacity="0.1"/>
+  <ellipse cx="64" cy="64" rx="48" ry="24" fill="none" stroke="url(#auroraGrad2)" stroke-width="1.5" transform="rotate(-20 64 64)" opacity="0.4"/>
+  <ellipse cx="64" cy="64" rx="24" ry="48" fill="none" stroke="url(#auroraGrad1)" stroke-width="1.5" transform="rotate(20 64 64)" opacity="0.4"/>
+  <path d="M 64 18 Q 90 40 90 64 Q 90 88 64 110 Q 38 88 38 64 Q 38 40 64 18" fill="url(#auroraGrad1)" filter="url(#glowFilter)"/>
+  <path d="M 64 24 Q 84 42 84 64 Q 84 86 64 104 Q 44 86 44 64 Q 44 42 64 24" fill="url(#auroraGlow)" opacity="0.3"/>
+  <polygon points="64,34 78,44 78,68 64,78 50,68 50,44" fill="white" opacity="0.95"/>
+  <polygon points="64,40 74,47 74,65 64,72 54,65 54,47" fill="url(#auroraGrad1)"/>
+  <polygon points="64,46 70,50 70,62 64,66 58,62 58,50" fill="white" opacity="0.8"/>
+  <path d="M 58 56 L 70 56" stroke="url(#auroraGrad1)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 66 52 L 70 56 L 66 60" fill="none" stroke="url(#auroraGrad1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 62 52 L 58 56 L 62 60" fill="none" stroke="url(#auroraGrad1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="44" cy="34" r="3" fill="#0ea5e9" opacity="0.8"/>
+  <circle cx="44" cy="34" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="84" cy="34" r="3" fill="#a855f7" opacity="0.8"/>
+  <circle cx="84" cy="34" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="44" cy="94" r="3" fill="#6366f1" opacity="0.8"/>
+  <circle cx="44" cy="94" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="84" cy="94" r="3" fill="#ec4899" opacity="0.8"/>
+  <circle cx="84" cy="94" r="1.5" fill="white" opacity="0.6"/>
+</svg>

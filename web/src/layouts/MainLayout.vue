@@ -90,7 +90,8 @@ import { NIcon, useDialog } from 'naive-ui'
 import {
   SpeedometerOutline, HardwareChip, SettingsOutline, AlertCircleOutline,
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
-  LogOutOutline, StatsChartOutline, ServerOutline,
+  LogOutOutline, StatsChartOutline, ServerOutline, CubeOutline, BuildOutline, DocumentTextOutline,
+  PulseOutline, CloudOutline, CalculatorOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { alarmApi } from '@/api'
@@ -108,6 +109,8 @@ const currentTitle = computed(() => {
   const titles: Record<string, string> = {
     Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
     Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
+    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态', AuditLog: '审计日志',
+    DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
     System: '系统管理', Users: '用户管理',
   }
   return titles[route.name as string] || 'EdgeLiteGateway'
@@ -124,8 +127,19 @@ const menuOptions = [
   { label: '规则管理', key: 'Rules', icon: renderIcon(SettingsOutline) },
   { label: '告警中心', key: 'Alarms', icon: renderIcon(AlertCircleOutline) },
   { label: '数据查询', key: 'DataQuery', icon: renderIcon(StatsChartOutline) },
-  { label: '系统管理', key: 'System', icon: renderIcon(ServerOutline) },
-  { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
+  { label: '数字孪生', key: 'DigitalTwin', icon: renderIcon(CubeOutline) },
+  { label: '组态编辑', key: 'ScadaEditor', icon: renderIcon(BuildOutline) },
+  {
+    label: '系统配置', key: 'system-group', icon: renderIcon(ServerOutline),
+    children: [
+      { label: '系统管理', key: 'System', icon: renderIcon(ServerOutline) },
+      { label: '驱动配置', key: 'DriverConfig', icon: renderIcon(PulseOutline) },
+      { label: '平台对接', key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
+      { label: '计算表达式', key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
+      { label: '审计日志', key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
+      { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
+    ],
+  },
 ]
 
 const userOptions = [

@@ -128,6 +128,34 @@ class DriverRegistry:
         except ImportError as e:
             logger.warning("托利多称重驱动加载失败: %s", e)
 
+        # BACnet楼宇自控
+        try:
+            from edgelite.drivers.bacnet import BACnetDriver
+            self.register(BACnetDriver)
+        except ImportError as e:
+            logger.warning("BACnet驱动加载失败: %s", e)
+
+        # 串口设备
+        try:
+            from edgelite.drivers.serial_port import SerialPortDriver
+            self.register(SerialPortDriver)
+        except ImportError as e:
+            logger.warning("串口设备驱动加载失败: %s", e)
+
+        # 数据库接入
+        try:
+            from edgelite.drivers.database_source import DatabaseSourceDriver
+            self.register(DatabaseSourceDriver)
+        except ImportError as e:
+            logger.warning("数据库接入驱动加载失败: %s", e)
+
+        # 扫码枪
+        try:
+            from edgelite.drivers.barcode_scanner import BarcodeScannerDriver
+            self.register(BarcodeScannerDriver)
+        except ImportError as e:
+            logger.warning("扫码枪驱动加载失败: %s", e)
+
         logger.info("驱动自动发现完成，支持协议: %s", self.get_supported_protocols())
 
 

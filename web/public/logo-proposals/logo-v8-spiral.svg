@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="s8a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+    <linearGradient id="s8b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="s8c" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#d946ef"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <circle cx="64" cy="64" r="60" fill="none" stroke="url(#s8a)" stroke-width="0.4" opacity="0.15"/>
+
+  <!-- 螺旋线1 -->
+  <path d="M 64 64
+           m -5 0
+           a 5 5 0 1 0 10 0
+           a 5 5 0 1 0 -10 0
+           m -8 0
+           a 13 13 0 1 0 26 0
+           a 13 13 0 1 0 -26 0
+           m -10 0
+           a 23 23 0 1 0 46 0
+           a 23 23 0 1 0 -46 0
+           m -10 0
+           a 33 33 0 1 0 66 0
+           a 33 33 0 1 0 -66 0"
+        fill="none" stroke="url(#s8a)" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- 螺旋线2 (反向) -->
+  <path d="M 64 64
+           m -5 0
+           a 5 5 0 1 1 10 0
+           a 5 5 0 1 1 -10 0
+           m -8 0
+           a 13 13 0 1 1 26 0
+           a 13 13 0 1 1 -26 0
+           m -10 0
+           a 23 23 0 1 1 46 0
+           a 23 23 0 1 1 -46 0
+           m -10 0
+           a 33 33 0 1 1 66 0
+           a 33 33 0 1 1 -66 0"
+        fill="none" stroke="url(#s8b)" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- 螺旋线3 -->
+  <path d="M 64 64
+           m -3 0
+           a 3 3 0 1 0 6 0
+           a 3 3 0 1 0 -6 0
+           m -6 0
+           a 9 9 0 1 0 18 0
+           a 9 9 0 1 0 -18 0
+           m -8 0
+           a 17 17 0 1 0 34 0
+           a 17 17 0 1 0 -34 0"
+        fill="none" stroke="url(#s8c)" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- 中心 -->
+  <circle cx="64" cy="64" r="6" fill="url(#s8a)"/>
+  <circle cx="64" cy="64" r="3" fill="white"/>
+
+  <!-- 末端节点 -->
+  <circle cx="64" cy="31" r="3.5" fill="url(#s8a)"/>
+  <circle cx="97" cy="64" r="3.5" fill="url(#s8b)"/>
+  <circle cx="64" cy="97" r="3.5" fill="url(#s8c)"/>
+  <circle cx="31" cy="64" r="3.5" fill="url(#s8a)"/>
+</svg>

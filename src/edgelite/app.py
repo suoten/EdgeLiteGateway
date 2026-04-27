@@ -36,6 +36,7 @@ class AppState:
     video_service: Any = None
     system_service: Any = None
     notify_service: Any = None
+    audit_service: Any = None
     driver_registry: Any = None
     mqtt_forwarder: Any = None
     mqtt_server: Any = None
@@ -138,6 +139,16 @@ async def lifespan(app: FastAPI):
     _app_state.notify_service = notify_service
     _app_state.system_service = system_service
 
+    # 8.5 初始化审计日志服务
+    try:
+        from edgelite.services.audit_service import AuditService
+        audit_service = AuditService(db_path=config.database.sqlite_path)
+        await audit_service.initialize()
+        _app_state.audit_service = audit_service
+        logger.info("审计日志服务已初始化")
+    except Exception as e:
+        logger.warning("审计日志服务初始化失败: %s", e)
+
     # 9. 初始化规则评估器
     from edgelite.engine.evaluator import RuleEvaluator
     evaluator = RuleEvaluator(event_bus, rule_repo, alarm_repo)
@@ -201,6 +212,18 @@ async def lifespan(app: FastAPI):
                     await handler.connect(platform_conf)
                     _app_state.platform_handlers["thingsboard"] = handler
                     logger.info("ThingsBoard平台对接已启动")
+                elif platform_name == "huawei_iotda":
+                    from edgelite.platform.huawei_iotda import HuaweiIoTDAHandler
+                    handler = HuaweiIoTDAHandler()
+                    await handler.connect(platform_conf)
+                    _app_state.platform_handlers["huawei_iotda"] = handler
+                    logger.info("华为云IoTDA平台对接已启动")
+                elif platform_name == "thingscloud":
+                    from edgelite.platform.thingscloud import ThingsCloudHandler
+                    handler = ThingsCloudHandler()
+                    await handler.connect(platform_conf)
+                    _app_state.platform_handlers["thingscloud"] = handler
+                    logger.info("ThingsCloud平台对接已启动")
             except Exception as e:
                 logger.error("平台对接启动失败 %s: %s", platform_name, e)
 
@@ -342,6 +365,34 @@ def create_app() -> FastAPI:
     app.include_router(video.router)
     app.include_router(system.router)
     app.include_router(users.router)
+
+    # 审计日志路由
+    try:
+        from edgelite.api.audit import router as audit_router
+        app.include_router(audit_router)
+    except ImportError:
+        pass
+
+    # 驱动配置管理路由
+    try:
+        from edgelite.api.drivers import router as drivers_router
+        app.include_router(drivers_router)
+    except ImportError:
+        pass
+
+    # 平台配置管理路由
+    try:
+        from edgelite.api.platforms import router as platforms_router
+        app.include_router(platforms_router)
+    except ImportError:
+        pass
+
+    # 表达式管理路由
+    try:
+        from edgelite.api.expressions import router as expressions_router
+        app.include_router(expressions_router)
+    except ImportError:
+        pass
 
     # 联调集成路由
     try:

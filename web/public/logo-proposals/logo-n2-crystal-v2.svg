@@ -38,6 +38,8 @@
   <polygon points="64,36 64,82 52,72 52,46" fill="url(#crystalGrad2)" opacity="0.8"/>
   <polygon points="64,36 76,46 76,72 64,82" fill="url(#crystalGrad3)" opacity="0.6"/>
   <polygon points="64,44 72,49 72,69 64,74 56,69 56,49" fill="white" opacity="0.9"/>
+  <circle cx="64" cy="59" r="7" fill="url(#crystalGrad2)" filter="url(#crystalGlow)"/>
+  <circle cx="64" cy="59" r="4.5" fill="white" opacity="0.95"/>
   <polygon points="64,24 64,36 46,42 40,38" fill="white" opacity="0.15"/>
   <polygon points="64,24 88,38 82,42 64,36" fill="white" opacity="0.25"/>
   <line x1="40" y1="38" x2="46" y2="42" stroke="url(#crystalGrad3)" stroke-width="0.8" opacity="0.6"/>
