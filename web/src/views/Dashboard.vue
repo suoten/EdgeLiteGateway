@@ -8,7 +8,7 @@
             <template #prefix><n-icon :component="HardwareChip" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <n-text depth="3">在线 {{ status?.device_online ?? 0 }} 台</n-text>
+            <span>在线 {{ status?.device_online ?? 0 }} 台</span>
           </div>
         </n-card>
       </n-gi>
@@ -18,7 +18,7 @@
             <template #prefix><n-icon :component="SettingsOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <n-text depth="3">已启用 {{ status?.rule_total ?? 0 }} 条</n-text>
+            <span>已启用 {{ status?.rule_enabled ?? 0 }} 条</span>
           </div>
         </n-card>
       </n-gi>
@@ -28,8 +28,8 @@
             <template #prefix><n-icon :component="AlertCircleOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <n-text v-if="status?.alarm_firing" type="warning">需要处理</n-text>
-            <n-text v-else depth="3">系统正常</n-text>
+            <span v-if="status?.alarm_firing" class="stat-footer-warning">需要处理</span>
+            <span v-else>系统正常</span>
           </div>
         </n-card>
       </n-gi>
@@ -39,7 +39,7 @@
             <template #prefix><n-icon :component="PulseOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <n-text depth="3">运行中</n-text>
+            <span>运行中</span>
           </div>
         </n-card>
       </n-gi>
@@ -322,7 +322,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .stat-card :deep(.n-icon) {
   color: #fff !important;
 }
-.stat-footer { margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.8); }
+.stat-footer { margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.9); }
+.stat-footer-warning { color: #ffeb3b; font-weight: 500; }
 .resource-card { text-align: center; }
 .resource-info { margin-top: 12px; }
 </style>

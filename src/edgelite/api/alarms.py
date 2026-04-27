@@ -20,7 +20,7 @@ def _get_alarm_service():
 @router.get("", response_model=PagedResponse[AlarmResponse])
 async def list_alarms(
     user: CurrentUser = require_permission(Permission.ALARM_READ),
-    page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=1000),
     status: str | None = None, severity: str | None = None, device_id: str | None = None,
 ):
     svc = _get_alarm_service()
