@@ -3,6 +3,7 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.6.0
 pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
 aiosqlite>=0.20.0
 influxdb-client[async]>=1.44.0
 pymodbus>=3.7.0
@@ -14,3 +15,8 @@ python-multipart>=0.0.9
 psutil>=5.9.0
 aiomqtt>=2.1.0
 asyncua>=1.1.0
+
+# 数据库接入驱动可选依赖（按需安装）
+# aiomysql>=0.2.0        # MySQL/MariaDB 数据源
+# asyncpg>=0.29.0        # PostgreSQL 数据源
+# aioodbc>=0.4.0         # SQL Server 数据源

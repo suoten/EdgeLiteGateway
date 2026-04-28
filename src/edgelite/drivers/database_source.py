@@ -156,31 +156,31 @@ class DatabaseSourceDriver(DriverPlugin):
 
         return result
 
-    async def _execute_query(self, sql: str) -> list[dict]:
+    async def _execute_query(self, sql: str, params: tuple | None = None) -> list[dict]:
         db_type = self._config.get("db_type", "mysql")
 
         if db_type in ("mysql", "mariadb"):
             async with self._pool.acquire() as conn:
                 async with conn.cursor() as cur:
-                    await cur.execute(sql)
+                    await cur.execute(sql, params)
                     rows = await cur.fetchall()
                     columns = [desc[0] for desc in cur.description] if cur.description else []
                     return [dict(zip(columns, row)) for row in rows]
 
         elif db_type in ("postgresql", "postgres"):
             async with self._pool.acquire() as conn:
-                rows = await conn.fetch(sql)
+                rows = await conn.fetch(sql, *(params or []))
                 return [dict(row) for row in rows]
 
         elif db_type == "sqlite":
-            cursor = await self._pool.execute(sql)
+            cursor = await self._pool.execute(sql, params or ())
             rows = await cursor.fetchall()
             columns = [desc[0] for desc in cursor.description] if cursor.description else []
             return [dict(zip(columns, row)) for row in rows]
 
         elif db_type == "mssql":
             async with self._pool.acquire() as conn:
-                cursor = await conn.execute(sql)
+                cursor = await conn.execute(sql, params or ())
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows] if rows else []
 
@@ -197,8 +197,11 @@ class DatabaseSourceDriver(DriverPlugin):
             return False
 
         try:
-            sql = sql_template.replace("{{value}}", str(value))
-            await self._execute_query(sql)
+            if "{{value}}" in sql_template:
+                sql = sql_template.replace("{{value}}", "?")
+                await self._execute_query(sql, (value,))
+            else:
+                await self._execute_query(sql_template)
             return True
         except Exception as e:
             logger.error("数据库写入失败 %s: %s", point, e)

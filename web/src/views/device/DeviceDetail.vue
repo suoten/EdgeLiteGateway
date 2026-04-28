@@ -155,6 +155,7 @@ let ws: WebSocket | null = null
 let wsReconnectTimer: number | null = null
 const writeValues = ref<Record<string, any>>({})
 let wsRetryCount = 0
+let wsManualClose = false
 
 const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 const protocolLabel: Record<string, string> = {
@@ -337,6 +338,7 @@ function toggleWS(val: boolean) {
     }
     ws.onclose = () => {
       wsConnected.value = false
+      if (wsManualClose) { wsManualClose = false; return }
       if (wsRetryCount > 10) {
         message.warning('WebSocket重连次数过多，已停止重连')
         return
@@ -350,6 +352,7 @@ function toggleWS(val: boolean) {
     }
     ws.onerror = () => { wsConnected.value = false; message.error('WebSocket 连接失败') }
   } else {
+    wsManualClose = true
     ws?.close()
     ws = null
     wsConnected.value = false

@@ -147,6 +147,9 @@ function openEdit(row: User) {
 }
 
 async function handleEdit() {
+  try {
+    await editFormRef.value?.validate()
+  } catch { return }
   editing.value = true
   try {
     const data: any = { role: editForm.role }

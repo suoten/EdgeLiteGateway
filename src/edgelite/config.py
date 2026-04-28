@@ -189,7 +189,7 @@ def _load_env_overrides() -> dict[str, Any]:
     for key, value in os.environ.items():
         if key.startswith(prefix):
             # EDGELITE_SERVER_PORT -> server.port
-            config_path = key[len(prefix):].lower().split("__")
+            config_path = key[len(prefix):].lower().split("_")
             # 支持两级嵌套，如 EDGELITE_INFLUXDB_URL
             if len(config_path) >= 2:
                 section = config_path[0]

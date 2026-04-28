@@ -44,6 +44,7 @@ const sceneOptions = [
 let renderer: any = null
 let animationId: number | null = null
 let controls: any = null
+let scene: any = null
 
 async function loadScene() {
   if (!containerRef.value) return
@@ -59,8 +60,9 @@ async function loadScene() {
     const width = containerRef.value.clientWidth
     const height = 500
 
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x1a1a2e)
+    const newScene = new THREE.Scene()
+    newScene.background = new THREE.Color(0x1a1a2e)
+    scene = newScene
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
     camera.position.set(5, 5, 5)
@@ -119,8 +121,21 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (renderer) renderer.dispose()
   if (animationId) cancelAnimationFrame(animationId)
+  if (controls) controls.dispose()
+  if (scene) {
+    scene.traverse((obj: any) => {
+      if (obj.geometry) obj.geometry.dispose()
+      if (obj.material) {
+        if (Array.isArray(obj.material)) obj.material.forEach((m: any) => m.dispose())
+        else obj.material.dispose()
+      }
+    })
+  }
+  if (renderer) {
+    renderer.dispose()
+    renderer.forceContextLoss()
+  }
 })
 </script>
 

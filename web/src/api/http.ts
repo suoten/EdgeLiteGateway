@@ -24,6 +24,10 @@ const http: AxiosInstance = axios.create({
 })
 
 http.interceptors.request.use((config) => {
+  const auth = useAuthStore()
+  if (auth.token) {
+    config.headers.Authorization = `Bearer ${auth.token}`
+  }
   config.withCredentials = true
   return config
 })
@@ -73,6 +77,8 @@ http.interceptors.response.use(
               reject(error)
               return
             }
+            originalRequest.headers = originalRequest.headers || {}
+            originalRequest.headers.Authorization = `Bearer ${token}`
             resolve(http(originalRequest))
           })
         })
@@ -82,9 +88,15 @@ http.interceptors.response.use(
       originalRequest._retry = true
 
       try {
-        await authApi.refresh('')
+        const tokenData = await authApi.refresh(auth.refreshToken || '')
+        auth.token = tokenData.access_token
+        auth.refreshToken = tokenData.refresh_token
+        localStorage.setItem('edgelite_token', tokenData.access_token)
+        localStorage.setItem('edgelite_refresh', tokenData.refresh_token)
         isRefreshing = false
-        onTokenRefreshed('ok')
+        onTokenRefreshed(tokenData.access_token)
+        originalRequest.headers = originalRequest.headers || {}
+        originalRequest.headers.Authorization = `Bearer ${tokenData.access_token}`
         return http(originalRequest)
       } catch (refreshError) {
         isRefreshing = false
