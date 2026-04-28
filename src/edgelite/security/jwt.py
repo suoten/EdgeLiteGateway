@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -13,6 +14,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     """创建Access Token"""
     config = get_config()
     to_encode = data.copy()
+    if "jti" not in to_encode:
+        to_encode["jti"] = str(uuid.uuid4())
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=config.security.access_token_expire_minutes)
     )
@@ -24,6 +27,8 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None) -> 
     """创建Refresh Token"""
     config = get_config()
     to_encode = data.copy()
+    if "jti" not in to_encode:
+        to_encode["jti"] = str(uuid.uuid4())
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(days=config.security.refresh_token_expire_days)
     )

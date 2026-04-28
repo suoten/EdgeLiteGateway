@@ -101,7 +101,7 @@
     <n-card title="系统信息" :bordered="false">
       <n-descriptions label-placement="left" :column="3" bordered>
         <n-descriptions-item label="运行时长">
-          <n-time :time="Date.now() - (status?.uptime ?? 0) * 1000" type="relative" />
+          <n-time :time="Date.now() - uptime * 1000" type="relative" />
         </n-descriptions-item>
         <n-descriptions-item label="版本">{{ status?.version ?? '-' }}</n-descriptions-item>
         <n-descriptions-item label="协议支持">
@@ -132,6 +132,8 @@ const alarms = ref<any[]>([])
 const supportedProtocols = ref<string[]>([])
 const resourceHistory = ref<{ time: string; cpu: number; mem: number }[]>([])
 let timer: number | null = null
+let uptimeTimer: number | null = null
+const uptime = ref(0)
 
 const cpuColor = computed(() => {
   const p = status.value?.cpu_percent ?? 0
@@ -257,8 +259,9 @@ function protocolLabel(p: string) {
 async function fetchStatus() {
   try {
     status.value = await systemApi.getStatus()
+    uptime.value = status.value?.uptime ?? 0
   } catch (e: any) {
-    console.error('获取系统状态失败:', e)
+    console.warn('获取系统状态失败:', e)
   }
 }
 
@@ -267,27 +270,28 @@ async function fetchProtocols() {
     const data = await driverApi.list()
     const drivers = data?.drivers || []
     supportedProtocols.value = drivers.flatMap((d: any) => d.protocols || [])
-  } catch {
+  } catch (e) {
+    console.warn('获取协议列表失败:', e)
     supportedProtocols.value = ['modbus_tcp', 'opcua', 'mqtt', 'http', 'simulator']
   }
 }
 
 async function fetchDevices() {
   try {
-    const data = await deviceApi.list({ page: 1, size: 100 })
+    const data = await deviceApi.list({ page: 1, size: 500 })
     devices.value = data?.data ?? []
-  } catch (e: any) {
-    console.error('获取设备列表失败:', e)
+  } catch (e) {
+    console.warn('获取设备列表失败:', e)
     devices.value = []
   }
 }
 
 async function fetchAlarms() {
   try {
-    const data = await alarmApi.list({ page: 1, size: 100 })
+    const data = await alarmApi.list({ page: 1, size: 500 })
     alarms.value = data?.data ?? []
-  } catch (e: any) {
-    console.error('获取告警列表失败:', e)
+  } catch (e) {
+    console.warn('获取告警列表失败:', e)
     alarms.value = []
   }
 }
@@ -311,8 +315,9 @@ function formatBytes(bytes?: number) {
 onMounted(() => {
   fetchStatus(); fetchDevices(); fetchAlarms(); fetchProtocols()
   timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
+  uptimeTimer = window.setInterval(() => { uptime.value++ }, 1000)
 })
-onUnmounted(() => { if (timer) clearInterval(timer) })
+onUnmounted(() => { if (timer) clearInterval(timer); if (uptimeTimer) clearInterval(uptimeTimer) })
 </script>
 
 <style scoped>

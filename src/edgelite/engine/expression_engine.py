@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import ast
 import logging
 import math
 import re
@@ -41,12 +42,59 @@ _SAFE_BUILTINS = {
     "None": None,
 }
 
-_DANGEROUS_NAMES = {
+_DANGEROUS_NAMES = frozenset({
     "exec", "eval", "compile", "open", "input", "__import__",
     "globals", "locals", "vars", "dir", "getattr", "setattr",
-    "delattr", "hasattr", "type", "object", "class",
-    "__builtins__", "__name__", "__file__",
+    "delattr", "hasattr", "type", "object", "__builtins__",
+    "__name__", "__file__", "__class__", "__mro__", "__subclasses__",
+    "__bases__", "__dict__", "__self__",
+})
+
+_ALLOWED_CALL_NAMES = frozenset({
+    "abs", "round", "min", "max", "pow", "int", "float", "str", "bool",
+    "sqrt", "ceil", "floor", "log", "log10",
+})
+
+_SAFE_AST_NODES = {
+    ast.Expression, ast.Constant, ast.Name, ast.Load,
+    ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.Call, ast.IfExp,
+    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.Pow,
+    ast.USub, ast.UAdd, ast.Not,
+    ast.And, ast.Or,
+    ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+    ast.Is, ast.IsNot, ast.In, ast.NotIn,
+    ast.List, ast.Tuple,
 }
+
+
+class SafeExpressionVisitor(ast.NodeVisitor):
+    """AST安全检查访问器"""
+
+    def generic_visit(self, node: ast.AST) -> None:
+        if type(node) not in _SAFE_AST_NODES and not isinstance(node, ast.Mod):
+            raise ValueError(f"表达式包含不允许的语法: {type(node).__name__}")
+        super().generic_visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if node.id in _DANGEROUS_NAMES:
+            raise ValueError(f"表达式包含危险标识符: {node.id}")
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if isinstance(node.func, ast.Name):
+            if node.func.id not in _ALLOWED_CALL_NAMES:
+                raise ValueError(f"表达式包含不允许的函数调用: {node.func.id}")
+        elif isinstance(node.func, ast.Attribute):
+            if node.func.attr in _DANGEROUS_NAMES or node.func.attr.startswith('_'):
+                raise ValueError(f"表达式包含不允许的属性访问: {node.func.attr}")
+        else:
+            raise ValueError("表达式包含不允许的调用方式")
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if node.attr.startswith('_') or node.attr in _DANGEROUS_NAMES:
+            raise ValueError(f"表达式包含不允许的属性: {node.attr}")
+        self.generic_visit(node)
 
 
 class ExpressionEngine:
@@ -58,6 +106,8 @@ class ExpressionEngine:
         self._custom_functions: dict[str, Any] = {}
 
     def register_function(self, name: str, func: Any) -> None:
+        if name in _DANGEROUS_NAMES:
+            raise ValueError(f"不能注册危险名称的函数: {name}")
         self._custom_functions[name] = func
 
     def evaluate(self, expression: str, variables: dict[str, Any] | None = None) -> Any:
@@ -66,10 +116,14 @@ class ExpressionEngine:
 
         try:
             resolved = self._resolve_variables(expression, variables or {})
-            self._validate_expression(resolved)
+            tree = ast.parse(resolved, mode='eval')
+            SafeExpressionVisitor().visit(tree)
             namespace = {**_SAFE_BUILTINS, **self._custom_functions}
-            result = eval(resolved, {"__builtins__": {}}, namespace)
+            code = compile(tree, '<expression>', 'eval')
+            result = eval(code, {"__builtins__": {}}, namespace)
             return result
+        except ValueError:
+            raise
         except Exception as e:
             logger.warning("表达式计算失败 '%s': %s", expression, e)
             return None
@@ -79,6 +133,13 @@ class ExpressionEngine:
         for name, expr in expressions.items():
             results[name] = self.evaluate(expr, variables)
         return results
+
+    def _validate_expression(self, expression: str) -> None:
+        """验证表达式安全性（供API调用）"""
+        if not expression or not expression.strip():
+            return
+        tree = ast.parse(expression, mode='eval')
+        SafeExpressionVisitor().visit(tree)
 
     def _resolve_variables(self, expression: str, variables: dict[str, Any]) -> str:
         def replacer(match: re.Match) -> str:
@@ -103,15 +164,6 @@ class ExpressionEngine:
             return str(value)
 
         return self.VARIABLE_PATTERN.sub(replacer, expression)
-
-    def _validate_expression(self, expression: str) -> None:
-        for name in _DANGEROUS_NAMES:
-            if name in expression:
-                raise ValueError(f"表达式包含危险标识符: {name}")
-
-        for pattern in ["__", "import", "exec", "eval", "open(", "compile("]:
-            if pattern in expression:
-                raise ValueError(f"表达式包含不允许的模式: {pattern}")
 
     @staticmethod
     def create_point_expression(

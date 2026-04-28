@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import hashlib
 import io
@@ -65,6 +66,9 @@ class AuditService:
         self._on_audit_alert = callback
 
     async def initialize(self) -> None:
+        await asyncio.to_thread(self._sync_initialize)
+
+    def _sync_initialize(self) -> None:
         import sqlite3
         from pathlib import Path
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -139,6 +143,18 @@ class AuditService:
             record_hash = self._compute_record_hash(record, prev_hash)
             self._last_hash = record_hash
 
+        await asyncio.to_thread(
+            self._sync_log, timestamp, user_id, username, action.value,
+            resource_type, resource_id, ip_address, user_agent,
+            details_json, status, error_message, prev_hash, record_hash,
+        )
+
+        if action == AuditAction.LOGIN_FAILED and ip_address:
+            await self._check_login_anomaly(ip_address, username)
+
+    def _sync_log(self, timestamp, user_id, username, action, resource_type,
+                  resource_id, ip_address, user_agent, details_json, status,
+                  error_message, prev_hash, record_hash) -> None:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -150,16 +166,13 @@ class AuditService:
                 prev_hash, record_hash
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            timestamp, user_id, username, action.value, resource_type, resource_id,
+            timestamp, user_id, username, action, resource_type, resource_id,
             ip_address, user_agent, details_json, status, error_message,
             prev_hash, record_hash,
         ))
 
         conn.commit()
         conn.close()
-
-        if action == AuditAction.LOGIN_FAILED and ip_address:
-            await self._check_login_anomaly(ip_address, username)
 
     async def _check_login_anomaly(self, ip_address: str, username: str | None) -> None:
         self._login_fail_counts[ip_address] = self._login_fail_counts.get(ip_address, 0) + 1
@@ -183,6 +196,9 @@ class AuditService:
         self._login_fail_counts.pop(ip_address, None)
 
     async def verify_integrity(self) -> dict:
+        return await asyncio.to_thread(self._sync_verify_integrity)
+
+    def _sync_verify_integrity(self) -> dict:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -231,6 +247,16 @@ class AuditService:
         page: int = 1,
         size: int = 50,
     ) -> tuple[list[dict], int]:
+        action_val = action.value if action else None
+        start_iso = start_time.isoformat() if start_time else None
+        end_iso = end_time.isoformat() if end_time else None
+        return await asyncio.to_thread(
+            self._sync_query, user_id, action_val, resource_type,
+            start_iso, end_iso, page, size,
+        )
+
+    def _sync_query(self, user_id, action, resource_type, start_time,
+                    end_time, page, size) -> tuple[list[dict], int]:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -243,16 +269,16 @@ class AuditService:
             params.append(user_id)
         if action:
             conditions.append("action = ?")
-            params.append(action.value)
+            params.append(action)
         if resource_type:
             conditions.append("resource_type = ?")
             params.append(resource_type)
         if start_time:
             conditions.append("timestamp >= ?")
-            params.append(start_time.isoformat())
+            params.append(start_time)
         if end_time:
             conditions.append("timestamp <= ?")
-            params.append(end_time.isoformat())
+            params.append(end_time)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
@@ -301,6 +327,9 @@ class AuditService:
         return output.getvalue()
 
     async def cleanup(self, retention_days: int = 90) -> int:
+        return await asyncio.to_thread(self._sync_cleanup, retention_days)
+
+    def _sync_cleanup(self, retention_days: int) -> int:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()

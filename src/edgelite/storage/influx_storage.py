@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -161,7 +162,13 @@ class InfluxDBStorage:
     @staticmethod
     def _escape_flux_value(value: str) -> str:
         """转义 Flux 查询中的字符串值，防止注入"""
-        return value.replace('"', '\\"').replace("\\", "\\\\")
+        return (value
+            .replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("'", "\\'")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("|", "\\|"))
 
     async def query_points(
         self,
@@ -174,6 +181,12 @@ class InfluxDBStorage:
         """查询时序数据"""
         if not self._available or not self._query_api:
             return []
+
+        _TIME_RANGE_RE = re.compile(r'^-?\d+[smhdwMy]$|^\d{4}-\d{2}-\d{2}')
+        for param_name, param_val in [("start", start), ("stop", stop)]:
+            if param_val and not (_TIME_RANGE_RE.match(param_val) or param_val.lstrip("-").replace(".", "", 1).isdigit()):
+                logger.error("非法的时间范围参数 %s: %s", param_name, param_val)
+                return []
 
         safe_device_id = self._escape_flux_value(device_id)
         safe_point_name = self._escape_flux_value(point_name)

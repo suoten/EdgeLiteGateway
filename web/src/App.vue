@@ -9,8 +9,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { GlobalTheme } from 'naive-ui'
+import { ref, computed, provide } from 'vue'
+import { darkTheme, type GlobalTheme } from 'naive-ui'
 
-const theme = ref<GlobalTheme | null>(null)
+const isDark = ref(localStorage.getItem('edgelite_theme') === 'dark')
+const theme = computed<GlobalTheme | null>(() => isDark.value ? darkTheme : null)
+function toggleTheme() {
+  isDark.value = !isDark.value
+  localStorage.setItem('edgelite_theme', isDark.value ? 'dark' : 'light')
+}
+provide('toggleTheme', toggleTheme)
+provide('isDark', isDark)
 </script>

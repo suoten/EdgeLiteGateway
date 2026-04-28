@@ -77,18 +77,21 @@
         @update:value="handleMenuClick"
       />
       <div class="sider-footer">
-        <n-text v-if="!collapsed" depth="3" style="font-size: 12px">v1.0.0 Community</n-text>
+        <n-text v-if="!collapsed" depth="3" style="font-size: 12px">v{{ version }} Community</n-text>
       </div>
     </n-layout-sider>
     <n-layout>
       <n-layout-header bordered class="header">
         <n-breadcrumb>
-          <n-breadcrumb-item>
-            <template #separator><n-icon :component="ChevronForwardOutline" /></template>
-            {{ currentTitle }}
+          <template #separator><n-icon :component="ChevronForwardOutline" /></template>
+          <n-breadcrumb-item v-for="item in breadcrumbItems" :key="item.path">
+            {{ item.title }}
           </n-breadcrumb-item>
         </n-breadcrumb>
         <n-space align="center" :size="16">
+          <n-button quaternary circle @click="toggleTheme">
+            <template #icon><n-icon :component="isDark ? SunnyOutline : MoonOutline" /></template>
+          </n-button>
           <n-badge :value="alarmCount" :max="99" :show="alarmCount > 0">
             <n-button quaternary circle @click="router.push({ name: 'Alarms' })">
               <template #icon><n-icon :component="NotificationsOutline" /></template>
@@ -111,14 +114,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, onMounted, onUnmounted } from 'vue'
+import { ref, computed, h, inject, onMounted, onUnmounted, type Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { NIcon, useDialog } from 'naive-ui'
 import {
   SpeedometerOutline, HardwareChip, SettingsOutline, AlertCircleOutline,
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
   LogOutOutline, StatsChartOutline, ServerOutline, CubeOutline, BuildOutline, DocumentTextOutline,
-  PulseOutline, CloudOutline, CalculatorOutline,
+  PulseOutline, CloudOutline, CalculatorOutline, MoonOutline, SunnyOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { alarmApi } from '@/api'
@@ -130,6 +133,10 @@ const dialog = useDialog()
 const collapsed = ref(false)
 const alarmCount = ref(0)
 let alarmTimer: number | null = null
+
+const toggleTheme = inject<() => void>('toggleTheme', () => {})
+const isDark = inject<Ref<boolean>>('isDark', ref(false))
+const version = __APP_VERSION__ || '1.0.0'
 
 const currentRoute = computed(() => {
   const name = route.name as string
@@ -145,6 +152,19 @@ const currentTitle = computed(() => {
     System: '系统管理', Users: '用户管理',
   }
   return titles[route.name as string] || 'EdgeLiteGateway'
+})
+
+const breadcrumbItems = computed(() => {
+  const titleMap: Record<string, string> = {
+    Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
+    Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
+    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态', AuditLog: '审计日志',
+    DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
+    System: '系统管理', Users: '用户管理',
+  }
+  return route.matched
+    .filter(r => r.name)
+    .map(r => ({ path: r.path, title: titleMap[r.name as string] || (r.name as string) }))
 })
 
 const roleLabel = computed(() => ({ admin: '管理员', operator: '操作员', viewer: '观察者' }[auth.role] || auth.role))
@@ -195,7 +215,7 @@ async function fetchAlarmCount() {
   try {
     const data = await alarmApi.list({ page: 1, size: 1, status: 'firing' })
     alarmCount.value = data.total
-  } catch {}
+  } catch (e) { console.warn('获取告警计数失败:', e) }
 }
 
 onMounted(() => { fetchAlarmCount(); alarmTimer = window.setInterval(fetchAlarmCount, 30000) })

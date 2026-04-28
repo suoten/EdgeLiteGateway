@@ -1,9 +1,9 @@
 <template>
   <n-space vertical :size="16">
     <n-space>
-      <n-input v-model:value="searchText" placeholder="搜索设备ID" clearable style="width: 200px" @update:value="fetchAlarms" />
-      <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="fetchAlarms" />
-      <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="fetchAlarms" />
+      <n-input v-model:value="searchText" placeholder="搜索设备ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+      <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+      <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
     </n-space>
 
     <n-data-table :columns="columns" :data="alarms" :loading="loading" :pagination="pagination" :row-key="(r: Alarm) => r.alarm_id" />
@@ -57,7 +57,7 @@ const columns = [
     title: '触发值', key: 'trigger_value', width: 160,
     render: (r: Alarm) => r.trigger_value ? h(NTooltip, {}, { trigger: () => h('span', { style: 'max-width:140px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, JSON.stringify(r.trigger_value)), default: () => JSON.stringify(r.trigger_value) }) : '-',
   },
-  { title: '触发时间', key: 'fired_at', width: 180 },
+  { title: '触发时间', key: 'fired_at', width: 180, sorter: true, defaultSortOrder: 'descend' },
   { title: '确认人', key: 'acknowledged_by', width: 100, render: (r: Alarm) => r.acknowledged_by || '-' },
   { title: '恢复时间', key: 'recovered_at', width: 180, render: (r: Alarm) => r.recovered_at || '-' },
   {
@@ -77,7 +77,7 @@ async function fetchAlarms() {
       size: pagination.pageSize,
       status: filterStatus.value ?? undefined,
       severity: filterSeverity.value ?? undefined,
-      device_id: searchText.value || undefined,
+      search: searchText.value || undefined,
     })
     alarms.value = data?.data ?? []
     pagination.itemCount = data.total
@@ -90,6 +90,7 @@ async function fetchAlarms() {
 }
 
 async function handleAck(r: Alarm) {
+  if (!window.confirm('确认该告警？')) return
   try {
     await alarmApi.ack(r.alarm_id)
     message.success('告警已确认')

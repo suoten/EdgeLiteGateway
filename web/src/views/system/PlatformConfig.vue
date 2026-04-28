@@ -19,8 +19,8 @@
     </n-card>
 
     <n-modal v-model:show="showAddModal" preset="card" title="添加平台对接" style="width: 600px">
-      <n-form ref="formRef" :model="formData" label-placement="left" label-width="120">
-        <n-form-item label="平台类型">
+      <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="left" label-width="120">
+        <n-form-item label="平台类型" path="platform_name">
           <n-select v-model:value="formData.platform_name" :options="platformOptions" placeholder="选择平台" />
         </n-form-item>
         <n-form-item v-for="field in platformFields" :key="field.name" :label="field.label || field.name">
@@ -42,10 +42,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NForm, NFormItem, NSelect, NInput, NInputNumber, NGrid, NGi, NThing, useMessage } from 'naive-ui'
+import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NForm, NFormItem, NSelect, NInput, NInputNumber, NGrid, NGi, NThing, useMessage, useDialog } from 'naive-ui'
 import { platformApi } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const platforms = ref<any[]>([])
 const supportedPlatforms = ref<any[]>([])
 const loading = ref(false)
@@ -53,6 +54,8 @@ const showAddModal = ref(false)
 const connecting = ref(false)
 const platformFields = ref<any[]>([])
 const formData = ref<{ platform_name: string; config: Record<string, any> }>({ platform_name: '', config: {} })
+const formRef = ref<any>(null)
+const formRules = { platform_name: { required: true, message: '请选择平台类型', trigger: 'change' } }
 
 const platformOptions = computed(() => supportedPlatforms.value.map(p => ({ label: p.label, value: p.name })))
 
@@ -89,6 +92,9 @@ async function selectPlatform(p: any) {
 }
 
 async function connectPlatform() {
+  try {
+    await formRef.value?.validate()
+  } catch { return }
   connecting.value = true
   try {
     await platformApi.connect(formData.value.platform_name, formData.value.config)
@@ -100,11 +106,19 @@ async function connectPlatform() {
 }
 
 async function disconnectPlatform(name: string) {
-  try {
-    await platformApi.disconnect(name)
-    await loadPlatforms()
-    message.success('已断开')
-  } catch (e) { message.error('断开失败') }
+  dialog.warning({
+    title: '确认断开',
+    content: `确定断开平台 "${name}" 的连接？断开后数据上报将中断。`,
+    positiveText: '断开',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await platformApi.disconnect(name)
+        await loadPlatforms()
+        message.success('已断开')
+      } catch (e) { message.error('断开失败') }
+    },
+  })
 }
 
 onMounted(() => { loadPlatforms() })

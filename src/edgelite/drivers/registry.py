@@ -15,6 +15,7 @@ class DriverRegistry:
 
     def __init__(self):
         self._drivers: dict[str, Type[DriverPlugin]] = {}
+        self._discovered = False
 
     def register(self, driver_class: Type[DriverPlugin]) -> None:
         """注册驱动类"""
@@ -37,6 +38,10 @@ class DriverRegistry:
 
     def auto_discover(self) -> None:
         """自动发现并注册所有内置驱动"""
+        if self._discovered:
+            logger.warning("auto_discover已执行过，跳过重复调用")
+            return
+        self._discovered = True
         _driver_modules = [
             ("Modbus TCP", "edgelite.drivers.modbus_tcp", "ModbusTcpDriver"),
             ("模拟器", "edgelite.drivers.simulator", "SimulatorDriver"),

@@ -450,8 +450,16 @@ class UserRepo:
 class AuditRepo:
     """审计日志数据访问"""
 
-    def __init__(self, conn: aiosqlite.Connection):
+    def __init__(self, conn: aiosqlite.Connection, write_lock: asyncio.Lock | None = None):
         self.conn = conn
+        self._write_lock = write_lock
+
+    async def _commit(self) -> None:
+        if self._write_lock:
+            async with self._write_lock:
+                await self.conn.commit()
+        else:
+            await self.conn.commit()
 
     async def create(self, data: dict) -> None:
         await self.conn.execute(

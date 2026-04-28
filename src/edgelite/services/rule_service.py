@@ -17,7 +17,11 @@ class RuleService:
         device = await self._device_repo.get(data["device_id"])
         if device is None:
             raise ValueError(f"设备不存在: {data['device_id']}")
-        return await self._repo.create(data)
+        result = await self._repo.create(data)
+        from edgelite.app import _app_state
+        if _app_state.evaluator:
+            _app_state.evaluator.invalidate_cache()
+        return result
 
     async def get_rule(self, rule_id: str) -> dict | None:
         return await self._repo.get(rule_id)
@@ -26,7 +30,12 @@ class RuleService:
         return await self._repo.list_all(page, size, device_id)
 
     async def update_rule(self, rule_id: str, data: dict) -> dict | None:
-        return await self._repo.update(rule_id, data)
+        result = await self._repo.update(rule_id, data)
+        if result:
+            from edgelite.app import _app_state
+            if _app_state.evaluator:
+                _app_state.evaluator.invalidate_cache()
+        return result
 
     async def delete_rule(self, rule_id: str) -> bool:
         result = await self._repo.delete(rule_id)
@@ -34,13 +43,24 @@ class RuleService:
             from edgelite.app import _app_state
             if _app_state.evaluator:
                 _app_state.evaluator.cleanup_duration_tracker(rule_id)
+                _app_state.evaluator.invalidate_cache()
         return result
 
     async def enable_rule(self, rule_id: str) -> dict | None:
-        return await self._repo.toggle(rule_id, True)
+        result = await self._repo.toggle(rule_id, True)
+        if result:
+            from edgelite.app import _app_state
+            if _app_state.evaluator:
+                _app_state.evaluator.invalidate_cache()
+        return result
 
     async def disable_rule(self, rule_id: str) -> dict | None:
-        return await self._repo.toggle(rule_id, False)
+        result = await self._repo.toggle(rule_id, False)
+        if result:
+            from edgelite.app import _app_state
+            if _app_state.evaluator:
+                _app_state.evaluator.invalidate_cache()
+        return result
 
     async def test_rule(self, rule_id: str, point_values: dict[str, float]) -> dict:
         """测试规则执行"""

@@ -4,6 +4,9 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    __APP_VERSION__: JSON.stringify(require('./package.json').version),
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

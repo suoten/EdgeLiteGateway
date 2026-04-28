@@ -21,6 +21,12 @@ export const authApi = {
 
   refresh: (refreshToken: string) =>
     http.post<ApiResponse<TokenData>>('/auth/refresh', { refresh: refreshToken }).then((r) => r.data.data),
+
+  me: () =>
+    http.get<ApiResponse<{ role: string; must_change_password?: boolean }>>('/auth/me').then((r) => r.data.data),
+
+  logout: () =>
+    http.post('/auth/logout'),
 }
 
 // ─── 设备 ───
@@ -118,7 +124,7 @@ export interface RuleCreateParams {
 }
 
 export const ruleApi = {
-  list: (params?: { page?: number; size?: number; device_id?: string }) =>
+  list: (params?: { page?: number; size?: number; device_id?: string; search?: string }) =>
     http.get<PagedData<Rule>>('/rules', { params }).then((r) => r.data),
 
   get: (id: string) =>
@@ -160,7 +166,7 @@ export interface Alarm {
 }
 
 export const alarmApi = {
-  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string; search?: string }) =>
     http.get<PagedData<Alarm>>('/alarms', { params }).then((r) => r.data),
 
   get: (id: string) =>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -11,6 +12,8 @@ from jose import JWTError
 
 from edgelite.security.jwt import verify_token
 from edgelite.security.rbac import Permission, check_permission
+
+logger = logging.getLogger(__name__)
 
 security_scheme = HTTPBearer()
 
@@ -28,10 +31,22 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    jti = payload.get("jti")
+    if jti:
+        from edgelite.security.token_revocation import is_token_revoked
+        if is_token_revoked(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token已撤销",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    else:
+        logger.warning("Token无jti字段(旧格式)，跳过撤销检查")
+
     username = payload.get("username", "")
     from edgelite.storage.sqlite_repo import UserRepo
     from edgelite.app import _app_state
-    repo = UserRepo(_app_state.db_conn, getattr(_app_state, 'write_lock', None))
+    repo = UserRepo(_app_state.db_conn, _app_state.write_lock)
     user = await repo.get_by_username(username, include_password=False)
 
     if user is None or not user["enabled"]:

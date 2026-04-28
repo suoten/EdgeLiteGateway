@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["用户管理"])
 def _get_user_repo():
     from edgelite.app import _app_state
     from edgelite.storage.sqlite_repo import UserRepo
-    return UserRepo(_app_state.db_conn, getattr(_app_state, 'write_lock', None))
+    return UserRepo(_app_state.db_conn, _app_state.write_lock)
 
 
 @router.get("", response_model=PagedResponse[UserResponse])
@@ -47,6 +47,14 @@ async def update_user(user_id: str, body: UserUpdate, user: CurrentUser = requir
     data = body.model_dump(exclude_none=True)
     if "password" in data:
         data["password"] = hash_password(data["password"])
+    # 保护最后管理员：角色从admin改为其他时检查
+    if "role" in data and data["role"] != "admin":
+        target = await repo.get(user_id)
+        if target and target["role"] == "admin":
+            all_users, _ = await repo.list_all(size=10000)
+            admin_count = sum(1 for u in all_users if u["role"] == "admin")
+            if admin_count <= 1:
+                raise HTTPException(status_code=403, detail="不能移除最后一个管理员的角色")
     updated = await repo.update(user_id, data)
     if updated is None:
         raise HTTPException(status_code=404, detail="用户不存在")
@@ -58,6 +66,13 @@ async def delete_user(user_id: str, user: CurrentUser = require_permission(Permi
     if user_id == user.get("user_id"):
         raise HTTPException(status_code=400, detail="不能删除自己")
     repo = _get_user_repo()
+    # 保护最后管理员
+    target = await repo.get(user_id)
+    if target and target["role"] == "admin":
+        all_users, _ = await repo.list_all(size=10000)
+        admin_count = sum(1 for u in all_users if u["role"] == "admin")
+        if admin_count <= 1:
+            raise HTTPException(status_code=403, detail="不能删除最后一个管理员")
     success = await repo.delete(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="用户不存在")

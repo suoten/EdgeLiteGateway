@@ -40,7 +40,7 @@
           </n-card>
           <n-card title="批量测试" size="small" style="margin-top: 12px">
             <n-input v-model:value="batchExpr" type="textarea" :rows="3" placeholder='{"fahrenheit": "${sensor.temp} * 1.8 + 32", "status": "${sensor.temp} > 100"}' />
-            <n-button size="small" style="margin-top: 8px" @click="evaluateBatch">批量计算</n-button>
+            <n-button size="small" style="margin-top: 8px" :loading="calculating" @click="evaluateBatch">批量计算</n-button>
             <n-code v-if="batchResult" :code="batchResult" language="json" style="margin-top: 8px" />
           </n-card>
         </n-gi>
@@ -64,6 +64,7 @@ const functions = ref<any[]>([])
 const operators = ref<any[]>([])
 const batchExpr = ref('')
 const batchResult = ref('')
+const calculating = ref(false)
 
 const funcColumns = [
   { title: '函数', key: 'name', width: 80 },
@@ -109,13 +110,14 @@ async function validate() {
 }
 
 async function evaluateBatch() {
+  calculating.value = true
   try {
     const exprs = JSON.parse(batchExpr.value)
     const data = await expressionApi.evaluateBatch(exprs, buildVarMap())
     batchResult.value = JSON.stringify(data?.results, null, 2)
   } catch (e: any) {
     batchResult.value = '错误: ' + (e.response?.data?.detail || e.message)
-  }
+  } finally { calculating.value = false }
 }
 
 async function loadFunctions() {

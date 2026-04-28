@@ -25,8 +25,10 @@ class RuleEvaluator:
         # 规则缓存: cache_key -> rules
         self._rule_cache: dict[str, list] = {}
         self._cache_time: float = 0.0
-        self._cache_ttl: float = 30.0  # 缓存有效期30秒
+        self._cache_ttl: float = 5.0  # 缓存有效期5秒
         self._task: asyncio.Task | None = None
+        self._point_value_cache: dict[str, tuple[float, float]] = {}
+        self._point_cache_ttl: float = 300.0
 
     async def start(self) -> None:
         """启动评估器"""
@@ -72,6 +74,15 @@ class RuleEvaluator:
         for k in keys_to_remove:
             del self._duration_tracker[k]
 
+    def invalidate_cache(self, device_id: str | None = None, point_name: str | None = None) -> None:
+        """主动失效规则缓存"""
+        if device_id and point_name:
+            cache_key = f"{device_id}:{point_name}"
+            self._rule_cache.pop(cache_key, None)
+        else:
+            self._rule_cache.clear()
+            self._cache_time = 0.0
+
     async def _eval_loop(self, queue: asyncio.Queue) -> None:
         """评估循环"""
         while True:
@@ -104,10 +115,33 @@ class RuleEvaluator:
         duration = rule["duration"]
         severity = rule["severity"]
 
-        # 收集当前所有条件测点的最新值
-        # 注意：这里简化处理，仅使用当前事件中的值
-        # 完整实现应从InfluxDB获取最新值
+        import time as _time
+        now = _time.time()
+
         point_values = {event.point_name: event.value}
+        self._point_value_cache[event.point_name] = (event.value, now)
+
+        for cond in conditions:
+            cond_point = cond["point"]
+            if cond_point not in point_values:
+                cached = self._point_value_cache.get(cond_point)
+                if cached and (now - cached[1]) < self._point_cache_ttl:
+                    point_values[cond_point] = cached[0]
+                else:
+                    try:
+                        from edgelite.app import _app_state
+                        influx = _app_state.influx_storage
+                        if influx:
+                            latest_dict = await influx.query_latest(event.device_id, [cond_point])
+                            if latest_dict and cond_point in latest_dict:
+                                latest_val = latest_dict[cond_point]
+                                if isinstance(latest_val, dict):
+                                    latest_val = latest_val.get("value")
+                                if isinstance(latest_val, (int, float)):
+                                    point_values[cond_point] = latest_val
+                                    self._point_value_cache[cond_point] = (latest_val, now)
+                    except Exception as e:
+                        logger.debug("从InfluxDB获取测点值失败 %s.%s: %s", event.device_id, cond_point, e)
 
         # 评估条件
         matched = self._check_conditions(conditions, point_values, logic)

@@ -158,7 +158,8 @@ class NotifyService:
             server = smtplib.SMTP_SSL(email_config.smtp_host, email_config.smtp_port, timeout=15)
         else:
             server = smtplib.SMTP(email_config.smtp_host, email_config.smtp_port, timeout=15)
-            server.starttls()
+            if getattr(email_config, 'use_starttls', False):
+                server.starttls()
 
         try:
             if email_config.smtp_user and email_config.smtp_password:

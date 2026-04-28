@@ -10,6 +10,8 @@
         <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">批量删除 ({{ checkedKeys.length }})</n-button>
         <n-button type="primary" @click="showCreateModal = true">创建设备</n-button>
         <n-button @click="showSimModal = true">创建模拟器</n-button>
+        <n-input v-model:value="discoverHost" placeholder="发现主机" size="small" style="width: 130px" />
+        <n-input-number v-model:value="discoverPort" :min="1" :max="65535" size="small" style="width: 90px" />
         <n-button @click="handleDiscover" :loading="discovering">设备发现</n-button>
       </n-space>
     </n-space>
@@ -95,9 +97,9 @@
 
     <!-- 创建模拟器弹窗 -->
     <n-modal v-model:show="showSimModal" title="创建模拟设备" preset="card" style="width: 600px">
-      <n-form :model="simForm" label-placement="left" label-width="90">
-        <n-form-item label="设备ID"><n-input v-model:value="simForm.device_id" placeholder="sim-device-01" /></n-form-item>
-        <n-form-item label="名称"><n-input v-model:value="simForm.name" placeholder="模拟设备" /></n-form-item>
+      <n-form :model="simForm" :rules="simFormRules" ref="simFormRef" label-placement="left" label-width="90">
+        <n-form-item label="设备ID" path="device_id"><n-input v-model:value="simForm.device_id" placeholder="sim-device-01" /></n-form-item>
+        <n-form-item label="名称" path="name"><n-input v-model:value="simForm.name" placeholder="模拟设备" /></n-form-item>
         <n-form-item label="采集间隔"><n-input-number v-model:value="simForm.collect_interval" :min="1" /> 秒</n-form-item>
         <n-divider>测点定义</n-divider>
         <n-space vertical>
@@ -149,6 +151,8 @@ const showSimModal = ref(false)
 const creating = ref(false)
 const discovering = ref(false)
 const checkedKeys = ref<string[]>([])
+const discoverHost = ref('192.168.1.0')
+const discoverPort = ref(502)
 const createFormRef = ref<any>(null)
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchDevices() } })
@@ -214,7 +218,7 @@ const statusColor: Record<string, any> = { online: 'success', offline: 'default'
 const columns = [
   { type: 'selection' as const },
   { title: '设备ID', key: 'device_id', width: 180 },
-  { title: '名称', key: 'name', width: 150 },
+  { title: '名称', key: 'name', width: 150, sorter: true },
   {
     title: '协议', key: 'protocol', width: 120,
     render: (row: Device) => h(NTag, { size: 'small', bordered: false, type: 'info' }, { default: () => protocolLabel[row.protocol] || row.protocol }),
@@ -300,6 +304,11 @@ const simForm = reactive({
   device_id: '', name: '', collect_interval: 5,
   points: [{ name: 'temperature', data_type: 'float32', unit: '°C', address: '0', access_mode: 'r', min: 15, max: 35, mode: 'sine' }],
 })
+const simFormRef = ref<any>(null)
+const simFormRules = {
+  device_id: { required: true, message: '请输入设备ID', trigger: 'blur' },
+  name: { required: true, message: '请输入设备名称', trigger: 'blur' },
+}
 
 async function fetchDevices() {
   loading.value = true
@@ -342,6 +351,9 @@ async function handleCreate() {
 }
 
 async function handleCreateSim() {
+  try {
+    await simFormRef.value?.validate()
+  } catch { return }
   creating.value = true
   try {
     await deviceApi.createSimulator(simForm as any)
@@ -362,7 +374,7 @@ async function handleCreateSim() {
 async function handleDiscover() {
   discovering.value = true
   try {
-    const result = await deviceApi.discover({ protocol: filterProtocol.value || 'modbus_tcp', host: '192.168.1.0', port: 502 })
+    const result = await deviceApi.discover({ protocol: filterProtocol.value || 'modbus_tcp', host: discoverHost.value, port: discoverPort.value })
     if (result && result.length > 0) {
       message.success(`发现 ${result.length} 个设备`)
     } else {
@@ -398,25 +410,14 @@ function handleDelete(row: Device) {
   })
 }
 
-function handleBatchDelete() {
+async function handleBatchDelete() {
   if (!checkedKeys.value.length) return
-  dialog.warning({
-    title: '确认批量删除',
-    content: `确定删除选中的 ${checkedKeys.value.length} 个设备？此操作不可撤销。`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await Promise.all(checkedKeys.value.map(id => deviceApi.delete(id)))
-        message.success(`成功删除 ${checkedKeys.value.length} 个设备`)
-        checkedKeys.value = []
-        fetchDevices()
-      } catch (e: any) {
-        message.error(e?.response?.data?.detail || '批量删除失败')
-        fetchDevices()
-      }
-    },
-  })
+  if (!window.confirm(`确认删除${checkedKeys.value.length}个设备？`)) return
+  for (const id of checkedKeys.value) {
+    await deviceApi.delete(id)
+  }
+  checkedKeys.value = []
+  fetchDevices()
 }
 
 onMounted(() => { fetchDevices(); loadDriverSchemas() })

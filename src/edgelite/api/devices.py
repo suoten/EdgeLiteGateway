@@ -117,10 +117,12 @@ async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(d
     """HTTP Webhook数据推送端点（需API Key认证）"""
     from edgelite.app import _app_state
 
-    config = _app_state.config if hasattr(_app_state, 'config') else None
-    if config and hasattr(config, 'server') and hasattr(config.server, 'webhook_api_key') and config.server.webhook_api_key:
+    config = _app_state.config
+    if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
         if x_api_key != config.server.webhook_api_key:
             raise HTTPException(status_code=401, detail="Invalid API Key")
+    else:
+        raise HTTPException(status_code=401, detail="API Key not configured")
 
     driver = _app_state.driver_registry.get_driver_class("http_webhook")
     if driver and hasattr(driver, "receive_data"):

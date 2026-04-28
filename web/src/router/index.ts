@@ -31,16 +31,24 @@ const router = createRouter({
         { path: 'scada', name: 'ScadaEditor', component: () => import('@/views/scada/ScadaEditor.vue') },
       ],
     },
+    { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue'), meta: { requiresAuth: false } },
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  if (auth.isAuthenticated && !auth.role) {
+    await auth.fetchUserInfo()
+  }
   if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
     return { name: 'Login' }
   }
-  if (to.meta.requiredRole && auth.role !== 'admin') {
-    return { name: 'Dashboard' }
+  if (to.meta.requiredRole) {
+    const required = to.meta.requiredRole as string
+    if (auth.role === 'admin') { /* admin拥有所有权限 */ }
+    else if (auth.role !== required) {
+      return { name: 'Dashboard' }
+    }
   }
 })
 
