@@ -157,7 +157,9 @@ async def lifespan(app: FastAPI):
         # 8.5 初始化审计日志服务
         try:
             from edgelite.services.audit_service import AuditService
-            audit_service = AuditService(db_path=config.database.sqlite_path)
+            from pathlib import Path
+            audit_db_path = str(Path(config.database.sqlite_path).parent / "audit.db")
+            audit_service = AuditService(db_path=audit_db_path)
             await audit_service.initialize()
             _app_state.audit_service = audit_service
             initialized.append(("audit_service", audit_service))

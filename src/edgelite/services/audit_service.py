@@ -65,6 +65,9 @@ class AuditService:
     def set_alert_callback(self, callback: Any) -> None:
         self._on_audit_alert = callback
 
+    async def close(self) -> None:
+        self._initialized = False
+
     async def initialize(self) -> None:
         await asyncio.to_thread(self._sync_initialize)
 
