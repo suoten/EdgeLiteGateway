@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -40,7 +40,7 @@ async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM
 
 
 @router.post("/restore", response_model=ApiResponse)
-async def restore_backup(backup_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
+async def restore_backup(backup_id: str = Body(..., embed=True), user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     if not re.match(r'^[a-zA-Z0-9_-]+$', backup_id):
         raise HTTPException(status_code=400, detail="无效的备份ID")
     svc = _get_system_service()

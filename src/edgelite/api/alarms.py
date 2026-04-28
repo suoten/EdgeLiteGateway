@@ -22,9 +22,13 @@ async def list_alarms(
     user: CurrentUser = require_permission(Permission.ALARM_READ),
     page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=1000),
     status: str | None = None, severity: str | None = None, device_id: str | None = None,
+    search: str | None = None,
 ):
     svc = _get_alarm_service()
     alarms, total = await svc.list_alarms(page, size, status, severity, device_id)
+    if search:
+        search_lower = search.lower()
+        alarms = [a for a in alarms if search_lower in a.get("device_id", "").lower() or search_lower in a.get("rule_id", "").lower()]
     return PagedResponse(data=alarms, total=total, page=page, size=size)
 
 
