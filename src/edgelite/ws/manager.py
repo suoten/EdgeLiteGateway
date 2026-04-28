@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 class ConnectionManager:
     """WebSocket连接管理器"""
 
-    def __init__(self):
+    def __init__(self, max_connections: int = 100):
         # channel -> set of WebSocket connections
         self._connections: dict[str, set[WebSocket]] = {}
+        self.max_connections = max_connections
 
     async def connect(self, websocket: WebSocket, channel: str, token: str) -> bool:
         """建立WebSocket连接，验证Token"""
@@ -27,6 +28,12 @@ class ConnectionManager:
             payload = verify_token(token, token_type="access")
         except Exception:
             await websocket.close(code=4001, reason="Token无效")
+            return False
+
+        total = sum(len(conns) for conns in self._connections.values())
+        if total >= self.max_connections:
+            await websocket.close(code=1013, reason="连接数已达上限")
+            logger.warning("WebSocket连接数已达上限(%d)，拒绝新连接", self.max_connections)
             return False
 
         await websocket.accept()
@@ -51,17 +58,20 @@ class ConnectionManager:
             return
 
         message = json.dumps(data, ensure_ascii=False)
-        disconnected = set()
+        disconnected: set[WebSocket] = set()
 
-        for ws in connections:
+        async def _send_safe(ws: WebSocket) -> None:
             try:
                 await ws.send_text(message)
             except Exception:
                 disconnected.add(ws)
 
-        # 清理断开的连接
+        await asyncio.gather(*[_send_safe(ws) for ws in connections])
+
         for ws in disconnected:
             self._connections.get(channel, set()).discard(ws)
+        if disconnected and channel in self._connections and not self._connections[channel]:
+            del self._connections[channel]
 
     def get_connection_count(self, channel: str) -> int:
         """获取频道连接数"""

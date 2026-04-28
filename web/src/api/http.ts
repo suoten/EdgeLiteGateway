@@ -20,32 +20,26 @@ const http: AxiosInstance = axios.create({
   baseURL: '/api/v1',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
-// 请求拦截器：注入Token
 http.interceptors.request.use((config) => {
-  const auth = useAuthStore()
-  if (auth.token) {
-    config.headers.Authorization = `Bearer ${auth.token}`
-  }
+  config.withCredentials = true
   return config
 })
 
-// 是否正在刷新Token
 let isRefreshing = false
-// 等待刷新完成的请求队列
-let refreshSubscribers: ((token: string) => void)[] = []
+let refreshSubscribers: ((token: string | null) => void)[] = []
 
-function onTokenRefreshed(token: string) {
+function onTokenRefreshed(token: string | null) {
   refreshSubscribers.forEach((cb) => cb(token))
   refreshSubscribers = []
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
+function addRefreshSubscriber(cb: (token: string | null) => void) {
   refreshSubscribers.push(cb)
 }
 
-// 响应拦截器：处理401、错误码和Token自动刷新
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const data = response.data
@@ -57,56 +51,44 @@ http.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
 
-    // 401 且不是刷新请求本身
     if (error.response?.status === 401 && originalRequest.url !== '/auth/refresh') {
       const auth = useAuthStore()
 
-      if (!auth.refreshToken) {
+      if (!auth.username) {
         auth.logout()
         window.location.href = '/login'
         return Promise.reject(error)
       }
 
-      // 已重试过，直接登出
       if (originalRequest._retry) {
         auth.logout()
         window.location.href = '/login'
         return Promise.reject(error)
       }
 
-      // 正在刷新中，加入队列等待
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          addRefreshSubscriber((token: string) => {
-            originalRequest.headers = originalRequest.headers || {}
-            originalRequest.headers.Authorization = `Bearer ${token}`
+        return new Promise((resolve, reject) => {
+          addRefreshSubscriber((token: string | null) => {
+            if (!token) {
+              reject(error)
+              return
+            }
             resolve(http(originalRequest))
           })
         })
       }
 
-      // 开始刷新
       isRefreshing = true
       originalRequest._retry = true
 
       try {
-        const data = await authApi.refresh(auth.refreshToken)
-        auth.token = data.access_token
-        auth.refreshToken = data.refresh_token
-        localStorage.setItem('edgelite_token', data.access_token)
-        localStorage.setItem('edgelite_refresh', data.refresh_token)
-
-        onTokenRefreshed(data.access_token)
+        await authApi.refresh('')
         isRefreshing = false
-
-        // 重试原请求
-        originalRequest.headers = originalRequest.headers || {}
-        originalRequest.headers.Authorization = `Bearer ${data.access_token}`
+        onTokenRefreshed('ok')
         return http(originalRequest)
       } catch (refreshError) {
         isRefreshing = false
-        refreshSubscribers.forEach(cb => cb(''))
-        refreshSubscribers = []
+        onTokenRefreshed(null)
         auth.logout()
         window.location.href = '/login'
         return Promise.reject(refreshError)

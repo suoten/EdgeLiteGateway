@@ -72,7 +72,7 @@ class DeviceService:
                     data.get("points", []),
                 )
                 self._driver_instances[device["device_id"]] = driver
-                if driver._clients.get(device["device_id"]) and driver._clients[device["device_id"]].connected:
+                if hasattr(driver, 'is_device_connected') and driver.is_device_connected(device["device_id"]):
                     await self._lifecycle.on_device_online(device["device_id"])
                     await self._repo.update_status(device["device_id"], "online")
                     await self._scheduler.start_collect(
@@ -162,26 +162,32 @@ class DeviceService:
 
     async def load_existing_devices(self) -> None:
         """启动时加载所有已有设备并恢复采集"""
-        devices, _ = await self._repo.list_all(page=1, size=10000)
-        for device in devices:
-            if device["status"] == "online":
-                protocol = device["protocol"]
-                driver_class = self._registry.get_driver_class(protocol)
-                if driver_class is None:
-                    continue
+        page = 1
+        size = 1000
+        while True:
+            devices, total = await self._repo.list_all(page=page, size=size)
+            for device in devices:
+                try:
+                    protocol = device["protocol"]
+                    driver_class = self._registry.get_driver_class(protocol)
+                    if driver_class is None:
+                        continue
 
-                if protocol == "simulator":
-                    driver = await self._get_simulator_driver()
-                    driver.add_device(device["device_id"], device.get("points", []))
-                    self._driver_instances[device["device_id"]] = driver
-                    await self._scheduler.start_collect(
-                        device["device_id"],
-                        driver,
-                        device.get("points", []),
-                        device.get("collect_interval", 5),
-                    )
-                # 其他协议的设备需要重新连接，标记为offline
-                elif protocol != "simulator":
-                    await self._repo.update_status(device["device_id"], "offline")
-
-        logger.info("已加载%d个设备", len(devices))
+                    if protocol == "simulator":
+                        driver = await self._get_simulator_driver()
+                        driver.add_device(device["device_id"], device.get("points", []))
+                        self._driver_instances[device["device_id"]] = driver
+                        await self._scheduler.start_collect(
+                            device["device_id"],
+                            driver,
+                            device.get("points", []),
+                            device.get("collect_interval", 5),
+                        )
+                    elif protocol != "simulator":
+                        await self._repo.update_status(device["device_id"], "offline")
+                except Exception as e:
+                    logger.warning("恢复设备采集失败 %s: %s", device["device_id"], e)
+            if page * size >= total:
+                break
+            page += 1
+        logger.info("已加载%d个设备", total)

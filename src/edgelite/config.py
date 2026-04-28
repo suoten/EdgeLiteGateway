@@ -15,6 +15,7 @@ class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8080
     cors_origins: list[str] = ["http://localhost:3000"]
+    webhook_api_key: str = ""
 
 
 class DatabaseConfig(BaseModel):
@@ -105,6 +106,7 @@ class NotifyEmailConfig(BaseModel):
     smtp_user: str = ""
     smtp_password: str = ""
     use_tls: bool = True
+    use_starttls: bool = False
     from_addr: str = ""
     to_addrs: list[str] = []
 
@@ -187,7 +189,7 @@ def _load_env_overrides() -> dict[str, Any]:
     for key, value in os.environ.items():
         if key.startswith(prefix):
             # EDGELITE_SERVER_PORT -> server.port
-            config_path = key[len(prefix):].lower().split("_")
+            config_path = key[len(prefix):].lower().split("__")
             # 支持两级嵌套，如 EDGELITE_INFLUXDB_URL
             if len(config_path) >= 2:
                 section = config_path[0]

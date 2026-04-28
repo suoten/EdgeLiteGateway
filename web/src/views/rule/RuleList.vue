@@ -48,9 +48,9 @@
     </n-modal>
 
     <n-modal v-model:show="showEditModal" title="编辑告警规则" preset="card" style="width: 640px">
-      <n-form :model="editForm" label-placement="left" label-width="90" ref="editFormRef">
-        <n-form-item label="规则名称"><n-input v-model:value="editForm.name" /></n-form-item>
-        <n-form-item label="关联设备">
+      <n-form :model="editForm" label-placement="left" label-width="90" :rules="createRules" ref="editFormRef">
+        <n-form-item label="规则名称" path="name"><n-input v-model:value="editForm.name" /></n-form-item>
+        <n-form-item label="关联设备" path="device_id">
           <n-select v-model:value="editForm.device_id" :options="deviceOptions" filterable />
         </n-form-item>
         <n-form-item label="逻辑组合">
@@ -88,11 +88,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
+import { NButton, NTag, NSpace, useMessage } from 'naive-ui'
 import { ruleApi, deviceApi, type Rule, type Device } from '@/api'
 
 const message = useMessage()
-const dialog = useDialog()
 const rules = ref<Rule[]>([])
 const devices = ref<Device[]>([])
 const loading = ref(false)
@@ -141,7 +140,7 @@ const createRules = {
 
 const columns = [
   { title: '规则ID', key: 'rule_id', width: 140 },
-  { title: '名称', key: 'name', width: 150 },
+  { title: '名称', key: 'name', width: 150, sorter: true },
   { title: '设备ID', key: 'device_id', width: 160 },
   { title: '逻辑', key: 'logic', width: 60 },
   { title: '持续时间', key: 'duration', width: 80, render: (r: Rule) => `${r.duration}s` },
@@ -190,7 +189,7 @@ const editForm = reactive({
 async function fetchRules() {
   loading.value = true
   try {
-    const data = await ruleApi.list({ page: pagination.page, size: pagination.pageSize })
+    const data = await ruleApi.list({ page: pagination.page, size: pagination.pageSize, search: searchText.value || undefined })
     rules.value = data?.data ?? []
     pagination.itemCount = data.total
   } catch (e: any) {
@@ -250,6 +249,10 @@ function openEdit(r: Rule) {
 }
 
 async function handleEdit() {
+  if (!editForm.conditions || !editForm.conditions.length || editForm.conditions.some((c: any) => !c.point)) {
+    message.error('请至少添加一个有效的条件')
+    return
+  }
   saving.value = true
   try {
     await ruleApi.update(editingRuleId.value, editForm as any)
@@ -279,20 +282,12 @@ async function handleToggle(r: Rule) {
 }
 
 function handleDelete(r: Rule) {
-  dialog.warning({
-    title: '确认删除',
-    content: `确定删除规则 "${r.name}" (${r.rule_id})？此操作不可撤销。`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await ruleApi.delete(r.rule_id)
-        message.success('规则已删除')
-        fetchRules()
-      } catch (e: any) {
-        message.error(e?.message || '删除失败')
-      }
-    },
+  if (!window.confirm('确认删除规则？')) return
+  ruleApi.delete(r.rule_id).then(() => {
+    message.success('规则已删除')
+    fetchRules()
+  }).catch((e: any) => {
+    message.error(e?.message || '删除失败')
   })
 }
 

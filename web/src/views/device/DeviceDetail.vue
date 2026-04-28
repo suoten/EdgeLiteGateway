@@ -153,6 +153,8 @@ const saving = ref(false)
 const editForm = reactive({ name: '', collect_interval: 5, config: {} as Record<string, any> })
 let ws: WebSocket | null = null
 let wsReconnectTimer: number | null = null
+const writeValues = ref<Record<string, any>>({})
+let wsRetryCount = 0
 
 const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 const protocolLabel: Record<string, string> = {
@@ -197,9 +199,7 @@ const realtimeColumns = [
 
 const writablePoints = computed(() => {
   if (!device.value) return []
-  return device.value.points.filter(pt => pt.access_mode === 'w' || pt.access_mode === 'rw').map(pt => ({
-    ...pt, writeValue: null as any,
-  }))
+  return device.value.points.filter(pt => pt.access_mode === 'w' || pt.access_mode === 'rw')
 })
 
 const writeColumns = [
@@ -210,16 +210,16 @@ const writeColumns = [
   { title: '单位', key: 'unit', width: 60 },
   {
     title: '写入值', key: 'writeValue', width: 150,
-    render: (row: any, index: number) => h(NInput, {
-      size: 'small', placeholder: '输入值',
-      onUpdateValue: (val: string) => { writablePoints.value[index].writeValue = val },
+    render: (row: any) => h(NInput, {
+      size: 'small', placeholder: '输入值', value: writeValues.value[row.name] ?? '',
+      onUpdateValue: (val: string) => { writeValues.value[row.name] = val },
     }),
   },
   {
     title: '操作', key: 'action', width: 80,
-    render: (_: any, index: number) => h(NButton, {
+    render: (row: any) => h(NButton, {
       size: 'small', type: 'primary',
-      onClick: () => handleWrite(writablePoints.value[index]),
+      onClick: () => handleWrite(row),
     }, { default: () => '下发' }),
   },
 ]
@@ -292,13 +292,14 @@ async function fetchPoints() {
 }
 
 async function handleWrite(pt: any) {
-  if (pt.writeValue === null || pt.writeValue === '') {
+  const val = writeValues.value[pt.name]
+  if (val === null || val === undefined || val === '') {
     message.warning('请输入写入值')
     return
   }
   try {
-    await deviceApi.writePoint(deviceId.value, pt.name, pt.writeValue)
-    message.success(`${pt.name} 下发成功: ${pt.writeValue}`)
+    await deviceApi.writePoint(deviceId.value, pt.name, val)
+    message.success(`${pt.name} 下发成功: ${val}`)
     fetchPoints()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || '下发失败')
@@ -321,8 +322,8 @@ async function fetchChartData() {
 function toggleWS(val: boolean) {
   if (val) {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime?token=${auth.token}`)
-    ws.onopen = () => { wsConnected.value = true; message.success('WebSocket 已连接') }
+    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime`)
+    ws.onopen = () => { wsConnected.value = true; wsRetryCount = 0; message.success('WebSocket 已连接') }
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
@@ -336,10 +337,16 @@ function toggleWS(val: boolean) {
     }
     ws.onclose = () => {
       wsConnected.value = false
+      if (wsRetryCount > 10) {
+        message.warning('WebSocket重连次数过多，已停止重连')
+        return
+      }
       if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+      const backoff = Math.min(2000 * Math.pow(2, wsRetryCount), 60000) + Math.random() * 1000
+      wsRetryCount++
       wsReconnectTimer = window.setTimeout(() => {
         if (!wsConnected.value) toggleWS(true)
-      }, 5000)
+      }, backoff)
     }
     ws.onerror = () => { wsConnected.value = false; message.error('WebSocket 连接失败') }
   } else {
@@ -353,14 +360,19 @@ onMounted(() => { fetchDevice(); fetchPoints() })
 onUnmounted(() => {
   ws?.close()
   if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+  wsReconnectTimer = null
 })
 
 watch(deviceId, () => {
   ws?.close()
   ws = null
   wsConnected.value = false
+  wsRetryCount = 0
   if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
   wsReconnectTimer = null
+  chartData.value = []
+  pointValues.value = null
+  notFound.value = false
   fetchDevice()
   fetchPoints()
 })

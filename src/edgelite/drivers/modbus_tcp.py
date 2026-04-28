@@ -165,6 +165,11 @@ class ModbusTcpDriver(DriverPlugin):
             logger.error("Modbus写入失败: %s.%s - %s", device_id, point, e)
             return False
 
+    def is_device_connected(self, device_id: str) -> bool:
+        """检查设备是否已连接"""
+        client = self._clients.get(device_id)
+        return client is not None and client.connected
+
     async def discover_devices(self, config: dict) -> list[dict]:
         """扫描指定IP段内的Modbus设备"""
         host = config.get("host", "127.0.0.1")
