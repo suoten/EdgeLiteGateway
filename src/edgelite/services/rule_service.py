@@ -94,5 +94,5 @@ class RuleService:
 
     @staticmethod
     def _compare(value: float, operator: str, threshold: float) -> bool:
-        ops = {">": value > threshold, ">=": value >= threshold, "<": value < threshold, "<=": value <= threshold, "==": abs(value - threshold) < 1e-9}
+        ops = {">": value > threshold, ">=": value >= threshold, "<": value < threshold, "<=": value <= threshold, "==": abs(value - threshold) < 1e-9, "!=": abs(value - threshold) >= 1e-9}
         return ops.get(operator, False)

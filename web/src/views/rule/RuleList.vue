@@ -2,8 +2,8 @@
   <n-space vertical :size="16">
     <n-space justify="space-between">
       <n-space>
-        <n-input v-model:value="searchText" placeholder="搜索规则名称/设备ID" clearable style="width: 200px" @update:value="fetchRules" />
-        <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="fetchRules" />
+        <n-input v-model:value="searchText" placeholder="搜索规则名称/设备ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchRules() }" />
+        <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchRules() }" />
       </n-space>
       <n-button type="primary" @click="showCreateModal = true">创建规则</n-button>
     </n-space>
@@ -189,7 +189,7 @@ const editForm = reactive({
 async function fetchRules() {
   loading.value = true
   try {
-    const data = await ruleApi.list({ page: pagination.page, size: pagination.pageSize, search: searchText.value || undefined })
+    const data = await ruleApi.list({ page: pagination.page, size: pagination.pageSize, search: searchText.value || undefined, severity: filterSeverity.value ?? undefined })
     rules.value = data?.data ?? []
     pagination.itemCount = data.total
   } catch (e: any) {
@@ -282,12 +282,19 @@ async function handleToggle(r: Rule) {
 }
 
 function handleDelete(r: Rule) {
-  if (!window.confirm('确认删除规则？')) return
-  ruleApi.delete(r.rule_id).then(() => {
-    message.success('规则已删除')
-    fetchRules()
-  }).catch((e: any) => {
-    message.error(e?.message || '删除失败')
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除规则"${r.name}"？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      ruleApi.delete(r.rule_id).then(() => {
+        message.success('规则已删除')
+        fetchRules()
+      }).catch((e: any) => {
+        message.error(e?.message || '删除失败')
+      })
+    },
   })
 }
 

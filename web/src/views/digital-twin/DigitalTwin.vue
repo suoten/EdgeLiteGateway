@@ -45,6 +45,7 @@ let renderer: any = null
 let animationId: number | null = null
 let controls: any = null
 let scene: any = null
+let camera: any = null
 
 async function loadScene() {
   if (!containerRef.value) return
@@ -63,6 +64,7 @@ async function loadScene() {
         })
       }
       renderer.dispose()
+      renderer.forceContextLoss()
       if (animationId) cancelAnimationFrame(animationId)
     }
 
@@ -73,7 +75,7 @@ async function loadScene() {
     newScene.background = new THREE.Color(0x1a1a2e)
     scene = newScene
 
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
     camera.position.set(5, 5, 5)
 
     renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -100,6 +102,15 @@ async function loadScene() {
     const cube = new THREE.Mesh(geometry, material)
     cube.position.set(0, 0.5, 0)
     scene.add(cube)
+
+    const onResize = () => {
+      if (!containerRef.value || !camera || !renderer) return
+      const w = containerRef.value.clientWidth
+      camera.aspect = w / height
+      camera.updateProjectionMatrix()
+      renderer.setSize(w, height)
+    }
+    window.addEventListener('resize', onResize)
 
     const animate = () => {
       animationId = requestAnimationFrame(animate)

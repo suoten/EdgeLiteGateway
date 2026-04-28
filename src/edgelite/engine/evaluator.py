@@ -119,12 +119,14 @@ class RuleEvaluator:
         now = _time.time()
 
         point_values = {event.point_name: event.value}
-        self._point_value_cache[event.point_name] = (event.value, now)
+        cache_key = f"{event.device_id}:{event.point_name}"
+        self._point_value_cache[cache_key] = (event.value, now)
 
         for cond in conditions:
             cond_point = cond["point"]
             if cond_point not in point_values:
-                cached = self._point_value_cache.get(cond_point)
+                cond_cache_key = f"{event.device_id}:{cond_point}"
+                cached = self._point_value_cache.get(cond_cache_key)
                 if cached and (now - cached[1]) < self._point_cache_ttl:
                     point_values[cond_point] = cached[0]
                 else:
@@ -139,7 +141,7 @@ class RuleEvaluator:
                                     latest_val = latest_val.get("value")
                                 if isinstance(latest_val, (int, float)):
                                     point_values[cond_point] = latest_val
-                                    self._point_value_cache[cond_point] = (latest_val, now)
+                                    self._point_value_cache[cond_cache_key] = (latest_val, now)
                     except Exception as e:
                         logger.debug("从InfluxDB获取测点值失败 %s.%s: %s", event.device_id, cond_point, e)
 

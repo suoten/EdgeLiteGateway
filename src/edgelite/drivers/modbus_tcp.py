@@ -153,7 +153,8 @@ class ModbusTcpDriver(DriverPlugin):
             else:
                 # 转换为寄存器值
                 if data_type == "float32":
-                    regs = list(struct.pack(">f", float(value)))
+                    raw = struct.pack(">f", float(value))
+                    regs = [struct.unpack(">H", raw[i:i+2])[0] for i in range(0, 4, 2)]
                 else:
                     regs = [int(value)]
                 if len(regs) == 1:
@@ -178,11 +179,10 @@ class ModbusTcpDriver(DriverPlugin):
 
         discovered = []
         for slave_id in slave_ids:
+            client = AsyncModbusTcpClient(host=host, port=port, timeout=2.0)
             try:
-                client = AsyncModbusTcpClient(host=host, port=port, timeout=2.0)
                 connected = await client.connect()
                 if connected:
-                    # 尝试读取1个保持寄存器
                     result = await client.read_holding_registers(0, 1, slave=slave_id)
                     if not result.isError():
                         discovered.append({
@@ -190,9 +190,10 @@ class ModbusTcpDriver(DriverPlugin):
                             "port": port,
                             "slave_id": slave_id,
                         })
-                client.close()
             except Exception:
                 pass
+            finally:
+                client.close()
 
         return discovered
 

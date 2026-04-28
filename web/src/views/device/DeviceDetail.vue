@@ -58,7 +58,8 @@
               </n-descriptions>
               <n-form v-else :model="editForm" label-placement="left" label-width="80">
                 <n-form-item v-for="(_, key) in editForm.config" :key="key" :label="String(key)">
-                  <n-input v-model:value="editForm.config[key]" :type="key === 'password' || key === 'token' ? 'password' : 'text'" />
+                  <n-input-number v-if="typeof editForm.config[key] === 'number'" v-model:value="editForm.config[key]" style="width: 100%" />
+                  <n-input v-else v-model:value="editForm.config[key]" :type="key === 'password' || key === 'token' ? 'password' : 'text'" />
                 </n-form-item>
               </n-form>
             </n-card>

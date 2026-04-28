@@ -286,6 +286,8 @@ class AlarmRepo:
         orm = result.scalar_one_or_none()
         if orm is None:
             return None
+        if orm.status != "firing":
+            return None
         orm.status = "acknowledged"
         orm.acknowledged_at = _now()
         orm.acknowledged_by = ack_by
@@ -299,6 +301,8 @@ class AlarmRepo:
         )
         orm = result.scalar_one_or_none()
         if orm is None:
+            return None
+        if orm.status not in ("firing", "acknowledged"):
             return None
         orm.status = "recovered"
         orm.recovered_at = _now()

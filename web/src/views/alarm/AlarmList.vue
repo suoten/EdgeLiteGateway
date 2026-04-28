@@ -16,6 +16,7 @@ import { NButton, NTag, NSpace, NTooltip, useMessage } from 'naive-ui'
 import { alarmApi, type Alarm } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const alarms = ref<Alarm[]>([])
 const loading = ref(false)
 const searchText = ref('')
@@ -90,14 +91,21 @@ async function fetchAlarms() {
 }
 
 async function handleAck(r: Alarm) {
-  if (!window.confirm('确认该告警？')) return
-  try {
-    await alarmApi.ack(r.alarm_id)
-    message.success('告警已确认')
-    fetchAlarms()
-  } catch (e: any) {
-    message.error(e?.message || '确认失败')
-  }
+  dialog.warning({
+    title: '确认告警',
+    content: `确定确认该告警？`,
+    positiveText: '确认',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await alarmApi.ack(r.alarm_id)
+        message.success('告警已确认')
+        fetchAlarms()
+      } catch (e: any) {
+        message.error(e?.message || '确认失败')
+      }
+    },
+  })
 }
 
 onMounted(fetchAlarms)

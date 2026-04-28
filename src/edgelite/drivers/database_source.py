@@ -89,7 +89,8 @@ class DatabaseSourceDriver(DriverPlugin):
         except ImportError:
             raise ImportError("asyncpg未安装，请执行: pip install asyncpg")
 
-        dsn = f"postgresql://{config.get('username', 'postgres')}:{config.get('password', '')}@{config.get('host', 'localhost')}:{config.get('port', 5432)}/{config.get('database', 'postgres')}"
+        from urllib.parse import quote_plus
+        dsn = f"postgresql://{quote_plus(config.get('username', 'postgres'))}:{quote_plus(config.get('password', ''))}@{config.get('host', 'localhost')}:{config.get('port', 5432)}/{config.get('database', 'postgres')}"
         self._pool = await asyncpg.create_pool(dsn, min_size=1, max_size=int(config.get("pool_size", 5)))
 
     async def _init_sqlite(self, config: dict) -> None:
