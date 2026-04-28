@@ -91,8 +91,8 @@ http.interceptors.response.use(
         const tokenData = await authApi.refresh(auth.refreshToken || '')
         auth.token = tokenData.access_token
         auth.refreshToken = tokenData.refresh_token
-        localStorage.setItem('edgelite_token', tokenData.access_token)
-        localStorage.setItem('edgelite_refresh', tokenData.refresh_token)
+        sessionStorage.setItem('edgelite_token', tokenData.access_token)
+        sessionStorage.setItem('edgelite_refresh', tokenData.refresh_token)
         isRefreshing = false
         onTokenRefreshed(tokenData.access_token)
         originalRequest.headers = originalRequest.headers || {}

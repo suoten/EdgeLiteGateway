@@ -44,7 +44,7 @@ def _record_login_attempt(ip: str) -> None:
 
 def _get_user_repo() -> UserRepo:
     from edgelite.app import _app_state
-    return UserRepo(_app_state.db_conn, _app_state.write_lock)
+    return UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
 
 
 def _get_client_ip(request: Request) -> str:
@@ -127,7 +127,7 @@ async def get_current_user_info(user: CurrentUser):
     """获取当前登录用户信息"""
     from edgelite.app import _app_state
     from edgelite.storage.sqlite_repo import UserRepo
-    repo = UserRepo(_app_state.db_conn, _app_state.write_lock)
+    repo = UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
     db_user = await repo.get_by_username(user["username"], include_password=True)
     must_change = False
     if db_user:

@@ -19,8 +19,17 @@ class ServerConfig(BaseModel):
 
 
 class DatabaseConfig(BaseModel):
+    backend: str = "sqlite"
     sqlite_path: str = "data/edgelite.db"
+    host: str = "localhost"
+    port: int = 3306
+    username: str = ""
+    password: str = ""
+    database: str = "edgelite"
     backup_dir: str = "data/backups"
+    pool_size: int = 5
+    max_overflow: int = 10
+    echo: bool = False
 
 
 class InfluxDBConfig(BaseModel):
@@ -183,22 +192,26 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 def _load_env_overrides() -> dict[str, Any]:
-    """从环境变量加载配置覆盖（EDGELITE_前缀）"""
+    """从环境变量加载配置覆盖（EDGELITE_前缀，双下划线分隔section和key）
+
+    格式：EDGELITE_<SECTION>__<KEY>
+    示例：EDGELITE_SERVER__HOST -> server.host
+          EDGELITE_MQTT_SERVER__PORT -> mqtt_server.port
+          EDGELITE_INFLUXDB__TOKEN -> influxdb.token
+    """
     overrides: dict[str, Any] = {}
     prefix = "EDGELITE_"
     for key, value in os.environ.items():
-        if key.startswith(prefix):
-            # EDGELITE_SERVER_PORT -> server.port
-            config_path = key[len(prefix):].lower().split("_")
-            # 支持两级嵌套，如 EDGELITE_INFLUXDB_URL
-            if len(config_path) >= 2:
-                section = config_path[0]
-                item = "_".join(config_path[1:])
-                if section not in overrides:
-                    overrides[section] = {}
-                overrides[section][item] = value
-            elif len(config_path) == 1:
-                overrides[config_path[0]] = value
+        if not key.startswith(prefix):
+            continue
+        raw = key[len(prefix):]
+        if "__" in raw:
+            section, item = raw.lower().split("__", 1)
+            if section not in overrides:
+                overrides[section] = {}
+            overrides[section][item] = value
+        else:
+            overrides[raw.lower()] = value
     return overrides
 
 

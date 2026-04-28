@@ -293,10 +293,19 @@ async function fetchPoints() {
 }
 
 async function handleWrite(pt: any) {
-  const val = writeValues.value[pt.name]
+  let val: any = writeValues.value[pt.name]
   if (val === null || val === undefined || val === '') {
     message.warning('请输入写入值')
     return
+  }
+  if (pt.data_type === 'int16' || pt.data_type === 'int32' || pt.data_type === 'uint16' || pt.data_type === 'uint32') {
+    val = parseInt(String(val), 10)
+    if (isNaN(val)) { message.warning('请输入有效整数'); return }
+  } else if (pt.data_type === 'float32' || pt.data_type === 'float64' || pt.data_type === 'double') {
+    val = parseFloat(String(val))
+    if (isNaN(val)) { message.warning('请输入有效数字'); return }
+  } else if (pt.data_type === 'bool') {
+    val = val === 'true' || val === '1' || val === true
   }
   try {
     await deviceApi.writePoint(deviceId.value, pt.name, val)

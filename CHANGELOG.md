@@ -5,6 +5,24 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- **数据库架构重构**：引入 SQLAlchemy 2.0 + Alembic 替代手写 DDL，支持多数据库后端
+  - 元数据存储后端：SQLite（默认）/ MySQL / PostgreSQL / MSSQL
+  - ORM 模型：`models/db.py`（DeviceORM, RuleORM, AlarmORM, UserORM, AuditLogORM, CacheQueueORM）
+  - 数据库迁移：Alembic 框架（`alembic/` 目录）
+  - 多后端工厂模式：`storage/database.py` 根据 `database.backend` 配置自动选择驱动
+  - Repository 层：`storage/sqlite_repo.py` 改为基于 SQLAlchemy AsyncSession 的 ORM 操作
+- **环境变量格式统一**：`EDGELITE_<SECTION>__<KEY>` 双下划线分隔（Django 风格），避免歧义
+- **恢复 python-dotenv 支持**：自动加载 `.env` 文件
+- **安全修复**：`database_source.py` 的 `write_point` 方法从字符串拼接改为参数化查询
+- **配置增强**：`.env.example` 覆盖所有配置项，`config.example.yaml` 添加 `.env` 替代说明
+- **TDengine 配置完善**：添加 `TDengineConfig` Pydantic 模型 + YAML 配置段 + app.py 初始化逻辑
+- **Bug 修复**：`audit_logs` 索引引用不存在的 `timestamp` 列 → 改为 `created_at`
+- **Bug 修复**：`devices` 表 protocol CHECK 约束补全缺失的 14 个协议
+
 ## [1.0.0] - 2025-04-25
 
 ### Added

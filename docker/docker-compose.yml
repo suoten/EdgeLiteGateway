@@ -15,13 +15,12 @@ services:
       - ../configs:/app/configs
       - ../logs:/app/logs
     environment:
-      - EDGELITE_INFLUXDB_URL=http://influxdb:8086
-      - EDGELITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
-      - EDGELITE_MQTT_BROKER=mosquitto
-      - EDGELITE_SECURITY_SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - EDGELITE_SERVER_HOST=0.0.0.0
-      - EDGELITE_SERVER_PORT=8080
-      - EDGELITE_SERVER_CORS_ORIGINS=[]
+      - EDGELITE_INFLUXDB__URL=http://influxdb:8086
+      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
+      - EDGELITE_MQTT__BROKER=mosquitto
+      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - EDGELITE_SERVER__HOST=0.0.0.0
+      - EDGELITE_SERVER__PORT=8080
     depends_on:
       influxdb:
         condition: service_healthy

@@ -1,7 +1,12 @@
 # EdgeLiteGateway 配置示例
 # 复制此文件为 config.yaml 并修改配置
 # 敏感字段请替换为实际值，切勿提交真实密钥到版本库
-# 支持环境变量覆盖：EDGELITE_<SECTION>_<KEY>（如 EDGELITE_INFLUXDB_TOKEN）
+#
+# 配置优先级：环境变量 > .env 文件 > config.yaml
+# 推荐使用 .env 文件管理敏感配置，参见 .env.example
+# 环境变量格式：EDGELITE_<SECTION>__<KEY>（双下划线分隔）
+# 示例：EDGELITE_INFLUXDB__TOKEN=your-token
+#       EDGELITE_SECURITY__SECRET_KEY=your-secret
 
 # ── 服务配置 ──────────────────────────────────────────────
 server:
@@ -13,8 +18,17 @@ server:
 
 # ── 数据库配置 ────────────────────────────────────────────
 database:
-  sqlite_path: "data/edgelite.db"  # SQLite 数据库文件路径（相对路径基于工作目录）
-  backup_dir: "data/backups"       # 数据库备份目录
+  backend: "sqlite"               # 数据库后端: sqlite | mysql | postgresql | mssql
+  sqlite_path: "data/edgelite.db" # SQLite数据库文件路径（backend=sqlite时使用）
+  backup_dir: "data/backups"
+  # host: "localhost"             # 数据库主机（backend非sqlite时必填）
+  # port: 3306                    # 数据库端口（MySQL:3306, PostgreSQL:5432, MSSQL:1433）
+  # username: ""                  # 数据库用户名
+  # password: ""                  # 数据库密码
+  # database: "edgelite"          # 数据库名
+  # pool_size: 5                  # 连接池大小
+  # max_overflow: 10              # 连接池最大溢出
+  # echo: false                   # SQL日志（调试用）
 
 # ── InfluxDB 时序数据库 ──────────────────────────────────
 influxdb:

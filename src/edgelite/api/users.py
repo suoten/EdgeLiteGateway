@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["用户管理"])
 def _get_user_repo():
     from edgelite.app import _app_state
     from edgelite.storage.sqlite_repo import UserRepo
-    return UserRepo(_app_state.db_conn, _app_state.write_lock)
+    return UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
 
 
 @router.get("", response_model=PagedResponse[UserResponse])

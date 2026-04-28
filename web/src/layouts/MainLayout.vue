@@ -206,7 +206,7 @@ function handleUserSelect(key: string) {
       content: '确定要退出登录吗？',
       positiveText: '退出',
       negativeText: '取消',
-      onPositiveClick: () => { auth.logout(); router.push('/login') },
+      onPositiveClick: async () => { await auth.logout(); router.push('/login') },
     })
   }
 }

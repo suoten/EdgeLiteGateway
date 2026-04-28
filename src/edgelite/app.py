@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 class AppState:
     """应用全局状态"""
 
-    db_conn: Any = None
     database: Any = None
     influx_storage: Any = None
     cache_manager: Any = None
@@ -85,12 +84,10 @@ async def lifespan(app: FastAPI):
         # 1. 初始化数据库
         from edgelite.storage.database import Database
         database = Database()
-        conn = await database.connect()
+        await database.connect()
         await database.init_tables()
         _app_state.database = database
-        _app_state.db_conn = conn
         initialized.append(("database", database))
-        initialized.append(("db_conn", conn))
         logger.info("数据库初始化完成")
 
         # 2. 初始化InfluxDB
@@ -102,7 +99,7 @@ async def lifespan(app: FastAPI):
 
         # 3. 初始化缓存管理器
         from edgelite.storage.cache import CacheManager
-        _app_state.cache_manager = CacheManager(conn)
+        _app_state.cache_manager = CacheManager(database)
 
         # 4. 初始化事件总线
         from edgelite.engine.event_bus import EventBus
@@ -113,11 +110,12 @@ async def lifespan(app: FastAPI):
         # 5. 初始化仓储
         from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo, AuditRepo
         _app_state.config = config
-        write_lock = _app_state.write_lock
-        device_repo = DeviceRepo(conn, write_lock)
-        rule_repo = RuleRepo(conn, write_lock)
-        alarm_repo = AlarmRepo(conn, write_lock)
-        user_repo = UserRepo(conn, write_lock)
+        write_lock = database.write_lock
+        session = database.get_session()
+        device_repo = DeviceRepo(session, write_lock)
+        rule_repo = RuleRepo(session, write_lock)
+        alarm_repo = AlarmRepo(session, write_lock)
+        user_repo = UserRepo(session, write_lock)
 
         # 6. 初始化采集调度器
         from edgelite.engine.scheduler import CollectScheduler

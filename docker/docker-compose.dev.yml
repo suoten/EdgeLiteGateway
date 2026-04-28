@@ -14,10 +14,10 @@ services:
       - ../configs:/app/configs
       - ../data:/app/data
     environment:
-      - EDGELITE_INFLUXDB_URL=http://influxdb:8086
-      - EDGELITE_INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
-      - EDGELITE_MQTT_BROKER=mosquitto
-      - EDGELITE_SECURITY_SECRET_KEY=dev-secret-key-not-for-production
+      - EDGELITE_INFLUXDB__URL=http://influxdb:8086
+      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
+      - EDGELITE_MQTT__BROKER=mosquitto
+      - EDGELITE_SECURITY__SECRET_KEY=dev-secret-key-not-for-production
     command: python -m edgelite --host 0.0.0.0 --port 8080 --reload
     depends_on:
       influxdb:

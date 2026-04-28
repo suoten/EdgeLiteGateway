@@ -218,6 +218,8 @@ class RuleEvaluator:
             return value <= threshold
         elif operator == "==":
             return abs(value - threshold) < 1e-9
+        elif operator == "!=":
+            return abs(value - threshold) >= 1e-9
         return False
 
     async def _fire_alarm(self, rule: dict, trigger_value: dict) -> None:

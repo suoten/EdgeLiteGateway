@@ -1,158 +1,197 @@
-"""数据库连接管理"""
+"""多后端数据库连接管理（SQLAlchemy 2.0 异步）"""
 
 from __future__ import annotations
 
 import asyncio
-import aiosqlite
+import logging
 from pathlib import Path
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine, async_sessionmaker
 
 from edgelite.config import get_config
+from edgelite.models.db import Base
 
-# SQLite DDL
-_TABLES = """
-CREATE TABLE IF NOT EXISTS devices (
-    device_id   TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    protocol    TEXT NOT NULL CHECK(protocol IN ('modbus_tcp','modbus_rtu','opcua','opc_da','mqtt','mqtt_client','http','http_webhook','simulator','video','s7','mc','fins','allen_bradley','fanuc','mtconnect','toledo','bacnet','serial_port','database_source','barcode_scanner')),
-    status      TEXT NOT NULL DEFAULT 'offline' CHECK(status IN ('online','offline','unknown')),
-    config      TEXT NOT NULL,
-    points      TEXT NOT NULL,
-    collect_interval INTEGER NOT NULL DEFAULT 5,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
+logger = logging.getLogger(__name__)
 
-CREATE TABLE IF NOT EXISTS rules (
-    rule_id         TEXT PRIMARY KEY,
-    name            TEXT NOT NULL,
-    device_id       TEXT NOT NULL REFERENCES devices(device_id) ON DELETE SET NULL,
-    conditions      TEXT NOT NULL,
-    logic           TEXT NOT NULL DEFAULT 'AND' CHECK(logic IN ('AND','OR')),
-    duration        INTEGER NOT NULL DEFAULT 0,
-    severity        TEXT NOT NULL CHECK(severity IN ('critical','warning','info')),
-    enabled         INTEGER NOT NULL DEFAULT 1,
-    notify_channels TEXT NOT NULL,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
+_BACKEND_DRIVERS = {
+    "sqlite": "aiosqlite",
+    "mysql": "aiomysql",
+    "postgresql": "asyncpg",
+    "mssql": "aioodbc",
+}
 
-CREATE TABLE IF NOT EXISTS alarms (
-    alarm_id        TEXT PRIMARY KEY,
-    rule_id         TEXT NOT NULL,
-    device_id       TEXT NOT NULL,
-    severity        TEXT NOT NULL,
-    status          TEXT NOT NULL DEFAULT 'firing' CHECK(status IN ('firing','acknowledged','recovered')),
-    trigger_value   TEXT NOT NULL,
-    trigger_count   INTEGER NOT NULL DEFAULT 1,
-    fired_at        TEXT NOT NULL DEFAULT (datetime('now')),
-    acknowledged_at TEXT,
-    acknowledged_by TEXT,
-    recovered_at    TEXT
-);
 
-CREATE INDEX IF NOT EXISTS idx_alarms_status ON alarms(status);
-CREATE INDEX IF NOT EXISTS idx_alarms_device ON alarms(device_id);
+def _build_database_url(config: Any = None) -> str:
+    """根据配置构建 SQLAlchemy 数据库 URL"""
+    if config is None:
+        config = get_config()
 
-CREATE TABLE IF NOT EXISTS users (
-    user_id    TEXT PRIMARY KEY,
-    username   TEXT NOT NULL UNIQUE,
-    password   TEXT NOT NULL,
-    role       TEXT NOT NULL CHECK(role IN ('admin','operator','viewer')),
-    enabled    INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+    backend = config.database.backend.lower()
 
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp     TEXT NOT NULL DEFAULT (datetime('now')),
-    user_id       TEXT NOT NULL,
-    username      TEXT,
-    action        TEXT NOT NULL,
-    resource_type TEXT,
-    resource_id   TEXT,
-    ip_address    TEXT,
-    user_agent    TEXT,
-    details       TEXT,
-    status        TEXT NOT NULL DEFAULT 'success',
-    error_message TEXT,
-    prev_hash     TEXT,
-    record_hash   TEXT
-);
+    if backend == "sqlite":
+        db_path = Path(config.database.sqlite_path)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite+aiosqlite:///{db_path}"
 
-CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(timestamp);
+    elif backend in ("mysql", "mariadb"):
+        driver = "aiomysql"
+        host = config.database.host
+        port = config.database.port or 3306
+        user = config.database.username
+        pwd = config.database.password
+        db = config.database.database
+        return f"mysql+{driver}://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
 
-CREATE TABLE IF NOT EXISTS cache_queue (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    measurement TEXT NOT NULL,
-    tags        TEXT NOT NULL,
-    fields      TEXT NOT NULL,
-    timestamp   TEXT NOT NULL,
-    retry_count INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-"""
+    elif backend in ("postgresql", "postgres"):
+        driver = "asyncpg"
+        host = config.database.host
+        port = config.database.port or 5432
+        user = config.database.username
+        pwd = config.database.password
+        db = config.database.database
+        return f"postgresql+{driver}://{user}:{pwd}@{host}:{port}/{db}"
+
+    elif backend == "mssql":
+        driver = "aioodbc"
+        host = config.database.host
+        port = config.database.port or 1433
+        user = config.database.username
+        pwd = config.database.password
+        db = config.database.database
+        odbc_connect = (
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={host},{port};DATABASE={db};"
+            f"UID={user};PWD={pwd};TrustServerCertificate=yes"
+        )
+        return f"mssql+{driver}:///?odbc_connect={odbc_connect}"
+
+    else:
+        raise ValueError(f"不支持的数据库后端: {backend}，支持: {list(_BACKEND_DRIVERS.keys())}")
+
+
+def _check_driver(backend: str) -> None:
+    """检查数据库驱动是否已安装"""
+    driver_name = _BACKEND_DRIVERS.get(backend)
+    if driver_name is None:
+        return
+    try:
+        __import__(driver_name)
+    except ImportError:
+        raise ImportError(
+            f"数据库后端 '{backend}' 需要安装驱动 '{driver_name}'，"
+            f"请运行: pip install {driver_name}"
+        )
 
 
 class Database:
-    """SQLite数据库管理"""
+    """多后端数据库管理（SQLAlchemy 2.0 异步）"""
 
-    def __init__(self, db_path: str | None = None):
-        config = get_config()
-        self.db_path = db_path or config.database.sqlite_path
-        self._conn: aiosqlite.Connection | None = None
+    def __init__(self, config: Any = None):
+        self._config = config or get_config()
+        self._backend = self._config.database.backend.lower()
+        self._db_url = _build_database_url(self._config)
+        self._engine: AsyncEngine | None = None
+        self._session_factory: async_sessionmaker[AsyncSession] | None = None
         self._write_lock = asyncio.Lock()
 
-    async def connect(self) -> aiosqlite.Connection:
-        """建立数据库连接"""
-        # 确保数据目录存在
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+    @property
+    def backend(self) -> str:
+        return self._backend
 
-        self._conn = await aiosqlite.connect(self.db_path)
-        self._conn.row_factory = aiosqlite.Row
+    @property
+    def engine(self) -> AsyncEngine:
+        if self._engine is None:
+            raise RuntimeError("数据库未连接，请先调用 connect()")
+        return self._engine
 
-        # 启用WAL模式
-        await self._conn.execute("PRAGMA journal_mode=WAL")
-        await self._conn.execute("PRAGMA foreign_keys=ON")
+    @property
+    def write_lock(self) -> asyncio.Lock:
+        return self._write_lock
 
-        return self._conn
+    async def connect(self) -> AsyncEngine:
+        """建立数据库连接池"""
+        _check_driver(self._backend)
+
+        engine_kwargs: dict[str, Any] = {
+            "echo": self._config.database.echo,
+        }
+
+        if self._backend == "sqlite":
+            engine_kwargs["connect_args"] = {"check_same_thread": False}
+        else:
+            engine_kwargs["pool_size"] = self._config.database.pool_size
+            engine_kwargs["max_overflow"] = self._config.database.max_overflow
+            engine_kwargs["pool_pre_ping"] = True
+
+        self._engine = create_async_engine(self._db_url, **engine_kwargs)
+        self._session_factory = async_sessionmaker(
+            self._engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        logger.info("数据库连接已建立 (backend=%s)", self._backend)
+        return self._engine
 
     async def init_tables(self) -> None:
-        """初始化所有表"""
-        assert self._conn is not None
-        await self._conn.executescript(_TABLES)
-        # 创建默认admin用户（密码: admin123）
-        # 注意：实际部署时应强制修改默认密码
-        try:
-            from edgelite.security.password import hash_password
+        """初始化所有表（仅用于开发/首次部署，生产环境请使用 Alembic）"""
+        if self._engine is None:
+            raise RuntimeError("数据库未连接")
 
-            hashed = hash_password("admin123")
-            await self._conn.execute(
-                "INSERT OR IGNORE INTO users (user_id, username, password, role, enabled) "
-                "VALUES (?, ?, ?, ?, ?)",
-                ("admin", "admin", hashed, "admin", 1),
+        async with self._engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with self._session_factory() as session:
+            from sqlalchemy import select
+            from edgelite.models.db import UserORM
+            result = await session.execute(
+                select(UserORM).where(UserORM.username == "admin")
             )
-        except ImportError:
-            # 安全模块未就绪时跳过默认用户创建
-            pass
-        await self._conn.commit()
+            if result.scalar_one_or_none() is None:
+                try:
+                    from edgelite.security.password import hash_password
+                    hashed = hash_password("admin123")
+                    admin = UserORM(
+                        user_id="admin",
+                        username="admin",
+                        password=hashed,
+                        role="admin",
+                        enabled=True,
+                    )
+                    session.add(admin)
+                    await session.commit()
+                    logger.info("已创建默认管理员用户 (admin/admin123)")
+                except ImportError:
+                    pass
 
-    async def get_connection(self) -> aiosqlite.Connection:
-        """获取数据库连接"""
-        if self._conn is None:
-            await self.connect()
-        assert self._conn is not None
-        return self._conn
+    def get_session(self) -> AsyncSession:
+        """获取新的数据库会话"""
+        if self._session_factory is None:
+            raise RuntimeError("数据库未连接")
+        return self._session_factory()
 
     async def close(self) -> None:
-        """关闭数据库连接"""
-        if self._conn:
-            await self._conn.close()
-            self._conn = None
+        """关闭数据库连接池"""
+        if self._engine:
+            await self._engine.dispose()
+            self._engine = None
+            self._session_factory = None
+            logger.info("数据库连接已关闭")
 
     async def backup(self, backup_path: str) -> None:
-        """备份数据库文件"""
+        """备份数据库"""
         import shutil
 
         Path(backup_path).parent.mkdir(parents=True, exist_ok=True)
-        if self._conn:
-            await self._conn.execute("PRAGMA wal_checkpoint=TRUNCATE")
-        shutil.copy2(self.db_path, backup_path)
+
+        if self._backend == "sqlite":
+            if self._engine:
+                async with self._engine.begin() as conn:
+                    await conn.execute(
+                        __import__("sqlalchemy").text("PRAGMA wal_checkpoint=TRUNCATE")
+                    )
+            shutil.copy2(self._config.database.sqlite_path, backup_path)
+        else:
+            logger.warning(
+                "备份功能暂不支持 %s 后端，请使用数据库自带的备份工具（如 pg_dump/mysqldump）",
+                self._backend,
+            )

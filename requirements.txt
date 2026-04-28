@@ -16,6 +16,10 @@ psutil>=5.9.0
 aiomqtt>=2.1.0
 asyncua>=1.1.0
 
+# ORM与数据库迁移
+sqlalchemy[asyncio]>=2.0.30
+alembic>=1.13.0
+
 # 数据库接入驱动可选依赖（按需安装）
 # aiomysql>=0.2.0        # MySQL/MariaDB 数据源
 # asyncpg>=0.29.0        # PostgreSQL 数据源
