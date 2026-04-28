@@ -192,12 +192,13 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 def _load_env_overrides() -> dict[str, Any]:
-    """从环境变量加载配置覆盖（EDGELITE_前缀，双下划线分隔section和key）
+    """从环境变量加载配置覆盖（EDGELITE_前缀，双下划线分隔层级）
 
-    格式：EDGELITE_<SECTION>__<KEY>
+    格式：EDGELITE_<SECTION>__<KEY>  或  EDGELITE_<SECTION>__<SUB>__<KEY>
     示例：EDGELITE_SERVER__HOST -> server.host
           EDGELITE_MQTT_SERVER__PORT -> mqtt_server.port
-          EDGELITE_INFLUXDB__TOKEN -> influxdb.token
+          EDGELITE_VIDEO__PYGBSENTRY__ENDPOINT -> video.pygbsentry.endpoint
+          EDGELITE_NOTIFY__DINGTALK__WEBHOOK_URL -> notify.dingtalk.webhook_url
     """
     overrides: dict[str, Any] = {}
     prefix = "EDGELITE_"
@@ -206,10 +207,13 @@ def _load_env_overrides() -> dict[str, Any]:
             continue
         raw = key[len(prefix):]
         if "__" in raw:
-            section, item = raw.lower().split("__", 1)
-            if section not in overrides:
-                overrides[section] = {}
-            overrides[section][item] = value
+            parts = raw.lower().split("__")
+            d = overrides
+            for part in parts[:-1]:
+                if part not in d or not isinstance(d[part], dict):
+                    d[part] = {}
+                d = d[part]
+            d[parts[-1]] = value
         else:
             overrides[raw.lower()] = value
     return overrides
