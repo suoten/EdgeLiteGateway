@@ -47,7 +47,7 @@ async def get_current_user(
     from edgelite.storage.sqlite_repo import UserRepo
     from edgelite.app import _app_state
     repo = UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
-    user = await repo.get_by_username(username, include_password=False)
+    user = await repo.get_by_username(username)
 
     if user is None or not user["enabled"]:
         raise HTTPException(

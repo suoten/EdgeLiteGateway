@@ -1,55 +1,56 @@
-"""SQLite Repository单元测试"""
+"""ORM Repository单元测试"""
 
 import asyncio
 import pytest
 import pytest_asyncio
 
-from edgelite.storage.database import Database
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from edgelite.models.db import Base
 from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo
 
 
 @pytest_asyncio.fixture
-async def db():
-    """测试用数据库"""
-    database = Database(db_path=":memory:")
-    conn = await database.connect()
-    await database.init_tables()
-    yield conn
-    await database.close()
+async def db_session():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session = session_factory()
+    yield session
+    await session.close()
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
-async def device_repo(db):
-    return DeviceRepo(db)
+async def device_repo(db_session):
+    return DeviceRepo(db_session)
 
 
 @pytest_asyncio.fixture
-async def rule_repo(db):
-    return RuleRepo(db)
+async def rule_repo(db_session):
+    return RuleRepo(db_session)
 
 
 @pytest_asyncio.fixture
-async def alarm_repo(db):
-    return AlarmRepo(db)
+async def alarm_repo(db_session):
+    return AlarmRepo(db_session)
 
 
 @pytest_asyncio.fixture
-async def user_repo(db):
-    return UserRepo(db)
+async def user_repo(db_session):
+    return UserRepo(db_session)
 
-
-# ─── DeviceRepo ───
 
 @pytest.mark.asyncio
 async def test_device_create_and_get(device_repo):
-    """测试设备创建和查询"""
     device = await device_repo.create({
         "device_id": "test-01",
         "name": "测试设备",
         "protocol": "modbus_tcp",
         "status": "offline",
-        "config": "{}",
-        "points": '[{"name": "temp", "data_type": "float32", "unit": "C", "address": "0", "access_mode": "r"}]',
+        "config": {},
+        "points": [{"name": "temp", "data_type": "float32", "unit": "C", "address": "0", "access_mode": "r"}],
         "collect_interval": 5,
     })
     assert device is not None
@@ -62,15 +63,14 @@ async def test_device_create_and_get(device_repo):
 
 @pytest.mark.asyncio
 async def test_device_list(device_repo):
-    """测试设备列表"""
     for i in range(3):
         await device_repo.create({
             "device_id": f"dev-{i}",
             "name": f"设备{i}",
             "protocol": "simulator",
             "status": "online",
-            "config": "{}",
-            "points": "[]",
+            "config": {},
+            "points": [],
             "collect_interval": 5,
         })
 
@@ -81,14 +81,13 @@ async def test_device_list(device_repo):
 
 @pytest.mark.asyncio
 async def test_device_delete(device_repo):
-    """测试设备删除"""
     await device_repo.create({
         "device_id": "dev-del",
         "name": "待删除",
         "protocol": "simulator",
         "status": "offline",
-        "config": "{}",
-        "points": "[]",
+        "config": {},
+        "points": [],
         "collect_interval": 5,
     })
 
@@ -99,18 +98,15 @@ async def test_device_delete(device_repo):
     assert result is None
 
 
-# ─── RuleRepo ───
-
 @pytest.mark.asyncio
 async def test_rule_create_and_get(rule_repo, device_repo):
-    """测试规则创建和查询（需要先创建设备）"""
     await device_repo.create({
         "device_id": "dev-01",
         "name": "测试设备",
         "protocol": "simulator",
         "status": "online",
-        "config": "{}",
-        "points": "[]",
+        "config": {},
+        "points": [],
         "collect_interval": 5,
     })
 
@@ -127,24 +123,20 @@ async def test_rule_create_and_get(rule_repo, device_repo):
     assert rule is not None
     assert rule["name"] == "温度告警"
 
-    # 用create返回的rule_id查询
     result = await rule_repo.get(rule["rule_id"])
     assert result is not None
     assert result["name"] == "温度告警"
 
 
-# ─── AlarmRepo ───
-
 @pytest.mark.asyncio
 async def test_alarm_create_and_list(alarm_repo, device_repo, rule_repo):
-    """测试告警创建和列表"""
     await device_repo.create({
         "device_id": "dev-01",
         "name": "测试设备",
         "protocol": "simulator",
         "status": "online",
-        "config": "{}",
-        "points": "[]",
+        "config": {},
+        "points": [],
         "collect_interval": 5,
     })
     rule = await rule_repo.create({
@@ -172,14 +164,13 @@ async def test_alarm_create_and_list(alarm_repo, device_repo, rule_repo):
 
 @pytest.mark.asyncio
 async def test_alarm_ack(alarm_repo, device_repo, rule_repo):
-    """测试告警确认"""
     await device_repo.create({
         "device_id": "dev-01",
         "name": "测试设备",
         "protocol": "simulator",
         "status": "online",
-        "config": "{}",
-        "points": "[]",
+        "config": {},
+        "points": [],
         "collect_interval": 5,
     })
     rule = await rule_repo.create({
@@ -206,12 +197,16 @@ async def test_alarm_ack(alarm_repo, device_repo, rule_repo):
     assert result["acknowledged_by"] == "admin"
 
 
-# ─── UserRepo ───
-
 @pytest.mark.asyncio
-async def test_user_get_by_username(user_repo):
-    """测试按用户名查询"""
-    result = await user_repo.get_by_username("admin")
+async def test_user_create_and_get(user_repo):
+    user = await user_repo.create({
+        "username": "testuser",
+        "password": "hashed_password",
+        "role": "viewer",
+    })
+    assert user is not None
+    assert user["username"] == "testuser"
+
+    result = await user_repo.get_by_username("testuser")
     assert result is not None
-    assert result["username"] == "admin"
-    assert result["role"] == "admin"
+    assert result["role"] == "viewer"

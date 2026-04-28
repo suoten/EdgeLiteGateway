@@ -312,7 +312,7 @@ class AlarmRepo:
         )
         orm = result.scalar_one_or_none()
         if orm:
-            orm.trigger_count = AlarmORM.trigger_count + 1
+            orm.trigger_count = (orm.trigger_count or 0) + 1
             orm.trigger_value = json.dumps(trigger_value, ensure_ascii=False)
             await self._commit()
 
@@ -363,6 +363,13 @@ class UserRepo:
         )
         orm = result.scalar_one_or_none()
         return _orm_to_user(orm) if orm else None
+
+    async def get_by_username_with_password(self, username: str) -> dict | None:
+        result = await self.session.execute(
+            select(UserORM).where(UserORM.username == username)
+        )
+        orm = result.scalar_one_or_none()
+        return _orm_to_user_full(orm) if orm else None
 
     async def list_all(self, page: int = 1, size: int = 20) -> tuple[list[dict], int]:
         count_result = await self.session.execute(select(func.count()).select_from(UserORM))
@@ -460,6 +467,14 @@ def _orm_to_alarm(orm: AlarmORM) -> dict:
 
 
 def _orm_to_user(orm: UserORM) -> dict:
+    return {
+        "user_id": orm.user_id, "username": orm.username,
+        "role": orm.role, "enabled": bool(orm.enabled),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
+    }
+
+
+def _orm_to_user_full(orm: UserORM) -> dict:
     return {
         "user_id": orm.user_id, "username": orm.username, "password": orm.password,
         "role": orm.role, "enabled": bool(orm.enabled),

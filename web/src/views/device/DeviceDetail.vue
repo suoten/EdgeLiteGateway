@@ -42,9 +42,9 @@
                 <n-descriptions-item label="创建时间">{{ device?.created_at }}</n-descriptions-item>
                 <n-descriptions-item label="更新时间">{{ device?.updated_at }}</n-descriptions-item>
               </n-descriptions>
-              <n-form v-else :model="editForm" label-placement="left" label-width="80">
-                <n-form-item label="名称"><n-input v-model:value="editForm.name" /></n-form-item>
-                <n-form-item label="采集间隔"><n-input-number v-model:value="editForm.collect_interval" :min="1" :max="3600" /></n-form-item>
+              <n-form v-else :model="editForm" :rules="editRules" ref="editFormRef" label-placement="left" label-width="80">
+                <n-form-item label="名称" path="name"><n-input v-model:value="editForm.name" /></n-form-item>
+                <n-form-item label="采集间隔" path="collect_interval"><n-input-number v-model:value="editForm.collect_interval" :min="1" :max="3600" /></n-form-item>
               </n-form>
             </n-card>
           </n-gi>
@@ -151,6 +151,11 @@ const chartData = ref<{ time: string; value: number }[]>([])
 const editing = ref(false)
 const saving = ref(false)
 const editForm = reactive({ name: '', collect_interval: 5, config: {} as Record<string, any> })
+const editFormRef = ref()
+const editRules = {
+  name: { required: true, message: '请输入设备名称', trigger: 'blur' },
+  collect_interval: { required: true, type: 'number' as const, min: 1, max: 3600, message: '采集间隔1-3600秒', trigger: 'blur' },
+}
 let ws: WebSocket | null = null
 let wsReconnectTimer: number | null = null
 const writeValues = ref<Record<string, any>>({})
@@ -256,6 +261,9 @@ function startEdit() {
 function cancelEdit() { editing.value = false }
 
 async function handleSave() {
+  try {
+    await editFormRef.value?.validate()
+  } catch { return }
   saving.value = true
   try {
     await deviceApi.update(deviceId.value, { name: editForm.name, collect_interval: editForm.collect_interval, config: editForm.config })
@@ -274,7 +282,12 @@ async function fetchDevice() {
   try {
     device.value = await deviceApi.get(deviceId.value)
     if (!device.value) { notFound.value = true; return }
-    if (device.value?.points?.length) chartPoint.value = device.value.points[0].name
+    if (device.value?.points?.length) {
+    const pointNames = device.value.points.map((p: any) => p.name)
+    if (!chartPoint.value || !pointNames.includes(chartPoint.value)) {
+      chartPoint.value = device.value.points[0].name
+    }
+  }
     if (route.query.tab) activeTab.value = route.query.tab as string
   } catch (e: any) {
     notFound.value = true
@@ -376,6 +389,7 @@ onUnmounted(() => {
 })
 
 watch(deviceId, () => {
+  wsManualClose = true
   ws?.close()
   ws = null
   wsConnected.value = false

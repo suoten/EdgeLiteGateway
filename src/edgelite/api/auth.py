@@ -64,7 +64,7 @@ async def login(req: LoginRequest, request: Request):
     _check_login_rate(client_ip)
 
     repo = _get_user_repo()
-    user = await repo.get_by_username(req.username, include_password=True)
+    user = await repo.get_by_username(req.username)
 
     if user is None or not verify_password(req.password, user["password"]):
         _record_login_attempt(client_ip)
@@ -99,7 +99,7 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效")
 
     repo = _get_user_repo()
-    user = await repo.get_by_username(payload.get("username", ""), include_password=False)
+    user = await repo.get_by_username(payload.get("username", ""))
     if user is None or not user["enabled"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
 
@@ -128,7 +128,7 @@ async def get_current_user_info(user: CurrentUser):
     from edgelite.app import _app_state
     from edgelite.storage.sqlite_repo import UserRepo
     repo = UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
-    db_user = await repo.get_by_username(user["username"], include_password=True)
+    db_user = await repo.get_by_username(user["username"])
     must_change = False
     if db_user:
         from edgelite.security.password import verify_password
