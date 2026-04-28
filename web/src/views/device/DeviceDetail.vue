@@ -1,5 +1,13 @@
 <template>
   <n-space vertical :size="16">
+    <template v-if="notFound">
+      <n-result status="404" title="设备不存在" description="该设备可能已被删除或ID无效">
+        <template #footer>
+          <n-button type="primary" @click="router.push('/devices')">返回设备列表</n-button>
+        </template>
+      </n-result>
+    </template>
+    <template v-else>
     <n-page-header @back="router.push('/devices')" :title="device?.name ?? ''" :subtitle="device?.device_id ?? ''">
       <template #extra>
         <n-space>
@@ -107,13 +115,14 @@
         </n-space>
       </n-tab-pane>
     </n-tabs>
+    </template>
   </n-space>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted, h, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NInput, NInputNumber, NSpace, NTag, NText, useMessage } from 'naive-ui'
+import { NButton, NInput, NInputNumber, NSpace, NTag, NText, NResult, useMessage } from 'naive-ui'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } from 'echarts/components'
@@ -130,6 +139,7 @@ const message = useMessage()
 const auth = useAuthStore()
 
 const device = ref<Device | null>(null)
+const notFound = ref(false)
 const activeTab = ref('overview')
 const pointValues = ref<Record<string, any> | null>(null)
 const pointsLoading = ref(false)
@@ -259,12 +269,14 @@ async function handleSave() {
 }
 
 async function fetchDevice() {
+  notFound.value = false
   try {
     device.value = await deviceApi.get(deviceId.value)
+    if (!device.value) { notFound.value = true; return }
     if (device.value?.points?.length) chartPoint.value = device.value.points[0].name
     if (route.query.tab) activeTab.value = route.query.tab as string
   } catch (e: any) {
-    message.error('获取设备详情失败')
+    notFound.value = true
   }
 }
 

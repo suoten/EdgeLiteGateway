@@ -22,9 +22,9 @@
     </n-modal>
 
     <n-modal v-model:show="showEditModal" title="编辑用户" preset="card" style="width: 500px">
-      <n-form :model="editForm" label-placement="left" label-width="80">
-        <n-form-item label="用户名"><n-input v-model:value="editForm.username" disabled /></n-form-item>
-        <n-form-item label="角色">
+      <n-form :model="editForm" label-placement="left" label-width="80" :rules="editRules" ref="editFormRef">
+        <n-form-item label="用户名" path="username"><n-input v-model:value="editForm.username" disabled /></n-form-item>
+        <n-form-item label="角色" path="role">
           <n-select v-model:value="editForm.role" :options="roleOptions" />
         </n-form-item>
         <n-form-item label="新密码"><n-input v-model:value="editForm.password" type="password" show-password-on="click" placeholder="留空则不修改" /></n-form-item>
@@ -52,6 +52,11 @@ const creating = ref(false)
 const editing = ref(false)
 const searchText = ref('')
 const createFormRef = ref<any>(null)
+const editFormRef = ref<any>(null)
+
+const editRules = {
+  role: { required: true, message: '请选择角色', trigger: 'change' },
+}
 
 const filteredUsers = computed(() => {
   if (!searchText.value) return users.value

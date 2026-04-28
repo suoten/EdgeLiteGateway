@@ -7,6 +7,7 @@
         <n-select v-model:value="filterProtocol" :options="protocolOptions" placeholder="协议筛选" clearable style="width: 140px" @update:value="fetchDevices" />
       </n-space>
       <n-space>
+        <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">批量删除 ({{ checkedKeys.length }})</n-button>
         <n-button type="primary" @click="showCreateModal = true">创建设备</n-button>
         <n-button @click="showSimModal = true">创建模拟器</n-button>
         <n-button @click="handleDiscover" :loading="discovering">设备发现</n-button>
@@ -392,6 +393,27 @@ function handleDelete(row: Device) {
         fetchDevices()
       } catch (e: any) {
         message.error(e?.response?.data?.detail || '删除失败')
+      }
+    },
+  })
+}
+
+function handleBatchDelete() {
+  if (!checkedKeys.value.length) return
+  dialog.warning({
+    title: '确认批量删除',
+    content: `确定删除选中的 ${checkedKeys.value.length} 个设备？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await Promise.all(checkedKeys.value.map(id => deviceApi.delete(id)))
+        message.success(`成功删除 ${checkedKeys.value.length} 个设备`)
+        checkedKeys.value = []
+        fetchDevices()
+      } catch (e: any) {
+        message.error(e?.response?.data?.detail || '批量删除失败')
+        fetchDevices()
       }
     },
   })

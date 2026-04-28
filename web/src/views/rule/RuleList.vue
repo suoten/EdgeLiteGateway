@@ -46,6 +46,43 @@
         <n-button type="primary" :loading="creating" @click="handleCreate">创建</n-button>
       </template>
     </n-modal>
+
+    <n-modal v-model:show="showEditModal" title="编辑告警规则" preset="card" style="width: 640px">
+      <n-form :model="editForm" label-placement="left" label-width="90" ref="editFormRef">
+        <n-form-item label="规则名称"><n-input v-model:value="editForm.name" /></n-form-item>
+        <n-form-item label="关联设备">
+          <n-select v-model:value="editForm.device_id" :options="deviceOptions" filterable />
+        </n-form-item>
+        <n-form-item label="逻辑组合">
+          <n-radio-group v-model:value="editForm.logic">
+            <n-radio value="AND">AND（全部满足）</n-radio>
+            <n-radio value="OR">OR（任一满足）</n-radio>
+          </n-radio-group>
+        </n-form-item>
+        <n-form-item label="持续时间"><n-input-number v-model:value="editForm.duration" :min="0" :max="3600" style="width: 120px" /> 秒</n-form-item>
+        <n-form-item label="严重级别">
+          <n-select v-model:value="editForm.severity" :options="severityOptions" />
+        </n-form-item>
+        <n-form-item label="通知渠道">
+          <n-select v-model:value="editForm.notify_channels" :options="channelOptions" multiple />
+        </n-form-item>
+        <n-form-item label="触发条件">
+          <n-space vertical style="width: 100%">
+            <n-space v-for="(cond, i) in editForm.conditions" :key="i" align="center">
+              <n-input v-model:value="cond.point" placeholder="测点名" style="width: 120px" />
+              <n-select v-model:value="cond.operator" :options="operatorOptions" style="width: 80px" />
+              <n-input-number v-model:value="cond.threshold" placeholder="阈值" style="width: 120px" />
+              <n-button text type="error" @click="editForm.conditions.splice(i, 1)">删除</n-button>
+            </n-space>
+            <n-button dashed @click="editForm.conditions.push({ point: '', operator: '>', threshold: 0 })">添加条件</n-button>
+          </n-space>
+        </n-form-item>
+      </n-form>
+      <template #action>
+        <n-button @click="showEditModal = false">取消</n-button>
+        <n-button type="primary" :loading="saving" @click="handleEdit">保存</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
@@ -59,10 +96,14 @@ const rules = ref<Rule[]>([])
 const devices = ref<Device[]>([])
 const loading = ref(false)
 const showCreateModal = ref(false)
+const showEditModal = ref(false)
 const creating = ref(false)
+const saving = ref(false)
 const searchText = ref('')
 const filterSeverity = ref<string | null>(null)
 const createFormRef = ref<any>(null)
+const editFormRef = ref<any>(null)
+const editingRuleId = ref('')
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchRules() } })
 
@@ -117,6 +158,7 @@ const columns = [
     render: (r: Rule) =>
       h(NSpace, null, {
         default: () => [
+          h(NButton, { text: true, type: 'primary', onClick: () => openEdit(r) }, { default: () => '编辑' }),
           h(NButton, { text: true, type: r.enabled ? 'warning' : 'success', onClick: () => handleToggle(r) }, { default: () => r.enabled ? '禁用' : '启用' }),
           h(NButton, { text: true, type: 'error', onClick: () => handleDelete(r) }, { default: () => '删除' }),
         ],
@@ -125,6 +167,16 @@ const columns = [
 ]
 
 const createForm = reactive({
+  name: '',
+  device_id: '',
+  logic: 'AND' as string,
+  duration: 0,
+  severity: 'warning' as string,
+  notify_channels: ['dingtalk'] as string[],
+  conditions: [{ point: '', operator: '>', threshold: 0 }],
+})
+
+const editForm = reactive({
   name: '',
   device_id: '',
   logic: 'AND' as string,
@@ -181,6 +233,32 @@ async function handleCreate() {
     message.error(e?.response?.data?.detail || e?.message || '创建失败')
   } finally {
     creating.value = false
+  }
+}
+
+function openEdit(r: Rule) {
+  editingRuleId.value = r.rule_id
+  editForm.name = r.name
+  editForm.device_id = r.device_id
+  editForm.logic = r.logic
+  editForm.duration = r.duration
+  editForm.severity = r.severity
+  editForm.notify_channels = [...(r.notify_channels || ['dingtalk'])]
+  editForm.conditions = r.conditions?.length ? r.conditions.map(c => ({ ...c })) : [{ point: '', operator: '>', threshold: 0 }]
+  showEditModal.value = true
+}
+
+async function handleEdit() {
+  saving.value = true
+  try {
+    await ruleApi.update(editingRuleId.value, editForm as any)
+    message.success('规则更新成功')
+    showEditModal.value = false
+    fetchRules()
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '更新失败')
+  } finally {
+    saving.value = false
   }
 }
 
