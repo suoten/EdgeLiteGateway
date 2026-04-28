@@ -2,7 +2,7 @@
   <n-space vertical :size="16">
     <n-space justify="space-between">
       <n-space>
-        <n-input v-model:value="searchText" placeholder="搜索设备名称/ID" clearable style="width: 200px" />
+        <n-input v-model:value="searchText" placeholder="搜索设备名称/ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
         <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
         <n-select v-model:value="filterProtocol" :options="protocolOptions" placeholder="协议筛选" clearable style="width: 140px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
       </n-space>
@@ -17,7 +17,7 @@
     </n-space>
 
     <n-data-table
-      :columns="columns" :data="filteredDevices" :loading="loading"
+      :columns="columns" :data="devices" :loading="loading"
       :pagination="pagination" :row-key="(r: Device) => r.device_id"
       v-model:checked-row-keys="checkedKeys"
     />
@@ -139,13 +139,24 @@ const searchText = ref('')
 const filterStatus = ref<string | null>(null)
 const filterProtocol = ref<string | null>(null)
 
-const filteredDevices = computed(() => {
-  if (!searchText.value) return devices.value
-  const q = searchText.value.toLowerCase()
-  return devices.value.filter((d: Device) =>
-    d.name?.toLowerCase().includes(q) || d.device_id?.toLowerCase().includes(q)
-  )
-})
+async function fetchDevices() {
+  loading.value = true
+  try {
+    const data = await deviceApi.list({
+      page: pagination.page, size: pagination.pageSize,
+      status: filterStatus.value ?? undefined, protocol: filterProtocol.value ?? undefined,
+      search: searchText.value || undefined,
+    })
+    devices.value = data?.data ?? []
+    pagination.itemCount = data?.total ?? 0
+  } catch (e: any) {
+    devices.value = []
+    message.error(e?.message || '获取设备列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 const showCreateModal = ref(false)
 const showSimModal = ref(false)
 const creating = ref(false)
@@ -308,23 +319,6 @@ const simFormRef = ref<any>(null)
 const simFormRules = {
   device_id: { required: true, message: '请输入设备ID', trigger: 'blur' },
   name: { required: true, message: '请输入设备名称', trigger: 'blur' },
-}
-
-async function fetchDevices() {
-  loading.value = true
-  try {
-    const data = await deviceApi.list({
-      page: pagination.page, size: pagination.pageSize,
-      status: filterStatus.value ?? undefined, protocol: filterProtocol.value ?? undefined,
-    })
-    devices.value = data?.data ?? []
-    pagination.itemCount = data.total
-  } catch (e: any) {
-    devices.value = []
-    message.error(e?.message || '获取设备列表失败')
-  } finally {
-    loading.value = false
-  }
 }
 
 async function handleCreate() {

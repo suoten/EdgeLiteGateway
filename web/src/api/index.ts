@@ -64,7 +64,7 @@ export interface DeviceCreateParams {
 }
 
 export const deviceApi = {
-  list: (params?: { page?: number; size?: number; status?: string; protocol?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; protocol?: string; search?: string }) =>
     http.get<PagedData<Device>>('/devices', { params }).then((r) => r.data),
 
   get: (id: string) =>

@@ -15,6 +15,7 @@ python-multipart>=0.0.9
 psutil>=5.9.0
 aiomqtt>=2.1.0
 asyncua>=1.1.0
+sparkplugb>=0.3.0
 
 # ORM与数据库迁移
 sqlalchemy[asyncio]>=2.0.30
@@ -24,3 +25,6 @@ alembic>=1.13.0
 # aiomysql>=0.2.0        # MySQL/MariaDB 数据源
 # asyncpg>=0.29.0        # PostgreSQL 数据源
 # aioodbc>=0.4.0         # SQL Server 数据源
+
+# P2/P4模块可选依赖
+# onvif-zeep>=0.2.0      # ONVIF视频设备驱动

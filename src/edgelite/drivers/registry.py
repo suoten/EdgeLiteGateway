@@ -60,6 +60,12 @@ class DriverRegistry:
             ("串口设备", "edgelite.drivers.serial_port", "SerialPortDriver"),
             ("数据库接入", "edgelite.drivers.database_source", "DatabaseSourceDriver"),
             ("扫码枪", "edgelite.drivers.barcode_scanner", "BarcodeScannerDriver"),
+            ("Sparkplug B", "edgelite.drivers.sparkplug_b", "SparkplugBDriver"),
+            ("DL/T 645", "edgelite.drivers.dlt645", "Dlt645Driver"),
+            ("IEC 104", "edgelite.drivers.iec104", "Iec104Driver"),
+            ("KUKA EKRL", "edgelite.drivers.kuka", "KukaDriver"),
+            ("ABB RWS", "edgelite.drivers.abb_robot", "AbbRobotDriver"),
+            ("ONVIF", "edgelite.drivers.onvif_driver", "OnvifDriver"),
         ]
 
         for label, module_path, class_name in _driver_modules:

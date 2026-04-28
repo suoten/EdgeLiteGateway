@@ -142,7 +142,7 @@ class NotifyService:
 
             # 在线程池中执行同步SMTP操作
             import asyncio
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._smtp_send, email, msg)
 
             logger.info("邮件通知已发送: %s -> %s", subject, email.to_addrs)

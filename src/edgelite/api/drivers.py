@@ -160,6 +160,30 @@ async def get_driver_config_schema(
     return ApiResponse(data={"driver_name": driver_name, "schema": schema})
 
 
+@router.get("", response_model=ApiResponse)
+async def list_all_drivers(user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
+    """查询所有驱动状态"""
+    from edgelite.app import _app_state
+    drivers_info = []
+    for name, cls in _app_state.driver_registry._drivers.items():
+        drivers_info.append({
+            "name": name,
+            "class": cls.__name__,
+            "module": cls.__module__,
+        })
+    if hasattr(_app_state, 'plugin_manager') and _app_state.plugin_manager:
+        for info in _app_state.plugin_manager.list_plugins():
+            drivers_info.append({
+                "name": info.name,
+                "class": info.class_name,
+                "module": info.module_path,
+                "custom": info.is_custom,
+                "loaded": info.is_loaded,
+                "error": info.error,
+            })
+    return ApiResponse(data=drivers_info)
+
+
 @router.post("/{driver_name}/discover", response_model=ApiResponse)
 async def discover_devices(
     driver_name: str,

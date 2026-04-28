@@ -163,6 +163,84 @@ class ModbusSlaveConfig(BaseModel):
     input_size: int = 1000
 
 
+class SparkplugBConfig(BaseModel):
+    """MQTT Sparkplug B 配置"""
+    group_id: str = "group1"
+    edge_node_id: str = "edgelite_node"
+    mqtt_broker: str = "localhost"
+    mqtt_port: int = 1883
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    birth_debounce_ms: int = Field(default=1000, ge=0, le=10000)
+    tls_enabled: bool = False
+    tls_ca_cert: str = ""
+    tls_client_cert: str = ""
+    tls_client_key: str = ""
+
+
+class Dlt645DefaultsConfig(BaseModel):
+    """DL/T 645 电表规约默认配置"""
+    baud_rate: int = Field(default=2400, ge=300, le=115200)
+    data_bits: int = 8
+    parity: str = "E"
+    stop_bits: int = 1
+    timeout: float = Field(default=5.0, ge=1.0, le=30.0)
+
+
+class Iec104Config(BaseModel):
+    """IEC 104 电力远动规约配置"""
+    default_port: int = 2404
+    asdu_addr_length: int = Field(default=2, ge=1, le=2)
+    cause_of_tx_length: int = Field(default=2, ge=1, le=2)
+    max_apdu_length: int = Field(default=249, ge=25, le=65535)
+    clock_sync: bool = True
+    heartbeat_interval: float = Field(default=30.0, ge=5.0, le=300.0)
+    t1_timeout: float = Field(default=15.0, ge=1.0, le=60.0)
+    t2_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    t3_timeout: float = Field(default=20.0, ge=1.0, le=120.0)
+
+
+class SerialBridgeConfig(BaseModel):
+    """串口TCP透传配置"""
+    enabled: bool = False
+    serial_port: str = "/dev/ttyUSB0"
+    baud_rate: int = 9600
+    tcp_port: int = 9000
+    ip_whitelist: list[str] = Field(default_factory=list)
+    max_clients: int = Field(default=5, ge=1, le=50)
+
+
+class PreprocessGlobalConfig(BaseModel):
+    """边缘数据预处理全局配置"""
+    enabled: bool = False
+    default_deadband: float = Field(default=0.0, ge=0.0)
+    default_filter_window: int = Field(default=3, ge=1, le=21)
+    default_aggregate_window_sec: int = Field(default=0, ge=0)
+
+
+class WebhookAuthConfig(BaseModel):
+    """HTTP Webhook 安全认证配置"""
+    mode: str = "none"
+    token: str = ""
+    username: str = ""
+    password: str = ""
+
+
+class MqttTlsConfigModel(BaseModel):
+    """MQTT TLS/SSL 配置"""
+    enabled: bool = False
+    ca_cert: str = ""
+    client_cert: str = ""
+    client_key: str = ""
+    cert_reqs: str = "required"
+
+
+class DriversConfig(BaseModel):
+    """驱动配置"""
+    custom_dir: str = ""
+    auto_reload: bool = False
+
+
 class AppConfig(BaseModel):
     server: ServerConfig = ServerConfig()
     database: DatabaseConfig = DatabaseConfig()
@@ -178,6 +256,14 @@ class AppConfig(BaseModel):
     simulator: SimulatorConfig = SimulatorConfig()
     notify: NotifyConfig = NotifyConfig()
     platforms: dict[str, Any] = {}
+    sparkplug_b: SparkplugBConfig = Field(default_factory=SparkplugBConfig)
+    dlt645_defaults: Dlt645DefaultsConfig = Field(default_factory=Dlt645DefaultsConfig)
+    iec104: Iec104Config = Field(default_factory=Iec104Config)
+    serial_bridge: SerialBridgeConfig = Field(default_factory=SerialBridgeConfig)
+    preprocess: PreprocessGlobalConfig = Field(default_factory=PreprocessGlobalConfig)
+    webhook_auth: WebhookAuthConfig = Field(default_factory=WebhookAuthConfig)
+    mqtt_tls: MqttTlsConfigModel = Field(default_factory=MqttTlsConfigModel)
+    drivers: DriversConfig = Field(default_factory=DriversConfig)
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

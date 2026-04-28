@@ -345,7 +345,7 @@ async function fetchChartData() {
 function toggleWS(val: boolean) {
   if (val) {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime`)
+    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime?token=${auth.token}`)
     ws.onopen = () => { wsConnected.value = true; wsRetryCount = 0; message.success('WebSocket 已连接') }
     ws.onmessage = (e) => {
       try {
@@ -383,6 +383,7 @@ function toggleWS(val: boolean) {
 
 onMounted(() => { fetchDevice(); fetchPoints() })
 onUnmounted(() => {
+  wsManualClose = true
   ws?.close()
   if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
   wsReconnectTimer = null

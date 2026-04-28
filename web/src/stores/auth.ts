@@ -10,7 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   const role = ref<string>(sessionStorage.getItem('edgelite_role') || '')
   const mustChangePassword = ref<boolean>(sessionStorage.getItem('edgelite_mustChangePassword') === 'true')
 
-  const isAuthenticated = computed(() => !!username.value)
+  const isAuthenticated = computed(() => !!token.value)
   const isAdmin = computed(() => role.value === 'admin')
   const isOperator = computed(() => role.value === 'operator' || role.value === 'admin')
 

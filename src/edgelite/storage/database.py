@@ -24,6 +24,8 @@ _BACKEND_DRIVERS = {
 
 def _build_database_url(config: Any = None) -> str:
     """根据配置构建 SQLAlchemy 数据库 URL"""
+    from urllib.parse import quote_plus
+
     if config is None:
         config = get_config()
 
@@ -38,8 +40,8 @@ def _build_database_url(config: Any = None) -> str:
         driver = "aiomysql"
         host = config.database.host
         port = config.database.port or 3306
-        user = config.database.username
-        pwd = config.database.password
+        user = quote_plus(config.database.username)
+        pwd = quote_plus(config.database.password)
         db = config.database.database
         return f"mysql+{driver}://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
 
@@ -47,8 +49,8 @@ def _build_database_url(config: Any = None) -> str:
         driver = "asyncpg"
         host = config.database.host
         port = config.database.port or 5432
-        user = config.database.username
-        pwd = config.database.password
+        user = quote_plus(config.database.username)
+        pwd = quote_plus(config.database.password)
         db = config.database.database
         return f"postgresql+{driver}://{user}:{pwd}@{host}:{port}/{db}"
 
@@ -56,8 +58,8 @@ def _build_database_url(config: Any = None) -> str:
         driver = "aioodbc"
         host = config.database.host
         port = config.database.port or 1433
-        user = config.database.username
-        pwd = config.database.password
+        user = quote_plus(config.database.username)
+        pwd = quote_plus(config.database.password)
         db = config.database.database
         odbc_connect = (
             f"DRIVER={{ODBC Driver 18 for SQL Server}};"

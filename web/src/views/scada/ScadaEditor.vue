@@ -77,11 +77,13 @@ function removeWidget(id: number) {
 
 function startDrag(e: MouseEvent, widget: any) {
   if (previewMode.value) return
-  dragging = { widget, offsetX: e.clientX - widget.x, offsetY: e.clientY - widget.y }
+  const rect = canvasRef.value!.getBoundingClientRect()
+  dragging = { widget, offsetX: e.clientX - rect.left - widget.x, offsetY: e.clientY - rect.top - widget.y }
   const onMouseMove = (ev: MouseEvent) => {
     if (dragging) {
-      dragging.widget.x = ev.clientX - dragging.offsetX
-      dragging.widget.y = ev.clientY - dragging.offsetY
+      const r = canvasRef.value!.getBoundingClientRect()
+      dragging.widget.x = ev.clientX - r.left - dragging.offsetX
+      dragging.widget.y = ev.clientY - r.top - dragging.offsetY
     }
   }
   const onMouseUp = () => {

@@ -53,6 +53,15 @@ async function loadScene() {
     const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js')
 
     if (renderer) {
+      if (scene) {
+        scene.traverse((obj: any) => {
+          if (obj.geometry) obj.geometry.dispose()
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach((m: any) => m.dispose())
+            else obj.material.dispose()
+          }
+        })
+      }
       renderer.dispose()
       if (animationId) cancelAnimationFrame(animationId)
     }

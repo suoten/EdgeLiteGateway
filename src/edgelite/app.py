@@ -50,6 +50,7 @@ class AppState:
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     config: Any = None
     max_ws_connections: int = 100
+    plugin_manager: Any = None
 
 
 # 全局应用状态
@@ -189,6 +190,13 @@ async def lifespan(app: FastAPI):
         driver_registry = DriverRegistry()
         driver_registry.auto_discover()
         _app_state.driver_registry = driver_registry
+
+        # 12.5 初始化自定义驱动加载
+        from edgelite.engine.plugin_manager import PluginManager
+        _app_state.plugin_manager = PluginManager(_app_state.driver_registry)
+        custom_dir = config.drivers.custom_dir if hasattr(config, 'drivers') and config.drivers.custom_dir else ""
+        if custom_dir:
+            _app_state.plugin_manager.discover_custom_drivers(custom_dir)
 
         # 13. 初始化MQTT北向转发器
         from edgelite.engine.mqtt_forwarder import MqttForwarder

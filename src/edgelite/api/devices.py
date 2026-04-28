@@ -113,16 +113,31 @@ async def discover_devices(
 
 
 @router.post("/{device_id}/push", response_model=ApiResponse)
-async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(default="")):
-    """HTTP Webhook数据推送端点（需API Key认证）"""
+async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(default=""), authorization: str = Header(default="")):
+    """HTTP Webhook数据推送端点"""
     from edgelite.app import _app_state
-
     config = _app_state.config
+
+    # Webhook认证
+    if config and hasattr(config, 'webhook_auth'):
+        from edgelite.engine.webhook_auth import WebhookAuthMiddleware
+        auth_mw = WebhookAuthMiddleware(
+            mode=config.webhook_auth.mode,
+            token=config.webhook_auth.token,
+            username=config.webhook_auth.username,
+            password=config.webhook_auth.password,
+        )
+        if not auth_mw.verify(authorization):
+            raise HTTPException(status_code=401, detail="Webhook认证失败")
+
+    # API Key认证（向后兼容）
     if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
         if x_api_key != config.server.webhook_api_key:
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
-        raise HTTPException(status_code=401, detail="API Key not configured")
+        # 无认证配置时拒绝（Phase1已修改的逻辑保持）
+        if not (config and hasattr(config, 'webhook_auth') and config.webhook_auth.mode != "none"):
+            raise HTTPException(status_code=401, detail="API Key not configured")
 
     driver = _app_state.driver_registry.get_driver_class("http_webhook")
     if driver and hasattr(driver, "receive_data"):

@@ -36,6 +36,7 @@ dependencies = [
     "psutil>=5.9.0",
     "aiomqtt>=2.1.0",
     "asyncua>=1.1.0",
+    "sparkplugb>=0.3.0",
     "python-dotenv>=1.0.0",
 ]
 

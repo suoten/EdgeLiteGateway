@@ -145,3 +145,73 @@ platforms: {}
 #     enabled: true
 #     endpoint: "http://your-thingsboard:8080"  # ThingsBoard 服务地址
 #     token: "your-thingsboard-token"            # 访问 Token
+
+# ── Sparkplug B 北向协议 ────────────────────────────────
+# sparkplug_b:
+#   group_id: "group1"               # Sparkplug B Group ID
+#   edge_node_id: "edgelite_node"    # Edge Node ID
+#   mqtt_broker: "localhost"         # MQTT Broker 地址
+#   mqtt_port: 1883                  # MQTT Broker 端口
+#   mqtt_username: ""                # MQTT 认证用户名
+#   mqtt_password: ""                # MQTT 认证密码
+#   birth_debounce_ms: 1000          # BIRTH 证书去抖动时间（毫秒），范围 0-10000
+#   tls_enabled: false               # 是否启用 TLS
+#   tls_ca_cert: ""                  # CA 证书路径
+#   tls_client_cert: ""              # 客户端证书路径
+#   tls_client_key: ""               # 客户端私钥路径
+
+# ── DL/T 645 电表规约默认参数 ──────────────────────────
+# dlt645_defaults:
+#   baud_rate: 2400                  # 波特率，范围 300-115200
+#   data_bits: 8                     # 数据位
+#   parity: "E"                      # 校验：E(偶校验) / O(奇校验) / N(无校验)
+#   stop_bits: 1                     # 停止位
+#   timeout: 5.0                     # 超时时间（秒），范围 1.0-30.0
+
+# ── IEC 104 电力远动规约 ───────────────────────────────
+# iec104:
+#   default_port: 2404               # IEC 104 默认端口
+#   asdu_addr_length: 2              # ASDU 地址长度（1 或 2 字节）
+#   cause_of_tx_length: 2            # 传输原因长度（1 或 2 字节）
+#   max_apdu_length: 249             # 最大 APDU 长度，范围 25-65535
+#   clock_sync: true                 # 是否启用时钟同步
+#   heartbeat_interval: 30.0         # 心跳间隔（秒），范围 5.0-300.0
+#   t1_timeout: 15.0                 # T1 超时（秒），范围 1.0-60.0
+#   t2_timeout: 10.0                 # T2 超时（秒），范围 1.0-60.0
+#   t3_timeout: 20.0                 # T3 超时（秒），范围 1.0-120.0
+
+# ── 串口 TCP 透传 ──────────────────────────────────────
+# serial_bridge:
+#   enabled: false                   # 是否启用串口透传
+#   serial_port: "/dev/ttyUSB0"      # 串口设备路径
+#   baud_rate: 9600                  # 波特率
+#   tcp_port: 9000                   # TCP 监听端口
+#   ip_whitelist: []                 # IP 白名单（空则不限）
+#   max_clients: 5                   # 最大客户端数，范围 1-50
+
+# ── 边缘数据预处理 ─────────────────────────────────────
+# preprocess:
+#   enabled: false                   # 是否启用预处理
+#   default_deadband: 0.0            # 默认死区值，≥ 0.0
+#   default_filter_window: 3         # 默认滤波窗口大小，范围 1-21（奇数）
+#   default_aggregate_window_sec: 0  # 默认聚合时间窗口（秒），0 表示不聚合
+
+# ── HTTP Webhook 安全认证 ─────────────────────────────
+# webhook_auth:
+#   mode: "none"                     # 认证模式：none / bearer / basic
+#   token: ""                        # Bearer Token（mode=bearer 时使用）
+#   username: ""                     # Basic 认证用户名（mode=basic 时使用）
+#   password: ""                     # Basic 认证密码（mode=basic 时使用）
+
+# ── MQTT TLS/SSL 配置 ─────────────────────────────────
+# mqtt_tls:
+#   enabled: false                   # 是否启用 MQTT TLS
+#   ca_cert: ""                      # CA 证书文件路径
+#   client_cert: ""                  # 客户端证书文件路径
+#   client_key: ""                   # 客户端私钥文件路径
+#   cert_reqs: "required"            # 证书要求：required / optional / none
+
+# ── 驱动配置 ───────────────────────────────────────────
+# drivers:
+#   custom_dir: ""                   # 自定义驱动目录路径
+#   auto_reload: false               # 是否自动重载驱动变更
