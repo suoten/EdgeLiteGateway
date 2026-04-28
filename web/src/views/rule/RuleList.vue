@@ -60,7 +60,7 @@
           </n-radio-group>
         </n-form-item>
         <n-form-item label="持续时间"><n-input-number v-model:value="editForm.duration" :min="0" :max="3600" style="width: 120px" /> 秒</n-form-item>
-        <n-form-item label="严重级别">
+        <n-form-item label="严重级别" path="severity">
           <n-select v-model:value="editForm.severity" :options="severityOptions" />
         </n-form-item>
         <n-form-item label="通知渠道">

@@ -2,7 +2,9 @@
   <n-config-provider :theme="theme">
     <n-message-provider>
       <n-dialog-provider>
-        <router-view />
+        <n-notification-provider>
+          <router-view />
+        </n-notification-provider>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
