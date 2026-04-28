@@ -22,12 +22,7 @@ def _uuid() -> str:
     return uuid.uuid4().hex[:16]
 
 
-# ─── Device Repository ───
-
-
 class DeviceRepo:
-    """设备数据访问"""
-
     def __init__(self, session: AsyncSession, write_lock: asyncio.Lock | None = None):
         self.session = session
         self._write_lock = write_lock
@@ -69,17 +64,14 @@ class DeviceRepo:
     ) -> tuple[list[dict], int]:
         query = select(DeviceORM)
         count_query = select(func.count()).select_from(DeviceORM)
-
         if status:
             query = query.where(DeviceORM.status == status)
             count_query = count_query.where(DeviceORM.status == status)
         if protocol:
             query = query.where(DeviceORM.protocol == protocol)
             count_query = count_query.where(DeviceORM.protocol == protocol)
-
         total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
-
         offset = (page - 1) * size
         query = query.order_by(DeviceORM.created_at.desc()).offset(offset).limit(size)
         result = await self.session.execute(query)
@@ -93,7 +85,6 @@ class DeviceRepo:
         orm = result.scalar_one_or_none()
         if orm is None:
             return None
-
         for key in ("name", "collect_interval"):
             if key in data:
                 setattr(orm, key, data[key])
@@ -104,16 +95,13 @@ class DeviceRepo:
         if "status" in data:
             orm.status = data["status"]
         orm.updated_at = _now()
-
         await self._commit()
         await self.session.refresh(orm)
         return _orm_to_device(orm)
 
     async def update_status(self, device_id: str, status: str) -> None:
         await self.session.execute(
-            update(DeviceORM)
-            .where(DeviceORM.device_id == device_id)
-            .values(status=status, updated_at=_now())
+            update(DeviceORM).where(DeviceORM.device_id == device_id).values(status=status, updated_at=_now())
         )
         await self._commit()
 
@@ -132,12 +120,7 @@ class DeviceRepo:
         return [_orm_to_device(r) for r in rows]
 
 
-# ─── Rule Repository ───
-
-
 class RuleRepo:
-    """规则数据访问"""
-
     def __init__(self, session: AsyncSession, write_lock: asyncio.Lock | None = None):
         self.session = session
         self._write_lock = write_lock
@@ -179,14 +162,11 @@ class RuleRepo:
     async def list_all(self, page: int = 1, size: int = 20, device_id: str | None = None) -> tuple[list[dict], int]:
         query = select(RuleORM)
         count_query = select(func.count()).select_from(RuleORM)
-
         if device_id:
             query = query.where(RuleORM.device_id == device_id)
             count_query = count_query.where(RuleORM.device_id == device_id)
-
         total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
-
         offset = (page - 1) * size
         query = query.order_by(RuleORM.created_at.desc()).offset(offset).limit(size)
         result = await self.session.execute(query)
@@ -200,7 +180,6 @@ class RuleRepo:
         orm = result.scalar_one_or_none()
         if orm is None:
             return None
-
         for key in ("name", "logic", "duration", "severity"):
             if key in data:
                 setattr(orm, key, data[key])
@@ -210,7 +189,6 @@ class RuleRepo:
             orm.notify_channels = json.dumps(data["notify_channels"], ensure_ascii=False)
         if "enabled" in data:
             orm.enabled = data["enabled"]
-
         await self._commit()
         await self.session.refresh(orm)
         return _orm_to_rule(orm)
@@ -241,12 +219,7 @@ class RuleRepo:
         return [r for r in rules if any(c["point"] == point_name for c in r["conditions"])]
 
 
-# ─── Alarm Repository ───
-
-
 class AlarmRepo:
-    """告警数据访问"""
-
     def __init__(self, session: AsyncSession, write_lock: asyncio.Lock | None = None):
         self.session = session
         self._write_lock = write_lock
@@ -284,16 +257,11 @@ class AlarmRepo:
         return _orm_to_alarm(orm) if orm else None
 
     async def list_all(
-        self,
-        page: int = 1,
-        size: int = 20,
-        status: str | None = None,
-        severity: str | None = None,
-        device_id: str | None = None,
+        self, page: int = 1, size: int = 20, status: str | None = None,
+        severity: str | None = None, device_id: str | None = None,
     ) -> tuple[list[dict], int]:
         query = select(AlarmORM)
         count_query = select(func.count()).select_from(AlarmORM)
-
         if status:
             query = query.where(AlarmORM.status == status)
             count_query = count_query.where(AlarmORM.status == status)
@@ -303,10 +271,8 @@ class AlarmRepo:
         if device_id:
             query = query.where(AlarmORM.device_id == device_id)
             count_query = count_query.where(AlarmORM.device_id == device_id)
-
         total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
-
         offset = (page - 1) * size
         query = query.order_by(AlarmORM.fired_at.desc()).offset(offset).limit(size)
         result = await self.session.execute(query)
@@ -353,21 +319,14 @@ class AlarmRepo:
     async def get_firing_by_rule_device(self, rule_id: str, device_id: str) -> dict | None:
         result = await self.session.execute(
             select(AlarmORM).where(
-                AlarmORM.rule_id == rule_id,
-                AlarmORM.device_id == device_id,
-                AlarmORM.status == "firing",
+                AlarmORM.rule_id == rule_id, AlarmORM.device_id == device_id, AlarmORM.status == "firing",
             )
         )
         orm = result.scalar_one_or_none()
         return _orm_to_alarm(orm) if orm else None
 
 
-# ─── User Repository ───
-
-
 class UserRepo:
-    """用户数据访问"""
-
     def __init__(self, session: AsyncSession, write_lock: asyncio.Lock | None = None):
         self.session = session
         self._write_lock = write_lock
@@ -383,12 +342,8 @@ class UserRepo:
         user_id = _uuid()
         now = _now()
         orm = UserORM(
-            user_id=user_id,
-            username=data["username"],
-            password=data["password"],
-            role=data["role"],
-            enabled=True,
-            created_at=now,
+            user_id=user_id, username=data["username"], password=data["password"],
+            role=data["role"], enabled=True, created_at=now,
         )
         self.session.add(orm)
         await self._commit()
@@ -412,7 +367,6 @@ class UserRepo:
     async def list_all(self, page: int = 1, size: int = 20) -> tuple[list[dict], int]:
         count_result = await self.session.execute(select(func.count()).select_from(UserORM))
         total = count_result.scalar() or 0
-
         offset = (page - 1) * size
         result = await self.session.execute(
             select(UserORM).order_by(UserORM.created_at.desc()).offset(offset).limit(size)
@@ -427,13 +381,11 @@ class UserRepo:
         orm = result.scalar_one_or_none()
         if orm is None:
             return None
-
         for key in ("password", "role"):
             if key in data:
                 setattr(orm, key, data[key])
         if "enabled" in data:
             orm.enabled = data["enabled"]
-
         await self._commit()
         await self.session.refresh(orm)
         return _orm_to_user(orm)
@@ -446,12 +398,7 @@ class UserRepo:
         return result.rowcount > 0
 
 
-# ─── Audit Repository ───
-
-
 class AuditRepo:
-    """审计日志数据访问"""
-
     def __init__(self, session: AsyncSession, write_lock: asyncio.Lock | None = None):
         self.session = session
         self._write_lock = write_lock
@@ -465,29 +412,20 @@ class AuditRepo:
 
     async def create(self, data: dict) -> None:
         orm = AuditLogORM(
-            user_id=data["user_id"],
-            username=data.get("username"),
-            action=data["action"],
-            resource_type=data.get("resource_type"),
-            resource_id=data.get("resource_id"),
-            ip_address=data.get("ip_address"),
+            user_id=data["user_id"], username=data.get("username"),
+            action=data["action"], resource_type=data.get("resource_type"),
+            resource_id=data.get("resource_id"), ip_address=data.get("ip_address"),
             user_agent=data.get("user_agent"),
             details=json.dumps(data.get("details"), ensure_ascii=False) if data.get("details") else None,
-            status=data.get("status", "success"),
-            error_message=data.get("error_message"),
+            status=data.get("status", "success"), error_message=data.get("error_message"),
         )
         self.session.add(orm)
         await self._commit()
 
 
-# ─── ORM 转换辅助 ───
-
-
 def _orm_to_device(orm: DeviceORM) -> dict:
     return {
-        "device_id": orm.device_id,
-        "name": orm.name,
-        "protocol": orm.protocol,
+        "device_id": orm.device_id, "name": orm.name, "protocol": orm.protocol,
         "status": orm.status,
         "config": json.loads(orm.config) if isinstance(orm.config, str) else orm.config,
         "points": json.loads(orm.points) if isinstance(orm.points, str) else orm.points,
@@ -499,13 +437,9 @@ def _orm_to_device(orm: DeviceORM) -> dict:
 
 def _orm_to_rule(orm: RuleORM) -> dict:
     return {
-        "rule_id": orm.rule_id,
-        "name": orm.name,
-        "device_id": orm.device_id,
+        "rule_id": orm.rule_id, "name": orm.name, "device_id": orm.device_id,
         "conditions": json.loads(orm.conditions) if isinstance(orm.conditions, str) else orm.conditions,
-        "logic": orm.logic,
-        "duration": orm.duration,
-        "severity": orm.severity,
+        "logic": orm.logic, "duration": orm.duration, "severity": orm.severity,
         "enabled": bool(orm.enabled),
         "notify_channels": json.loads(orm.notify_channels) if isinstance(orm.notify_channels, str) else orm.notify_channels,
         "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
@@ -514,12 +448,9 @@ def _orm_to_rule(orm: RuleORM) -> dict:
 
 def _orm_to_alarm(orm: AlarmORM) -> dict:
     return {
-        "alarm_id": orm.alarm_id,
-        "rule_id": orm.rule_id,
-        "device_id": orm.device_id,
-        "severity": orm.severity,
-        "status": orm.status,
-        "trigger_value": json.loads(orm.trigger_value) if isinstance(orm.trigger_value, str) else (orm.trigger_value if orm.trigger_value else None),
+        "alarm_id": orm.alarm_id, "rule_id": orm.rule_id, "device_id": orm.device_id,
+        "severity": orm.severity, "status": orm.status,
+        "trigger_value": json.loads(orm.trigger_value) if isinstance(orm.trigger_value, str) else orm.trigger_value,
         "trigger_count": orm.trigger_count,
         "fired_at": orm.fired_at.isoformat() if isinstance(orm.fired_at, datetime) else str(orm.fired_at),
         "acknowledged_at": orm.acknowledged_at.isoformat() if isinstance(orm.acknowledged_at, datetime) else orm.acknowledged_at,
@@ -530,10 +461,7 @@ def _orm_to_alarm(orm: AlarmORM) -> dict:
 
 def _orm_to_user(orm: UserORM) -> dict:
     return {
-        "user_id": orm.user_id,
-        "username": orm.username,
-        "password": orm.password,
-        "role": orm.role,
-        "enabled": bool(orm.enabled),
+        "user_id": orm.user_id, "username": orm.username, "password": orm.password,
+        "role": orm.role, "enabled": bool(orm.enabled),
         "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
     }
