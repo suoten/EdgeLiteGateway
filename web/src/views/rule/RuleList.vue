@@ -88,10 +88,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage } from 'naive-ui'
+import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
 import { ruleApi, deviceApi, type Rule, type Device } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const rules = ref<Rule[]>([])
 const devices = ref<Device[]>([])
 const loading = ref(false)
@@ -277,14 +278,22 @@ async function handleToggle(r: Rule) {
   }
 }
 
-async function handleDelete(r: Rule) {
-  try {
-    await ruleApi.delete(r.rule_id)
-    message.success('规则已删除')
-    fetchRules()
-  } catch (e: any) {
-    message.error(e?.message || '删除失败')
-  }
+function handleDelete(r: Rule) {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除规则 "${r.name}" (${r.rule_id})？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await ruleApi.delete(r.rule_id)
+        message.success('规则已删除')
+        fetchRules()
+      } catch (e: any) {
+        message.error(e?.message || '删除失败')
+      }
+    },
+  })
 }
 
 onMounted(() => { fetchRules(); fetchDevices() })

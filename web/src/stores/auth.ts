@@ -20,7 +20,9 @@ export const useAuthStore = defineStore('auth', () => {
     username.value = user
     // 解析角色（从JWT payload）
     try {
-      const payload = JSON.parse(atob(data.access_token.split('.')[1]))
+      const b64 = data.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+      const pad = b64.length % 4
+      const payload = JSON.parse(atob(pad ? b64 + '='.repeat(4 - pad) : b64))
       role.value = payload.role || 'viewer'
     } catch {
       role.value = 'viewer'

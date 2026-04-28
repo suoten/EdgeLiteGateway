@@ -36,9 +36,9 @@ class MqttForwarder:
 
         # 订阅EventBus事件
         if event_bus:
-            event_bus.register_handler("point_update", self._on_point_update)
-            event_bus.register_handler("alarm", self._on_alarm_event)
-            event_bus.register_handler("device_status", self._on_device_status)
+            event_bus.register_handler("PointUpdateEvent", self._on_point_update)
+            event_bus.register_handler("AlarmEvent", self._on_alarm_event)
+            event_bus.register_handler("DeviceStatusEvent", self._on_device_status)
             logger.info("MQTT转发器已订阅EventBus事件")
 
         # 启动连接和发布任务
@@ -77,7 +77,9 @@ class MqttForwarder:
             data = {
                 "type": "point_update",
                 "device_id": getattr(event, "device_id", ""),
-                "points": getattr(event, "points", {}),
+                "point_name": getattr(event, "point_name", ""),
+                "value": getattr(event, "value", 0),
+                "quality": getattr(event, "quality", "good"),
                 "timestamp": time.time(),
             }
             self._message_queue.put_nowait(data)
@@ -94,7 +96,7 @@ class MqttForwarder:
                 "alarm_id": getattr(event, "alarm_id", ""),
                 "device_id": getattr(event, "device_id", ""),
                 "severity": getattr(event, "severity", ""),
-                "status": getattr(event, "status", ""),
+                "action": getattr(event, "action", "firing"),
                 "timestamp": time.time(),
             }
             self._message_queue.put_nowait(data)
@@ -109,7 +111,8 @@ class MqttForwarder:
             data = {
                 "type": "device_status",
                 "device_id": getattr(event, "device_id", ""),
-                "status": getattr(event, "status", ""),
+                "old_status": getattr(event, "old_status", ""),
+                "new_status": getattr(event, "new_status", ""),
                 "timestamp": time.time(),
             }
             self._message_queue.put_nowait(data)

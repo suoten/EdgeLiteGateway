@@ -3,8 +3,8 @@
     <n-space justify="space-between">
       <n-space>
         <n-input v-model:value="searchText" placeholder="搜索设备名称/ID" clearable style="width: 200px" />
-        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="fetchDevices" />
-        <n-select v-model:value="filterProtocol" :options="protocolOptions" placeholder="协议筛选" clearable style="width: 140px" @update:value="fetchDevices" />
+        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
+        <n-select v-model:value="filterProtocol" :options="protocolOptions" placeholder="协议筛选" clearable style="width: 140px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
       </n-space>
       <n-space>
         <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">批量删除 ({{ checkedKeys.length }})</n-button>

@@ -350,12 +350,17 @@ function toggleWS(val: boolean) {
 }
 
 onMounted(() => { fetchDevice(); fetchPoints() })
-onUnmounted(() => { ws?.close() })
+onUnmounted(() => {
+  ws?.close()
+  if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+})
 
 watch(deviceId, () => {
   ws?.close()
   ws = null
   wsConnected.value = false
+  if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+  wsReconnectTimer = null
   fetchDevice()
   fetchPoints()
 })
