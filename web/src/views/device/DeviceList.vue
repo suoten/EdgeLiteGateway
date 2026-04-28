@@ -406,12 +406,24 @@ function handleDelete(row: Device) {
 
 async function handleBatchDelete() {
   if (!checkedKeys.value.length) return
-  if (!window.confirm(`确认删除${checkedKeys.value.length}个设备？`)) return
-  for (const id of checkedKeys.value) {
-    await deviceApi.delete(id)
-  }
-  checkedKeys.value = []
-  fetchDevices()
+  dialog.warning({
+    title: '确认批量删除',
+    content: `确定删除选中的 ${checkedKeys.value.length} 个设备？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      const results = await Promise.allSettled(checkedKeys.value.map(id => deviceApi.delete(id)))
+      const succeeded = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.filter(r => r.status === 'rejected').length
+      if (failed > 0) {
+        message.warning(`成功删除 ${succeeded} 个设备，${failed} 个删除失败`)
+      } else {
+        message.success(`成功删除 ${succeeded} 个设备`)
+      }
+      checkedKeys.value = []
+      fetchDevices()
+    },
+  })
 }
 
 onMounted(() => { fetchDevices(); loadDriverSchemas() })
