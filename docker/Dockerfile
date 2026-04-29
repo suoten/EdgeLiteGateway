@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY src/edgelite/ edgelite/
 COPY configs/ configs/
+COPY alembic/ alembic/
+COPY alembic.ini alembic.ini
 
 # 创建数据目录
 RUN mkdir -p data/backups logs

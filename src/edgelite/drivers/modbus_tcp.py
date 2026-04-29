@@ -203,10 +203,23 @@ class ModbusTcpDriver(DriverPlugin):
         """读取单个测点"""
         address = int(pt_def.get("address", 0))
         data_type = pt_def.get("data_type", "float32")
+        reg_type = pt_def.get("register_type", "holding")
         reg_count = DATA_TYPE_REGS.get(data_type, 1)
 
-        # 读取保持寄存器（默认3x区）
-        result = await client.read_holding_registers(address, reg_count, slave=slave_id)
+        if reg_type == "coil":
+            result = await client.read_coils(address, reg_count, slave=slave_id)
+            if result.isError():
+                raise ModbusException(f"读取错误: {result}")
+            return bool(result.bits[0])
+        elif reg_type == "discrete":
+            result = await client.read_discrete_inputs(address, reg_count, slave=slave_id)
+            if result.isError():
+                raise ModbusException(f"读取错误: {result}")
+            return bool(result.bits[0])
+        elif reg_type == "input":
+            result = await client.read_input_registers(address, reg_count, slave=slave_id)
+        else:
+            result = await client.read_holding_registers(address, reg_count, slave=slave_id)
 
         if result.isError():
             raise ModbusException(f"读取错误: {result}")

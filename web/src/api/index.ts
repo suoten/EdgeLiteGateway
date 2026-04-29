@@ -124,7 +124,7 @@ export interface RuleCreateParams {
 }
 
 export const ruleApi = {
-  list: (params?: { page?: number; size?: number; device_id?: string; search?: string }) =>
+  list: (params?: { page?: number; size?: number; device_id?: string; search?: string; severity?: string }) =>
     http.get<PagedData<Rule>>('/rules', { params }).then((r) => r.data),
 
   get: (id: string) =>
@@ -284,6 +284,29 @@ export const driverApi = {
 
   discover: (driverName: string, config?: Record<string, any>) =>
     http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, config || {}).then((r) => r.data.data),
+}
+
+// ─── 预处理配置 ───
+
+export const preprocessApi = {
+  getConfig: () =>
+    http.get<ApiResponse<any>>('/preprocess/config').then((r) => r.data.data),
+
+  updateConfig: (data: any) =>
+    http.put<ApiResponse>('/preprocess/config', data).then((r) => r.data),
+}
+
+// ─── 串口透传 ───
+
+export const serialBridgeApi = {
+  getStatus: () =>
+    http.get<ApiResponse<any>>('/serial-bridge/status').then((r) => r.data.data),
+
+  start: () =>
+    http.post<ApiResponse>('/serial-bridge/start').then((r) => r.data),
+
+  stop: () =>
+    http.post<ApiResponse>('/serial-bridge/stop').then((r) => r.data),
 }
 
 // ─── 平台对接 ───

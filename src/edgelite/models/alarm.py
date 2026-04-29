@@ -12,7 +12,7 @@ class AlarmResponse(BaseModel):
 
     alarm_id: str
     rule_id: str
-    device_id: str
+    device_id: str | None
     severity: str
     status: str
     trigger_value: dict[str, Any]

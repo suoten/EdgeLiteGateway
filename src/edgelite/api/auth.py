@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from datetime import timedelta
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
 
@@ -42,9 +41,9 @@ def _record_login_attempt(ip: str) -> None:
     _login_attempts[ip].append(time.time())
 
 
-def _get_user_repo() -> UserRepo:
+def _get_user_repo():
     from edgelite.app import _app_state
-    return UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
+    return _app_state.database, _app_state.database.write_lock
 
 
 def _get_client_ip(request: Request) -> str:
@@ -63,8 +62,10 @@ async def login(req: LoginRequest, request: Request):
     client_ip = _get_client_ip(request)
     _check_login_rate(client_ip)
 
-    repo = _get_user_repo()
-    user = await repo.get_by_username_with_password(req.username)
+    db, write_lock = _get_user_repo()
+    async with db.get_session() as session:
+        repo = UserRepo(session, write_lock)
+        user = await repo.get_by_username_with_password(req.username)
 
     if user is None or not verify_password(req.password, user["password"]):
         _record_login_attempt(client_ip)
@@ -98,8 +99,10 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效")
 
-    repo = _get_user_repo()
-    user = await repo.get_by_username(payload.get("username", ""))
+    db, write_lock = _get_user_repo()
+    async with db.get_session() as session:
+        repo = UserRepo(session, write_lock)
+        user = await repo.get_by_username(payload.get("username", ""))
     if user is None or not user["enabled"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
 
@@ -124,15 +127,16 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
 
 @router.get("/me", response_model=ApiResponse)
 async def get_current_user_info(user: CurrentUser):
-    """获取当前登录用户信息"""
     from edgelite.app import _app_state
     from edgelite.storage.sqlite_repo import UserRepo
-    repo = UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
-    db_user = await repo.get_by_username_with_password(user["username"])
+    db = _app_state.database
     must_change = False
-    if db_user:
-        from edgelite.security.password import verify_password
-        must_change = verify_password("admin123", db_user.get("password", ""))
+    async with db.get_session() as session:
+        repo = UserRepo(session, db.write_lock)
+        db_user = await repo.get_by_username_with_password(user["username"])
+        if db_user:
+            from edgelite.security.password import verify_password
+            must_change = verify_password("admin123", db_user.get("password", ""))
     return ApiResponse(data={
         "user_id": user["user_id"],
         "username": user["username"],

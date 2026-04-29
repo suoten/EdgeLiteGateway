@@ -8,16 +8,12 @@ from pydantic import BaseModel, Field
 
 
 class RuleCondition(BaseModel):
-    """规则条件"""
-
     point: str
     operator: Literal[">", ">=", "<", "<=", "=="]
     threshold: float
 
 
 class RuleCreate(BaseModel):
-    """创建规则请求"""
-
     name: str = Field(min_length=1, max_length=64)
     device_id: str
     conditions: list[RuleCondition] = Field(min_length=1)
@@ -30,8 +26,6 @@ class RuleCreate(BaseModel):
 
 
 class RuleUpdate(BaseModel):
-    """更新规则请求"""
-
     name: str | None = Field(default=None, min_length=1, max_length=64)
     conditions: list[RuleCondition] | None = None
     logic: Literal["AND", "OR"] | None = None
@@ -41,11 +35,9 @@ class RuleUpdate(BaseModel):
 
 
 class RuleResponse(BaseModel):
-    """规则响应"""
-
     rule_id: str
     name: str
-    device_id: str
+    device_id: str | None
     conditions: list[RuleCondition]
     logic: str
     duration: int
@@ -56,6 +48,4 @@ class RuleResponse(BaseModel):
 
 
 class RuleTestRequest(BaseModel):
-    """规则测试请求"""
-
     point_values: dict[str, float]

@@ -56,13 +56,14 @@ class SystemService:
 
         # 规则统计
         _, rule_total = await self._rule_repo.list_all(page=1, size=1)
-        # 启用的规则数
         from sqlalchemy import select, func as sa_func
         from edgelite.models.db import RuleORM
-        result = await self._rule_repo.session.execute(
-            select(sa_func.count()).select_from(RuleORM).where(RuleORM.enabled.is_(True))
-        )
-        rule_enabled = result.scalar() or 0
+        from edgelite.app import _app_state
+        async with _app_state.database.get_session() as session:
+            result = await session.execute(
+                select(sa_func.count()).select_from(RuleORM).where(RuleORM.enabled.is_(True))
+            )
+            rule_enabled = result.scalar() or 0
 
         # 告警统计
         _, firing_count = await self._alarm_repo.list_all(page=1, size=1, status="firing")

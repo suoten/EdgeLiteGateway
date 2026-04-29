@@ -112,11 +112,10 @@ async def lifespan(app: FastAPI):
         from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo, AuditRepo
         _app_state.config = config
         write_lock = database.write_lock
-        session = database.get_session()
-        device_repo = DeviceRepo(session, write_lock)
-        rule_repo = RuleRepo(session, write_lock)
-        alarm_repo = AlarmRepo(session, write_lock)
-        user_repo = UserRepo(session, write_lock)
+        device_repo = DeviceRepo(database, write_lock)
+        rule_repo = RuleRepo(database, write_lock)
+        alarm_repo = AlarmRepo(database, write_lock)
+        user_repo = UserRepo(database, write_lock)
 
         # 6. 初始化采集调度器
         from edgelite.engine.scheduler import CollectScheduler

@@ -193,6 +193,12 @@ const protocolOptions = [
   { label: '扫码枪', value: 'barcode_scanner' },
   { label: '模拟器', value: 'simulator' },
   { label: '视频', value: 'video' },
+  { label: 'MQTT Sparkplug B', value: 'sparkplug_b' },
+  { label: 'DL/T 645 电表', value: 'dlt645' },
+  { label: 'IEC 104 远动', value: 'iec104' },
+  { label: 'KUKA 机器人', value: 'kuka' },
+  { label: 'ABB 机器人', value: 'abb_robot' },
+  { label: 'ONVIF 视频', value: 'onvif' },
 ]
 
 const dataTypeOptions = [

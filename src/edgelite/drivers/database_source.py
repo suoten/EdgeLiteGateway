@@ -106,11 +106,12 @@ class DatabaseSourceDriver(DriverPlugin):
             raise ImportError("aioodbc未安装，请执行: pip install aioodbc")
 
         conn_str = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
             f"SERVER={config.get('host', 'localhost')},{config.get('port', 1433)};"
             f"DATABASE={config.get('database', '')};"
             f"UID={config.get('username', 'sa')};"
-            f"PWD={config.get('password', '')}"
+            f"PWD={config.get('password', '')};"
+            f"TrustServerCertificate=yes"
         )
         self._pool = await aioodbc.create_pool(dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5)))
 
@@ -199,7 +200,11 @@ class DatabaseSourceDriver(DriverPlugin):
 
         try:
             if "{{value}}" in sql_template:
-                sql = sql_template.replace("{{value}}", "?")
+                db_type = self._config.get("db_type", "mysql")
+                if db_type == "postgresql":
+                    sql = sql_template.replace("{{value}}", "$1")
+                else:
+                    sql = sql_template.replace("{{value}}", "?")
                 await self._execute_query(sql, (value,))
             else:
                 await self._execute_query(sql_template)

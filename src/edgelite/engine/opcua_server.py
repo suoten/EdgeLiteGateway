@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from edgelite.engine.event_bus import EventBus, PointUpdateEvent
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,8 @@ class OpcUaServer:
         self._task: asyncio.Task | None = None
         self._nodes: dict[str, Any] = {}
         self._write_callback = None
+        self._event_bus: EventBus | None = None
+        self._namespace_idx: int | None = None
 
     async def start(self, config: dict | None = None) -> None:
         """启动内置OPC UA Server
@@ -64,6 +69,7 @@ class OpcUaServer:
 
             # 设置命名空间
             idx = await self._server.register_namespace(namespace_uri)
+            self._namespace_idx = idx
 
             # 设置Server信息
             self._server.set_server_name("EdgeLite Gateway OPC UA Server")
@@ -99,6 +105,9 @@ class OpcUaServer:
             )
             self._running = True
             logger.info("内置OPC UA Server启动: %s (ns=%s)", endpoint, namespace_uri)
+
+            if self._event_bus:
+                self.subscribe_event_bus(self._event_bus)
 
         except Exception as e:
             logger.error("内置OPC UA Server启动失败: %s", e)
@@ -191,6 +200,34 @@ class OpcUaServer:
         当外部系统通过OPC UA写入节点时，触发回调控制设备
         """
         self._write_callback = callback
+
+    def subscribe_event_bus(self, event_bus: EventBus) -> None:
+        """订阅EventBus的PointUpdateEvent，自动映射到OPC UA节点"""
+        self._event_bus = event_bus
+        event_bus.register_handler("PointUpdateEvent", self._on_point_update)
+        logger.info("OPC UA Server已订阅EventBus PointUpdateEvent")
+
+    async def _on_point_update(self, event: PointUpdateEvent) -> None:
+        """处理PointUpdateEvent，将测点数据写入OPC UA节点"""
+        if not self._running or not self._server:
+            return
+        try:
+            node_id = self._map_point_to_node(event.device_id, event.point_name)
+            if node_id and node_id in self._nodes:
+                await self._nodes[node_id].write_value(event.value)
+            else:
+                await self.update_device_data(
+                    event.device_id, {event.point_name: event.value}
+                )
+        except Exception as e:
+            logger.debug("OPC UA EventBus映射写入失败: %s", e)
+
+    def _map_point_to_node(self, device_id: str, point_name: str) -> str | None:
+        """将设备测点映射到OPC UA节点ID"""
+        point_key = f"{device_id}.{point_name}"
+        if point_key in self._nodes:
+            return point_key
+        return None
 
     @property
     def is_running(self) -> bool:

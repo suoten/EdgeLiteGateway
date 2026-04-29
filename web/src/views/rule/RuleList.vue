@@ -88,10 +88,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage } from 'naive-ui'
+import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
 import { ruleApi, deviceApi, type Rule, type Device } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const rules = ref<Rule[]>([])
 const devices = ref<Device[]>([])
 const loading = ref(false)

@@ -149,6 +149,7 @@ const currentTitle = computed(() => {
     Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
     DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态', AuditLog: '审计日志',
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
+    PreprocessConfig: '数据预处理',
     System: '系统管理', Users: '用户管理',
   }
   return titles[route.name as string] || 'EdgeLiteGateway'
@@ -160,6 +161,7 @@ const breadcrumbItems = computed(() => {
     Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
     DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态', AuditLog: '审计日志',
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
+    PreprocessConfig: '数据预处理',
     System: '系统管理', Users: '用户管理',
   }
   return route.matched
@@ -187,6 +189,7 @@ const menuOptions = [
       { label: '驱动配置', key: 'DriverConfig', icon: renderIcon(PulseOutline) },
       { label: '平台对接', key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
       { label: '计算表达式', key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
+      { label: '数据预处理', key: 'PreprocessConfig', icon: renderIcon(PulseOutline) },
       { label: '审计日志', key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
       { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
     ],

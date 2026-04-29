@@ -10,6 +10,7 @@ from typing import Any
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent
 from edgelite.storage.influx_storage import InfluxDBStorage
 from edgelite.storage.cache import CacheManager
+from edgelite.engine.preprocessor import DataPreprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,12 @@ class CollectScheduler:
         event_bus: EventBus,
         influx_storage: InfluxDBStorage,
         cache_manager: CacheManager | None = None,
+        preprocessor: DataPreprocessor | None = None,
     ):
         self._event_bus = event_bus
         self._influx = influx_storage
         self._cache = cache_manager
+        self._preprocessor = preprocessor
         # device_id -> asyncio.Task
         self._tasks: dict[str, asyncio.Task] = {}
         # device_id -> (driver_instance, points, collect_interval)
@@ -79,6 +82,10 @@ class CollectScheduler:
         """获取活跃采集任务数"""
         return len(self._tasks)
 
+    def set_preprocessor(self, preprocessor: DataPreprocessor) -> None:
+        """运行时设置数据预处理器"""
+        self._preprocessor = preprocessor
+
     async def _collect_loop(
         self,
         device_id: str,
@@ -104,6 +111,15 @@ class CollectScheduler:
                     records = []
                     for point_name, value in values.items():
                         v = float(value) if not isinstance(value, bool) else value
+                        # 数据预处理
+                        if self._preprocessor:
+                            processed_value, should_report = self._preprocessor.process(
+                                f"{device_id}.{point_name}", v
+                            )
+                            if not should_report:
+                                continue
+                            if processed_value is not None:
+                                v = processed_value
                         # 发布事件
                         event = PointUpdateEvent(
                             device_id=device_id,

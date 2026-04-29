@@ -67,6 +67,8 @@ class AuditService:
 
     async def close(self) -> None:
         self._initialized = False
+        self._last_hash = ""
+        self._login_fail_counts.clear()
 
     async def initialize(self) -> None:
         await asyncio.to_thread(self._sync_initialize)

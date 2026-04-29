@@ -25,6 +25,7 @@ const router = createRouter({
         { path: 'system/drivers', name: 'DriverConfig', component: () => import('@/views/system/DriverConfig.vue') },
         { path: 'system/platforms', name: 'PlatformConfig', component: () => import('@/views/system/PlatformConfig.vue') },
         { path: 'system/expressions', name: 'ExpressionConfig', component: () => import('@/views/system/ExpressionConfig.vue') },
+        { path: 'system/preprocess', name: 'PreprocessConfig', component: () => import('@/views/system/PreprocessConfig.vue'), meta: { title: '数据预处理', requiredRole: 'admin' } },
         { path: 'users', name: 'Users', component: () => import('@/views/system/UserManage.vue'), meta: { requiredRole: 'admin' } },
         { path: 'audit', name: 'AuditLog', component: () => import('@/views/audit/AuditLog.vue'), meta: { requiredRole: 'admin' } },
         { path: 'digital-twin', name: 'DigitalTwin', component: () => import('@/views/digital-twin/DigitalTwin.vue') },

@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, NTooltip, useMessage } from 'naive-ui'
+import { NButton, NTag, NSpace, NTooltip, useMessage, useDialog } from 'naive-ui'
 import { alarmApi, type Alarm } from '@/api'
 
 const message = useMessage()

@@ -115,12 +115,30 @@ class MqttClientDriver(DriverPlugin):
             try:
                 import aiomqtt
 
+                # TLS支持
+                ssl_context = None
+                tls_config = getattr(config.mqtt, 'tls', None)
+                if tls_config:
+                    try:
+                        from edgelite.engine.mqtt_tls import MqttTlsHelper
+                        ssl_context = MqttTlsHelper.create_ssl_context(
+                            ca_cert=getattr(tls_config, 'ca_cert', ''),
+                            client_cert=getattr(tls_config, 'client_cert', ''),
+                            client_key=getattr(tls_config, 'client_key', ''),
+                            cert_reqs=getattr(tls_config, 'cert_reqs', 'required'),
+                        )
+                        if ssl_context:
+                            logger.info("MQTT TLS已启用")
+                    except Exception as e:
+                        logger.error("MQTT TLS配置失败: %s", e)
+
                 async with aiomqtt.Client(
                     hostname=broker,
                     port=port,
                     username=username,
                     password=password,
                     keepalive=60,
+                    tls_params=ssl_context,
                 ) as client:
                     self._client = client
                     logger.info("MQTT连接成功: %s:%d", broker, port)

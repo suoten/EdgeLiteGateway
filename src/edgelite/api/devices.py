@@ -24,13 +24,9 @@ async def list_devices(
     size: int = Query(20, ge=1, le=1000),
     status: str | None = None,
     protocol: str | None = None,
-    search: str | None = None,
 ):
     svc = _get_device_service()
     devices, total = await svc.list_devices(page, size, status, protocol)
-    if search:
-        search_lower = search.lower()
-        devices = [d for d in devices if search_lower in d.get("name", "").lower() or search_lower in d.get("device_id", "").lower()]
     return PagedResponse(data=devices, total=total, page=page, size=size)
 
 
