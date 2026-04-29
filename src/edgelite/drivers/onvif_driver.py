@@ -72,10 +72,22 @@ class OnvifDriver(DriverPlugin):
 
     async def stop(self) -> None:
         self._running = False
+        if self._cam is not None:
+            try:
+                await asyncio.to_thread(self._close_camera)
+            except Exception as e:
+                logger.warning("ONVIF关闭连接异常: %s", e)
         self._cam = None
         self._media = None
         self._ptz = None
         logger.info("ONVIF驱动已停止")
+
+    def _close_camera(self) -> None:
+        if self._cam and hasattr(self._cam, "devicemgmt") and hasattr(self._cam.devicemgmt, "soap_client"):
+            try:
+                self._cam.devicemgmt.soap_client.get_transport().close()
+            except Exception:
+                pass
 
     def _ensure_media(self) -> Any:
         """确保media服务已创建"""
@@ -131,6 +143,7 @@ class OnvifDriver(DriverPlugin):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(5)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 4)
 
         devices = []
         seen = set()
@@ -262,7 +275,7 @@ class OnvifDriver(DriverPlugin):
 
         try:
             await asyncio.to_thread(
-                ptz.Stop, {"ProfileToken": profile_token, "StopPanTilt": True, "StopZoom": True}
+                ptz.Stop, ProfileToken=profile_token, PanTilt=True, Zoom=True
             )
             return True
         except Exception as e:

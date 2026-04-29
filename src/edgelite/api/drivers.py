@@ -25,7 +25,7 @@ async def list_drivers(
         raise HTTPException(status_code=501, detail="驱动注册表未初始化")
 
     drivers = []
-    for name, driver_cls in registry._drivers.items():
+    for name, driver_cls in registry.items():
         instance = driver_cls() if isinstance(driver_cls, type) else driver_cls
         drivers.append({
             "name": getattr(instance, "plugin_name", name),
@@ -58,7 +58,7 @@ async def get_driver_config_schema(
     if not registry:
         raise HTTPException(status_code=501, detail="驱动注册表未初始化")
 
-    driver_cls = registry._drivers.get(driver_name)
+    driver_cls = registry.get_driver_class(driver_name)
     if not driver_cls:
         raise HTTPException(status_code=404, detail=f"驱动 {driver_name} 不存在")
 
@@ -148,6 +148,56 @@ async def get_driver_config_schema(
                 {"name": "method", "type": "string", "label": "HTTP方法", "description": "接收数据使用的HTTP方法", "default": "POST", "options": ["POST", "PUT"]},
             ]
         },
+        "sparkplug_b": {
+            "description": "MQTT Sparkplug B工业物联网协议，标准化设备数据发布/订阅",
+            "fields": [
+                {"name": "group_id", "type": "string", "label": "组ID", "description": "Sparkplug B逻辑组ID", "default": "group1", "required": True},
+                {"name": "edge_node_id", "type": "string", "label": "边缘节点ID", "description": "本网关在Sparkplug B中的节点ID", "default": "edgelite_node", "required": True},
+                {"name": "mqtt_broker", "type": "string", "label": "Broker地址", "description": "MQTT Broker地址", "default": "localhost", "required": True},
+                {"name": "mqtt_port", "type": "integer", "label": "端口", "description": "MQTT Broker端口", "default": 1883},
+            ]
+        },
+        "dlt645": {
+            "description": "DL/T 645-2007 多功能电能表通信协议，通过RS485串口采集电表数据",
+            "fields": [
+                {"name": "port", "type": "string", "label": "串口设备", "description": "RS485串口设备路径", "default": "COM1", "required": True},
+                {"name": "baud_rate", "type": "integer", "label": "波特率", "description": "电表通信波特率，默认2400", "default": 2400},
+                {"name": "parity", "type": "string", "label": "校验位", "description": "E=偶校验（默认）", "default": "E", "options": ["E", "N", "O"]},
+                {"name": "timeout", "type": "number", "label": "超时(秒)", "description": "通信超时时间", "default": 5.0},
+            ]
+        },
+        "iec104": {
+            "description": "IEC 60870-5-104 电力远动规约，用于与电力SCADA系统通信",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "SCADA或保护装置IP地址", "default": "127.0.0.1", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "IEC 104默认端口2404", "default": 2404},
+                {"name": "asdu_addr", "type": "integer", "label": "ASDU地址", "description": "ASDU公共地址", "default": 1},
+                {"name": "heartbeat_interval", "type": "number", "label": "心跳间隔(秒)", "description": "T3超时时间，心跳发送间隔", "default": 30.0},
+            ]
+        },
+        "kuka_ekrl": {
+            "description": "KUKA机器人Ethernet KRL XML协议，用于读写机器人变量",
+            "fields": [
+                {"name": "ip", "type": "string", "label": "IP地址", "description": "KUKA控制器IP地址", "default": "192.168.1.100", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "EKRL端口，默认54600", "default": 54600},
+            ]
+        },
+        "abb_rws": {
+            "description": "ABB机器人Robot Web Services协议，通过REST API读写机器人数据",
+            "fields": [
+                {"name": "ip", "type": "string", "label": "IP地址", "description": "ABB控制器IP地址", "default": "192.168.1.100", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "RWS端口，默认80", "default": 80},
+            ]
+        },
+        "onvif": {
+            "description": "ONVIF视频设备协议，支持设备发现/RTSP流/PTZ云台控制",
+            "fields": [
+                {"name": "ip", "type": "string", "label": "IP地址", "description": "ONVIF设备IP地址", "default": "", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "ONVIF服务端口，默认80", "default": 80},
+                {"name": "username", "type": "string", "label": "用户名", "description": "设备认证用户名", "default": "admin"},
+                {"name": "password", "type": "string", "label": "密码", "description": "设备认证密码", "secret": True},
+            ]
+        },
     }
 
     schema = schemas.get(driver_name, {
@@ -165,12 +215,14 @@ async def list_all_drivers(user: CurrentUser = require_permission(Permission.SYS
     """查询所有驱动状态"""
     from edgelite.app import _app_state
     drivers_info = []
-    for name, cls in _app_state.driver_registry._drivers.items():
-        drivers_info.append({
-            "name": name,
-            "class": cls.__name__,
-            "module": cls.__module__,
-        })
+    registry = _app_state.driver_registry
+    if registry:
+        for name, cls in registry.items():
+            drivers_info.append({
+                "name": name,
+                "class": cls.__name__,
+                "module": cls.__module__,
+            })
     if hasattr(_app_state, 'plugin_manager') and _app_state.plugin_manager:
         for info in _app_state.plugin_manager.list_plugins():
             drivers_info.append({
@@ -200,7 +252,13 @@ async def discover_devices(
 
     try:
         driver = driver_cls()
-        devices = await driver.discover_devices(config or {})
+        driver_config = config or {}
+        await driver.start(driver_config)
+        devices = await driver.discover_devices(driver_config)
+        try:
+            await driver.stop()
+        except Exception:
+            pass
         return ApiResponse(data={"devices": devices})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"设备发现失败: {e}")

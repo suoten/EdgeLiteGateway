@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import base64
@@ -140,8 +141,6 @@ class NotifyService:
             msg["To"] = ", ".join(email.to_addrs)
             msg.attach(MIMEText(body_html, "html", "utf-8"))
 
-            # 在线程池中执行同步SMTP操作
-            import asyncio
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._smtp_send, email, msg)
 
@@ -166,7 +165,10 @@ class NotifyService:
                 server.login(email_config.smtp_user, email_config.smtp_password)
             server.send_message(msg)
         finally:
-            server.quit()
+            try:
+                server.quit()
+            except Exception:
+                pass
 
     # ─── 企业微信 ───
 

@@ -64,7 +64,7 @@ export interface DeviceCreateParams {
 }
 
 export const deviceApi = {
-  list: (params?: { page?: number; size?: number; status?: string; protocol?: string; search?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; protocol?: string }) =>
     http.get<PagedData<Device>>('/devices', { params }).then((r) => r.data),
 
   get: (id: string) =>
@@ -166,7 +166,7 @@ export interface Alarm {
 }
 
 export const alarmApi = {
-  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string; search?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string }) =>
     http.get<PagedData<Alarm>>('/alarms', { params }).then((r) => r.data),
 
   get: (id: string) =>
@@ -241,8 +241,8 @@ export interface User {
 }
 
 export const userApi = {
-  list: () =>
-    http.get<ApiResponse<User[]>>('/users').then((r) => r.data.data),
+  list: (params?: { page?: number; size?: number }) =>
+    http.get<PagedData<User>>('/users', { params }).then((r) => r.data),
 
   create: (data: { username: string; password: string; role: string }) =>
     http.post<ApiResponse<User>>('/users', data).then((r) => r.data.data),

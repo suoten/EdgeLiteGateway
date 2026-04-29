@@ -245,12 +245,9 @@ class ModbusTcpDriver(DriverPlugin):
         """尝试重连（指数退避）"""
         async with self._retry_lock:
             count = self._retry_count.get(device_id, 0)
-            # 指数退避，最大间隔60秒
-            delay = min(2 ** count, 60)
             self._retry_count[device_id] = count + 1
 
         if count > 0 and count % 5 != 0:
-            # 不是每次都重试，按退避间隔
             return
 
         config = self._device_configs.get(device_id)

@@ -51,6 +51,7 @@ class AppState:
     config: Any = None
     max_ws_connections: int = 100
     plugin_manager: Any = None
+    preprocessor: Any = None
 
 
 # 全局应用状态
@@ -122,6 +123,13 @@ async def lifespan(app: FastAPI):
         scheduler = CollectScheduler(event_bus, influx, _app_state.cache_manager)
         _app_state.scheduler = scheduler
         initialized.append(("scheduler", scheduler))
+
+        # 6.5 初始化数据预处理
+        from edgelite.engine.preprocessor import DataPreprocessor
+        preprocessor = DataPreprocessor()
+        if config.preprocess.enabled:
+            scheduler.set_preprocessor(preprocessor)
+        _app_state.preprocessor = preprocessor
 
         # 7. 初始化设备生命周期管理
         from edgelite.engine.lifecycle import DeviceLifecycleManager
@@ -268,6 +276,9 @@ async def lifespan(app: FastAPI):
             })
             initialized.append(("opcua_server", opcua_server))
 
+        if _app_state.opcua_server:
+            _app_state.opcua_server.subscribe_event_bus(event_bus)
+
         # 17. 初始化内置Modbus Slave 
         modbus_slave_config = getattr(config, "modbus_slave", None)
         if modbus_slave_config and getattr(modbus_slave_config, "enabled", False):
@@ -380,6 +391,11 @@ async def lifespan(app: FastAPI):
                 await svc.stop()
             except Exception as e:
                 logger.warning("关闭%s异常: %s", svc_name, e)
+    if _app_state.plugin_manager:
+        try:
+            await _app_state.plugin_manager.stop()
+        except Exception as e:
+            logger.warning("关闭plugin_manager异常: %s", e)
     try:
         await video_service.close()
     except Exception as e:
@@ -463,6 +479,20 @@ def create_app() -> FastAPI:
         app.include_router(expressions_router)
     except Exception as e:
         logger.warning("表达式管理路由注册失败: %s", e)
+
+    # 数据预处理路由
+    try:
+        from edgelite.api.preprocess import router as preprocess_router
+        app.include_router(preprocess_router)
+    except Exception as e:
+        logger.warning("数据预处理路由注册失败: %s", e)
+
+    # 串口透传路由
+    try:
+        from edgelite.api.serial_bridge import router as serial_bridge_router
+        app.include_router(serial_bridge_router)
+    except Exception as e:
+        logger.warning("串口透传路由注册失败: %s", e)
 
     # 联调集成路由
     try:

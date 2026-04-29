@@ -252,6 +252,8 @@ function protocolLabel(p: string) {
     simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
     allen_bradley: 'AB', fanuc: 'FANUC', mtconnect: 'MTConnect', toledo: 'Toledo',
     bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB', barcode_scanner: 'Scanner',
+    sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645', iec104: 'IEC 104',
+    kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
   }
   return map[p] || p
 }

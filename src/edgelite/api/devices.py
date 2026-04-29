@@ -132,7 +132,8 @@ async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(d
 
     # API Key认证（向后兼容）
     if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
-        if x_api_key != config.server.webhook_api_key:
+        import hmac
+        if not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
         # 无认证配置时拒绝（Phase1已修改的逻辑保持）

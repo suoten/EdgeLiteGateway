@@ -36,6 +36,24 @@ class DriverRegistry:
         """获取所有支持的协议"""
         return list(self._drivers.keys())
 
+    def unregister(self, protocol: str) -> bool:
+        """注销指定协议驱动"""
+        if protocol in self._drivers:
+            del self._drivers[protocol]
+            return True
+        return False
+
+    def unregister_driver(self, driver_cls: type) -> int:
+        """注销指定驱动类的所有协议，返回移除数量"""
+        to_remove = [p for p, cls in self._drivers.items() if cls is driver_cls]
+        for p in to_remove:
+            del self._drivers[p]
+        return len(to_remove)
+
+    def items(self) -> list[tuple[str, Type[DriverPlugin]]]:
+        """获取所有已注册的协议-驱动对"""
+        return list(self._drivers.items())
+
     def auto_discover(self) -> None:
         """自动发现并注册所有内置驱动"""
         if self._discovered:

@@ -145,7 +145,6 @@ async function fetchDevices() {
     const data = await deviceApi.list({
       page: pagination.page, size: pagination.pageSize,
       status: filterStatus.value ?? undefined, protocol: filterProtocol.value ?? undefined,
-      search: searchText.value || undefined,
     })
     devices.value = data?.data ?? []
     pagination.itemCount = data?.total ?? 0
@@ -228,7 +227,8 @@ const protocolLabel: Record<string, string> = {
   simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
   allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
   toledo: 'Toledo', bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB',
-  barcode_scanner: 'Scanner',
+  barcode_scanner: 'Scanner', sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645',
+  iec104: 'IEC 104', kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
 }
 const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import base64
+import hmac
 import logging
 import os
 import re
@@ -39,8 +40,14 @@ class WebhookAuthMiddleware:
         if not authorization_header:
             return False
         if self._mode == "bearer":
+            if not self._token:
+                logger.error("Bearer认证模式但token为空，拒绝所有请求")
+                return False
             return self._verify_bearer(authorization_header)
         if self._mode == "basic":
+            if not self._username or not self._password:
+                logger.error("Basic认证模式但username或password为空，拒绝所有请求")
+                return False
             return self._verify_basic(authorization_header)
         logger.warning("未知的认证模式: %s", self._mode)
         return False
@@ -49,7 +56,7 @@ class WebhookAuthMiddleware:
         if not header.startswith("Bearer "):
             return False
         token = header[7:].strip()
-        return token == self._token
+        return hmac.compare_digest(token, self._token)
 
     def _verify_basic(self, header: str) -> bool:
         if not header.startswith("Basic "):
@@ -57,6 +64,6 @@ class WebhookAuthMiddleware:
         try:
             decoded = base64.b64decode(header[6:].strip()).decode("utf-8")
             username, password = decoded.split(":", 1)
-            return username == self._username and password == self._password
+            return hmac.compare_digest(username, self._username) and hmac.compare_digest(password, self._password)
         except Exception:
             return False

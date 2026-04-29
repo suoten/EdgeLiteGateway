@@ -46,6 +46,7 @@ let animationId: number | null = null
 let controls: any = null
 let scene: any = null
 let camera: any = null
+let resizeHandler: (() => void) | null = null
 
 async function loadScene() {
   if (!containerRef.value) return
@@ -110,6 +111,10 @@ async function loadScene() {
       camera.updateProjectionMatrix()
       renderer.setSize(w, height)
     }
+    if (resizeHandler) {
+      window.removeEventListener('resize', resizeHandler)
+    }
+    resizeHandler = onResize
     window.addEventListener('resize', onResize)
 
     const animate = () => {
@@ -141,6 +146,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+    resizeHandler = null
+  }
   if (animationId) cancelAnimationFrame(animationId)
   if (controls) controls.dispose()
   if (scene) {

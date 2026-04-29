@@ -98,8 +98,16 @@ class KukaDriver(DriverPlugin):
             else:
                 try:
                     if self._writer:
-                        self._writer.write(b"<Ping/>\n")
+                        keepalive_xml = self._build_ekrl_read_request(["$POS_ACT"])
+                        self._writer.write(keepalive_xml.encode("utf-8"))
                         await self._writer.drain()
+                    if self._reader:
+                        try:
+                            await asyncio.wait_for(
+                                self._reader.read(RECV_BUFFER_SIZE), timeout=0.1
+                            )
+                        except asyncio.TimeoutError:
+                            pass
                     await asyncio.sleep(10)
                 except Exception:
                     self._connected = False
@@ -177,13 +185,26 @@ class KukaDriver(DriverPlugin):
                 self._writer.write(request_xml.encode("utf-8"))
                 await self._writer.drain()
 
-                response_data = await asyncio.wait_for(
-                    self._reader.read(RECV_BUFFER_SIZE), timeout=5.0
-                )
-                if not response_data:
+                buf = bytearray()
+                deadline = asyncio.get_running_loop().time() + 5.0
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        raise asyncio.TimeoutError()
+                    chunk = await asyncio.wait_for(
+                        self._reader.read(RECV_BUFFER_SIZE), timeout=remaining,
+                    )
+                    if not chunk:
+                        break
+                    buf.extend(chunk)
+                    text = buf.decode("utf-8", errors="replace")
+                    if "</Robot>" in text or "</Response>" in text:
+                        break
+
+                if not buf:
                     return {}
 
-                response_str = response_data.decode("utf-8").strip()
+                response_str = buf.decode("utf-8").strip()
                 return self._parse_ekrl_response(response_str)
 
             except asyncio.TimeoutError:

@@ -170,6 +170,8 @@ const protocolLabel: Record<string, string> = {
   allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
   toledo: 'Toledo', bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB',
   barcode_scanner: 'Scanner', mqtt_client: 'MQTT Client', http_webhook: 'HTTP Webhook',
+  sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645', iec104: 'IEC 104',
+  kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
 }
 
 const deviceId = computed(() => route.params.id as string)

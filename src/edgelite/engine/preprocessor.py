@@ -15,7 +15,7 @@ class DataPreprocessor:
     def __init__(self):
         self._filter_windows: dict[str, deque] = {}
         self._last_values: dict[str, float] = {}
-        self._aggregate_windows: dict[str, list] = {}
+        self._aggregate_windows: dict[str, deque] = {}
         self._configs: dict[str, dict] = {}
 
     def configure(self, point_key: str, config: dict) -> None:
@@ -68,6 +68,9 @@ class DataPreprocessor:
 
         if point_key not in self._filter_windows:
             self._filter_windows[point_key] = deque(maxlen=window_size)
+        elif self._filter_windows[point_key].maxlen != window_size:
+            del self._filter_windows[point_key]
+            self._filter_windows[point_key] = deque(maxlen=window_size)
 
         window = self._filter_windows[point_key]
         window.append(value)
@@ -92,12 +95,18 @@ class DataPreprocessor:
             if abs(value - last) < deadband:
                 return False
 
-        if deadband_pct is not None and deadband_pct > 0 and last != 0:
-            if abs(value - last) / abs(last) * 100 < deadband_pct:
-                return False
+        if deadband_pct is not None and deadband_pct > 0:
+            if abs(last) < 1e-6:
+                if abs(value - last) < deadband_pct:
+                    return False
+            else:
+                if abs(value - last) / abs(last) * 100 < deadband_pct:
+                    return False
 
         self._last_values[point_key] = value
         return True
+
+    MAX_AGGREGATE_POINTS = 10000
 
     def _apply_aggregation(self, point_key: str, value: float, ts: float, config: dict) -> Optional[float]:
         """时间窗口聚合"""
@@ -107,14 +116,17 @@ class DataPreprocessor:
             return None
 
         if point_key not in self._aggregate_windows:
-            self._aggregate_windows[point_key] = []
+            self._aggregate_windows[point_key] = deque()
 
         window = self._aggregate_windows[point_key]
         window.append((ts, value))
 
+        if len(window) > self.MAX_AGGREGATE_POINTS:
+            del window[:self.MAX_AGGREGATE_POINTS // 2]
+
         cutoff = ts - agg_window
         while window and window[0][0] < cutoff:
-            window.pop(0)
+            window.popleft()
 
         if len(window) < 2:
             return None

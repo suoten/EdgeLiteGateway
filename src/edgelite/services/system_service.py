@@ -45,7 +45,7 @@ class SystemService:
         """获取系统运行状态"""
         import asyncio
         # 系统资源（psutil 是同步阻塞调用，放到线程池中执行）
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
         memory = await loop.run_in_executor(None, psutil.virtual_memory)
         disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/"))

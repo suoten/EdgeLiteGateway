@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
@@ -220,7 +220,7 @@ class PreprocessGlobalConfig(BaseModel):
 
 class WebhookAuthConfig(BaseModel):
     """HTTP Webhook 安全认证配置"""
-    mode: str = "none"
+    mode: Literal["none", "bearer", "basic"] = "none"
     token: str = ""
     username: str = ""
     password: str = ""
@@ -232,7 +232,7 @@ class MqttTlsConfigModel(BaseModel):
     ca_cert: str = ""
     client_cert: str = ""
     client_key: str = ""
-    cert_reqs: str = "required"
+    cert_reqs: Literal["none", "optional", "required"] = "required"
 
 
 class DriversConfig(BaseModel):

@@ -27,11 +27,13 @@ class ConnectionManager:
         try:
             payload = verify_token(token, token_type="access")
         except Exception:
+            await websocket.accept()
             await websocket.close(code=4001, reason="Token无效")
             return False
 
         total = sum(len(conns) for conns in self._connections.values())
         if total >= self.max_connections:
+            await websocket.accept()
             await websocket.close(code=1013, reason="连接数已达上限")
             logger.warning("WebSocket连接数已达上限(%d)，拒绝新连接", self.max_connections)
             return False
@@ -69,6 +71,10 @@ class ConnectionManager:
         await asyncio.gather(*[_send_safe(ws) for ws in connections])
 
         for ws in disconnected:
+            try:
+                await ws.close()
+            except Exception:
+                pass
             self._connections.get(channel, set()).discard(ws)
         if disconnected and channel in self._connections and not self._connections[channel]:
             del self._connections[channel]

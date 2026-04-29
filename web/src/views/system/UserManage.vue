@@ -110,7 +110,8 @@ function filterUsers() {}
 async function fetchUsers() {
   loading.value = true
   try {
-    users.value = await userApi.list()
+    const data = await userApi.list({ page: 1, size: 1000 })
+    users.value = data?.data ?? []
   } catch (e: any) {
     message.error(e?.message || '获取用户列表失败')
   } finally {

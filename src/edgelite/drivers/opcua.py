@@ -258,7 +258,7 @@ class _SubHandler:
         if self._data_callback:
             # 在事件循环中调度回调
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 loop.create_task(
                     self._data_callback(self.device_id, {node_id: val})
                 )

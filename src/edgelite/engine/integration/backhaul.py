@@ -101,14 +101,14 @@ class BackhaulManager:
         })
 
     async def _send_or_buffer(self, message: dict[str, Any]) -> None:
-        if self._endpoint and self._endpoint._connections:
+        if self._endpoint and self._endpoint.has_connections:
             sent = await self._endpoint.broadcast(message)
             if sent > 0:
                 return
         self._buffer.append(message)
 
     async def flush_buffer(self) -> int:
-        if not self._buffer or not self._endpoint or not self._endpoint._connections:
+        if not self._buffer or not self._endpoint or not self._endpoint.has_connections:
             return 0
         count = 0
         while self._buffer:

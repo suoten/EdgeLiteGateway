@@ -22,89 +22,61 @@ class MqttClientDriver(DriverPlugin):
 
     def __init__(self):
         self._running = False
-        # device_id -> config
         self._device_configs: dict[str, dict] = {}
-        # device_id -> points定义
         self._device_points: dict[str, list[dict]] = {}
-        # device_id -> latest_values
         self._latest_values: dict[str, dict[str, Any]] = {}
-        # MQTT客户端
-        self._client = None
         self._connect_task: asyncio.Task | None = None
-        # 数据回调
         self._data_callback: Callable | None = None
+        self._pub_queue: asyncio.Queue | None = None
 
     async def start(self, config: dict) -> None:
-        """启动MQTT客户端连接"""
         self._running = True
-        self._connect_task = asyncio.create_task(self._connect_loop(), name="mqtt-connect")
+        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._connect_task = asyncio.create_task(self._connect_loop(), name="mqtt-client-connect")
         logger.info("MQTT Client驱动启动")
 
     async def stop(self) -> None:
-        """停止驱动"""
         self._running = False
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
+        if self._connect_task:
             try:
                 await self._connect_task
             except asyncio.CancelledError:
                 pass
-        if self._client:
-            try:
-                await self._client.disconnect()
-            except Exception:
-                pass
-            self._client = None
         logger.info("MQTT Client驱动停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
-        """添加MQTT设备"""
         self._device_configs[device_id] = config
         self._device_points[device_id] = points
         self._latest_values[device_id] = {}
 
-        # 如果已连接，订阅该设备的主题
-        subscribe_topic = config.get("subscribe_topic", f"edgelite/{device_id}/data")
-        if self._client:
-            try:
-                await self._client.subscribe(subscribe_topic)
-                logger.info("MQTT订阅: %s -> %s", device_id, subscribe_topic)
-            except Exception as e:
-                logger.error("MQTT订阅失败: %s - %s", device_id, e)
-
     async def remove_device(self, device_id: str) -> None:
-        """移除设备"""
         self._device_configs.pop(device_id, None)
         self._device_points.pop(device_id, None)
         self._latest_values.pop(device_id, None)
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
-        """读取测点值（返回最新缓存值）"""
         values = self._latest_values.get(device_id, {})
         return {p: values.get(p) for p in points if p in values}
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
-        """写入测点值（通过MQTT发布）"""
-        if not self._client:
+        if not self._pub_queue:
             return False
-
         config = self._device_configs.get(device_id, {})
         publish_topic = config.get("publish_topic", f"edgelite/{device_id}/command")
-
+        message = json.dumps({"point": point, "value": value}, ensure_ascii=False)
         try:
-            message = json.dumps({"point": point, "value": value}, ensure_ascii=False)
-            await self._client.publish(publish_topic, message.encode())
+            self._pub_queue.put_nowait((publish_topic, message.encode("utf-8")))
             return True
-        except Exception as e:
-            logger.error("MQTT发布失败: %s - %s", device_id, e)
+        except asyncio.QueueFull:
+            logger.warning("MQTT发布队列已满，丢弃消息")
             return False
 
     def on_data(self, callback: Callable) -> None:
-        """注册数据回调"""
         self._data_callback = callback
 
     async def _connect_loop(self) -> None:
-        """MQTT连接与消息接收循环"""
         config = get_config()
         broker = config.mqtt.broker
         port = config.mqtt.port
@@ -115,7 +87,6 @@ class MqttClientDriver(DriverPlugin):
             try:
                 import aiomqtt
 
-                # TLS支持
                 ssl_context = None
                 tls_config = getattr(config.mqtt, 'tls', None)
                 if tls_config:
@@ -138,21 +109,33 @@ class MqttClientDriver(DriverPlugin):
                     username=username,
                     password=password,
                     keepalive=60,
-                    tls_params=ssl_context,
+                    tls_params=aiomqtt.TLSParameters(ssl_context=ssl_context) if ssl_context else None,
                 ) as client:
-                    self._client = client
                     logger.info("MQTT连接成功: %s:%d", broker, port)
 
-                    # 订阅所有设备的主题
                     for device_id, dev_config in self._device_configs.items():
                         topic = dev_config.get("subscribe_topic", f"edgelite/{device_id}/data")
                         await client.subscribe(topic)
 
-                    # 消息循环
-                    async for message in client.messages:
-                        if not self._running:
-                            break
-                        await self._handle_message(message)
+                    msg_task = asyncio.create_task(
+                        self._message_loop(client), name="mqtt-client-msg"
+                    )
+                    pub_task = asyncio.create_task(
+                        self._publish_loop(client), name="mqtt-client-publish"
+                    )
+
+                    try:
+                        while self._running:
+                            await asyncio.sleep(1)
+                    finally:
+                        for t in [msg_task, pub_task]:
+                            if not t.done():
+                                t.cancel()
+                        for t in [msg_task, pub_task]:
+                            try:
+                                await t
+                            except asyncio.CancelledError:
+                                pass
 
             except asyncio.CancelledError:
                 raise
@@ -161,32 +144,51 @@ class MqttClientDriver(DriverPlugin):
                 await asyncio.sleep(30)
             except Exception as e:
                 logger.error("MQTT连接异常: %s，5秒后重试", e)
-                self._client = None
                 await asyncio.sleep(5)
 
+    async def _message_loop(self, client: Any) -> None:
+        try:
+            async for message in client.messages:
+                if not self._running:
+                    break
+                await self._handle_message(message)
+        except asyncio.CancelledError:
+            pass
+
+    async def _publish_loop(self, client: Any) -> None:
+        try:
+            while self._running:
+                try:
+                    topic, payload = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=1.0
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                try:
+                    await client.publish(topic, payload)
+                except Exception as e:
+                    logger.error("MQTT发布失败: %s", e)
+        except asyncio.CancelledError:
+            pass
+
     async def _handle_message(self, message: Any) -> None:
-        """处理收到的MQTT消息"""
         try:
             topic = str(message.topic)
             payload = message.payload.decode("utf-8")
 
-            # 尝试解析JSON
             try:
                 data = json.loads(payload)
             except json.JSONDecodeError:
                 data = {"value": payload}
 
-            # 根据主题匹配设备
             for device_id, dev_config in self._device_configs.items():
                 subscribe_topic = dev_config.get("subscribe_topic", f"edgelite/{device_id}/data")
                 if topic == subscribe_topic or topic.endswith(subscribe_topic):
-                    # 更新缓存值
                     if isinstance(data, dict):
                         self._latest_values[device_id].update(data)
                     else:
                         self._latest_values[device_id]["value"] = data
 
-                    # 触发数据回调
                     if self._data_callback:
                         await self._data_callback(device_id, data)
                     break

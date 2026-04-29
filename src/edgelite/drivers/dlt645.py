@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import struct
+import time
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
@@ -315,6 +316,13 @@ class Dlt645Driver(DriverPlugin):
 
     @staticmethod
     def _decode_bcd(data_bytes: bytes, decimal_places: int = 0) -> float:
+        for byte in data_bytes:
+            high = (byte >> 4) & 0x0F
+            low = byte & 0x0F
+            if high > 9 or low > 9:
+                logger.warning("BCD非法半字节: 0x%02X", byte)
+                return 0.0
+
         bcd_str = ""
         for b in reversed(data_bytes):
             high = (b >> 4) & 0x0F
@@ -376,7 +384,7 @@ class Dlt645Driver(DriverPlugin):
     def _get_more_flag(frame: bytes) -> int:
         try:
             ctrl = frame[9]
-            if ctrl & 0x10:
+            if ctrl & 0x20:
                 return 1
             return 0
         except Exception:
@@ -388,8 +396,10 @@ class Dlt645Driver(DriverPlugin):
 
         buf = bytearray()
         start_found = False
+        timeout = self._serial.timeout if self._serial.timeout else 5.0
+        start_time = time.time()
 
-        for _ in range(500):
+        while (time.time() - start_time) < timeout:
             b = self._serial.read(1)
             if not b:
                 break

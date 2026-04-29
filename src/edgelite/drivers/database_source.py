@@ -119,7 +119,10 @@ class DatabaseSourceDriver(DriverPlugin):
         self._running = False
         if self._pool:
             try:
-                if hasattr(self._pool, "close"):
+                db_type = self._config.get("db_type", "mysql")
+                if db_type == "sqlite":
+                    await self._pool.close()
+                elif hasattr(self._pool, "close"):
                     await self._pool.close()
                 elif hasattr(self._pool, "terminate"):
                     self._pool.terminate()
@@ -203,6 +206,8 @@ class DatabaseSourceDriver(DriverPlugin):
                 db_type = self._config.get("db_type", "mysql")
                 if db_type == "postgresql":
                     sql = sql_template.replace("{{value}}", "$1")
+                elif db_type in ("mysql", "mariadb"):
+                    sql = sql_template.replace("{{value}}", "%s")
                 else:
                     sql = sql_template.replace("{{value}}", "?")
                 await self._execute_query(sql, (value,))

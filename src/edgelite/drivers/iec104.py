@@ -278,12 +278,14 @@ class Iec104Driver(DriverPlugin):
         day = now.day
         month = now.month
         year = now.year - 2000 if now.year >= 2000 else now.year - 1900
+        dow = now.isoweekday()
+        day_with_dow = (dow << 5) | day
         time_bytes = struct.pack(
             "<HBBBBBB",
             ms,
             minute | 0x00,
             hour | 0x00,
-            day | 0x00,
+            day_with_dow,
             month,
             year,
         )
@@ -391,9 +393,10 @@ class Iec104Driver(DriverPlugin):
                     ioa = ioa_low | (ioa_mid << 8) | (ioa_high << 16)
                 else:
                     ioa = ioa_low | (ioa_mid << 8)
+                base_ioa = ioa
 
                 if sq == 1 and i > 0:
-                    ioa = (ioa_low | (ioa_mid << 8)) + i if self._asdu_addr_length != 2 else ioa + i
+                    ioa = base_ioa + i
 
                 point = self._parse_information_object(ti, data, offset, ioa, cot, asdu_addr)
                 if point is not None:
@@ -575,13 +578,13 @@ class Iec104Driver(DriverPlugin):
             delay = min(delay * 2, self._max_reconnect_delay)
 
     async def _heartbeat_loop(self) -> None:
-        last_send_time = asyncio.get_event_loop().time()
+        last_send_time = asyncio.get_running_loop().time()
         while self._running and self._connected:
             try:
                 await asyncio.sleep(min(self._t3_timeout, self._heartbeat_interval) / 2)
                 if not self._connected:
                     break
-                now = asyncio.get_event_loop().time()
+                now = asyncio.get_running_loop().time()
                 if self._s_frame_needed:
                     await self._send_s_frame()
                     self._s_frame_needed = False
@@ -636,6 +639,9 @@ class Iec104Driver(DriverPlugin):
             ssn_raw = struct.unpack_from("<H", frame, 2)[0]
             rsn_raw = struct.unpack_from("<H", frame, 4)[0]
             received_ssn = ssn_raw >> 1
+            expected_ssn = self._rsn % 32768
+            if received_ssn != expected_ssn:
+                logger.warning("SSN不连续: 期望%d 收到%d (可能丢帧)", expected_ssn, received_ssn)
             self._rsn = (received_ssn + 1) % 32768
             self._s_frame_needed = True
             asdu_data = frame[6:]

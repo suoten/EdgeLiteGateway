@@ -10,8 +10,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
+import ssl
 import time
 import hmac
 import hashlib
@@ -30,18 +32,15 @@ class HuaweiIoTDAHandler(PlatformHandler):
 
     def __init__(self):
         self._connected = False
-        self._client = None
         self._config: dict = {}
         self._rpc_callback: Callable | None = None
         self._connect_task: asyncio.Task | None = None
-        self._subscribe_task: asyncio.Task | None = None
         self._running = False
+        self._pub_queue: asyncio.Queue | None = None
 
     def _generate_password(self, device_id: str, secret: str, timestamp: str) -> str:
-        """生成华为云IoTDA MQTT密码 (HMAC-SHA256)"""
         message = f"{timestamp}"
         hmac_code = hmac.new(secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
-        import base64
         return base64.b64encode(hmac_code).decode("utf-8")
 
     async def connect(self, config: dict) -> None:
@@ -52,13 +51,14 @@ class HuaweiIoTDAHandler(PlatformHandler):
 
         self._config = config
         self._running = True
+        self._pub_queue = asyncio.Queue(maxsize=1000)
 
         broker = config.get("broker", config.get("host", ""))
         port = int(config.get("port", 8883))
         device_id = config.get("device_id", "")
         secret = config.get("secret", "")
 
-        timestamp = str(int(time.time()))
+        timestamp = str(int(time.time() * 1000))
         if secret:
             password = self._generate_password(device_id, secret, timestamp)
         else:
@@ -74,26 +74,18 @@ class HuaweiIoTDAHandler(PlatformHandler):
 
     async def disconnect(self) -> None:
         self._running = False
-        for task in [self._connect_task, self._subscribe_task]:
-            if task and not task.done():
-                task.cancel()
-        for task in [self._connect_task, self._subscribe_task]:
-            if task:
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-        if self._client:
+        if self._connect_task and not self._connect_task.done():
+            self._connect_task.cancel()
+        if self._connect_task:
             try:
-                await self._client.disconnect()
-            except Exception:
+                await self._connect_task
+            except asyncio.CancelledError:
                 pass
-            self._client = None
         self._connected = False
         logger.info("华为云IoTDA平台对接已断开")
 
     async def publish_telemetry(self, device_id: str, data: dict[str, Any]) -> None:
-        if not self._connected or not self._client:
+        if not self._connected or not self._pub_queue:
             return
         topic = f"$oc/devices/{device_id}/sys/properties/report"
         payload = json.dumps({
@@ -104,12 +96,12 @@ class HuaweiIoTDAHandler(PlatformHandler):
             }]
         }, ensure_ascii=False, default=str)
         try:
-            await self._client.publish(topic, payload.encode("utf-8"), qos=1)
-        except Exception as e:
-            logger.error("华为云IoTDA遥测上报失败: %s", e)
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+        except asyncio.QueueFull:
+            logger.warning("华为云IoTDA发布队列已满，丢弃消息")
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
-        if not self._connected or not self._client:
+        if not self._connected or not self._pub_queue:
             return
         topic = f"$oc/devices/{device_id}/sys/properties/report"
         payload = json.dumps({
@@ -120,15 +112,15 @@ class HuaweiIoTDAHandler(PlatformHandler):
             }]
         }, ensure_ascii=False, default=str)
         try:
-            await self._client.publish(topic, payload.encode("utf-8"), qos=1)
-        except Exception as e:
-            logger.error("华为云IoTDA属性上传失败: %s", e)
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+        except asyncio.QueueFull:
+            logger.warning("华为云IoTDA发布队列已满，丢弃消息")
 
     async def on_rpc_request(self, callback: Callable) -> None:
         self._rpc_callback = callback
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
-        if not self._connected or not self._client:
+        if not self._connected or not self._pub_queue:
             return
         topic = f"$oc/devices/{device_id}/sys/events/report"
         payload = json.dumps({
@@ -140,9 +132,9 @@ class HuaweiIoTDAHandler(PlatformHandler):
             }]
         }, ensure_ascii=False, default=str)
         try:
-            await self._client.publish(topic, payload.encode("utf-8"), qos=1)
-        except Exception as e:
-            logger.error("华为云IoTDA设备状态上报失败: %s", e)
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+        except asyncio.QueueFull:
+            logger.warning("华为云IoTDA发布队列已满，丢弃消息")
 
     async def _connect_loop(self, broker: str, port: int, username: str, password: str, device_id: str) -> None:
         import aiomqtt
@@ -155,28 +147,59 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     username=username,
                     password=password,
                     keepalive=60,
+                    tls_params=aiomqtt.TLSParameters(ssl_context=ssl.create_default_context()) if port == 8883 else None,
                 ) as client:
-                    self._client = client
                     self._connected = True
                     logger.info("华为云IoTDA MQTT连接成功: %s:%d", broker, port)
 
                     await client.subscribe(f"$oc/devices/{device_id}/sys/commands/#", qos=1)
                     await client.subscribe(f"$oc/devices/{device_id}/sys/properties/set/#", qos=1)
-                    self._subscribe_task = asyncio.create_task(
+
+                    msg_task = asyncio.create_task(
                         self._message_listen_loop(client, device_id),
                         name="huawei-iotda-msg-listen",
                     )
+                    pub_task = asyncio.create_task(
+                        self._publish_loop(client),
+                        name="huawei-iotda-publish",
+                    )
 
-                    while self._running:
-                        await asyncio.sleep(5)
+                    try:
+                        while self._running:
+                            await asyncio.sleep(1)
+                    finally:
+                        for t in [msg_task, pub_task]:
+                            if not t.done():
+                                t.cancel()
+                        for t in [msg_task, pub_task]:
+                            try:
+                                await t
+                            except asyncio.CancelledError:
+                                pass
+                        self._connected = False
 
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.error("华为云IoTDA MQTT连接异常: %s，5秒后重试", e)
-                self._client = None
                 self._connected = False
                 await asyncio.sleep(5)
+
+    async def _publish_loop(self, client: Any) -> None:
+        try:
+            while self._running:
+                try:
+                    topic, payload, qos = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=1.0
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                try:
+                    await client.publish(topic, payload, qos=qos)
+                except Exception as e:
+                    logger.error("华为云IoTDA MQTT发布失败: %s", e)
+        except asyncio.CancelledError:
+            pass
 
     async def _message_listen_loop(self, client: Any, device_id: str) -> None:
         try:

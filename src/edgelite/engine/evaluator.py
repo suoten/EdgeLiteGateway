@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -37,8 +38,6 @@ class RuleEvaluator:
         logger.info("规则评估器启动")
 
     async def _get_rules_for_point(self, device_id: str, point_name: str) -> list:
-        """获取测点关联规则（带缓存）"""
-        import time
         now = time.time()
         cache_key = f"{device_id}:{point_name}"
         
@@ -115,8 +114,7 @@ class RuleEvaluator:
         duration = rule["duration"]
         severity = rule["severity"]
 
-        import time as _time
-        now = _time.time()
+        now = time.time()
 
         point_values = {event.point_name: event.value}
         cache_key = f"{event.device_id}:{event.point_name}"

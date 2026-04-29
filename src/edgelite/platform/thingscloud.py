@@ -27,12 +27,11 @@ class ThingsCloudHandler(PlatformHandler):
 
     def __init__(self):
         self._connected = False
-        self._client = None
         self._config: dict = {}
         self._rpc_callback: Callable | None = None
         self._connect_task: asyncio.Task | None = None
-        self._subscribe_task: asyncio.Task | None = None
         self._running = False
+        self._pub_queue: asyncio.Queue | None = None
 
     async def connect(self, config: dict) -> None:
         try:
@@ -42,6 +41,7 @@ class ThingsCloudHandler(PlatformHandler):
 
         self._config = config
         self._running = True
+        self._pub_queue = asyncio.Queue(maxsize=1000)
 
         broker = config.get("broker", config.get("host", "localhost"))
         port = int(config.get("port", 1883))
@@ -56,26 +56,18 @@ class ThingsCloudHandler(PlatformHandler):
 
     async def disconnect(self) -> None:
         self._running = False
-        for task in [self._connect_task, self._subscribe_task]:
-            if task and not task.done():
-                task.cancel()
-        for task in [self._connect_task, self._subscribe_task]:
-            if task:
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-        if self._client:
+        if self._connect_task and not self._connect_task.done():
+            self._connect_task.cancel()
+        if self._connect_task:
             try:
-                await self._client.disconnect()
-            except Exception:
+                await self._connect_task
+            except asyncio.CancelledError:
                 pass
-            self._client = None
         self._connected = False
         logger.info("ThingsCloud平台对接已断开")
 
     async def publish_telemetry(self, device_id: str, data: dict[str, Any]) -> None:
-        if not self._connected or not self._client:
+        if not self._connected or not self._pub_queue:
             return
         topic = f"things/{device_id}/properties/report"
         payload = json.dumps({
@@ -83,28 +75,25 @@ class ThingsCloudHandler(PlatformHandler):
             "timestamp": int(time.time() * 1000),
         }, ensure_ascii=False, default=str)
         try:
-            await self._client.publish(topic, payload.encode("utf-8"), qos=1)
-        except Exception as e:
-            logger.error("ThingsCloud遥测上报失败: %s", e)
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+        except asyncio.QueueFull:
+            logger.warning("ThingsCloud发布队列已满，丢弃消息")
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
-        if not self._connected or not self._client:
+        if not self._connected or not self._pub_queue:
             return
-        topic = f"things/{device_id}/properties/report"
-        payload = json.dumps({
-            "properties": attrs,
-            "timestamp": int(time.time() * 1000),
-        }, ensure_ascii=False, default=str)
+        topic = f"things/{device_id}/attributes/report"
+        payload = json.dumps(attrs, ensure_ascii=False, default=str)
         try:
-            await self._client.publish(topic, payload.encode("utf-8"), qos=1)
-        except Exception as e:
-            logger.error("ThingsCloud属性上传失败: %s", e)
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+        except asyncio.QueueFull:
+            logger.warning("ThingsCloud发布队列已满，丢弃消息")
 
     async def on_rpc_request(self, callback: Callable) -> None:
         self._rpc_callback = callback
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
-        if not self._connected or not self._client:
+        if not self._connected or not self._pub_queue:
             return
         topic = f"things/{device_id}/event/report"
         payload = json.dumps({
@@ -113,9 +102,9 @@ class ThingsCloudHandler(PlatformHandler):
             "timestamp": int(time.time() * 1000),
         }, ensure_ascii=False, default=str)
         try:
-            await self._client.publish(topic, payload.encode("utf-8"), qos=1)
-        except Exception as e:
-            logger.error("ThingsCloud设备状态上报失败: %s", e)
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+        except asyncio.QueueFull:
+            logger.warning("ThingsCloud发布队列已满，丢弃消息")
 
     async def _connect_loop(self, broker: str, port: int, username: str, password: str) -> None:
         import aiomqtt
@@ -129,26 +118,56 @@ class ThingsCloudHandler(PlatformHandler):
                     password=password or None,
                     keepalive=60,
                 ) as client:
-                    self._client = client
                     self._connected = True
                     logger.info("ThingsCloud MQTT连接成功: %s:%d", broker, port)
 
                     await client.subscribe("things/+/command/receive", qos=1)
-                    self._subscribe_task = asyncio.create_task(
+
+                    msg_task = asyncio.create_task(
                         self._message_listen_loop(client),
                         name="thingscloud-msg-listen",
                     )
+                    pub_task = asyncio.create_task(
+                        self._publish_loop(client),
+                        name="thingscloud-publish",
+                    )
 
-                    while self._running:
-                        await asyncio.sleep(5)
+                    try:
+                        while self._running:
+                            await asyncio.sleep(1)
+                    finally:
+                        for t in [msg_task, pub_task]:
+                            if not t.done():
+                                t.cancel()
+                        for t in [msg_task, pub_task]:
+                            try:
+                                await t
+                            except asyncio.CancelledError:
+                                pass
+                        self._connected = False
 
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.error("ThingsCloud MQTT连接异常: %s，5秒后重试", e)
-                self._client = None
                 self._connected = False
                 await asyncio.sleep(5)
+
+    async def _publish_loop(self, client: Any) -> None:
+        try:
+            while self._running:
+                try:
+                    topic, payload, qos = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=1.0
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                try:
+                    await client.publish(topic, payload, qos=qos)
+                except Exception as e:
+                    logger.error("ThingsCloud MQTT发布失败: %s", e)
+        except asyncio.CancelledError:
+            pass
 
     async def _message_listen_loop(self, client: Any) -> None:
         try:

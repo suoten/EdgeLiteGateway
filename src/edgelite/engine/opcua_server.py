@@ -58,6 +58,7 @@ class OpcUaServer:
         host = config.get("host", "0.0.0.0")
         port = int(config.get("port", 4840))
         namespace_uri = config.get("namespace", "urn:edgelite:gateway")
+        self._namespace = namespace_uri
 
         try:
             self._server = asyncua.Server()
@@ -143,7 +144,7 @@ class OpcUaServer:
         try:
             import asyncua
 
-            idx = await self._server.get_namespace_index("urn:edgelite:gateway")
+            idx = self._namespace_idx
 
             # 确保设备文件夹存在
             device_key = f"device_{device_id}"

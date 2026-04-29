@@ -21,10 +21,11 @@ def _get_video_service():
 
 
 def _verify_webhook_key(x_api_key: str = Header(default="")) -> None:
+    import hmac
     from edgelite.app import _app_state
     config = _app_state.config
     if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
-        if x_api_key != config.server.webhook_api_key:
+        if not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
         raise HTTPException(status_code=401, detail="API Key not configured")

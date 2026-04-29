@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class IntegrationEndpoint:
+    SESSION_TTL = 300
+
     def __init__(self, dispatcher: MessageDispatcher | None = None):
         self._dispatcher = dispatcher or MessageDispatcher()
         self._sessions: dict[str, dict[str, Any]] = {}
@@ -26,7 +28,12 @@ class IntegrationEndpoint:
     def session_count(self) -> int:
         return len(self._sessions)
 
+    @property
+    def has_connections(self) -> bool:
+        return len(self._connections) > 0
+
     async def handle_handshake(self, request: dict[str, Any]) -> dict[str, Any]:
+        await self._cleanup_expired_sessions()
         session_id = uuid.uuid4().hex[:16]
         self._sessions[session_id] = {
             "id": session_id,
@@ -97,3 +104,14 @@ class IntegrationEndpoint:
             if await self.send_to_session(session_id, message):
                 sent += 1
         return sent
+
+    async def _cleanup_expired_sessions(self) -> None:
+        now = time.time()
+        expired = [
+            sid for sid, info in self._sessions.items()
+            if sid not in self._connections
+            and now - info.get("connected_at", 0) > self.SESSION_TTL
+        ]
+        for sid in expired:
+            self._sessions.pop(sid, None)
+            logger.info("清理过期session: %s", sid)

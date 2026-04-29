@@ -1,6 +1,7 @@
 """EdgeLite v1.0 消息分发器"""
 
 import logging
+import time
 from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class MessageDispatcher:
         elif msg_type == "device_control":
             return await self._handle_device_control(payload)
         elif msg_type == "heartbeat":
-            return {"type": "heartbeat_ack", "timestamp": __import__("time").time()}
+            return {"type": "heartbeat_ack", "timestamp": time.time()}
         elif msg_type == "handshake":
             return {"type": "handshake_ack", "version": "1.0"}
 

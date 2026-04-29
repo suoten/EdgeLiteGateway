@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import struct
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -158,8 +159,6 @@ class ModbusSlaveServer:
                     await self.set_coil(offset, value)
                     offset += 1
                 elif isinstance(value, float):
-                    # 浮点数拆为两个16位整数
-                    import struct
                     raw = struct.pack(">f", value)
                     hi = struct.unpack(">H", raw[:2])[0]
                     lo = struct.unpack(">H", raw[2:])[0]
@@ -167,11 +166,10 @@ class ModbusSlaveServer:
                     await self.set_holding_register(offset + 1, lo)
                     offset += 2
                 elif isinstance(value, int):
-                    if 0 <= value <= 65535:
-                        await self.set_holding_register(offset, value)
+                    if -32768 <= value <= 65535:
+                        await self.set_holding_register(offset, value & 0xFFFF)
                         offset += 1
                     else:
-                        # 32位整数拆为两个16位
                         hi = (value >> 16) & 0xFFFF
                         lo = value & 0xFFFF
                         await self.set_holding_register(offset, hi)

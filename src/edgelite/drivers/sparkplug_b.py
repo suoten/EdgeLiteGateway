@@ -38,7 +38,13 @@ def _map_datatype(value: Any) -> int | None:
     if isinstance(value, bool):
         return _SPB_DATATYPE_BOOLEAN
     if isinstance(value, int):
-        return _SPB_DATATYPE_INT64 if abs(value) > 2147483647 else _SPB_DATATYPE_INT32
+        if value >= 0:
+            if value <= 4294967295:
+                return _SPB_DATATYPE_UINT32
+            else:
+                return _SPB_DATATYPE_UINT64
+        else:
+            return _SPB_DATATYPE_INT64 if abs(value) > 2147483647 else _SPB_DATATYPE_INT32
     if isinstance(value, float):
         return _SPB_DATATYPE_DOUBLE
     if isinstance(value, str):
@@ -294,7 +300,7 @@ class SparkplugBDriver(DriverPlugin):
                         ctx.load_verify_locations(sp_config.tls_ca_cert)
                     if sp_config.tls_client_cert and sp_config.tls_client_key:
                         ctx.load_cert_chain(sp_config.tls_client_cert, sp_config.tls_client_key)
-                    tls_params = ctx
+                    tls_params = aiomqtt.TLSParameters(ssl_context=ctx)
 
                 async with aiomqtt.Client(
                     hostname=broker,
@@ -324,13 +330,16 @@ class SparkplugBDriver(DriverPlugin):
             except asyncio.CancelledError:
                 raise
             except ImportError as e:
-                logger.error("依赖库未安装: %s", e)
-                await asyncio.sleep(30)
+                logger.error("依赖库未安装: %s，%.1fs后重试", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_delay)
             except Exception as e:
                 logger.error("Sparkplug B MQTT连接异常: %s，%.1fs后重试", e, retry_delay)
                 self._client = None
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_delay)
+            finally:
+                self._client = None
 
     async def _publish_nbirth(self) -> None:
         if not self._client:

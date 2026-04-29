@@ -26,6 +26,7 @@ class MqttTlsHelper:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
         if cert_reqs == "none":
+            logger.warning("MQTT TLS: cert_reqs=none 完全禁用证书验证，存在中间人攻击风险")
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
         elif cert_reqs == "optional":

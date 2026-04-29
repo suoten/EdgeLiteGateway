@@ -30,16 +30,20 @@ class PluginManager:
     def __init__(self, driver_registry: Any):
         self._registry = driver_registry
         self._loaded_plugins: dict[str, PluginInfo] = {}
+        self._allowed_dir: Optional[Path] = None
 
     def discover_custom_drivers(self, custom_dir: str) -> list[PluginInfo]:
         """扫描自定义驱动目录，加载所有DriverPlugin子类"""
         if not custom_dir:
             return []
 
-        driver_dir = Path(custom_dir)
+        driver_dir = Path(custom_dir).resolve()
         if not driver_dir.is_dir():
             logger.warning("自定义驱动目录不存在: %s", custom_dir)
             return []
+
+        self._allowed_dir = driver_dir
+        logger.info("自定义驱动目录: %s（仅允许从此目录加载）", driver_dir)
 
         discovered = []
         for py_file in driver_dir.glob("*.py"):
@@ -74,8 +78,13 @@ class PluginManager:
         return discovered
 
     def _load_module(self, path: Path):
-        """动态加载Python模块"""
-        spec = importlib.util.spec_from_file_location(path.stem, str(path))
+        """动态加载Python模块（带路径白名单安全检查）"""
+        resolved = path.resolve()
+        if self._allowed_dir and not str(resolved).startswith(str(self._allowed_dir)):
+            raise ValueError(f"安全拒绝: 文件 {resolved} 不在允许的目录 {self._allowed_dir} 内")
+        if resolved.suffix != ".py":
+            raise ValueError(f"安全拒绝: 仅允许加载.py文件，收到 {resolved.suffix}")
+        spec = importlib.util.spec_from_file_location(path.stem, str(resolved))
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
@@ -89,12 +98,11 @@ class PluginManager:
         return classes
 
     def _register_plugin(self, cls: type, info: PluginInfo):
-        """注册驱动到DriverRegistry"""
         existing = self._registry.get_driver_class(info.name)
         if existing is not None:
             logger.warning("自定义驱动'%s'与内置驱动同名，将覆盖", info.name)
 
-        self._registry._drivers[info.name] = cls
+        self._registry.register(cls)
         self._loaded_plugins[info.name] = info
         logger.info("已加载自定义驱动: %s (%s)", info.name, info.class_name)
 
@@ -114,7 +122,7 @@ class PluginManager:
             info.is_loaded = True
             info.error = ""
             info.class_name = cls.__name__
-            self._registry._drivers[plugin_name] = cls
+            self._registry.register(cls)
             logger.info("已重载驱动: %s", plugin_name)
             return info
         except Exception as e:
@@ -129,8 +137,9 @@ class PluginManager:
         if not info or not info.is_custom:
             return False
 
-        if plugin_name in self._registry._drivers:
-            del self._registry._drivers[plugin_name]
+        cls = self._registry.get_driver_class(plugin_name)
+        if cls:
+            self._registry.unregister_driver(cls)
         info.is_loaded = False
         logger.info("已卸载驱动: %s", plugin_name)
         return True
@@ -138,3 +147,10 @@ class PluginManager:
     def list_plugins(self) -> list[PluginInfo]:
         """列出所有已加载的插件"""
         return list(self._loaded_plugins.values())
+
+    async def stop(self) -> None:
+        """停止插件管理器，卸载所有自定义驱动"""
+        for plugin_name in list(self._loaded_plugins.keys()):
+            self.unload_plugin(plugin_name)
+        self._loaded_plugins.clear()
+        logger.info("PluginManager已停止，所有自定义驱动已卸载")
