@@ -419,6 +419,17 @@ class UserRepo(BaseRepo):
             await self._commit(session)
             return result.rowcount > 0
 
+    async def update_password(self, username: str, hashed_password: str) -> None:
+        async with self._auto_session() as session:
+            result = await session.execute(
+                select(UserORM).where(UserORM.username == username)
+            )
+            orm = result.scalar_one_or_none()
+            if orm is None:
+                return
+            orm.password = hashed_password
+            await self._commit(session)
+
 
 def _orm_to_device(orm: DeviceORM) -> dict:
     return {

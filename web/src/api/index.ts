@@ -27,6 +27,9 @@ export const authApi = {
 
   logout: () =>
     http.post('/auth/logout'),
+
+  changePassword: (oldPassword: string, newPassword: string) =>
+    http.post<ApiResponse>('/auth/change-password', { old_password: oldPassword, new_password: newPassword }).then((r) => r.data),
 }
 
 // ─── 设备 ───

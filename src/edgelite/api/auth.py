@@ -145,6 +145,31 @@ async def get_current_user_info(user: CurrentUser):
     })
 
 
+@router.post("/change-password", response_model=ApiResponse)
+async def change_password(
+    old_password: str = Body(..., embed=True),
+    new_password: str = Body(..., embed=True),
+    user: CurrentUser = None,
+):
+    db, write_lock = _get_user_repo()
+    async with db.get_session() as session:
+        repo = UserRepo(session, write_lock)
+        db_user = await repo.get_by_username_with_password(user["username"])
+    if db_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+    if not verify_password(old_password, db_user["password"]):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少6位")
+
+    from edgelite.security.password import hash_password
+    hashed = hash_password(new_password)
+    async with db.get_session() as session:
+        repo = UserRepo(session, write_lock)
+        await repo.update_password(user["username"], hashed)
+    return ApiResponse(data={"message": "密码修改成功"})
+
+
 @router.post("/logout", response_model=ApiResponse)
 async def logout(request: Request):
     """用户登出，撤销Token"""

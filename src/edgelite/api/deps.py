@@ -15,18 +15,13 @@ from edgelite.security.rbac import Permission, check_permission
 
 logger = logging.getLogger(__name__)
 
-security_scheme = HTTPBearer(auto_error=False)
+security_scheme = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)],
 ) -> dict:
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未提供认证凭证",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    """从JWT Token解析当前用户，并从数据库实时校验角色"""
     try:
         payload = verify_token(credentials.credentials, token_type="access")
     except JWTError:
@@ -51,9 +46,8 @@ async def get_current_user(
     username = payload.get("username", "")
     from edgelite.storage.sqlite_repo import UserRepo
     from edgelite.app import _app_state
-    async with _app_state.database.get_session() as session:
-        repo = UserRepo(session, _app_state.database.write_lock)
-        user = await repo.get_by_username(username)
+    repo = UserRepo(_app_state.database.get_session(), _app_state.database.write_lock)
+    user = await repo.get_by_username(username)
 
     if user is None or not user["enabled"]:
         raise HTTPException(
