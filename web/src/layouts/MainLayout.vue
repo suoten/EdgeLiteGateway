@@ -110,17 +110,20 @@
         <router-view />
       </n-layout-content>
     </n-layout>
-    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" title="修改密码" preset="card" style="width: 420px">
-      <n-alert v-if="auth.mustChangePassword" type="warning" style="margin-bottom: 16px">
-        您正在使用默认密码，建议尽快修改以确保账户安全
+    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" title="🔒 修改密码" preset="card" style="width: 440px">
+      <n-alert v-if="auth.mustChangePassword" type="info" style="margin-bottom: 16px">
+        为保障您的账户安全，建议修改默认密码后再使用系统
       </n-alert>
-      <n-form :model="pwdForm" :rules="pwdRules" ref="pwdFormRef" label-placement="left" label-width="80">
-        <n-form-item label="原密码" path="oldPassword"><n-input v-model:value="pwdForm.oldPassword" type="password" show-password-on="click" /></n-form-item>
-        <n-form-item label="新密码" path="newPassword"><n-input v-model:value="pwdForm.newPassword" type="password" show-password-on="click" /></n-form-item>
-        <n-form-item label="确认密码" path="confirmPassword"><n-input v-model:value="pwdForm.confirmPassword" type="password" show-password-on="click" /></n-form-item>
+      <n-form :model="pwdForm" :rules="pwdRules" ref="pwdFormRef" label-placement="left" label-width="90">
+        <n-form-item label="当前密码" path="oldPassword"><n-input v-model:value="pwdForm.oldPassword" type="password" show-password-on="click" placeholder="请输入当前使用的密码" /></n-form-item>
+        <n-form-item label="新密码" path="newPassword"><n-input v-model:value="pwdForm.newPassword" type="password" show-password-on="click" placeholder="至少6位，建议包含字母和数字" /></n-form-item>
+        <n-form-item label="确认新密码" path="confirmPassword"><n-input v-model:value="pwdForm.confirmPassword" type="password" show-password-on="click" placeholder="请再次输入新密码" /></n-form-item>
       </n-form>
       <template #action>
-        <n-button type="primary" :loading="changingPwd" @click="handleChangePassword">确认修改</n-button>
+        <n-space justify="end">
+          <n-button @click="showChangePwd = false">稍后再说</n-button>
+          <n-button type="primary" :loading="changingPwd" @click="handleChangePassword">保存修改</n-button>
+        </n-space>
       </template>
     </n-modal>
   </n-layout>
@@ -155,13 +158,13 @@ const changingPwd = ref(false)
 const pwdFormRef = ref<any>(null)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 const pwdRules = {
-  oldPassword: { required: true, message: '请输入原密码', trigger: 'blur' },
-  newPassword: { required: true, min: 6, message: '新密码至少6位', trigger: 'blur' },
+  oldPassword: { required: true, message: '请输入当前密码', trigger: 'blur' },
+  newPassword: { required: true, min: 6, message: '新密码至少需要6个字符', trigger: 'blur' },
   confirmPassword: {
     required: true,
     trigger: 'blur',
     validator: (_rule: any, value: string) => {
-      if (value !== pwdForm.value.newPassword) return new Error('两次密码不一致')
+      if (value !== pwdForm.value.newPassword) return new Error('两次输入的密码不一致，请重新输入')
       return true
     },
   },
