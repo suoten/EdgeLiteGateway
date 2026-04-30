@@ -75,12 +75,6 @@ class LoggingConfig(BaseModel):
     backup_count: int = 10
 
 
-class AuditConfig(BaseModel):
-    enabled: bool = True
-    tamper_proof: bool = True
-    retention_days: int = 90
-
-
 class SimulatorPointConfig(BaseModel):
     name: str
     data_type: str = "float32"
@@ -144,14 +138,6 @@ class MqttServerConfig(BaseModel):
     ws_port: int | None = None
     username: str = ""
     password: str = ""
-
-
-class OpcUaServerConfig(BaseModel):
-    """内置OPC UA Server配置"""
-    enabled: bool = False
-    host: str = "0.0.0.0"
-    port: int = 4840
-    namespace: str = "urn:edgelite:gateway"
 
 
 class ModbusSlaveConfig(BaseModel):
@@ -247,12 +233,10 @@ class AppConfig(BaseModel):
     influxdb: InfluxDBConfig = InfluxDBConfig()
     mqtt: MQTTConfig = MQTTConfig()
     mqtt_server: MqttServerConfig = MqttServerConfig()
-    opcua_server: OpcUaServerConfig = OpcUaServerConfig()
     modbus_slave: ModbusSlaveConfig = ModbusSlaveConfig()
     video: VideoConfig = VideoConfig()
     security: SecurityConfig = SecurityConfig()
     logging: LoggingConfig = LoggingConfig()
-    audit: AuditConfig = AuditConfig()
     simulator: SimulatorConfig = SimulatorConfig()
     notify: NotifyConfig = NotifyConfig()
     platforms: dict[str, Any] = {}

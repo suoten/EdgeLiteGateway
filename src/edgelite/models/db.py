@@ -77,23 +77,6 @@ class UserORM(Base):
     created_at: Mapped[datetime] = mapped_column(default=_utcnow)
 
 
-class AuditLogORM(Base):
-    __tablename__ = "audit_logs"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    username: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    action: Mapped[str] = mapped_column(String(64), nullable=False)
-    resource_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    resource_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
-    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
-    details: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="success")
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow, index=True)
-
-
 class CacheQueueORM(Base):
     __tablename__ = "cache_queue"
 

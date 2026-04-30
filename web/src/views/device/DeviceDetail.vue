@@ -115,6 +115,31 @@
           </n-card>
         </n-space>
       </n-tab-pane>
+      <n-tab-pane v-if="device?.protocol === 'video'" name="video" tab="视频监控">
+        <n-space vertical :size="12">
+          <n-card title="实时视频" :bordered="false">
+            <template #header-extra>
+              <n-space>
+                <n-button size="small" @click="handleRefreshStream">刷新流</n-button>
+              </n-space>
+            </template>
+            <div v-if="streamUrl" style="width: 100%; max-height: 480px; background: #000; border-radius: 8px; overflow: hidden;">
+              <video :src="streamUrl" autoplay controls style="width: 100%; max-height: 480px;" />
+            </div>
+            <n-empty v-else description="暂无视频流" />
+          </n-card>
+          <n-card title="云台控制" :bordered="false">
+            <n-space>
+              <n-button @click="handlePtz('up')">上</n-button>
+              <n-button @click="handlePtz('down')">下</n-button>
+              <n-button @click="handlePtz('left')">左</n-button>
+              <n-button @click="handlePtz('right')">右</n-button>
+              <n-button @click="handlePtz('zoom_in')">放大</n-button>
+              <n-button @click="handlePtz('zoom_out')">缩小</n-button>
+            </n-space>
+          </n-card>
+        </n-space>
+      </n-tab-pane>
     </n-tabs>
     </template>
   </n-space>
@@ -129,7 +154,7 @@ import { LineChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-import { deviceApi, dataApi, type Device } from '@/api'
+import { deviceApi, dataApi, videoApi, type Device } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
@@ -142,6 +167,27 @@ const auth = useAuthStore()
 const device = ref<Device | null>(null)
 const notFound = ref(false)
 const activeTab = ref('overview')
+const streamUrl = ref('')
+
+async function handleRefreshStream() {
+  if (!device.value) return
+  try {
+    const data = await videoApi.getStreamUrl(device.value.device_id, '1')
+    streamUrl.value = data?.url || ''
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '获取视频流失败')
+  }
+}
+
+async function handlePtz(action: string) {
+  if (!device.value) return
+  try {
+    await videoApi.ptzControl(device.value.device_id, { action, channel_id: '1' })
+    message.success('云台控制已发送')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '云台控制失败')
+  }
+}
 const pointValues = ref<Record<string, any> | null>(null)
 const pointsLoading = ref(false)
 const wsConnected = ref(false)
@@ -168,7 +214,7 @@ const protocolLabel: Record<string, string> = {
   modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
   simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
   allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
-  toledo: 'Toledo', bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB',
+  toledo: 'Toledo', serial_port: 'Serial', database_source: 'DB',
   barcode_scanner: 'Scanner', mqtt_client: 'MQTT Client', http_webhook: 'HTTP Webhook',
   sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645', iec104: 'IEC 104',
   kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
@@ -348,7 +394,7 @@ async function fetchChartData() {
 function toggleWS(val: boolean) {
   if (val) {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime?token=${auth.token}`)
+    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime`)
     ws.onopen = () => { wsConnected.value = true; wsRetryCount = 0; message.success('WebSocket 已连接') }
     ws.onmessage = (e) => {
       try {

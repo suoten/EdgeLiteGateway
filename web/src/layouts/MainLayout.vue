@@ -122,6 +122,8 @@ import {
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
   LogOutOutline, StatsChartOutline, ServerOutline, CubeOutline, BuildOutline, DocumentTextOutline,
   PulseOutline, CloudOutline, CalculatorOutline, MoonOutline, SunnyOutline,
+  RocketOutline, BarChartOutline, RadioOutline, PlugOutline, SwapHorizontalOutline,
+  ExtensionPuzzleOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { alarmApi } from '@/api'
@@ -147,10 +149,12 @@ const currentTitle = computed(() => {
   const titles: Record<string, string> = {
     Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
     Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
-    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态', AuditLog: '审计日志',
+    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态',
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
     PreprocessConfig: '数据预处理',
     System: '系统管理', Users: '用户管理',
+    OtaUpdate: 'OTA升级', GrafanaDashboard: 'Grafana监控', McpServer: 'MCP Server',
+    MqttServer: 'MQTT Server', ModbusSlave: 'Modbus Slave', SerialBridge: '串口透传',
   }
   return titles[route.name as string] || 'EdgeLiteGateway'
 })
@@ -159,7 +163,7 @@ const breadcrumbItems = computed(() => {
   const titleMap: Record<string, string> = {
     Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
     Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
-    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态', AuditLog: '审计日志',
+    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态',
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
     PreprocessConfig: '数据预处理',
     System: '系统管理', Users: '用户管理',
@@ -190,10 +194,20 @@ const menuOptions = [
       { label: '平台对接', key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
       { label: '计算表达式', key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
       { label: '数据预处理', key: 'PreprocessConfig', icon: renderIcon(PulseOutline) },
-      { label: '审计日志', key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
       { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
     ],
   },
+  {
+    label: '内置服务', key: 'builtin-services', icon: renderIcon(RadioOutline),
+    children: [
+      { label: 'MQTT Server', key: 'MqttServer', icon: renderIcon(RadioOutline) },
+      { label: 'Modbus Slave', key: 'ModbusSlave', icon: renderIcon(PlugOutline) },
+      { label: '串口透传', key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
+    ],
+  },
+  { label: 'OTA升级', key: 'OtaUpdate', icon: renderIcon(RocketOutline) },
+  { label: 'Grafana监控', key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
+  { label: 'MCP Server', key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
 ]
 
 const userOptions = [

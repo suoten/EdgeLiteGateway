@@ -11,7 +11,7 @@ from typing import Any, AsyncGenerator
 from sqlalchemy import select, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from edgelite.models.db import DeviceORM, RuleORM, AlarmORM, UserORM, AuditLogORM
+from edgelite.models.db import DeviceORM, RuleORM, AlarmORM, UserORM
 
 
 def _now() -> datetime:
@@ -418,21 +418,6 @@ class UserRepo(BaseRepo):
             )
             await self._commit(session)
             return result.rowcount > 0
-
-
-class AuditRepo(BaseRepo):
-    async def create(self, data: dict) -> None:
-        async with self._auto_session() as session:
-            orm = AuditLogORM(
-                user_id=data["user_id"], username=data.get("username"),
-                action=data["action"], resource_type=data.get("resource_type"),
-                resource_id=data.get("resource_id"), ip_address=data.get("ip_address"),
-                user_agent=data.get("user_agent"),
-                details=json.dumps(data.get("details"), ensure_ascii=False) if data.get("details") else None,
-                status=data.get("status", "success"), error_message=data.get("error_message"),
-            )
-            session.add(orm)
-            await self._commit(session)
 
 
 def _orm_to_device(orm: DeviceORM) -> dict:

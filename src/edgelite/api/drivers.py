@@ -89,15 +89,6 @@ async def get_driver_config_schema(
                 {"name": "slot", "type": "integer", "label": "槽号", "description": "CPU插槽号，S7-300通常为2，S7-1200/1500通常为0或1", "default": 1},
             ]
         },
-        "bacnet": {
-            "description": "BACnet楼宇自控协议，用于暖通空调、照明等楼宇设备",
-            "fields": [
-                {"name": "ip", "type": "string", "label": "BACnet设备IP", "description": "BACnet/IP设备的IP地址", "default": "", "required": True},
-                {"name": "port", "type": "integer", "label": "UDP端口", "description": "BACnet默认使用UDP 47808", "default": 47808},
-                {"name": "device_id", "type": "string", "label": "设备实例号", "description": "BACnet设备实例号（Device Instance）"},
-                {"name": "subnet", "type": "string", "label": "子网掩码", "description": "网络子网掩码，如 255.255.255.0"},
-            ]
-        },
         "serial_port": {
             "description": "串口通信（RS232/RS485），支持Modbus RTU等协议",
             "fields": [

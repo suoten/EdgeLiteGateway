@@ -74,7 +74,6 @@ class DriverRegistry:
             ("FANUC CNC", "edgelite.drivers.fanuc", "FanucCncDriver"),
             ("MTConnect", "edgelite.drivers.mtconnect", "MTConnectDriver"),
             ("托利多称重", "edgelite.drivers.toledo", "ToledoDriver"),
-            ("BACnet", "edgelite.drivers.bacnet", "BACnetDriver"),
             ("串口设备", "edgelite.drivers.serial_port", "SerialPortDriver"),
             ("数据库接入", "edgelite.drivers.database_source", "DatabaseSourceDriver"),
             ("扫码枪", "edgelite.drivers.barcode_scanner", "BarcodeScannerDriver"),

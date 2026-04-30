@@ -264,3 +264,21 @@ class _SubHandler:
                 )
             except RuntimeError:
                 pass
+
+        # 发布PointUpdateEvent到EventBus
+        try:
+            from edgelite.app import _app_state
+            if _app_state.event_bus:
+                from edgelite.engine.event_bus import PointUpdateEvent
+                import logging
+                point_name = node_id.split(".")[-1] if "." in node_id else node_id
+                event = PointUpdateEvent(
+                    device_id=self.device_id,
+                    point_name=point_name,
+                    value=val,
+                    quality="good",
+                )
+                loop = asyncio.get_running_loop()
+                loop.create_task(_app_state.event_bus.publish(event))
+        except Exception:
+            pass

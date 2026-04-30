@@ -6,7 +6,7 @@
           <n-select v-model:value="filterAction" :options="actionOptions" clearable placeholder="操作类型" style="width: 160px" />
           <n-date-picker v-model:value="timeRange" type="datetimerange" clearable />
           <n-button type="primary" @click="loadLogs">查询</n-button>
-          <n-button @click="exportCSV" :loading="exporting">导出CSV</n-button>
+          <n-button @click="exportCSV">导出CSV</n-button>
           <n-button @click="verifyIntegrity">完整性校验</n-button>
           <n-button type="warning" @click="showCleanupModal = true">清理日志</n-button>
         </n-space>
@@ -37,7 +37,6 @@ const timeRange = ref<[number, number] | null>(null)
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (page: number) => { pagination.page = page; loadLogs() } })
 const showCleanupModal = ref(false)
 const retentionDays = ref(90)
-const exporting = ref(false)
 
 const actionOptions = [
   { label: '登录', value: 'login' },
@@ -85,7 +84,6 @@ async function loadLogs() {
 }
 
 async function exportCSV() {
-  exporting.value = true
   try {
     const params: any = {}
     if (filterAction.value) params.action = filterAction.value
@@ -102,7 +100,6 @@ async function exportCSV() {
       URL.revokeObjectURL(url)
     }
   } catch (e) { message.error('导出失败') }
-  finally { exporting.value = false }
 }
 
 async function verifyIntegrity() {

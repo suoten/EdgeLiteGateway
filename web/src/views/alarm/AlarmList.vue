@@ -78,6 +78,7 @@ async function fetchAlarms() {
       size: pagination.pageSize,
       status: filterStatus.value ?? undefined,
       severity: filterSeverity.value ?? undefined,
+      search: searchText.value || undefined,
     })
     alarms.value = data?.data ?? []
     pagination.itemCount = data.total

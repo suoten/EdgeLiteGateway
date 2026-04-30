@@ -36,11 +36,9 @@ class AppState:
     video_service: Any = None
     system_service: Any = None
     notify_service: Any = None
-    audit_service: Any = None
     driver_registry: Any = None
     mqtt_forwarder: Any = None
     mqtt_server: Any = None
-    opcua_server: Any = None
     modbus_slave: Any = None
     platform_handlers: dict = field(default_factory=dict)
     start_time: float = field(default_factory=time.time)
@@ -49,6 +47,7 @@ class AppState:
     backhaul_manager: Any = None
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     config: Any = None
+    ota_manager: Any = None
     max_ws_connections: int = 100
     plugin_manager: Any = None
     preprocessor: Any = None
@@ -110,7 +109,7 @@ async def lifespan(app: FastAPI):
         initialized.append(("event_bus", event_bus))
 
         # 5. 初始化仓储
-        from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo, AuditRepo
+        from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo
         _app_state.config = config
         write_lock = database.write_lock
         device_repo = DeviceRepo(database, write_lock)
@@ -162,17 +161,11 @@ async def lifespan(app: FastAPI):
         _app_state.system_service = system_service
 
         # 8.5 初始化审计日志服务
-        try:
-            from edgelite.services.audit_service import AuditService
-            from pathlib import Path
-            audit_db_path = str(Path(config.database.sqlite_path).parent / "audit.db")
-            audit_service = AuditService(db_path=audit_db_path)
-            await audit_service.initialize()
-            _app_state.audit_service = audit_service
-            initialized.append(("audit_service", audit_service))
-            logger.info("审计日志服务已初始化")
-        except Exception as e:
-            logger.warning("审计日志服务初始化失败: %s", e)
+        from edgelite.services.audit_service import AuditService
+        audit_service = AuditService(db_path=str(database.db_path) if hasattr(database, 'db_path') else "data/edgelite.db")
+        await audit_service.initialize()
+        _app_state.audit_service = audit_service
+        initialized.append(("audit_service", audit_service))
 
         # 9. 初始化规则评估器
         from edgelite.engine.evaluator import RuleEvaluator
@@ -263,23 +256,7 @@ async def lifespan(app: FastAPI):
                 except Exception as e:
                     logger.error("平台对接启动失败 %s: %s", platform_name, e)
 
-        # 16. 初始化内置OPC UA Server 
-        opcua_server_config = getattr(config, "opcua_server", None)
-        if opcua_server_config and getattr(opcua_server_config, "enabled", False):
-            from edgelite.engine.opcua_server import OpcUaServer
-            opcua_server = OpcUaServer()
-            _app_state.opcua_server = opcua_server
-            await opcua_server.start({
-                "host": getattr(opcua_server_config, "host", "0.0.0.0"),
-                "port": getattr(opcua_server_config, "port", 4840),
-                "namespace": getattr(opcua_server_config, "namespace", "urn:edgelite:gateway"),
-            })
-            initialized.append(("opcua_server", opcua_server))
-
-        if _app_state.opcua_server:
-            _app_state.opcua_server.subscribe_event_bus(event_bus)
-
-        # 17. 初始化内置Modbus Slave 
+        # 16. 初始化内置Modbus Slave 
         modbus_slave_config = getattr(config, "modbus_slave", None)
         if modbus_slave_config and getattr(modbus_slave_config, "enabled", False):
             from edgelite.engine.modbus_slave import ModbusSlaveServer
@@ -355,6 +332,17 @@ async def lifespan(app: FastAPI):
                 logger.warning("清理%s失败: %s", name, cleanup_err)
         raise
 
+    # 初始化OTA管理器
+    try:
+        from edgelite.engine.ota_manager import OTAManager
+        ota_manager = OTAManager()
+        _app_state.ota_manager = ota_manager
+        logger.info("OTA升级管理器已初始化")
+    except ImportError:
+        logger.warning("OTA升级管理器模块不可用")
+    except Exception as e:
+        logger.warning("OTA升级管理器初始化失败: %s", e)
+
     logger.info("EdgeLiteGateway 启动完成 (port=%d)", config.server.port)
 
     yield
@@ -385,7 +373,7 @@ async def lifespan(app: FastAPI):
             await handler.disconnect()
         except Exception as e:
             logger.warning("平台对接关闭异常 %s: %s", name, e)
-    for svc_name, svc in [("mqtt_forwarder", _app_state.mqtt_forwarder), ("mqtt_server", _app_state.mqtt_server), ("opcua_server", _app_state.opcua_server), ("modbus_slave", _app_state.modbus_slave)]:
+    for svc_name, svc in [("mqtt_forwarder", _app_state.mqtt_forwarder), ("mqtt_server", _app_state.mqtt_server), ("modbus_slave", _app_state.modbus_slave)]:
         if svc:
             try:
                 await svc.stop()
@@ -404,11 +392,6 @@ async def lifespan(app: FastAPI):
         await notify_service.close()
     except Exception as e:
         logger.warning("关闭notify_service异常: %s", e)
-    if _app_state.audit_service:
-        try:
-            await _app_state.audit_service.close()
-        except Exception as e:
-            logger.warning("关闭audit_service异常: %s", e)
     try:
         await influx.close()
     except Exception as e:
@@ -452,13 +435,6 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(users.router)
 
-    # 审计日志路由
-    try:
-        from edgelite.api.audit import router as audit_router
-        app.include_router(audit_router)
-    except Exception as e:
-        logger.warning("审计日志路由注册失败: %s", e)
-
     # 驱动配置管理路由
     try:
         from edgelite.api.drivers import router as drivers_router
@@ -487,6 +463,13 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.warning("数据预处理路由注册失败: %s", e)
 
+    # 审计日志路由
+    try:
+        from edgelite.api.audit import router as audit_router
+        app.include_router(audit_router)
+    except Exception as e:
+        logger.warning("审计日志路由注册失败: %s", e)
+
     # 串口透传路由
     try:
         from edgelite.api.serial_bridge import router as serial_bridge_router
@@ -500,6 +483,41 @@ def create_app() -> FastAPI:
         app.include_router(integration_router)
     except Exception as e:
         logger.warning("联调集成路由注册失败: %s", e)
+
+    # MQTT Server管理路由
+    try:
+        from edgelite.api.mqtt_server import router as mqtt_server_router
+        app.include_router(mqtt_server_router)
+    except Exception as e:
+        logger.warning("MQTT Server路由注册失败: %s", e)
+
+    # Modbus Slave管理路由
+    try:
+        from edgelite.api.modbus_slave import router as modbus_slave_router
+        app.include_router(modbus_slave_router)
+    except Exception as e:
+        logger.warning("Modbus Slave路由注册失败: %s", e)
+
+    # MCP协议路由
+    try:
+        from edgelite.api.mcp import router as mcp_router
+        app.include_router(mcp_router)
+    except Exception as e:
+        logger.warning("MCP协议路由注册失败: %s", e)
+
+    # OTA升级路由
+    try:
+        from edgelite.api.ota import router as ota_router
+        app.include_router(ota_router)
+    except Exception as e:
+        logger.warning("OTA升级路由注册失败: %s", e)
+
+    # Grafana集成路由
+    try:
+        from edgelite.api.grafana import router as grafana_router
+        app.include_router(grafana_router)
+    except Exception as e:
+        logger.warning("Grafana集成路由注册失败: %s", e)
 
     # WebSocket路由
     @app.websocket("/ws/v1/realtime")

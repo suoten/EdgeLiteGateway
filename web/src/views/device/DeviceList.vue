@@ -186,7 +186,6 @@ const protocolOptions = [
   { label: 'FANUC CNC', value: 'fanuc' },
   { label: 'MTConnect', value: 'mtconnect' },
   { label: '托利多', value: 'toledo' },
-  { label: 'BACnet', value: 'bacnet' },
   { label: '串口设备', value: 'serial_port' },
   { label: '数据库接入', value: 'database_source' },
   { label: '扫码枪', value: 'barcode_scanner' },
@@ -226,7 +225,7 @@ const protocolLabel: Record<string, string> = {
   modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
   simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
   allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
-  toledo: 'Toledo', bacnet: 'BACnet', serial_port: 'Serial', database_source: 'DB',
+  toledo: 'Toledo', serial_port: 'Serial', database_source: 'DB',
   barcode_scanner: 'Scanner', sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645',
   iec104: 'IEC 104', kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
 }
@@ -275,7 +274,7 @@ const currentProtocolFields = computed(() => {
 
 async function loadDriverSchemas() {
   try {
-    const protocols = ['modbus_tcp', 'opcua', 's7', 'bacnet', 'serial_port', 'database_source', 'barcode_scanner', 'mqtt', 'http']
+    const protocols = ['modbus_tcp', 'opcua', 's7', 'serial_port', 'database_source', 'barcode_scanner', 'mqtt', 'http']
     for (const p of protocols) {
       try {
         const data = await driverApi.configSchema(p)
@@ -291,7 +290,6 @@ const defaultConfig: Record<string, any> = {
   mqtt: { broker: 'localhost', port: 1883, topic: 'device/data/+', username: '', password: '' },
   http: { path: '/webhook/data', method: 'POST' },
   s7: { host: '192.168.1.1', rack: 0, slot: 1 },
-  bacnet: { ip: '', port: 47808, device_id: '', subnet: '' },
   serial_port: { port: 'COM1', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, protocol: 'raw' },
   database_source: { db_type: 'mysql', host: 'localhost', port: 3306, database: '', username: '', password: '' },
   barcode_scanner: { port: 'COM1', baudrate: 9600, prefix: '', suffix: '\\r' },

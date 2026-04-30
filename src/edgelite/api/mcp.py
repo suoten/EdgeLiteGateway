@@ -1,0 +1,188 @@
+"""MCP (Model Context Protocol) 服务端API路由
+
+提供AI助手与EdgeLite网关交互的标准协议接口。
+包含工具调用、资源访问、提示模板等核心能力。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+
+from edgelite.models.common import ApiResponse
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v1/mcp", tags=["MCP协议"])
+
+
+class ToolCallRequest(BaseModel):
+    name: str
+    arguments: dict[str, Any] | None = None
+
+
+class MCPServer:
+    def __init__(self):
+        self._tools: dict[str, dict] = {}
+        self._resources: dict[str, dict] = {}
+        self._prompts: dict[str, dict] = {}
+        self._register_tools()
+        self._register_resources()
+        self._register_prompts()
+
+    def _register_tools(self):
+        self._tools = {
+            "list_devices": {
+                "name": "list_devices",
+                "description": "获取所有设备列表",
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
+            },
+            "get_device_status": {
+                "name": "get_device_status",
+                "description": "获取指定设备的运行状态",
+                "inputSchema": {"type": "object", "properties": {"device_id": {"type": "string", "description": "设备ID"}}, "required": ["device_id"]},
+            },
+            "read_device_points": {
+                "name": "read_device_points",
+                "description": "读取设备测点当前值",
+                "inputSchema": {"type": "object", "properties": {"device_id": {"type": "string", "description": "设备ID"}}, "required": ["device_id"]},
+            },
+            "write_device_point": {
+                "name": "write_device_point",
+                "description": "写入设备测点值",
+                "inputSchema": {"type": "object", "properties": {"device_id": {"type": "string"}, "point_name": {"type": "string"}, "value": {"type": "number"}}, "required": ["device_id", "point_name", "value"]},
+            },
+            "list_alarms": {
+                "name": "list_alarms",
+                "description": "获取当前活跃告警列表",
+                "inputSchema": {"type": "object", "properties": {"severity": {"type": "string", "description": "告警级别过滤"}}, "required": []},
+            },
+            "get_system_status": {
+                "name": "get_system_status",
+                "description": "获取系统运行状态",
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
+            },
+            "list_rules": {
+                "name": "list_rules",
+                "description": "获取所有规则列表",
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
+            },
+        }
+
+    def _register_resources(self):
+        self._resources = {
+            "devices": {"uri": "edgelite://devices", "name": "设备列表", "description": "所有已注册设备的概要信息", "mimeType": "application/json"},
+            "alarms/active": {"uri": "edgelite://alarms/active", "name": "活跃告警", "description": "当前未确认的告警列表", "mimeType": "application/json"},
+            "system/status": {"uri": "edgelite://system/status", "name": "系统状态", "description": "系统运行状态概要", "mimeType": "application/json"},
+        }
+
+    def _register_prompts(self):
+        self._prompts = {
+            "analyze_device": {
+                "name": "analyze_device",
+                "description": "分析设备运行状态和异常",
+                "arguments": [{"name": "device_id", "description": "要分析的设备ID", "required": True}],
+            },
+            "alarm_summary": {
+                "name": "alarm_summary",
+                "description": "生成告警摘要报告",
+                "arguments": [{"name": "severity", "description": "告警级别过滤", "required": False}],
+            },
+        }
+
+    async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
+        args = arguments or {}
+        try:
+            from edgelite.app import _app_state
+
+            if name == "list_devices":
+                svc = getattr(_app_state, "device_service", None)
+                if svc:
+                    devices = await svc.list_devices()
+                    return {"devices": devices, "total": len(devices)}
+                return {"devices": [], "total": 0}
+
+            elif name == "get_device_status":
+                device_id = args.get("device_id", "")
+                svc = getattr(_app_state, "device_service", None)
+                if svc:
+                    device = await svc.get_device(device_id)
+                    return device or {"error": f"设备 {device_id} 不存在"}
+                return {"error": "设备服务不可用"}
+
+            elif name == "read_device_points":
+                device_id = args.get("device_id", "")
+                svc = getattr(_app_state, "device_service", None)
+                if svc:
+                    points = await svc.get_device_points(device_id)
+                    return {"device_id": device_id, "points": points}
+                return {"device_id": device_id, "points": []}
+
+            elif name == "write_device_point":
+                device_id = args.get("device_id", "")
+                point_name = args.get("point_name", "")
+                value = args.get("value", 0)
+                svc = getattr(_app_state, "device_service", None)
+                if svc:
+                    await svc.write_point(device_id, point_name, value)
+                    return {"success": True, "device_id": device_id, "point_name": point_name, "value": value}
+                return {"success": False, "error": "设备服务不可用"}
+
+            elif name == "list_alarms":
+                severity = args.get("severity")
+                svc = getattr(_app_state, "alarm_service", None)
+                if svc:
+                    alarms = await svc.list_alarms(severity=severity)
+                    return {"alarms": alarms, "total": len(alarms)}
+                return {"alarms": [], "total": 0}
+
+            elif name == "get_system_status":
+                svc = getattr(_app_state, "system_service", None)
+                if svc:
+                    status = await svc.get_status()
+                    return status
+                return {"status": "unknown"}
+
+            elif name == "list_rules":
+                svc = getattr(_app_state, "rule_service", None)
+                if svc:
+                    rules = await svc.list_rules()
+                    return {"rules": rules, "total": len(rules)}
+                return {"rules": [], "total": 0}
+
+            else:
+                return {"error": f"未知工具: {name}"}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+
+_mcp_server = MCPServer()
+
+
+@router.get("/tools", response_model=ApiResponse)
+async def list_tools():
+    return ApiResponse(data={"tools": list(_mcp_server._tools.values())})
+
+
+@router.post("/call", response_model=ApiResponse)
+async def call_tool(req: ToolCallRequest):
+    if req.name not in _mcp_server._tools:
+        raise HTTPException(status_code=400, detail=f"未知工具: {req.name}")
+    result = await _mcp_server.call_tool(req.name, req.arguments)
+    return ApiResponse(data=result)
+
+
+@router.get("/resources", response_model=ApiResponse)
+async def list_resources():
+    return ApiResponse(data={"resources": list(_mcp_server._resources.values())})
+
+
+@router.get("/prompts", response_model=ApiResponse)
+async def list_prompts():
+    return ApiResponse(data={"prompts": list(_mcp_server._prompts.values())})

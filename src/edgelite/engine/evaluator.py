@@ -113,6 +113,8 @@ class RuleEvaluator:
         logic = rule["logic"]
         duration = rule["duration"]
         severity = rule["severity"]
+        rule_type = rule.get("rule_type", "threshold")
+        script = rule.get("script", "")
 
         now = time.time()
 
@@ -144,7 +146,10 @@ class RuleEvaluator:
                         logger.debug("从InfluxDB获取测点值失败 %s.%s: %s", event.device_id, cond_point, e)
 
         # 评估条件
-        matched = self._check_conditions(conditions, point_values, logic)
+        if rule_type == "script" and script:
+            matched = self._eval_script(script, point_values)
+        else:
+            matched = self._check_conditions(conditions, point_values, logic)
 
         tracker_key = (rule_id, device_id)
 
@@ -221,6 +226,58 @@ class RuleEvaluator:
         elif operator == "!=":
             return abs(value - threshold) >= 1e-9
         return False
+
+    @staticmethod
+    def _eval_script(script: str, point_values: dict[str, float]) -> bool:
+        """在安全沙箱中执行脚本规则"""
+        try:
+            from RestrictedPython import compile_restricted, safe_globals
+            from RestrictedPython.Eval import default_guarded_getitem
+            from RestrictedPython.Guards import safer_getattr
+
+            safe_locals = {
+                "__builtins__": safe_globals,
+                "_getitem_": default_guarded_getitem,
+                "_getattr_": safer_getattr,
+                "_getiter_": iter,
+                "abs": abs,
+                "min": min,
+                "max": max,
+                "sum": sum,
+                "len": len,
+                "round": round,
+                "sorted": sorted,
+                "point_values": point_values,
+            }
+
+            code = compile_restricted(script, filename="<rule_script>", mode="exec")
+            if code is None:
+                return False
+
+            exec(code, safe_locals, safe_locals)
+            result = safe_locals.get("result", False)
+            return bool(result)
+        except ImportError:
+            import math
+            safe_locals = {
+                "point_values": point_values,
+                "abs": abs,
+                "min": min,
+                "max": max,
+                "sum": sum,
+                "len": len,
+                "round": round,
+                "math": math,
+            }
+            try:
+                result = eval(script, {"__builtins__": {}}, safe_locals)
+                return bool(result)
+            except Exception as e:
+                logger.warning("脚本规则执行失败(无RestrictedPython): %s", e)
+                return False
+        except Exception as e:
+            logger.warning("脚本规则执行失败: %s", e)
+            return False
 
     async def _fire_alarm(self, rule: dict, trigger_value: dict) -> None:
         """触发告警"""

@@ -64,7 +64,7 @@ export interface DeviceCreateParams {
 }
 
 export const deviceApi = {
-  list: (params?: { page?: number; size?: number; status?: string; protocol?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; protocol?: string; search?: string }) =>
     http.get<PagedData<Device>>('/devices', { params }).then((r) => r.data),
 
   get: (id: string) =>
@@ -166,7 +166,7 @@ export interface Alarm {
 }
 
 export const alarmApi = {
-  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; severity?: string; device_id?: string; search?: string }) =>
     http.get<PagedData<Alarm>>('/alarms', { params }).then((r) => r.data),
 
   get: (id: string) =>
@@ -254,22 +254,6 @@ export const userApi = {
     http.delete(`/users/${id}`),
 }
 
-// ─── 审计日志 ───
-
-export const auditApi = {
-  list: (params?: { page?: number; size?: number; user_id?: string; action?: string; start_time?: string; end_time?: string }) =>
-    http.get<ApiResponse<{ logs: any[]; total: number }>>('/audit/logs', { params }).then((r) => r.data.data),
-
-  integrity: () =>
-    http.get<ApiResponse<{ valid: boolean; total: number; broken_at: number[] }>>('/audit/integrity').then((r) => r.data.data),
-
-  exportCsv: (params?: { start_time?: string; end_time?: string }) =>
-    http.get<ApiResponse<{ content: string }>>('/audit/export/csv', { params }).then((r) => r.data.data),
-
-  cleanup: (retentionDays: number = 90) =>
-    http.post<ApiResponse<{ deleted: number }>>('/audit/cleanup', null, { params: { retention_days: retentionDays } }).then((r) => r.data.data),
-}
-
 // ─── 驱动配置 ───
 
 export const driverApi = {
@@ -328,6 +312,34 @@ export const platformApi = {
     http.get<ApiResponse<{ connected: boolean; name: string; version: string }>>(`/platforms/status/${platformName}`).then((r) => r.data.data),
 }
 
+// ─── 审计日志 ───
+
+export interface AuditLog {
+  log_id: string
+  username: string
+  action: string
+  resource_type: string
+  resource_id: string
+  ip_address: string
+  status: string
+  details: string
+  created_at: string
+}
+
+export const auditApi = {
+  list: (params?: { page?: number; size?: number; user_id?: string; action?: string; start_time?: string; end_time?: string }) =>
+    http.get<ApiResponse<{ logs: any[]; total: number }>>('/audit/logs', { params }).then((r) => r.data.data),
+
+  integrity: () =>
+    http.get<ApiResponse<{ valid: boolean; total: number; broken_at: number[] }>>('/audit/integrity').then((r) => r.data.data),
+
+  exportCsv: (params?: { start_time?: string; end_time?: string }) =>
+    http.get<ApiResponse<{ content: string }>>('/audit/export/csv', { params }).then((r) => r.data.data),
+
+  cleanup: (retentionDays: number = 90) =>
+    http.post<ApiResponse<{ deleted: number }>>('/audit/cleanup', null, { params: { retention_days: retentionDays } }).then((r) => r.data.data),
+}
+
 // ─── 计算表达式 ───
 
 export const expressionApi = {
@@ -342,4 +354,91 @@ export const expressionApi = {
 
   functions: () =>
     http.get<ApiResponse<{ functions: any[]; operators: any[] }>>('/expressions/functions').then((r) => r.data.data),
+}
+
+// ─── MQTT Server ───
+
+export const mqttServerApi = {
+  status: () =>
+    http.get<ApiResponse<any>>('/mqtt-server/status').then((r) => r.data.data),
+
+  start: () =>
+    http.post<ApiResponse>('/mqtt-server/start').then((r) => r.data),
+
+  stop: () =>
+    http.post<ApiResponse>('/mqtt-server/stop').then((r) => r.data),
+
+  updateConfig: (data: any) =>
+    http.put<ApiResponse>('/mqtt-server/config', data).then((r) => r.data),
+}
+
+// ─── Modbus Slave ───
+
+export const modbusSlaveApi = {
+  status: () =>
+    http.get<ApiResponse<any>>('/modbus-slave/status').then((r) => r.data.data),
+
+  start: () =>
+    http.post<ApiResponse>('/modbus-slave/start').then((r) => r.data),
+
+  stop: () =>
+    http.post<ApiResponse>('/modbus-slave/stop').then((r) => r.data),
+
+  updateConfig: (data: any) =>
+    http.put<ApiResponse>('/modbus-slave/config', data).then((r) => r.data),
+}
+
+// ─── MCP协议 ───
+
+export const mcpApi = {
+  tools: () =>
+    http.get<ApiResponse<{ tools: any[] }>>('/mcp/tools').then((r) => r.data.data),
+
+  callTool: (name: string, arguments_: Record<string, any>) =>
+    http.post<ApiResponse>('/mcp/call', { name, arguments: arguments_ }).then((r) => r.data.data),
+
+  resources: () =>
+    http.get<ApiResponse<{ resources: any[] }>>('/mcp/resources').then((r) => r.data.data),
+
+  prompts: () =>
+    http.get<ApiResponse<{ prompts: any[] }>>('/mcp/prompts').then((r) => r.data.data),
+}
+
+// ─── OTA升级 ───
+
+export const otaApi = {
+  check: () =>
+    http.get<ApiResponse<any>>('/ota/check').then((r) => r.data.data),
+
+  apply: () =>
+    http.post<ApiResponse>('/ota/apply').then((r) => r.data),
+
+  rollback: (version?: string) =>
+    http.post<ApiResponse>('/ota/rollback', null, { params: { version: version || '' } }).then((r) => r.data),
+
+  backups: () =>
+    http.get<ApiResponse<any>>('/ota/backups').then((r) => r.data.data),
+}
+
+// ─── Grafana集成 ───
+
+export const grafanaApi = {
+  config: () =>
+    http.get<ApiResponse<any>>('/grafana/config').then((r) => r.data.data),
+
+  dashboards: () =>
+    http.get<ApiResponse<any>>('/grafana/dashboards').then((r) => r.data.data),
+
+  embedUrl: (dashboardUid?: string) =>
+    http.get<ApiResponse<{ url: string }>>('/grafana/embed-url', { params: { dashboard_uid: dashboardUid || '' } }).then((r) => r.data.data),
+}
+
+// ─── 联调集成 ───
+
+export const integrationApi = {
+  handshake: (data: any) =>
+    http.post<ApiResponse>('/integration/handshake', data).then((r) => r.data),
+
+  status: () =>
+    http.get<ApiResponse<any>>('/integration/status').then((r) => r.data.data),
 }

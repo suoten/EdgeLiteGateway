@@ -1,9 +1,9 @@
 """审计日志服务
 
 支持：
-- 完整操作记录（5大类20+操作类型）
+- 完整操作记录
 - 防篡改签名（哈希链）
-- 合规审计报告导出（CSV/JSON）
+- 合规审计报告导出（CSV）
 - 日志保留策略
 - 异常登录检测
 """
@@ -67,8 +67,6 @@ class AuditService:
 
     async def close(self) -> None:
         self._initialized = False
-        self._last_hash = ""
-        self._login_fail_counts.clear()
 
     async def initialize(self) -> None:
         await asyncio.to_thread(self._sync_initialize)
@@ -180,67 +178,20 @@ class AuditService:
         conn.close()
 
     async def _check_login_anomaly(self, ip_address: str, username: str | None) -> None:
-        self._login_fail_counts[ip_address] = self._login_fail_counts.get(ip_address, 0) + 1
-        count = self._login_fail_counts[ip_address]
-
-        if count >= self._login_fail_threshold:
-            logger.warning("异常登录检测: IP=%s 连续失败%d次", ip_address, count)
+        key = f"{ip_address}:{username or 'unknown'}"
+        self._login_fail_counts[key] = self._login_fail_counts.get(key, 0) + 1
+        if self._login_fail_counts[key] >= self._login_fail_threshold:
             if self._on_audit_alert:
                 try:
                     await self._on_audit_alert({
                         "type": "login_anomaly",
                         "ip_address": ip_address,
-                        "fail_count": count,
                         "username": username,
-                        "timestamp": datetime.now().isoformat(),
+                        "fail_count": self._login_fail_counts[key],
                     })
-                except Exception as e:
-                    logger.error("审计告警回调失败: %s", e)
-
-    def reset_login_fail_count(self, ip_address: str) -> None:
-        self._login_fail_counts.pop(ip_address, None)
-
-    async def verify_integrity(self) -> dict:
-        return await asyncio.to_thread(self._sync_verify_integrity)
-
-    def _sync_verify_integrity(self) -> dict:
-        import sqlite3
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT id, timestamp, user_id, username, action, resource_type, "
-            "resource_id, ip_address, status, prev_hash, record_hash "
-            "FROM audit_logs ORDER BY id ASC"
-        )
-        rows = cursor.fetchall()
-        conn.close()
-
-        if not rows:
-            return {"valid": True, "total": 0, "broken_at": []}
-
-        broken_at = []
-        expected_prev_hash = ""
-
-        for row in rows:
-            (log_id, timestamp, user_id, username, action, resource_type,
-             resource_id, ip_address, status, prev_hash, record_hash) = row
-
-            if prev_hash != expected_prev_hash:
-                broken_at.append(log_id)
-
-            record = {
-                "timestamp": timestamp, "user_id": user_id, "username": username,
-                "action": action, "resource_type": resource_type,
-                "resource_id": resource_id, "ip_address": ip_address, "status": status,
-            }
-            computed_hash = self._compute_record_hash(record, prev_hash)
-            if computed_hash != record_hash:
-                broken_at.append(log_id)
-
-            expected_prev_hash = record_hash
-
-        return {"valid": len(broken_at) == 0, "total": len(rows), "broken_at": broken_at}
+                except Exception:
+                    pass
+            self._login_fail_counts[key] = 0
 
     async def query(
         self,
@@ -250,18 +201,14 @@ class AuditService:
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         page: int = 1,
-        size: int = 50,
+        size: int = 20,
     ) -> tuple[list[dict], int]:
-        action_val = action.value if action else None
-        start_iso = start_time.isoformat() if start_time else None
-        end_iso = end_time.isoformat() if end_time else None
         return await asyncio.to_thread(
-            self._sync_query, user_id, action_val, resource_type,
-            start_iso, end_iso, page, size,
+            self._sync_query, user_id, action, resource_type,
+            start_time, end_time, page, size,
         )
 
-    def _sync_query(self, user_id, action, resource_type, start_time,
-                    end_time, page, size) -> tuple[list[dict], int]:
+    def _sync_query(self, user_id, action, resource_type, start_time, end_time, page, size):
         import sqlite3
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -274,60 +221,88 @@ class AuditService:
             params.append(user_id)
         if action:
             conditions.append("action = ?")
-            params.append(action)
+            params.append(action.value)
         if resource_type:
             conditions.append("resource_type = ?")
             params.append(resource_type)
         if start_time:
             conditions.append("timestamp >= ?")
-            params.append(start_time)
+            params.append(start_time.isoformat())
         if end_time:
             conditions.append("timestamp <= ?")
-            params.append(end_time)
+            params.append(end_time.isoformat())
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        where = " AND ".join(conditions) if conditions else "1=1"
 
-        cursor.execute(f"SELECT COUNT(*) FROM audit_logs WHERE {where_clause}", params)
+        cursor.execute(f"SELECT COUNT(*) FROM audit_logs WHERE {where}", params)
         total = cursor.fetchone()[0]
 
         offset = (page - 1) * size
         cursor.execute(
-            f"SELECT id, timestamp, user_id, username, action, resource_type, resource_id, "
-            f"ip_address, user_agent, details, status, error_message "
-            f"FROM audit_logs WHERE {where_clause} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+            f"SELECT * FROM audit_logs WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?",
             params + [size, offset],
         )
+        columns = [desc[0] for desc in cursor.description]
+        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
+        conn.close()
+        return rows, total
+
+    async def verify_integrity(self) -> dict:
+        return await asyncio.to_thread(self._sync_verify_integrity)
+
+    def _sync_verify_integrity(self) -> dict:
+        import sqlite3
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, timestamp, user_id, username, action, resource_type, resource_id, ip_address, status, prev_hash, record_hash FROM audit_logs ORDER BY id ASC")
         rows = cursor.fetchall()
         conn.close()
 
-        logs = [
-            {
-                "id": row[0], "timestamp": row[1], "user_id": row[2], "username": row[3],
+        total = len(rows)
+        broken_at = []
+        prev_hash = ""
+        for row in rows:
+            record = {
+                "timestamp": row[1], "user_id": row[2], "username": row[3],
                 "action": row[4], "resource_type": row[5], "resource_id": row[6],
-                "ip_address": row[7], "user_agent": row[8],
-                "details": json.loads(row[9]) if row[9] else None,
-                "status": row[10], "error_message": row[11],
+                "ip_address": row[7], "status": row[8],
             }
-            for row in rows
-        ]
+            expected_hash = self._compute_record_hash(record, prev_hash)
+            if row[10] != expected_hash:
+                broken_at.append(row[0])
+            prev_hash = row[10]
 
-        return logs, total
+        return {"valid": len(broken_at) == 0, "total": total, "broken_at": broken_at}
 
     async def export_csv(self, start_time: datetime | None = None, end_time: datetime | None = None) -> str:
-        logs, _ = await self.query(start_time=start_time, end_time=end_time, size=10000)
+        return await asyncio.to_thread(self._sync_export_csv, start_time, end_time)
+
+    def _sync_export_csv(self, start_time, end_time) -> str:
+        import sqlite3
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+
+        conditions = []
+        params = []
+        if start_time:
+            conditions.append("timestamp >= ?")
+            params.append(start_time.isoformat())
+        if end_time:
+            conditions.append("timestamp <= ?")
+            params.append(end_time.isoformat())
+
+        where = " AND ".join(conditions) if conditions else "1=1"
+        cursor.execute(f"SELECT * FROM audit_logs WHERE {where} ORDER BY id ASC", params)
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+        conn.close()
 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["ID", "时间", "用户ID", "用户名", "操作", "资源类型", "资源ID", "IP地址", "状态", "详情"])
-
-        for log in logs:
-            writer.writerow([
-                log["id"], log["timestamp"], log["user_id"], log["username"],
-                log["action"], log["resource_type"], log["resource_id"],
-                log["ip_address"], log["status"],
-                json.dumps(log["details"], ensure_ascii=False) if log.get("details") else "",
-            ])
+        writer.writerow(columns)
+        for row in rows:
+            writer.writerow(row)
 
         return output.getvalue()
 
@@ -336,13 +311,12 @@ class AuditService:
 
     def _sync_cleanup(self, retention_days: int) -> int:
         import sqlite3
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-
-        cursor.execute("DELETE FROM audit_logs WHERE timestamp < datetime('now', ?)", (f"-{retention_days} days",))
+        cursor.execute("DELETE FROM audit_logs WHERE timestamp < ?", (cutoff,))
         deleted = cursor.rowcount
         conn.commit()
         conn.close()
-
-        logger.info("清理过期审计日志: %d 条", deleted)
         return deleted
