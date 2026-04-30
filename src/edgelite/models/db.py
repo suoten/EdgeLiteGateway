@@ -87,28 +87,3 @@ class CacheQueueORM(Base):
     timestamp: Mapped[str] = mapped_column(Text, nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow)
-
-
-class AuditLogORM(Base):
-    __tablename__ = "audit_logs"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    created_at: Mapped[str] = mapped_column(String(32), nullable=False)
-    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    username: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    action: Mapped[str] = mapped_column(String(32), nullable=False)
-    resource_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    resource_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
-    user_agent: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    details: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="success")
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    record_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    __table_args__ = (
-        Index("idx_audit_created_at", "created_at"),
-        Index("idx_audit_user", "user_id"),
-        Index("idx_audit_action", "action"),
-    )

@@ -253,16 +253,17 @@ const menuOptions = [
     ],
   },
   {
-    label: '内置服务', key: 'builtin-services', icon: renderIcon(RadioOutline),
+    label: '服务管理', key: 'service-group', icon: renderIcon(RadioOutline),
     children: [
+      { label: '服务总览', key: 'ServiceOverview', icon: renderIcon(RadioOutline) },
       { label: 'MQTT Server', key: 'MqttServer', icon: renderIcon(RadioOutline) },
       { label: 'Modbus Slave', key: 'ModbusSlave', icon: renderIcon(PowerOutline) },
       { label: '串口透传', key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
+      { label: 'Grafana监控', key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
+      { label: 'MCP Server', key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
     ],
   },
   { label: 'OTA升级', key: 'OtaUpdate', icon: renderIcon(RocketOutline) },
-  { label: 'Grafana监控', key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
-  { label: 'MCP Server', key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
 ]
 
 const userOptions = [

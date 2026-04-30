@@ -1,95 +1,155 @@
 <template>
   <n-space vertical :size="16">
-    <n-card title="MCP Server 状态" :bordered="false">
-      <template #header-extra>
-        <n-tag :type="connected ? 'success' : 'default'" size="small">
-          {{ connected ? '已连接' : '未连接' }}
-        </n-tag>
+    <n-card :bordered="false">
+      <template #header>
+        <n-space align="center" :size="12">
+          <span style="font-size: 16px; font-weight: 600">MCP Server</span>
+          <n-tag :type="stateTagType" size="small">{{ stateLabel }}</n-tag>
+        </n-space>
       </template>
-      <n-descriptions label-placement="left" :column="2" bordered>
-        <n-descriptions-item label="服务版本">EdgeLite MCP v1.0</n-descriptions-item>
-        <n-descriptions-item label="SSE端点">/api/v1/mcp/sse</n-descriptions-item>
-        <n-descriptions-item label="认证状态">
-          <n-tag :type="authEnabled ? 'success' : 'warning'" size="small">
-            {{ authEnabled ? '已启用' : '未启用' }}
-          </n-tag>
-        </n-descriptions-item>
-        <n-descriptions-item label="API Key数量">{{ apiKeys.length }}</n-descriptions-item>
-      </n-descriptions>
-    </n-card>
-
-    <n-card title="可用工具" :bordered="false">
-      <n-data-table
-        :columns="toolColumns"
-        :data="tools"
-        :loading="loadingTools"
-        :bordered="false"
-        size="small"
-      />
-    </n-card>
-
-    <n-card title="可用资源" :bordered="false">
-      <n-data-table
-        :columns="resourceColumns"
-        :data="resources"
-        :loading="loadingResources"
-        :bordered="false"
-        size="small"
-      />
-    </n-card>
-
-    <n-card title="提示模板" :bordered="false">
-      <n-data-table
-        :columns="promptColumns"
-        :data="prompts"
-        :loading="loadingPrompts"
-        :bordered="false"
-        size="small"
-      />
-    </n-card>
-
-    <n-card title="API Key 管理" :bordered="false">
       <template #header-extra>
-        <n-button type="primary" size="small" @click="showCreateKeyModal = true">创建Key</n-button>
+        <n-space :size="8">
+          <n-switch
+            :value="enabled"
+            :loading="toggleLoading"
+            @update:value="handleToggle"
+          >
+            <template #checked>已启用</template>
+            <template #unchecked>已停用</template>
+          </n-switch>
+          <n-button size="small" @click="fetchStatus" :loading="loading">刷新</n-button>
+        </n-space>
       </template>
-      <n-data-table
-        :columns="keyColumns"
-        :data="apiKeys"
-        :loading="loadingKeys"
-        :bordered="false"
-        size="small"
-      />
 
-      <n-modal v-model:show="showCreateKeyModal" title="创建API Key" preset="card" style="width: 480px">
-        <n-form :model="keyForm" label-placement="left" label-width="100">
-          <n-form-item label="名称">
-            <n-input v-model:value="keyForm.name" placeholder="Key名称" />
-          </n-form-item>
-          <n-form-item label="权限">
-            <n-checkbox-group v-model:value="keyForm.scopes">
-              <n-space>
-                <n-checkbox value="read">读取</n-checkbox>
-                <n-checkbox value="write">写入</n-checkbox>
-              </n-space>
-            </n-checkbox-group>
-          </n-form-item>
-        </n-form>
-        <template #action>
-          <n-button @click="showCreateKeyModal = false">取消</n-button>
-          <n-button type="primary" @click="handleCreateKey">创建</n-button>
+      <n-alert
+        v-if="missingDeps.length > 0"
+        type="warning"
+        :bordered="false"
+        style="margin-bottom: 12px"
+      >
+        <template #header>缺少依赖组件</template>
+        以下依赖未安装：{{ missingDeps.map(d => d.package).join(', ') }}
+        <n-button
+          type="primary"
+          size="small"
+          style="margin-left: 12px"
+          @click="handleInstallDeps"
+          :loading="installing"
+        >一键安装</n-button>
+      </n-alert>
+
+      <template v-if="enabled">
+        <n-descriptions label-placement="left" :column="2" bordered>
+          <n-descriptions-item label="服务版本">EdgeLite MCP v1.0</n-descriptions-item>
+          <n-descriptions-item label="SSE端点">/api/v1/mcp/sse</n-descriptions-item>
+          <n-descriptions-item label="认证状态">
+            <n-tag :type="authEnabled ? 'success' : 'warning'" size="small">
+              {{ authEnabled ? '已启用' : '未启用' }}
+            </n-tag>
+          </n-descriptions-item>
+          <n-descriptions-item label="API Key数量">{{ apiKeys.length }}</n-descriptions-item>
+        </n-descriptions>
+      </template>
+
+      <n-empty v-else description="MCP Server未启用，请开启开关启用服务" />
+    </n-card>
+
+    <template v-if="enabled">
+      <n-card title="可用工具" :bordered="false">
+        <n-data-table
+          :columns="toolColumns"
+          :data="tools"
+          :loading="loadingTools"
+          :bordered="false"
+          size="small"
+        />
+      </n-card>
+
+      <n-card title="可用资源" :bordered="false">
+        <n-data-table
+          :columns="resourceColumns"
+          :data="resources"
+          :loading="loadingResources"
+          :bordered="false"
+          size="small"
+        />
+      </n-card>
+
+      <n-card title="提示模板" :bordered="false">
+        <n-data-table
+          :columns="promptColumns"
+          :data="prompts"
+          :loading="loadingPrompts"
+          :bordered="false"
+          size="small"
+        />
+      </n-card>
+
+      <n-card title="API Key 管理" :bordered="false">
+        <template #header-extra>
+          <n-button type="primary" size="small" @click="showCreateKeyModal = true">创建Key</n-button>
         </template>
-      </n-modal>
-    </n-card>
+        <n-data-table
+          :columns="keyColumns"
+          :data="apiKeys"
+          :loading="loadingKeys"
+          :bordered="false"
+          size="small"
+        />
+
+        <n-modal v-model:show="showCreateKeyModal" title="创建API Key" preset="card" style="width: 480px">
+          <n-form :model="keyForm" label-placement="left" label-width="100">
+            <n-form-item label="名称">
+              <n-input v-model:value="keyForm.name" placeholder="Key名称" />
+            </n-form-item>
+            <n-form-item label="权限">
+              <n-checkbox-group v-model:value="keyForm.scopes">
+                <n-space>
+                  <n-checkbox value="read">读取</n-checkbox>
+                  <n-checkbox value="write">写入</n-checkbox>
+                </n-space>
+              </n-checkbox-group>
+            </n-form-item>
+          </n-form>
+          <template #action>
+            <n-button @click="showCreateKeyModal = false">取消</n-button>
+            <n-button type="primary" @click="handleCreateKey">创建</n-button>
+          </template>
+        </n-modal>
+      </n-card>
+    </template>
+
+    <n-modal v-model:show="showInstallProgress" title="安装依赖" preset="card" style="width: 480px" :closable="false">
+      <n-spin :description="installProgress">
+        <n-space vertical>
+          <p>正在安装缺失的依赖组件，请稍候...</p>
+          <p v-if="installResult">{{ installResult }}</p>
+        </n-space>
+      </n-spin>
+      <template #action>
+        <n-button @click="showInstallProgress = false" :disabled="installing">关闭</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, computed, onMounted, h } from 'vue'
 import { NTag, NButton, useMessage } from 'naive-ui'
-import { mcpApi } from '@/api'
+import { serviceApi, mcpApi } from '@/api'
+import type { ServiceDependency } from '@/api'
 
 const message = useMessage()
-const connected = ref(false)
+const loading = ref(false)
+const toggleLoading = ref(false)
+const installing = ref(false)
+const showInstallProgress = ref(false)
+const installProgress = ref('')
+const installResult = ref('')
+
+const enabled = ref(false)
+const state = ref<string>('disabled')
+const dependencies = ref<ServiceDependency[]>([])
 const authEnabled = ref(false)
 
 const tools = ref<any[]>([])
@@ -106,6 +166,27 @@ const showCreateKeyModal = ref(false)
 const keyForm = reactive({
   name: '',
   scopes: ['read'] as string[],
+})
+
+const missingDeps = computed(() => dependencies.value.filter(d => !d.installed))
+
+const stateTagType = computed(() => {
+  switch (state.value) {
+    case 'running': return 'success'
+    case 'enabled': return 'info'
+    case 'error': return 'error'
+    default: return 'default'
+  }
+})
+
+const stateLabel = computed(() => {
+  switch (state.value) {
+    case 'running': return '运行中'
+    case 'enabled': return '已启用'
+    case 'error': return '异常'
+    case 'disabled': return '未启用'
+    default: return state.value
+  }
 })
 
 const toolColumns = [
@@ -134,15 +215,30 @@ const keyColumns = [
   { title: '创建时间', key: 'created_at', width: 180 },
 ]
 
+async function fetchStatus() {
+  loading.value = true
+  try {
+    const data = await serviceApi.status('mcp_server')
+    enabled.value = data.state !== 'disabled'
+    state.value = data.state
+    dependencies.value = data.dependencies || []
+
+    if (enabled.value) {
+      await Promise.all([fetchTools(), fetchResources(), fetchPrompts(), fetchApiKeys()])
+    }
+  } catch (e: any) {
+    message.error(e?.message || '获取状态失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 async function fetchTools() {
   loadingTools.value = true
   try {
     const data = await mcpApi.tools()
     tools.value = data?.tools || []
-    connected.value = true
-  } catch {
-    connected.value = false
-  } finally {
+  } catch {} finally {
     loadingTools.value = false
   }
 }
@@ -178,6 +274,48 @@ async function fetchApiKeys() {
   }
 }
 
+async function handleToggle(val: boolean) {
+  toggleLoading.value = true
+  try {
+    if (val) {
+      await serviceApi.enable('mcp_server')
+      message.success('MCP Server已启用')
+    } else {
+      await serviceApi.disable('mcp_server')
+      message.success('MCP Server已停用')
+    }
+    await fetchStatus()
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail
+    if (typeof detail === 'object' && detail?.missing_dependencies) {
+      message.warning(detail.message || '缺少依赖，请先安装')
+    } else {
+      message.error(typeof detail === 'string' ? detail : (e?.message || '操作失败'))
+    }
+  } finally {
+    toggleLoading.value = false
+  }
+}
+
+async function handleInstallDeps() {
+  installing.value = true
+  showInstallProgress.value = true
+  installProgress.value = '正在安装依赖...'
+  installResult.value = ''
+  try {
+    await serviceApi.installDeps('mcp_server')
+    installResult.value = '依赖安装成功！'
+    message.success('依赖安装成功')
+    await fetchStatus()
+  } catch (e: any) {
+    installResult.value = `安装失败: ${e?.response?.data?.detail || e?.message}`
+    message.error('依赖安装失败')
+  } finally {
+    installing.value = false
+    installProgress.value = ''
+  }
+}
+
 async function handleCreateKey() {
   if (!keyForm.name) {
     message.warning('请输入Key名称')
@@ -195,10 +333,5 @@ async function handleCreateKey() {
   }
 }
 
-onMounted(() => {
-  fetchTools()
-  fetchResources()
-  fetchPrompts()
-  fetchApiKeys()
-})
+onMounted(fetchStatus)
 </script>

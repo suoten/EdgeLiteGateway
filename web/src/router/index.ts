@@ -22,6 +22,7 @@ const router = createRouter({
         { path: 'alarms', name: 'Alarms', component: () => import('@/views/alarm/AlarmList.vue') },
         { path: 'data', name: 'DataQuery', component: () => import('@/views/data/DataQuery.vue') },
         { path: 'system', name: 'System', component: () => import('@/views/system/SystemStatus.vue') },
+        { path: 'system/services', name: 'ServiceOverview', component: () => import('@/views/system/ServiceOverview.vue'), meta: { requiredRole: 'admin' } },
         { path: 'system/drivers', name: 'DriverConfig', component: () => import('@/views/system/DriverConfig.vue') },
         { path: 'system/platforms', name: 'PlatformConfig', component: () => import('@/views/system/PlatformConfig.vue') },
         { path: 'system/expressions', name: 'ExpressionConfig', component: () => import('@/views/system/ExpressionConfig.vue') },

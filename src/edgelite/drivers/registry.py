@@ -27,6 +27,7 @@ class DriverRegistry:
                 driver_class.plugin_version,
                 protocol,
             )
+        self._drivers[driver_class.plugin_name] = driver_class
 
     def get_driver_class(self, protocol: str) -> Type[DriverPlugin] | None:
         """按协议类型获取驱动类"""

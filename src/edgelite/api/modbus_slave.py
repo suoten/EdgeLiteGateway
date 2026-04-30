@@ -33,15 +33,22 @@ def _get_modbus_slave():
 async def get_modbus_slave_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    srv = _get_modbus_slave()
-    if not srv:
-        raise HTTPException(status_code=501, detail="Modbus Slave服务未启用")
+    from edgelite.services.service_manager import get_service_manager
+    mgr = get_service_manager()
+    info = mgr.get_service_info("modbus_slave")
+
     return ApiResponse(data={
-        "running": srv.is_running if hasattr(srv, "is_running") else False,
-        "host": getattr(srv, "_host", "0.0.0.0"),
-        "port": getattr(srv, "_port", 502),
-        "holding_size": getattr(srv, "_holding_size", 100),
-        "input_size": getattr(srv, "_input_size", 100),
+        "enabled": info.state.value != "disabled",
+        "running": info.state.value == "running",
+        "state": info.state.value,
+        "host": info.current_config.get("host", "0.0.0.0"),
+        "port": info.current_config.get("port", 502),
+        "holding_size": info.current_config.get("holding_size", 100),
+        "input_size": info.current_config.get("input_size", 100),
+        "dependencies": [
+            {"package": d.package, "installed": d.installed, "version": d.version}
+            for d in info.dependencies
+        ],
     })
 
 
@@ -49,30 +56,24 @@ async def get_modbus_slave_status(
 async def start_modbus_slave(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    srv = _get_modbus_slave()
-    if not srv:
-        raise HTTPException(status_code=501, detail="Modbus Slave服务未启用")
-    try:
-        if hasattr(srv, "is_running") and srv.is_running:
-            return ApiResponse(data={"status": "already_running"})
-        await srv.start()
-        return ApiResponse(data={"status": "started"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    from edgelite.services.service_manager import get_service_manager
+    mgr = get_service_manager()
+    result = await mgr.start_service("modbus_slave")
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
+    return ApiResponse(data=result)
 
 
 @router.post("/stop", response_model=ApiResponse)
 async def stop_modbus_slave(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    srv = _get_modbus_slave()
-    if not srv:
-        raise HTTPException(status_code=501, detail="Modbus Slave服务未启用")
-    try:
-        await srv.stop()
-        return ApiResponse(data={"status": "stopped"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    from edgelite.services.service_manager import get_service_manager
+    mgr = get_service_manager()
+    result = await mgr.stop_service("modbus_slave")
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
+    return ApiResponse(data=result)
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -80,12 +81,9 @@ async def update_modbus_slave_config(
     config: ModbusSlaveConfigModel,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    srv = _get_modbus_slave()
-    if not srv:
-        raise HTTPException(status_code=501, detail="Modbus Slave服务未启用")
-    try:
-        if hasattr(srv, "update_config"):
-            await srv.update_config(config.model_dump())
-        return ApiResponse(data={"status": "config_updated"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    from edgelite.services.service_manager import get_service_manager
+    mgr = get_service_manager()
+    result = await mgr.update_service_config("modbus_slave", config.model_dump())
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "配置更新失败"))
+    return ApiResponse(data=result)

@@ -1,69 +1,37 @@
 <template>
-  <n-space vertical :size="16">
-    <n-card title="内置MQTT Server" :bordered="false">
-      <template #header-extra>
-        <n-space>
-          <n-tag :type="status.running ? 'success' : 'default'" size="small">
-            {{ status.running ? '运行中' : '已停止' }}
-          </n-tag>
-          <n-button v-if="!status.running" type="primary" @click="handleStart" :loading="starting">启动</n-button>
-          <n-button v-else type="warning" @click="handleStop" :loading="stopping">停止</n-button>
-          <n-button @click="fetchStatus">刷新</n-button>
-        </n-space>
-      </template>
-
-      <n-descriptions label-placement="left" :column="2" bordered v-if="status.running">
-        <n-descriptions-item label="监听地址">{{ status.host || '0.0.0.0' }}</n-descriptions-item>
-        <n-descriptions-item label="TCP端口">{{ status.port || 1883 }}</n-descriptions-item>
-        <n-descriptions-item label="WebSocket端口">{{ status.ws_port || 8083 }}</n-descriptions-item>
-        <n-descriptions-item label="连接数">{{ status.connections || 0 }}</n-descriptions-item>
-      </n-descriptions>
-
-      <n-empty v-else description="MQTT Server未启动" />
-    </n-card>
-  </n-space>
+  <ServiceManager
+    service-name="mqtt_server"
+    display-name="内置 MQTT Server"
+    :running-fields="runningFields"
+    @status-loaded="onStatusLoaded"
+  >
+    <template #extra>
+      <n-card v-if="isRunning" title="连接信息" :bordered="false" style="margin-top: 12px">
+        <n-descriptions label-placement="left" :column="2" bordered>
+          <n-descriptions-item label="连接数">{{ connections }}</n-descriptions-item>
+        </n-descriptions>
+      </n-card>
+    </template>
+  </ServiceManager>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
-import { mqttServerApi } from '@/api'
+import { ref, computed } from 'vue'
+import ServiceManager from '@/components/ServiceManager.vue'
 
-const message = useMessage()
-const starting = ref(false)
-const stopping = ref(false)
-const status = reactive<any>({})
+const connections = ref(0)
+const isRunning = ref(false)
+const statusData = ref<any>({})
 
-async function fetchStatus() {
-  try {
-    const data = await mqttServerApi.status()
-    if (data) Object.assign(status, data)
-  } catch (e: any) {
-    message.error(e?.message || '获取状态失败')
-  }
+const runningFields = computed(() => [
+  { label: '监听地址', value: statusData.value.host || '0.0.0.0' },
+  { label: 'TCP端口', value: statusData.value.port || 1883 },
+  { label: 'WebSocket端口', value: statusData.value.ws_port || 8083 },
+])
+
+function onStatusLoaded(data: any) {
+  statusData.value = data
+  isRunning.value = data.state === 'running'
+  connections.value = data.running_info?.connections || 0
 }
-
-async function handleStart() {
-  starting.value = true
-  try {
-    await mqttServerApi.start()
-    message.success('MQTT Server已启动')
-    await fetchStatus()
-  } catch (e: any) {
-    message.error(e?.response?.data?.detail || '启动失败')
-  } finally { starting.value = false }
-}
-
-async function handleStop() {
-  stopping.value = true
-  try {
-    await mqttServerApi.stop()
-    message.success('MQTT Server已停止')
-    await fetchStatus()
-  } catch (e: any) {
-    message.error(e?.response?.data?.detail || '停止失败')
-  } finally { stopping.value = false }
-}
-
-onMounted(fetchStatus)
 </script>

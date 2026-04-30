@@ -24,17 +24,20 @@ def _get_grafana_config():
 async def get_grafana_config(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
+    from edgelite.services.service_manager import get_service_manager
+    mgr = get_service_manager()
+    info = mgr.get_service_info("grafana")
+
     grafana_config = _get_grafana_config()
-    if not grafana_config:
-        return ApiResponse(data={
-            "enabled": False,
-            "url": "",
-            "datasource": "",
-        })
     return ApiResponse(data={
-        "enabled": getattr(grafana_config, "enabled", False),
-        "url": getattr(grafana_config, "url", "http://localhost:3000"),
-        "datasource": getattr(grafana_config, "datasource", "InfluxDB"),
+        "enabled": info.state.value != "disabled",
+        "state": info.state.value,
+        "url": getattr(grafana_config, "url", "http://localhost:3000") if grafana_config else "http://localhost:3000",
+        "datasource": getattr(grafana_config, "datasource", "InfluxDB") if grafana_config else "InfluxDB",
+        "dependencies": [
+            {"package": d.package, "installed": d.installed, "version": d.version}
+            for d in info.dependencies
+        ],
     })
 
 

@@ -359,6 +359,63 @@ export const expressionApi = {
     http.get<ApiResponse<{ functions: any[]; operators: any[] }>>('/expressions/functions').then((r) => r.data.data),
 }
 
+// ─── 服务管理 ───
+
+export interface ServiceDependency {
+  package: string
+  installed: boolean
+  version: string
+}
+
+export interface ServiceRelatedFeature {
+  name: string
+  route: string
+  hint: string
+}
+
+export interface ServiceInfo {
+  name: string
+  display_name: string
+  description: string
+  icon: string
+  category: string
+  state: 'disabled' | 'enabled' | 'running' | 'error' | 'installing'
+  config_section: string
+  dependencies: ServiceDependency[]
+  use_cases: string[]
+  related_features: ServiceRelatedFeature[]
+  setup_guide: string[]
+  config_schema: Record<string, any>
+  current_config: Record<string, any>
+  error_message: string
+}
+
+export const serviceApi = {
+  list: () =>
+    http.get<ApiResponse<{ services: ServiceInfo[] }>>('/services/list').then((r) => r.data.data),
+
+  status: (serviceName: string) =>
+    http.get<ApiResponse<ServiceInfo & { running_info?: Record<string, any> }>>(`/services/${serviceName}/status`).then((r) => r.data.data),
+
+  enable: (serviceName: string, config?: Record<string, any>) =>
+    http.post<ApiResponse>(`/services/${serviceName}/enable`, { config }).then((r) => r.data),
+
+  disable: (serviceName: string) =>
+    http.post<ApiResponse>(`/services/${serviceName}/disable`).then((r) => r.data),
+
+  start: (serviceName: string) =>
+    http.post<ApiResponse>(`/services/${serviceName}/start`).then((r) => r.data),
+
+  stop: (serviceName: string) =>
+    http.post<ApiResponse>(`/services/${serviceName}/stop`).then((r) => r.data),
+
+  installDeps: (serviceName: string) =>
+    http.post<ApiResponse>(`/services/${serviceName}/install-deps`).then((r) => r.data),
+
+  updateConfig: (serviceName: string, config: Record<string, any>) =>
+    http.put<ApiResponse>(`/services/${serviceName}/config`, { config }).then((r) => r.data),
+}
+
 // ─── MQTT Server ───
 
 export const mqttServerApi = {

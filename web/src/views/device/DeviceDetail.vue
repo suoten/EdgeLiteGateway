@@ -148,7 +148,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted, h, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NInput, NInputNumber, NSpace, NTag, NText, NResult, useMessage } from 'naive-ui'
+import { NButton, NInput, NInputNumber, NSpace, NTag, NText, NResult, useMessage, useDialog } from 'naive-ui'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } from 'echarts/components'
@@ -163,6 +163,7 @@ use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomCompone
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog()
 const auth = useAuthStore()
 
 const device = ref<Device | null>(null)
@@ -369,13 +370,21 @@ async function handleWrite(pt: any) {
   } else if (pt.data_type === 'bool') {
     val = val === 'true' || val === '1' || val === true
   }
-  try {
-    await deviceApi.writePoint(deviceId.value, pt.name, val)
-    message.success(`${pt.name} 下发成功: ${val}`)
-    fetchPoints()
-  } catch (e: any) {
-    message.error(e?.response?.data?.detail || '下发失败')
-  }
+  dialog.warning({
+    title: '确认下发',
+    content: `即将向设备「${device.value?.name || deviceId.value}」的测点「${pt.name}」写入值 ${val}，此操作将直接影响物理设备，是否继续？`,
+    positiveText: '确认下发',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await deviceApi.writePoint(deviceId.value, pt.name, val)
+        message.success(`${pt.name} 下发成功: ${val}`)
+        fetchPoints()
+      } catch (e: any) {
+        message.error(e?.response?.data?.detail || '下发失败')
+      }
+    },
+  })
 }
 
 async function fetchChartData() {

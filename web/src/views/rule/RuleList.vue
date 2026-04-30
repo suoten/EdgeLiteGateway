@@ -269,17 +269,30 @@ async function handleEdit() {
 }
 
 async function handleToggle(r: Rule) {
-  try {
-    if (r.enabled) {
-      await ruleApi.disable(r.rule_id)
-      message.success('规则已禁用')
-    } else {
+  if (r.enabled) {
+    dialog.warning({
+      title: '确认禁用规则',
+      content: `禁用规则「${r.name}」后，该规则将不再触发告警通知。确定继续？`,
+      positiveText: '确认禁用',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await ruleApi.disable(r.rule_id)
+          message.success('规则已禁用')
+          fetchRules()
+        } catch (e: any) {
+          message.error(e?.message || '操作失败')
+        }
+      },
+    })
+  } else {
+    try {
       await ruleApi.enable(r.rule_id)
       message.success('规则已启用')
+      fetchRules()
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
-    fetchRules()
-  } catch (e: any) {
-    message.error(e?.message || '操作失败')
   }
 }
 

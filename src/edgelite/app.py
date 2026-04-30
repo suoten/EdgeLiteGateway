@@ -163,7 +163,7 @@ async def lifespan(app: FastAPI):
 
         # 8.5 初始化审计日志服务
         from edgelite.services.audit_service import AuditService
-        audit_service = AuditService(db_path=str(database.db_path) if hasattr(database, 'db_path') else "data/edgelite.db")
+        audit_service = AuditService(db_path=database.audit_db_path)
         await audit_service.initialize()
         _app_state.audit_service = audit_service
         initialized.append(("audit_service", audit_service))
@@ -512,6 +512,13 @@ def create_app() -> FastAPI:
         app.include_router(ota_router)
     except Exception as e:
         logger.warning("OTA升级路由注册失败: %s", e)
+
+    # 服务管理路由
+    try:
+        from edgelite.api.services import router as services_router
+        app.include_router(services_router)
+    except Exception as e:
+        logger.warning("服务管理路由注册失败: %s", e)
 
     # Grafana集成路由
     try:

@@ -221,6 +221,11 @@ class MqttTlsConfigModel(BaseModel):
     cert_reqs: Literal["none", "optional", "required"] = "required"
 
 
+class McpServerConfig(BaseModel):
+    """MCP Server配置"""
+    enabled: bool = False
+
+
 class GrafanaConfig(BaseModel):
     """Grafana集成配置"""
     enabled: bool = False
@@ -255,6 +260,7 @@ class AppConfig(BaseModel):
     preprocess: PreprocessGlobalConfig = Field(default_factory=PreprocessGlobalConfig)
     webhook_auth: WebhookAuthConfig = Field(default_factory=WebhookAuthConfig)
     mqtt_tls: MqttTlsConfigModel = Field(default_factory=MqttTlsConfigModel)
+    mcp_server: McpServerConfig = Field(default_factory=McpServerConfig)
     grafana: GrafanaConfig = Field(default_factory=GrafanaConfig)
     drivers: DriversConfig = Field(default_factory=DriversConfig)
 
@@ -337,3 +343,56 @@ def reset_config() -> None:
     """重置全局配置（测试用）"""
     global _config
     _config = None
+
+
+def save_config(config: AppConfig, config_path: str | Path | None = None) -> None:
+    """将配置持久化到YAML文件
+
+    Args:
+        config: AppConfig实例
+        config_path: 配置文件路径，默认使用当前全局配置的路径
+    """
+    import os
+
+    if config_path is None:
+        config_path = os.environ.get("EDGELITE_CONFIG", "configs/config.yaml")
+
+    path = Path(config_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    config_dict = config.model_dump()
+
+    env_overrides = _load_env_overrides()
+    if env_overrides:
+        config_dict = _deep_merge(config_dict, env_overrides)
+
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    global _config
+    _config = config
+
+
+def update_config_section(section: str, values: dict, config_path: str | Path | None = None) -> AppConfig:
+    """更新配置的某个段落并持久化
+
+    Args:
+        section: 配置段名称 (如 'mqtt_server', 'modbus_slave')
+        values: 要更新的键值对
+        config_path: 配置文件路径
+
+    Returns:
+        更新后的AppConfig实例
+    """
+    config = get_config()
+
+    current_section = getattr(config, section, None)
+    if current_section is None:
+        raise ValueError(f"未知的配置段: {section}")
+
+    for key, value in values.items():
+        if hasattr(current_section, key):
+            setattr(current_section, key, value)
+
+    save_config(config, config_path)
+    return config

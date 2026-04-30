@@ -32,7 +32,7 @@ def _build_database_url(config: Any = None) -> str:
     backend = config.database.backend.lower()
 
     if backend == "sqlite":
-        db_path = Path(config.database.sqlite_path)
+        db_path = Path(config.database.sqlite_path).resolve()
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite+aiosqlite:///{db_path}"
 
@@ -100,6 +100,19 @@ class Database:
     @property
     def backend(self) -> str:
         return self._backend
+
+    @property
+    def db_path(self) -> str:
+        if self._backend == "sqlite":
+            return str(Path(self._config.database.sqlite_path).resolve())
+        return ""
+
+    @property
+    def audit_db_path(self) -> str:
+        if self._backend == "sqlite":
+            main_path = Path(self._config.database.sqlite_path).resolve()
+            return str(main_path.parent / "audit.db")
+        return ""
 
     @property
     def engine(self) -> AsyncEngine:

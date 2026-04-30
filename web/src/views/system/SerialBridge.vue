@@ -1,79 +1,51 @@
 <template>
-  <n-space vertical :size="16">
-    <n-card title="串口桥接" :bordered="false">
-      <template #header-extra>
-        <n-space>
-          <n-tag :type="status.running ? 'success' : 'default'" size="small">
-            {{ status.running ? '运行中' : '已停止' }}
-          </n-tag>
-          <n-button v-if="!status.running" type="primary" @click="handleStart" :loading="starting">启动</n-button>
-          <n-button v-else type="warning" @click="handleStop" :loading="stopping">停止</n-button>
-          <n-button @click="fetchStatus" :loading="loading">刷新</n-button>
-        </n-space>
-      </template>
-
-      <n-descriptions label-placement="left" :column="2" bordered v-if="status.running">
-        <n-descriptions-item label="监听端口">{{ status.port || '-' }}</n-descriptions-item>
-        <n-descriptions-item label="串口设备">{{ status.serial_port || '-' }}</n-descriptions-item>
-        <n-descriptions-item label="波特率">{{ status.baudrate || '-' }}</n-descriptions-item>
-        <n-descriptions-item label="已转发">{{ status.forwarded ?? 0 }} 条</n-descriptions-item>
-        <n-descriptions-item label="已接收">{{ status.received ?? 0 }} 条</n-descriptions-item>
-        <n-descriptions-item label="运行时间">{{ status.uptime || '-' }}</n-descriptions-item>
-      </n-descriptions>
-
-      <n-empty v-else description="串口桥接服务未启动" />
-    </n-card>
-  </n-space>
+  <ServiceManager
+    service-name="serial_bridge"
+    display-name="串口桥接"
+    :running-fields="runningFields"
+    @status-loaded="onStatusLoaded"
+  >
+    <template #extra>
+      <n-card v-if="running" title="传输统计" :bordered="false" style="margin-top: 12px">
+        <n-descriptions label-placement="left" :column="2" bordered>
+          <n-descriptions-item label="串口接收">{{ bridgeStats.serial_rx_bytes }} 字节</n-descriptions-item>
+          <n-descriptions-item label="串口发送">{{ bridgeStats.serial_tx_bytes }} 字节</n-descriptions-item>
+          <n-descriptions-item label="TCP接收">{{ bridgeStats.tcp_rx_bytes }} 字节</n-descriptions-item>
+          <n-descriptions-item label="TCP发送">{{ bridgeStats.tcp_tx_bytes }} 字节</n-descriptions-item>
+          <n-descriptions-item label="客户端数">{{ bridgeStats.client_count }}</n-descriptions-item>
+          <n-descriptions-item label="总连接数">{{ bridgeStats.total_connections }}</n-descriptions-item>
+        </n-descriptions>
+      </n-card>
+    </template>
+  </ServiceManager>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
-import { serialBridgeApi } from '@/api'
+import { ref, reactive, computed } from 'vue'
+import ServiceManager from '@/components/ServiceManager.vue'
 
-const message = useMessage()
-const loading = ref(false)
-const starting = ref(false)
-const stopping = ref(false)
-const status = reactive<any>({})
+const statusData = ref<any>({})
+const running = ref(false)
+const bridgeStats = reactive({
+  serial_rx_bytes: 0,
+  serial_tx_bytes: 0,
+  tcp_rx_bytes: 0,
+  tcp_tx_bytes: 0,
+  client_count: 0,
+  total_connections: 0,
+})
 
-async function fetchStatus() {
-  loading.value = true
-  try {
-    const data = await serialBridgeApi.getStatus()
-    if (data) Object.assign(status, data)
-  } catch (e: any) {
-    message.error(e?.message || '获取串口桥接状态失败')
-  } finally {
-    loading.value = false
+const runningFields = computed(() => [
+  { label: '串口设备', value: statusData.value.serial_port || '/dev/ttyUSB0' },
+  { label: '波特率', value: statusData.value.baud_rate || 9600 },
+  { label: 'TCP端口', value: statusData.value.tcp_port || 9000 },
+])
+
+function onStatusLoaded(data: any) {
+  statusData.value = data
+  running.value = data.state === 'running'
+  if (data.running_info) {
+    Object.assign(bridgeStats, data.running_info)
   }
 }
-
-async function handleStart() {
-  starting.value = true
-  try {
-    await serialBridgeApi.start()
-    message.success('串口桥接已启动')
-    await fetchStatus()
-  } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '启动失败')
-  } finally {
-    starting.value = false
-  }
-}
-
-async function handleStop() {
-  stopping.value = true
-  try {
-    await serialBridgeApi.stop()
-    message.success('串口桥接已停止')
-    await fetchStatus()
-  } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '停止失败')
-  } finally {
-    stopping.value = false
-  }
-}
-
-onMounted(fetchStatus)
 </script>
