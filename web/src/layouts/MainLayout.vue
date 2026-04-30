@@ -110,13 +110,26 @@
         <router-view />
       </n-layout-content>
     </n-layout>
+    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" title="修改密码" preset="card" style="width: 420px">
+      <n-alert v-if="auth.mustChangePassword" type="warning" style="margin-bottom: 16px">
+        您正在使用默认密码，建议尽快修改以确保账户安全
+      </n-alert>
+      <n-form :model="pwdForm" :rules="pwdRules" ref="pwdFormRef" label-placement="left" label-width="80">
+        <n-form-item label="原密码" path="oldPassword"><n-input v-model:value="pwdForm.oldPassword" type="password" show-password-on="click" /></n-form-item>
+        <n-form-item label="新密码" path="newPassword"><n-input v-model:value="pwdForm.newPassword" type="password" show-password-on="click" /></n-form-item>
+        <n-form-item label="确认密码" path="confirmPassword"><n-input v-model:value="pwdForm.confirmPassword" type="password" show-password-on="click" /></n-form-item>
+      </n-form>
+      <template #action>
+        <n-button type="primary" :loading="changingPwd" @click="handleChangePassword">确认修改</n-button>
+      </template>
+    </n-modal>
   </n-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, inject, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, computed, h, inject, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { NIcon, useDialog } from 'naive-ui'
+import { NIcon, useDialog, useMessage } from 'naive-ui'
 import {
   SpeedometerOutline, HardwareChip, SettingsOutline, AlertCircleOutline,
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
@@ -126,15 +139,54 @@ import {
   ExtensionPuzzleOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
-import { alarmApi } from '@/api'
+import { alarmApi, authApi } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const dialog = useDialog()
+const message = useMessage()
 const collapsed = ref(false)
 const alarmCount = ref(0)
 let alarmTimer: number | null = null
+
+const showChangePwd = ref(false)
+const changingPwd = ref(false)
+const pwdFormRef = ref<any>(null)
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+const pwdRules = {
+  oldPassword: { required: true, message: '请输入原密码', trigger: 'blur' },
+  newPassword: { required: true, min: 6, message: '新密码至少6位', trigger: 'blur' },
+  confirmPassword: {
+    required: true,
+    trigger: 'blur',
+    validator: (_rule: any, value: string) => {
+      if (value !== pwdForm.value.newPassword) return new Error('两次密码不一致')
+      return true
+    },
+  },
+}
+
+watch(() => auth.mustChangePassword, (val) => {
+  if (val) showChangePwd.value = true
+}, { immediate: true })
+
+async function handleChangePassword() {
+  try { await pwdFormRef.value?.validate() } catch { return }
+  changingPwd.value = true
+  try {
+    await authApi.changePassword(pwdForm.value.oldPassword, pwdForm.value.newPassword)
+    message.success('密码修改成功')
+    auth.mustChangePassword = false
+    sessionStorage.setItem('edgelite_mustChangePassword', 'false')
+    showChangePwd.value = false
+    pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '修改失败')
+  } finally {
+    changingPwd.value = false
+  }
+}
 
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
 const isDark = inject<Ref<boolean>>('isDark', ref(false))
@@ -211,13 +263,17 @@ const menuOptions = [
 ]
 
 const userOptions = [
+  { label: '修改密码', key: 'changePassword', icon: renderIcon(DocumentTextOutline) },
   { label: '退出登录', key: 'logout', icon: renderIcon(LogOutOutline) },
 ]
 
 function handleMenuClick(key: string) { router.push({ name: key }) }
 
 function handleUserSelect(key: string) {
-  if (key === 'logout') {
+  if (key === 'changePassword') {
+    pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+    showChangePwd.value = true
+  } else if (key === 'logout') {
     dialog.warning({
       title: '确认退出',
       content: '确定要退出登录吗？',

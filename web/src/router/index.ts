@@ -50,9 +50,6 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
     return { name: 'Login' }
   }
-  if (auth.isAuthenticated && auth.mustChangePassword && to.name !== 'System') {
-    return { name: 'System' }
-  }
   if (to.meta.requiredRole) {
     const required = to.meta.requiredRole as string
     if (auth.role === 'admin') { /* admin拥有所有权限 */ }
