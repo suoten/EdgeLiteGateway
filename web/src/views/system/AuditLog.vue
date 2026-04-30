@@ -56,7 +56,7 @@ const actionOptions = [
 ]
 
 const columns = [
-  { title: '时间', key: 'timestamp', width: 180 },
+  { title: '时间', key: 'created_at', width: 180 },
   { title: '用户', key: 'username', width: 100 },
   { title: '操作', key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, () => row.action) },
   { title: '资源类型', key: 'resource_type', width: 100 },

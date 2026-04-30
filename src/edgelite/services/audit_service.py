@@ -101,6 +101,19 @@ class AuditService:
         columns = [col[1] for col in cursor.fetchall()]
         if 'timestamp' in columns and 'created_at' not in columns:
             cursor.execute("ALTER TABLE audit_logs RENAME COLUMN timestamp TO created_at")
+            columns = [c if c != 'timestamp' else 'created_at' for c in columns]
+
+        expected_columns = {
+            'user_agent': 'TEXT',
+            'details': 'TEXT',
+            'status': "TEXT DEFAULT 'success'",
+            'error_message': 'TEXT',
+            'prev_hash': 'TEXT',
+            'record_hash': 'TEXT',
+        }
+        for col_name, col_def in expected_columns.items():
+            if col_name not in columns:
+                cursor.execute(f"ALTER TABLE audit_logs ADD COLUMN {col_name} {col_def}")
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id)")
