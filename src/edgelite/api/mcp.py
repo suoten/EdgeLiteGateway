@@ -186,3 +186,47 @@ async def list_resources():
 @router.get("/prompts", response_model=ApiResponse)
 async def list_prompts():
     return ApiResponse(data={"prompts": list(_mcp_server._prompts.values())})
+
+
+class MCPAuthManager:
+    def __init__(self):
+        self._enabled = False
+        self._keys: dict[str, dict[str, Any]] = {}
+
+    def list_keys(self) -> list[dict[str, Any]]:
+        return [{"id": k, "name": v["name"], "scopes": v["scopes"], "created_at": v.get("created_at", "")} for k, v in self._keys.items()]
+
+    def create_key(self, name: str, scopes: list[str]) -> dict[str, Any]:
+        import uuid
+        from datetime import datetime, timezone
+        key_id = str(uuid.uuid4())[:8]
+        new_api_key = f"mcp_{uuid.uuid4().hex[:32]}"
+        self._keys[key_id] = {"name": name, "scopes": scopes, "key": new_api_key, "created_at": datetime.now(timezone.utc).isoformat()}
+        self._enabled = True
+        return {"id": key_id, "name": name, "key": new_api_key, "scopes": scopes}
+
+    def delete_key(self, key_id: str) -> bool:
+        if key_id in self._keys:
+            del self._keys[key_id]
+            self._enabled = bool(self._keys)
+            return True
+        return False
+
+
+_mcp_auth = MCPAuthManager()
+
+
+@router.get("/auth-keys", response_model=ApiResponse)
+async def list_auth_keys():
+    return ApiResponse(data={"keys": _mcp_auth.list_keys(), "enabled": _mcp_auth._enabled})
+
+
+class CreateKeyRequest(BaseModel):
+    name: str
+    scopes: list[str] = []
+
+
+@router.post("/auth-keys", response_model=ApiResponse)
+async def create_auth_key(req: CreateKeyRequest):
+    result = _mcp_auth.create_key(req.name, req.scopes)
+    return ApiResponse(data=result)

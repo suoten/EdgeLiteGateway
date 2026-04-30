@@ -193,7 +193,7 @@ export const videoApi = {
     http.get<ApiResponse<{ url: string }>>(`/video/${deviceId}/stream`, { params: { channel_id: channelId || '1' } }).then((r) => r.data.data),
 
   ptzControl: (deviceId: string, action: string, channelId?: string) =>
-    http.post(`/video/${deviceId}/ptz`, { action, channel_id: channelId || '1' }),
+    http.post(`/video/${deviceId}/ptz`, null, { params: { action, channel_id: channelId || '1' } }),
 }
 
 // ─── 系统 ───
@@ -402,6 +402,12 @@ export const mcpApi = {
 
   prompts: () =>
     http.get<ApiResponse<{ prompts: any[] }>>('/mcp/prompts').then((r) => r.data.data),
+
+  authKeys: () =>
+    http.get<ApiResponse<{ keys: any[]; enabled: boolean }>>('/mcp/auth-keys').then((r) => r.data.data),
+
+  createKey: (data: any) =>
+    http.post<ApiResponse>('/mcp/auth-keys', data).then((r) => r.data),
 }
 
 // ─── OTA升级 ───

@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
 
@@ -20,19 +21,26 @@ def _get_integration_endpoint():
     return _app_state.integration_endpoint
 
 
-@router.post("/handshake")
+@router.post("/handshake", response_model=ApiResponse)
 async def handshake(
     request: dict[str, Any],
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     endpoint = _get_integration_endpoint()
     response = await endpoint.handle_handshake(request)
-    return response
+    return ApiResponse(data=response)
 
 
-@router.get("/status")
+@router.get("/status", response_model=ApiResponse)
 async def get_integration_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     endpoint = _get_integration_endpoint()
-    return {"sessions": endpoint.session_count, "session_ids": list(endpoint._sessions.keys())}
+    session_ids = list(endpoint._sessions.keys())
+    return ApiResponse(data={
+        "connected": bool(endpoint.session_count),
+        "session_id": session_ids[0] if session_ids else None,
+        "cloud_url": None,
+        "sessions": endpoint.session_count,
+        "session_ids": session_ids,
+    })

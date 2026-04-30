@@ -182,7 +182,7 @@ async function handleRefreshStream() {
 async function handlePtz(action: string) {
   if (!device.value) return
   try {
-    await videoApi.ptzControl(device.value.device_id, { action, channel_id: '1' })
+    await videoApi.ptzControl(device.value.device_id, action, '1')
     message.success('云台控制已发送')
   } catch (e: any) {
     message.error(e?.response?.data?.detail || '云台控制失败')

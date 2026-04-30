@@ -81,7 +81,7 @@ class AuditService:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
+                created_at TEXT NOT NULL,
                 user_id TEXT,
                 username TEXT,
                 action TEXT NOT NULL,
@@ -97,7 +97,12 @@ class AuditService:
             )
         """)
 
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp)")
+        cursor.execute("PRAGMA table_info(audit_logs)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'timestamp' in columns and 'created_at' not in columns:
+            cursor.execute("ALTER TABLE audit_logs RENAME COLUMN timestamp TO created_at")
+
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action)")
 
@@ -112,7 +117,7 @@ class AuditService:
         self._initialized = True
 
     def _compute_record_hash(self, record: dict, prev_hash: str) -> str:
-        content = f"{record['timestamp']}|{record.get('user_id', '')}|{record.get('username', '')}|{record['action']}|{record.get('resource_type', '')}|{record.get('resource_id', '')}|{record.get('ip_address', '')}|{record.get('status', '')}|{prev_hash}"
+        content = f"{record['created_at']}|{record.get('user_id', '')}|{record.get('username', '')}|{record['action']}|{record.get('resource_type', '')}|{record.get('resource_id', '')}|{record.get('ip_address', '')}|{record.get('status', '')}|{prev_hash}"
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     async def log(
@@ -138,7 +143,7 @@ class AuditService:
         record_hash = ""
         if self._tamper_proof:
             record = {
-                "timestamp": timestamp, "user_id": user_id, "username": username,
+                "created_at": timestamp, "user_id": user_id, "username": username,
                 "action": action.value, "resource_type": resource_type,
                 "resource_id": resource_id, "ip_address": ip_address, "status": status,
             }
@@ -164,7 +169,7 @@ class AuditService:
 
         cursor.execute("""
             INSERT INTO audit_logs (
-                timestamp, user_id, username, action, resource_type, resource_id,
+                created_at, user_id, username, action, resource_type, resource_id,
                 ip_address, user_agent, details, status, error_message,
                 prev_hash, record_hash
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -226,10 +231,10 @@ class AuditService:
             conditions.append("resource_type = ?")
             params.append(resource_type)
         if start_time:
-            conditions.append("timestamp >= ?")
+            conditions.append("created_at >= ?")
             params.append(start_time.isoformat())
         if end_time:
-            conditions.append("timestamp <= ?")
+            conditions.append("created_at <= ?")
             params.append(end_time.isoformat())
 
         where = " AND ".join(conditions) if conditions else "1=1"
@@ -255,7 +260,7 @@ class AuditService:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, timestamp, user_id, username, action, resource_type, resource_id, ip_address, status, prev_hash, record_hash FROM audit_logs ORDER BY id ASC")
+        cursor.execute("SELECT id, created_at, user_id, username, action, resource_type, resource_id, ip_address, status, prev_hash, record_hash FROM audit_logs ORDER BY id ASC")
         rows = cursor.fetchall()
         conn.close()
 
@@ -264,7 +269,7 @@ class AuditService:
         prev_hash = ""
         for row in rows:
             record = {
-                "timestamp": row[1], "user_id": row[2], "username": row[3],
+                "created_at": row[1], "user_id": row[2], "username": row[3],
                 "action": row[4], "resource_type": row[5], "resource_id": row[6],
                 "ip_address": row[7], "status": row[8],
             }
@@ -286,10 +291,10 @@ class AuditService:
         conditions = []
         params = []
         if start_time:
-            conditions.append("timestamp >= ?")
+            conditions.append("created_at >= ?")
             params.append(start_time.isoformat())
         if end_time:
-            conditions.append("timestamp <= ?")
+            conditions.append("created_at <= ?")
             params.append(end_time.isoformat())
 
         where = " AND ".join(conditions) if conditions else "1=1"
@@ -315,7 +320,7 @@ class AuditService:
         cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM audit_logs WHERE timestamp < ?", (cutoff,))
+        cursor.execute("DELETE FROM audit_logs WHERE created_at < ?", (cutoff,))
         deleted = cursor.rowcount
         conn.commit()
         conn.close()

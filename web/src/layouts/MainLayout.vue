@@ -122,7 +122,7 @@ import {
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
   LogOutOutline, StatsChartOutline, ServerOutline, CubeOutline, BuildOutline, DocumentTextOutline,
   PulseOutline, CloudOutline, CalculatorOutline, MoonOutline, SunnyOutline,
-  RocketOutline, BarChartOutline, RadioOutline, PlugOutline, SwapHorizontalOutline,
+  RocketOutline, BarChartOutline, RadioOutline, PowerOutline, SwapHorizontalOutline,
   ExtensionPuzzleOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
@@ -201,7 +201,7 @@ const menuOptions = [
     label: '内置服务', key: 'builtin-services', icon: renderIcon(RadioOutline),
     children: [
       { label: 'MQTT Server', key: 'MqttServer', icon: renderIcon(RadioOutline) },
-      { label: 'Modbus Slave', key: 'ModbusSlave', icon: renderIcon(PlugOutline) },
+      { label: 'Modbus Slave', key: 'ModbusSlave', icon: renderIcon(PowerOutline) },
       { label: '串口透传', key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
     ],
   },

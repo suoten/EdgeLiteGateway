@@ -40,7 +40,7 @@ const status = reactive<any>({})
 async function fetchStatus() {
   loading.value = true
   try {
-    const data = await serialBridgeApi.status()
+    const data = await serialBridgeApi.getStatus()
     if (data) Object.assign(status, data)
   } catch (e: any) {
     message.error(e?.message || '获取串口桥接状态失败')
