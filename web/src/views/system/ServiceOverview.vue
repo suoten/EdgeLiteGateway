@@ -227,7 +227,11 @@ async function fetchServices() {
     const data = await serviceApi.list()
     services.value = data?.services || []
   } catch (e: any) {
-    message.error(e?.message || '获取服务列表失败')
+    if (e?.response?.status === 404) {
+      services.value = []
+    } else {
+      message.error(e?.message || '获取服务列表失败')
+    }
   } finally {
     loading.value = false
   }

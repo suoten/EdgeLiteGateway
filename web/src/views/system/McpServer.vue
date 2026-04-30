@@ -227,7 +227,7 @@ async function fetchStatus() {
       await Promise.all([fetchTools(), fetchResources(), fetchPrompts(), fetchApiKeys()])
     }
   } catch (e: any) {
-    message.error(e?.message || '获取状态失败')
+    if (e?.response?.status !== 404) message.error(e?.message || '获取状态失败')
   } finally {
     loading.value = false
   }

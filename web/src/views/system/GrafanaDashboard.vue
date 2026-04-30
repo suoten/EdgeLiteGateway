@@ -166,7 +166,7 @@ async function fetchConfig() {
       await fetchDashboards()
     }
   } catch (e: any) {
-    message.error(e?.message || '获取Grafana配置失败')
+    if (e?.response?.status !== 404) message.error(e?.message || '获取Grafana配置失败')
   } finally {
     loading.value = false
   }

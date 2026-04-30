@@ -34,6 +34,7 @@ async def list_platforms(
         {"name": "thingsboard", "label": "ThingsBoard", "description": "开源IoT平台"},
         {"name": "huawei_iotda", "label": "华为云IoTDA", "description": "华为云设备接入服务"},
         {"name": "thingscloud", "label": "ThingsCloud", "description": "ThingsCloud物联网平台"},
+        {"name": "thingspanel", "label": "ThingsPanel", "description": "ThingsPanel开源物联网平台"},
         {"name": "custom", "label": "自定义平台", "description": "MQTT/HTTP自定义对接"},
     ]
 
@@ -72,8 +73,17 @@ async def get_platform_config_schema(
             "fields": [
                 {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
                 {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                {"name": "username", "type": "string", "label": "Access Key", "required": True},
-                {"name": "password", "type": "string", "label": "Access Secret", "secret": True, "required": True},
+                {"name": "access_key", "type": "string", "label": "Access Key", "required": True},
+                {"name": "access_secret", "type": "string", "label": "Access Secret", "secret": True, "required": True},
+            ]
+        },
+        "thingspanel": {
+            "fields": [
+                {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "default": 1883},
+                {"name": "username", "type": "string", "label": "用户名"},
+                {"name": "password", "type": "string", "label": "密码", "secret": True},
+                {"name": "device_token", "type": "string", "label": "设备Token", "required": True},
             ]
         },
         "custom": {
@@ -119,6 +129,9 @@ async def connect_platform(
         elif platform_name == "thingscloud":
             from edgelite.platform.thingscloud import ThingsCloudHandler
             handler = ThingsCloudHandler()
+        elif platform_name == "thingspanel":
+            from edgelite.platform.thingspanel import ThingsPanelHandler
+            handler = ThingsPanelHandler()
         else:
             raise HTTPException(status_code=400, detail=f"不支持的平台: {platform_name}")
 

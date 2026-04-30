@@ -65,7 +65,7 @@ SERVICE_DEFINITIONS = {
         ],
         "setup_guide": [
             "开启服务开关启用MQTT Server",
-            "如缺少依赖，点击"一键安装"自动安装amqtt",
+            "如缺少依赖，点击「一键安装」自动安装amqtt",
             "配置监听端口和认证信息",
             "启动服务后，设备即可通过MQTT协议连接",
         ],
@@ -96,7 +96,7 @@ SERVICE_DEFINITIONS = {
         ],
         "setup_guide": [
             "开启服务开关启用Modbus Slave",
-            "如缺少依赖，点击"一键安装"自动安装pymodbus",
+            "如缺少依赖，点击「一键安装」自动安装pymodbus",
             "配置监听端口和寄存器数量",
             "启动服务后，上位机可通过Modbus TCP读取数据",
         ],
@@ -127,7 +127,7 @@ SERVICE_DEFINITIONS = {
         "setup_guide": [
             "确保网关已连接串口设备（如USB转串口）",
             "开启服务开关启用串口桥接",
-            "如缺少依赖，点击"一键安装"自动安装pyserial",
+            "如缺少依赖，点击「一键安装」自动安装pyserial",
             "配置串口设备路径、波特率和TCP端口",
             "启动服务后，远程客户端可通过TCP连接访问串口",
         ],
@@ -185,7 +185,7 @@ SERVICE_DEFINITIONS = {
         "setup_guide": [
             "确保已部署Grafana服务（默认端口3000）",
             "开启服务开关启用Grafana集成",
-            "如缺少依赖，点击"一键安装"自动安装httpx",
+            "如缺少依赖，点击「一键安装」自动安装httpx",
             "配置Grafana地址和API Key",
             "在Grafana中配置InfluxDB数据源指向网关的时序数据库",
         ],
