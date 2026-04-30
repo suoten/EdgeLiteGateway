@@ -27,6 +27,7 @@
 import { ref, reactive, onMounted, h } from 'vue'
 import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, useMessage, useDialog } from 'naive-ui'
 import { auditApi } from '@/api'
+import { auditStatusLabel, auditActionLabel } from '@/utils/enumLabels'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -58,11 +59,11 @@ const actionOptions = [
 const columns = [
   { title: '时间', key: 'created_at', width: 180 },
   { title: '用户', key: 'username', width: 100 },
-  { title: '操作', key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, () => row.action) },
+  { title: '操作', key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, () => auditActionLabel[row.action] || row.action) },
   { title: '资源类型', key: 'resource_type', width: 100 },
   { title: '资源ID', key: 'resource_id', width: 120 },
   { title: 'IP地址', key: 'ip_address', width: 130 },
-  { title: '状态', key: 'status', width: 80, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'warning' }, () => row.status) },
+  { title: '状态', key: 'status', width: 80, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'warning' }, () => auditStatusLabel[row.status] || row.status) },
   { title: '详情', key: 'details', ellipsis: { tooltip: true } },
 ]
 

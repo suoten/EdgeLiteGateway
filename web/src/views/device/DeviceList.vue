@@ -128,6 +128,7 @@ import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NTag, NSpace, NTooltip, useMessage, useDialog } from 'naive-ui'
 import { deviceApi, driverApi, type Device } from '@/api'
+import { deviceStatusLabel, deviceStatusColor } from '@/utils/enumLabels'
 
 const router = useRouter()
 const message = useMessage()
@@ -229,7 +230,6 @@ const protocolLabel: Record<string, string> = {
   barcode_scanner: 'Scanner', sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645',
   iec104: 'IEC 104', kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
 }
-const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 
 const columns = [
   { type: 'selection' as const },
@@ -241,7 +241,7 @@ const columns = [
   },
   {
     title: '状态', key: 'status', width: 80,
-    render: (row: Device) => h(NTag, { type: statusColor[row.status] || 'default', size: 'small' }, { default: () => row.status }),
+    render: (row: Device) => h(NTag, { type: deviceStatusColor[row.status] || 'default', size: 'small' }, { default: () => deviceStatusLabel[row.status] || row.status }),
   },
   { title: '测点数', key: 'points', width: 80, render: (row: Device) => row.points?.length ?? 0 },
   { title: '采集间隔', key: 'collect_interval', width: 90, render: (row: Device) => `${row.collect_interval}s` },

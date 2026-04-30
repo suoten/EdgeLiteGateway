@@ -14,6 +14,7 @@
 import { ref, reactive, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, NTooltip, useMessage, useDialog } from 'naive-ui'
 import { alarmApi, type Alarm } from '@/api'
+import { severityLabel, alarmStatusLabel, alarmStatusColor } from '@/utils/enumLabels'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -47,7 +48,7 @@ const columns = [
   { title: '设备ID', key: 'device_id', width: 160 },
   {
     title: '级别', key: 'severity', width: 80,
-    render: (r: Alarm) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => r.severity }),
+    render: (r: Alarm) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => severityLabel[r.severity] || r.severity }),
   },
   {
     title: '状态', key: 'status', width: 90,

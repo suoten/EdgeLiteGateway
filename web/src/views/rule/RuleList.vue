@@ -90,6 +90,7 @@
 import { ref, reactive, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
 import { ruleApi, deviceApi, type Rule, type Device } from '@/api'
+import { severityLabel, channelLabel } from '@/utils/enumLabels'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -147,13 +148,13 @@ const columns = [
   { title: '持续时间', key: 'duration', width: 80, render: (r: Rule) => `${r.duration}s` },
   {
     title: '级别', key: 'severity', width: 80,
-    render: (r: Rule) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => r.severity }),
+    render: (r: Rule) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => severityLabel[r.severity] || r.severity }),
   },
   {
     title: '状态', key: 'enabled', width: 80,
     render: (r: Rule) => h(NTag, { type: r.enabled ? 'success' : 'default', size: 'small' }, { default: () => r.enabled ? '启用' : '禁用' }),
   },
-  { title: '通知', key: 'notify_channels', width: 150, render: (r: Rule) => r.notify_channels?.join(', ') },
+  { title: '通知', key: 'notify_channels', width: 150, render: (r: Rule) => r.notify_channels?.map((c: string) => channelLabel[c] || c).join(', ') },
   {
     title: '操作', key: 'actions', width: 200,
     render: (r: Rule) =>

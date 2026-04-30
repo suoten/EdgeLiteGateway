@@ -11,7 +11,7 @@
     <n-page-header @back="router.push('/devices')" :title="device?.name ?? ''" :subtitle="device?.device_id ?? ''">
       <template #extra>
         <n-space>
-          <n-tag :type="statusColor[device?.status ?? ''] || 'default'">{{ device?.status }}</n-tag>
+          <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'">{{ deviceStatusLabel[device?.status ?? ''] || device?.status }}</n-tag>
           <n-tag type="info" :bordered="false">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-tag>
         </n-space>
       </template>
@@ -36,7 +36,7 @@
                 <n-descriptions-item label="名称">{{ device?.name }}</n-descriptions-item>
                 <n-descriptions-item label="协议">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-descriptions-item>
                 <n-descriptions-item label="状态">
-                  <n-tag :type="statusColor[device?.status ?? ''] || 'default'" size="small">{{ device?.status }}</n-tag>
+                  <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'" size="small">{{ deviceStatusLabel[device?.status ?? ''] || device?.status }}</n-tag>
                 </n-descriptions-item>
                 <n-descriptions-item label="采集间隔">{{ device?.collect_interval }}s</n-descriptions-item>
                 <n-descriptions-item label="创建时间">{{ device?.created_at }}</n-descriptions-item>
@@ -156,6 +156,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, dataApi, videoApi, type Device } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { deviceStatusLabel, deviceStatusColor, qualityLabel } from '@/utils/enumLabels'
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
 
@@ -209,7 +210,6 @@ const writeValues = ref<Record<string, any>>({})
 let wsRetryCount = 0
 let wsManualClose = false
 
-const statusColor: Record<string, any> = { online: 'success', offline: 'default', unknown: 'warning' }
 const protocolLabel: Record<string, string> = {
   modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
   simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
@@ -247,7 +247,7 @@ const realtimeData = computed(() => {
 const realtimeColumns = [
   { title: '测点', key: 'name', width: 120 },
   { title: '当前值', key: 'value', width: 150, render: (r: any) => h(NText, { style: { fontWeight: 'bold', fontSize: '14px' } }, { default: () => r.value }) },
-  { title: '质量', key: 'quality', width: 80, render: (r: any) => h(NTag, { size: 'small', type: r.quality === 'good' ? 'success' : 'warning', bordered: false }, { default: () => r.quality }) },
+  { title: '质量', key: 'quality', width: 80, render: (r: any) => h(NTag, { size: 'small', type: r.quality === 'good' ? 'success' : 'warning', bordered: false }, { default: () => qualityLabel[r.quality] || '异常' }) },
   { title: '单位', key: 'unit', width: 60 },
   { title: '数据类型', key: 'data_type', width: 80 },
 ]
