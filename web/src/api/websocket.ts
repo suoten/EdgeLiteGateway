@@ -26,8 +26,7 @@ type ChannelName = keyof typeof CHANNELS
 
 function getToken(): string {
   try {
-    const auth = JSON.parse(localStorage.getItem('auth') || '{}')
-    return auth.token || ''
+    return sessionStorage.getItem('edgelite_token') || ''
   } catch {
     return ''
   }

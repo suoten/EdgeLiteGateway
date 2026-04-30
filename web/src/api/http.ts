@@ -55,8 +55,9 @@ http.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
+    const status = error.response?.status
 
-    if (error.response?.status === 401 && originalRequest.url !== '/auth/refresh') {
+    if (status === 401 && originalRequest.url !== '/auth/refresh') {
       const auth = useAuthStore()
 
       if (!auth.username) {
@@ -101,6 +102,15 @@ http.interceptors.response.use(
         auth.logout()
         window.location.href = '/login'
         return Promise.reject(refreshError)
+      }
+    }
+
+    if (status === 403) {
+      const auth = useAuthStore()
+      if (!auth.username) {
+        auth.logout()
+        window.location.href = '/login'
+        return Promise.reject(error)
       }
     }
 

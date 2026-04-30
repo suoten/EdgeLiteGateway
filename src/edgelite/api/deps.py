@@ -15,12 +15,18 @@ from edgelite.security.rbac import Permission, check_permission
 
 logger = logging.getLogger(__name__)
 
-security_scheme = HTTPBearer()
+security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security_scheme)],
 ) -> dict:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证凭证",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         payload = verify_token(credentials.credentials, token_type="access")
     except JWTError:
