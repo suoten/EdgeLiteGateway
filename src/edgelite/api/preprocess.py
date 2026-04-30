@@ -32,11 +32,13 @@ async def get_preprocess_config(
     if preprocessor:
         point_configs = getattr(preprocessor, "_configs", {})
 
+    preprocess_config = getattr(config, "preprocess", None)
+
     return ApiResponse(data={
-        "enabled": getattr(config.preprocess, "enabled", False),
-        "default_deadband": getattr(config.preprocess, "default_deadband", 0.0),
-        "default_filter_window": getattr(config.preprocess, "default_filter_window", 3),
-        "default_aggregate_window_sec": getattr(config.preprocess, "default_aggregate_window_sec", 0),
+        "enabled": getattr(preprocess_config, "enabled", False) if preprocess_config else False,
+        "default_deadband": getattr(preprocess_config, "default_deadband", 0.0) if preprocess_config else 0.0,
+        "default_filter_window": getattr(preprocess_config, "default_filter_window", 3) if preprocess_config else 3,
+        "default_aggregate_window_sec": getattr(preprocess_config, "default_aggregate_window_sec", 0) if preprocess_config else 0,
         "point_configs": point_configs,
     })
 

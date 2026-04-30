@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+import asyncio
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
@@ -42,8 +44,20 @@ async def apply_update(
     if not mgr:
         raise HTTPException(status_code=503, detail="OTA升级服务未启用")
     try:
-        result = await mgr.apply_update()
-        return ApiResponse(data=result)
+        update_info = await mgr.check_update()
+        if not update_info:
+            raise HTTPException(status_code=404, detail="没有可用更新")
+        version = update_info.get("version", "")
+        download_url = update_info.get("download_url", "")
+        if not download_url:
+            raise HTTPException(status_code=500, detail="更新信息中缺少下载地址")
+        update_file = await mgr.download_update(version, download_url)
+        if not update_file:
+            raise HTTPException(status_code=500, detail="下载更新包失败")
+        result = await mgr.apply_update(update_file)
+        return ApiResponse(data={"success": result})
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -71,7 +85,7 @@ async def list_ota_backups(
     if not mgr:
         raise HTTPException(status_code=503, detail="OTA升级服务未启用")
     try:
-        result = await mgr.list_backups()
+        result = await asyncio.to_thread(mgr.list_backups)
         return ApiResponse(data={"backups": result})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

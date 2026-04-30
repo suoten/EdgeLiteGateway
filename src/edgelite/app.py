@@ -48,6 +48,7 @@ class AppState:
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     config: Any = None
     ota_manager: Any = None
+    audit_service: Any = None
     max_ws_connections: int = 100
     plugin_manager: Any = None
     preprocessor: Any = None

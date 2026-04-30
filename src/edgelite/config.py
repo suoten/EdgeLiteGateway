@@ -221,6 +221,14 @@ class MqttTlsConfigModel(BaseModel):
     cert_reqs: Literal["none", "optional", "required"] = "required"
 
 
+class GrafanaConfig(BaseModel):
+    """Grafana集成配置"""
+    enabled: bool = False
+    url: str = "http://localhost:3000"
+    api_key: str = ""
+    datasource: str = "InfluxDB"
+
+
 class DriversConfig(BaseModel):
     """驱动配置"""
     custom_dir: str = ""
@@ -247,6 +255,7 @@ class AppConfig(BaseModel):
     preprocess: PreprocessGlobalConfig = Field(default_factory=PreprocessGlobalConfig)
     webhook_auth: WebhookAuthConfig = Field(default_factory=WebhookAuthConfig)
     mqtt_tls: MqttTlsConfigModel = Field(default_factory=MqttTlsConfigModel)
+    grafana: GrafanaConfig = Field(default_factory=GrafanaConfig)
     drivers: DriversConfig = Field(default_factory=DriversConfig)
 
 

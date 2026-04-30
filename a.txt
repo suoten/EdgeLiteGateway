@@ -1,0 +1,167 @@
+(3.12.3) [root@ecm-3841 ~]# cd /www/wwwroot/edgelite.jjtt.net
+(3.12.3) [root@ecm-3841 edgelite.jjtt.net]# python3 -m edgelite --host 0.0.0.0 --port 8180
+INFO:     Started server process [2711228]
+INFO:     Waiting for application startup.
+2026-04-30 17:14:38,279 | INFO     | edgelite.app | EdgeLiteGateway 启动中...
+2026-04-30 17:14:38,293 | INFO     | edgelite.storage.database | 数据库连接已建立 (backend=sqlite)
+2026-04-30 17:14:38,306 | INFO     | edgelite.app | 数据库初始化完成
+2026-04-30 17:14:38,500 | WARNING  | edgelite.storage.influx_storage | InfluxDB不可用，将使用缓存模式
+2026-04-30 17:14:38,786 | INFO     | edgelite.drivers.registry | 注册驱动: modbus_tcp v0.1.0 -> modbus_tcp
+2026-04-30 17:14:38,786 | INFO     | edgelite.drivers.registry | 注册驱动: simulator v0.1.0 -> simulator
+2026-04-30 17:14:38,789 | INFO     | edgelite.drivers.registry | 注册驱动: mqtt_client v0.1.0 -> mqtt
+2026-04-30 17:14:38,791 | INFO     | edgelite.drivers.registry | 注册驱动: http_webhook v0.1.0 -> http
+2026-04-30 17:14:38,791 | INFO     | edgelite.drivers.registry | 注册驱动: http_webhook v0.1.0 -> webhook
+2026-04-30 17:14:38,793 | INFO     | edgelite.drivers.registry | 注册驱动: opcua v0.1.0 -> opcua
+2026-04-30 17:14:38,795 | INFO     | edgelite.drivers.registry | 注册驱动: siemens_s7 v1.0.0 -> s7
+2026-04-30 17:14:38,797 | INFO     | edgelite.drivers.registry | 注册驱动: mitsubishi_mc v1.0.0 -> mc
+2026-04-30 17:14:38,799 | INFO     | edgelite.drivers.registry | 注册驱动: omron_fins v1.0.0 -> fins
+2026-04-30 17:14:38,800 | INFO     | edgelite.drivers.registry | 注册驱动: allen_bradley v1.0.0 -> ab
+2026-04-30 17:14:38,800 | INFO     | edgelite.drivers.registry | 注册驱动: allen_bradley v1.0.0 -> ab_cip
+2026-04-30 17:14:38,800 | INFO     | edgelite.drivers.registry | 注册驱动: allen_bradley v1.0.0 -> ab_pccc
+2026-04-30 17:14:38,802 | INFO     | edgelite.drivers.registry | 注册驱动: opc_da v1.0.0 -> opc_da
+2026-04-30 17:14:38,804 | INFO     | edgelite.drivers.registry | 注册驱动: fanuc_cnc v1.0.0 -> fanuc
+2026-04-30 17:14:38,804 | INFO     | edgelite.drivers.registry | 注册驱动: fanuc_cnc v1.0.0 -> focas
+2026-04-30 17:14:38,815 | INFO     | edgelite.drivers.registry | 注册驱动: mtconnect v1.0.0 -> mtconnect
+2026-04-30 17:14:38,817 | INFO     | edgelite.drivers.registry | 注册驱动: toledo v1.0.0 -> toledo
+2026-04-30 17:14:38,820 | INFO     | edgelite.drivers.registry | 注册驱动: serial_port v1.0.0 -> serial
+2026-04-30 17:14:38,820 | INFO     | edgelite.drivers.registry | 注册驱动: serial_port v1.0.0 -> serial_modbus_rtu
+2026-04-30 17:14:38,820 | INFO     | edgelite.drivers.registry | 注册驱动: serial_port v1.0.0 -> serial_raw
+2026-04-30 17:14:38,822 | INFO     | edgelite.drivers.registry | 注册驱动: database_source v1.0.0 -> database
+2026-04-30 17:14:38,822 | INFO     | edgelite.drivers.registry | 注册驱动: database_source v1.0.0 -> mysql
+2026-04-30 17:14:38,822 | INFO     | edgelite.drivers.registry | 注册驱动: database_source v1.0.0 -> postgresql
+2026-04-30 17:14:38,822 | INFO     | edgelite.drivers.registry | 注册驱动: database_source v1.0.0 -> sqlite
+2026-04-30 17:14:38,822 | INFO     | edgelite.drivers.registry | 注册驱动: database_source v1.0.0 -> mssql
+2026-04-30 17:14:38,824 | INFO     | edgelite.drivers.registry | 注册驱动: barcode_scanner v1.0.0 -> barcode_scanner
+2026-04-30 17:14:38,829 | INFO     | edgelite.drivers.registry | 注册驱动: sparkplug_b v0.1.0 -> sparkplug_b
+2026-04-30 17:14:38,833 | INFO     | edgelite.drivers.registry | 注册驱动: dlt645 v1.0.0 -> dlt645
+2026-04-30 17:14:38,833 | INFO     | edgelite.drivers.registry | 注册驱动: dlt645 v1.0.0 -> dlt645_2007
+2026-04-30 17:14:38,839 | INFO     | edgelite.drivers.registry | 注册驱动: iec104 v1.0.0 -> iec104
+2026-04-30 17:14:38,845 | INFO     | edgelite.drivers.registry | 注册驱动: kuka v1.0.0 -> kuka_ekrl
+2026-04-30 17:14:38,847 | INFO     | edgelite.drivers.registry | 注册驱动: abb_robot v1.0.0 -> abb_rws
+2026-04-30 17:14:38,851 | INFO     | edgelite.drivers.registry | 注册驱动: onvif v1.0.0 -> onvif
+2026-04-30 17:14:38,851 | INFO     | edgelite.drivers.registry | 驱动自动发现完成，支持协议: ['modbus_tcp', 'simulator', 'mqtt', 'http', 'webhook', 'opcua', 's7', 'mc', 'fins', 'ab', 'ab_cip', 'ab_pccc', 'opc_da', 'fanuc', 'focas', 'mtconnect', 'toledo', 'serial', 'serial_modbus_rtu', 'serial_raw', 'database', 'mysql', 'postgresql', 'sqlite', 'mssql', 'barcode_scanner', 'sparkplug_b', 'dlt645', 'dlt645_2007', 'iec104', 'kuka_ekrl', 'abb_rws', 'onvif']
+2026-04-30 17:14:38,873 | ERROR    | edgelite.app | 初始化失败: no such column: record_hash，开始清理已初始化资源
+2026-04-30 17:14:38,873 | INFO     | edgelite.engine.scheduler | 所有采集任务已停止
+2026-04-30 17:14:38,874 | INFO     | edgelite.storage.database | 数据库连接已关闭
+ERROR:    Traceback (most recent call last):
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/starlette/routing.py", line 692, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/site-packages/fastapi/routing.py", line 133, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/www/wwwroot/edgelite.jjtt.net/src/edgelite/app.py", line 166, in lifespan
+    await audit_service.initialize()
+  File "/www/wwwroot/edgelite.jjtt.net/src/edgelite/services/audit_service.py", line 72, in initialize
+    await asyncio.to_thread(self._sync_initialize)
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/asyncio/threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/www/server/pyporject_evn/versions/3.12.3/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/www/wwwroot/edgelite.jjtt.net/src/edgelite/services/audit_service.py", line 112, in _sync_initialize
+    cursor.execute("SELECT record_hash FROM audit_logs ORDER BY id DESC LIMIT 1")
+sqlite3.OperationalError: no such column: record_hash
+
+ERROR:    Application startup failed. Exiting.
+(3.12.3) [root@ecm-3841 edgelite.jjtt.net]# 
