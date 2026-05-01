@@ -316,7 +316,11 @@ class ServiceManager:
                 except Exception:
                     pass
 
+        _API_ONLY_SERVICES = {"mcp_server", "grafana"}
+
         if is_running:
+            state = ServiceState.RUNNING
+        elif service_name in _API_ONLY_SERVICES and enabled and all_deps_met:
             state = ServiceState.RUNNING
         elif enabled and all_deps_met:
             state = ServiceState.ENABLED

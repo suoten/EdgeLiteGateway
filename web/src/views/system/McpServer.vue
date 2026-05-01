@@ -42,10 +42,15 @@
         <n-descriptions label-placement="left" :column="2" bordered>
           <n-descriptions-item label="服务版本">EdgeLite MCP v1.0</n-descriptions-item>
           <n-descriptions-item label="SSE端点">/api/v1/mcp/sse</n-descriptions-item>
-          <n-descriptions-item label="认证状态">
-            <n-tag :type="authEnabled ? 'success' : 'warning'" size="small">
-              {{ authEnabled ? '已启用' : '未启用' }}
-            </n-tag>
+          <n-descriptions-item label="API Key认证">
+            <n-space align="center" :size="8">
+              <n-tag :type="authEnabled ? 'success' : 'default'" size="small">
+                {{ authEnabled ? '已启用' : '未启用' }}
+              </n-tag>
+              <n-text depth="3" style="font-size: 12px">
+                {{ authEnabled ? '访问MCP接口需携带API Key' : '当前无需认证即可访问，可创建API Key开启认证' }}
+              </n-text>
+            </n-space>
           </n-descriptions-item>
           <n-descriptions-item label="API Key数量">{{ apiKeys.length }}</n-descriptions-item>
         </n-descriptions>

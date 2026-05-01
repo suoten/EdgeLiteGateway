@@ -153,6 +153,10 @@ class MqttForwarder:
                     continue
 
                 try:
+                    if not self._connected:
+                        await asyncio.sleep(0.5)
+                        continue
+
                     config = get_config()
                     topic_prefix = config.mqtt.topic_prefix
 
@@ -172,7 +176,12 @@ class MqttForwarder:
                     await client.publish(topic, payload.encode("utf-8"), qos=1)
 
                 except Exception as e:
-                    logger.error("MQTT发布失败: %s", e)
+                    err_str = str(e)
+                    if "not currently connected" in err_str:
+                        self._connected = False
+                        logger.warning("MQTT连接已断开，等待重连...")
+                    else:
+                        logger.error("MQTT发布失败: %s", e)
         except asyncio.CancelledError:
             pass
 
