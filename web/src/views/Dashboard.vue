@@ -141,17 +141,28 @@
 
     <!-- 系统信息 -->
     <n-card title="系统信息" :bordered="false">
-      <n-descriptions label-placement="left" :column="3" bordered>
-        <n-descriptions-item label="运行时长">
-          <n-time :time="Date.now() - uptime * 1000" type="relative" />
-        </n-descriptions-item>
-        <n-descriptions-item label="版本">{{ status?.version ?? '-' }}</n-descriptions-item>
-        <n-descriptions-item label="协议支持">
-          <n-space :size="6">
-            <n-tag v-for="p in supportedProtocols" :key="p" size="small" type="info">{{ p }}</n-tag>
-          </n-space>
-        </n-descriptions-item>
-      </n-descriptions>
+      <n-grid :cols="2" :x-gap="24" :y-gap="16">
+        <n-gi>
+          <n-descriptions label-placement="left" :column="1" bordered>
+            <n-descriptions-item label="版本">
+              <n-tag type="success" size="small">v{{ status?.version ?? '-' }} Community</n-tag>
+            </n-descriptions-item>
+            <n-descriptions-item label="运行时长">
+              <n-time :time="Date.now() - uptime * 1000" type="relative" />
+            </n-descriptions-item>
+            <n-descriptions-item label="设备">{{ status?.device_total ?? 0 }} 台（在线 {{ status?.device_online ?? 0 }}）</n-descriptions-item>
+            <n-descriptions-item label="规则">{{ status?.rule_total ?? 0 }} 条（启用 {{ status?.rule_enabled ?? 0 }}）</n-descriptions-item>
+          </n-descriptions>
+        </n-gi>
+        <n-gi>
+          <div class="protocol-section">
+            <n-text depth="3" style="font-size: 13px; margin-bottom: 8px; display: block;">协议支持（{{ supportedProtocols.length }} 种）</n-text>
+            <n-space :size="[6, 4]" wrap>
+              <n-tag v-for="p in supportedProtocols" :key="p" size="small" :bordered="false" type="info">{{ getProtocolLabel(p) || p }}</n-tag>
+            </n-space>
+          </div>
+        </n-gi>
+      </n-grid>
     </n-card>
   </n-space>
 </template>
@@ -416,4 +427,6 @@ function onDeviceMessage(data: any) {
 .resource-info { margin-top: 12px; }
 .quick-start-card { border: 2px dashed #e0e0e0; }
 .qs-item { text-align: center; cursor: pointer; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.protocol-section { padding: 4px 0; }
+.protocol-section :deep(.n-tag) { font-size: 12px; }
 </style>
