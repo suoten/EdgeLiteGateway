@@ -768,9 +768,10 @@ onUnmounted(() => {
 .action-btn {
   width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
   border-radius: 6px; cursor: pointer; font-size: 16px; transition: all 0.2s;
+  color: #e0f0ff;
 }
-.action-btn:hover { background: rgba(79, 195, 247, 0.15); }
-.action-btn.active { background: rgba(79, 195, 247, 0.25); }
+.action-btn:hover { background: rgba(79, 195, 247, 0.15); color: #fff; }
+.action-btn.active { background: rgba(79, 195, 247, 0.25); color: #fff; }
 
 .overlay-stats {
   position: absolute; bottom: 16px; left: 16px;

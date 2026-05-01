@@ -218,7 +218,7 @@ _mcp_auth = MCPAuthManager()
 
 
 @router.get("/auth-keys", response_model=ApiResponse)
-async def list_auth_keys():
+async def list_auth_keys(_user=Depends(get_current_user)):
     return ApiResponse(data={"keys": _mcp_auth.list_keys(), "enabled": _mcp_auth._enabled})
 
 
@@ -228,6 +228,6 @@ class CreateKeyRequest(BaseModel):
 
 
 @router.post("/auth-keys", response_model=ApiResponse)
-async def create_auth_key(req: CreateKeyRequest):
+async def create_auth_key(req: CreateKeyRequest, _user=Depends(get_current_user)):
     result = _mcp_auth.create_key(req.name, req.scopes)
     return ApiResponse(data=result)

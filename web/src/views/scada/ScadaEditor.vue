@@ -658,7 +658,7 @@ onUnmounted(() => {
 }
 .toolbox-item:hover { background: rgba(79, 195, 247, 0.08); border-color: rgba(79, 195, 247, 0.15); }
 
-.tb-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.tb-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #e0f0ff; }
 .tb-label { font-size: 10px; color: #e0f0ff; }
 
 .device-tree { max-height: 300px; overflow-y: auto; }
