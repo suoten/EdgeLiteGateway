@@ -52,9 +52,8 @@
         <div v-if="!previewMode" class="canvas-toolbar">
           <n-button-group size="tiny">
             <n-button style="color: #e0f0ff" @click="zoom = Math.min(zoom + 0.1, 2)">放大</n-button>
-            <n-button style="color: #e0f0ff" @click="zoom = 1">100%</n-button>
+            <n-button style="color: #e0f0ff; cursor: default; background: transparent; border-color: #1a2a3a;">{{ Math.round(zoom * 100) }}%</n-button>
             <n-button style="color: #e0f0ff" @click="zoom = Math.max(zoom - 0.1, 0.3)">缩小</n-button>
-            <n-button disabled style="color: #e0f0ff">{{ Math.round(zoom * 100) }}%</n-button>
           </n-button-group>
         </div>
         <div
