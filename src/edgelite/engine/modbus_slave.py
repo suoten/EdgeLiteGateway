@@ -14,6 +14,12 @@ import logging
 import struct
 from typing import Any
 
+try:
+    from edgelite._cython import map_device_data_fast
+    _HAS_CYTHON_MAPPER = True
+except ImportError:
+    _HAS_CYTHON_MAPPER = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -153,6 +159,34 @@ class ModbusSlaveServer:
             return
 
         try:
+            if _HAS_CYTHON_MAPPER:
+                holding_size = 1000
+                input_size = 1000
+                coils_size = 100
+                try:
+                    hr = self._context[0].getValues(3, 0, holding_size)
+                    ir = self._context[0].getValues(4, 0, input_size)
+                    co = self._context[0].getValues(1, 0, coils_size)
+                    holding_list = list(hr)
+                    input_list = list(ir)
+                    coils_list = list(co)
+                except Exception:
+                    holding_list = [0] * holding_size
+                    input_list = [0] * input_size
+                    coils_list = [0] * coils_size
+
+                next_addr = map_device_data_fast(
+                    points, holding_list, input_list, coils_list, base_address
+                )
+
+                for i, v in enumerate(holding_list[base_address:next_addr]):
+                    self._context[0].setValues(3, base_address + i, [v])
+                for i, v in enumerate(input_list):
+                    self._context[0].setValues(4, i, [v])
+                for i, v in enumerate(coils_list):
+                    self._context[0].setValues(1, i, [v])
+                return
+
             offset = base_address
             for point_name, value in points.items():
                 if isinstance(value, bool):

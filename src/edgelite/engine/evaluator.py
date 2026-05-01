@@ -11,6 +11,12 @@ from typing import Any
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent, AlarmEvent
 from edgelite.storage.sqlite_repo import RuleRepo, AlarmRepo
 
+try:
+    from edgelite._cython import check_condition_fast, check_conditions_fast
+    _HAS_CYTHON = True
+except ImportError:
+    _HAS_CYTHON = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +41,8 @@ class RuleEvaluator:
         """启动评估器"""
         queue = self._event_bus.subscribe("rule_evaluator")
         self._task = asyncio.create_task(self._eval_loop(queue), name="rule-evaluator")
-        logger.info("规则评估器启动")
+        accel = "Cython加速" if _HAS_CYTHON else "纯Python"
+        logger.info("规则评估器启动 (%s)", accel)
 
     async def _get_rules_for_point(self, device_id: str, point_name: str) -> list:
         now = time.time()
@@ -187,6 +194,27 @@ class RuleEvaluator:
         self, conditions: list[dict], point_values: dict[str, float], logic: str
     ) -> bool:
         """检查条件组合"""
+        if _HAS_CYTHON:
+            fast_conds = []
+            all_available = True
+            for cond in conditions:
+                point = cond["point"]
+                value = point_values.get(point)
+                if value is None:
+                    all_available = False
+                    break
+                fast_conds.append({"operator": cond["operator"], "threshold": cond["threshold"]})
+            if all_available and fast_conds:
+                values = [point_values[c["point"]] for c in conditions]
+                for actual, fc in zip(values, fast_conds):
+                    if not check_condition_fast(actual, fc["operator"], fc["threshold"]):
+                        if logic == "AND":
+                            return False
+                    else:
+                        if logic == "OR":
+                            return True
+                return logic == "AND"
+
         results = []
         for cond in conditions:
             point = cond["point"]
@@ -195,7 +223,6 @@ class RuleEvaluator:
 
             value = point_values.get(point)
             if value is None:
-                # 测点值未知，条件不满足
                 results.append(False)
                 continue
 
@@ -213,6 +240,8 @@ class RuleEvaluator:
     @staticmethod
     def _compare(value: float, operator: str, threshold: float) -> bool:
         """比较值与阈值"""
+        if _HAS_CYTHON:
+            return check_condition_fast(value, operator, threshold)
         if operator == ">":
             return value > threshold
         elif operator == ">=":

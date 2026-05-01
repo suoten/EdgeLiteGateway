@@ -1,36 +1,21 @@
-"""EdgeLiteGateway 构建配置
-
-支持Cython加速模块编译：
-    python setup.py build_ext --inplace
-
-编译后_cython/目录下的.pyx文件会被编译为.c/.so（Linux）或.pyd（Windows），
-提供3-10倍的CPU密集型操作加速。
-
-未编译时自动回退到纯Python实现（_cython/*_py.py），功能完全相同。
-"""
-
 from setuptools import setup, Extension
-from pathlib import Path
+from setuptools.command.build_ext import build_ext
 
 try:
     from Cython.Build import cythonize
-    CYTHON_AVAILABLE = True
+    HAS_CYTHON = True
 except ImportError:
-    CYTHON_AVAILABLE = False
+    HAS_CYTHON = False
 
-if CYTHON_AVAILABLE:
-    extensions = [
-        Extension(
-            "edgelite._cython.modbus_mapper",
-            ["src/edgelite/_cython/modbus_mapper.pyx"],
-        ),
-        Extension(
-            "edgelite._cython.rule_compare",
-            ["src/edgelite/_cython/rule_compare.pyx"],
-        ),
-    ]
-    ext_modules = cythonize(
-        extensions,
+
+def get_extensions():
+    if not HAS_CYTHON:
+        return []
+    return cythonize(
+        [
+            Extension("edgelite._cython.rule_compare", ["src/edgelite/_cython/rule_compare.pyx"]),
+            Extension("edgelite._cython.modbus_mapper", ["src/edgelite/_cython/modbus_mapper.pyx"]),
+        ],
         compiler_directives={
             "language_level": "3",
             "boundscheck": False,
@@ -38,12 +23,23 @@ if CYTHON_AVAILABLE:
             "cdivision": True,
         },
     )
-else:
-    ext_modules = []
-    print("Cython未安装，跳过编译。使用纯Python回退实现。")
-    print("安装Cython后执行: pip install cython && python setup.py build_ext --inplace")
+
+
+class BuildExtWithFallback(build_ext):
+    def build_extensions(self):
+        try:
+            super().build_extensions()
+        except Exception as e:
+            import warnings
+            warnings.warn(
+                f"Cython编译失败，将使用纯Python回退实现: {e}\n"
+                "提示: 安装C编译器(如gcc/MSVC)或Cython可启用加速",
+                stacklevel=2,
+            )
+            self.extensions = []
+
 
 setup(
-    name="edgelite",
-    ext_modules=ext_modules,
+    ext_modules=get_extensions(),
+    cmdclass={"build_ext": BuildExtWithFallback},
 )

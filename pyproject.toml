@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=68.0", "wheel", "Cython>=3.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -38,6 +38,7 @@ dependencies = [
     "asyncua>=1.1.0",
     "sparkplugb>=0.3.0",
     "python-dotenv>=1.0.0",
+    "Cython>=3.0.0",
 ]
 
 [project.urls]

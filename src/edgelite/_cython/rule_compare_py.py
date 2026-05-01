@@ -20,20 +20,37 @@ _OP_FUNCS = {
 }
 
 
-def check_condition_fast(actual: float, op: str, threshold: float) -> bool:
+def check_condition_fast(actual: float, operator: str, threshold: float) -> bool:
     """快速条件比较（纯Python版）"""
-    func = _OP_FUNCS.get(op)
+    func = _OP_FUNCS.get(operator)
     if func is None:
         return False
     return func(actual, threshold)
 
 
-def check_conditions_fast(actual: float, conditions: list) -> bool:
-    """快速多条件AND评估（纯Python版）"""
+def check_conditions_fast(actual: float, conditions: list, logic: str = "AND") -> bool:
+    """快速多条件评估（纯Python版）
+
+    Args:
+        actual: 实际值
+        conditions: 条件列表 [{"operator": ">=", "threshold": 50.0}, ...]
+        logic: 逻辑组合 "AND" 或 "OR"
+
+    Returns:
+        条件组合结果
+    """
     for cond in conditions:
-        op = cond.get("op", "")
-        threshold = cond.get("value", 0.0)
+        op = cond.get("operator", cond.get("op", ""))
+        threshold = cond.get("threshold", cond.get("value", 0.0))
         func = _OP_FUNCS.get(op)
-        if func is None or not func(actual, threshold):
+        if func is None:
+            if logic == "OR":
+                continue
             return False
-    return True
+        result = func(actual, threshold)
+        if logic == "AND" and not result:
+            return False
+        if logic == "OR" and result:
+            return True
+
+    return logic == "AND"
