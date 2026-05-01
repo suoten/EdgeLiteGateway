@@ -1,20 +1,34 @@
 <template>
   <n-space vertical :size="16">
-    <n-space>
-      <n-input v-model:value="searchText" placeholder="搜索设备ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
-      <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
-      <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+    <n-space justify="space-between">
+      <n-space>
+        <n-input v-model:value="searchText" placeholder="搜索设备ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+        <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+      </n-space>
+      <n-popconfirm v-if="firingAlarms.length" @positive-click="handleBatchAck">
+        <template #trigger>
+          <n-button type="warning">批量确认 ({{ firingAlarms.length }})</n-button>
+        </template>
+        确定批量确认 {{ firingAlarms.length }} 条触发中的告警？
+      </n-popconfirm>
     </n-space>
 
-    <n-data-table :columns="columns" :data="alarms" :loading="loading" :pagination="pagination" :row-key="(r: Alarm) => r.alarm_id" />
+    <n-data-table
+      :columns="columns" :data="alarms" :loading="loading"
+      :pagination="pagination" :row-key="(r: Alarm) => r.alarm_id"
+      v-model:checked-row-keys="checkedKeys"
+    />
+    <n-empty v-if="!loading && alarms.length === 0" description="暂无告警，系统运行正常" style="padding: 40px 0" />
   </n-space>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, NTooltip, useMessage, useDialog } from 'naive-ui'
+import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
+import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { alarmApi, type Alarm } from '@/api'
 import { severityLabel, alarmStatusLabel, alarmStatusColor } from '@/utils/enumLabels'
+import * as ws from '@/api/websocket'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -23,6 +37,9 @@ const loading = ref(false)
 const searchText = ref('')
 const filterStatus = ref<string | null>(null)
 const filterSeverity = ref<string | null>(null)
+const checkedKeys = ref<string[]>([])
+
+const firingAlarms = computed(() => alarms.value.filter(a => a.status === 'firing'))
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchAlarms() } })
 
@@ -66,7 +83,10 @@ const columns = [
     title: '操作', key: 'actions', width: 100,
     render: (r: Alarm) =>
       r.status === 'firing'
-        ? h(NButton, { text: true, type: 'primary', onClick: () => handleAck(r) }, { default: () => '确认' })
+        ? h(NPopconfirm as any, { onPositiveClick: () => doAck(r.alarm_id) }, {
+          trigger: () => h(NButton, { text: true, type: 'primary' }, { default: () => '确认' }),
+          default: () => '确定确认该告警？',
+        })
         : null,
   },
 ]
@@ -91,23 +111,38 @@ async function fetchAlarms() {
   }
 }
 
-async function handleAck(r: Alarm) {
-  dialog.warning({
-    title: '确认告警',
-    content: `确定确认该告警？`,
-    positiveText: '确认',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await alarmApi.ack(r.alarm_id)
-        message.success('告警已确认')
-        fetchAlarms()
-      } catch (e: any) {
-        message.error(e?.message || '确认失败')
-      }
-    },
-  })
+async function doAck(alarmId: string) {
+  try {
+    await alarmApi.ack(alarmId)
+    message.success('告警已确认')
+    fetchAlarms()
+  } catch (e: any) {
+    message.error(e?.message || '确认失败')
+  }
 }
 
-onMounted(fetchAlarms)
+async function handleBatchAck() {
+  const ids = firingAlarms.value.map(a => a.alarm_id)
+  const results = await Promise.allSettled(ids.map(id => alarmApi.ack(id)))
+  const succeeded = results.filter(r => r.status === 'fulfilled').length
+  const failed = results.filter(r => r.status === 'rejected').length
+  if (failed > 0) {
+    message.warning(`成功确认 ${succeeded} 条告警，${failed} 条确认失败`)
+  } else {
+    message.success(`成功确认 ${succeeded} 条告警`)
+  }
+  fetchAlarms()
+}
+
+onMounted(() => {
+  fetchAlarms()
+  ws.connect('alarm', onAlarmPush)
+})
+onUnmounted(() => {
+  ws.disconnect('alarm', onAlarmPush)
+})
+
+function onAlarmPush(data: any) {
+  if (data) fetchAlarms()
+}
 </script>

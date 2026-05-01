@@ -92,7 +92,9 @@
               </div>
               <div v-else-if="widget.type === 'chart'" class="widget-chart">
                 <div class="chart-header">{{ widget.label }}</div>
-                <div class="chart-body" :ref="el => setChartRef(widget.id, el)"></div>
+                <div class="chart-body">
+                  <v-chart :option="getChartOption(widget)" autoresize style="height: 100%" />
+                </div>
                 <div class="chart-device" v-if="widget.deviceName">{{ widget.deviceName }}</div>
               </div>
               <div v-else-if="widget.type === 'switch'" class="widget-switch">
@@ -181,8 +183,15 @@ import {
   NCard, NButton, NSpace, NInput, NSelect, NTag, NSwitch, NModal,
   NForm, NFormItem, NInputNumber, NAlert, useMessage, useDialog,
 } from 'naive-ui'
+import { use } from 'echarts/core'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
 import { deviceApi } from '@/api'
 import { deviceStatusLabel } from '@/utils/enumLabels'
+
+use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 const message = useMessage()
 const dialog = useDialog()
@@ -198,7 +207,6 @@ const devicePoints = ref<any[]>([])
 const pointValues = ref<Record<string, Record<string, any>>>({})
 const widgets = ref<any[]>([])
 const selectedWidgetId = ref<number | null>(null)
-const chartRefs = ref<Map<number, HTMLElement>>(new Map())
 const chartData = ref<Map<number, { time: number; value: number }[]>>(new Map())
 
 let widgetIdCounter = 0
@@ -223,8 +231,27 @@ const deviceOptions = computed(() =>
 const editForm = ref<any>({})
 const editPointOptions = ref<{ label: string; value: string }[]>([])
 
-function setChartRef(id: number, el: any) {
-  if (el) chartRefs.value.set(id, el)
+function getChartOption(widget: any) {
+  const arr = chartData.value.get(widget.id) || []
+  const times = arr.map(d => {
+    const dt = new Date(d.time)
+    return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:${String(dt.getSeconds()).padStart(2, '0')}`
+  })
+  const values = arr.map(d => d.value)
+  return {
+    grid: { left: 30, right: 8, top: 8, bottom: 20 },
+    tooltip: { trigger: 'axis', formatter: (params: any) => {
+      if (!params?.length) return ''
+      const p = params[0]
+      return `${p.axisValue}<br/>${p.marker} ${Number(p.value).toFixed(2)}`
+    }},
+    xAxis: { type: 'category', data: times, axisLabel: { fontSize: 9, interval: 'auto' }, show: arr.length > 0 },
+    yAxis: { type: 'value', axisLabel: { fontSize: 9 }, show: arr.length > 0 },
+    series: [{
+      type: 'line', data: values, smooth: true, symbol: 'none',
+      itemStyle: { color: '#667eea' }, areaStyle: { color: 'rgba(102,126,234,0.15)' },
+    }],
+  }
 }
 
 function onEditDeviceChange(deviceId: string) {

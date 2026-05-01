@@ -1,5 +1,47 @@
 <template>
   <n-space vertical :size="20">
+    <!-- 快速开始引导（设备数为0时显示） -->
+    <n-card v-if="showQuickStart" title="快速开始" :bordered="false" class="quick-start-card">
+      <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
+        <n-gi>
+          <n-card hoverable class="qs-item" @click="router.push('/devices')">
+            <n-space vertical align="center">
+              <n-icon size="40" :component="HardwareChip" color="#667eea" />
+              <n-text strong>创建设备</n-text>
+              <n-text depth="3">接入第一个设备开始采集数据</n-text>
+            </n-space>
+          </n-card>
+        </n-gi>
+        <n-gi>
+          <n-card hoverable class="qs-item" @click="router.push('/rules')">
+            <n-space vertical align="center">
+              <n-icon size="40" :component="SettingsOutline" color="#11998e" />
+              <n-text strong>配置告警</n-text>
+              <n-text depth="3">设置告警规则监控异常</n-text>
+            </n-space>
+          </n-card>
+        </n-gi>
+        <n-gi>
+          <n-card hoverable class="qs-item" @click="router.push('/system/driver-config')">
+            <n-space vertical align="center">
+              <n-icon size="40" :component="PulseOutline" color="#f093fb" />
+              <n-text strong>驱动配置</n-text>
+              <n-text depth="3">管理协议驱动和参数</n-text>
+            </n-space>
+          </n-card>
+        </n-gi>
+        <n-gi>
+          <n-card hoverable class="qs-item" @click="router.push('/system/platform-config')">
+            <n-space vertical align="center">
+              <n-icon size="40" :component="AlertCircleOutline" color="#4facfe" />
+              <n-text strong>平台对接</n-text>
+              <n-text depth="3">连接北向云平台</n-text>
+            </n-space>
+          </n-card>
+        </n-gi>
+      </n-grid>
+    </n-card>
+
     <!-- 顶部统计卡片 -->
     <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
       <n-gi>
@@ -116,6 +158,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { HardwareChip, SettingsOutline, AlertCircleOutline, PulseOutline } from '@vicons/ionicons5'
 import { use } from 'echarts/core'
 import { PieChart, LineChart, BarChart } from 'echarts/charts'
@@ -123,9 +166,11 @@ import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/api'
+import * as ws from '@/api/websocket'
 
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
 
+const router = useRouter()
 const status = ref<SystemStatus | null>(null)
 const devices = ref<any[]>([])
 const alarms = ref<any[]>([])
@@ -146,6 +191,10 @@ const memColor = computed(() => {
 const diskColor = computed(() => {
   const p = status.value?.disk_percent ?? 0
   return p > 90 ? '#f56c6c' : p > 80 ? '#e6a23c' : '#67c23a'
+})
+
+const showQuickStart = computed(() => {
+  return devices.value.length === 0 && status.value !== null
 })
 
 // 设备状态饼图
@@ -318,8 +367,37 @@ onMounted(() => {
   fetchStatus(); fetchDevices(); fetchAlarms(); fetchProtocols()
   timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
   uptimeTimer = window.setInterval(() => { uptime.value++ }, 1000)
+  ws.connect('realtime', onRealtimeMessage)
+  ws.connect('alarm', onAlarmMessage)
+  ws.connect('device', onDeviceMessage)
 })
-onUnmounted(() => { if (timer) clearInterval(timer); if (uptimeTimer) clearInterval(uptimeTimer) })
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+  if (uptimeTimer) clearInterval(uptimeTimer)
+  ws.disconnect('realtime', onRealtimeMessage)
+  ws.disconnect('alarm', onAlarmMessage)
+  ws.disconnect('device', onDeviceMessage)
+})
+
+function onRealtimeMessage(data: any) {
+  if (data?.device_id && status.value) {
+    updateResourceHistory()
+  }
+}
+
+function onAlarmMessage(data: any) {
+  if (data) {
+    fetchAlarms()
+    if (status.value) status.value.alarm_firing = (status.value.alarm_firing ?? 0) + 1
+  }
+}
+
+function onDeviceMessage(data: any) {
+  if (data?.device_id) {
+    fetchDevices()
+    fetchStatus()
+  }
+}
 </script>
 
 <style scoped>
@@ -348,4 +426,6 @@ onUnmounted(() => { if (timer) clearInterval(timer); if (uptimeTimer) clearInter
 .stat-footer-warning { color: #ffeb3b; font-weight: 500; }
 .resource-card { text-align: center; }
 .resource-info { margin-top: 12px; }
+.quick-start-card { border: 2px dashed #e0e0e0; }
+.qs-item { text-align: center; cursor: pointer; min-height: 120px; display: flex; align-items: center; justify-content: center; }
 </style>

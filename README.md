@@ -1,121 +1,177 @@
 <div align="center">
-  <img src="logo.svg" width="128" height="128" alt="EdgeLiteGateway Logo" />
+
+# ⚡ EdgeLiteGateway
+
+### 轻量级边缘计算物联网网关 —— 让设备接入像插U盘一样简单
+
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue](https://img.shields.io/badge/Vue-3.4%2B-4FC08D?logo=vue.js&logoColor=white)](https://vuejs.org/)
+[![Version](https://img.shields.io/badge/version-1.0.0-community-brightgreen.svg)](https://github.com/suoten/EdgeLiteGateway)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+
+**🇨🇳 国内首个开源 Python 边缘计算网关 | 🎯 22 种工业协议开箱即用 | 📹 视频物联网一体化 | 🚀 10 分钟 Docker 部署**
+
+[快速开始](#-快速开始) · [功能特性](#-功能特性) · [安装部署](#-安装部署) · [技术架构](#-技术架构) · [版本对比](#-版本与路线图) · [技术支持](#-技术支持)
+
 </div>
 
-# EdgeLiteGateway Community Edition
+---
 
-**轻量级边缘计算物联网网关 —— 让设备接入像插U盘一样简单**
+## 🌟 为什么选择 EdgeLiteGateway？
 
-!\[License]\(https\://img.shields.io/badge/license-GPL--3.0-blue.svg null)
-!\[Python]\(https\://img.shields.io/badge/python-3.11%2B-blue null)
-!\[Version]\(https\://img.shields.io/badge/version-1.0.0-green null)
+> **如果你正在寻找一个轻量、易用、功能完整的边缘计算网关，EdgeLiteGateway 就是为你而生的。**
 
-***
+| 特性 | EdgeLiteGateway | 传统 C/Java 网关 |
+|:---|:---:|:---:|
+| **开发新驱动** | 🐍 Python 30 分钟 | C/Java 数天 |
+| **内存占用** | < 512MB | 1-4GB |
+| **部署方式** | 单容器 / 树莓派 | 专用服务器 |
+| **视频接入** | ✅ GB28181 一体化 | ❌ 需额外平台 |
+| **Web 管理** | ✅ 现代化 Vue 3 界面 | ❌ 命令行或简陋 UI |
+| **规则引擎** | ✅ 内置，可视化配置 | ❌ 需外部引擎 |
+| **AI/数据分析** | ✅ Python 生态天然支持 | ❌ 集成困难 |
+| **学习曲线** | 🟢 低，Python 全栈 | 🔴 高，多语言混合 |
 
-## 为什么选择 EdgeLiteGateway？
+### 四大核心优势
 
-**EdgeLiteGateway 社区版** 专为中小企业边缘计算场景设计：
+#### 🐍 Python 生态 — 开发者群体最大
 
-- **Python 生态** — 开发者群体最大，30分钟开发新驱动，AI/数据分析库天然丰富
-- **视频物联网一体化** — 国内首个开源融合网关，无缝对接 GB28181 视频平台
-- **极致轻量** — 单容器运行，内存 < 512MB，树莓派/工控机即可部署
-- **开箱即用** — 内置 17 种协议驱动、规则引擎、告警系统、时序存储、Web 管理界面
+Python 是全球开发者最多的语言之一。30 分钟即可开发新驱动，丰富的 AI/数据分析库（NumPy、Pandas、ONNX Runtime）天然可用，无需跨语言桥接。
 
-***
+#### 📹 视频物联网一体化 — 国内首创
 
-## 核心优势
+通过 PyGBSentry 适配器接入 GB28181 视频流，实现传感器数据与视频监控的**统一管理**。在一个界面中同时查看设备运行数据和现场视频画面，将传统割裂的安防监控与设备监控合二为一。
 
-### 1. 全异步高性能架构
+#### 🪶 极致轻量 — 树莓派即可运行
 
-基于 Python asyncio 全链路异步设计，单核支持 **1000+ 设备并发采集**。每设备独立协程，事件总线解耦，避免传统多线程模型的上下文切换开销。
+单容器运行，内存 < 512MB。无需专用服务器，树莓派、工控机、边缘盒子均可部署。Docker Compose 一键启动，10 分钟上线。
 
-### 2. 视频物联网一体化（独有）
+#### 🧩 开箱即用 — 22 种协议驱动
 
-通过 PyGBSentry 适配器接入 GB28181 视频流，实现传感器数据与视频监控的统一管理。将传统割裂的安防监控与设备监控合二为一，在一个界面中同时查看设备运行数据和现场视频画面。
+工业协议全覆盖：Modbus TCP/RTU、OPC UA、OPC DA、西门子 S7、三菱 MC、欧姆龙 FINS、Allen Bradley、FANUC CNC、MTConnect、托利多称重、DL/T 645、IEC 104、Sparkplug B、ABB/KUKA 机器人、ONVIF、串口设备、数据库接入、扫码枪、HTTP Webhook、MQTT Client、模拟器。
 
-### 3. 完整规则引擎 + 告警系统
+---
 
-内置规则引擎支持阈值告警、多条件组合、持续时间窗口、告警收敛和自动恢复通知，无需依赖外部平台即可实现边缘侧智能告警。支持钉钉（加签）、企业微信、邮件 SMTP、自定义 Webhook 四种通知渠道。
+## 🚀 快速开始
 
-### 4. 22 种协议驱动开箱即用
+```bash
+# 1️⃣ 克隆仓库
+git clone https://github.com/suoten/EdgeLiteGateway.git
+cd EdgeLiteGateway
 
-工业协议全覆盖：Modbus TCP/RTU、OPC UA、OPC DA、西门子 S7、三菱 MC、欧姆龙 FINS、Allen Bradley、FANUC CNC、MTConnect、托利多称重、DL/T 645、IEC 104、Sparkplug B、ABB/KUKA 机器人、ONVIF、串口设备、数据库接入、扫码枪。
+# 2️⃣ 构建前端
+cd web && npm install && npm run build && cd ..
 
-### 5. 企业级安全体系
+# 3️⃣ 一键启动
+cd docker && docker compose up -d
 
-- JWT 认证 + RBAC 三角色权限（admin/operator/viewer）
-- bcrypt 密码哈希、Token 刷新与吊销
-- 结构化日志：JSON 格式、日志轮转、上下文注入
+# 4️⃣ 打开浏览器
+# 👉 http://localhost:3000
+# 🔑 默认账号: admin / admin123
+```
 
-### 6. 断网续传与高可用
+> 💡 **就这么简单！** Docker Compose 会自动启动后端、前端(Nginx)、InfluxDB、Mosquitto 所有服务。
 
-InfluxDB 不可用时自动降级到 SQLite 缓存队列（最大 10 万条），网络恢复后自动断点续传，确保边缘场景数据零丢失。
+---
 
-***
+## ✨ 功能特性
 
-## 功能特性
+### 📡 协议驱动（22 种开箱即用）
 
-### 协议驱动
+| 协议 | 说明 | 适用场景 |
+|------|------|----------|
+| **Modbus TCP/RTU** | 工业标准协议，支持线圈/寄存器读写、设备发现、自动重连 | PLC、仪表、变频器 |
+| **OPC UA** | 工业互联协议，支持节点浏览和订阅 | SCADA/MES 对接 |
+| **OPC DA** | 经典 OPC 协议，支持 COM 接口数据访问 | 传统 Windows 工控 |
+| **西门子 S7** | S7 系列 PLC 通信协议（snap7） | S7-200/300/400/1200/1500 |
+| **三菱 MC** | 三菱 PLC MC 协议（pymcprotocol） | Q/L/FX 系列 |
+| **欧姆龙 FINS** | 欧姆龙 PLC FINS 协议 | CJ/CP/NJ 系列 |
+| **Allen Bradley** | AB PLC 通信协议（pylogix），支持 CIP/PCCC | ControlLogix/CompactLogix |
+| **FANUC CNC** | 发那科数控系统（pyfanuc） | 数控机床 |
+| **MTConnect** | 数控设备标准协议 | CNC 设备监控 |
+| **托利多 (Toledo)** | 称重仪表协议，支持 TCP/Serial/MT-SICS | 称重系统 |
+| **DL/T 645** | 电力部电表协议（2007版） | 智能电表 |
+| **IEC 104** | 电力远动协议 | 电力系统 |
+| **Sparkplug B** | 工业物联网 MQTT 规范 | IIoT 场景 |
+| **KUKA 机器人** | EKRL 协议 | 工业机器人 |
+| **ABB 机器人** | RWS REST API | 工业机器人 |
+| **ONVIF** | 视频设备发现/RTSP/PTZ | 视频监控 |
+| **MQTT Client** | 订阅设备数据主题，支持 JSON 解析 | IoT 设备 |
+| **HTTP Webhook** | 设备主动 POST 数据，支持 Bearer/Basic 认证 | 第三方集成 |
+| **串口设备** | RS232/RS485 串口通信，支持 Modbus RTU | 串口仪表 |
+| **数据库接入** | MySQL/PostgreSQL/SQLite/MSSQL，SQL 查询作为测点 | 数据库数据源 |
+| **扫码枪** | USB 串口扫码枪，自动帧解析 | 产线追溯 |
+| **模拟器** | 内置模拟器，支持 fixed/sine/random_walk/random 模式 | 开发测试 |
 
-| 协议             | 说明                                         |
-| -------------- | ------------------------------------------ |
-| Modbus TCP/RTU | 工业标准协议，支持线圈/寄存器读写、设备发现、自动重连                |
-| OPC UA         | 工业互联协议，支持节点浏览和订阅                           |
-| OPC DA         | 经典 OPC 协议，支持 COM 接口数据访问                    |
-| MQTT Client    | 订阅设备数据主题，支持 JSON 解析                        |
-| HTTP Webhook   | 设备主动 POST 数据，支持 Bearer/Basic 认证            |
-| Simulator      | 内置模拟器，支持 fixed/sine/random\_walk/random 模式 |
-| 西门子 S7         | S7 系列 PLC 通信协议（snap7）                      |
-| 三菱 MC          | 三菱 PLC MC 协议（pymcprotocol）                 |
-| 欧姆龙 FINS       | 欧姆龙 PLC FINS 协议                            |
-| Allen Bradley  | AB PLC 通信协议（pylogix）                       |
-| Fanuc CNC      | 发那科数控系统（pyfanuc）                           |
-| MTConnect      | 数控设备标准协议                                   |
-| 托利多 (Toledo)   | 称重仪表协议                                     |
-| 串口设备           | RS232/RS485 串口通信，支持 Modbus RTU             |
-| 数据库接入          | MySQL/PostgreSQL/SQLite/MSSQL，SQL 查询作为测点   |
-| 扫码枪            | USB 串口扫码枪，自动帧解析                            |
-| 视频接入           | 通过 PyGBSentry 适配器接入 GB28181 视频流            |
+### 🧠 核心能力
 
-### 核心能力
+| 能力 | 说明 |
+|------|------|
+| **事件总线架构** | 基于 asyncio.Queue 的进程内事件总线，模块间完全解耦 |
+| **异步采集调度** | 每设备独立 asyncio.Task，支持超时处理和批量写入，单核 1000+ 设备并发 |
+| **规则引擎** | 多条件 AND/OR 逻辑、持续时间窗口、告警收敛、自动恢复 |
+| **告警通知** | 钉钉(加签)、企业微信、邮件(SMTP)、自定义 Webhook 四种通知渠道 |
+| **时序存储** | InfluxDB 异步写入 + SQLite 配置存储（SQLAlchemy 2.0 + Alembic 迁移） |
+| **断网缓存** | InfluxDB 不可用时自动降级到 SQLite 队列（最大 10 万条），联网后续传 |
+| **WebSocket 推送** | 实时数据、告警事件、设备状态三个频道，前端实时刷新 |
+| **北向对接** | MQTT 转发、IoTSharp/ThingsBoard/华为云 IoTDA/ThingsCloud/ThingsPanel 平台对接 |
+| **内置服务** | MQTT Server（设备接入）、Modbus Slave（南向仿真） |
+| **视频接入** | 通过 PyGBSentry 适配器接入 GB28181 视频流，支持云台控制 |
+| **计算表达式** | 支持算术/逻辑/数学函数运算，变量引用 `${device.point}`，安全沙箱 |
+| **数据预处理** | 死区滤波、滑动平均、时间聚合窗口，减少无效数据上报 |
+| **MCP 协议** | Model Context Protocol 支持，提供工具/资源/提示模板三大能力 |
+| **OTA 升级** | 远程检查更新、下载、SHA256 校验、应用、回滚全流程 |
+| **Grafana 集成** | 自动创建数据源和仪表板，iframe 嵌入监控视图 |
+| **审计日志** | 完整操作记录、防篡改哈希链、CSV 导出、完整性校验 |
+| **多网关级联** | WebSocket 集成端点，支持子网关数据上报和反控 |
+| **串口透传** | RS232/RS485 串口到 TCP 桥接，支持 IP 白名单和最大客户端数 |
+| **插件热加载** | 自动发现插件目录，支持加载/重载/卸载，自定义驱动扩展 |
+| **3D 数字孪生** | 基于 Three.js 的 3D 可视化展示，支持工厂车间/智慧园区/能源站场景 |
+| **Web 组态** | 拖拽式组态编辑器，支持仪表盘/趋势图/开关/指示灯/文本组件 |
+| **安全体系** | JWT 认证 + RBAC 权限（admin/operator/viewer 三角色）+ Token 刷新与吊销 |
+| **Cython 加速** | 可选 Cython 编译 Modbus 映射和规则比较，3-10x 加速 |
+| **结构化日志** | JSON 格式输出、日志轮转归档、上下文注入 |
 
-- **事件总线架构** — 基于 asyncio.Queue 的进程内事件总线，模块间完全解耦
-- **异步采集调度** — 每设备独立 asyncio.Task，支持超时处理和批量写入
-- **规则引擎** — 多条件 AND/OR 逻辑、持续时间窗口、告警收敛、自动恢复
-- **告警通知** — 钉钉(加签)、企业微信、邮件(SMTP)、自定义 Webhook
-- **时序存储** — InfluxDB 异步写入 + SQLite 配置存储（SQLAlchemy 2.0 + Alembic 迁移）
-- **断网缓存** — InfluxDB 不可用时自动降级到 SQLite 队列，联网后续传
-- **WebSocket 推送** — 实时数据、告警事件、设备状态三个频道
-- **北向对接** — MQTT 转发、IoTSharp/ThingsBoard/华为云 IoTDA/ThingsCloud 平台对接
-- **内置服务** — MQTT Server、Modbus Slave（南向仿真）
-- **视频接入** — 通过 PyGBSentry 适配器接入 GB28181 视频流，支持云台控制
-- **计算表达式** — 支持算术/逻辑/数学函数运算，变量引用 `${device.point}`
-- **数据预处理** — 死区滤波、滑动平均、时间聚合窗口，减少无效数据上报
-- **MCP协议** — Model Context Protocol支持，提供工具/资源/提示模板三大能力
-- **OTA升级** — 远程检查更新、下载、SHA256校验、应用、回滚全流程
-- **Grafana集成** — 自动创建数据源和仪表板，iframe嵌入监控视图
-- **审计日志** — 完整操作记录、防篡改哈希链、CSV导出、完整性校验
-- **多网关级联** — WebSocket集成端点，支持子网关数据上报和反控
-- **串口透传** — RS232/RS485串口到TCP桥接，支持IP白名单和最大客户端数
-- **插件热加载** — 自动发现插件目录，支持加载/重载/卸载，自定义驱动扩展
-- **结构化日志** — JSON 格式输出、日志轮转归档、上下文注入
-- **3D 数字孪生** — 基于 Three.js 的 3D 可视化展示
-- **Web 组态** — 拖拽式组态编辑器，支持仪表盘/图表/开关/指示灯组件
-- **安全体系** — JWT 认证 + RBAC 权限（admin/operator/viewer 三角色）
-- **Cython 加速** — 可选 Cython 编译 Modbus 映射和规则比较，3-10x 加速
+### 🖥️ Web 管理界面
 
-***
+现代化 Vue 3 + Naive UI 界面，提供完整的可视化管理：
 
-## 安装部署
+| 页面 | 功能 |
+|------|------|
+| **仪表盘** | 设备/规则/告警统计、设备状态分布、协议分布、告警趋势、资源使用趋势 |
+| **设备管理** | 设备 CRUD、测点读写、模拟器创建、设备发现、批量操作 |
+| **设备详情** | 实时测点值、时序图表、视频监控+云台控制 |
+| **规则管理** | 规则 CRUD、多条件组合、持续时间窗口、启用/禁用、规则测试 |
+| **告警管理** | 告警列表、状态筛选、级别筛选、告警确认、实时推送 |
+| **数据查询** | 时序数据查询、ECharts 图表、统计信息、CSV 导出 |
+| **驱动配置** | 驱动列表、配置模板查看、设备发现 |
+| **平台对接** | 平台列表、两步式添加、连接/断开、配置管理 |
+| **表达式编辑器** | 表达式计算/验证/批量测试、函数列表、运算符参考 |
+| **数据预处理** | 全局配置、测点级配置（死区/滤波/聚合） |
+| **审计日志** | 日志查询、完整性校验、CSV 导出、日志清理 |
+| **服务管理** | 服务总览、启用/停用、依赖安装、配置更新 |
+| **MQTT Server** | 启停管理、连接数监控、配置更新 |
+| **Modbus Slave** | 启停管理、寄存器映射、配置更新 |
+| **串口透传** | 启停管理、流量统计 |
+| **OTA 升级** | 检查更新、应用更新、版本回滚 |
+| **Grafana 集成** | 服务管理、仪表板列表、iframe 嵌入 |
+| **MCP Server** | 工具/资源/提示模板管理、API Key 管理 |
+| **用户管理** | 用户 CRUD、角色分配、密码管理 |
+| **3D 数字孪生** | Three.js 3D 场景、设备可视化、实时数据 |
+| **Web 组态** | 拖拽编辑器、组件绑定、预览模式、项目保存 |
+
+---
+
+## 📦 安装部署
 
 本项目为**前后端分离**架构：
 
 - **后端**（`src/edgelite/`）：FastAPI 提供 REST API + WebSocket
 - **前端**（`web/`）：Vue 3 单页应用，需构建为静态文件
 
-以下每种方式都包含**后端部署**和**前端部署**两个步骤。
-
-***
+---
 
 ### 方式一：Docker Compose（推荐，10 分钟上线）
 
@@ -180,22 +236,22 @@ docker compose logs -f influxdb
 
 #### 步骤 4：验证部署
 
-| 服务          | 访问地址                         | 说明                 |
-| ----------- | ---------------------------- | ------------------ |
-| Web 管理界面    | <http://localhost:3000>      | 前端 Nginx 服务        |
-| API 文档      | <http://localhost:8080/docs> | FastAPI Swagger UI |
-| InfluxDB UI | <http://localhost:8086>      | 时序数据库管理界面          |
+| 服务 | 访问地址 | 说明 |
+|------|----------|------|
+| Web 管理界面 | <http://localhost:3000> | 前端 Nginx 服务 |
+| API 文档 | <http://localhost:8080/docs> | FastAPI Swagger UI |
+| InfluxDB UI | <http://localhost:8086> | 时序数据库管理界面 |
 
 > 首次登录使用默认账号：`admin` / `admin123`
 
 #### Docker Compose 服务说明
 
-| 服务        | 容器名                | 内部端口      | 说明                   |
-| --------- | ------------------ | --------- | -------------------- |
-| edgelite  | edgelite-gateway   | 8080      | 主服务（API + WebSocket） |
-| frontend  | edgelite-frontend  | 80 → 3000 | Nginx 前端静态文件服务       |
-| influxdb  | edgelite-influxdb  | 8086      | 时序数据库                |
-| mosquitto | edgelite-mosquitto | 1883      | MQTT Broker          |
+| 服务 | 容器名 | 内部端口 | 说明 |
+|------|--------|----------|------|
+| edgelite | edgelite-gateway | 8080 | 主服务（API + WebSocket） |
+| frontend | edgelite-frontend | 80 → 3000 | Nginx 前端静态文件服务 |
+| influxdb | edgelite-influxdb | 8086 | 时序数据库 |
+| mosquitto | edgelite-mosquitto | 1883 | MQTT Broker |
 
 #### 常用 Docker 命令
 
@@ -216,7 +272,7 @@ docker compose exec edgelite sh
 docker stats
 ```
 
-***
+---
 
 ### 方式二：本地开发（前后端分离运行）
 
@@ -277,7 +333,7 @@ npm run dev
 - Web 管理界面：`http://localhost:3000`
 - API 文档：`http://localhost:8080/docs`
 
-***
+---
 
 ### 方式三：生产部署（宝塔面板 / Nginx）
 
@@ -491,25 +547,25 @@ sudo certbot renew --dry-run
 
 #### 步骤 7：生产环境安全检查清单
 
-| 序号 | 检查项               | 命令/操作                                                          |
-| -- | ----------------- | -------------------------------------------------------------- |
-| 1  | 修改 admin 默认密码     | Web 界面 → 用户管理 → 修改密码                                           |
-| 2  | 配置强 secret\_key   | `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
-| 3  | 配置 InfluxDB Token | 通过环境变量 `EDGELITE_INFLUXDB__TOKEN` 设置                           |
-| 4  | 限制 CORS 源         | 修改 `configs/config.yaml` 中 `server.cors_origins`               |
-| 5  | 启用 HTTPS          | Certbot 自动配置                                                   |
-| 6  | 配置防火墙             | `ufw allow 80/tcp && ufw allow 443/tcp && ufw enable`          |
-| 7  | 设置日志级别为 WARNING   | 修改 `configs/config.yaml` 中 `logging.level`                     |
-| 8  | 禁用模拟器             | `simulator.auto_create: false`                                 |
-| 9  | 配置定时备份            | 参考下方备份脚本                                                       |
-| 10 | 禁用 root 运行        | Systemd 配置中指定 `User=edgelite`                                  |
+| 序号 | 检查项 | 命令/操作 |
+|:---:|--------|-----------|
+| 1 | 修改 admin 默认密码 | Web 界面 → 用户管理 → 修改密码 |
+| 2 | 配置强 secret_key | `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+| 3 | 配置 InfluxDB Token | 通过环境变量 `EDGELITE_INFLUXDB__TOKEN` 设置 |
+| 4 | 限制 CORS 源 | 修改 `configs/config.yaml` 中 `server.cors_origins` |
+| 5 | 启用 HTTPS | Certbot 自动配置 |
+| 6 | 配置防火墙 | `ufw allow 80/tcp && ufw allow 443/tcp && ufw enable` |
+| 7 | 设置日志级别为 WARNING | 修改 `configs/config.yaml` 中 `logging.level` |
+| 8 | 禁用模拟器 | `simulator.auto_create: false` |
+| 9 | 配置定时备份 | 参考下方备份脚本 |
+| 10 | 禁用 root 运行 | Systemd 配置中指定 `User=edgelite` |
 
 **访问地址**：
 
 - Web 管理界面：`https://your-domain.com`
 - API 文档：`https://your-domain.com/docs`
 
-***
+---
 
 ### 方式四：Windows 本地部署
 
@@ -542,100 +598,42 @@ npm run dev
 
 > Windows 生产部署建议使用 WSL2 + Docker Compose 方式，或部署到 Linux 服务器。
 
-***
+---
 
 ### 默认账号
 
-| 用户名   | 密码       | 角色  | 权限   |
-| ----- | -------- | --- | ---- |
+| 用户名 | 密码 | 角色 | 权限 |
+|--------|------|------|------|
 | admin | admin123 | 管理员 | 全部权限 |
 
-**生产环境请立即修改默认密码！**
+**⚠️ 生产环境请立即修改默认密码！**
 
-***
+---
 
-## 项目结构
+## 🏗️ 技术架构
+
+### 项目结构
 
 ```
 EdgeLiteGateway/
 ├── src/edgelite/           # 后端源码
-│   ├── api/                # REST API 路由
-│   │   ├── auth.py         #   认证（登录/刷新Token/登出/修改密码）
-│   │   ├── devices.py      #   设备管理（CRUD/测点读写/发现/推送）
-│   │   ├── rules.py        #   规则管理（CRUD/启用禁用/测试）
-│   │   ├── alarms.py       #   告警管理（列表/确认）
-│   │   ├── data.py         #   数据查询（时序查询/导出）
-│   │   ├── video.py        #   视频接入（流获取/云台控制）
-│   │   ├── system.py       #   系统管理（状态/备份/恢复）
-│   │   ├── users.py        #   用户管理（CRUD）
-│   │   ├── drivers.py      #   驱动配置（列表/配置模板/设备发现）
-│   │   ├── platforms.py    #   平台对接（列表/连接/断开/状态）
-│   │   ├── expressions.py  #   表达式管理（计算/验证/批量/函数列表）
-│   │   ├── mcp.py          #   MCP协议（工具/资源/提示模板/认证密钥）
-│   │   ├── mqtt_server.py  #   内置MQTT Server管理
-│   │   ├── modbus_slave.py #   内置Modbus Slave管理
-│   │   ├── preprocess.py   #   数据预处理（死区/滤波/聚合配置）
-│   │   ├── serial_bridge.py #  串口TCP透传管理
-│   │   ├── ota.py          #   OTA升级（检查/应用/回滚/备份）
-│   │   ├── grafana.py      #   Grafana集成（数据源/仪表板/嵌入）
-│   │   ├── audit.py        #   审计日志（查询/校验/导出/清理）
-│   │   └── integration.py  #   多网关级联（握手/状态）
-│   ├── drivers/            # 协议驱动
-│   │   ├── base.py         #   DriverPlugin 抽象基类
-│   │   ├── registry.py     #   驱动注册表（显式注册）
-│   │   ├── modbus_tcp.py   #   Modbus TCP/RTU
-│   │   ├── opcua.py        #   OPC UA
-│   │   ├── opc_da.py       #   OPC DA
-│   │   ├── mqtt_client.py  #   MQTT Client
-│   │   ├── http_webhook.py #   HTTP Webhook
-│   │   ├── simulator.py    #   模拟器
-│   │   ├── s7.py           #   西门子 S7
-│   │   ├── mc.py           #   三菱 MC
-│   │   ├── fins.py         #   欧姆龙 FINS
-│   │   ├── allen_bradley.py #  Allen Bradley
-│   │   ├── fanuc.py        #   Fanuc CNC
-│   │   ├── mtconnect.py    #   MTConnect
-│   │   ├── toledo.py       #   托利多称重
-│   │   ├── serial_port.py  #   串口设备
-│   │   ├── database_source.py # 数据库接入
-│   │   ├── barcode_scanner.py # 扫码枪
-│   │   └── video/          #   视频接入（PyGBSentry 适配器）
-│   ├── engine/             # 核心引擎
-│   │   ├── event_bus.py    #   事件总线
-│   │   ├── scheduler.py    #   采集调度器
-│   │   ├── evaluator.py    #   规则评估器
-│   │   ├── lifecycle.py    #   设备生命周期管理
-│   │   ├── mqtt_forwarder.py # MQTT 北向转发
-│   │   ├── mqtt_server.py  #   内置 MQTT Server
-│   │   ├── modbus_slave.py #   内置 Modbus Slave
-│   │   ├── expression_engine.py # 计算表达式引擎
-│   │   ├── preprocessor.py #   数据预处理引擎（死区/滤波/聚合）
-│   │   ├── ota_manager.py  #   OTA升级管理器
-│   │   ├── plugin_manager.py #  插件热加载管理器
-│   │   ├── mqtt_tls.py     #   MQTT TLS加密
-│   │   ├── webhook_auth.py #   Webhook认证
-│   │   ├── structured_logger.py # 结构化日志系统
-│   │   └── integration/    #   多网关级联
-│   │       ├── endpoint.py #     WebSocket集成端点
-│   │       ├── dispatcher.py #   级联调度器
-│   │       └── backhaul.py #     数据回传管理器
+│   ├── api/                # REST API 路由（21 个模块，93 个端点）
+│   ├── drivers/            # 协议驱动（22 种）
+│   ├── engine/             # 核心引擎（事件总线/调度/规则/表达式/OTA/插件）
 │   ├── models/             # Pydantic 数据模型 + SQLAlchemy ORM
 │   ├── security/           # 安全模块（JWT/RBAC/密码/Token吊销）
-│   ├── services/           # 业务服务层
+│   ├── services/           # 业务服务层（9 个服务）
 │   ├── storage/            # 存储层（SQLite/InfluxDB/缓存）
-│   ├── platform/           # 北向平台对接（IoTSharp/ThingsBoard/华为云IoTDA/ThingsCloud）
+│   ├── platform/           # 北向平台对接（5 种平台）
 │   └── _cython/            # Cython 加速模块（可选）
 ├── web/                    # 前端源码（Vue 3 + Naive UI + TypeScript）
 │   └── src/
-│       ├── api/index.ts    #   API 封装层
-│       ├── views/
-│       │   ├── system/
-│       │   │   ├── DriverConfig.vue     #   驱动配置页
-│       │   │   ├── PlatformConfig.vue   #   平台对接配置页
-│       │   │   └── ExpressionConfig.vue #   表达式编辑器页
-│       │   ├── digital-twin/DigitalTwin.vue # 3D数字孪生页
-│       │   └── scada/ScadaEditor.vue    #   Web组态编辑器页
-│       └── ...
+│       ├── api/            #   API 封装层（HTTP + WebSocket）
+│       ├── views/          #   23 个页面组件
+│       ├── components/     #   通用组件
+│       ├── layouts/        #   布局组件
+│       ├── stores/         #   Pinia 状态管理
+│       └── router/         #   路由配置
 ├── configs/                # 配置文件
 ├── docker/                 # Docker 配置（Dockerfile + docker-compose.yml）
 ├── nginx/                  # Nginx 反向代理配置 + 宝塔部署指南
@@ -644,41 +642,40 @@ EdgeLiteGateway/
 └── docs/                   # 文档（架构/部署/开发/用户指南）
 ```
 
-***
+### 技术栈
 
-## 技术栈
+#### 后端
 
-### 后端
+| 技术 | 用途 | 版本 |
+|------|------|------|
+| Python 3.11+ | 运行时 | ≥3.11 |
+| FastAPI | Web 框架（异步原生，自动文档） | ≥0.110 |
+| Pydantic | 数据校验与配置管理 | ≥2.6 |
+| SQLAlchemy 2.0 + aiosqlite | SQLite 异步 ORM | ≥2.0 |
+| Alembic | 数据库迁移 | - |
+| InfluxDB Client | 时序数据库 | ≥1.44 |
+| pymodbus | Modbus 协议 | ≥3.7 |
+| aiomqtt | MQTT 客户端 | ≥2.1 |
+| asyncua | OPC UA 客户端/服务端 | ≥1.1 |
+| python-jose | JWT Token | ≥3.3 |
+| passlib + bcrypt | 密码哈希 | ≥1.7 |
 
-| 技术                         | 用途                | 版本     |
-| -------------------------- | ----------------- | ------ |
-| Python 3.11+               | 运行时               | ≥3.11  |
-| FastAPI                    | Web 框架（异步原生，自动文档） | ≥0.110 |
-| Pydantic                   | 数据校验与配置管理         | ≥2.6   |
-| SQLAlchemy 2.0 + aiosqlite | SQLite 异步 ORM     | ≥2.0   |
-| Alembic                    | 数据库迁移             | -      |
-| InfluxDB Client            | 时序数据库             | ≥1.44  |
-| pymodbus                   | Modbus 协议         | ≥3.7   |
-| aiomqtt                    | MQTT 客户端          | ≥2.1   |
-| asyncua                    | OPC UA 客户端/服务端    | ≥1.1   |
-| python-jose                | JWT Token         | ≥3.3   |
-| passlib + bcrypt           | 密码哈希              | ≥1.7   |
+#### 前端
 
-### 前端
+| 技术 | 用途 | 版本 |
+|------|------|------|
+| Vue 3.4 | UI 框架 | ≥3.4 |
+| TypeScript | 类型安全 | ≥5.0 |
+| Naive UI | 组件库 | ≥2.0 |
+| Pinia | 状态管理 | ≥2.0 |
+| ECharts | 图表 | ≥5.0 |
+| Three.js | 3D 可视化 | - |
+| Axios | HTTP 客户端 | ≥1.6 |
+| Vite | 构建工具 | ≥5.0 |
 
-| 技术         | 用途       | 版本   |
-| ---------- | -------- | ---- |
-| Vue 3.4    | UI 框架    | ≥3.4 |
-| TypeScript | 类型安全     | ≥5.0 |
-| Naive UI   | 组件库      | ≥2.0 |
-| Pinia      | 状态管理     | ≥2.0 |
-| ECharts    | 图表       | ≥5.0 |
-| Axios      | HTTP 客户端 | ≥1.6 |
-| Vite       | 构建工具     | ≥5.0 |
+---
 
-***
-
-## 配置说明
+## ⚙️ 配置说明
 
 ### 1. 复制配置文件
 
@@ -703,21 +700,21 @@ cd web && cp .env.example .env && cd ..
 
 支持 `EDGELITE_` 前缀的环境变量覆盖配置（两级嵌套用双下划线 `__` 分隔）：
 
-| 环境变量                             | 对应配置项                 | 说明              |
-| -------------------------------- | --------------------- | --------------- |
-| `EDGELITE_CONFIG`                | -                     | 配置文件路径          |
-| `EDGELITE_SERVER__HOST`          | server.host           | 监听地址            |
-| `EDGELITE_SERVER__PORT`          | server.port           | 监听端口            |
-| `EDGELITE_DATABASE__SQLITE_PATH` | database.sqlite\_path | SQLite 路径       |
-| `EDGELITE_INFLUXDB__URL`         | influxdb.url          | InfluxDB 地址     |
-| `EDGELITE_INFLUXDB__TOKEN`       | influxdb.token        | InfluxDB Token  |
-| `EDGELITE_INFLUXDB__ORG`         | influxdb.org          | InfluxDB 组织     |
-| `EDGELITE_INFLUXDB__BUCKET`      | influxdb.bucket       | InfluxDB Bucket |
-| `EDGELITE_MQTT__BROKER`          | mqtt.broker           | MQTT Broker 地址  |
-| `EDGELITE_MQTT__PORT`            | mqtt.port             | MQTT Broker 端口  |
-| `EDGELITE_SECURITY__SECRET_KEY`  | security.secret\_key  | JWT 签名密钥        |
-| `EDGELITE_SECURITY__ALGORITHM`   | security.algorithm    | JWT 算法          |
-| `EDGELITE_LOGGING__LEVEL`        | logging.level         | 日志级别            |
+| 环境变量 | 对应配置项 | 说明 |
+|----------|-----------|------|
+| `EDGELITE_CONFIG` | - | 配置文件路径 |
+| `EDGELITE_SERVER__HOST` | server.host | 监听地址 |
+| `EDGELITE_SERVER__PORT` | server.port | 监听端口 |
+| `EDGELITE_DATABASE__SQLITE_PATH` | database.sqlite_path | SQLite 路径 |
+| `EDGELITE_INFLUXDB__URL` | influxdb.url | InfluxDB 地址 |
+| `EDGELITE_INFLUXDB__TOKEN` | influxdb.token | InfluxDB Token |
+| `EDGELITE_INFLUXDB__ORG` | influxdb.org | InfluxDB 组织 |
+| `EDGELITE_INFLUXDB__BUCKET` | influxdb.bucket | InfluxDB Bucket |
+| `EDGELITE_MQTT__BROKER` | mqtt.broker | MQTT Broker 地址 |
+| `EDGELITE_MQTT__PORT` | mqtt.port | MQTT Broker 端口 |
+| `EDGELITE_SECURITY__SECRET_KEY` | security.secret_key | JWT 签名密钥 |
+| `EDGELITE_SECURITY__ALGORITHM` | security.algorithm | JWT 算法 |
+| `EDGELITE_LOGGING__LEVEL` | logging.level | 日志级别 |
 
 示例：
 
@@ -730,9 +727,9 @@ export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.
 
 详细配置项参见 [configs/config.example.yaml](configs/config.example.yaml) 和 [.env.example](.env.example)。
 
-***
+---
 
-## API 文档
+## 📡 API 文档
 
 启动服务后访问 FastAPI 自动文档：
 
@@ -741,16 +738,16 @@ export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.
 
 ### 主要端点
 
-| 路由前缀              | 功能                    |
-| ----------------- | --------------------- |
-| `/api/v1/auth`    | 认证（登录/刷新Token/登出/修改密码） |
+| 路由前缀 | 功能 |
+|----------|------|
+| `/api/v1/auth` | 认证（登录/刷新Token/登出/修改密码） |
 | `/api/v1/devices` | 设备管理（CRUD/测点读写/发现/推送） |
-| `/api/v1/rules`   | 规则管理（CRUD/启用禁用/测试）    |
-| `/api/v1/alarms`  | 告警管理（列表/确认）           |
-| `/api/v1/data`    | 数据查询（时序查询/导出）         |
-| `/api/v1/video`   | 视频接入（流获取/云台控制）        |
-| `/api/v1/system`  | 系统管理（状态/备份/恢复）        |
-| `/api/v1/users`   | 用户管理（CRUD）            |
+| `/api/v1/rules` | 规则管理（CRUD/启用禁用/测试） |
+| `/api/v1/alarms` | 告警管理（列表/确认） |
+| `/api/v1/data` | 数据查询（时序查询/导出） |
+| `/api/v1/video` | 视频接入（流获取/云台控制） |
+| `/api/v1/system` | 系统管理（状态/备份/恢复） |
+| `/api/v1/users` | 用户管理（CRUD） |
 | `/api/v1/drivers` | 驱动配置（列表/配置模板/设备发现） |
 | `/api/v1/platforms` | 平台对接（列表/连接/断开/状态） |
 | `/api/v1/expressions` | 表达式管理（计算/验证/批量/函数列表） |
@@ -770,11 +767,12 @@ export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.
 ws://host:8080/ws/v1/realtime?token=xxx  # 实时数据推送
 ws://host:8080/ws/v1/alarm?token=xxx     # 告警事件推送
 ws://host:8080/ws/v1/device?token=xxx    # 设备状态推送
+ws://host:8080/ws/v1/integration?token=xxx # 级联数据推送
 ```
 
-***
+---
 
-## 开发
+## 🔧 开发
 
 ```bash
 # 安装开发依赖
@@ -795,30 +793,30 @@ python -m edgelite --reload
 
 详见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
-***
+---
 
-## 版本与路线图
+## 🗺️ 版本与路线图
 
 EdgeLiteGateway 采用三级版本体系，满足不同场景需求：
 
-### 社区版
+### 🆓 社区版 (v1.0) — 你正在这里
 
 面向个人开发者、教育机构和中小型企业，提供完整的边缘计算网关基础能力。
 
 | 模块 | 功能说明 |
 |------|----------|
-| **协议驱动** | 22 种工业协议开箱即用（Modbus TCP/RTU、OPC UA、OPC DA、西门子 S7、三菱 MC、欧姆龙 FINS、Allen Bradley、FANUC CNC、MTConnect、托利多、DL/T 645、IEC 104、Sparkplug B、ABB/KUKA、ONVIF、串口、数据库、扫码枪） |
+| **协议驱动** | 22 种工业协议开箱即用 |
 | **内置服务** | MQTT Server（设备接入）、Modbus Slave（南向仿真） |
 | **规则引擎** | 阈值告警、多条件 AND/OR 逻辑、持续时间窗口、告警收敛、自动恢复 |
 | **告警通知** | 钉钉（加签）、企业微信、邮件 SMTP、自定义 Webhook |
 | **时序存储** | InfluxDB 异步写入 + SQLite 断网缓存队列（最大 10 万条） |
 | **视频接入** | 通过 PyGBSentry 适配器接入 GB28181 视频流，支持云台控制 |
-| **北向对接** | IoTSharp、ThingsBoard、华为云 IoTDA、ThingsCloud |
+| **北向对接** | IoTSharp、ThingsBoard、华为云 IoTDA、ThingsCloud、ThingsPanel |
 | **安全体系** | JWT 认证 + RBAC 三角色权限、bcrypt 密码哈希、Token 刷新与吊销 |
-| **Web 管理** | Vue 3 + Naive UI 现代化界面，支持实时数据、告警、设备状态监控 |
+| **Web 管理** | Vue 3 + Naive UI 现代化界面，23 个功能页面 |
 | **扩展能力** | 计算表达式引擎、Cython 可选加速、MCP 协议支持 |
 
-### 企业版
+### 🏢 企业版 (v1.2)
 
 在社区版基础上，增加企业级特性和高阶协议支持，满足生产环境严苛要求。
 
@@ -833,7 +831,7 @@ EdgeLiteGateway 采用三级版本体系，满足不同场景需求：
 | **消息队列** | Kafka 北向对接，支持大规模数据流处理 |
 | **数据库扩展** | 达梦数据库支持 |
 
-### 云边协同版
+### ☁️ 云边协同版 (v2.0)
 
 面向集团型企业和智慧城市场景，实现多节点统一管理、边云协同和 AI 增强。
 
@@ -846,16 +844,22 @@ EdgeLiteGateway 采用三级版本体系，满足不同场景需求：
 
 ---
 
-## 许可证
+## 📄 许可证
 
 [GPL-3.0](LICENSE) License
 
-***
+---
 
-## 技术支持
+## 💬 技术支持
 
 - GitHub Issues: <https://github.com/suoten/EdgeLiteGateway/issues>
 - Gitee Issues: <https://gitee.com/suoten/EdgeLiteGateway/issues>
 - 作者邮箱: <suoten@163.com>
 
-**欢迎 Star ⭐ 和 Fork，您的支持是我们持续开发的动力！**
+<div align="center">
+
+**如果这个项目对你有帮助，请给个 ⭐ Star 支持一下！**
+
+**你的 Star 是我们持续开发的动力！**
+
+</div>

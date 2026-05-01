@@ -9,20 +9,40 @@
     </n-space>
 
     <n-data-table :columns="columns" :data="rules" :loading="loading" :pagination="pagination" :row-key="(r: Rule) => r.rule_id" />
+    <n-empty v-if="!loading && rules.length === 0" description="暂无规则，点击「创建规则」添加告警规则" style="padding: 40px 0" />
 
     <n-modal v-model:show="showCreateModal" title="创建告警规则" preset="card" style="width: 640px">
       <n-form :model="createForm" label-placement="left" label-width="90" :rules="createRules" ref="createFormRef">
+        <n-form-item label="告警模板">
+          <n-select v-model:value="selectedTemplate" :options="templateOptions" placeholder="选择模板快速填充（可选）" clearable @update:value="onTemplateChange" />
+        </n-form-item>
+        <n-alert v-if="selectedTemplateDesc" type="info" :bordered="false" style="margin-bottom: 12px">{{ selectedTemplateDesc }}</n-alert>
         <n-form-item label="规则名称" path="name"><n-input v-model:value="createForm.name" placeholder="如：温度超限告警" /></n-form-item>
         <n-form-item label="关联设备" path="device_id">
-          <n-select v-model:value="createForm.device_id" :options="deviceOptions" placeholder="选择关联设备" filterable />
+          <n-select v-model:value="createForm.device_id" :options="deviceOptions" placeholder="选择关联设备" filterable @update:value="onDeviceChange" />
         </n-form-item>
         <n-form-item label="逻辑组合">
-          <n-radio-group v-model:value="createForm.logic">
-            <n-radio value="AND">AND（全部满足）</n-radio>
-            <n-radio value="OR">OR（任一满足）</n-radio>
-          </n-radio-group>
+          <n-space align="center">
+            <n-radio-group v-model:value="createForm.logic">
+              <n-radio value="AND">AND（全部满足）</n-radio>
+              <n-radio value="OR">OR（任一满足）</n-radio>
+            </n-radio-group>
+            <n-tooltip trigger="hover">
+              <template #trigger><n-text depth="3" style="cursor: help">ⓘ</n-text></template>
+              AND: 所有条件同时满足才触发; OR: 任一条件满足即触发
+            </n-tooltip>
+          </n-space>
         </n-form-item>
-        <n-form-item label="持续时间"><n-input-number v-model:value="createForm.duration" :min="0" :max="3600" placeholder="0" style="width: 120px" /> 秒（0=立即触发）</n-form-item>
+        <n-form-item label="持续时间">
+          <n-space align="center">
+            <n-input-number v-model:value="createForm.duration" :min="0" :max="3600" placeholder="0" style="width: 120px" />
+            <n-text>秒</n-text>
+            <n-tooltip trigger="hover">
+              <template #trigger><n-text depth="3" style="cursor: help">ⓘ</n-text></template>
+              条件持续满足该时长后才触发告警，0表示立即触发
+            </n-tooltip>
+          </n-space>
+        </n-form-item>
         <n-form-item label="严重级别" path="severity">
           <n-select v-model:value="createForm.severity" :options="severityOptions" placeholder="选择级别" />
         </n-form-item>
@@ -32,8 +52,8 @@
         <n-form-item label="触发条件">
           <n-space vertical style="width: 100%">
             <n-space v-for="(cond, i) in createForm.conditions" :key="i" align="center">
-              <n-input v-model:value="cond.point" placeholder="测点名" style="width: 120px" />
-              <n-select v-model:value="cond.operator" :options="operatorOptions" style="width: 80px" />
+              <n-select v-model:value="cond.point" :options="pointOptions" filterable placeholder="测点" style="width: 120px" />
+              <n-select v-model:value="cond.operator" :options="operatorOptions" style="width: 100px" />
               <n-input-number v-model:value="cond.threshold" placeholder="阈值" style="width: 120px" />
               <n-button text type="error" @click="createForm.conditions.splice(i, 1)">删除</n-button>
             </n-space>
@@ -51,7 +71,7 @@
       <n-form :model="editForm" label-placement="left" label-width="90" :rules="createRules" ref="editFormRef">
         <n-form-item label="规则名称" path="name"><n-input v-model:value="editForm.name" /></n-form-item>
         <n-form-item label="关联设备" path="device_id">
-          <n-select v-model:value="editForm.device_id" :options="deviceOptions" filterable />
+          <n-select v-model:value="editForm.device_id" :options="deviceOptions" filterable @update:value="onDeviceChange" />
         </n-form-item>
         <n-form-item label="逻辑组合">
           <n-radio-group v-model:value="editForm.logic">
@@ -69,8 +89,8 @@
         <n-form-item label="触发条件">
           <n-space vertical style="width: 100%">
             <n-space v-for="(cond, i) in editForm.conditions" :key="i" align="center">
-              <n-input v-model:value="cond.point" placeholder="测点名" style="width: 120px" />
-              <n-select v-model:value="cond.operator" :options="operatorOptions" style="width: 80px" />
+              <n-select v-model:value="cond.point" :options="pointOptions" filterable placeholder="测点" style="width: 120px" />
+              <n-select v-model:value="cond.operator" :options="operatorOptions" style="width: 100px" />
               <n-input-number v-model:value="cond.threshold" placeholder="阈值" style="width: 120px" />
               <n-button text type="error" @click="editForm.conditions.splice(i, 1)">删除</n-button>
             </n-space>
@@ -87,10 +107,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
+import { ref, reactive, computed, onMounted, h } from 'vue'
+import { NButton, NTag, NSpace, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { ruleApi, deviceApi, type Rule, type Device } from '@/api'
 import { severityLabel, channelLabel } from '@/utils/enumLabels'
+import { RULE_TEMPLATES, OPERATOR_OPTIONS, getTemplateCategories } from '@/constants/ruleTemplates'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -124,13 +145,45 @@ const channelOptions = [
   { label: 'Webhook', value: 'webhook' },
 ]
 
-const operatorOptions = [
-  { label: '>', value: '>' },
-  { label: '>=', value: '>=' },
-  { label: '<', value: '<' },
-  { label: '<=', value: '<=' },
-  { label: '==', value: '==' },
-]
+const operatorOptions = OPERATOR_OPTIONS
+
+const selectedTemplate = ref<string | null>(null)
+const selectedTemplateDesc = computed(() => {
+  if (!selectedTemplate.value) return ''
+  return RULE_TEMPLATES.find(t => t.id === selectedTemplate.value)?.description || ''
+})
+const templateOptions = computed(() => {
+  const categories = getTemplateCategories()
+  return categories.map(cat => ({
+    type: 'group' as const,
+    label: cat,
+    key: cat,
+    children: RULE_TEMPLATES.filter(t => t.category === cat).map(t => ({
+      label: t.name,
+      value: t.id,
+    })),
+  }))
+})
+const pointOptions = computed(() => {
+  if (!createForm.device_id) return []
+  const dev = devices.value.find(d => d.device_id === createForm.device_id)
+  return dev?.points?.map((p: any) => ({ label: `${p.name}${p.unit ? ' (' + p.unit + ')' : ''}`, value: p.name })) || []
+})
+
+function onTemplateChange(val: string | null) {
+  if (!val) return
+  const tmpl = RULE_TEMPLATES.find(t => t.id === val)
+  if (!tmpl) return
+  createForm.name = tmpl.name
+  createForm.severity = tmpl.severity
+  createForm.logic = tmpl.logic
+  createForm.duration = tmpl.duration
+  createForm.conditions = tmpl.conditions.map(c => ({ point: c.point, operator: c.operator, threshold: c.threshold }))
+}
+
+function onDeviceChange() {
+  // points will be recomputed via computed
+}
 
 const severityColor: Record<string, any> = { critical: 'error', warning: 'warning', info: 'info' }
 
@@ -162,7 +215,10 @@ const columns = [
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => openEdit(r) }, { default: () => '编辑' }),
           h(NButton, { text: true, type: r.enabled ? 'warning' : 'success', onClick: () => handleToggle(r) }, { default: () => r.enabled ? '禁用' : '启用' }),
-          h(NButton, { text: true, type: 'error', onClick: () => handleDelete(r) }, { default: () => '删除' }),
+          h(NPopconfirm as any, { onPositiveClick: () => doDelete(r) }, {
+            trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => '删除' }),
+            default: () => `确定删除规则"${r.name}"？`,
+          }),
         ],
       }),
   },

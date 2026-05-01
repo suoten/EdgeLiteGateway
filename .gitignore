@@ -40,6 +40,7 @@ configs/config.local.yaml
 
 # ---------- 运行时数据 ----------
 data/
+!web/src/views/data/
 logs/
 backups/
 *.db

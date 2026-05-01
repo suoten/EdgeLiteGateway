@@ -21,6 +21,7 @@
       :pagination="pagination" :row-key="(r: Device) => r.device_id"
       v-model:checked-row-keys="checkedKeys"
     />
+    <n-empty v-if="!loading && devices.length === 0" description="暂无设备，点击「创建设备」开始接入" style="padding: 40px 0" />
 
     <!-- 创建设备弹窗 -->
     <n-modal v-model:show="showCreateModal" title="创建设备" preset="card" style="width: 720px">
@@ -38,9 +39,21 @@
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="采集间隔" path="collect_interval"><n-input-number v-model:value="createForm.collect_interval" :min="1" :max="3600" /> 秒</n-form-item>
+            <n-form-item label="采集间隔" path="collect_interval">
+              <n-space align="center">
+                <n-input-number v-model:value="createForm.collect_interval" :min="1" :max="3600" />
+                <n-text>秒</n-text>
+                <n-tooltip trigger="hover">
+                  <template #trigger><n-text depth="3" style="cursor: help">ⓘ</n-text></template>
+                  每隔多少秒向设备采集一次数据
+                </n-tooltip>
+              </n-space>
+            </n-form-item>
           </n-gi>
         </n-grid>
+
+        <!-- 协议说明 -->
+        <n-alert v-if="currentProtocolDesc" type="info" :bordered="false" style="margin-bottom: 12px">{{ currentProtocolDesc }}</n-alert>
 
         <!-- 协议专业配置 -->
         <n-divider>连接配置</n-divider>
@@ -48,6 +61,10 @@
           <template v-for="field in currentProtocolFields" :key="field.name">
             <n-gi>
               <n-form-item :label="field.label || field.name" :path="'config.' + field.name">
+                <n-tooltip v-if="field.tooltip" trigger="hover" style="margin-right: 4px">
+                  <template #trigger><n-icon size="16" style="vertical-align: middle; cursor: help">ⓘ</n-icon></template>
+                  {{ field.tooltip }}
+                </n-tooltip>
                 <n-select
                   v-if="field.options"
                   v-model:value="createForm.config[field.name]"
@@ -126,9 +143,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NTag, NSpace, NTooltip, useMessage, useDialog } from 'naive-ui'
+import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { deviceApi, driverApi, type Device } from '@/api'
 import { deviceStatusLabel, deviceStatusColor } from '@/utils/enumLabels'
+import { PROTOCOL_CONFIGS, getProtocolConfig } from '@/constants/protocolConfig'
 
 const router = useRouter()
 const message = useMessage()
@@ -253,7 +271,10 @@ const columns = [
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/devices/${row.device_id}`) }, { default: () => '详情' }),
           h(NButton, { text: true, type: 'info', onClick: () => handleWritePoint(row) }, { default: () => '下发' }),
-          h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' }),
+          h(NPopconfirm as any, { onPositiveClick: () => doDelete(row) }, {
+            trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => '删除' }),
+            default: () => `确定删除设备 "${row.name}"？`,
+          }),
         ],
       }),
   },
@@ -265,11 +286,32 @@ const createRules = {
   protocol: { required: true, message: '请选择协议', trigger: 'change' },
 }
 
+const PROTOCOL_KEY_MAP: Record<string, string> = {
+  modbus_tcp: 'modbus-tcp', modbus_rtu: 'modbus-rtu', opcua: 'opcua', mqtt: 'mqtt',
+  s7: 's7', mc: 'mc', fins: 'fins', allen_bradley: 'ab', http: 'http', simulator: 'simulator',
+}
+
 const driverSchemas = ref<Record<string, any>>({})
 
 const currentProtocolFields = computed(() => {
   const schema = driverSchemas.value[createForm.protocol]
-  return schema?.fields || []
+  if (schema?.fields?.length) return schema.fields
+  const cfgKey = PROTOCOL_KEY_MAP[createForm.protocol]
+  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
+  if (cfg?.configFields?.length) {
+    return cfg.configFields.map(f => ({
+      name: f.key, label: f.label, description: f.placeholder || '', tooltip: f.tooltip || '',
+      type: f.type === 'number' ? 'integer' : (f.type === 'select' ? 'string' : f.type || 'string'),
+      default: f.default, options: f.options?.map(o => o.value), secret: f.key === 'password',
+    }))
+  }
+  return []
+})
+
+const currentProtocolDesc = computed(() => {
+  const cfgKey = PROTOCOL_KEY_MAP[createForm.protocol]
+  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
+  return cfg?.description || ''
 })
 
 async function loadDriverSchemas() {
@@ -296,6 +338,31 @@ const defaultConfig: Record<string, any> = {
   video: { endpoint: '', api_key: '' },
 }
 
+function buildConfigFromTemplate(protocol: string): Record<string, any> {
+  const cfgKey = PROTOCOL_KEY_MAP[protocol]
+  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
+  if (cfg?.configFields?.length) {
+    const config: Record<string, any> = {}
+    for (const f of cfg.configFields) {
+      config[f.key] = f.default !== undefined ? f.default : ''
+    }
+    return config
+  }
+  return { ...(defaultConfig[protocol] || {}) }
+}
+
+function buildPointsFromTemplate(protocol: string) {
+  const cfgKey = PROTOCOL_KEY_MAP[protocol]
+  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
+  if (cfg?.pointTemplates?.length) {
+    return cfg.pointTemplates.map(pt => ({
+      name: pt.name, data_type: pt.data_type, unit: pt.unit,
+      address: pt.address, access_mode: pt.access_mode === 'read' ? 'r' : pt.access_mode === 'write' ? 'w' : pt.access_mode,
+    }))
+  }
+  return [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }]
+}
+
 function onProtocolChange(val: string) {
   const schema = driverSchemas.value[val]
   if (schema?.fields) {
@@ -305,14 +372,15 @@ function onProtocolChange(val: string) {
     }
     createForm.config = config
   } else {
-    createForm.config = { ...(defaultConfig[val] || {}) }
+    createForm.config = buildConfigFromTemplate(val)
   }
+  createForm.points = buildPointsFromTemplate(val)
 }
 
 const createForm = reactive({
   device_id: '', name: '', protocol: 'modbus_tcp', collect_interval: 5,
-  config: { ...defaultConfig.modbus_tcp },
-  points: [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }],
+  config: buildConfigFromTemplate('modbus_tcp'),
+  points: buildPointsFromTemplate('modbus_tcp'),
 })
 
 const simForm = reactive({
@@ -338,8 +406,8 @@ async function handleCreate() {
     createForm.name = ''
     createForm.protocol = 'modbus_tcp'
     createForm.collect_interval = 5
-    createForm.config = { ...defaultConfig.modbus_tcp }
-    createForm.points = [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }]
+    createForm.config = buildConfigFromTemplate('modbus_tcp')
+    createForm.points = buildPointsFromTemplate('modbus_tcp')
     fetchDevices()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '创建失败')
@@ -390,22 +458,14 @@ function handleWritePoint(row: Device) {
   router.push({ name: 'DeviceDetail', params: { id: row.device_id }, query: { tab: 'write' } })
 }
 
-function handleDelete(row: Device) {
-  dialog.warning({
-    title: '确认删除',
-    content: `确定删除设备 "${row.name}" (${row.device_id})？`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await deviceApi.delete(row.device_id)
-        message.success('删除成功')
-        fetchDevices()
-      } catch (e: any) {
-        message.error(e?.response?.data?.detail || '删除失败')
-      }
-    },
-  })
+async function doDelete(row: Device) {
+  try {
+    await deviceApi.delete(row.device_id)
+    message.success('删除成功')
+    fetchDevices()
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '删除失败')
+  }
 }
 
 async function handleBatchDelete() {

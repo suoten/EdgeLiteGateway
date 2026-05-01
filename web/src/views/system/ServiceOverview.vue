@@ -265,8 +265,21 @@ async function handleToggle(name: string, val: boolean) {
       await fetchServices()
     } catch (e: any) {
       const detail = e?.response?.data?.detail
-      if (typeof detail === 'object' && detail?.missing_dependencies) {
-        message.warning(detail.message || '缺少依赖，请先安装')
+      if (e?.response?.status === 424 || (typeof detail === 'object' && detail?.missing_dependencies)) {
+        await fetchServices()
+        const svc = services.value.find(s => s.name === name)
+        const missingPkgs = typeof detail === 'object' && detail?.missing_dependencies
+          ? detail.missing_dependencies.join(', ')
+          : (svc ? getMissingDeps(svc).join(', ') : '未知依赖')
+        dialog.warning({
+          title: '缺少依赖',
+          content: `启用「${name}」需要安装以下依赖：${missingPkgs}。是否立即安装？`,
+          positiveText: '一键安装',
+          negativeText: '稍后再说',
+          onPositiveClick: async () => {
+            await handleInstallDeps(name)
+          },
+        })
       } else {
         message.error(typeof detail === 'string' ? detail : (e?.message || '操作失败'))
       }

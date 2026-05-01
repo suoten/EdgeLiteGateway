@@ -18,7 +18,16 @@
       <n-empty v-else description="点击检查更新查看可用版本" />
 
       <n-space style="margin-top: 16px" v-if="updateInfo?.has_update">
-        <n-button type="primary" @click="applyUpdate" :loading="applying">应用更新</n-button>
+        <n-popconfirm @positive-click="applyUpdate">
+          <template #trigger>
+            <n-button type="error" :loading="applying">应用更新</n-button>
+          </template>
+          <div style="max-width: 320px">
+            <n-text strong>确定应用更新？</n-text>
+            <n-p>更新后系统将自动重启，期间所有服务暂停。建议先确认备份版本可用。</n-p>
+            <n-p v-if="updateInfo?.latest_version">目标版本：{{ updateInfo.latest_version }}</n-p>
+          </div>
+        </n-popconfirm>
       </n-space>
     </n-card>
 
@@ -34,7 +43,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
-import { NButton, useMessage, useDialog } from 'naive-ui'
+import { NButton, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { otaApi } from '@/api'
 
 const message = useMessage()
@@ -51,7 +60,10 @@ const backupColumns = [
   {
     title: '操作', key: 'actions', width: 100,
     render: (row: any) =>
-      h(NButton, { text: true, type: 'warning', onClick: () => handleRollback(row.version) }, { default: () => '回滚' }),
+      h(NPopconfirm as any, { onPositiveClick: () => handleRollback(row.version) }, {
+        trigger: () => h(NButton, { text: true, type: 'warning' }, { default: () => '回滚' }),
+        default: () => `确定回滚到 ${row.version}？回滚后系统将重启。`,
+      }),
   },
 ]
 
@@ -66,39 +78,23 @@ async function checkUpdate() {
 }
 
 async function applyUpdate() {
-  dialog.warning({
-    title: '确认更新',
-    content: '应用更新后系统将自动重启，期间所有服务暂停。确定继续？',
-    positiveText: '确认更新',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      applying.value = true
-      try {
-        await otaApi.apply()
-        message.success('更新已应用，系统将重启')
-      } catch (e: any) {
-        message.error(e?.response?.data?.detail || '应用更新失败')
-      } finally { applying.value = false }
-    },
-  })
+  applying.value = true
+  try {
+    await otaApi.apply()
+    message.success('更新已应用，系统将重启')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '应用更新失败')
+  } finally { applying.value = false }
 }
 
 async function handleRollback(version: string) {
-  dialog.warning({
-    title: '确认回滚',
-    content: `确定回滚到版本 ${version}？回滚后系统将重启，当前版本数据可能丢失。`,
-    positiveText: '确认回滚',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await otaApi.rollback(version)
-        message.success('已回滚到版本 ' + version)
-        await fetchBackups()
-      } catch (e: any) {
-        message.error(e?.response?.data?.detail || '回滚失败')
-      }
-    },
-  })
+  try {
+    await otaApi.rollback(version)
+    message.success('已回滚到版本 ' + version)
+    await fetchBackups()
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '回滚失败')
+  }
 }
 
 async function fetchBackups() {
