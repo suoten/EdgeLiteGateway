@@ -400,6 +400,9 @@ class ServiceManager:
 
         try:
             await self._start_service_instance(service_name, config_values)
+        except RuntimeError as e:
+            logger.warning("服务启用但启动失败: %s - %s", service_name, e)
+            return {"success": True, "warning": f"服务已启用但启动失败: {e}", "error_type": "runtime"}
         except Exception as e:
             logger.error("启动服务失败: %s - %s", service_name, e)
             return {"success": True, "warning": f"服务已启用但启动失败: {e}"}
@@ -443,6 +446,8 @@ class ServiceManager:
         try:
             await self._start_service_instance(service_name)
             return {"success": True, "message": f"{svc_def['display_name']}已启动"}
+        except RuntimeError as e:
+            return {"success": False, "error": str(e), "error_type": "runtime"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

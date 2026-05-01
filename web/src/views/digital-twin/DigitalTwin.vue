@@ -754,7 +754,7 @@ onUnmounted(() => {
 
 .scene-btn {
   padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
-  color: #b8c9d1; transition: all 0.2s; white-space: nowrap;
+  color: #e0f0ff; transition: all 0.2s; white-space: nowrap;
 }
 .scene-btn:hover { color: #e0f0ff; background: rgba(79, 195, 247, 0.1); }
 .scene-btn.active { color: #fff; background: rgba(79, 195, 247, 0.25); }
@@ -785,7 +785,7 @@ onUnmounted(() => {
 .stat-chip.online { color: #18a058; }
 .stat-chip.offline { color: #d03050; }
 .stat-chip.alarm { color: #ff1744; border-color: rgba(255, 23, 68, 0.3); }
-.stat-chip.total { color: #b8c9d1; }
+.stat-chip.total { color: #e0f0ff; }
 
 .minimap-container {
   position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -793,7 +793,7 @@ onUnmounted(() => {
   border: 1px solid rgba(79, 195, 247, 0.15); border-radius: 8px;
   padding: 4px; z-index: 10;
 }
-.minimap-title { font-size: 9px; color: #8faabe; text-align: center; margin-bottom: 2px; }
+.minimap-title { font-size: 9px; color: #e0f0ff; text-align: center; margin-bottom: 2px; }
 .minimap-canvas { width: 120px; height: 120px; border-radius: 4px; cursor: pointer; }
 
 .device-panel {
@@ -806,21 +806,21 @@ onUnmounted(() => {
 .panel-header { margin-bottom: 4px; }
 .panel-title-row { display: flex; align-items: center; gap: 8px; }
 .panel-name { font-weight: 700; font-size: 16px; color: #4fc3f7; }
-.panel-id { font-size: 11px; color: #8faabe; margin-top: 4px; }
+.panel-id { font-size: 11px; color: #e0f0ff; margin-top: 4px; }
 
 .panel-points { max-height: 240px; overflow-y: auto; }
 .point-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-.point-name { color: #b8c9d1; }
+.point-name { color: #e0f0ff; }
 .point-val { color: #e0f0ff; font-weight: 600; font-variant-numeric: tabular-nums; }
 .point-val.val-alarm { color: #ff1744; }
-.no-points { text-align: center; color: #8faabe; font-size: 12px; padding: 16px 0; }
+.no-points { text-align: center; color: #e0f0ff; font-size: 12px; padding: 16px 0; }
 
 .device-list-toggle {
   position: absolute; bottom: 16px; right: 16px;
   padding: 8px 16px;
   background: rgba(10, 15, 26, 0.85); backdrop-filter: blur(12px);
   border: 1px solid rgba(79, 195, 247, 0.15); border-radius: 8px;
-  color: #b8c9d1; font-size: 13px; cursor: pointer; z-index: 10; transition: all 0.2s;
+  color: #e0f0ff; font-size: 13px; cursor: pointer; z-index: 10; transition: all 0.2s;
 }
 .device-list-toggle:hover { color: #e0f0ff; border-color: rgba(79, 195, 247, 0.3); }
 
@@ -844,7 +844,7 @@ onUnmounted(() => {
 .dl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dl-info { flex: 1; min-width: 0; }
 .dl-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dl-meta { font-size: 11px; color: #8faabe; }
+.dl-meta { font-size: 11px; color: #e0f0ff; }
 .dl-alarm-badge { font-size: 12px; animation: pulse 1s infinite; }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

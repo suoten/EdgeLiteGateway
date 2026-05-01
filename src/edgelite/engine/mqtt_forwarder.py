@@ -140,7 +140,11 @@ class MqttForwarder:
                 logger.error("aiomqtt未安装，MQTT转发不可用")
                 await asyncio.sleep(30)
             except Exception as e:
-                logger.error("MQTT转发器连接异常: %s，5秒后重试", e)
+                err_str = str(e)
+                if "Connection refused" in err_str or "Errno 111" in err_str:
+                    logger.warning("MQTT Broker未可达(%s:%d)，5秒后重试", config.mqtt.broker, config.mqtt.port)
+                else:
+                    logger.error("MQTT转发器连接异常: %s，5秒后重试", e)
                 self._connected = False
                 await asyncio.sleep(5)
 

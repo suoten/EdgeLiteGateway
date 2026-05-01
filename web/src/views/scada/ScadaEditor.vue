@@ -641,7 +641,7 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
-.toolbox-title { font-size: 11px; font-weight: 600; color: #8faabe; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.toolbox-title { font-size: 11px; font-weight: 600; color: #e0f0ff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 
 .toolbox-items { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
@@ -659,7 +659,7 @@ onUnmounted(() => {
 .toolbox-item:hover { background: rgba(79, 195, 247, 0.08); border-color: rgba(79, 195, 247, 0.15); }
 
 .tb-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.tb-label { font-size: 10px; color: #b8c9d1; }
+.tb-label { font-size: 10px; color: #e0f0ff; }
 
 .device-tree { max-height: 300px; overflow-y: auto; }
 
@@ -688,12 +688,12 @@ onUnmounted(() => {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
-  color: #b8c9d1;
+  color: #e0f0ff;
   cursor: pointer;
   transition: background 0.15s;
 }
 .dt-point:hover { background: rgba(79, 195, 247, 0.08); color: #e0f0ff; }
-.dt-empty { font-size: 11px; color: #8faabe; padding: 8px; text-align: center; }
+.dt-empty { font-size: 11px; color: #e0f0ff; padding: 8px; text-align: center; }
 
 .canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -706,7 +706,7 @@ onUnmounted(() => {
   border-bottom: 1px solid #1a2a3a;
 }
 
-.zoom-label { font-size: 11px; color: #8faabe; }
+.zoom-label { font-size: 11px; color: #e0f0ff; }
 
 .scada-canvas {
   flex: 1;

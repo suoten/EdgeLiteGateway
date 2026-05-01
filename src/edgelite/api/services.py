@@ -144,6 +144,8 @@ async def start_service(
     result = await mgr.start_service(service_name)
 
     if not result.get("success"):
+        if result.get("error_type") == "runtime":
+            raise HTTPException(status_code=409, detail=result.get("error", "启动失败"))
         raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
 
     return ApiResponse(data=result)
