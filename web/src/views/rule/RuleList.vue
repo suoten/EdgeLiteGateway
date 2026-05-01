@@ -352,21 +352,14 @@ async function handleToggle(r: Rule) {
   }
 }
 
-function handleDelete(r: Rule) {
-  dialog.warning({
-    title: '确认删除',
-    content: `确定删除规则"${r.name}"？此操作不可撤销。`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      ruleApi.delete(r.rule_id).then(() => {
-        message.success('规则已删除')
-        fetchRules()
-      }).catch((e: any) => {
-        message.error(e?.message || '删除失败')
-      })
-    },
-  })
+async function doDelete(r: Rule) {
+  try {
+    await ruleApi.delete(r.rule_id)
+    message.success('规则已删除')
+    fetchRules()
+  } catch (e: any) {
+    message.error(e?.message || '删除失败')
+  }
 }
 
 onMounted(() => { fetchRules(); fetchDevices() })
