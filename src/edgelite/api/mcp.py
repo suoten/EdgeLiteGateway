@@ -11,10 +11,11 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
+from edgelite.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +104,8 @@ class MCPServer:
             if name == "list_devices":
                 svc = getattr(_app_state, "device_service", None)
                 if svc:
-                    devices = await svc.list_devices()
-                    return {"devices": devices, "total": len(devices)}
+                    devices, total = await svc.list_devices(page=1, size=200)
+                    return {"devices": devices, "total": total}
                 return {"devices": [], "total": 0}
 
             elif name == "get_device_status":
@@ -119,7 +120,7 @@ class MCPServer:
                 device_id = args.get("device_id", "")
                 svc = getattr(_app_state, "device_service", None)
                 if svc:
-                    points = await svc.get_device_points(device_id)
+                    points = await svc.read_points(device_id)
                     return {"device_id": device_id, "points": points}
                 return {"device_id": device_id, "points": []}
 
@@ -137,8 +138,8 @@ class MCPServer:
                 severity = args.get("severity")
                 svc = getattr(_app_state, "alarm_service", None)
                 if svc:
-                    alarms = await svc.list_alarms(severity=severity)
-                    return {"alarms": alarms, "total": len(alarms)}
+                    alarms, total = await svc.list_alarms(page=1, size=200, severity=severity)
+                    return {"alarms": alarms, "total": total}
                 return {"alarms": [], "total": 0}
 
             elif name == "get_system_status":
@@ -151,8 +152,8 @@ class MCPServer:
             elif name == "list_rules":
                 svc = getattr(_app_state, "rule_service", None)
                 if svc:
-                    rules = await svc.list_rules()
-                    return {"rules": rules, "total": len(rules)}
+                    rules, total = await svc.list_rules(page=1, size=200)
+                    return {"rules": rules, "total": total}
                 return {"rules": [], "total": 0}
 
             else:
@@ -166,12 +167,12 @@ _mcp_server = MCPServer()
 
 
 @router.get("/tools", response_model=ApiResponse)
-async def list_tools():
+async def list_tools(_user=Depends(get_current_user)):
     return ApiResponse(data={"tools": list(_mcp_server._tools.values())})
 
 
 @router.post("/call", response_model=ApiResponse)
-async def call_tool(req: ToolCallRequest):
+async def call_tool(req: ToolCallRequest, _user=Depends(get_current_user)):
     if req.name not in _mcp_server._tools:
         raise HTTPException(status_code=400, detail=f"未知工具: {req.name}")
     result = await _mcp_server.call_tool(req.name, req.arguments)
@@ -179,12 +180,12 @@ async def call_tool(req: ToolCallRequest):
 
 
 @router.get("/resources", response_model=ApiResponse)
-async def list_resources():
+async def list_resources(_user=Depends(get_current_user)):
     return ApiResponse(data={"resources": list(_mcp_server._resources.values())})
 
 
 @router.get("/prompts", response_model=ApiResponse)
-async def list_prompts():
+async def list_prompts(_user=Depends(get_current_user)):
     return ApiResponse(data={"prompts": list(_mcp_server._prompts.values())})
 
 
