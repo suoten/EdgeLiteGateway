@@ -156,7 +156,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, dataApi, videoApi, type Device } from '@/api'
 import { useAuthStore } from '@/stores/auth'
-import { deviceStatusLabel, deviceStatusColor, qualityLabel } from '@/utils/enumLabels'
+import { deviceStatusLabel, deviceStatusColor, qualityLabel, protocolLabel } from '@/utils/enumLabels'
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
 
@@ -210,16 +210,6 @@ let wsReconnectTimer: number | null = null
 const writeValues = ref<Record<string, any>>({})
 let wsRetryCount = 0
 let wsManualClose = false
-
-const protocolLabel: Record<string, string> = {
-  modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
-  simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
-  allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
-  toledo: 'Toledo', serial_port: 'Serial', database_source: 'DB',
-  barcode_scanner: 'Scanner', mqtt_client: 'MQTT Client', http_webhook: 'HTTP Webhook',
-  sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645', iec104: 'IEC 104',
-  kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
-}
 
 const deviceId = computed(() => route.params.id as string)
 

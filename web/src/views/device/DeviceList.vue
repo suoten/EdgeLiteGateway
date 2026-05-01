@@ -145,7 +145,7 @@ import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { deviceApi, driverApi, type Device } from '@/api'
-import { deviceStatusLabel, deviceStatusColor } from '@/utils/enumLabels'
+import { deviceStatusLabel, deviceStatusColor, protocolLabel } from '@/utils/enumLabels'
 import { PROTOCOL_CONFIGS, getProtocolConfig } from '@/constants/protocolConfig'
 
 const router = useRouter()
@@ -239,15 +239,6 @@ const accessModeOptions = [
   { label: '只写', value: 'w' },
   { label: '读写', value: 'rw' },
 ]
-
-const protocolLabel: Record<string, string> = {
-  modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
-  simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
-  allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
-  toledo: 'Toledo', serial_port: 'Serial', database_source: 'DB',
-  barcode_scanner: 'Scanner', sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645',
-  iec104: 'IEC 104', kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
-}
 
 const columns = [
   { type: 'selection' as const },

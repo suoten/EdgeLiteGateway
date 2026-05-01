@@ -189,7 +189,7 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi } from '@/api'
-import { deviceStatusLabel } from '@/utils/enumLabels'
+import { deviceStatusLabel, protocolLabel } from '@/utils/enumLabels'
 
 use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -212,11 +212,6 @@ const chartData = ref<Map<number, { time: number; value: number }[]>>(new Map())
 let widgetIdCounter = 0
 let dragging: any = null
 let refreshTimer: any = null
-
-const protocolLabel: Record<string, string> = {
-  modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
-  simulator: '模拟器', video: '视频', s7: 'S7', modbus_rtu: 'Modbus RTU',
-}
 
 const filteredDevices = computed(() => {
   if (!deviceSearch.value) return devices.value

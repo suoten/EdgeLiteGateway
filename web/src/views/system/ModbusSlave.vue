@@ -16,8 +16,8 @@ const statusData = ref<any>({})
 const runningFields = computed(() => [
   { label: '监听地址', value: statusData.value.host || '0.0.0.0' },
   { label: '端口', value: statusData.value.port || 502 },
-  { label: '保持寄存器', value: statusData.value.holding_size || 100 },
-  { label: '输入寄存器', value: statusData.value.input_size || 100 },
+  { label: '保持寄存器', value: statusData.value.holding_size || 1000 },
+  { label: '输入寄存器', value: statusData.value.input_size || 1000 },
 ])
 
 function onStatusLoaded(data: any) {

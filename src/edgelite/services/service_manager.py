@@ -43,6 +43,11 @@ class ServiceInfo:
     config_schema: dict = field(default_factory=dict)
     current_config: dict = field(default_factory=dict)
     running_info: dict = field(default_factory=dict)
+    icon: str = ""
+    category: str = "builtin"
+    use_cases: list[str] = field(default_factory=list)
+    related_features: list[dict] = field(default_factory=list)
+    setup_guide: list[str] = field(default_factory=list)
 
 
 SERVICE_DEFINITIONS = {
@@ -71,7 +76,7 @@ SERVICE_DEFINITIONS = {
         ],
         "config_schema": {
             "host": {"type": "string", "default": "0.0.0.0", "label": "监听地址", "description": "MQTT Broker监听的IP地址，0.0.0.0表示所有网卡"},
-            "port": {"type": "integer", "default": 1888, "label": "TCP端口", "description": "MQTT TCP连接端口，客户端使用此端口连接"},
+            "port": {"type": "integer", "default": 1883, "label": "TCP端口", "description": "MQTT TCP连接端口，标准端口为1883"},
             "ws_port": {"type": "integer", "default": 8083, "label": "WebSocket端口", "description": "WebSocket连接端口，供浏览器端客户端使用", "nullable": True},
             "username": {"type": "string", "default": "", "label": "认证用户名", "description": "留空则允许匿名连接"},
             "password": {"type": "string", "default": "", "label": "认证密码", "description": "留空则不需要密码"},
@@ -328,6 +333,11 @@ class ServiceManager:
             config_schema=svc_def["config_schema"],
             current_config=current_config,
             running_info=running_info,
+            icon=svc_def.get("icon", ""),
+            category=svc_def.get("category", "builtin"),
+            use_cases=svc_def.get("use_cases", []),
+            related_features=svc_def.get("related_features", []),
+            setup_guide=svc_def.get("setup_guide", []),
         )
 
     def list_services(self) -> list[ServiceInfo]:
@@ -455,7 +465,7 @@ class ServiceManager:
             instance = MqttServer()
             start_config = {
                 "host": getattr(section_config, "host", "0.0.0.0"),
-                "port": getattr(section_config, "port", 1888),
+                "port": getattr(section_config, "port", 1883),
                 "ws_port": getattr(section_config, "ws_port", None),
                 "username": getattr(section_config, "username", ""),
                 "password": getattr(section_config, "password", ""),

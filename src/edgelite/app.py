@@ -254,6 +254,12 @@ async def lifespan(app: FastAPI):
                         await handler.connect(platform_conf)
                         _app_state.platform_handlers["thingscloud"] = handler
                         logger.info("ThingsCloud平台对接已启动")
+                    elif platform_name == "thingspanel":
+                        from edgelite.platform.thingspanel import ThingsPanelHandler
+                        handler = ThingsPanelHandler()
+                        await handler.connect(platform_conf)
+                        _app_state.platform_handlers["thingspanel"] = handler
+                        logger.info("ThingsPanel平台对接已启动")
                 except Exception as e:
                     logger.error("平台对接启动失败 %s: %s", platform_name, e)
 

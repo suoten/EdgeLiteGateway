@@ -76,7 +76,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NCard, NButton, NSpace, NSelect, NGrid, NGi, NTag, NSwitch, NDivider } from 'naive-ui'
 import { deviceApi } from '@/api'
-import { deviceStatusLabel, deviceStatusColor } from '@/utils/enumLabels'
+import { deviceStatusLabel, deviceStatusColor, protocolLabel } from '@/utils/enumLabels'
 
 const router = useRouter()
 const containerRef = ref<HTMLElement | null>(null)
@@ -86,14 +86,6 @@ const showLabels = ref(true)
 const deviceList = ref<any[]>([])
 const selectedDevice = ref<any>(null)
 const pointValues = ref<Record<string, Record<string, any>>>({})
-
-const protocolLabel: Record<string, string> = {
-  modbus_tcp: 'Modbus TCP', opcua: 'OPC-UA', mqtt: 'MQTT', http: 'HTTP',
-  simulator: '模拟器', video: '视频', s7: 'S7', mc: 'MC', fins: 'FINS',
-  allen_bradley: 'AB', opc_da: 'OPC DA', fanuc: 'FANUC', mtconnect: 'MTConnect',
-  toledo: 'Toledo', bacnet: 'BACnet', serial_port: '串口', database_source: '数据库',
-  barcode_scanner: '扫码枪', modbus_rtu: 'Modbus RTU',
-}
 
 const sceneOptions = [
   { label: '工厂车间', value: 'factory' },

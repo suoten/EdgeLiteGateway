@@ -22,7 +22,7 @@
           </n-card>
         </n-gi>
         <n-gi>
-          <n-card hoverable class="qs-item" @click="router.push('/system/driver-config')">
+          <n-card hoverable class="qs-item" @click="router.push('/system/drivers')">
             <n-space vertical align="center">
               <n-icon size="40" :component="PulseOutline" color="#f093fb" />
               <n-text strong>驱动配置</n-text>
@@ -31,7 +31,7 @@
           </n-card>
         </n-gi>
         <n-gi>
-          <n-card hoverable class="qs-item" @click="router.push('/system/platform-config')">
+          <n-card hoverable class="qs-item" @click="router.push('/system/platforms')">
             <n-space vertical align="center">
               <n-icon size="40" :component="AlertCircleOutline" color="#4facfe" />
               <n-text strong>平台对接</n-text>
@@ -166,6 +166,7 @@ import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/api'
+import { protocolLabel as getProtocolLabel } from '@/utils/enumLabels'
 import * as ws from '@/api/websocket'
 
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
@@ -228,7 +229,7 @@ const protocolOption = computed(() => {
       type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
       label: { show: true, formatter: '{b}\n{c}', fontSize: 12 },
       data: Object.entries(protoMap).map(([name, value], i) => ({
-        value, name: protocolLabel(name), itemStyle: { color: colors[i % colors.length] },
+        value, name: getProtocolLabel(name) || name, itemStyle: { color: colors[i % colors.length] },
       })),
     }],
   }
@@ -293,19 +294,6 @@ const resourceTrendOption = computed(() => {
     ],
   }
 })
-
-function protocolLabel(p: string) {
-  const map: Record<string, string> = {
-    modbus_tcp: 'Modbus TCP', modbus_rtu: 'Modbus RTU', opcua: 'OPC-UA', opc_da: 'OPC DA',
-    mqtt: 'MQTT', mqtt_client: 'MQTT', http: 'HTTP', http_webhook: 'HTTP',
-    simulator: 'Simulator', video: 'Video', s7: 'S7', mc: 'MC', fins: 'FINS',
-    allen_bradley: 'AB', fanuc: 'FANUC', mtconnect: 'MTConnect', toledo: 'Toledo',
-    serial_port: 'Serial', database_source: 'DB', barcode_scanner: 'Scanner',
-    sparkplug_b: 'Sparkplug B', dlt645: 'DL/T 645', iec104: 'IEC 104',
-    kuka: 'KUKA', abb_robot: 'ABB', onvif: 'ONVIF',
-  }
-  return map[p] || p
-}
 
 async function fetchStatus() {
   try {
