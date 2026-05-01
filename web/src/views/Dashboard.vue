@@ -177,7 +177,9 @@ import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/api'
-import { protocolLabel as getProtocolLabel } from '@/utils/enumLabels'
+import { protocolLabel as protocolLabelMap } from '@/utils/enumLabels'
+
+const getProtocolLabel = (key: string) => protocolLabelMap[key] || ''
 import * as ws from '@/api/websocket'
 
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
