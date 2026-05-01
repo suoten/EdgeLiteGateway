@@ -61,12 +61,12 @@
       </div>
       <n-form ref="formRef" :model="form" :rules="rules" size="large">
         <n-form-item path="username">
-          <n-input v-model:value="form.username" placeholder="用户名" @keyup.enter="handleLogin">
+          <n-input v-model:value="form.username" placeholder="请输入用户名" @keyup.enter="handleLogin">
             <template #prefix><n-icon :component="PersonOutline" /></template>
           </n-input>
         </n-form-item>
         <n-form-item path="password">
-          <n-input v-model:value="form.password" type="password" show-password-on="click" placeholder="密码" @keyup.enter="handleLogin">
+          <n-input v-model:value="form.password" type="password" show-password-on="click" placeholder="请输入密码" @keyup.enter="handleLogin">
             <template #prefix><n-icon :component="LockClosedOutline" /></template>
           </n-input>
         </n-form-item>
@@ -74,6 +74,9 @@
           登 录
         </n-button>
       </n-form>
+      <n-text depth="3" style="display:block;text-align:center;margin-top:16px;font-size:13px">
+        默认账号: admin / admin123
+      </n-text>
       <div class="login-footer">
         <n-text depth="3">v1.0.0 Community Edition</n-text>
       </div>
@@ -107,10 +110,21 @@ async function handleLogin() {
   loading.value = true
   try {
     await auth.login(form.username, form.password)
-    message.success('登录成功')
+    message.success('登录成功，欢迎回来！')
     router.push('/')
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '登录失败')
+    const detail = e?.response?.data?.detail || e?.message || ''
+    if (detail.includes('429') || detail.includes('频繁') || detail.includes('过多')) {
+      message.warning('登录尝试过于频繁，请稍后再试')
+    } else if (detail.includes('401') || detail.includes('用户名或密码')) {
+      message.error('用户名或密码不正确，请重新输入')
+    } else if (detail.includes('403') || detail.includes('禁用')) {
+      message.error('该账户已被禁用，请联系管理员')
+    } else if (detail.includes('网络') || detail.includes('connect')) {
+      message.error('网络连接失败，请检查网络后重试')
+    } else {
+      message.error(detail || '登录失败，请稍后重试')
+    }
   } finally {
     loading.value = false
   }
