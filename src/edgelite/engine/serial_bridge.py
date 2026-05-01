@@ -85,9 +85,15 @@ class SerialTcpBridge:
                 timeout=0.1,
             )
             logger.info("串口打开成功: %s @ %d", serial_port, baudrate)
-        except Exception as e:
+        except serial.SerialException as e:
             logger.error("串口打开失败: %s - %s", serial_port, e)
-            raise
+            raise RuntimeError(
+                f"串口 '{serial_port}' 打开失败: {e}。"
+                f"请检查: 1)串口设备是否存在 2)是否有访问权限 3)是否被其他程序占用"
+            )
+        except Exception as e:
+            logger.error("串口打开异常: %s - %s", serial_port, e)
+            raise RuntimeError(f"串口 '{serial_port}' 初始化异常: {e}")
 
         tcp_host = config.get("tcp_host", "0.0.0.0")
         tcp_port = int(config.get("tcp_port", DEFAULT_TCP_PORT))
@@ -99,11 +105,19 @@ class SerialTcpBridge:
                 tcp_port,
             )
             logger.info("TCP透传监听启动: %s:%d", tcp_host, tcp_port)
+        except OSError as e:
+            if self._serial and self._serial.is_open:
+                self._serial.close()
+            logger.error("TCP监听启动失败: %s:%d - %s", tcp_host, tcp_port, e)
+            raise RuntimeError(
+                f"TCP监听端口 {tcp_port} 启动失败: {e}。"
+                f"请检查端口是否被占用"
+            )
         except Exception as e:
             if self._serial and self._serial.is_open:
                 self._serial.close()
-            logger.error("TCP监听启动失败: %s", e)
-            raise
+            logger.error("TCP监听启动异常: %s", e)
+            raise RuntimeError(f"TCP服务器启动异常: {e}")
 
         self._running = True
         self._serial_read_task = asyncio.create_task(

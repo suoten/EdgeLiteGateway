@@ -263,7 +263,20 @@ async def get_driver_config_schema(
         },
     }
 
-    schema = schemas.get(driver_name, {
+    _schema_aliases = {
+        "siemens_s7": "s7",
+        "mitsubishi_mc": "mc",
+        "omron_fins": "fins",
+        "fanuc_cnc": "fanuc",
+        "kuka_ekrl": "kuka",
+        "abb_rws": "abb_robot",
+        "serial_port": "modbus_rtu",
+        "serial_modbus_rtu": "modbus_rtu",
+        "serial_raw": "serial_port",
+    }
+
+    lookup_key = _schema_aliases.get(driver_name, driver_name)
+    schema = schemas.get(lookup_key, {
         "fields": [
             {"name": "host", "type": "string", "label": "主机地址", "default": "localhost", "required": True},
             {"name": "port", "type": "integer", "label": "端口", "default": 0},

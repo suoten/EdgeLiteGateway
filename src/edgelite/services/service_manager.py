@@ -50,6 +50,11 @@ class ServiceInfo:
     setup_guide: list[str] = field(default_factory=list)
 
 
+# pip包名到Python导入名的映射（当两者不一致时需要在此添加）
+_PIP_TO_IMPORT = {
+    "pyserial": "serial",
+}
+
 SERVICE_DEFINITIONS = {
     "mqtt_server": {
         "display_name": "内置 MQTT Server",
@@ -215,8 +220,9 @@ class ServiceManager:
         return _app_state
 
     def check_dependency(self, package_name: str) -> DependencyInfo:
+        import_name = _PIP_TO_IMPORT.get(package_name, package_name)
         try:
-            mod = importlib.import_module(package_name)
+            mod = importlib.import_module(import_name)
             version = getattr(mod, "__version__", "")
             return DependencyInfo(package=package_name, installed=True, version=version)
         except ImportError:
@@ -259,6 +265,10 @@ class ServiceManager:
             info = self.check_dependency(dep)
             if not info.installed:
                 result = await self.install_dependency(dep)
+                if result.get("success"):
+                    verify = self.check_dependency(dep)
+                    if not verify.installed:
+                        result = {"package": dep, "success": False, "error": f"pip安装成功但模块验证失败(pip包:{dep}, 导入名:{_PIP_TO_IMPORT.get(dep, dep)})"}
                 results.append(result)
             else:
                 results.append({"package": dep, "success": True, "skipped": True})
