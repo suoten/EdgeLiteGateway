@@ -84,6 +84,7 @@ class DriverRegistry:
             ("KUKA EKRL", "edgelite.drivers.kuka", "KukaDriver"),
             ("ABB RWS", "edgelite.drivers.abb_robot", "AbbRobotDriver"),
             ("ONVIF", "edgelite.drivers.onvif_driver", "OnvifDriver"),
+            ("视频(GB28181)", "edgelite.drivers.video", "VideoDriver"),
         ]
 
         for label, module_path, class_name in _driver_modules:

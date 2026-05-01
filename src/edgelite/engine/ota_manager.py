@@ -137,25 +137,57 @@ class OTAManager:
             logger.error("备份失败: %s", e)
             return None
 
-    async def apply_update(self, update_file: Path) -> bool:
+    async def apply_update(self, update_file: Path, expected_sha256: str | None = None) -> bool:
         """应用更新"""
         async with self._lock:
             try:
-                # 备份当前版本
+                if not update_file.exists():
+                    logger.error("更新文件不存在: %s", update_file)
+                    return False
+
+                if expected_sha256:
+                    is_valid = await self.verify_update(update_file, expected_sha256)
+                    if not is_valid:
+                        logger.error("SHA256校验失败，更新包可能被篡改")
+                        return False
+
                 backup_path = await self.backup_current()
                 if backup_path is None:
                     return False
 
-                # 解压并应用更新
                 import zipfile
-                with zipfile.ZipFile(update_file, "r") as zf:
-                    await asyncio.to_thread(zf.extractall,tempfile.gettempdir())
+                import shutil
 
-                # 这里应该有实际的文件替换逻辑
-                # 为安全起见，实际部署时需要更严格的验证
+                extract_dir = Path(tempfile.mkdtemp(prefix="edgelite_update_"))
+                try:
+                    with zipfile.ZipFile(update_file, "r") as zf:
+                        for member in zf.namelist():
+                            if member.startswith("/") or ".." in member:
+                                logger.error("压缩包包含不安全路径: %s", member)
+                                return False
+                        await asyncio.to_thread(zf.extractall, str(extract_dir))
 
-                logger.info("更新应用成功")
-                return True
+                    src_dir = extract_dir
+                    if (extract_dir / "edgelite").is_dir():
+                        src_dir = extract_dir / "edgelite"
+
+                    app_dir = Path(__file__).resolve().parent.parent
+                    if not (app_dir / "__init__.py").exists():
+                        logger.error("无法确定应用目录: %s", app_dir)
+                        return False
+
+                    for item in src_dir.rglob("*"):
+                        if item.is_file():
+                            rel = item.relative_to(src_dir)
+                            dest = app_dir / rel
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(str(item), str(dest))
+
+                    logger.info("更新应用成功，文件已替换")
+                    return True
+                finally:
+                    shutil.rmtree(str(extract_dir), ignore_errors=True)
+
             except Exception as e:
                 logger.error("应用更新失败: %s", e)
                 return False

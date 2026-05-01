@@ -189,6 +189,78 @@ async def get_driver_config_schema(
                 {"name": "password", "type": "string", "label": "密码", "description": "设备认证密码", "secret": True},
             ]
         },
+        "mc": {
+            "description": "三菱MC协议（MELSEC Communication），支持Q/L/FX系列PLC",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "MC协议端口，默认5007", "default": 5007},
+                {"name": "plc_type", "type": "string", "label": "PLC型号", "description": "Q系列=Q，L系列=L，FX系列=iQ-R", "default": "Q", "options": ["Q", "L", "iQ-R"]},
+            ]
+        },
+        "fins": {
+            "description": "欧姆龙FINS协议，支持CJ/CP/NJ系列PLC",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "FINS UDP端口，默认9600", "default": 9600},
+                {"name": "source_node", "type": "integer", "label": "源节点号", "description": "本机FINS节点号", "default": 0},
+                {"name": "dest_node", "type": "integer", "label": "目标节点号", "description": "PLC的FINS节点号", "default": 1},
+            ]
+        },
+        "allen_bradley": {
+            "description": "Allen-Bradley PLC协议（pylogix），支持ControlLogix/CompactLogix",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "AB PLC的IP地址", "default": "192.168.1.1", "required": True},
+                {"name": "slot", "type": "integer", "label": "槽号", "description": "CPU所在槽位，ControlLogix默认0，CompactLogix默认0", "default": 0},
+            ]
+        },
+        "fanuc": {
+            "description": "FANUC CNC数控系统FOCAS协议，支持读取机床状态和坐标",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "CNC控制器IP地址", "default": "192.168.1.1", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "FOCAS端口，默认8193", "default": 8193},
+                {"name": "timeout", "type": "integer", "label": "超时(秒)", "description": "连接超时时间", "default": 5},
+            ]
+        },
+        "mtconnect": {
+            "description": "MTConnect数控设备标准协议，通过HTTP获取CNC运行数据",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "MTConnect代理地址", "default": "127.0.0.1", "required": True},
+                {"name": "port", "type": "integer", "label": "端口", "description": "HTTP端口，默认5000", "default": 5000},
+            ]
+        },
+        "toledo": {
+            "description": "托利多称重仪表协议，支持TCP/Serial/MT-SICS通信",
+            "fields": [
+                {"name": "host", "type": "string", "label": "IP地址", "description": "称重仪表IP地址（TCP模式）", "default": "192.168.1.1"},
+                {"name": "port", "type": "integer", "label": "端口", "description": "TCP端口，默认1701", "default": 1701},
+                {"name": "mode", "type": "string", "label": "通信模式", "description": "TCP或Serial", "default": "tcp", "options": ["tcp", "serial"]},
+            ]
+        },
+        "opc_da": {
+            "description": "OPC DA经典协议（Windows COM），读取传统OPC服务器数据",
+            "fields": [
+                {"name": "prog_id", "type": "string", "label": "ProgID", "description": "OPC DA服务器的ProgID，如 Matrikon.OPC.Simulation", "required": True},
+                {"name": "host", "type": "string", "label": "主机", "description": "OPC服务器所在主机，本机留空", "default": ""},
+            ]
+        },
+        "video": {
+            "description": "GB28181视频监控协议，通过PyGBSentry接入视频流和云台控制",
+            "fields": [
+                {"name": "pygbsentry_url", "type": "string", "label": "PyGBSentry地址", "description": "PyGBSentry平台API地址", "default": "http://127.0.0.1:8080", "required": True},
+                {"name": "username", "type": "string", "label": "用户名", "description": "PyGBSentry登录用户名", "default": "admin"},
+                {"name": "password", "type": "string", "label": "密码", "description": "PyGBSentry登录密码", "secret": True},
+            ]
+        },
+        "modbus_rtu": {
+            "description": "Modbus RTU串口协议，通过RS485/RS232连接Modbus从站设备",
+            "fields": [
+                {"name": "port", "type": "string", "label": "串口设备", "description": "串口路径，如COM1或/dev/ttyUSB0", "default": "COM1", "required": True},
+                {"name": "baudrate", "type": "integer", "label": "波特率", "description": "通信速率", "default": 9600, "options": [9600, 19200, 38400, 57600, 115200]},
+                {"name": "parity", "type": "string", "label": "校验位", "description": "N=无校验，E=偶校验，O=奇校验", "default": "N", "options": ["N", "E", "O"]},
+                {"name": "stopbits", "type": "integer", "label": "停止位", "description": "停止位数量", "default": 1},
+                {"name": "slave_id", "type": "integer", "label": "从站地址", "description": "Modbus从站地址", "default": 1, "required": True},
+            ]
+        },
     }
 
     schema = schemas.get(driver_name, {
