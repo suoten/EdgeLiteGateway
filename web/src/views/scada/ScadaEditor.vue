@@ -7,11 +7,16 @@
       </div>
       <div class="header-actions">
         <n-button size="small" quaternary @click="showHelp = true">使用说明</n-button>
+        <n-button-group size="small">
+          <n-button quaternary @click="undo" :disabled="historyIndex <= 0">↩ 撤销</n-button>
+          <n-button quaternary @click="redo" :disabled="historyIndex >= historyStack.length - 1">↪ 重做</n-button>
+        </n-button-group>
         <n-button size="small" :type="previewMode ? 'warning' : 'default'" @click="previewMode = !previewMode">
           {{ previewMode ? '退出预览' : '▶ 预览' }}
         </n-button>
         <n-button size="small" type="primary" @click="saveProject">💾 保存</n-button>
         <n-button size="small" @click="loadProject">📂 加载</n-button>
+        <n-button size="small" quaternary @click="exportAsImage">🖼 导出图片</n-button>
       </div>
     </div>
 
@@ -146,6 +151,16 @@
             <li>点击「预览」查看实时数据效果</li>
             <li>点击「保存」将组态保存到本地</li>
           </ol>
+          <strong>快捷键：</strong>
+          <table style="width: 100%; margin-top: 4px; font-size: 13px">
+            <tr><td style="color: #4fc3f7; width: 140px">Ctrl + Z</td><td>撤销</td></tr>
+            <tr><td style="color: #4fc3f7">Ctrl + Y</td><td>重做</td></tr>
+            <tr><td style="color: #4fc3f7">Ctrl + C</td><td>复制组件</td></tr>
+            <tr><td style="color: #4fc3f7">Ctrl + V</td><td>粘贴组件</td></tr>
+            <tr><td style="color: #4fc3f7">Ctrl + D</td><td>复制并偏移</td></tr>
+            <tr><td style="color: #4fc3f7">Ctrl + S</td><td>保存项目</td></tr>
+            <tr><td style="color: #4fc3f7">Delete</td><td>删除选中组件</td></tr>
+          </table>
         </div>
       </n-space>
     </n-modal>
@@ -192,6 +207,119 @@ let widgetIdCounter = 0
 let dragging: any = null
 let resizing: any = null
 let refreshTimer: any = null
+let historyStack: string[] = []
+let historyIndex = -1
+let clipboard: any = null
+
+function pushHistory() {
+  const snapshot = JSON.stringify(widgets.value)
+  historyStack = historyStack.slice(0, historyIndex + 1)
+  historyStack.push(snapshot)
+  if (historyStack.length > 50) historyStack.shift()
+  historyIndex = historyStack.length - 1
+}
+
+function undo() {
+  if (historyIndex <= 0) return
+  historyIndex--
+  widgets.value = JSON.parse(historyStack[historyIndex])
+  selectedWidgetId.value = null
+}
+
+function redo() {
+  if (historyIndex >= historyStack.length - 1) return
+  historyIndex++
+  widgets.value = JSON.parse(historyStack[historyIndex])
+  selectedWidgetId.value = null
+}
+
+function copyWidget() {
+  if (!selectedWidgetId.value) return
+  const w = widgets.value.find(w => w.id === selectedWidgetId.value)
+  if (w) { clipboard = { ...w }; message.success('已复制组件') }
+}
+
+function pasteWidget() {
+  if (!clipboard) return
+  widgetIdCounter++
+  const newWidget = { ...clipboard, id: widgetIdCounter, x: clipboard.x + 20, y: clipboard.y + 20 }
+  widgets.value.push(newWidget)
+  selectedWidgetId.value = widgetIdCounter
+  pushHistory()
+  message.success('已粘贴组件')
+}
+
+function duplicateWidget() {
+  const w = widgets.value.find(w => w.id === selectedWidgetId.value)
+  if (!w) return
+  widgetIdCounter++
+  const newWidget = { ...w, id: widgetIdCounter, x: w.x + 20, y: w.y + 20 }
+  widgets.value.push(newWidget)
+  selectedWidgetId.value = widgetIdCounter
+  pushHistory()
+}
+
+function deleteSelected() {
+  if (!selectedWidgetId.value || previewMode.value) return
+  widgets.value = widgets.value.filter(w => w.id !== selectedWidgetId.value)
+  chartData.value.delete(selectedWidgetId.value)
+  selectedWidgetId.value = null
+  pushHistory()
+}
+
+function exportAsImage() {
+  if (!canvasRef.value) return
+  const canvas = document.createElement('canvas')
+  const rect = canvasRef.value.getBoundingClientRect()
+  canvas.width = rect.width * 2
+  canvas.height = rect.height * 2
+  const ctx = canvas.getContext('2d')!
+  ctx.scale(2, 2)
+  ctx.fillStyle = '#0a0f1a'
+  ctx.fillRect(0, 0, rect.width, rect.height)
+  ctx.fillStyle = '#1a2a3a'
+  for (let x = 0; x < rect.width; x += 20) {
+    for (let y = 0; y < rect.height; y += 20) {
+      ctx.beginPath()
+      ctx.arc(x, y, 0.8, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  widgets.value.forEach(w => {
+    ctx.fillStyle = '#0d1520'
+    ctx.strokeStyle = '#1a2a3a'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.roundRect(w.x, w.y, w.w, w.h, 8)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#e0f0ff'
+    ctx.font = '12px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(w.label, w.x + w.w / 2, w.y + w.h / 2)
+    if (w.type === 'gauge' || w.type === 'tank') {
+      const val = formatValue(w)
+      ctx.font = 'bold 18px sans-serif'
+      ctx.fillText(val, w.x + w.w / 2, w.y + w.h / 2 + 18)
+    }
+  })
+  const url = canvas.toDataURL('image/png')
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `scada-${Date.now()}.png`
+  a.click()
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (previewMode.value) return
+  if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedWidgetId.value) { e.preventDefault(); deleteSelected() } }
+  else if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo() }
+  else if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo() }
+  else if (e.ctrlKey && e.key === 'c') { copyWidget() }
+  else if (e.ctrlKey && e.key === 'v') { pasteWidget() }
+  else if (e.ctrlKey && e.key === 'd') { e.preventDefault(); duplicateWidget() }
+  else if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveProject() }
+}
 
 const componentTypes = [
   { type: 'gauge', label: '仪表盘', icon: '📊', color: '#18a058' },
@@ -347,6 +475,7 @@ function addWidgetFromPoint(pt: any) {
     w: type === 'chart' ? 300 : 150, h: type === 'chart' ? 180 : 150,
     value: pointValues.value[device.device_id]?.[pt.name]?.value ?? (isBool ? false : 0),
   })
+  pushHistory()
   message.success(`已添加「${pt.name}」`)
 }
 
@@ -361,12 +490,14 @@ function addWidgetManual(type: string) {
     value: type === 'switch' ? false : type === 'indicator' ? false : 0,
   })
   selectedWidgetId.value = widgetIdCounter
+  pushHistory()
 }
 
 function removeWidget(id: number) {
   widgets.value = widgets.value.filter(w => w.id !== id)
   chartData.value.delete(id)
   if (selectedWidgetId.value === id) selectedWidgetId.value = null
+  pushHistory()
 }
 
 function selectWidget(widget: any) {
@@ -464,11 +595,14 @@ onMounted(async () => {
   await fetchDevices()
   const saved = localStorage.getItem('scada-project')
   if (saved) { try { const data = JSON.parse(saved); if (data.widgets?.length) { widgets.value = data.widgets; widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0) } } catch { /* ignore */ } }
+  pushHistory()
   refreshTimer = setInterval(refreshAllValues, 5000)
+  document.addEventListener('keydown', onKeyDown)
 })
 
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
+  document.removeEventListener('keydown', onKeyDown)
   localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
 })
 </script>
