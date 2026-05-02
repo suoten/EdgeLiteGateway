@@ -152,6 +152,33 @@ class DeviceService:
         data.setdefault("config", {"timeout": 5.0})
         return await self.create_device(data)
 
+    async def start_collect(self, device_id: str) -> bool:
+        """启动设备采集"""
+        device = await self._repo.get(device_id)
+        if device is None:
+            raise ValueError(f"Device not found: {device_id}")
+        driver = self._driver_instances.get(device_id)
+        if driver is None:
+            raise ValueError(f"Device driver not found: {device_id}")
+        await self._scheduler.start_collect(
+            device_id,
+            driver,
+            device.get("points", []),
+            device.get("collect_interval", 5),
+        )
+        await self._lifecycle.on_device_online(device_id)
+        await self._repo.update_status(device_id, "online")
+        logger.info("Device %s collect started", device_id)
+        return True
+
+    async def stop_collect(self, device_id: str) -> bool:
+        """停止设备采集"""
+        await self._scheduler.stop_collect(device_id)
+        await self._lifecycle.on_device_offline(device_id)
+        await self._repo.update_status(device_id, "offline")
+        logger.info("Device %s collect stopped", device_id)
+        return True
+
     async def discover_devices(self, protocol: str, config: dict) -> list[dict]:
         """设备发现"""
         driver_class = self._registry.get_driver_class(protocol)

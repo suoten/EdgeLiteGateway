@@ -313,6 +313,7 @@ async def lifespan(app: FastAPI):
 
             integration_dispatcher = MessageDispatcher()
             integration_dispatcher.register_service("device_service", device_service)
+            integration_dispatcher.register_service("scheduler", scheduler)
             integration_endpoint = IntegrationEndpoint(dispatcher=integration_dispatcher)
             _app_state.integration_dispatcher = integration_dispatcher
             _app_state.integration_endpoint = integration_endpoint

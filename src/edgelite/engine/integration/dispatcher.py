@@ -73,15 +73,38 @@ class MessageDispatcher:
 
     async def _handle_device_control(self, payload: dict[str, Any]) -> dict[str, Any]:
         device_service = self._services.get("device_service")
+        scheduler = self._services.get("scheduler")
         if not device_service:
             return {"ok": False, "error": "Device service not available"}
         device_id = payload.get("device_id", "")
         action = payload.get("action", "")
         try:
             if action == "start_collect":
-                await device_service.start_collect(device_id)
+                if scheduler:
+                    device = await device_service.get_device(device_id)
+                    if device:
+                        await scheduler.start_collect(
+                            device_id,
+                            device_service._driver_instances.get(device_id),
+                            device.get("points", []),
+                            device.get("collect_interval", 5),
+                        )
+                        from edgelite.engine.lifecycle import DeviceLifecycleManager
+                        if hasattr(device_service, '_lifecycle') and device_service._lifecycle:
+                            await device_service._lifecycle.on_device_online(device_id)
+                        await device_service._repo.update_status(device_id, "online")
+                    else:
+                        return {"ok": False, "error": f"Device {device_id} not found"}
+                else:
+                    return {"ok": False, "error": "Scheduler not available"}
             elif action == "stop_collect":
-                await device_service.stop_collect(device_id)
+                if scheduler:
+                    await scheduler.stop_collect(device_id)
+                    if hasattr(device_service, '_lifecycle') and device_service._lifecycle:
+                        await device_service._lifecycle.on_device_offline(device_id)
+                    await device_service._repo.update_status(device_id, "offline")
+                else:
+                    return {"ok": False, "error": "Scheduler not available"}
             else:
                 return {"ok": False, "error": f"Unknown action: {action}"}
             return {"ok": True, "device_id": device_id, "action": action}
