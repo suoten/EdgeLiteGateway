@@ -55,9 +55,12 @@ class ModbusSlaveServer:
             from pymodbus.server import StartAsyncTcpServer
             from pymodbus.datastore import (
                 ModbusSequentialDataBlock,
-                ModbusSlaveContext,
                 ModbusServerContext,
             )
+            try:
+                from pymodbus.datastore import ModbusSlaveContext as _SlaveCtx
+            except ImportError:
+                from pymodbus.datastore import ModbusDeviceContext as _SlaveCtx
         except ImportError:
             logger.warning("pymodbus未安装，内置Modbus Slave不可用")
             return
@@ -77,7 +80,7 @@ class ModbusSlaveServer:
             holding_block = ModbusSequentialDataBlock(0, [0] * holding_size)
             input_block = ModbusSequentialDataBlock(0, [0] * input_size)
 
-            slave_context = ModbusSlaveContext(
+            slave_context = _SlaveCtx(
                 di=discrete_block,
                 co=coils_block,
                 hr=holding_block,
