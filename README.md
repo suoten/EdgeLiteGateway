@@ -929,6 +929,14 @@ cp -r data/ data_backup_$(date +%Y%m%d)/
 
 ---
 
+## 🔗 相关项目
+
+| 项目 | 说明 | 仓库地址 |
+|------|------|----------|
+| [ProtoForge](https://github.com/suoten/ProtoForge) | 物联网协议仿真与测试平台，17 种工业协议全链路仿真 | [Gitee](https://gitee.com/suoten/ProtoForge) · [GitHub](https://github.com/suoten/ProtoForge) |
+
+---
+
 ## 💬 技术支持
 
 - GitHub Issues: <https://github.com/suoten/EdgeLiteGateway/issues>
