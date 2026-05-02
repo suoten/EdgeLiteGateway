@@ -208,6 +208,7 @@ const currentTitle = computed(() => {
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
     PreprocessConfig: '数据预处理',
     System: '系统管理', Users: '用户管理',
+    AuditLog: '审计日志',
     OtaUpdate: 'OTA升级', GrafanaDashboard: 'Grafana监控', McpServer: 'MCP Server',
     MqttServer: 'MQTT Server', ModbusSlave: 'Modbus Slave', SerialBridge: '串口透传',
   }
@@ -221,7 +222,7 @@ const breadcrumbItems = computed(() => {
     DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态',
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
     PreprocessConfig: '数据预处理',
-    System: '系统管理', Users: '用户管理',
+    System: '系统管理', Users: '用户管理', AuditLog: '审计日志',
   }
   return route.matched
     .filter(r => r.name)
@@ -265,6 +266,7 @@ const menuOptions = [
       { label: '平台对接', key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
       { label: '计算表达式', key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
       { label: '数据预处理', key: 'PreprocessConfig', icon: renderIcon(PulseOutline) },
+      { label: '审计日志', key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
       { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
       { label: 'OTA升级', key: 'OtaUpdate', icon: renderIcon(RocketOutline) },
     ],

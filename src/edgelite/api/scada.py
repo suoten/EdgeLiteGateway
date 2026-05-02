@@ -7,6 +7,8 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from edgelite.api.deps import CurrentUser
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/scada", tags=["组态管理"])
@@ -42,7 +44,7 @@ def _project_path(name: str) -> Path:
 
 
 @router.get("/projects", response_model=dict)
-async def list_projects():
+async def list_projects(_user: CurrentUser):
     projects = []
     for f in _STORE_DIR.glob("*.json"):
         try:
@@ -59,7 +61,7 @@ async def list_projects():
 
 
 @router.get("/project/{name}", response_model=dict)
-async def get_project(name: str):
+async def get_project(name: str, _user: CurrentUser):
     path = _project_path(name)
     if not path.exists():
         return ApiResponse.data({"name": name, "widgets": [], "updated_at": None})
@@ -72,7 +74,7 @@ async def get_project(name: str):
 
 
 @router.post("/project", response_model=dict)
-async def save_project(req: ScadaSaveRequest):
+async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
     path = _project_path(req.name)
     data = {
         "name": req.name,
@@ -88,7 +90,7 @@ async def save_project(req: ScadaSaveRequest):
 
 
 @router.delete("/project/{name}", response_model=dict)
-async def delete_project(name: str):
+async def delete_project(name: str, _user: CurrentUser):
     path = _project_path(name)
     if path.exists():
         path.unlink()

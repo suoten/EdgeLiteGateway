@@ -617,7 +617,7 @@ npm run dev
 ```
 EdgeLiteGateway/
 ├── src/edgelite/           # 后端源码
-│   ├── api/                # REST API 路由（21 个模块，93 个端点）
+│   ├── api/                # REST API 路由（22 个模块，96 个端点）
 │   ├── drivers/            # 协议驱动（22 种）
 │   ├── engine/             # 核心引擎（事件总线/调度/规则/表达式/OTA/插件）
 │   ├── models/             # Pydantic 数据模型 + SQLAlchemy ORM
@@ -629,7 +629,7 @@ EdgeLiteGateway/
 ├── web/                    # 前端源码（Vue 3 + Naive UI + TypeScript）
 │   └── src/
 │       ├── api/            #   API 封装层（HTTP + WebSocket）
-│       ├── views/          #   23 个页面组件
+│       ├── views/          #   24 个页面组件
 │       ├── components/     #   通用组件
 │       ├── layouts/        #   布局组件
 │       ├── stores/         #   Pinia 状态管理
@@ -814,7 +814,7 @@ EdgeLiteGateway 采用三级版本体系，满足不同场景需求：
 | **视频接入** | 通过 PyGBSentry 适配器接入 GB28181 视频流，支持云台控制 |
 | **北向对接** | IoTSharp、ThingsBoard、华为云 IoTDA、ThingsCloud、ThingsPanel |
 | **安全体系** | JWT 认证 + RBAC 三角色权限、bcrypt 密码哈希、Token 刷新与吊销 |
-| **Web 管理** | Vue 3 + Naive UI 现代化界面，23 个功能页面 |
+| **Web 管理** | Vue 3 + Naive UI 现代化界面，24 个功能页面 |
 | **扩展能力** | 计算表达式引擎、Cython 可选加速、MCP 协议支持 |
 
 ### 🏢 企业版 (v1.2)
@@ -925,6 +925,72 @@ curl -X POST http://localhost:8080/api/v1/system/backup -H "Authorization: Beare
 
 # 手动备份关键文件
 cp -r data/ data_backup_$(date +%Y%m%d)/
+```
+
+**Q: 如何升级到新版本？**
+
+```bash
+# 1. 备份数据
+cp -r data/ data_backup_$(date +%Y%m%d)/
+
+# 2. 拉取最新代码
+git pull origin master
+
+# 3. 重新构建前端
+cd web && npm install && npm run build && cd ..
+
+# 4. 重启服务
+cd docker && docker compose up -d --build
+```
+
+**Q: 如何添加自定义协议驱动？**
+
+1. 在 `src/edgelite/drivers/` 目录下创建新的驱动文件
+2. 继承 `BaseDriver` 类并实现 `start()`、`stop()`、`read_points()`、`write_point()` 方法
+3. 在 `registry.py` 中注册驱动
+4. 重启服务即可自动加载
+
+详见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 中的驱动开发指南。
+
+**Q: 如何配置 HTTPS？**
+
+生产环境推荐使用 Nginx + Certbot 自动配置 SSL 证书，详见上方"方式三：生产部署"中的 HTTPS 配置步骤。
+
+**Q: 支持哪些数据库？**
+
+- 配置存储：SQLite（内置，零配置）
+- 时序数据：InfluxDB 2.x（社区版）/ TDengine（企业版）
+- 未来计划：DuckDB 嵌入式分析（企业版可选）
+
+**Q: 如何查看系统日志？**
+
+```bash
+# Docker 部署
+docker compose logs -f edgelite
+
+# Systemd 部署
+sudo journalctl -u edgelite -f
+
+# 本地开发
+# 日志输出到控制台，级别可在 configs/config.yaml 中调整
+```
+
+### 安全相关
+
+**Q: 默认密码安全吗？**
+
+默认账号 `admin/admin123` 仅用于初次登录，系统会提示修改密码。生产环境请务必修改：
+1. Web 界面登录后，点击右上角头像 → 修改密码
+2. 修改 `configs/config.yaml` 中的 `security.secret_key`
+3. 通过环境变量 `EDGELITE_SECURITY__SECRET_KEY` 设置强密钥
+
+**Q: 如何限制 CORS 访问？**
+
+在 `configs/config.yaml` 中修改 `server.cors_origins`，仅允许指定域名访问：
+```yaml
+server:
+  cors_origins:
+    - "https://your-domain.com"
 ```
 
 ---
