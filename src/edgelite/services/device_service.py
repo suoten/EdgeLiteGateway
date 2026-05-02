@@ -63,26 +63,30 @@ class DeviceService:
                     data.get("points", []),
                     data.get("collect_interval", 5),
                 )
-            elif protocol == "modbus_tcp":
+            elif driver_class is not None:
                 driver = driver_class()
-                await driver.start({})
-                await driver.add_device(
-                    device["device_id"],
-                    data.get("config", {}),
-                    data.get("points", []),
-                )
+                await driver.start(data.get("config", {}))
+                if hasattr(driver, "add_device"):
+                    await driver.add_device(
+                        device["device_id"],
+                        data.get("config", {}),
+                        data.get("points", []),
+                    )
                 self._driver_instances[device["device_id"]] = driver
-                if hasattr(driver, 'is_device_connected') and driver.is_device_connected(device["device_id"]):
+                connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(device["device_id"])
+                if connected:
                     await self._lifecycle.on_device_online(device["device_id"])
                     await self._repo.update_status(device["device_id"], "online")
-                    await self._scheduler.start_collect(
-                        device["device_id"],
-                        driver,
-                        data.get("points", []),
-                        data.get("collect_interval", 5),
-                    )
+                else:
+                    await self._repo.update_status(device["device_id"], "offline")
+                await self._scheduler.start_collect(
+                    device["device_id"],
+                    driver,
+                    data.get("points", []),
+                    data.get("collect_interval", 5),
+                )
             else:
-                logger.info("设备创建: %s (协议=%s，待实现驱动连接)", device["device_id"], protocol)
+                logger.warning("设备创建: %s (协议=%s，无注册驱动)", device["device_id"], protocol)
         except Exception as e:
             logger.error("设备驱动启动失败，回滚数据库记录: %s - %s", device["device_id"], e)
             await self._repo.delete(device["device_id"])
@@ -183,8 +187,28 @@ class DeviceService:
                             device.get("points", []),
                             device.get("collect_interval", 5),
                         )
-                    elif protocol != "simulator":
-                        await self._repo.update_status(device["device_id"], "offline")
+                    elif driver_class is not None:
+                        driver = driver_class()
+                        await driver.start(device.get("config", {}))
+                        if hasattr(driver, "add_device"):
+                            await driver.add_device(
+                                device["device_id"],
+                                device.get("config", {}),
+                                device.get("points", []),
+                            )
+                        self._driver_instances[device["device_id"]] = driver
+                        connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(device["device_id"])
+                        if connected:
+                            await self._lifecycle.on_device_online(device["device_id"])
+                            await self._repo.update_status(device["device_id"], "online")
+                        else:
+                            await self._repo.update_status(device["device_id"], "offline")
+                        await self._scheduler.start_collect(
+                            device["device_id"],
+                            driver,
+                            device.get("points", []),
+                            device.get("collect_interval", 5),
+                        )
                 except Exception as e:
                     logger.warning("恢复设备采集失败 %s: %s", device["device_id"], e)
             if page * size >= total:
