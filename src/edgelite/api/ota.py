@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
@@ -64,7 +64,7 @@ async def apply_update(
 
 @router.post("/rollback", response_model=ApiResponse)
 async def rollback_update(
-    version: str = "",
+    version: str = Query(default="", description="回滚目标版本号"),
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     mgr = _get_ota_manager()

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -190,9 +191,32 @@ async def list_prompts(_user=Depends(get_current_user)):
 
 
 class MCPAuthManager:
+    _STORE_FILE = Path("data/mcp_keys.json")
+
     def __init__(self):
         self._enabled = False
         self._keys: dict[str, dict[str, Any]] = {}
+        self._load()
+
+    def _load(self):
+        try:
+            if self._STORE_FILE.exists():
+                with open(self._STORE_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self._keys = data.get("keys", {})
+                self._enabled = data.get("enabled", False)
+        except Exception as e:
+            logger.warning("加载MCP密钥文件失败: %s", e)
+            self._keys = {}
+            self._enabled = False
+
+    def _save(self):
+        try:
+            self._STORE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._STORE_FILE, "w", encoding="utf-8") as f:
+                json.dump({"keys": self._keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning("保存MCP密钥文件失败: %s", e)
 
     def list_keys(self) -> list[dict[str, Any]]:
         return [{"id": k, "name": v["name"], "scopes": v["scopes"], "created_at": v.get("created_at", "")} for k, v in self._keys.items()]
@@ -204,12 +228,14 @@ class MCPAuthManager:
         new_api_key = f"mcp_{uuid.uuid4().hex[:32]}"
         self._keys[key_id] = {"name": name, "scopes": scopes, "key": new_api_key, "created_at": datetime.now(timezone.utc).isoformat()}
         self._enabled = True
+        self._save()
         return {"id": key_id, "name": name, "key": new_api_key, "scopes": scopes}
 
     def delete_key(self, key_id: str) -> bool:
         if key_id in self._keys:
             del self._keys[key_id]
             self._enabled = bool(self._keys)
+            self._save()
             return True
         return False
 
@@ -231,3 +257,10 @@ class CreateKeyRequest(BaseModel):
 async def create_auth_key(req: CreateKeyRequest, _user=Depends(get_current_user)):
     result = _mcp_auth.create_key(req.name, req.scopes)
     return ApiResponse(data=result)
+
+
+@router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
+async def delete_auth_key(key_id: str, _user=Depends(get_current_user)):
+    if _mcp_auth.delete_key(key_id):
+        return ApiResponse(data={"deleted": True, "key_id": key_id})
+    raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")

@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载3D场景...">
   <div class="twin-page">
     <div ref="containerRef" class="twin-canvas" @click="onCanvasClick"></div>
 
@@ -80,16 +81,18 @@
       </div>
     </Transition>
   </div>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NTag, NButton, NDivider, NInput } from 'naive-ui'
+import { NTag, NButton, NDivider, NInput, NSpin, useMessage } from 'naive-ui'
 import { deviceApi, alarmApi } from '@/api'
 import { deviceStatusLabel, protocolLabel } from '@/utils/enumLabels'
 
 const router = useRouter()
+const msg = useMessage()
 const containerRef = ref<HTMLElement | null>(null)
 const minimapRef = ref<HTMLCanvasElement | null>(null)
 const selectedScene = ref('factory')
@@ -104,6 +107,7 @@ const listExpanded = ref(false)
 const alarmingDevices = ref<Set<string>>(new Set())
 const alarmCount = ref(0)
 const minimapUrl = ref('')
+const pageLoading = ref(true)
 
 const sceneOptions = [
   { label: '工厂车间', value: 'factory', icon: '🏭' },
@@ -591,6 +595,7 @@ async function loadScene() {
     animate()
   } catch (e) {
     console.error('3D场景加载失败:', e)
+    msg.error('3D场景加载失败，请刷新页面重试')
   }
 }
 
@@ -660,7 +665,9 @@ async function fetchDevices() {
   try {
     const data = await deviceApi.list({ page: 1, size: 200 })
     deviceList.value = data?.data ?? []
-  } catch { /* ignore */ }
+  } catch {
+    msg.warning('获取设备列表失败')
+  }
 }
 
 async function fetchAlarms() {
@@ -671,14 +678,18 @@ async function fetchAlarms() {
     alarms.forEach((a: any) => { if (a.device_id) newSet.add(a.device_id) })
     alarmingDevices.value = newSet
     alarmCount.value = alarms.length
-  } catch { /* ignore */ }
+  } catch {
+    msg.warning('获取告警列表失败')
+  }
 }
 
 async function fetchDevicePoints(deviceId: string) {
   try {
     const data = await deviceApi.getPoints(deviceId)
     pointValues.value = { ...pointValues.value, [deviceId]: data || {} }
-  } catch { /* ignore */ }
+  } catch {
+    msg.warning('获取设备测点失败')
+  }
 }
 
 async function refreshAllPoints() {
@@ -710,6 +721,7 @@ function cleanupScene() {
 onMounted(async () => {
   await fetchDevices()
   await fetchAlarms()
+  pageLoading.value = false
   loadScene()
   minimapUrl.value = 'active'
   refreshTimer = setInterval(refreshAllPoints, 10000)

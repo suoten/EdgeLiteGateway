@@ -11,12 +11,12 @@ from edgelite.security.rbac import Permission
 router = APIRouter(prefix="/api/v1/serial-bridge", tags=["串口透传"])
 
 
-_serial_bridge = None
-
-
 def _get_serial_bridge():
-    global _serial_bridge
-    return _serial_bridge
+    try:
+        from edgelite.app import _app_state
+        return getattr(_app_state, "serial_bridge", None)
+    except Exception:
+        return None
 
 
 @router.get("/status", response_model=ApiResponse)
@@ -74,10 +74,6 @@ async def start_serial_bridge(
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
 
-    global _serial_bridge
-    from edgelite.app import _app_state
-    _serial_bridge = getattr(_app_state, "serial_bridge", None)
-
     return ApiResponse(data=result)
 
 
@@ -90,8 +86,5 @@ async def stop_serial_bridge(
     result = await mgr.stop_service("serial_bridge")
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
-
-    global _serial_bridge
-    _serial_bridge = None
 
     return ApiResponse(data=result)

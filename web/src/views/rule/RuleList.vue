@@ -274,6 +274,10 @@ async function handleCreate() {
   try {
     await createFormRef.value?.validate()
   } catch { return }
+  if (!createForm.conditions.length || createForm.conditions.some((c: any) => !c.point || c.threshold === undefined || c.threshold === null)) {
+    message.error('请至少添加一个有效的条件（测点和阈值不能为空）')
+    return
+  }
   creating.value = true
   try {
     await ruleApi.create(createForm as any)

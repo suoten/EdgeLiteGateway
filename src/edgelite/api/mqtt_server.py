@@ -36,6 +36,14 @@ async def get_mqtt_server_status(
     mgr = get_service_manager()
     info = mgr.get_service_info("mqtt_server")
 
+    mqtt_server = _get_mqtt_server()
+    connections = 0
+    if mqtt_server and hasattr(mqtt_server, "get_client_count"):
+        try:
+            connections = mqtt_server.get_client_count()
+        except Exception:
+            pass
+
     return ApiResponse(data={
         "enabled": info.state.value != "disabled",
         "running": info.state.value == "running",
@@ -43,7 +51,7 @@ async def get_mqtt_server_status(
         "host": info.current_config.get("host", "0.0.0.0"),
         "port": info.current_config.get("port", 1883),
         "ws_port": info.current_config.get("ws_port", 8083),
-        "connections": 0,
+        "connections": connections,
         "dependencies": [
             {"package": d.package, "installed": d.installed, "version": d.version}
             for d in info.dependencies

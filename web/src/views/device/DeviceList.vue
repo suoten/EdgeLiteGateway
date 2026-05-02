@@ -388,6 +388,11 @@ async function handleCreate() {
   try {
     await createFormRef.value?.validate()
   } catch { return }
+  const hasEmptyPoint = createForm.points.some((pt: any) => !pt.name || !pt.address)
+  if (hasEmptyPoint) {
+    message.error('测点名称和地址不能为空')
+    return
+  }
   creating.value = true
   try {
     await deviceApi.create(createForm as any)
@@ -411,6 +416,11 @@ async function handleCreateSim() {
   try {
     await simFormRef.value?.validate()
   } catch { return }
+  const hasEmptyPoint = simForm.points.some((pt: any) => !pt.name)
+  if (hasEmptyPoint) {
+    message.error('测点名称不能为空')
+    return
+  }
   creating.value = true
   try {
     await deviceApi.createSimulator(simForm as any)

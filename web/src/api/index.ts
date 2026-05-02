@@ -266,6 +266,9 @@ export const driverApi = {
   protocols: () =>
     http.get<ApiResponse<{ protocols: string[] }>>('/drivers/protocols').then((r) => r.data.data),
 
+  status: () =>
+    http.get<ApiResponse<any[]>>('/drivers').then((r) => r.data.data),
+
   configSchema: (driverName: string) =>
     http.get<ApiResponse<{ driver_name: string; schema: any }>>(`/drivers/${driverName}/config-schema`).then((r) => r.data.data),
 
@@ -468,6 +471,9 @@ export const mcpApi = {
 
   createKey: (data: any) =>
     http.post<ApiResponse>('/mcp/auth-keys', data).then((r) => r.data),
+
+  deleteKey: (keyId: string) =>
+    http.delete<ApiResponse>(`/mcp/auth-keys/${keyId}`).then((r) => r.data),
 }
 
 // ─── OTA升级 ───
@@ -507,4 +513,20 @@ export const integrationApi = {
 
   status: () =>
     http.get<ApiResponse<any>>('/integration/status').then((r) => r.data.data),
+}
+
+// ─── 组态管理 ───
+
+export const scadaApi = {
+  listProjects: () =>
+    http.get<ApiResponse<any[]>>('/scada/projects').then((r) => r.data.data),
+
+  getProject: (name: string) =>
+    http.get<ApiResponse<any>>(`/scada/project/${encodeURIComponent(name)}`).then((r) => r.data.data),
+
+  saveProject: (data: { name: string; widgets: any[] }) =>
+    http.post<ApiResponse>('/scada/project', data).then((r) => r.data),
+
+  deleteProject: (name: string) =>
+    http.delete<ApiResponse>(`/scada/project/${encodeURIComponent(name)}`).then((r) => r.data),
 }

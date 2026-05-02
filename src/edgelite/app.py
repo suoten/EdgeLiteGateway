@@ -534,6 +534,13 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.warning("Grafana集成路由注册失败: %s", e)
 
+    # 组态管理路由
+    try:
+        from edgelite.api.scada import router as scada_router
+        app.include_router(scada_router)
+    except Exception as e:
+        logger.warning("组态管理路由注册失败: %s", e)
+
     # WebSocket路由
     @app.websocket("/ws/v1/realtime")
     async def ws_realtime(websocket: WebSocket, token: str = Query(...)):

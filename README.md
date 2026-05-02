@@ -751,7 +751,8 @@ export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.
 | `/api/v1/drivers` | 驱动配置（列表/配置模板/设备发现） |
 | `/api/v1/platforms` | 平台对接（列表/连接/断开/状态） |
 | `/api/v1/expressions` | 表达式管理（计算/验证/批量/函数列表） |
-| `/api/v1/mcp` | MCP协议（工具调用/资源/提示模板/认证密钥） |
+| `/api/v1/mcp` | MCP协议（工具调用/资源/提示模板/认证密钥CRUD） |
+| `/api/v1/scada` | 组态管理（项目保存/加载/删除，服务端持久化） |
 | `/api/v1/mqtt-server` | 内置MQTT Server（启停/状态/配置） |
 | `/api/v1/modbus-slave` | 内置Modbus Slave（启停/状态/配置） |
 | `/api/v1/preprocess` | 数据预处理（配置/死区滤波/滑动平均/聚合） |
@@ -847,6 +848,84 @@ EdgeLiteGateway 采用三级版本体系，满足不同场景需求：
 ## 📄 许可证
 
 [GPL-3.0](LICENSE) License
+
+---
+
+## ❓ 常见问题
+
+### 安装相关
+
+**Q: `npm install` 卡住或报错怎么办？**
+
+使用国内镜像源：
+```bash
+npm install --registry https://registry.npmmirror.com
+```
+
+**Q: `pip install` 安装依赖失败？**
+
+确保 Python 版本 >= 3.11，并尝试：
+```bash
+pip install -e ".[dev]" -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+**Q: Docker Compose 启动后前端页面空白？**
+
+确保先构建前端再启动：
+```bash
+cd web && npm install && npm run build && cd ..
+cd docker && docker compose up -d --build
+```
+
+### 运行相关
+
+**Q: 后端启动报 `InfluxDB connection failed`？**
+
+InfluxDB 服务未就绪，后端会自动降级到 SQLite 缓存模式。检查 InfluxDB 是否运行：
+```bash
+docker compose ps influxdb
+curl http://localhost:8086/health
+```
+
+**Q: WebSocket 连接失败？**
+
+1. 确保 Nginx 配置了 `/ws/` 的 WebSocket 代理（参考上方 Nginx 配置）
+2. 检查 Token 是否有效（WebSocket 连接需要 `?token=xxx` 参数）
+3. 检查防火墙是否放行了对应端口
+
+**Q: 设备创建后状态一直是"离线"？**
+
+1. 检查设备连接配置（IP/端口/从站ID）是否正确
+2. 确保网络可达：`ping <设备IP>` 或 `telnet <设备IP> <端口>`
+3. 查看后端日志：`docker compose logs -f edgelite | grep error`
+
+**Q: 告警通知不发送？**
+
+1. 确认规则已启用
+2. 确认通知渠道配置正确（钉钉 Webhook URL / 邮件 SMTP 服务器等）
+3. 在 `configs/config.yaml` 中配置通知参数
+
+**Q: MCP API Key 重启后丢失？**
+
+v1.0 已支持密钥文件持久化（`data/mcp_keys.json`），确保 `data/` 目录有写入权限。
+
+### 数据相关
+
+**Q: 时序数据查询为空？**
+
+1. 确认 InfluxDB 服务正常运行
+2. 确认设备有数据写入：在设备详情页查看实时测点值
+3. 检查查询时间范围是否正确
+
+**Q: 如何备份数据？**
+
+```bash
+# 通过 API 创建备份
+curl -X POST http://localhost:8080/api/v1/system/backup -H "Authorization: Bearer <token>"
+
+# 手动备份关键文件
+cp -r data/ data_backup_$(date +%Y%m%d)/
+```
 
 ---
 

@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载中...">
   <n-space vertical :size="20">
     <!-- 快速开始引导（设备数为0时显示） -->
     <n-card v-if="showQuickStart" title="快速开始" :bordered="false" class="quick-start-card">
@@ -165,11 +166,13 @@
       </n-grid>
     </n-card>
   </n-space>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useMessage } from 'naive-ui'
 import { HardwareChip, SettingsOutline, AlertCircleOutline, PulseOutline } from '@vicons/ionicons5'
 import { use } from 'echarts/core'
 import { PieChart, LineChart, BarChart } from 'echarts/charts'
@@ -185,11 +188,13 @@ import * as ws from '@/api/websocket'
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
 
 const router = useRouter()
+const msg = useMessage()
 const status = ref<SystemStatus | null>(null)
 const devices = ref<any[]>([])
 const alarms = ref<any[]>([])
 const supportedProtocols = ref<string[]>([])
 const resourceHistory = ref<{ time: string; cpu: number; mem: number }[]>([])
+const pageLoading = ref(true)
 let timer: number | null = null
 let uptimeTimer: number | null = null
 const uptime = ref(0)
@@ -313,7 +318,7 @@ async function fetchStatus() {
     status.value = await systemApi.getStatus()
     uptime.value = status.value?.uptime ?? 0
   } catch (e: any) {
-    console.warn('获取系统状态失败:', e)
+    msg.warning('获取系统状态失败')
   }
 }
 
@@ -322,9 +327,13 @@ async function fetchProtocols() {
     const data = await driverApi.list()
     const drivers = data?.drivers || []
     supportedProtocols.value = drivers.flatMap((d: any) => d.protocols || [])
+    if (supportedProtocols.value.length === 0) {
+      const protoData = await driverApi.protocols()
+      supportedProtocols.value = protoData?.protocols || []
+    }
   } catch (e) {
-    console.warn('获取协议列表失败:', e)
-    supportedProtocols.value = ['modbus_tcp', 'opcua', 'mqtt', 'http', 'simulator']
+    msg.warning('获取协议列表失败')
+    supportedProtocols.value = []
   }
 }
 
@@ -333,7 +342,7 @@ async function fetchDevices() {
     const data = await deviceApi.list({ page: 1, size: 500 })
     devices.value = data?.data ?? []
   } catch (e) {
-    console.warn('获取设备列表失败:', e)
+    msg.warning('获取设备列表失败')
     devices.value = []
   }
 }
@@ -343,7 +352,7 @@ async function fetchAlarms() {
     const data = await alarmApi.list({ page: 1, size: 500 })
     alarms.value = data?.data ?? []
   } catch (e) {
-    console.warn('获取告警列表失败:', e)
+    msg.warning('获取告警列表失败')
     alarms.value = []
   }
 }
@@ -364,8 +373,9 @@ function formatBytes(bytes?: number) {
   return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB'
 }
 
-onMounted(() => {
-  fetchStatus(); fetchDevices(); fetchAlarms(); fetchProtocols()
+onMounted(async () => {
+  await Promise.all([fetchStatus(), fetchDevices(), fetchAlarms(), fetchProtocols()])
+  pageLoading.value = false
   timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
   uptimeTimer = window.setInterval(() => { uptime.value++ }, 1000)
   ws.connect('realtime', onRealtimeMessage)

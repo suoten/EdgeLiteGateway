@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载组态项目...">
   <div class="scada-page">
     <div class="scada-header">
       <div class="header-left">
@@ -165,20 +166,21 @@
     </n-modal>
     <input type="file" ref="fileInputRef" style="display: none" accept=".json" @change="onFileLoad" />
   </div>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   NButton, NButtonGroup, NSpace, NInput, NSelect, NTag, NSwitch, NModal,
-  NInputNumber, NAlert, useMessage, useDialog,
+  NInputNumber, NAlert, NSpin, useMessage, useDialog,
 } from 'naive-ui'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-import { deviceApi } from '@/api'
+import { deviceApi, scadaApi } from '@/api'
 import { protocolLabel } from '@/utils/enumLabels'
 
 use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
@@ -201,6 +203,8 @@ const chartData = ref<Map<number, { time: number; value: number }[]>>(new Map())
 const zoom = ref(1)
 const editForm = ref<any>({})
 const editPointOptions = ref<{ label: string; value: string }[]>([])
+const pageLoading = ref(true)
+const saving = ref(false)
 
 let widgetIdCounter = 0
 let dragging: any = null
@@ -413,7 +417,9 @@ async function fetchDevices() {
   try {
     const data = await deviceApi.list({ page: 1, size: 200 })
     devices.value = data?.data ?? []
-  } catch { /* ignore */ }
+  } catch {
+    message.warning('获取设备列表失败')
+  }
 }
 
 async function onSelectDevice(device: any) {
@@ -567,9 +573,18 @@ function startResize(e: MouseEvent, widget: any) {
   document.addEventListener('mouseup', onMouseUp)
 }
 
-function saveProject() {
-  localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
-  message.success('项目已保存')
+async function saveProject() {
+  saving.value = true
+  try {
+    await scadaApi.saveProject({ name: 'default', widgets: widgets.value })
+    localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
+    message.success('项目已保存到服务器')
+  } catch {
+    localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
+    message.warning('服务器保存失败，已保存到本地')
+  } finally {
+    saving.value = false
+  }
 }
 
 function loadProject() { fileInputRef.value?.click() }
@@ -592,8 +607,25 @@ watch(previewMode, (val) => { if (val) { selectedWidgetId.value = null; refreshA
 
 onMounted(async () => {
   await fetchDevices()
-  const saved = localStorage.getItem('scada-project')
-  if (saved) { try { const data = JSON.parse(saved); if (data.widgets?.length) { widgets.value = data.widgets; widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0) } } catch { /* ignore */ } }
+  try {
+    const data = await scadaApi.getProject('default')
+    if (data?.widgets?.length) {
+      widgets.value = data.widgets
+      widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0)
+    }
+  } catch {
+    const saved = localStorage.getItem('scada-project')
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        if (data.widgets?.length) {
+          widgets.value = data.widgets
+          widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0)
+        }
+      } catch { /* ignore */ }
+    }
+  }
+  pageLoading.value = false
   pushHistory()
   refreshTimer = setInterval(refreshAllValues, 5000)
   document.addEventListener('keydown', onKeyDown)
