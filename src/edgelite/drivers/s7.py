@@ -16,14 +16,13 @@ class S7Driver(DriverPlugin):
 
     配置参数:
         ip: PLC IP地址
-        port: TCP端口 (默认102，S7标准端口)
         rack: 机架号 (默认0)
         slot: 插槽号 (默认1，S7-1200/1500默认1，S7-300默认2)
         db_number: 数据块编号
     """
 
     plugin_name = "siemens_s7"
-    plugin_version = "1.1.0"
+    plugin_version = "1.0.0"
     supported_protocols = ["s7"]
 
     def __init__(self):
@@ -44,7 +43,6 @@ class S7Driver(DriverPlugin):
 
         self._config = config
         ip = config.get("ip", "")
-        port = int(config.get("port", 102))
         rack = int(config.get("rack", 0))
         slot = int(config.get("slot", 1))
 
@@ -53,11 +51,11 @@ class S7Driver(DriverPlugin):
 
         try:
             self._client = snap7.client.Client()
-            await asyncio.to_thread(self._client.connect, ip, rack, slot, port)
+            await asyncio.to_thread(self._client.connect, ip, rack, slot)
             self._running = True
-            logger.info("S7驱动连接成功: %s:%d (rack=%d, slot=%d)", ip, port, rack, slot)
+            logger.info("S7驱动连接成功: %s (rack=%d, slot=%d)", ip, rack, slot)
         except Exception as e:
-            logger.error("S7驱动连接失败: %s:%d - %s", ip, port, e)
+            logger.error("S7驱动连接失败: %s - %s", ip, e)
             raise
 
     async def stop(self) -> None:
