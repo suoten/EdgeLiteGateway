@@ -31,6 +31,7 @@ async def list_devices(
     if search:
         search_lower = search.lower()
         devices = [d for d in devices if search_lower in d.get("name", "").lower() or search_lower in d.get("device_id", "").lower()]
+        total = len(devices)
     return PagedResponse(data=devices, total=total, page=page, size=size)
 
 
@@ -137,7 +138,7 @@ async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(d
     # API Key认证（向后兼容）
     if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
         import hmac
-        if not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
+        if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
         # 无认证配置时拒绝（Phase1已修改的逻辑保持）

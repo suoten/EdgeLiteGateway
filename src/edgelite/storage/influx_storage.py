@@ -34,6 +34,7 @@ class InfluxDBStorage:
         self._write_api = None
         self._query_api = None
         self._available = False
+        self._fail_count = 0
 
     async def connect(self) -> None:
         """建立InfluxDB连接"""
@@ -91,6 +92,8 @@ class InfluxDBStorage:
         try:
             health = await asyncio.to_thread(self._client.health)
             self._available = health.status == "pass"
+            if self._available:
+                self._fail_count = 0
             return self._available
         except Exception:
             self._available = False
@@ -125,7 +128,9 @@ class InfluxDBStorage:
             return True
         except Exception as e:
             logger.error("InfluxDB写入失败: %s", e)
-            self._available = False
+            self._fail_count += 1
+            if self._fail_count >= 3:
+                self._available = False
             return False
 
     async def write_points_batch(self, records: list[dict]) -> bool:
@@ -156,7 +161,9 @@ class InfluxDBStorage:
             return True
         except Exception as e:
             logger.error("InfluxDB批量写入失败: %s", e)
-            self._available = False
+            self._fail_count += 1
+            if self._fail_count >= 3:
+                self._available = False
             return False
 
     @staticmethod

@@ -119,8 +119,14 @@ class DeviceService:
 
         # 停止驱动
         driver = self._driver_instances.pop(device_id, None)
-        if driver and isinstance(driver, SimulatorDriver):
-            driver.remove_device(device_id)
+        if driver:
+            if isinstance(driver, SimulatorDriver):
+                driver.remove_device(device_id)
+            elif hasattr(driver, 'stop'):
+                try:
+                    await driver.stop()
+                except Exception as e:
+                    logger.warning("驱动停止失败 %s: %s", device_id, e)
 
         # 删除记录
         success = await self._repo.delete(device_id)
@@ -187,8 +193,10 @@ class DeviceService:
 
         driver = driver_class()
         await driver.start({})
-        result = await driver.discover_devices(config)
-        await driver.stop()
+        try:
+            result = await driver.discover_devices(config)
+        finally:
+            await driver.stop()
         return result
 
     async def load_existing_devices(self) -> None:

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/mqtt-server", tags=["MQTT Server"])
 
@@ -41,8 +45,8 @@ async def get_mqtt_server_status(
     if mqtt_server and hasattr(mqtt_server, "get_client_count"):
         try:
             connections = mqtt_server.get_client_count()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("获取MQTT客户端数量失败: %s", e)
 
     return ApiResponse(data={
         "enabled": info.state.value != "disabled",

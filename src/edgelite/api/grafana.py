@@ -47,7 +47,7 @@ async def list_grafana_dashboards(
 ):
     grafana_config = _get_grafana_config()
     if not grafana_config or not getattr(grafana_config, "enabled", False):
-        return ApiResponse(data={"dashboards": [], "message": "Grafana集成未启用"})
+        raise HTTPException(status_code=503, detail="Grafana集成未启用")
 
     grafana_url = getattr(grafana_config, "url", "http://localhost:3000")
     api_key = getattr(grafana_config, "api_key", "")
@@ -62,11 +62,11 @@ async def list_grafana_dashboards(
             if resp.status_code == 200:
                 dashboards = resp.json()
                 return ApiResponse(data={"dashboards": dashboards})
-            return ApiResponse(data={"dashboards": [], "message": f"Grafana返回状态码: {resp.status_code}"})
+            raise HTTPException(status_code=502, detail=f"Grafana返回状态码: {resp.status_code}")
     except ImportError:
-        return ApiResponse(data={"dashboards": [], "message": "httpx未安装"})
+        raise HTTPException(status_code=503, detail="httpx未安装，无法连接Grafana")
     except Exception as e:
-        return ApiResponse(data={"dashboards": [], "message": f"Grafana连接失败: {str(e)}"})
+        raise HTTPException(status_code=502, detail=f"Grafana连接失败: {str(e)}")
 
 
 @router.get("/embed-url", response_model=ApiResponse)

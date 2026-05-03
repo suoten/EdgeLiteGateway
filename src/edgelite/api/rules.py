@@ -32,6 +32,8 @@ async def list_rules(
         rules = [r for r in rules if search_lower in r.get("name", "").lower() or search_lower in r.get("rule_id", "").lower()]
     if severity:
         rules = [r for r in rules if r.get("severity", "").lower() == severity.lower()]
+    if search or severity:
+        total = len(rules)
     return PagedResponse(data=rules, total=total, page=page, size=size)
 
 

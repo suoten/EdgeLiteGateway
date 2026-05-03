@@ -272,7 +272,9 @@ async function fetchTools() {
   try {
     const data = await mcpApi.tools()
     tools.value = data?.tools || []
-  } catch {} finally {
+  } catch (e: any) {
+    console.warn('获取MCP工具列表失败:', e?.message)
+  } finally {
     loadingTools.value = false
   }
 }
@@ -282,7 +284,9 @@ async function fetchResources() {
   try {
     const data = await mcpApi.resources()
     resources.value = data?.resources || []
-  } catch {} finally {
+  } catch (e: any) {
+    console.warn('获取MCP资源列表失败:', e?.message)
+  } finally {
     loadingResources.value = false
   }
 }
@@ -292,7 +296,9 @@ async function fetchPrompts() {
   try {
     const data = await mcpApi.prompts()
     prompts.value = data?.prompts || []
-  } catch {} finally {
+  } catch (e: any) {
+    console.warn('获取MCP提示列表失败:', e?.message)
+  } finally {
     loadingPrompts.value = false
   }
 }
@@ -303,7 +309,9 @@ async function fetchApiKeys() {
     const data = await mcpApi.authKeys()
     apiKeys.value = data?.keys || []
     authEnabled.value = data?.enabled ?? false
-  } catch {} finally {
+  } catch (e: any) {
+    console.warn('获取MCP密钥列表失败:', e?.message)
+  } finally {
     loadingKeys.value = false
   }
 }

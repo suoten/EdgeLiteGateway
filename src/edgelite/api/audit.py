@@ -39,10 +39,16 @@ async def query_audit_logs(
         try:
             action_enum = AuditAction(action)
         except ValueError:
-            pass
+            raise HTTPException(status_code=400, detail=f"无效的action: {action}")
 
-    st = datetime.fromisoformat(start_time) if start_time else None
-    et = datetime.fromisoformat(end_time) if end_time else None
+    try:
+        st = datetime.fromisoformat(start_time) if start_time else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}")
+    try:
+        et = datetime.fromisoformat(end_time) if end_time else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}")
 
     logs, total = await svc.query(
         user_id=user_id, action=action_enum, resource_type=resource_type,
@@ -73,8 +79,14 @@ async def export_audit_csv(
     if not svc:
         raise HTTPException(status_code=501, detail="审计日志服务未启用")
 
-    st = datetime.fromisoformat(start_time) if start_time else None
-    et = datetime.fromisoformat(end_time) if end_time else None
+    try:
+        st = datetime.fromisoformat(start_time) if start_time else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}")
+    try:
+        et = datetime.fromisoformat(end_time) if end_time else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}")
 
     csv_content = await svc.export_csv(start_time=st, end_time=et)
     return ApiResponse(data={"content": csv_content})

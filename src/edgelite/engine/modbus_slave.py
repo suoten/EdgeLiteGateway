@@ -104,7 +104,8 @@ class ModbusSlaveServer:
 
         except Exception as e:
             logger.error("内置Modbus Slave启动失败: %s", e)
-            self._server = None
+            self._task = None
+            self._running = False
 
     async def stop(self) -> None:
         """停止内置Modbus Slave"""

@@ -42,6 +42,11 @@ def verify_token(token: str, token_type: str = "access") -> dict:
     payload = jwt.decode(token, config.security.secret_key, algorithms=[config.security.algorithm])
     if payload.get("type") != token_type:
         raise JWTError(f"Expected {token_type} token, got {payload.get('type')}")
+    jti = payload.get("jti", "")
+    if jti:
+        from edgelite.security.token_revocation import is_token_revoked
+        if is_token_revoked(jti):
+            raise JWTError("Token has been revoked")
     return payload
 
 

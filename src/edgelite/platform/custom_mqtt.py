@@ -63,7 +63,7 @@ class CustomMqttHandler(PlatformHandler):
             try:
                 await self._connect_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("自定义MQTT连接任务已取消")
         self._connected = False
         logger.info("自定义MQTT平台对接已断开")
 
@@ -137,7 +137,7 @@ class CustomMqttHandler(PlatformHandler):
                             try:
                                 await t
                             except asyncio.CancelledError:
-                                pass
+                                logger.debug("自定义MQTT子任务已取消")
                         self._connected = False
 
             except asyncio.CancelledError:
@@ -161,7 +161,7 @@ class CustomMqttHandler(PlatformHandler):
                 except Exception as e:
                     logger.error("自定义MQTT发布失败: %s", e)
         except asyncio.CancelledError:
-            pass
+            logger.debug("自定义MQTT发布循环已取消")
 
     async def _rpc_listen_loop(self, client: Any) -> None:
         try:
@@ -189,4 +189,4 @@ class CustomMqttHandler(PlatformHandler):
                 except Exception as e:
                     logger.error("自定义MQTT RPC处理异常: %s", e)
         except asyncio.CancelledError:
-            pass
+            logger.debug("自定义MQTT RPC监听循环已取消")

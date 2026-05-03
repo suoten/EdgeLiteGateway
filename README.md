@@ -312,13 +312,13 @@ cp .env.example .env
 # 1.5 复制并编辑配置文件
 cp configs/config.example.yaml configs/config.yaml
 # 编辑 configs/config.yaml，重点修改：
-# - security.secret_key（至少 32 位随机字符串）
-# - influxdb.token（InfluxDB API Token）
+# - security.secret_key（至少 32 位随机字符串，也可通过 .env 设置）
+# - influxdb.token（InfluxDB API Token，也可通过 .env 设置）
 
-# 1.5 初始化数据库（创建 SQLite 表结构和默认 admin 用户）
+# 1.6 初始化数据库（创建 SQLite 表结构和默认 admin 用户）
 python scripts/init_db.py
 
-# 1.6 启动后端服务（默认端口 8080，热重载模式）
+# 1.7 启动后端服务（默认端口 8080，热重载模式）
 python -m edgelite --host 0.0.0.0 --port 8080 --reload
 ```
 
@@ -878,6 +878,14 @@ npm install --registry https://registry.npmmirror.com
 pip install -e ".[dev]" -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
+**Q: Windows 上 Cython 编译失败？**
+
+Cython 是可选加速模块，编译失败不影响运行。系统会自动回退到纯 Python 实现。如需编译，请安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)。
+
+**Q: `ModuleNotFoundError: No module named 'sqlalchemy'`？**
+
+确保使用 `pip install -e ".[dev]"` 安装（而非仅 `pip install -r requirements.txt`），`pyproject.toml` 中已包含所有核心依赖。
+
 **Q: Docker Compose 启动后前端页面空白？**
 
 确保先构建前端再启动：
@@ -897,6 +905,20 @@ InfluxDB 服务未就绪，后端会自动降级到 SQLite 缓存模式。检查
 docker compose ps influxdb
 curl http://localhost:8086/health
 ```
+
+**Q: 后端启动报** **`安全警告: JWT密钥使用默认值`？**
+
+这是安全警告，开发环境可忽略。生产环境请设置环境变量：
+
+```bash
+export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+```
+
+或在 `.env` 文件中设置 `EDGELITE_SECURITY__SECRET_KEY=你的随机密钥`。
+
+**Q: 前端 `npm run build` 报 `require is not defined`？**
+
+确保 Node.js 版本 >= 18，且已安装最新依赖（`npm install`）。vite.config.ts 已使用 `createRequire` 兼容 ESM 模式。
 
 **Q: WebSocket 连接失败？**
 

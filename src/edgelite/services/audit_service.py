@@ -162,13 +162,15 @@ class AuditService:
             }
             prev_hash = self._last_hash
             record_hash = self._compute_record_hash(record, prev_hash)
-            self._last_hash = record_hash
 
         await asyncio.to_thread(
             self._sync_log, timestamp, user_id, username, action.value,
             resource_type, resource_id, ip_address, user_agent,
             details_json, status, error_message, prev_hash, record_hash,
         )
+
+        if self._tamper_proof and record_hash:
+            self._last_hash = record_hash
 
         if action == AuditAction.LOGIN_FAILED and ip_address:
             await self._check_login_anomaly(ip_address, username)
@@ -178,22 +180,22 @@ class AuditService:
                   error_message, prev_hash, record_hash) -> None:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO audit_logs (
-                created_at, user_id, username, action, resource_type, resource_id,
-                ip_address, user_agent, details, status, error_message,
-                prev_hash, record_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            timestamp, user_id, username, action, resource_type, resource_id,
-            ip_address, user_agent, details_json, status, error_message,
-            prev_hash, record_hash,
-        ))
-
-        conn.commit()
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO audit_logs (
+                    created_at, user_id, username, action, resource_type, resource_id,
+                    ip_address, user_agent, details, status, error_message,
+                    prev_hash, record_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                timestamp, user_id, username, action, resource_type, resource_id,
+                ip_address, user_agent, details_json, status, error_message,
+                prev_hash, record_hash,
+            ))
+            conn.commit()
+        finally:
+            conn.close()
 
     async def _check_login_anomaly(self, ip_address: str, username: str | None) -> None:
         key = f"{ip_address}:{username or 'unknown'}"
@@ -229,42 +231,44 @@ class AuditService:
     def _sync_query(self, user_id, action, resource_type, start_time, end_time, page, size):
         import sqlite3
         conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
+        try:
+            cursor = conn.cursor()
 
-        conditions = []
-        params = []
+            conditions = []
+            params = []
 
-        if user_id:
-            conditions.append("user_id = ?")
-            params.append(user_id)
-        if action:
-            conditions.append("action = ?")
-            params.append(action.value)
-        if resource_type:
-            conditions.append("resource_type = ?")
-            params.append(resource_type)
-        if start_time:
-            conditions.append("created_at >= ?")
-            params.append(start_time.isoformat())
-        if end_time:
-            conditions.append("created_at <= ?")
-            params.append(end_time.isoformat())
+            if user_id:
+                conditions.append("user_id = ?")
+                params.append(user_id)
+            if action:
+                conditions.append("action = ?")
+                params.append(action.value)
+            if resource_type:
+                conditions.append("resource_type = ?")
+                params.append(resource_type)
+            if start_time:
+                conditions.append("created_at >= ?")
+                params.append(start_time.isoformat())
+            if end_time:
+                conditions.append("created_at <= ?")
+                params.append(end_time.isoformat())
 
-        where = " AND ".join(conditions) if conditions else "1=1"
+            where = " AND ".join(conditions) if conditions else "1=1"
 
-        cursor.execute(f"SELECT COUNT(*) FROM audit_logs WHERE {where}", params)
-        total = cursor.fetchone()[0]
+            cursor.execute(f"SELECT COUNT(*) FROM audit_logs WHERE {where}", params)
+            total = cursor.fetchone()[0]
 
-        offset = (page - 1) * size
-        cursor.execute(
-            f"SELECT * FROM audit_logs WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?",
-            params + [size, offset],
-        )
-        columns = [desc[0] for desc in cursor.description]
-        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            offset = (page - 1) * size
+            cursor.execute(
+                f"SELECT * FROM audit_logs WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?",
+                params + [size, offset],
+            )
+            columns = [desc[0] for desc in cursor.description]
+            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-        conn.close()
-        return rows, total
+            return rows, total
+        finally:
+            conn.close()
 
     async def verify_integrity(self) -> dict:
         return await asyncio.to_thread(self._sync_verify_integrity)
@@ -272,10 +276,12 @@ class AuditService:
     def _sync_verify_integrity(self) -> dict:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, created_at, user_id, username, action, resource_type, resource_id, ip_address, status, prev_hash, record_hash FROM audit_logs ORDER BY id ASC")
-        rows = cursor.fetchall()
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, created_at, user_id, username, action, resource_type, resource_id, ip_address, status, prev_hash, record_hash FROM audit_logs ORDER BY id ASC")
+            rows = cursor.fetchall()
+        finally:
+            conn.close()
 
         total = len(rows)
         broken_at = []
@@ -299,22 +305,24 @@ class AuditService:
     def _sync_export_csv(self, start_time, end_time) -> str:
         import sqlite3
         conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
+        try:
+            cursor = conn.cursor()
 
-        conditions = []
-        params = []
-        if start_time:
-            conditions.append("created_at >= ?")
-            params.append(start_time.isoformat())
-        if end_time:
-            conditions.append("created_at <= ?")
-            params.append(end_time.isoformat())
+            conditions = []
+            params = []
+            if start_time:
+                conditions.append("created_at >= ?")
+                params.append(start_time.isoformat())
+            if end_time:
+                conditions.append("created_at <= ?")
+                params.append(end_time.isoformat())
 
-        where = " AND ".join(conditions) if conditions else "1=1"
-        cursor.execute(f"SELECT * FROM audit_logs WHERE {where} ORDER BY id ASC", params)
-        columns = [desc[0] for desc in cursor.description]
-        rows = cursor.fetchall()
-        conn.close()
+            where = " AND ".join(conditions) if conditions else "1=1"
+            cursor.execute(f"SELECT * FROM audit_logs WHERE {where} ORDER BY id ASC", params)
+            columns = [desc[0] for desc in cursor.description]
+            rows = cursor.fetchall()
+        finally:
+            conn.close()
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -332,9 +340,11 @@ class AuditService:
         from datetime import timedelta
         cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
         conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM audit_logs WHERE created_at < ?", (cutoff,))
-        deleted = cursor.rowcount
-        conn.commit()
-        conn.close()
-        return deleted
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM audit_logs WHERE created_at < ?", (cutoff,))
+            deleted = cursor.rowcount
+            conn.commit()
+            return deleted
+        finally:
+            conn.close()

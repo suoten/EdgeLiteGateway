@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
+from jose import JWTError
 
 from edgelite.models.user import LoginRequest, TokenResponse
 from edgelite.models.common import ApiResponse
@@ -13,6 +15,8 @@ from edgelite.security.jwt import create_access_token, create_refresh_token, ver
 from edgelite.security.password import verify_password
 from edgelite.storage.sqlite_repo import UserRepo
 from edgelite.api.deps import CurrentUser
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
 
@@ -27,7 +31,7 @@ def _check_login_rate(ip: str) -> None:
     _login_attempts[ip] = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
     # 容量限制：超过10000个IP条目时清理最旧的
     if len(_login_attempts) > 10000:
-        oldest_ips = sorted(_login_attempts.keys(), key=lambda ip: min(_login_attempts[ip]) if _login_attempts[ip] else 0)
+        oldest_ips = sorted(_login_attempts.keys(), key=lambda k: min(_login_attempts[k]) if _login_attempts[k] else 0)
         for ip_to_remove in oldest_ips[:len(_login_attempts) - 8000]:
             del _login_attempts[ip_to_remove]
     if len(_login_attempts[ip]) >= _MAX_LOGIN_ATTEMPTS:
@@ -96,7 +100,7 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
     """刷新Access Token"""
     try:
         payload = verify_token(refresh, token_type="refresh")
-    except Exception:
+    except (JWTError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效")
 
     db, write_lock = _get_user_repo()
@@ -133,10 +137,12 @@ async def get_current_user_info(user: CurrentUser):
     must_change = False
     async with db.get_session() as session:
         repo = UserRepo(session, db.write_lock)
-        db_user = await repo.get_by_username_with_password(user["username"])
+        db_user = await repo.get_by_username(user["username"])
         if db_user:
-            from edgelite.security.password import verify_password
-            must_change = verify_password("admin123", db_user.get("password", ""))
+            must_change = db_user.get("must_change_password", False)
+            if not must_change:
+                from edgelite.security.password import verify_password as _vp
+                must_change = _vp("admin123", db_user.get("password", ""))
     return ApiResponse(data={
         "user_id": user["user_id"],
         "username": user["username"],
@@ -149,7 +155,7 @@ async def get_current_user_info(user: CurrentUser):
 async def change_password(
     old_password: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
-    user: CurrentUser = None,
+    user: CurrentUser,
 ):
     db, write_lock = _get_user_repo()
     async with db.get_session() as session:
@@ -184,8 +190,8 @@ async def logout(request: Request):
             exp = payload.get("exp")
             if jti:
                 revoke_token(jti, exp)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Access Token撤销失败: %s", e)
 
     refresh_token = request.cookies.get("edgelite_refresh")
     if refresh_token:
@@ -195,11 +201,11 @@ async def logout(request: Request):
             exp = payload.get("exp")
             if jti:
                 revoke_token(jti, exp)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Refresh Token撤销失败: %s", e)
 
     from fastapi.responses import JSONResponse
-    response = JSONResponse(content={"code": 0, "message": "success", "data": None})
+    response = JSONResponse(content=ApiResponse().model_dump())
     response.delete_cookie("edgelite_access", path="/api/v1")
     response.delete_cookie("edgelite_refresh", path="/api/v1/auth")
     return response

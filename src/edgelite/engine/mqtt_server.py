@@ -96,6 +96,7 @@ class MqttServer:
         except Exception as e:
             logger.error("内置MQTT Server启动失败: %s", e)
             self._broker = None
+            self._running = False
 
     async def stop(self) -> None:
         """停止内置MQTT Server"""

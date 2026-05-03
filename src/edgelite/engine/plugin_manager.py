@@ -80,11 +80,13 @@ class PluginManager:
     def _load_module(self, path: Path):
         """动态加载Python模块（带路径白名单安全检查）"""
         resolved = path.resolve()
-        if self._allowed_dir and not str(resolved).startswith(str(self._allowed_dir)):
+        if self._allowed_dir and not resolved.is_relative_to(self._allowed_dir):
             raise ValueError(f"安全拒绝: 文件 {resolved} 不在允许的目录 {self._allowed_dir} 内")
         if resolved.suffix != ".py":
             raise ValueError(f"安全拒绝: 仅允许加载.py文件，收到 {resolved.suffix}")
         spec = importlib.util.spec_from_file_location(path.stem, str(resolved))
+        if spec is None or spec.loader is None:
+            raise ValueError(f"无法加载模块: {resolved}")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module

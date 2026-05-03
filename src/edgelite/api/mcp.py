@@ -107,7 +107,7 @@ class MCPServer:
                 if svc:
                     devices, total = await svc.list_devices(page=1, size=200)
                     return {"devices": devices, "total": total}
-                return {"devices": [], "total": 0}
+                return {"devices": [], "total": 0, "warning": "设备服务不可用"}
 
             elif name == "get_device_status":
                 device_id = args.get("device_id", "")
@@ -123,7 +123,7 @@ class MCPServer:
                 if svc:
                     points = await svc.read_points(device_id)
                     return {"device_id": device_id, "points": points}
-                return {"device_id": device_id, "points": []}
+                return {"device_id": device_id, "points": [], "warning": "设备服务不可用"}
 
             elif name == "write_device_point":
                 device_id = args.get("device_id", "")
@@ -155,7 +155,7 @@ class MCPServer:
                 if svc:
                     rules, total = await svc.list_rules(page=1, size=200)
                     return {"rules": rules, "total": total}
-                return {"rules": [], "total": 0}
+                return {"rules": [], "total": 0, "warning": "规则服务不可用"}
 
             else:
                 return {"error": f"未知工具: {name}"}
@@ -254,13 +254,13 @@ class CreateKeyRequest(BaseModel):
 
 
 @router.post("/auth-keys", response_model=ApiResponse)
-async def create_auth_key(req: CreateKeyRequest, _user=Depends(get_current_user)):
+async def create_auth_key(req: CreateKeyRequest, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     result = _mcp_auth.create_key(req.name, req.scopes)
     return ApiResponse(data=result)
 
 
 @router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
-async def delete_auth_key(key_id: str, _user=Depends(get_current_user)):
+async def delete_auth_key(key_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     if _mcp_auth.delete_key(key_id):
         return ApiResponse(data={"deleted": True, "key_id": key_id})
     raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")

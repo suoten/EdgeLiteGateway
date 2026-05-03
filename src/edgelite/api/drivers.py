@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/drivers", tags=["驱动配置"])
 
@@ -333,8 +337,8 @@ async def discover_devices(
         devices = await driver.discover_devices(driver_config)
         try:
             await driver.stop()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("驱动停止失败: %s", e)
         return ApiResponse(data={"devices": devices})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"设备发现失败: {e}")

@@ -29,6 +29,7 @@ async def list_alarms(
     if search:
         search_lower = search.lower()
         alarms = [a for a in alarms if search_lower in a.get("message", "").lower() or search_lower in a.get("alarm_id", "").lower()]
+        total = len(alarms)
     return PagedResponse(data=alarms, total=total, page=page, size=size)
 
 

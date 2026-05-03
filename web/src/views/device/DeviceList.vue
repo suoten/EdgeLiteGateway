@@ -164,6 +164,7 @@ async function fetchDevices() {
     const data = await deviceApi.list({
       page: pagination.page, size: pagination.pageSize,
       status: filterStatus.value ?? undefined, protocol: filterProtocol.value ?? undefined,
+      search: searchText.value || undefined,
     })
     devices.value = data?.data ?? []
     pagination.itemCount = data?.total ?? 0

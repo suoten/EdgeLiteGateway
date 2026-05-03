@@ -287,23 +287,8 @@ class RuleEvaluator:
             result = safe_locals.get("result", False)
             return bool(result)
         except ImportError:
-            import math
-            safe_locals = {
-                "point_values": point_values,
-                "abs": abs,
-                "min": min,
-                "max": max,
-                "sum": sum,
-                "len": len,
-                "round": round,
-                "math": math,
-            }
-            try:
-                result = eval(script, {"__builtins__": {}}, safe_locals)
-                return bool(result)
-            except Exception as e:
-                logger.warning("脚本规则执行失败(无RestrictedPython): %s", e)
-                return False
+            logger.error("RestrictedPython未安装，脚本规则不可用，请执行: pip install RestrictedPython")
+            return False
         except Exception as e:
             logger.warning("脚本规则执行失败: %s", e)
             return False
