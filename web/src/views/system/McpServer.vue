@@ -135,16 +135,32 @@
         <n-button @click="showInstallProgress = false" :disabled="installing">关闭</n-button>
       </template>
     </n-modal>
+
+    <n-modal v-model:show="showToolCallModal" :title="`调用工具: ${toolCallName}`" preset="card" style="width: 600px">
+      <n-space vertical :size="12">
+        <n-form-item label="参数 (JSON)">
+          <n-input v-model:value="toolCallArgs" type="textarea" :rows="6" placeholder='{"key": "value"}' />
+        </n-form-item>
+        <n-form-item v-if="toolCallResult" label="返回结果">
+          <n-input :value="toolCallResult" type="textarea" :rows="8" readonly />
+        </n-form-item>
+      </n-space>
+      <template #action>
+        <n-button @click="showToolCallModal = false">关闭</n-button>
+        <n-button type="primary" :loading="callingTool" @click="handleToolCall">执行调用</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { NTag, NButton, useMessage } from 'naive-ui'
+import { NTag, NButton, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { serviceApi, mcpApi } from '@/api'
 import type { ServiceDependency } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const toggleLoading = ref(false)
 const installing = ref(false)
@@ -167,6 +183,11 @@ const loadingResources = ref(false)
 const loadingPrompts = ref(false)
 const loadingKeys = ref(false)
 const showCreateKeyModal = ref(false)
+const showToolCallModal = ref(false)
+const callingTool = ref(false)
+const toolCallName = ref('')
+const toolCallArgs = ref('{}')
+const toolCallResult = ref('')
 
 const keyForm = reactive({
   name: '',
@@ -197,6 +218,10 @@ const stateLabel = computed(() => {
 const toolColumns = [
   { title: '名称', key: 'name', width: 200 },
   { title: '描述', key: 'description', ellipsis: { tooltip: true } },
+  {
+    title: '操作', key: 'action', width: 100,
+    render: (row: any) => h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openToolCall(row) }, { default: () => '调用' }),
+  },
 ]
 
 const resourceColumns = [
@@ -218,6 +243,10 @@ const keyColumns = [
     render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => (row.scopes || []).join(', ') }),
   },
   { title: '创建时间', key: 'created_at', width: 180 },
+  {
+    title: '操作', key: 'action', width: 80,
+    render: (row: any) => h(NButton, { text: true, type: 'error', size: 'small', onClick: () => handleDeleteKey(row) }, { default: () => '删除' }),
+  },
 ]
 
 async function fetchStatus() {
@@ -336,6 +365,47 @@ async function handleCreateKey() {
   } catch (e: any) {
     message.error(e?.response?.data?.detail || '创建失败')
   }
+}
+
+function openToolCall(tool: any) {
+  toolCallName.value = tool.name
+  toolCallArgs.value = '{}'
+  toolCallResult.value = ''
+  showToolCallModal.value = true
+}
+
+async function handleToolCall() {
+  callingTool.value = true
+  toolCallResult.value = ''
+  try {
+    const args = JSON.parse(toolCallArgs.value)
+    const result = await mcpApi.callTool(toolCallName.value, args)
+    toolCallResult.value = JSON.stringify(result, null, 2)
+    message.success('工具调用成功')
+  } catch (e: any) {
+    toolCallResult.value = e?.response?.data?.detail || e?.message || '调用失败'
+    message.error('工具调用失败')
+  } finally {
+    callingTool.value = false
+  }
+}
+
+function handleDeleteKey(key: any) {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定删除API Key「${key.name}」？删除后使用该Key的客户端将无法访问。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await mcpApi.deleteKey(key.key_id || key.id)
+        message.success('API Key已删除')
+        fetchApiKeys()
+      } catch (e: any) {
+        message.error(e?.response?.data?.detail || '删除失败')
+      }
+    },
+  })
 }
 
 onMounted(fetchStatus)

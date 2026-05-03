@@ -393,7 +393,8 @@ async function fetchChartData() {
 function toggleWS(val: boolean) {
   if (val) {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime`)
+    const token = sessionStorage.getItem('edgelite_token') || ''
+    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime?token=${encodeURIComponent(token)}`)
     ws.onopen = () => { wsConnected.value = true; wsRetryCount = 0; message.success('WebSocket 已连接') }
     ws.onmessage = (e) => {
       try {

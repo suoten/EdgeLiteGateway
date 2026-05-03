@@ -49,16 +49,18 @@ async def get_platform_config_schema(
     schemas = {
         "iotsharp": {
             "fields": [
-                {"name": "host", "type": "string", "label": "IoTSharp地址", "default": "http://localhost:8080", "required": True},
-                {"name": "api_key", "type": "string", "label": "API Key", "required": True},
-                {"name": "device_id", "type": "string", "label": "设备ID"},
+                {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
+                {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
+                {"name": "username", "type": "string", "label": "MQTT用户名"},
+                {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
             ]
         },
         "thingsboard": {
             "fields": [
-                {"name": "host", "type": "string", "label": "ThingsBoard地址", "default": "http://localhost:8080", "required": True},
-                {"name": "access_token", "type": "string", "label": "设备Token", "required": True},
-                {"name": "device_id", "type": "string", "label": "设备ID"},
+                {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
+                {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
+                {"name": "token", "type": "string", "label": "网关AccessToken", "required": True},
+                {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
             ]
         },
         "huawei_iotda": {
@@ -132,6 +134,9 @@ async def connect_platform(
         elif platform_name == "thingspanel":
             from edgelite.platform.thingspanel import ThingsPanelHandler
             handler = ThingsPanelHandler()
+        elif platform_name == "custom":
+            from edgelite.platform.custom_mqtt import CustomMqttHandler
+            handler = CustomMqttHandler()
         else:
             raise HTTPException(status_code=400, detail=f"不支持的平台: {platform_name}")
 

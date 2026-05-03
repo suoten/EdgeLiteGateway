@@ -103,6 +103,24 @@
         <n-button type="primary" :loading="saving" @click="handleEdit">保存</n-button>
       </template>
     </n-modal>
+
+    <n-modal v-model:show="showTestModal" :title="`测试规则: ${testingRuleName}`" preset="card" style="width: 560px">
+      <n-alert type="info" :bordered="false" style="margin-bottom: 12px">
+        输入模拟测点值，验证规则是否按预期触发。系统将根据当前规则条件判断是否触发告警。
+      </n-alert>
+      <n-form label-placement="left" label-width="90">
+        <n-form-item v-for="pt in testPointFields" :key="pt" :label="pt">
+          <n-input-number v-model:value="testPointValues[pt]" placeholder="输入模拟值" style="width: 200px" />
+        </n-form-item>
+      </n-form>
+      <n-alert v-if="testResult !== null" :type="testResult ? 'warning' : 'success'" :bordered="false">
+        {{ testResult ? '规则将触发告警！' : '规则不会触发告警' }}
+      </n-alert>
+      <template #action>
+        <n-button @click="showTestModal = false">关闭</n-button>
+        <n-button type="primary" :loading="testing" @click="handleTest">执行测试</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
@@ -122,6 +140,13 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const creating = ref(false)
 const saving = ref(false)
+const testing = ref(false)
+const showTestModal = ref(false)
+const testingRuleId = ref('')
+const testingRuleName = ref('')
+const testPointFields = ref<string[]>([])
+const testPointValues = reactive<Record<string, number | null>>({})
+const testResult = ref<boolean | null>(null)
 const searchText = ref('')
 const filterSeverity = ref<string | null>(null)
 const createFormRef = ref<any>(null)
@@ -209,11 +234,12 @@ const columns = [
   },
   { title: '通知', key: 'notify_channels', width: 150, render: (r: Rule) => r.notify_channels?.map((c: string) => channelLabel[c] || c).join(', ') },
   {
-    title: '操作', key: 'actions', width: 200,
+    title: '操作', key: 'actions', width: 240,
     render: (r: Rule) =>
       h(NSpace, null, {
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => openEdit(r) }, { default: () => '编辑' }),
+          h(NButton, { text: true, type: 'info', onClick: () => openTest(r) }, { default: () => '测试' }),
           h(NButton, { text: true, type: r.enabled ? 'warning' : 'success', onClick: () => handleToggle(r) }, { default: () => r.enabled ? '禁用' : '启用' }),
           h(NPopconfirm as any, { onPositiveClick: () => doDelete(r) }, {
             trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => '删除' }),
@@ -363,6 +389,40 @@ async function doDelete(r: Rule) {
     fetchRules()
   } catch (e: any) {
     message.error(e?.message || '删除失败')
+  }
+}
+
+function openTest(r: Rule) {
+  testingRuleId.value = r.rule_id
+  testingRuleName.value = r.name
+  const points = r.conditions?.map(c => c.point).filter(Boolean) || []
+  testPointFields.value = [...new Set(points)]
+  for (const key of Object.keys(testPointValues)) { delete testPointValues[key] }
+  for (const pt of testPointFields.value) { testPointValues[pt] = null }
+  testResult.value = null
+  showTestModal.value = true
+}
+
+async function handleTest() {
+  const values: Record<string, number> = {}
+  for (const pt of testPointFields.value) {
+    if (testPointValues[pt] !== null && testPointValues[pt] !== undefined) {
+      values[pt] = testPointValues[pt] as number
+    }
+  }
+  if (Object.keys(values).length === 0) {
+    message.warning('请至少输入一个测点的模拟值')
+    return
+  }
+  testing.value = true
+  try {
+    const result = await ruleApi.test(testingRuleId.value, values)
+    testResult.value = result?.triggered ?? result?.fired ?? false
+    message.success('规则测试完成')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '测试失败')
+  } finally {
+    testing.value = false
   }
 }
 
