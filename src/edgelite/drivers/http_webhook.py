@@ -13,27 +13,26 @@ logger = logging.getLogger(__name__)
 
 
 class HttpWebhookDriver(DriverPlugin):
-    """HTTP Webhook驱动，设备通过HTTP POST推送数据到EdgeLite"""
+    """HTTP Webhook驱动，支持被动接收和主动采集两种模式
+
+    被动模式: 设备通过HTTP POST推送数据到EdgeLite
+    主动模式: EdgeLite主动HTTP GET轮询设备数据
+    """
 
     plugin_name = "http_webhook"
-    plugin_version = "0.1.0"
+    plugin_version = "0.2.0"
     supported_protocols = ["http", "webhook"]
 
     def __init__(self):
         self._running = False
-        # device_id -> config
         self._device_configs: dict[str, dict] = {}
-        # device_id -> points定义
         self._device_points: dict[str, list[dict]] = {}
-        # device_id -> latest_values
         self._latest_values: dict[str, dict[str, Any]] = {}
-        # device_id -> last_receive_time
         self._last_receive: dict[str, float] = {}
-        # 数据回调
         self._data_callback: Callable | None = None
 
     async def start(self, config: dict) -> None:
-        """启动驱动（HTTP Webhook不需要主动连接）"""
+        """启动驱动"""
         self._running = True
         logger.info("HTTP Webhook驱动启动")
 
@@ -48,7 +47,15 @@ class HttpWebhookDriver(DriverPlugin):
         self._device_points[device_id] = points
         self._latest_values[device_id] = {}
         self._last_receive[device_id] = time.time()
-        logger.info("HTTP Webhook设备注册: %s", device_id)
+        url = config.get("url", "")
+        host = config.get("host", "")
+        port = config.get("port", "")
+        if url:
+            logger.info("HTTP Webhook设备注册(主动模式): %s url=%s", device_id, url)
+        elif host:
+            logger.info("HTTP Webhook设备注册(主动模式): %s host=%s port=%s", device_id, host, port)
+        else:
+            logger.info("HTTP Webhook设备注册(被动模式): %s", device_id)
 
     async def remove_device(self, device_id: str) -> None:
         """移除设备"""
@@ -57,18 +64,50 @@ class HttpWebhookDriver(DriverPlugin):
         self._latest_values.pop(device_id, None)
         self._last_receive.pop(device_id, None)
 
+    def _build_device_url(self, device_id: str) -> str | None:
+        config = self._device_configs.get(device_id, {})
+        url = config.get("url")
+        if url:
+            return url
+        host = config.get("host")
+        if host:
+            port = config.get("port", 80)
+            path = config.get("path", "/")
+            scheme = "https" if str(port) == "443" else "http"
+            return f"{scheme}://{host}:{port}{path}"
+        return None
+
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
-        """读取测点值（返回最新缓存值）"""
+        """读取测点值
+
+        主动模式: 通过HTTP GET请求设备URL获取数据
+        被动模式: 返回最新缓存值
+        """
+        device_url = self._build_device_url(device_id)
+        if device_url:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(device_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        points_data = data.get("points", data if isinstance(data, dict) else {})
+                        processed = self._transform_data(device_id, points_data if isinstance(points_data, dict) else {})
+                        self._latest_values[device_id].update(processed)
+                        self._last_receive[device_id] = time.time()
+                        if self._data_callback:
+                            await self._data_callback(device_id, processed)
+            except Exception as e:
+                logger.debug("HTTP主动采集失败 %s: %s", device_id, e)
+
         values = self._latest_values.get(device_id, {})
         return {p: values.get(p) for p in points if p in values}
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         """写入测点值（通过HTTP POST推送到设备）"""
-        config = self._device_configs.get(device_id, {})
-        push_url = config.get("push_url")
-
+        push_url = self._build_device_url(device_id)
         if not push_url:
-            logger.warning("HTTP设备 %s 未配置push_url", device_id)
+            logger.warning("HTTP设备 %s 未配置url或host", device_id)
             return False
 
         try:
@@ -140,3 +179,17 @@ class HttpWebhookDriver(DriverPlugin):
     def get_last_receive_time(self, device_id: str) -> float:
         """获取设备最后数据接收时间"""
         return self._last_receive.get(device_id, 0)
+
+    async def is_device_connected(self, device_id: str) -> bool:
+        """检查设备是否可达"""
+        device_url = self._build_device_url(device_id)
+        if not device_url:
+            return bool(self._latest_values.get(device_id))
+
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(device_url)
+                return resp.status_code == 200
+        except Exception:
+            return False

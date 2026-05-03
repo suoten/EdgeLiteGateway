@@ -73,7 +73,16 @@ class DeviceService:
                         data.get("points", []),
                     )
                 self._driver_instances[device["device_id"]] = driver
-                connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(device["device_id"])
+                connected = False
+                if hasattr(driver, "is_device_connected"):
+                    import asyncio
+                    try:
+                        result = driver.is_device_connected(device["device_id"])
+                        if asyncio.iscoroutine(result):
+                            result = await result
+                        connected = bool(result)
+                    except Exception:
+                        connected = False
                 if connected:
                     await self._lifecycle.on_device_online(device["device_id"])
                     await self._repo.update_status(device["device_id"], "online")
