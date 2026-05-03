@@ -302,7 +302,14 @@ source venv/bin/activate
 # 1.3 安装后端依赖（含开发依赖）
 pip install -e ".[dev]"
 
-# 1.4 复制并编辑配置文件
+# 1.4 复制环境变量模板并编辑
+cp .env.example .env
+# 编辑 .env 文件，重点修改：
+# - EDGELITE_SECURITY__SECRET_KEY（至少 32 位随机字符串，生产环境必须修改！）
+# - EDGELITE_INFLUXDB__TOKEN（InfluxDB API Token）
+# 快速生成密钥: python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# 1.5 复制并编辑配置文件
 cp configs/config.example.yaml configs/config.yaml
 # 编辑 configs/config.yaml，重点修改：
 # - security.secret_key（至少 32 位随机字符串）

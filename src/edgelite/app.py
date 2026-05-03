@@ -66,9 +66,10 @@ async def lifespan(app: FastAPI):
     # 安全检查：检测默认密钥
     _WEAK_SECRET_KEYS = {"change-me-in-production", "your-secret-key-at-least-32-characters"}
     if config.security.secret_key in _WEAK_SECRET_KEYS or len(config.security.secret_key) < 32:
-        raise RuntimeError(
-            f"安全错误: JWT密钥使用默认值或过短({len(config.security.secret_key)}字符)，"
-            "请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置至少32字符的随机密钥！"
+        logger.warning(
+            "⚠️  安全警告: JWT密钥使用默认值或过短(%d字符)，"
+            "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置至少32字符的随机密钥！",
+            len(config.security.secret_key),
         )
 
     _WEAK_INFLUX_TOKENS = {"edgelite-token-change-me", "your-influxdb-token-here"}

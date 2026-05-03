@@ -10,6 +10,101 @@ from edgelite.security.rbac import Permission
 
 router = APIRouter(prefix="/api/v1/platforms", tags=["平台配置"])
 
+_PLATFORM_REGISTRY: dict[str, dict] = {}
+
+
+def _ensure_registry():
+    if _PLATFORM_REGISTRY:
+        return
+    _PLATFORM_REGISTRY.update({
+        "iotsharp": {
+            "label": "IoTSharp",
+            "description": "开源IoT平台",
+            "module": "edgelite.platform.iotsharp",
+            "class": "IoTSharpHandler",
+            "schema": {
+                "fields": [
+                    {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
+                    {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
+                    {"name": "username", "type": "string", "label": "MQTT用户名"},
+                    {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
+                ]
+            },
+        },
+        "thingsboard": {
+            "label": "ThingsBoard",
+            "description": "开源IoT平台",
+            "module": "edgelite.platform.thingsboard",
+            "class": "ThingsBoardHandler",
+            "schema": {
+                "fields": [
+                    {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
+                    {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
+                    {"name": "token", "type": "string", "label": "网关AccessToken", "required": True},
+                    {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
+                ]
+            },
+        },
+        "huawei_iotda": {
+            "label": "华为云IoTDA",
+            "description": "华为云设备接入服务",
+            "module": "edgelite.platform.huawei_iotda",
+            "class": "HuaweiIoTDAHandler",
+            "schema": {
+                "fields": [
+                    {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
+                    {"name": "port", "type": "integer", "label": "端口", "default": 8883},
+                    {"name": "device_id", "type": "string", "label": "设备ID", "required": True},
+                    {"name": "secret", "type": "string", "label": "设备密钥", "secret": True, "required": True},
+                ]
+            },
+        },
+        "thingscloud": {
+            "label": "ThingsCloud",
+            "description": "ThingsCloud物联网平台",
+            "module": "edgelite.platform.thingscloud",
+            "class": "ThingsCloudHandler",
+            "schema": {
+                "fields": [
+                    {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
+                    {"name": "port", "type": "integer", "label": "端口", "default": 1883},
+                    {"name": "access_key", "type": "string", "label": "Access Key", "required": True},
+                    {"name": "access_secret", "type": "string", "label": "Access Secret", "secret": True, "required": True},
+                ]
+            },
+        },
+        "thingspanel": {
+            "label": "ThingsPanel",
+            "description": "ThingsPanel开源物联网平台",
+            "module": "edgelite.platform.thingspanel",
+            "class": "ThingsPanelHandler",
+            "schema": {
+                "fields": [
+                    {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
+                    {"name": "port", "type": "integer", "label": "端口", "default": 1883},
+                    {"name": "username", "type": "string", "label": "用户名"},
+                    {"name": "password", "type": "string", "label": "密码", "secret": True},
+                    {"name": "device_token", "type": "string", "label": "设备Token", "required": True},
+                ]
+            },
+        },
+        "custom": {
+            "label": "自定义平台",
+            "description": "MQTT/HTTP自定义对接",
+            "module": "edgelite.platform.custom_mqtt",
+            "class": "CustomMqttHandler",
+            "schema": {
+                "fields": [
+                    {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
+                    {"name": "port", "type": "integer", "label": "端口", "default": 1883},
+                    {"name": "username", "type": "string", "label": "用户名"},
+                    {"name": "password", "type": "string", "label": "密码", "secret": True},
+                    {"name": "topic_prefix", "type": "string", "label": "Topic前缀", "default": "edgelite"},
+                ]
+            },
+        },
+    })
+
 
 def _get_platform_handlers():
     from edgelite.app import _app_state
@@ -20,6 +115,7 @@ def _get_platform_handlers():
 async def list_platforms(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
+    _ensure_registry()
     handlers = _get_platform_handlers()
     platforms = []
     for name, handler in handlers.items():
@@ -30,12 +126,8 @@ async def list_platforms(
         })
 
     all_supported = [
-        {"name": "iotsharp", "label": "IoTSharp", "description": "开源IoT平台"},
-        {"name": "thingsboard", "label": "ThingsBoard", "description": "开源IoT平台"},
-        {"name": "huawei_iotda", "label": "华为云IoTDA", "description": "华为云设备接入服务"},
-        {"name": "thingscloud", "label": "ThingsCloud", "description": "ThingsCloud物联网平台"},
-        {"name": "thingspanel", "label": "ThingsPanel", "description": "ThingsPanel开源物联网平台"},
-        {"name": "custom", "label": "自定义平台", "description": "MQTT/HTTP自定义对接"},
+        {"name": k, "label": v["label"], "description": v["description"]}
+        for k, v in _PLATFORM_REGISTRY.items()
     ]
 
     return ApiResponse(data={"platforms": platforms, "supported": all_supported})
@@ -46,64 +138,12 @@ async def get_platform_config_schema(
     platform_name: str,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    schemas = {
-        "iotsharp": {
-            "fields": [
-                {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
-                {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
-                {"name": "username", "type": "string", "label": "MQTT用户名"},
-                {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
-            ]
-        },
-        "thingsboard": {
-            "fields": [
-                {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
-                {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
-                {"name": "token", "type": "string", "label": "网关AccessToken", "required": True},
-                {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
-            ]
-        },
-        "huawei_iotda": {
-            "fields": [
-                {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                {"name": "port", "type": "integer", "label": "端口", "default": 8883},
-                {"name": "device_id", "type": "string", "label": "设备ID", "required": True},
-                {"name": "secret", "type": "string", "label": "设备密钥", "secret": True, "required": True},
-            ]
-        },
-        "thingscloud": {
-            "fields": [
-                {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                {"name": "access_key", "type": "string", "label": "Access Key", "required": True},
-                {"name": "access_secret", "type": "string", "label": "Access Secret", "secret": True, "required": True},
-            ]
-        },
-        "thingspanel": {
-            "fields": [
-                {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                {"name": "username", "type": "string", "label": "用户名"},
-                {"name": "password", "type": "string", "label": "密码", "secret": True},
-                {"name": "device_token", "type": "string", "label": "设备Token", "required": True},
-            ]
-        },
-        "custom": {
-            "fields": [
-                {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                {"name": "username", "type": "string", "label": "用户名"},
-                {"name": "password", "type": "string", "label": "密码", "secret": True},
-                {"name": "topic_prefix", "type": "string", "label": "Topic前缀", "default": "edgelite"},
-            ]
-        },
-    }
-
-    schema = schemas.get(platform_name)
-    if not schema:
+    _ensure_registry()
+    entry = _PLATFORM_REGISTRY.get(platform_name)
+    if not entry:
         raise HTTPException(status_code=404, detail=f"平台 {platform_name} 配置模板不存在")
 
-    return ApiResponse(data={"platform_name": platform_name, "schema": schema})
+    return ApiResponse(data={"platform_name": platform_name, "schema": entry["schema"]})
 
 
 @router.post("/connect/{platform_name}", response_model=ApiResponse)
@@ -112,34 +152,22 @@ async def connect_platform(
     config: dict,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
+    _ensure_registry()
     from edgelite.app import _app_state
+    import importlib
 
     handlers = getattr(_app_state, "platform_handlers", {})
     if platform_name in handlers:
         return ApiResponse(data={"status": "already_connected"})
 
-    try:
-        if platform_name == "iotsharp":
-            from edgelite.platform.iotsharp import IoTSharpHandler
-            handler = IoTSharpHandler()
-        elif platform_name == "thingsboard":
-            from edgelite.platform.thingsboard import ThingsBoardHandler
-            handler = ThingsBoardHandler()
-        elif platform_name == "huawei_iotda":
-            from edgelite.platform.huawei_iotda import HuaweiIoTDAHandler
-            handler = HuaweiIoTDAHandler()
-        elif platform_name == "thingscloud":
-            from edgelite.platform.thingscloud import ThingsCloudHandler
-            handler = ThingsCloudHandler()
-        elif platform_name == "thingspanel":
-            from edgelite.platform.thingspanel import ThingsPanelHandler
-            handler = ThingsPanelHandler()
-        elif platform_name == "custom":
-            from edgelite.platform.custom_mqtt import CustomMqttHandler
-            handler = CustomMqttHandler()
-        else:
-            raise HTTPException(status_code=400, detail=f"不支持的平台: {platform_name}")
+    entry = _PLATFORM_REGISTRY.get(platform_name)
+    if not entry:
+        raise HTTPException(status_code=400, detail=f"不支持的平台: {platform_name}")
 
+    try:
+        module = importlib.import_module(entry["module"])
+        handler_cls = getattr(module, entry["class"])
+        handler = handler_cls()
         await handler.connect(config)
         _app_state.platform_handlers[platform_name] = handler
         return ApiResponse(data={"status": "connected"})

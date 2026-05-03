@@ -4,7 +4,6 @@ import asyncio
 import sys
 from pathlib import Path
 
-# 添加src到路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from edgelite.storage.database import Database
@@ -13,7 +12,7 @@ from edgelite.storage.database import Database
 async def main():
     db_path = sys.argv[1] if len(sys.argv) > 1 else "data/edgelite.db"
     print(f"初始化数据库: {db_path}")
-    db = Database(db_path)
+    db = Database()
     await db.connect()
     await db.init_tables()
     await db.close()

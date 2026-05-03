@@ -192,31 +192,46 @@ const statusOptions = [
   { label: '未知', value: 'unknown' },
 ]
 
-const protocolOptions = [
-  { label: 'Modbus TCP', value: 'modbus_tcp' },
-  { label: 'OPC-UA', value: 'opcua' },
-  { label: 'MQTT Client', value: 'mqtt' },
-  { label: 'HTTP Webhook', value: 'http' },
-  { label: '西门子 S7', value: 's7' },
-  { label: '三菱 MC', value: 'mc' },
-  { label: '欧姆龙 FINS', value: 'fins' },
-  { label: 'Allen Bradley', value: 'allen_bradley' },
-  { label: 'OPC DA', value: 'opc_da' },
-  { label: 'FANUC CNC', value: 'fanuc' },
-  { label: 'MTConnect', value: 'mtconnect' },
-  { label: '托利多', value: 'toledo' },
-  { label: '串口设备', value: 'serial_port' },
-  { label: '数据库接入', value: 'database_source' },
-  { label: '扫码枪', value: 'barcode_scanner' },
-  { label: '模拟器', value: 'simulator' },
-  { label: '视频', value: 'video' },
-  { label: 'MQTT Sparkplug B', value: 'sparkplug_b' },
-  { label: 'DL/T 645 电表', value: 'dlt645' },
-  { label: 'IEC 104 远动', value: 'iec104' },
-  { label: 'KUKA 机器人', value: 'kuka' },
-  { label: 'ABB 机器人', value: 'abb_robot' },
-  { label: 'ONVIF 视频', value: 'onvif' },
-]
+const protocolOptions = ref<{ label: string; value: string }[]>([])
+
+async function loadProtocols() {
+  try {
+    const res = await driverApi.protocols()
+    const protocols = res.data?.data?.protocols || res.data?.data || []
+    if (Array.isArray(protocols) && protocols.length > 0) {
+      protocolOptions.value = protocols.map((p: any) => ({
+        label: p.label || p.name || p,
+        value: p.name || p.value || p,
+      }))
+    }
+  } catch {
+    protocolOptions.value = [
+      { label: 'Modbus TCP', value: 'modbus_tcp' },
+      { label: 'OPC-UA', value: 'opcua' },
+      { label: 'MQTT Client', value: 'mqtt' },
+      { label: 'HTTP Webhook', value: 'http' },
+      { label: '西门子 S7', value: 's7' },
+      { label: '三菱 MC', value: 'mc' },
+      { label: '欧姆龙 FINS', value: 'fins' },
+      { label: 'Allen Bradley', value: 'allen_bradley' },
+      { label: 'OPC DA', value: 'opc_da' },
+      { label: 'FANUC CNC', value: 'fanuc' },
+      { label: 'MTConnect', value: 'mtconnect' },
+      { label: '托利多', value: 'toledo' },
+      { label: '串口设备', value: 'serial_port' },
+      { label: '数据库接入', value: 'database_source' },
+      { label: '扫码枪', value: 'barcode_scanner' },
+      { label: '模拟器', value: 'simulator' },
+      { label: '视频', value: 'video' },
+      { label: 'MQTT Sparkplug B', value: 'sparkplug_b' },
+      { label: 'DL/T 645 电表', value: 'dlt645' },
+      { label: 'IEC 104 远动', value: 'iec104' },
+      { label: 'KUKA 机器人', value: 'kuka' },
+      { label: 'ABB 机器人', value: 'abb_robot' },
+      { label: 'ONVIF 视频', value: 'onvif' },
+    ]
+  }
+}
 
 const dataTypeOptions = [
   { label: 'BOOL', value: 'bool' },
@@ -491,5 +506,5 @@ async function handleBatchDelete() {
   })
 }
 
-onMounted(() => { fetchDevices(); loadDriverSchemas() })
+onMounted(() => { fetchDevices(); loadDriverSchemas(); loadProtocols() })
 </script>
