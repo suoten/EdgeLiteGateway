@@ -183,6 +183,17 @@ cd docker && docker compose up -d
 - Docker Compose 2.0+
 - Node.js 18+（仅构建前端时需要）
 
+**最低硬件要求**：
+
+| 资源   | 最低配置    | 推荐配置     |
+| ------ | ------- | -------- |
+| CPU    | 1 核     | 2 核+     |
+| 内存     | 1 GB    | 2 GB+    |
+| 磁盘     | 2 GB    | 10 GB+   |
+| 操作系统   | Linux/Windows/macOS | Linux (Ubuntu 20.04+) |
+
+> 💡 树莓派 4B (4GB) 即可流畅运行！
+
 #### 步骤 1：克隆仓库并构建前端
 
 ```bash
@@ -243,6 +254,12 @@ docker compose logs -f influxdb
 | InfluxDB UI | <http://localhost:8086>      | 时序数据库管理界面          |
 
 > 首次登录请使用管理员账号，详见下方"默认账号"章节
+
+> ⚠️ **首次启动注意事项**：
+> 1. InfluxDB 首次启动需要约 30 秒完成初始化（创建 org/bucket/token），期间后端日志可能出现 `InfluxDB connection refused`，这是正常的，后端会自动降级到 SQLite 缓存模式
+> 2. 等待约 1 分钟后所有服务就绪，刷新页面即可正常使用
+> 3. 如果 1 分钟后仍有问题，检查 InfluxDB 状态：`docker compose logs influxdb | tail -20`
+> 4. Mosquitto MQTT Broker 默认允许匿名连接（开发用途），生产环境请配置认证
 
 #### Docker Compose 服务说明
 
