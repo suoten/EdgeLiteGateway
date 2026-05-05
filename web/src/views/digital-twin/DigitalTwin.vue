@@ -125,7 +125,10 @@ const filteredDevices = computed(() => {
 
 function formatPtVal(deviceId: string, pt: any) {
   const v = pointValues.value[deviceId]?.[pt.name]?.value ?? pointValues.value[deviceId]?.[pt.name]
-  return v != null ? `${Number(v).toFixed(2)} ${pt.unit || ''}` : '-'
+  if (v == null) return '-'
+  const num = Number(v)
+  if (isNaN(num)) return `${v} ${pt.unit || ''}`
+  return `${num.toFixed(2)} ${pt.unit || ''}`
 }
 
 function isPointAlarming(deviceId: string, pointName: string): boolean {

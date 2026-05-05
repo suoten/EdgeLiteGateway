@@ -50,15 +50,15 @@
       <template #header-extra>
         <n-button type="primary" size="small" @click="handleSaveConfig" :loading="savingConfig">保存配置</n-button>
       </template>
-      <n-form :model="configForm" label-placement="left" label-width="120">
+      <n-form ref="configFormRef" :model="configForm" :rules="configRules" label-placement="left" label-width="120">
         <n-grid :cols="2" :x-gap="16">
-          <n-form-item-gi label="Grafana地址">
+          <n-form-item-gi label="Grafana地址" path="url">
             <n-input v-model:value="configForm.url" placeholder="http://localhost:3000" />
           </n-form-item-gi>
-          <n-form-item-gi label="API Key">
+          <n-form-item-gi label="API Key" path="api_key">
             <n-input v-model:value="configForm.api_key" type="password" show-password-on="click" placeholder="Grafana API Key" />
           </n-form-item-gi>
-          <n-form-item-gi label="数据源名称">
+          <n-form-item-gi label="数据源名称" path="datasource">
             <n-input v-model:value="configForm.datasource" placeholder="InfluxDB" />
           </n-form-item-gi>
         </n-grid>
@@ -118,6 +118,11 @@ const configForm = reactive({
   api_key: '',
   datasource: 'InfluxDB',
 })
+
+const configRules = {
+  url: [{ required: true, message: '请输入Grafana地址', trigger: 'blur' }],
+  datasource: [{ required: true, message: '请输入数据源名称', trigger: 'blur' }],
+}
 
 const missingDeps = computed(() => dependencies.value.filter(d => !d.installed))
 

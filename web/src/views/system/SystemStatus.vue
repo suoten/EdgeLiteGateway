@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载系统状态...">
   <n-space vertical :size="16">
     <n-grid :cols="2" :x-gap="12">
       <n-gi>
@@ -51,6 +52,7 @@
       <n-data-table :columns="backupColumns" :data="backups" :bordered="false" size="small" />
     </n-card>
   </n-space>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
@@ -64,6 +66,7 @@ const status = ref<SystemStatus | null>(null)
 const backups = ref<any[]>([])
 const backupLoading = ref(false)
 const autoRefresh = ref(true)
+const pageLoading = ref(true)
 let timer: number | null = null
 
 const cpuColor = computed(() => {
@@ -101,6 +104,7 @@ function formatUptime(seconds: number) {
 
 async function fetchStatus() {
   try { status.value = await systemApi.getStatus() } catch (e: any) { message.error('获取系统状态失败') }
+  finally { pageLoading.value = false }
 }
 
 async function fetchBackups() {
