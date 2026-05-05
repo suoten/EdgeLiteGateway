@@ -313,8 +313,8 @@ class ServiceManager:
                         "tcp_tx_bytes": getattr(stats, "tcp_tx_bytes", 0),
                         "client_count": getattr(stats, "client_count", 0),
                     }
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("获取服务 %s 运行信息失败: %s", service_name, e)
 
         _API_ONLY_SERVICES = {"mcp_server", "grafana"}
 

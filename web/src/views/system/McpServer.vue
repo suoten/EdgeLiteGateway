@@ -41,7 +41,7 @@
       <template v-if="enabled">
         <n-descriptions label-placement="left" :column="2" bordered>
           <n-descriptions-item label="服务版本">EdgeLite MCP v1.0</n-descriptions-item>
-          <n-descriptions-item label="SSE端点">/api/v1/mcp/sse</n-descriptions-item>
+          <n-descriptions-item label="SSE端点">/api/v1/mcp/sse（需启用服务后可用）</n-descriptions-item>
           <n-descriptions-item label="API Key认证">
             <n-space align="center" :size="8">
               <n-tag :type="authEnabled ? 'success' : 'default'" size="small">

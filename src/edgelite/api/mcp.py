@@ -275,3 +275,30 @@ async def delete_auth_key(key_id: str, user: CurrentUser = require_permission(Pe
     if _mcp_auth.delete_key(key_id):
         return ApiResponse(data={"deleted": True, "key_id": key_id})
     raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")
+
+
+@router.get("/sse")
+async def mcp_sse(_user=Depends(get_current_user)):
+    """MCP SSE传输端点 - 供AI助手通过EventSource连接"""
+    import asyncio as _asyncio
+    from fastapi.responses import StreamingResponse as _SR
+
+    async def event_generator():
+        yield f"event: connected\ndata: {{\"server\": \"edgelite-mcp\", \"version\": \"1.0\"}}\n\n"
+        queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
+        try:
+            while True:
+                try:
+                    message = await _asyncio.wait_for(queue.get(), timeout=30)
+                    yield f"event: message\ndata: {message}\n\n"
+                except _asyncio.TimeoutError:
+                    import time as _time
+                    yield f"event: ping\ndata: {{\"timestamp\": {_time.time()}}}\n\n"
+        except _asyncio.CancelledError:
+            pass
+
+    return _SR(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )

@@ -1,6 +1,8 @@
 # EdgeLiteGateway Docker Image
 FROM python:3.11-slim AS builder
 
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY pyproject.toml setup.py ./
@@ -18,6 +20,10 @@ COPY alembic.ini alembic.ini
 COPY scripts/ scripts/
 
 RUN mkdir -p data/backups logs
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 ENV PYTHONPATH=/app
 ENV EDGELITE_CONFIG=configs/config.yaml

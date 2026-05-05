@@ -345,7 +345,7 @@ async function fetchPoints() {
   try {
     pointValues.value = await deviceApi.getPoints(deviceId.value)
   } catch (e: any) {
-    message.error('获取实时数据失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取实时数据失败')
   } finally {
     pointsLoading.value = false
   }
@@ -390,7 +390,7 @@ async function fetchChartData() {
     const result = await dataApi.query({ device_id: deviceId.value, point_name: chartPoint.value, start: chartRange.value })
     chartData.value = (result || []).map((d: any) => ({ time: d.time?.substring(11, 19) || d._time?.substring(11, 19) || '', value: d.value ?? d._value ?? 0 }))
   } catch (e: any) {
-    message.error('查询时序数据失败')
+    message.error(e?.response?.data?.detail || e?.message || '查询时序数据失败')
   } finally {
     chartLoading.value = false
   }

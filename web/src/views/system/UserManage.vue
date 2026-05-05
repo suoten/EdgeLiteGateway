@@ -7,6 +7,8 @@
 
     <n-data-table :columns="columns" :data="filteredUsers" :loading="loading" :row-key="(r: User) => r.user_id" />
 
+    <n-empty v-if="!loading && filteredUsers.length === 0" description="暂无用户数据" style="margin-top: 24px" />
+
     <n-modal v-model:show="showCreateModal" title="创建用户" preset="card" style="width: 500px">
       <n-form :model="createForm" label-placement="left" label-width="80" :rules="createRules" ref="createFormRef">
         <n-form-item label="用户名" path="username"><n-input v-model:value="createForm.username" placeholder="请输入用户名" /></n-form-item>

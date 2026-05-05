@@ -1,6 +1,6 @@
 /**
  * WebSocket连接管理器
- * 支持多通道连接、自动重连、Token认证
+ * 支持多通道连接、自动重连(指数退避)、Token认证
  */
 
 type MessageHandler = (data: any) => void
@@ -8,12 +8,14 @@ type MessageHandler = (data: any) => void
 interface WSConnection {
   ws: WebSocket | null
   reconnectTimer: ReturnType<typeof setTimeout> | null
+  reconnectAttempt: number
   handlers: Set<MessageHandler>
 }
 
 const connections: Map<string, WSConnection> = new Map()
 
-const WS_BASE = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
+const WS_BASE = import.meta.env.VITE_WS_BASE_URL
+  || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
 
 const CHANNELS = {
   realtime: '/ws/v1/realtime',
@@ -24,6 +26,9 @@ const CHANNELS = {
 
 type ChannelName = keyof typeof CHANNELS
 
+const MAX_RECONNECT_DELAY = 30000
+const BASE_RECONNECT_DELAY = 1000
+
 function getToken(): string {
   try {
     return sessionStorage.getItem('edgelite_token') || ''
@@ -32,10 +37,16 @@ function getToken(): string {
   }
 }
 
+function getReconnectDelay(attempt: number): number {
+  const delay = BASE_RECONNECT_DELAY * Math.pow(2, attempt)
+  return Math.min(delay, MAX_RECONNECT_DELAY)
+}
+
 function createConnection(channel: ChannelName): WSConnection {
   return {
     ws: null,
     reconnectTimer: null,
+    reconnectAttempt: 0,
     handlers: new Set(),
   }
 }
@@ -57,15 +68,16 @@ function connectChannel(channel: ChannelName): void {
         clearTimeout(conn.reconnectTimer)
         conn.reconnectTimer = null
       }
+      conn.reconnectAttempt = 0
     }
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
         conn.handlers.forEach((handler) => {
-          try { handler(data) } catch {}
+          try { handler(data) } catch (e) { console.error('[WS] 消息处理器异常:', e) }
         })
-      } catch {}
+      } catch (e) { console.error('[WS] 消息解析失败:', e) }
     }
 
     ws.onclose = () => {
@@ -78,7 +90,8 @@ function connectChannel(channel: ChannelName): void {
     }
 
     conn.ws = ws
-  } catch {
+  } catch (e) {
+    console.error('[WS] 连接创建失败:', e)
     scheduleReconnect(channel)
   }
 }
@@ -89,9 +102,12 @@ function scheduleReconnect(channel: ChannelName): void {
 
   if (conn.reconnectTimer) clearTimeout(conn.reconnectTimer)
 
+  const delay = getReconnectDelay(conn.reconnectAttempt)
+  conn.reconnectAttempt++
+
   conn.reconnectTimer = setTimeout(() => {
     connectChannel(channel)
-  }, 5000)
+  }, delay)
 }
 
 export function connect(channel: ChannelName, onMessage: MessageHandler): void {

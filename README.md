@@ -721,6 +721,8 @@ cd web && cp .env.example .env && cd ..
 | `EDGELITE_MQTT__PORT`            | mqtt.port             | MQTT Broker 端口  |
 | `EDGELITE_SECURITY__SECRET_KEY`  | security.secret\_key  | JWT 签名密钥        |
 | `EDGELITE_SECURITY__ALGORITHM`   | security.algorithm    | JWT 算法          |
+| `EDGELITE_DRIVERS__CUSTOM_DIR`  | drivers.custom_dir    | 自定义驱动目录       |
+| `EDGELITE_DRIVERS__AUTO_RELOAD` | drivers.auto_reload   | 驱动自动重载        |
 | `EDGELITE_LOGGING__LEVEL`        | logging.level         | 日志级别            |
 
 示例：
@@ -978,9 +980,30 @@ cd docker && docker compose up -d --build
 
 **Q: 如何添加自定义协议驱动？**
 
+**方式一：使用自定义驱动目录（推荐，无需修改核心代码）**
+
+1. 创建驱动文件，继承 `DriverPlugin` 类并实现必要方法
+2. 在配置文件中指定自定义驱动目录：
+
+```yaml
+# configs/config.yaml
+drivers:
+  custom_dir: /path/to/your/custom/drivers
+```
+
+或通过环境变量：
+
+```bash
+export EDGELITE_DRIVERS__CUSTOM_DIR=/path/to/your/custom/drivers
+```
+
+3. 重启服务，驱动将被自动发现和加载
+
+**方式二：在内置驱动目录中添加**
+
 1. 在 `src/edgelite/drivers/` 目录下创建新的驱动文件
-2. 继承 `BaseDriver` 类并实现 `start()`、`stop()`、`read_points()`、`write_point()` 方法
-3. 在 `registry.py` 中注册驱动
+2. 继承 `DriverPlugin` 类并实现 `start()`、`stop()`、`read_points()`、`write_point()` 方法
+3. 在 `registry.py` 的 `_driver_modules` 列表中注册驱动
 4. 重启服务即可自动加载
 
 详见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 中的驱动开发指南。

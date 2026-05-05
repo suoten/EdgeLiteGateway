@@ -105,9 +105,9 @@ async def enable_service(
             raise HTTPException(
                 status_code=424,
                 detail={
-                    "message": result["error"],
-                    "missing_dependencies": result["missing_dependencies"],
-                    "hint": result["hint"],
+                    "message": result.get("error", "缺少依赖"),
+                    "missing_dependencies": result.get("missing_dependencies", []),
+                    "hint": result.get("hint", ""),
                 },
             )
         raise HTTPException(status_code=500, detail=result.get("error", "启用失败"))
@@ -183,7 +183,7 @@ async def install_service_dependencies(
         failed = [r for r in result.get("results", []) if not r.get("success")]
         raise HTTPException(
             status_code=500,
-            detail=f"依赖安装失败: {', '.join(r['package'] for r in failed)}",
+            detail=f"依赖安装失败: {', '.join(r.get('package', '未知') for r in failed)}",
         )
 
     return ApiResponse(data=result)

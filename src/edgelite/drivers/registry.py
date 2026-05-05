@@ -56,7 +56,7 @@ class DriverRegistry:
         return list(self._drivers.items())
 
     def auto_discover(self) -> None:
-        """自动发现并注册所有内置驱动"""
+        """自动发现并注册所有内置驱动及自定义驱动"""
         if self._discovered:
             logger.warning("auto_discover已执行过，跳过重复调用")
             return
@@ -88,15 +88,72 @@ class DriverRegistry:
         ]
 
         for label, module_path, class_name in _driver_modules:
-            try:
-                import importlib
-                module = importlib.import_module(module_path)
-                driver_cls = getattr(module, class_name)
-                self.register(driver_cls)
-            except Exception as e:
-                logger.warning("%s驱动加载失败: %s", label, e)
+            self._load_driver(label, module_path, class_name)
+
+        self._discover_custom_drivers()
 
         logger.info("驱动自动发现完成，支持协议: %s", self.get_supported_protocols())
+
+    def _load_driver(self, label: str, module_path: str, class_name: str) -> bool:
+        """加载单个驱动模块"""
+        try:
+            import importlib
+            module = importlib.import_module(module_path)
+            driver_cls = getattr(module, class_name)
+            self.register(driver_cls)
+            return True
+        except ImportError as e:
+            logger.warning("%s驱动导入失败(缺少依赖): %s", label, e)
+        except AttributeError as e:
+            logger.warning("%s驱动类不存在: %s", label, e)
+        except Exception as e:
+            logger.warning("%s驱动加载失败: %s", label, e)
+        return False
+
+    def _discover_custom_drivers(self) -> None:
+        """从custom_dir发现并加载自定义驱动"""
+        try:
+            from edgelite.config import get_config
+            custom_dir = get_config().drivers.custom_dir
+        except Exception:
+            return
+
+        if not custom_dir:
+            return
+
+        import importlib
+        import importlib.util
+        from pathlib import Path
+
+        custom_path = Path(custom_dir)
+        if not custom_path.is_dir():
+            logger.warning("自定义驱动目录不存在: %s", custom_dir)
+            return
+
+        logger.info("扫描自定义驱动目录: %s", custom_dir)
+        loaded = 0
+        for py_file in custom_path.glob("*.py"):
+            if py_file.name.startswith("_"):
+                continue
+            module_name = f"edgelite.drivers.custom_{py_file.stem}"
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                if spec is None or spec.loader is None:
+                    continue
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if (isinstance(attr, type)
+                            and issubclass(attr, DriverPlugin)
+                            and attr is not DriverPlugin):
+                        self.register(attr)
+                        loaded += 1
+            except Exception as e:
+                logger.warning("自定义驱动 %s 加载失败: %s", py_file.name, e)
+
+        if loaded > 0:
+            logger.info("从 %s 加载了 %d 个自定义驱动", custom_dir, loaded)
 
 
 _registry: DriverRegistry | None = None

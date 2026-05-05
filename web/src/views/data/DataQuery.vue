@@ -89,9 +89,15 @@ const rangeOptions = [
 ]
 
 const aggregateOptions = [
-  { label: '10分钟均值', value: '10m' },
-  { label: '1小时均值', value: '1h' },
-  { label: '1天均值', value: '1d' },
+  { label: '均值', value: 'mean' },
+  { label: '最大值', value: 'max' },
+  { label: '最小值', value: 'min' },
+  { label: '最新值', value: 'last' },
+  { label: '最早值', value: 'first' },
+  { label: '求和', value: 'sum' },
+  { label: '计数', value: 'count' },
+  { label: '中位数', value: 'median' },
+  { label: '标准差', value: 'stddev' },
 ]
 
 const stats = computed(() => {

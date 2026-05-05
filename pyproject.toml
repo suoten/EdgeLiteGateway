@@ -40,7 +40,6 @@ dependencies = [
     "asyncua>=1.1.0",
     "sparkplugb>=0.3.0",
     "python-dotenv>=1.0.0",
-    "Cython>=3.0.0",
 ]
 
 [project.urls]
@@ -50,8 +49,11 @@ Repository = "https://github.com/suoten/EdgeLiteGateway"
 Issues = "https://github.com/suoten/EdgeLiteGateway/issues"
 
 [project.optional-dependencies]
+cython = [
+    "Cython>=3.0.0",
+]
 all = [
-    "edgelite[opcua,mqtt]",
+    "edgelite[opcua,mqtt,cython]",
 ]
 opcua = [
     "asyncua>=1.1.0",

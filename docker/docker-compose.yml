@@ -1,6 +1,6 @@
 # EdgeLiteGateway Docker Compose (Production)
 # 包含：后端 + 前端(Nginx) + InfluxDB + Mosquitto
-version: "3.8"
+# 使用前请先: cp .env.example .env 并修改配置
 
 services:
   edgelite:
@@ -8,15 +8,15 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: edgelite-gateway
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     volumes:
       - ../data:/app/data
       - ../configs:/app/configs
       - ../logs:/app/logs
     environment:
       - EDGELITE_INFLUXDB__URL=http://influxdb:8086
-      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-}
+      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-edgelite-default-token}
       - EDGELITE_MQTT__BROKER=mosquitto
       - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:-}
       - EDGELITE_SERVER__HOST=0.0.0.0
@@ -48,7 +48,7 @@ services:
     image: influxdb:2.7-alpine
     container_name: edgelite-influxdb
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     volumes:
       - influxdb-data:/var/lib/influxdb2
     environment:
@@ -57,7 +57,7 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-edgelite2024}
       - DOCKER_INFLUXDB_INIT_ORG=edgelite
       - DOCKER_INFLUXDB_INIT_BUCKET=edgelite
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-edgelite-default-token}
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 10s
@@ -68,13 +68,13 @@ services:
       - edgelite-net
 
   mosquitto:
-    image: eclipse-mosquitto:2-openssl
+    image: eclipse-mosquitto:2
     container_name: edgelite-mosquitto
     ports:
       - "1883:1883"
     volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
-      - mosquitto-log:/mosquitto/log
     restart: unless-stopped
     networks:
       - edgelite-net
@@ -82,7 +82,6 @@ services:
 volumes:
   influxdb-data:
   mosquitto-data:
-  mosquitto-log:
 
 networks:
   edgelite-net:

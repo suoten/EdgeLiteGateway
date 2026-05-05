@@ -73,7 +73,7 @@ video:
 
 # ── 安全配置 ─────────────────────────────────────────────
 security:
-  secret_key: "your-secret-key-at-least-32-characters"  # JWT 签名密钥（至少 32 字符，建议通过 EDGELITE_SECURITY_SECRET_KEY 环境变量设置）
+  secret_key: ""  # JWT签名密钥，留空自动生成（重启后失效！生产环境必须设置）
   access_token_expire_minutes: 30  # access_token 过期时间（分钟）
   refresh_token_expire_days: 7     # refresh_token 过期时间（天）
   algorithm: "HS256"               # JWT 签名算法，可选：HS256 / HS384 / HS512

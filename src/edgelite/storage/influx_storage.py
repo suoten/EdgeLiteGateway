@@ -112,12 +112,18 @@ class InfluxDBStorage:
             return False
 
         try:
+            import math
+            float_val = float(value)
+            if math.isnan(float_val) or math.isinf(float_val):
+                logger.warning("InfluxDB写入跳过: 值为NaN/Infinity (device=%s, point=%s)", device_id, point_name)
+                return False
+
             point = (
                 Point("device_points")
                 .tag("device_id", device_id)
                 .tag("point_name", point_name)
                 .tag("quality", quality)
-                .field("value", float(value))
+                .field("value", float_val)
             )
             if timestamp:
                 point = point.time(timestamp)
@@ -142,14 +148,25 @@ class InfluxDBStorage:
             return False
 
         try:
+            import math
             points = []
             for rec in records:
+                device_id = rec.get("device_id")
+                point_name = rec.get("point_name")
+                raw_value = rec.get("value")
+                if not device_id or not point_name or raw_value is None:
+                    logger.warning("批量写入跳过: 缺少必填字段 (device_id/point_name/value)")
+                    continue
+                float_val = float(raw_value)
+                if math.isnan(float_val) or math.isinf(float_val):
+                    logger.warning("批量写入跳过: 值为NaN/Infinity (device=%s, point=%s)", device_id, point_name)
+                    continue
                 p = (
                     Point("device_points")
-                    .tag("device_id", rec["device_id"])
-                    .tag("point_name", rec["point_name"])
+                    .tag("device_id", device_id)
+                    .tag("point_name", point_name)
                     .tag("quality", rec.get("quality", "good"))
-                    .field("value", float(rec["value"]))
+                    .field("value", float_val)
                 )
                 if rec.get("timestamp"):
                     p = p.time(rec["timestamp"])

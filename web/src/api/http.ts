@@ -17,7 +17,7 @@ export interface PagedData<T = any> {
 }
 
 const http: AxiosInstance = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
@@ -48,7 +48,7 @@ function addRefreshSubscriber(cb: (token: string | null) => void) {
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const data = response.data
-    if (data.code !== 0 && data.code !== undefined) {
+    if (data && typeof data === 'object' && data.code !== 0 && data.code !== undefined) {
       return Promise.reject(new Error(data.message || '请求失败'))
     }
     return response

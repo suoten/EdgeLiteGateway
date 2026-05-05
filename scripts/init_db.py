@@ -4,7 +4,10 @@ import asyncio
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+try:
+    import edgelite
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from edgelite.storage.database import Database
 

@@ -198,11 +198,11 @@ const protocolOptions = ref<{ label: string; value: string }[]>([])
 async function loadProtocols() {
   try {
     const res = await driverApi.protocols()
-    const protocols = res.data?.data?.protocols || res.data?.data || []
+    const protocols = res?.protocols || []
     if (Array.isArray(protocols) && protocols.length > 0) {
       protocolOptions.value = protocols.map((p: any) => ({
-        label: p.label || p.name || p,
-        value: p.name || p.value || p,
+        label: typeof p === 'string' ? p : (p.label || p.name || p),
+        value: typeof p === 'string' ? p : (p.name || p.value || p),
       }))
     }
   } catch {

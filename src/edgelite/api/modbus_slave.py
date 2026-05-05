@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/modbus-slave", tags=["Modbus Slave"])
 
@@ -25,7 +29,11 @@ def _get_modbus_slave():
     try:
         from edgelite.app import _app_state
         return getattr(_app_state, "modbus_slave", None)
-    except Exception:
+    except (ImportError, AttributeError) as e:
+        logger.debug("Modbus Slave服务未加载: %s", e)
+        return None
+    except Exception as e:
+        logger.warning("获取Modbus Slave服务异常: %s", e)
         return None
 
 

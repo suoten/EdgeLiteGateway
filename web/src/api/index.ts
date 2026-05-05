@@ -23,7 +23,7 @@ export const authApi = {
     http.post<ApiResponse<TokenData>>('/auth/refresh', { refresh: refreshToken }).then((r) => r.data.data),
 
   me: () =>
-    http.get<ApiResponse<{ role: string; must_change_password?: boolean }>>('/auth/me').then((r) => r.data.data),
+    http.get<ApiResponse<{ user_id: string; username: string; role: string; must_change_password?: boolean }>>('/auth/me').then((r) => r.data.data),
 
   logout: () =>
     http.post('/auth/logout'),
@@ -333,7 +333,7 @@ export interface AuditLog {
 }
 
 export const auditApi = {
-  list: (params?: { page?: number; size?: number; user_id?: string; action?: string; start_time?: string; end_time?: string }) =>
+  list: (params?: { page?: number; size?: number; user_id?: string; action?: string; resource_type?: string; start_time?: string; end_time?: string }) =>
     http.get<ApiResponse<{ logs: any[]; total: number }>>('/audit/logs', { params }).then((r) => r.data.data),
 
   integrity: () =>

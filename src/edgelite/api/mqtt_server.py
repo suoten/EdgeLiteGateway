@@ -28,7 +28,11 @@ def _get_mqtt_server():
     try:
         from edgelite.app import _app_state
         return getattr(_app_state, "mqtt_server", None)
-    except Exception:
+    except (ImportError, AttributeError) as e:
+        logger.debug("MQTT Server服务未加载: %s", e)
+        return None
+    except Exception as e:
+        logger.warning("获取MQTT Server服务异常: %s", e)
         return None
 
 

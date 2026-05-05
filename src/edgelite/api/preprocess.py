@@ -3,12 +3,35 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
 
 router = APIRouter(prefix="/api/v1/preprocess", tags=["数据预处理"])
+
+
+class PreprocessGlobalModel(BaseModel):
+    enabled: bool = False
+    default_deadband: float = Field(default=0.0, ge=0.0)
+    default_filter_window: int = Field(default=3, ge=1, le=21)
+    default_aggregate_window_sec: int = Field(default=0, ge=0)
+
+
+class PreprocessPointConfigModel(BaseModel):
+    deadband: float | None = Field(default=None, ge=0.0)
+    filter_window: int | None = Field(default=None, ge=1, le=21)
+    aggregate_window_sec: int | None = Field(default=None, ge=0)
+
+    model_config = {"extra": "allow"}
+
+
+class PreprocessUpdateRequest(BaseModel):
+    global_config: PreprocessGlobalModel | None = Field(default=None, alias="global")
+    points: dict[str, dict] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
 
 
 def _get_preprocessor():
@@ -45,17 +68,14 @@ async def get_preprocess_config(
 
 @router.put("/config", response_model=ApiResponse)
 async def update_preprocess_config(
-    data: dict,
+    req: PreprocessUpdateRequest,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     preprocessor = _get_preprocessor()
     if not preprocessor:
         raise HTTPException(status_code=503, detail="预处理器未初始化")
 
-    global_config = data.get("global", {})
-    point_configs = data.get("points", {})
-
-    for point_key, config in point_configs.items():
+    for point_key, config in req.points.items():
         preprocessor.configure(point_key, config)
 
-    return ApiResponse(data={"status": "updated", "points_configured": len(point_configs)})
+    return ApiResponse(data={"status": "updated", "points_configured": len(req.points)})

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ota", tags=["OTA升级"])
 
@@ -20,7 +23,11 @@ def _get_ota_manager():
     try:
         from edgelite.app import _app_state
         return getattr(_app_state, "ota_manager", None)
-    except Exception:
+    except (ImportError, AttributeError) as e:
+        logger.debug("OTA管理器未加载: %s", e)
+        return None
+    except Exception as e:
+        logger.warning("获取OTA管理器异常: %s", e)
         return None
 
 
