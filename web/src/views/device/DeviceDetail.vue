@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载设备信息...">
   <n-space vertical :size="16">
     <template v-if="notFound">
       <n-result status="404" title="设备不存在" description="该设备可能已被删除或ID无效">
@@ -143,6 +144,7 @@
     </n-tabs>
     </template>
   </n-space>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
@@ -168,6 +170,7 @@ const auth = useAuthStore()
 
 const device = ref<Device | null>(null)
 const notFound = ref(false)
+const pageLoading = ref(true)
 const activeTab = ref('overview')
 const streamUrl = ref('')
 
@@ -319,6 +322,7 @@ async function handleSave() {
 
 async function fetchDevice() {
   notFound.value = false
+  pageLoading.value = true
   try {
     device.value = await deviceApi.get(deviceId.value)
     if (!device.value) { notFound.value = true; return }
@@ -331,6 +335,8 @@ async function fetchDevice() {
     if (route.query.tab) activeTab.value = route.query.tab as string
   } catch (e: any) {
     notFound.value = true
+  } finally {
+    pageLoading.value = false
   }
 }
 

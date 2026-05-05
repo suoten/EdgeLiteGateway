@@ -30,8 +30,11 @@ async def list_devices(
     devices, total = await svc.list_devices(page, size, status, protocol)
     if search:
         search_lower = search.lower()
-        devices = [d for d in devices if search_lower in d.get("name", "").lower() or search_lower in d.get("device_id", "").lower()]
-        total = len(devices)
+        all_devices, _ = await svc.list_devices(1, 10000, status, protocol)
+        filtered = [d for d in all_devices if search_lower in d.get("name", "").lower() or search_lower in d.get("device_id", "").lower()]
+        total = len(filtered)
+        offset = (page - 1) * size
+        devices = filtered[offset:offset + size]
     return PagedResponse(data=devices, total=total, page=page, size=size)
 
 

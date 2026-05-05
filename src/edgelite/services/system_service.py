@@ -85,7 +85,7 @@ class SystemService:
             "alarm_firing": firing_count,
             "collect_task_count": self._scheduler.get_task_count(),
             "uptime": uptime,
-            "version": "1.0.0",
+            "version": __import__("edgelite").__version__,
         }
 
     async def create_backup(self) -> dict:

@@ -63,18 +63,22 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     config = get_config()
 
-    # 安全检查：检测默认密钥
-    _WEAK_SECRET_KEYS = {"change-me-in-production", "your-secret-key-at-least-32-characters"}
-    if config.security.secret_key in _WEAK_SECRET_KEYS or len(config.security.secret_key) < 32:
+    if not config.security.secret_key:
+        import secrets
+        config.security.secret_key = secrets.token_urlsafe(48)
         logger.warning(
-            "⚠️  安全警告: JWT密钥使用默认值或过短(%d字符)，"
+            "⚠️  JWT密钥未配置，已自动生成随机密钥。"
+            "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置固定密钥！"
+        )
+    elif len(config.security.secret_key) < 32:
+        logger.warning(
+            "⚠️  安全警告: JWT密钥过短(%d字符)，"
             "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置至少32字符的随机密钥！",
             len(config.security.secret_key),
         )
 
-    _WEAK_INFLUX_TOKENS = {"edgelite-token-change-me", "your-influxdb-token-here"}
-    if config.influxdb.token in _WEAK_INFLUX_TOKENS:
-        logger.warning("⚠️  安全警告: InfluxDB Token使用默认值，请通过 EDGELITE_INFLUXDB_TOKEN 环境变量设置！")
+    if not config.influxdb.token:
+        logger.warning("⚠️  InfluxDB Token未配置，时序数据存储功能不可用。请通过 EDGELITE_INFLUXDB__TOKEN 环境变量设置！")
 
     # 配置日志
     logging.basicConfig(level=config.logging.level, format=config.logging.format)
@@ -419,7 +423,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="EdgeLiteGateway",
         description="轻量级边缘计算物联网网关 API",
-        version="1.0.0",
+        version=__import__("edgelite").__version__,
         lifespan=lifespan,
     )
 
@@ -552,8 +556,8 @@ def create_app() -> FastAPI:
                 await websocket.receive_text()
         except WebSocketDisconnect:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WebSocket realtime 连接异常: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "realtime")
 
@@ -566,8 +570,8 @@ def create_app() -> FastAPI:
                 await websocket.receive_text()
         except WebSocketDisconnect:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WebSocket alarm 连接异常: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "alarm")
 
@@ -580,8 +584,8 @@ def create_app() -> FastAPI:
                 await websocket.receive_text()
         except WebSocketDisconnect:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WebSocket device 连接异常: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "device")
 

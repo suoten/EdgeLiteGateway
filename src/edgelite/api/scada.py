@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.api.deps import CurrentUser
+from edgelite.models.common import ApiResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,22 +29,12 @@ class ScadaSaveRequest(BaseModel):
     widgets: list[dict[str, Any]] = []
 
 
-class ApiResponse:
-    @staticmethod
-    def data(data: Any = None) -> dict:
-        return {"code": 0, "message": "success", "data": data}
-
-    @staticmethod
-    def error(msg: str, code: int = -1) -> dict:
-        return {"code": code, "message": msg, "data": None}
-
-
 def _project_path(name: str) -> Path:
     safe = "".join(c for c in name if c.isalnum() or c in ("_", "-")) or "default"
     return _STORE_DIR / f"{safe}.json"
 
 
-@router.get("/projects", response_model=dict)
+@router.get("/projects", response_model=ApiResponse)
 async def list_projects(_user: CurrentUser):
     projects = []
     for f in _STORE_DIR.glob("*.json"):
@@ -55,25 +46,25 @@ async def list_projects(_user: CurrentUser):
                 "widget_count": len(data.get("widgets", [])),
                 "updated_at": data.get("updated_at", ""),
             })
-        except Exception:
-            pass
-    return ApiResponse.data(projects)
+        except Exception as e:
+            logger.warning("读取组态项目文件失败 %s: %s", f.name, e)
+    return ApiResponse(data=projects)
 
 
-@router.get("/project/{name}", response_model=dict)
+@router.get("/project/{name}", response_model=ApiResponse)
 async def get_project(name: str, _user: CurrentUser):
     path = _project_path(name)
     if not path.exists():
-        return ApiResponse.data({"name": name, "widgets": [], "updated_at": None})
+        return ApiResponse(data={"name": name, "widgets": [], "updated_at": None})
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return ApiResponse.data(data)
+        return ApiResponse(data=data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"读取组态项目失败: {e}")
 
 
-@router.post("/project", response_model=dict)
+@router.post("/project", response_model=ApiResponse)
 async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
     path = _project_path(req.name)
     data = {
@@ -84,15 +75,15 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        return ApiResponse.data({"saved": True, "name": req.name, "widget_count": len(req.widgets)})
+        return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
 
 
-@router.delete("/project/{name}", response_model=dict)
+@router.delete("/project/{name}", response_model=ApiResponse)
 async def delete_project(name: str, _user: CurrentUser):
     path = _project_path(name)
     if path.exists():
         path.unlink()
-        return ApiResponse.data({"deleted": True, "name": name})
+        return ApiResponse(data={"deleted": True, "name": name})
     raise HTTPException(status_code=404, detail=f"项目 {name} 不存在")

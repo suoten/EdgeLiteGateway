@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from fastapi import APIRouter, HTTPException
 
 from edgelite.models.common import ApiResponse
@@ -80,6 +81,8 @@ async def get_grafana_embed_url(
 
     grafana_url = getattr(grafana_config, "url", "http://localhost:3000")
     if dashboard_uid:
+        if not re.match(r'^[a-zA-Z0-9_-]+$', dashboard_uid):
+            raise HTTPException(status_code=400, detail="dashboard_uid 包含非法字符")
         embed_url = f"{grafana_url}/d/{dashboard_uid}?kiosk&theme=light"
     else:
         embed_url = f"{grafana_url}/?kiosk&theme=light"

@@ -140,9 +140,6 @@ async def get_current_user_info(user: CurrentUser):
         db_user = await repo.get_by_username(user["username"])
         if db_user:
             must_change = db_user.get("must_change_password", False)
-            if not must_change:
-                from edgelite.security.password import verify_password as _vp
-                must_change = _vp("admin123", db_user.get("password", ""))
     return ApiResponse(data={
         "user_id": user["user_id"],
         "username": user["username"],
@@ -167,6 +164,12 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
     if len(new_password) < 6:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少6位")
+    if old_password == new_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码不能与原密码相同")
+    has_letter = any(c.isalpha() for c in new_password)
+    has_digit = any(c.isdigit() for c in new_password)
+    if not (has_letter and has_digit):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码需同时包含字母和数字")
 
     from edgelite.security.password import hash_password
     hashed = hash_password(new_password)

@@ -27,9 +27,12 @@ async def list_alarms(
     svc = _get_alarm_service()
     alarms, total = await svc.list_alarms(page, size, status, severity, device_id)
     if search:
+        all_alarms, _ = await svc.list_alarms(1, 10000, status, severity, device_id)
         search_lower = search.lower()
-        alarms = [a for a in alarms if search_lower in a.get("message", "").lower() or search_lower in a.get("alarm_id", "").lower()]
-        total = len(alarms)
+        filtered = [a for a in all_alarms if search_lower in a.get("message", "").lower() or search_lower in a.get("alarm_id", "").lower()]
+        total = len(filtered)
+        offset = (page - 1) * size
+        alarms = filtered[offset:offset + size]
     return PagedResponse(data=alarms, total=total, page=page, size=size)
 
 

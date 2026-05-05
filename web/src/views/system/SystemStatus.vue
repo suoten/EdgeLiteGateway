@@ -100,11 +100,11 @@ function formatUptime(seconds: number) {
 }
 
 async function fetchStatus() {
-  try { status.value = await systemApi.getStatus() } catch (e) { console.warn('获取系统状态失败:', e) }
+  try { status.value = await systemApi.getStatus() } catch (e: any) { message.error('获取系统状态失败') }
 }
 
 async function fetchBackups() {
-  try { backups.value = await systemApi.listBackups() } catch (e) { console.warn('获取备份列表失败:', e) }
+  try { backups.value = await systemApi.listBackups() } catch (e: any) { message.error('获取备份列表失败') }
 }
 
 async function handleBackup() {

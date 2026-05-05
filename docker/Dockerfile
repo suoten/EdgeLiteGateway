@@ -3,20 +3,20 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY pyproject.toml setup.py ./
+COPY src/edgelite/ src/edgelite/
+RUN pip install --no-cache-dir --prefix=/install .
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
 COPY --from=builder /install /usr/local
-COPY src/edgelite/ edgelite/
 COPY configs/ configs/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
+COPY scripts/ scripts/
 
-# 创建数据目录
 RUN mkdir -p data/backups logs
 
 ENV PYTHONPATH=/app

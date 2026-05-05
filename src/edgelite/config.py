@@ -34,7 +34,7 @@ class DatabaseConfig(BaseModel):
 
 class InfluxDBConfig(BaseModel):
     url: str = "http://localhost:8086"
-    token: str = "edgelite-token-change-me"
+    token: str = ""
     org: str = "edgelite"
     bucket: str = "edgelite"
     batch_size: int = 1000
@@ -60,7 +60,7 @@ class VideoConfig(BaseModel):
 
 
 class SecurityConfig(BaseModel):
-    secret_key: str = "change-me-in-production"
+    secret_key: str = ""
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     algorithm: str = "HS256"

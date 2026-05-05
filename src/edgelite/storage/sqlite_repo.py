@@ -392,7 +392,7 @@ class UserRepo(BaseRepo):
                 select(UserORM).order_by(UserORM.created_at.desc()).offset(offset).limit(size)
             )
             rows = result.scalars().all()
-            return [_orm_to_user(r) for r in rows], total
+            return [_orm_to_user_safe(r) for r in rows], total
 
     async def update(self, user_id: str, data: dict) -> dict | None:
         async with self._auto_session() as session:
@@ -478,6 +478,14 @@ def _orm_to_user(orm: UserORM) -> dict:
 def _orm_to_user_full(orm: UserORM) -> dict:
     return {
         "user_id": orm.user_id, "username": orm.username, "password": orm.password,
+        "role": orm.role, "enabled": bool(orm.enabled),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
+    }
+
+
+def _orm_to_user_safe(orm: UserORM) -> dict:
+    return {
+        "user_id": orm.user_id, "username": orm.username,
         "role": orm.role, "enabled": bool(orm.enabled),
         "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
     }

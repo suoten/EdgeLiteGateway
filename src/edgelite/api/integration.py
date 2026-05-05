@@ -36,11 +36,11 @@ async def get_integration_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     endpoint = _get_integration_endpoint()
-    session_ids = list(endpoint._sessions.keys())
+    sessions = getattr(endpoint, "_sessions", {})
+    session_ids = list(sessions.keys())
     return ApiResponse(data={
-        "connected": bool(endpoint.session_count),
+        "connected": len(session_ids) > 0,
         "session_id": session_ids[0] if session_ids else None,
-        "cloud_url": None,
-        "sessions": endpoint.session_count,
+        "sessions": len(session_ids),
         "session_ids": session_ids,
     })

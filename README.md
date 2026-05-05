@@ -69,7 +69,7 @@ cd docker && docker compose up -d
 
 # 4️⃣ 打开浏览器
 # 👉 http://localhost:3000
-# 🔑 默认账号: admin / admin123
+# 🔑 首次登录请使用管理员账号（详见下方"默认账号"章节）
 ```
 
 > 💡 **就这么简单！** Docker Compose 会自动启动后端、前端(Nginx)、InfluxDB、Mosquitto 所有服务。
@@ -242,7 +242,7 @@ docker compose logs -f influxdb
 | API 文档      | <http://localhost:8080/docs> | FastAPI Swagger UI |
 | InfluxDB UI | <http://localhost:8086>      | 时序数据库管理界面          |
 
-> 首次登录使用默认账号：`admin` / `admin123`
+> 首次登录请使用管理员账号，详见下方"默认账号"章节
 
 #### Docker Compose 服务说明
 

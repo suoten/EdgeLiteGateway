@@ -75,7 +75,7 @@
         </n-button>
       </n-form>
       <n-text depth="3" style="display:block;text-align:center;margin-top:16px;font-size:13px">
-        默认账号: admin / admin123
+        首次登录请使用管理员账号
       </n-text>
       <div class="login-footer">
         <n-text depth="3">v1.0.0 Community Edition</n-text>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 import io
@@ -35,6 +35,9 @@ async def query_timeseries(
     aggregate: str | None = None,
     user: CurrentUser = require_permission(Permission.DATA_READ),
 ):
+    _VALID_AGGREGATES = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
+    if aggregate and aggregate.lower() not in _VALID_AGGREGATES:
+        raise HTTPException(status_code=400, detail=f"不支持的聚合函数: {aggregate}，可选值: {', '.join(sorted(_VALID_AGGREGATES))}")
     svc = _get_data_service()
     data = await svc.query_timeseries(device_id, point_name, start, stop, aggregate)
     return ApiResponse(data=data)

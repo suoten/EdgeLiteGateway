@@ -107,33 +107,41 @@ class MCPServer:
                 if svc:
                     devices, total = await svc.list_devices(page=1, size=200)
                     return {"devices": devices, "total": total}
-                return {"devices": [], "total": 0, "warning": "设备服务不可用"}
+                raise HTTPException(status_code=503, detail="设备服务不可用")
 
             elif name == "get_device_status":
                 device_id = args.get("device_id", "")
+                if not device_id:
+                    raise HTTPException(status_code=400, detail="缺少参数: device_id")
                 svc = getattr(_app_state, "device_service", None)
                 if svc:
                     device = await svc.get_device(device_id)
-                    return device or {"error": f"设备 {device_id} 不存在"}
-                return {"error": "设备服务不可用"}
+                    if device is None:
+                        raise HTTPException(status_code=404, detail=f"设备 {device_id} 不存在")
+                    return device
+                raise HTTPException(status_code=503, detail="设备服务不可用")
 
             elif name == "read_device_points":
                 device_id = args.get("device_id", "")
+                if not device_id:
+                    raise HTTPException(status_code=400, detail="缺少参数: device_id")
                 svc = getattr(_app_state, "device_service", None)
                 if svc:
                     points = await svc.read_points(device_id)
                     return {"device_id": device_id, "points": points}
-                return {"device_id": device_id, "points": [], "warning": "设备服务不可用"}
+                raise HTTPException(status_code=503, detail="设备服务不可用")
 
             elif name == "write_device_point":
                 device_id = args.get("device_id", "")
                 point_name = args.get("point_name", "")
                 value = args.get("value", 0)
+                if not device_id or not point_name:
+                    raise HTTPException(status_code=400, detail="缺少参数: device_id 或 point_name")
                 svc = getattr(_app_state, "device_service", None)
                 if svc:
                     await svc.write_point(device_id, point_name, value)
                     return {"success": True, "device_id": device_id, "point_name": point_name, "value": value}
-                return {"success": False, "error": "设备服务不可用"}
+                raise HTTPException(status_code=503, detail="设备服务不可用")
 
             elif name == "list_alarms":
                 severity = args.get("severity")
@@ -141,27 +149,30 @@ class MCPServer:
                 if svc:
                     alarms, total = await svc.list_alarms(page=1, size=200, severity=severity)
                     return {"alarms": alarms, "total": total}
-                return {"alarms": [], "total": 0}
+                raise HTTPException(status_code=503, detail="告警服务不可用")
 
             elif name == "get_system_status":
                 svc = getattr(_app_state, "system_service", None)
                 if svc:
                     status = await svc.get_status()
                     return status
-                return {"status": "unknown"}
+                raise HTTPException(status_code=503, detail="系统服务不可用")
 
             elif name == "list_rules":
                 svc = getattr(_app_state, "rule_service", None)
                 if svc:
                     rules, total = await svc.list_rules(page=1, size=200)
                     return {"rules": rules, "total": total}
-                return {"rules": [], "total": 0, "warning": "规则服务不可用"}
+                raise HTTPException(status_code=503, detail="规则服务不可用")
 
             else:
-                return {"error": f"未知工具: {name}"}
+                raise HTTPException(status_code=400, detail=f"未知工具: {name}")
 
+        except HTTPException:
+            raise
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("MCP工具调用异常 %s: %s", name, e)
+            raise HTTPException(status_code=500, detail=f"工具调用失败: {str(e)}")
 
 
 _mcp_server = MCPServer()
