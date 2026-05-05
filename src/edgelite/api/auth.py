@@ -6,7 +6,7 @@ import logging
 import time
 from collections import defaultdict
 
-from fastapi import APIRouter, Body, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from jose import JWTError
 
 from edgelite.models.user import LoginRequest, TokenResponse
@@ -14,7 +14,7 @@ from edgelite.models.common import ApiResponse
 from edgelite.security.jwt import create_access_token, create_refresh_token, verify_token
 from edgelite.security.password import verify_password
 from edgelite.storage.sqlite_repo import UserRepo
-from edgelite.api.deps import CurrentUser
+from edgelite.api.deps import CurrentUser, get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,7 @@ async def get_current_user_info(user: CurrentUser):
 async def change_password(
     old_password: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
-    user: CurrentUser,
+    user: dict = Depends(get_current_user),
 ):
     db, write_lock = _get_user_repo()
     async with db.get_session() as session:
