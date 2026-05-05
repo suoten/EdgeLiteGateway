@@ -26,17 +26,7 @@ async def list_rules(
     severity: str | None = None,
 ):
     svc = _get_rule_service()
-    rules, total = await svc.list_rules(page, size, device_id)
-    if search or severity:
-        all_rules, _ = await svc.list_rules(1, 10000, device_id)
-        if search:
-            search_lower = search.lower()
-            all_rules = [r for r in all_rules if search_lower in r.get("name", "").lower() or search_lower in r.get("rule_id", "").lower()]
-        if severity:
-            all_rules = [r for r in all_rules if r.get("severity", "").lower() == severity.lower()]
-        total = len(all_rules)
-        offset = (page - 1) * size
-        rules = all_rules[offset:offset + size]
+    rules, total = await svc.list_rules(page, size, device_id, search, severity)
     return PagedResponse(data=rules, total=total, page=page, size=size)
 
 

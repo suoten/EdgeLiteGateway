@@ -24,9 +24,9 @@ class AlarmService:
             logger.info("告警恢复: %s", event.alarm_id)
 
     async def list_alarms(
-        self, page: int = 1, size: int = 20, status: str | None = None, severity: str | None = None, device_id: str | None = None
+        self, page: int = 1, size: int = 20, status: str | None = None, severity: str | None = None, device_id: str | None = None, search: str | None = None
     ) -> tuple[list[dict], int]:
-        return await self._repo.list_all(page, size, status, severity, device_id)
+        return await self._repo.list_all(page, size, status, severity, device_id, search)
 
     async def get_alarm(self, alarm_id: str) -> dict | None:
         return await self._repo.get(alarm_id)

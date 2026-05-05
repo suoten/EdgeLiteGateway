@@ -98,9 +98,9 @@ class DeviceService:
         return await self._repo.get(device_id)
 
     async def list_devices(
-        self, page: int = 1, size: int = 20, status: str | None = None, protocol: str | None = None
+        self, page: int = 1, size: int = 20, status: str | None = None, protocol: str | None = None, search: str | None = None
     ) -> tuple[list[dict], int]:
-        return await self._repo.list_all(page, size, status, protocol)
+        return await self._repo.list_all(page, size, status, protocol, search)
 
     async def update_device(self, device_id: str, data: dict) -> dict | None:
         return await self._repo.update(device_id, data)

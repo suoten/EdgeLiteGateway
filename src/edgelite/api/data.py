@@ -58,8 +58,14 @@ async def export_data(
     media_type = "text/csv" if format == "csv" else "application/json"
     filename = f"{_safe_filename(device_id)}_{_safe_filename(point_name)}.{format}"
 
+    if format == "csv":
+        content_bytes = b"\xef\xbb\xbf" + content.encode("utf-8-sig")
+        buf = io.BytesIO(content_bytes)
+    else:
+        buf = io.BytesIO(content.encode("utf-8"))
+
     return StreamingResponse(
-        io.StringIO(content),
+        buf,
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

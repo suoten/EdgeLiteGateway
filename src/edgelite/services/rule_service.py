@@ -26,8 +26,8 @@ class RuleService:
     async def get_rule(self, rule_id: str) -> dict | None:
         return await self._repo.get(rule_id)
 
-    async def list_rules(self, page: int = 1, size: int = 20, device_id: str | None = None) -> tuple[list[dict], int]:
-        return await self._repo.list_all(page, size, device_id)
+    async def list_rules(self, page: int = 1, size: int = 20, device_id: str | None = None, search: str | None = None, severity: str | None = None) -> tuple[list[dict], int]:
+        return await self._repo.list_all(page, size, device_id, search, severity)
 
     async def update_rule(self, rule_id: str, data: dict) -> dict | None:
         result = await self._repo.update(rule_id, data)

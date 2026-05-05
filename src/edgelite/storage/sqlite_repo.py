@@ -89,7 +89,7 @@ class DeviceRepo(BaseRepo):
             return _orm_to_device(orm) if orm else None
 
     async def list_all(
-        self, page: int = 1, size: int = 20, status: str | None = None, protocol: str | None = None
+        self, page: int = 1, size: int = 20, status: str | None = None, protocol: str | None = None, search: str | None = None
     ) -> tuple[list[dict], int]:
         async with self._auto_session() as session:
             query = select(DeviceORM)
@@ -100,6 +100,10 @@ class DeviceRepo(BaseRepo):
             if protocol:
                 query = query.where(DeviceORM.protocol == protocol)
                 count_query = count_query.where(DeviceORM.protocol == protocol)
+            if search:
+                pattern = f"%{search}%"
+                query = query.where((DeviceORM.name.ilike(pattern)) | (DeviceORM.device_id.ilike(pattern)))
+                count_query = count_query.where((DeviceORM.name.ilike(pattern)) | (DeviceORM.device_id.ilike(pattern)))
             total_result = await session.execute(count_query)
             total = total_result.scalar() or 0
             offset = (page - 1) * size
@@ -180,13 +184,20 @@ class RuleRepo(BaseRepo):
             orm = result.scalar_one_or_none()
             return _orm_to_rule(orm) if orm else None
 
-    async def list_all(self, page: int = 1, size: int = 20, device_id: str | None = None) -> tuple[list[dict], int]:
+    async def list_all(self, page: int = 1, size: int = 20, device_id: str | None = None, search: str | None = None, severity: str | None = None) -> tuple[list[dict], int]:
         async with self._auto_session() as session:
             query = select(RuleORM)
             count_query = select(func.count()).select_from(RuleORM)
             if device_id:
                 query = query.where(RuleORM.device_id == device_id)
                 count_query = count_query.where(RuleORM.device_id == device_id)
+            if search:
+                pattern = f"%{search}%"
+                query = query.where((RuleORM.name.ilike(pattern)) | (RuleORM.rule_id.ilike(pattern)))
+                count_query = count_query.where((RuleORM.name.ilike(pattern)) | (RuleORM.rule_id.ilike(pattern)))
+            if severity:
+                query = query.where(RuleORM.severity == severity)
+                count_query = count_query.where(RuleORM.severity == severity)
             total_result = await session.execute(count_query)
             total = total_result.scalar() or 0
             offset = (page - 1) * size
@@ -272,7 +283,7 @@ class AlarmRepo(BaseRepo):
 
     async def list_all(
         self, page: int = 1, size: int = 20, status: str | None = None,
-        severity: str | None = None, device_id: str | None = None,
+        severity: str | None = None, device_id: str | None = None, search: str | None = None,
     ) -> tuple[list[dict], int]:
         async with self._auto_session() as session:
             query = select(AlarmORM)
@@ -286,6 +297,10 @@ class AlarmRepo(BaseRepo):
             if device_id:
                 query = query.where(AlarmORM.device_id == device_id)
                 count_query = count_query.where(AlarmORM.device_id == device_id)
+            if search:
+                pattern = f"%{search}%"
+                query = query.where((AlarmORM.message.ilike(pattern)) | (AlarmORM.alarm_id.ilike(pattern)))
+                count_query = count_query.where((AlarmORM.message.ilike(pattern)) | (AlarmORM.alarm_id.ilike(pattern)))
             total_result = await session.execute(count_query)
             total = total_result.scalar() or 0
             offset = (page - 1) * size
