@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载OTA信息...">
   <n-space vertical :size="16">
     <n-card title="OTA升级" :bordered="false">
       <template #header-extra>
@@ -39,11 +40,12 @@
       <n-empty v-if="!backups.length" description="暂无备份版本" />
     </n-card>
   </n-space>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
-import { NButton, NPopconfirm, useMessage, useDialog } from 'naive-ui'
+import { NButton, NPopconfirm, NSpin, useMessage, useDialog } from 'naive-ui'
 import { otaApi } from '@/api'
 
 const message = useMessage()
@@ -52,6 +54,7 @@ const checking = ref(false)
 const applying = ref(false)
 const updateInfo = ref<any>(null)
 const backups = ref<any[]>([])
+const pageLoading = ref(true)
 
 const backupColumns = [
   { title: '版本', key: 'version', width: 150 },
@@ -102,7 +105,9 @@ async function fetchBackups() {
     const data = await otaApi.backups()
     backups.value = data?.backups || []
   } catch (e: any) {
-    message.error(e?.message || '获取备份失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取备份失败')
+  } finally {
+    pageLoading.value = false
   }
 }
 

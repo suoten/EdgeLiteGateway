@@ -164,7 +164,7 @@ async function handleQuery() {
     queryResult.value = result || []
     if (!queryResult.value.length) message.info('无数据')
   } catch (e: any) {
-    message.error(e?.message || '查询失败')
+    message.error(e?.response?.data?.detail || e?.message || '查询失败')
   } finally {
     loading.value = false
   }
@@ -191,7 +191,7 @@ async function handleExport() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (e: any) {
-    message.error(e?.message || '导出失败')
+    message.error(e?.response?.data?.detail || e?.message || '导出失败')
   } finally {
     exporting.value = false
   }

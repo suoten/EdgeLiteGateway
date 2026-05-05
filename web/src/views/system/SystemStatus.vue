@@ -103,12 +103,12 @@ function formatUptime(seconds: number) {
 }
 
 async function fetchStatus() {
-  try { status.value = await systemApi.getStatus() } catch (e: any) { message.error('获取系统状态失败') }
+  try { status.value = await systemApi.getStatus() } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '获取系统状态失败') }
   finally { pageLoading.value = false }
 }
 
 async function fetchBackups() {
-  try { backups.value = await systemApi.listBackups() } catch (e: any) { message.error('获取备份列表失败') }
+  try { backups.value = await systemApi.listBackups() } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '获取备份列表失败') }
 }
 
 async function handleBackup() {
@@ -118,7 +118,7 @@ async function handleBackup() {
     message.success('备份创建成功')
     fetchBackups()
   } catch (e: any) {
-    message.error(e?.message || '备份失败')
+    message.error(e?.response?.data?.detail || e?.message || '备份失败')
   } finally {
     backupLoading.value = false
   }
@@ -135,7 +135,7 @@ function handleRestore(r: any) {
         await systemApi.restore(r.backup_id)
         message.success('备份恢复成功，请重启服务')
       } catch (e: any) {
-        message.error(e?.message || '恢复失败')
+        message.error(e?.response?.data?.detail || e?.message || '恢复失败')
       }
     },
   })

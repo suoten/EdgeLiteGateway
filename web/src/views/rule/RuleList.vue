@@ -278,7 +278,7 @@ async function fetchRules() {
     pagination.itemCount = data.total
   } catch (e: any) {
     rules.value = []
-    message.error(e?.message || '获取规则列表失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取规则列表失败')
   } finally {
     loading.value = false
   }
@@ -367,7 +367,7 @@ async function handleToggle(r: Rule) {
           message.success('规则已禁用')
           fetchRules()
         } catch (e: any) {
-          message.error(e?.message || '操作失败')
+          message.error(e?.response?.data?.detail || e?.message || '操作失败')
         }
       },
     })
@@ -377,7 +377,7 @@ async function handleToggle(r: Rule) {
       message.success('规则已启用')
       fetchRules()
     } catch (e: any) {
-      message.error(e?.message || '操作失败')
+      message.error(e?.response?.data?.detail || e?.message || '操作失败')
     }
   }
 }
@@ -388,7 +388,7 @@ async function doDelete(r: Rule) {
     message.success('规则已删除')
     fetchRules()
   } catch (e: any) {
-    message.error(e?.message || '删除失败')
+    message.error(e?.response?.data?.detail || e?.message || '删除失败')
   }
 }
 

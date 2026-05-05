@@ -179,8 +179,8 @@ async function loadPlatforms() {
     const data = await platformApi.list()
     platforms.value = data?.platforms || []
     supportedPlatforms.value = data?.supported || []
-  } catch (e) {
-    message.error('加载平台列表失败')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '加载平台列表失败')
   } finally {
     loading.value = false
   }
@@ -225,8 +225,8 @@ async function loadConfigSchema() {
       }
       formData.value.config = newConfig
     }
-  } catch (e) {
-    message.error('获取配置模板失败')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '获取配置模板失败')
   } finally {
     schemaLoading.value = false
   }
@@ -265,8 +265,8 @@ async function disconnectPlatform(name: string) {
         await platformApi.disconnect(name)
         await loadPlatforms()
         message.success('已断开')
-      } catch (e) {
-        message.error('断开失败')
+      } catch (e: any) {
+        message.error(e?.response?.data?.detail || e?.message || '断开失败')
       }
     },
   })

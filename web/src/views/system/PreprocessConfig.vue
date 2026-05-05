@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载预处理配置...">
   <n-space vertical :size="16">
     <n-card title="全局配置" :bordered="false">
       <n-form :model="globalForm" label-placement="left" label-width="140">
@@ -67,15 +68,17 @@
       </template>
     </n-modal>
   </n-space>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NSpace, NTag, useMessage } from 'naive-ui'
+import { NButton, NSpace, NTag, NSpin, useMessage } from 'naive-ui'
 import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { preprocessApi } from '@/api'
 
 const message = useMessage()
+const pageLoading = ref(true)
 
 const globalForm = reactive({
   enabled: false,
@@ -152,7 +155,9 @@ async function fetchConfig() {
     pointConfigs.value = data.point_configs ?? {}
     updatePointList()
   } catch (e: any) {
-    message.error(e?.message || '获取配置失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取配置失败')
+  } finally {
+    pageLoading.value = false
   }
 }
 
@@ -165,7 +170,7 @@ async function handleSave() {
     })
     message.success('配置已保存')
   } catch (e: any) {
-    message.error(e?.message || '保存失败')
+    message.error(e?.response?.data?.detail || e?.message || '保存失败')
   } finally {
     saving.value = false
   }

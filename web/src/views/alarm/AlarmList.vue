@@ -105,7 +105,7 @@ async function fetchAlarms() {
     pagination.itemCount = data.total
   } catch (e: any) {
     alarms.value = []
-    message.error(e?.message || '获取告警列表失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取告警列表失败')
   } finally {
     loading.value = false
   }
@@ -117,7 +117,7 @@ async function doAck(alarmId: string) {
     message.success('告警已确认')
     fetchAlarms()
   } catch (e: any) {
-    message.error(e?.message || '确认失败')
+    message.error(e?.response?.data?.detail || e?.message || '确认失败')
   }
 }
 

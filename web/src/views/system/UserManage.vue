@@ -115,7 +115,7 @@ async function fetchUsers() {
     const data = await userApi.list({ page: 1, size: 1000 })
     users.value = data?.data ?? []
   } catch (e: any) {
-    message.error(e?.message || '获取用户列表失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取用户列表失败')
   } finally {
     loading.value = false
   }
@@ -180,7 +180,7 @@ function handleDelete(row: User) {
         message.success('删除成功')
         fetchUsers()
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || '删除失败')
+        message.error(e?.response?.data?.detail || e?.message || '删除失败')
       }
     },
   })

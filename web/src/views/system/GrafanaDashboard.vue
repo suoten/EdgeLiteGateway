@@ -171,7 +171,7 @@ async function fetchConfig() {
       await fetchDashboards()
     }
   } catch (e: any) {
-    if (e?.response?.status !== 404) message.error(e?.message || '获取Grafana配置失败')
+    if (e?.response?.status !== 404) message.error(e?.response?.data?.detail || e?.message || '获取Grafana配置失败')
   } finally {
     loading.value = false
   }
@@ -182,7 +182,7 @@ async function fetchDashboards() {
     const data = await grafanaApi.dashboards()
     dashboards.value = data?.dashboards || []
   } catch (e: any) {
-    message.error(e?.message || '获取仪表板失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取仪表板失败')
   }
 }
 

@@ -35,6 +35,8 @@ configs/config.local.yaml
 .env
 .env.*
 !.env.example
+!docker/.env.example
+!web/.env.example
 *.pem
 *.key
 *.cert

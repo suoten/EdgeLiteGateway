@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载表达式配置...">
   <div class="expression-page">
     <n-card title="计算表达式">
       <n-grid :cols="2" :x-gap="16">
@@ -47,11 +48,12 @@
       </n-grid>
     </n-card>
   </div>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, useMessage } from 'naive-ui'
+import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, NSpin, useMessage } from 'naive-ui'
 import { expressionApi } from '@/api'
 
 const message = useMessage()
@@ -65,6 +67,7 @@ const operators = ref<any[]>([])
 const batchExpr = ref('')
 const batchResult = ref('')
 const calculating = ref(false)
+const pageLoading = ref(true)
 
 const funcColumns = [
   { title: '函数', key: 'name', width: 80 },
@@ -125,7 +128,8 @@ async function loadFunctions() {
     const data = await expressionApi.functions()
     functions.value = data?.functions || []
     operators.value = data?.operators || []
-  } catch (e) { message.error('加载函数列表失败') }
+  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '加载函数列表失败') }
+  finally { pageLoading.value = false }
 }
 
 onMounted(() => { loadFunctions() })

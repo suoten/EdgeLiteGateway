@@ -170,7 +170,7 @@ async function fetchDevices() {
     pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     devices.value = []
-    message.error(e?.message || '获取设备列表失败')
+    message.error(e?.response?.data?.detail || e?.message || '获取设备列表失败')
   } finally {
     loading.value = false
   }
@@ -465,7 +465,7 @@ async function handleDiscover() {
     }
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.message || '设备发现失败')
+    message.error(e?.response?.data?.detail || e?.message || '设备发现失败')
   } finally {
     discovering.value = false
   }

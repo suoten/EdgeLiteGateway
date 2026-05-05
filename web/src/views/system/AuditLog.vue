@@ -1,4 +1,5 @@
 <template>
+  <n-spin :show="pageLoading" description="加载审计日志...">
   <div class="audit-page">
     <n-card title="审计日志">
       <template #header-extra>
@@ -21,11 +22,12 @@
       <p style="color: #999; font-size: 13px">将删除超过保留天数的审计日志记录，此操作不可恢复。</p>
     </n-modal>
   </div>
+  </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, useMessage, useDialog } from 'naive-ui'
+import { NCard, NButton, NSpace, NSelect, NDatePicker, NDataTable, NTag, NModal, NFormItem, NInputNumber, NSpin, useMessage, useDialog } from 'naive-ui'
 import { auditApi } from '@/api'
 import { auditStatusLabel, auditActionLabel } from '@/utils/enumLabels'
 
@@ -33,6 +35,7 @@ const message = useMessage()
 const dialog = useDialog()
 const logs = ref<any[]>([])
 const loading = ref(false)
+const pageLoading = ref(true)
 const filterAction = ref(null)
 const timeRange = ref<[number, number] | null>(null)
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (page: number) => { pagination.page = page; loadLogs() } })
@@ -79,9 +82,9 @@ async function loadLogs() {
     const data = await auditApi.list(params)
     logs.value = data?.logs || []
     pagination.itemCount = data?.total || 0
-  } catch (e) {
-    message.error('加载审计日志失败')
-  } finally { loading.value = false }
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '加载审计日志失败')
+  } finally { loading.value = false; pageLoading.value = false }
 }
 
 async function exportCSV() {
@@ -100,7 +103,7 @@ async function exportCSV() {
       a.href = url; a.download = 'audit_logs.csv'; a.click()
       URL.revokeObjectURL(url)
     }
-  } catch (e) { message.error('导出失败') }
+  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '导出失败') }
 }
 
 async function verifyIntegrity() {
@@ -115,7 +118,7 @@ async function verifyIntegrity() {
         positiveText: '确定',
       })
     }
-  } catch (e) { message.error('校验失败') }
+  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '校验失败') }
 }
 
 async function doCleanup() {
@@ -123,8 +126,8 @@ async function doCleanup() {
     const data = await auditApi.cleanup(retentionDays.value)
     message.success(`已清理 ${data?.deleted ?? 0} 条过期日志`)
     await loadLogs()
-  } catch (e) {
-    message.error('清理失败')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '清理失败')
     return false
   }
 }
