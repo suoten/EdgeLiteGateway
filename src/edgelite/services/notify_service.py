@@ -167,8 +167,8 @@ class NotifyService:
         finally:
             try:
                 server.quit()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SMTP quit失败: %s", e)
 
     # ─── 企业微信 ───
 

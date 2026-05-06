@@ -73,8 +73,8 @@ class ThingsPanelHandler(PlatformHandler):
         if self._client:
             try:
                 self._client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("ThingsPanel断开连接失败: %s", e)
         self._connected = False
         logger.info("ThingsPanel平台对接已断开")
 

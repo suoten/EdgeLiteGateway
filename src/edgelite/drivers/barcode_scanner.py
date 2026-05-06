@@ -76,8 +76,8 @@ class BarcodeScannerDriver(DriverPlugin):
         if self._serial and self._serial.is_open:
             try:
                 self._serial.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("串口关闭失败: %s", e)
         self._serial = None
         logger.info("扫码枪驱动已停止")
 

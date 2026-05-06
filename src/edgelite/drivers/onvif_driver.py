@@ -86,8 +86,8 @@ class OnvifDriver(DriverPlugin):
         if self._cam and hasattr(self._cam, "devicemgmt") and hasattr(self._cam.devicemgmt, "soap_client"):
             try:
                 self._cam.devicemgmt.soap_client.get_transport().close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("ONVIF关闭传输失败: %s", e)
 
     def _ensure_media(self) -> Any:
         """确保media服务已创建"""

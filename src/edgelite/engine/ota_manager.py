@@ -238,8 +238,8 @@ class OTAManager:
                         info = json.load(f)
                     info["path"] = str(backup_path)
                     backups.append(info)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("读取备份信息失败: %s", e)
         return sorted(backups, key=lambda x: x.get("created_at", ""), reverse=True)
 
     @property

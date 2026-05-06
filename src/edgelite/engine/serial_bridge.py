@@ -146,8 +146,8 @@ class SerialTcpBridge:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("关闭TCP客户端失败: %s", e)
         self._clients.clear()
 
         if self._tcp_server:
@@ -158,8 +158,8 @@ class SerialTcpBridge:
         if self._serial and self._serial.is_open:
             try:
                 self._serial.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("关闭串口失败: %s", e)
         self._serial = None
         logger.info("串口TCP透传桥接已停止")
 
@@ -194,8 +194,8 @@ class SerialTcpBridge:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("关闭客户端连接失败: %s", e)
             logger.info("TCP客户端断开: %s", peer)
 
     async def _tcp_to_serial_loop(self, reader: asyncio.StreamReader) -> None:
@@ -259,8 +259,8 @@ class SerialTcpBridge:
                         try:
                             writer.close()
                             await writer.wait_closed()
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("关闭写入端失败: %s", e)
                     self._stats.client_count = len(self._clients)
             except asyncio.TimeoutError:
                 continue

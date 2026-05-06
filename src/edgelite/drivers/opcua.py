@@ -295,5 +295,5 @@ class _SubHandler:
                 )
                 loop = asyncio.get_running_loop()
                 loop.create_task(_app_state.event_bus.publish(event))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("OPC-UA数据变更回调异常: %s", e)

@@ -209,8 +209,8 @@ class AuditService:
                         "username": username,
                         "fail_count": self._login_fail_counts[key],
                     })
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("审计告警回调失败: %s", e)
             self._login_fail_counts[key] = 0
 
     async def query(

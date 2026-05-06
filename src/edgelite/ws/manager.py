@@ -73,8 +73,8 @@ class ConnectionManager:
         for ws in disconnected:
             try:
                 await ws.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("WebSocket关闭失败: %s", e)
             self._connections.get(channel, set()).discard(ws)
         if disconnected and channel in self._connections and not self._connections[channel]:
             del self._connections[channel]
