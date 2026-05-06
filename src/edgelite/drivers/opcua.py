@@ -216,19 +216,35 @@ class OpcUaDriver(DriverPlugin):
             if not points:
                 return
 
-            # 创建订阅处理handler
             handler = _SubHandler(device_id, self._latest_values, self._data_callback)
 
             subscription = await client.create_subscription(500, handler)
             self._subscriptions[device_id] = subscription
 
-            # 订阅各节点
+            success_count = 0
             for point_def in points:
                 node_id = point_def.get("address", "")
-                node = client.get_node(node_id)
-                await subscription.subscribe_data_change(node)
+                point_name = point_def.get("name", node_id)
+                try:
+                    node = client.get_node(node_id)
+                    await subscription.subscribe_data_change(node)
+                    success_count += 1
+                except Exception as e:
+                    logger.warning(
+                        "OPC-UA节点订阅跳过: %s.%s (node=%s) - %s",
+                        device_id, point_name, node_id, e,
+                    )
 
-            logger.info("OPC-UA订阅创建: %s (%d节点)", device_id, len(points))
+            if success_count > 0:
+                logger.info(
+                    "OPC-UA订阅创建: %s (%d/%d节点成功)",
+                    device_id, success_count, len(points),
+                )
+            else:
+                logger.error(
+                    "OPC-UA订阅全部失败: %s (0/%d节点)",
+                    device_id, len(points),
+                )
 
         except Exception as e:
             logger.error("OPC-UA订阅失败: %s - %s", device_id, e)
