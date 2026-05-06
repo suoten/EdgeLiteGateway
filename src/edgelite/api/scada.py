@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/v1/scada", tags=["组态管理"])
 
 _STORE_DIR = Path("data/scada")
 _STORE_DIR.mkdir(parents=True, exist_ok=True)
+_file_lock = asyncio.Lock()
 
 
 class ScadaProject(BaseModel):
@@ -72,12 +74,13 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
         "widgets": req.widgets,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
+    async with _file_lock:
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
 
 
 @router.delete("/project/{name}", response_model=ApiResponse)

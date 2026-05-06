@@ -290,7 +290,8 @@ async function fetchDevices() {
     const devs = data?.data ?? []
     devices.value = devs
     deviceOptions.value = devs.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))
-  } catch {
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '获取设备列表失败')
     devices.value = []
     deviceOptions.value = []
   }

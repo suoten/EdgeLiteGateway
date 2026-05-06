@@ -438,7 +438,7 @@ async function fetchPointValues(deviceId: string) {
   try {
     const data = await deviceApi.getPoints(deviceId)
     if (data) pointValues.value = { ...pointValues.value, [deviceId]: data }
-  } catch { /* ignore */ }
+  } catch { /* ignore point fetch errors for background refresh */ }
 }
 
 async function refreshAllValues() {

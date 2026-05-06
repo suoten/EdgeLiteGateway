@@ -41,7 +41,8 @@ async def check_update(
         result = await mgr.check_update()
         return ApiResponse(data=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("OTA检查更新失败")
+        raise HTTPException(status_code=500, detail="检查更新失败，请稍后重试")
 
 
 @router.post("/apply", response_model=ApiResponse)
@@ -70,7 +71,8 @@ async def apply_update(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.exception("OTA应用更新失败")
+            raise HTTPException(status_code=500, detail="应用更新失败，请稍后重试")
 
 
 @router.post("/rollback", response_model=ApiResponse)
@@ -85,7 +87,8 @@ async def rollback_update(
         result = await mgr.rollback(version if version else None)
         return ApiResponse(data=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("OTA回滚失败")
+        raise HTTPException(status_code=500, detail="回滚失败，请稍后重试")
 
 
 @router.get("/backups", response_model=ApiResponse)
@@ -99,4 +102,5 @@ async def list_ota_backups(
         result = await asyncio.to_thread(mgr.list_backups)
         return ApiResponse(data={"backups": result})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("OTA获取备份列表失败")
+        raise HTTPException(status_code=500, detail="获取备份列表失败")

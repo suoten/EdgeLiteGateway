@@ -187,7 +187,20 @@ async def list_tools(_user=Depends(get_current_user)):
 async def call_tool(req: ToolCallRequest, _user=Depends(get_current_user)):
     if req.name not in _mcp_server._tools:
         raise HTTPException(status_code=400, detail=f"未知工具: {req.name}")
-    result = await _mcp_server.call_tool(req.name, req.arguments)
+    tool_def = _mcp_server._tools[req.name]
+    input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else getattr(tool_def, "input_schema", None)
+    if input_schema and isinstance(input_schema, dict):
+        required = input_schema.get("required", [])
+        properties = input_schema.get("properties", {})
+        if req.arguments is None:
+            req.arguments = {}
+        for field_name in required:
+            if field_name not in req.arguments:
+                raise HTTPException(status_code=400, detail=f"缺少必填参数: {field_name}")
+        for key in req.arguments:
+            if key not in properties:
+                raise HTTPException(status_code=400, detail=f"未知参数: {key}")
+    result = await _mcp_server.call_tool(req.name, req.arguments or {})
     return ApiResponse(data=result)
 
 

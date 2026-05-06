@@ -103,6 +103,7 @@ const aggregateOptions = [
 const stats = computed(() => {
   if (!queryResult.value.length) return null
   const values = queryResult.value.map(d => d.value ?? d._value ?? 0)
+  if (!values.length) return null
   return {
     count: values.length,
     max: values.reduce((a, b) => Math.max(a, b), -Infinity),
@@ -143,7 +144,8 @@ async function fetchDevices() {
   try {
     const data = await deviceApi.list({ page: 1, size: 100 })
     devices.value = data?.data ?? []
-  } catch {
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || '加载设备列表失败')
     devices.value = []
   }
 }

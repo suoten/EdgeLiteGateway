@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Header, Query
 
-from edgelite.models.device import DeviceCreate, DeviceUpdate, DeviceResponse, SimulatorCreate, WritePointRequest, DiscoverRequest
+from edgelite.models.device import (
+    DeviceCreate,
+    DeviceUpdate,
+    DeviceResponse,
+    SimulatorCreate,
+    WritePointRequest,
+    DiscoverRequest,
+)
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
@@ -116,6 +123,10 @@ async def discover_devices(
 @router.post("/{device_id}/push", response_model=ApiResponse)
 async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(default=""), authorization: str = Header(default="")):
     """HTTP Webhook数据推送端点"""
+    if not device_id or not isinstance(device_id, str) or len(device_id) > 128:
+        raise HTTPException(status_code=400, detail="无效的设备ID")
+    if not isinstance(body, dict) or not body:
+        raise HTTPException(status_code=400, detail="推送数据不能为空")
     from edgelite.app import _app_state
     config = _app_state.config
 

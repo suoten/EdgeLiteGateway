@@ -334,7 +334,12 @@ async function fetchDevice() {
   }
     if (route.query.tab) activeTab.value = route.query.tab as string
   } catch (e: any) {
-    notFound.value = true
+    if (e?.response?.status === 404) {
+      notFound.value = true
+    } else {
+      notFound.value = true
+      message.error(e?.response?.data?.detail || e?.message || '加载设备信息失败')
+    }
   } finally {
     pageLoading.value = false
   }

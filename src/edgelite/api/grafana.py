@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from fastapi import APIRouter, HTTPException
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/grafana", tags=["Grafana集成"])
 
@@ -17,7 +20,8 @@ def _get_grafana_config():
         from edgelite.config import get_config
         config = get_config()
         return getattr(config, "grafana", None)
-    except Exception:
+    except Exception as e:
+        logger.warning("获取Grafana配置失败: %s", e)
         return None
 
 

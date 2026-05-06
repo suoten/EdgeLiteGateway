@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
 
+_MAX_EXPR_LEN = 2048
+_MAX_BATCH_SIZE = 50
+
 router = APIRouter(prefix="/api/v1/expressions", tags=["表达式管理"])
 
 
 class ExpressionTestRequest(BaseModel):
-    expression: str
+    expression: str = Field(..., max_length=_MAX_EXPR_LEN)
     variables: dict[str, float | int | str | bool | None] | None = None
 
 
 class ExpressionBatchRequest(BaseModel):
-    expressions: dict[str, str]
+    expressions: dict[str, str] = Field(..., max_length=_MAX_BATCH_SIZE)
     variables: dict[str, float | int | str | bool | None] | None = None
 
 

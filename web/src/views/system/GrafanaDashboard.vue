@@ -74,7 +74,7 @@
     </n-card>
 
     <n-card v-if="enabled && embedUrl" title="Grafana面板" :bordered="false">
-      <iframe :src="embedUrl" style="width: 100%; height: 600px; border: none; border-radius: 8px;" />
+      <iframe :src="embedUrl" sandbox="allow-scripts allow-same-origin allow-popups" style="width: 100%; height: 600px; border: none; border-radius: 8px;" />
     </n-card>
 
     <n-modal v-model:show="showInstallProgress" title="安装依赖" preset="card" style="width: 480px" :closable="false">
@@ -93,11 +93,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { NButton, useMessage } from 'naive-ui'
+import { NButton, useMessage, useDialog } from 'naive-ui'
 import { serviceApi, grafanaApi } from '@/api'
 import type { ServiceDependency } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const toggleLoading = ref(false)
 const savingConfig = ref(false)
@@ -196,6 +197,20 @@ async function handleOpen(uid?: string) {
 }
 
 async function handleToggle(val: boolean) {
+  if (!val) {
+    dialog.warning({
+      title: '确认停用',
+      content: '停用Grafana将断开所有监控面板连接，确定要停用吗？',
+      positiveText: '确认停用',
+      negativeText: '取消',
+      onPositiveClick: () => doToggle(false),
+    })
+    return
+  }
+  await doToggle(true)
+}
+
+async function doToggle(val: boolean) {
   toggleLoading.value = true
   try {
     if (val) {

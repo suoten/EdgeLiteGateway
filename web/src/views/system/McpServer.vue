@@ -323,6 +323,20 @@ async function fetchApiKeys() {
 }
 
 async function handleToggle(val: boolean) {
+  if (!val) {
+    dialog.warning({
+      title: '确认停用',
+      content: '停用MCP Server将断开所有AI助手连接，确定要停用吗？',
+      positiveText: '确认停用',
+      negativeText: '取消',
+      onPositiveClick: () => doToggleMcp(false),
+    })
+    return
+  }
+  await doToggleMcp(true)
+}
+
+async function doToggleMcp(val: boolean) {
   toggleLoading.value = true
   try {
     if (val) {
