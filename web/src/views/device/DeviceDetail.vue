@@ -410,7 +410,7 @@ function toggleWS(val: boolean) {
           pointValues.value[data.point_name] = { value: data.value, quality: data.quality || 'good' }
         }
       } catch (err) {
-        console.warn('WebSocket消息解析失败:', err)
+        // 静默处理非JSON消息（如ping/pong心跳消息）
       }
     }
     ws.onclose = () => {
