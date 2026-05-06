@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import math
 import random
-import time
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin

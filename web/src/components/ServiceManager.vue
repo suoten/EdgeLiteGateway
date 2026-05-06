@@ -207,7 +207,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { RefreshOutline } from '@vicons/ionicons5'
 import { serviceApi } from '@/api'
 import type { ServiceDependency, ServiceRelatedFeature } from '@/api'
@@ -223,6 +223,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const starting = ref(false)
 const stopping = ref(false)
@@ -349,16 +350,24 @@ async function handleStart() {
 }
 
 async function handleStop() {
-  stopping.value = true
-  try {
-    await serviceApi.stop(props.serviceName)
-    message.success(`${props.displayName}已停止`)
-    await fetchStatus()
-  } catch (e: any) {
-    message.error(e?.response?.data?.detail || '停止失败')
-  } finally {
-    stopping.value = false
-  }
+  dialog.warning({
+    title: '确认停止',
+    content: `确定要停止「${props.displayName}」吗？正在使用该服务的设备可能会断开连接。`,
+    positiveText: '确认停止',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      stopping.value = true
+      try {
+        await serviceApi.stop(props.serviceName)
+        message.success(`${props.displayName}已停止`)
+        await fetchStatus()
+      } catch (e: any) {
+        message.error(e?.response?.data?.detail || '停止失败')
+      } finally {
+        stopping.value = false
+      }
+    },
+  })
 }
 
 async function handleInstallDeps() {

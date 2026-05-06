@@ -103,11 +103,11 @@
         />
 
         <n-modal v-model:show="showCreateKeyModal" title="创建API Key" preset="card" style="width: 480px">
-          <n-form :model="keyForm" label-placement="left" label-width="100">
-            <n-form-item label="名称">
+          <n-form :model="keyForm" :rules="keyFormRules" ref="keyFormRef" label-placement="left" label-width="100">
+            <n-form-item label="名称" path="name">
               <n-input v-model:value="keyForm.name" placeholder="Key名称" />
             </n-form-item>
-            <n-form-item label="权限">
+            <n-form-item label="权限" path="scopes">
               <n-checkbox-group v-model:value="keyForm.scopes">
                 <n-space>
                   <n-checkbox value="read">读取</n-checkbox>
@@ -188,11 +188,17 @@ const callingTool = ref(false)
 const toolCallName = ref('')
 const toolCallArgs = ref('{}')
 const toolCallResult = ref('')
+const keyFormRef = ref<any>(null)
 
 const keyForm = reactive({
   name: '',
   scopes: ['read'] as string[],
 })
+
+const keyFormRules = {
+  name: { required: true, message: '请输入Key名称', trigger: 'blur' },
+  scopes: { type: 'array' as const, required: true, message: '请选择至少一个权限', trigger: 'change' },
+}
 
 const missingDeps = computed(() => dependencies.value.filter(d => !d.installed))
 
@@ -359,10 +365,9 @@ async function handleInstallDeps() {
 }
 
 async function handleCreateKey() {
-  if (!keyForm.name) {
-    message.warning('请输入Key名称')
-    return
-  }
+  try {
+    await keyFormRef.value?.validate()
+  } catch { return }
   try {
     await mcpApi.createKey(keyForm)
     message.success('API Key创建成功')

@@ -6,7 +6,6 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission

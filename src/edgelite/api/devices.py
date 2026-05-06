@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Header, Query, status
+from fastapi import APIRouter, HTTPException, Header, Query
 
 from edgelite.models.device import DeviceCreate, DeviceUpdate, DeviceResponse, SimulatorCreate, WritePointRequest, DiscoverRequest
 from edgelite.models.common import ApiResponse, PagedResponse

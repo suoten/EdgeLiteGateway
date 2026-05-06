@@ -113,7 +113,7 @@ class SerialPortDriver(DriverPlugin):
 
     async def _read_modbus_rtu(self, points: list[str]) -> dict[str, Any]:
         try:
-            from pymodbus.client import AsyncModbusSerialClient
+            from pymodbus.client import AsyncModbusSerialClient as _unused  # noqa: F401
         except ImportError:
             logger.error("pymodbus未安装，Modbus RTU不可用")
             return {}

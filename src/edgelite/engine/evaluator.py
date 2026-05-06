@@ -12,7 +12,7 @@ from edgelite.engine.event_bus import EventBus, PointUpdateEvent, AlarmEvent
 from edgelite.storage.sqlite_repo import RuleRepo, AlarmRepo
 
 try:
-    from edgelite._cython import check_condition_fast, check_conditions_fast
+    from edgelite._cython import check_condition_fast
     _HAS_CYTHON = True
 except ImportError:
     _HAS_CYTHON = False

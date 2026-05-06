@@ -73,11 +73,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
-import { NButton, NSpace, NTag, NSpin, useMessage } from 'naive-ui'
+import { NButton, NSpace, NTag, NSpin, useMessage, useDialog } from 'naive-ui'
 import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { preprocessApi } from '@/api'
 
 const message = useMessage()
+const dialog = useDialog()
 const pageLoading = ref(true)
 
 const globalForm = reactive({
@@ -204,9 +205,17 @@ async function handleAdd() {
 }
 
 function handleDelete(pointKey: string) {
-  delete pointConfigs.value[pointKey]
-  updatePointList()
-  message.success('测点已删除')
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除测点「${pointKey}」的预处理配置吗？`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      delete pointConfigs.value[pointKey]
+      updatePointList()
+      message.success('测点已删除')
+    },
+  })
 }
 
 onMounted(fetchConfig)

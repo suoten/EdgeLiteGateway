@@ -499,10 +499,19 @@ function addWidgetManual(type: string) {
 }
 
 function removeWidget(id: number) {
-  widgets.value = widgets.value.filter(w => w.id !== id)
-  chartData.value.delete(id)
-  if (selectedWidgetId.value === id) selectedWidgetId.value = null
-  pushHistory()
+  const widget = widgets.value.find(w => w.id === id)
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除组件「${widget?.label || id}」吗？`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      widgets.value = widgets.value.filter(w => w.id !== id)
+      chartData.value.delete(id)
+      if (selectedWidgetId.value === id) selectedWidgetId.value = null
+      pushHistory()
+    },
+  })
 }
 
 function selectWidget(widget: any) {

@@ -177,6 +177,7 @@ class OnvifDriver(DriverPlugin):
             return ""
 
         def _sync_get_url() -> str:
+            nonlocal profile_token
             if not profile_token:
                 profiles = media.GetProfiles()
                 if not profiles:

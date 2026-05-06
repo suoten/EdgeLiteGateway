@@ -155,6 +155,16 @@ class Iec104Driver(DriverPlugin):
         logger.info("IEC 104驱动停止")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
+        """IEC 104 协议使用事件驱动模式，数据通过 TCP 连接被动接收，不支持主动轮询读取。
+
+        说明：
+        - IEC 104 是事件驱动的协议，主站发起总召唤后，从站周期性上报数据
+        - 本驱动通过订阅模式接收数据，数据通过 _publish_point 发布到事件总线
+        - 如需获取最新数据，请使用事件订阅或配置更短的上报周期
+
+        返回空字典是协议设计特性，不是错误。
+        如需读取数据，请通过 WebSocket 订阅 /ws/v1/realtime 实时获取数据更新。
+        """
         return {}
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
@@ -189,6 +199,15 @@ class Iec104Driver(DriverPlugin):
             return False
 
     async def discover_devices(self, config: dict) -> list[dict]:
+        """IEC 104 协议不支持自动设备发现。
+
+        说明：
+        - IEC 104 是主从模式协议，需要预先配置从站 IP:Port 和 ASDU 地址
+        - 设备发现需要在子站侧手动配置或使用网络扫描工具
+        - 本方法返回空列表是协议限制，不是错误
+
+        如需添加设备，请在 EdgeLite 管理界面手动输入设备地址信息。
+        """
         return []
 
     def _next_ssn(self) -> int:
@@ -264,7 +283,7 @@ class Iec104Driver(DriverPlugin):
             cot=COT_ACTIVATION, oa=0, asdu_addr=self._asdu_addr,
         )
         ioa_bytes = struct.pack("<H", 0)
-        ioc = struct.pack("B", SBO_ACTIVATE)
+        ioc = struct.pack("B", SBO_SELECT)
         asdu = asdu_header + ioa_bytes + ioc
         frame = self._build_i_frame(asdu)
         await self._send_frame(frame)

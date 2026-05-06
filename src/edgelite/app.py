@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 
-from edgelite.config import get_config, load_config
+from edgelite.config import get_config
 
 logger = logging.getLogger(__name__)
 

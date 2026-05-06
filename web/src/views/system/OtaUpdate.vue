@@ -34,7 +34,7 @@
 
     <n-card title="备份版本" :bordered="false">
       <template #header-extra>
-        <n-button @click="fetchBackups">刷新</n-button>
+        <n-button @click="fetchBackups" :loading="fetchingBackups">刷新</n-button>
       </template>
       <n-data-table :columns="backupColumns" :data="backups" :bordered="false" size="small" />
       <n-empty v-if="!backups.length" description="暂无备份版本" />
@@ -52,6 +52,8 @@ const message = useMessage()
 const dialog = useDialog()
 const checking = ref(false)
 const applying = ref(false)
+const rollingBack = ref(false)
+const fetchingBackups = ref(false)
 const updateInfo = ref<any>(null)
 const backups = ref<any[]>([])
 const pageLoading = ref(true)
@@ -91,16 +93,20 @@ async function applyUpdate() {
 }
 
 async function handleRollback(version: string) {
+  rollingBack.value = true
   try {
     await otaApi.rollback(version)
     message.success('已回滚到版本 ' + version)
     await fetchBackups()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || '回滚失败')
+  } finally {
+    rollingBack.value = false
   }
 }
 
 async function fetchBackups() {
+  fetchingBackups.value = true
   try {
     const data = await otaApi.backups()
     backups.value = data?.backups || []
@@ -108,6 +114,7 @@ async function fetchBackups() {
     message.error(e?.response?.data?.detail || e?.message || '获取备份失败')
   } finally {
     pageLoading.value = false
+    fetchingBackups.value = false
   }
 }
 

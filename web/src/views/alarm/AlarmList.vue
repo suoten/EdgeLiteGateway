@@ -8,7 +8,7 @@
       </n-space>
       <n-popconfirm v-if="firingAlarms.length" @positive-click="handleBatchAck">
         <template #trigger>
-          <n-button type="warning">批量确认 ({{ firingAlarms.length }})</n-button>
+          <n-button type="warning" :loading="batchAcking">批量确认 ({{ firingAlarms.length }})</n-button>
         </template>
         确定批量确认 {{ firingAlarms.length }} 条触发中的告警？
       </n-popconfirm>
@@ -34,6 +34,7 @@ const message = useMessage()
 const dialog = useDialog()
 const alarms = ref<Alarm[]>([])
 const loading = ref(false)
+const batchAcking = ref(false)
 const searchText = ref('')
 const filterStatus = ref<string | null>(null)
 const filterSeverity = ref<string | null>(null)
@@ -122,16 +123,21 @@ async function doAck(alarmId: string) {
 }
 
 async function handleBatchAck() {
-  const ids = firingAlarms.value.map(a => a.alarm_id)
-  const results = await Promise.allSettled(ids.map(id => alarmApi.ack(id)))
-  const succeeded = results.filter(r => r.status === 'fulfilled').length
-  const failed = results.filter(r => r.status === 'rejected').length
-  if (failed > 0) {
-    message.warning(`成功确认 ${succeeded} 条告警，${failed} 条确认失败`)
-  } else {
-    message.success(`成功确认 ${succeeded} 条告警`)
+  batchAcking.value = true
+  try {
+    const ids = firingAlarms.value.map(a => a.alarm_id)
+    const results = await Promise.allSettled(ids.map(id => alarmApi.ack(id)))
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+    if (failed > 0) {
+      message.warning(`成功确认 ${succeeded} 条告警，${failed} 条确认失败`)
+    } else {
+      message.success(`成功确认 ${succeeded} 条告警`)
+    }
+    fetchAlarms()
+  } finally {
+    batchAcking.value = false
   }
-  fetchAlarms()
 }
 
 onMounted(() => {

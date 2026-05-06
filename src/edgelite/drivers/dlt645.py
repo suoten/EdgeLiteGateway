@@ -228,6 +228,15 @@ class Dlt645Driver(DriverPlugin):
         return result
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
+        """DL/T 645-2007 协议主要用于电能表数据抄读，写操作受限。
+
+        说明：
+        - DL/T 645-2007 标准主要用于读取电能数据，写操作支持有限
+        - 部分电表支持远程拉合闸、费率设置等写操作，但需要厂商支持
+        - 如需写操作，请确认电表是否支持相关功能码
+
+        返回 False 表示写操作不支持。如需此功能，请联系电表厂商获取协议扩展文档。
+        """
         return False
 
     @staticmethod
