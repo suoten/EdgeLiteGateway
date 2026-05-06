@@ -18,6 +18,8 @@ import pymodbus
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
 
+from edgelite.drivers.base import DriverPlugin
+
 def _slave_kwarg(slave_id: int) -> dict:
     """返回正确的 Modbus 设备 ID 参数"""
     if _PYMODBUS_MAJOR < 3:
