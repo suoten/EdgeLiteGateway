@@ -25,14 +25,27 @@ class ExpressionBatchRequest(BaseModel):
     variables: dict[str, float | int | str | bool | None] | None = None
 
 
+_engine_instance = None
+
+
+def _get_engine():
+    global _engine_instance
+    if _engine_instance is None:
+        from edgelite.engine.expression_engine import ExpressionEngine
+        _engine_instance = ExpressionEngine()
+    return _engine_instance
+
+
 @router.post("/evaluate", response_model=ApiResponse)
 async def evaluate_expression(
     req: ExpressionTestRequest,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    from edgelite.engine.expression_engine import ExpressionEngine
-    engine = ExpressionEngine()
-    result = engine.evaluate(req.expression, req.variables or {})
+    engine = _get_engine()
+    try:
+        result = engine.evaluate(req.expression, req.variables or {})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"表达式求值失败: {e}")
     return ApiResponse(data={"expression": req.expression, "result": result})
 
 
@@ -41,9 +54,11 @@ async def evaluate_batch(
     req: ExpressionBatchRequest,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    from edgelite.engine.expression_engine import ExpressionEngine
-    engine = ExpressionEngine()
-    results = engine.evaluate_batch(req.expressions, req.variables or {})
+    engine = _get_engine()
+    try:
+        results = engine.evaluate_batch(req.expressions, req.variables or {})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"批量表达式求值失败: {e}")
     return ApiResponse(data={"results": results})
 
 
@@ -52,12 +67,13 @@ async def validate_expression(
     req: ExpressionTestRequest,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    from edgelite.engine.expression_engine import ExpressionEngine
-    engine = ExpressionEngine()
+    engine = _get_engine()
     try:
         engine._validate_expression(engine._resolve_variables(req.expression, req.variables or {}))
         return ApiResponse(data={"valid": True, "expression": req.expression})
     except ValueError as e:
+        return ApiResponse(data={"valid": False, "expression": req.expression, "error": str(e)})
+    except Exception as e:
         return ApiResponse(data={"valid": False, "expression": req.expression, "error": str(e)})
 
 

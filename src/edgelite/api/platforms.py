@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -146,23 +147,37 @@ async def get_platform_config_schema(
     return ApiResponse(data={"platform_name": platform_name, "schema": entry["schema"]})
 
 
+class PlatformConnectRequest(BaseModel):
+    config: dict
+
+
 @router.post("/connect/{platform_name}", response_model=ApiResponse)
 async def connect_platform(
     platform_name: str,
-    config: dict,
+    req: PlatformConnectRequest,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     _ensure_registry()
     from edgelite.app import _app_state
     import importlib
 
-    handlers = getattr(_app_state, "platform_handlers", {})
-    if platform_name in handlers:
-        return ApiResponse(data={"status": "already_connected"})
+    config = req.config
+    if not config:
+        raise HTTPException(status_code=400, detail="平台配置不能为空")
 
     entry = _PLATFORM_REGISTRY.get(platform_name)
     if not entry:
         raise HTTPException(status_code=400, detail=f"不支持的平台: {platform_name}")
+
+    schema_fields = entry.get("schema", {}).get("fields", [])
+    required_fields = [f["name"] for f in schema_fields if f.get("required")]
+    missing = [f for f in required_fields if f not in config or not config[f]]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"缺少必填配置项: {', '.join(missing)}")
+
+    handlers = getattr(_app_state, "platform_handlers", {})
+    if platform_name in handlers:
+        return ApiResponse(data={"status": "already_connected"})
 
     try:
         module = importlib.import_module(entry["module"])

@@ -75,6 +75,18 @@ async def update_preprocess_config(
     if not preprocessor:
         raise HTTPException(status_code=503, detail="预处理器未初始化")
 
+    if req.global_config:
+        config = _get_config()
+        if hasattr(config, "preprocess") and config.preprocess:
+            if req.global_config.enabled is not None:
+                config.preprocess.enabled = req.global_config.enabled
+            if req.global_config.default_deadband is not None:
+                config.preprocess.default_deadband = req.global_config.default_deadband
+            if req.global_config.default_filter_window is not None:
+                config.preprocess.default_filter_window = req.global_config.default_filter_window
+            if req.global_config.default_aggregate_window_sec is not None:
+                config.preprocess.default_aggregate_window_sec = req.global_config.default_aggregate_window_sec
+
     for point_key, config in req.points.items():
         preprocessor.configure(point_key, config)
 

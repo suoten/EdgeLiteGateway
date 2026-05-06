@@ -36,20 +36,32 @@ def _project_path(name: str) -> Path:
     return _STORE_DIR / f"{safe}.json"
 
 
+def _read_json(path: Path) -> dict | None:
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return None
+
+
+def _write_json(path: Path, data: dict) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 @router.get("/projects", response_model=ApiResponse)
 async def list_projects(_user: CurrentUser):
     projects = []
     for f in _STORE_DIR.glob("*.json"):
-        try:
-            with open(f, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
+        data = await asyncio.to_thread(_read_json, f)
+        if data is not None:
             projects.append({
                 "name": data.get("name", f.stem),
                 "widget_count": len(data.get("widgets", [])),
                 "updated_at": data.get("updated_at", ""),
             })
-        except Exception as e:
-            logger.warning("读取组态项目文件失败 %s: %s", f.name, e)
+        else:
+            logger.warning("读取组态项目文件失败 %s", f.name)
     return ApiResponse(data=projects)
 
 
@@ -58,12 +70,10 @@ async def get_project(name: str, _user: CurrentUser):
     path = _project_path(name)
     if not path.exists():
         return ApiResponse(data={"name": name, "widgets": [], "updated_at": None})
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return ApiResponse(data=data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取组态项目失败: {e}")
+    data = await asyncio.to_thread(_read_json, path)
+    if data is None:
+        raise HTTPException(status_code=500, detail="读取组态项目失败")
+    return ApiResponse(data=data)
 
 
 @router.post("/project", response_model=ApiResponse)
@@ -76,8 +86,7 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
     }
     async with _file_lock:
         try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            await asyncio.to_thread(_write_json, path, data)
             return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
@@ -87,6 +96,6 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
 async def delete_project(name: str, _user: CurrentUser):
     path = _project_path(name)
     if path.exists():
-        path.unlink()
+        await asyncio.to_thread(path.unlink)
         return ApiResponse(data={"deleted": True, "name": name})
     raise HTTPException(status_code=404, detail=f"项目 {name} 不存在")

@@ -56,8 +56,7 @@ async def update_user(user_id: str, body: UserUpdate, user: CurrentUser = requir
         if "role" in data and data["role"] != "admin":
             target = await repo.get(user_id)
             if target and target["role"] == "admin":
-                all_users, _ = await repo.list_all(size=10000)
-                admin_count = sum(1 for u in all_users if u["role"] == "admin")
+                admin_count = await repo.count_by_role("admin")
                 if admin_count <= 1:
                     raise HTTPException(status_code=403, detail="不能移除最后一个管理员的角色")
         updated = await repo.update(user_id, data)
@@ -75,8 +74,7 @@ async def delete_user(user_id: str, user: CurrentUser = require_permission(Permi
         repo = UserRepo(session, db.write_lock)
         target = await repo.get(user_id)
         if target and target["role"] == "admin":
-            all_users, _ = await repo.list_all(size=10000)
-            admin_count = sum(1 for u in all_users if u["role"] == "admin")
+            admin_count = await repo.count_by_role("admin")
             if admin_count <= 1:
                 raise HTTPException(status_code=403, detail="不能删除最后一个管理员")
         success = await repo.delete(user_id)

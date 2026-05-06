@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Header, Depends
+from pydantic import BaseModel, Field
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -13,6 +14,14 @@ from edgelite.security.rbac import Permission
 router = APIRouter(prefix="/api/v1/video", tags=["视频接入"])
 
 _PTZ_ACTIONS = Literal["up", "down", "left", "right", "up_left", "up_right", "down_left", "down_right", "zoom_in", "zoom_out", "focus_in", "focus_out", "stop"]
+
+
+class VideoWebhookEvent(BaseModel):
+    event_type: str = Field(default="", description="事件类型")
+    device_id: str = Field(default="", description="设备ID")
+    timestamp: Optional[str] = Field(default=None, description="事件时间戳")
+
+    model_config = {"extra": "allow"}
 
 
 def _get_video_service():
@@ -59,8 +68,8 @@ async def ptz_control(
 
 
 @router.post("/webhook", response_model=ApiResponse)
-async def video_webhook(event_data: dict, auth: None = Depends(_verify_webhook_key)):
+async def video_webhook(event: VideoWebhookEvent, auth: None = Depends(_verify_webhook_key)):
     """接收PyGBSentry Webhook回调"""
     svc = _get_video_service()
-    await svc.handle_webhook(event_data)
+    await svc.handle_webhook(event.model_dump())
     return ApiResponse()

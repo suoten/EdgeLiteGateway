@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import logging
-
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -316,10 +315,14 @@ async def list_all_drivers(user: CurrentUser = require_permission(Permission.SYS
     return ApiResponse(data=drivers_info)
 
 
+class DriverDiscoverRequest(BaseModel):
+    config: dict = {}
+
+
 @router.post("/{driver_name}/discover", response_model=ApiResponse)
 async def discover_devices(
     driver_name: str,
-    config: dict = None,
+    req: DriverDiscoverRequest = None,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     registry = _get_registry()
@@ -332,7 +335,7 @@ async def discover_devices(
 
     try:
         driver = driver_cls()
-        driver_config = config or {}
+        driver_config = req.config if req else {}
         await driver.start(driver_config)
         devices = await driver.discover_devices(driver_config)
         try:

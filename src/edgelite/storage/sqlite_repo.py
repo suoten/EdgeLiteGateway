@@ -445,6 +445,13 @@ class UserRepo(BaseRepo):
             orm.password = hashed_password
             await self._commit(session)
 
+    async def count_by_role(self, role: str) -> int:
+        async with self._auto_session() as session:
+            result = await session.execute(
+                select(func.count()).select_from(UserORM).where(UserORM.role == role)
+            )
+            return result.scalar() or 0
+
 
 def _orm_to_device(orm: DeviceORM) -> dict:
     return {
