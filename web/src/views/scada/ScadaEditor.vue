@@ -7,17 +7,17 @@
         <n-tag v-if="previewMode" type="warning" size="small" round>预览模式</n-tag>
       </div>
       <div class="header-actions">
-        <n-button size="small" quaternary style="color: #e0f0ff" @click="showHelp = true">使用说明</n-button>
+        <n-button size="small" quaternary style="color: #fff" @click="showHelp = true">使用说明</n-button>
         <n-button-group size="small">
-          <n-button quaternary style="color: #e0f0ff" @click="undo" :disabled="historyIndex <= 0">↩ 撤销</n-button>
-          <n-button quaternary style="color: #e0f0ff" @click="redo" :disabled="historyIndex >= historyStack.length - 1">↪ 重做</n-button>
+          <n-button quaternary style="color: #fff" @click="undo" :disabled="historyIndex <= 0">↩ 撤销</n-button>
+          <n-button quaternary style="color: #fff" @click="redo" :disabled="historyIndex >= historyStack.length - 1">↪ 重做</n-button>
         </n-button-group>
-        <n-button size="small" :type="previewMode ? 'warning' : 'default'" style="color: #e0f0ff" @click="previewMode = !previewMode">
+        <n-button size="small" :type="previewMode ? 'warning' : 'default'" style="color: #fff" @click="previewMode = !previewMode">
           {{ previewMode ? '退出预览' : '▶ 预览' }}
         </n-button>
         <n-button size="small" type="primary" @click="saveProject">💾 保存</n-button>
-        <n-button size="small" style="color: #e0f0ff" @click="loadProject">📂 加载</n-button>
-        <n-button size="small" quaternary style="color: #e0f0ff" @click="exportAsImage">🖼 导出图片</n-button>
+        <n-button size="small" style="color: #fff" @click="loadProject">📂 加载</n-button>
+        <n-button size="small" quaternary style="color: #fff" @click="exportAsImage">🖼 导出图片</n-button>
       </div>
     </div>
 
@@ -52,9 +52,9 @@
       <div class="canvas-area" ref="canvasAreaRef">
         <div v-if="!previewMode" class="canvas-toolbar">
           <n-button-group size="tiny">
-            <n-button style="color: #e0f0ff" @click="zoom = Math.min(zoom + 0.1, 2)">放大</n-button>
-            <n-button style="color: #e0f0ff; cursor: default; background: transparent; border-color: #1a2a3a;">{{ Math.round(zoom * 100) }}%</n-button>
-            <n-button style="color: #e0f0ff" @click="zoom = Math.max(zoom - 0.1, 0.3)">缩小</n-button>
+            <n-button style="color: #fff" @click="zoom = Math.min(zoom + 0.1, 2)">放大</n-button>
+            <n-button style="color: #fff; cursor: default; background: transparent; border-color: #1a2a3a;">{{ Math.round(zoom * 100) }}%</n-button>
+            <n-button style="color: #fff" @click="zoom = Math.max(zoom - 0.1, 0.3)">缩小</n-button>
           </n-button-group>
         </div>
         <div
