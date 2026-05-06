@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
-from edgelite.api.deps import get_current_user
+from edgelite.api.deps import CurrentUser, get_current_user, require_permission
+from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
