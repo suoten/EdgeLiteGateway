@@ -20,6 +20,9 @@ try:
 except ImportError:
     _HAS_CYTHON_MAPPER = False
 
+import pymodbus
+_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
+
 logger = logging.getLogger(__name__)
 
 
@@ -74,19 +77,24 @@ class ModbusSlaveServer:
         input_size = int(config.get("input_size", 1000))
 
         try:
-            # 创建数据存储
-            coils_block = ModbusSequentialDataBlock(0, [0] * coils_size)
-            discrete_block = ModbusSequentialDataBlock(0, [0] * discrete_size)
-            holding_block = ModbusSequentialDataBlock(0, [0] * holding_size)
-            input_block = ModbusSequentialDataBlock(0, [0] * input_size)
+            # 创建数据存储 (pymodbus 3.x 要求地址 >= 1)
+            coils_block = ModbusSequentialDataBlock(1, [0] * coils_size)
+            discrete_block = ModbusSequentialDataBlock(1, [0] * discrete_size)
+            holding_block = ModbusSequentialDataBlock(1, [0] * holding_size)
+            input_block = ModbusSequentialDataBlock(1, [0] * input_size)
 
+            # pymodbus 3.x 使用 ModbusDeviceContext
             slave_context = _SlaveCtx(
                 di=discrete_block,
                 co=coils_block,
                 hr=holding_block,
                 ir=input_block,
             )
-            self._context = ModbusServerContext(slaves=slave_context, single=True)
+            # pymodbus 3.x 参数名变化: slaves -> devices
+            if _PYMODBUS_MAJOR < 3:
+                self._context = ModbusServerContext(slaves=slave_context, single=True)
+            else:
+                self._context = ModbusServerContext(devices=slave_context, single=True)
 
             # 启动Server
             self._task = asyncio.create_task(

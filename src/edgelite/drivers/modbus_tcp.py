@@ -16,17 +16,13 @@ except ImportError:
 
 import pymodbus
 
-_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '3.0.0').split('.')[0])
-_USE_UNIT = _PYMODBUS_MAJOR >= 3
-
-from edgelite.drivers.base import DriverPlugin
-
-logger = logging.getLogger(__name__)
+_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
 
 def _slave_kwarg(slave_id: int) -> dict:
-    if _USE_UNIT:
-        return {"unit": slave_id}
-    return {"slave": slave_id}
+    """返回正确的 Modbus 设备 ID 参数"""
+    if _PYMODBUS_MAJOR < 3:
+        return {"unit": slave_id}  # pymodbus 2.x
+    return {"device_id": slave_id}  # pymodbus 3.x
 
 # 寄存器类型映射
 REGISTER_TYPES = {

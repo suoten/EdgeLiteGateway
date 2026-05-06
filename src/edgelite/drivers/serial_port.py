@@ -16,6 +16,28 @@ from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
 
+import pymodbus
+
+_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
+
+
+def _slave_kwarg(slave_id: int) -> dict:
+    """返回 pymodbus 3.x 兼容的设备 ID 参数"""
+    if _PYMODBUS_MAJOR < 3:
+        return {"slave": slave_id}
+    return {"device_id": slave_id}
+
+
+def _create_serial_client(port: str, baudrate: int, parity: str) -> Any:
+    """创建 pymodbus 3.x 兼容的串口客户端"""
+    from pymodbus.client import ModbusSerialClient
+    return ModbusSerialClient(
+        port=port,
+        baudrate=baudrate,
+        parity=parity,
+    )
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -162,7 +184,7 @@ class SerialPortDriver(DriverPlugin):
                 parity=self._serial.parity,
             )
             client.connect()
-            rr = client.read_holding_registers(addr, count, slave=slave_id)
+            rr = client.read_holding_registers(addr, count, **_slave_kwarg(slave_id))
             client.close()
             if not rr.isError():
                 return rr.registers
@@ -179,7 +201,7 @@ class SerialPortDriver(DriverPlugin):
                 parity=self._serial.parity,
             )
             client.connect()
-            rr = client.read_input_registers(addr, count, slave=slave_id)
+            rr = client.read_input_registers(addr, count, **_slave_kwarg(slave_id))
             client.close()
             if not rr.isError():
                 return rr.registers
@@ -196,7 +218,7 @@ class SerialPortDriver(DriverPlugin):
                 parity=self._serial.parity,
             )
             client.connect()
-            rr = client.read_coils(addr, count, slave=slave_id)
+            rr = client.read_coils(addr, count, **_slave_kwarg(slave_id))
             client.close()
             if not rr.isError():
                 return rr.bits[:count]
