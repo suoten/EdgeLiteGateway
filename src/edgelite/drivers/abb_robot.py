@@ -133,8 +133,8 @@ class AbbRobotDriver(DriverPlugin):
                             joints.append(float(v))
                         except (ValueError, TypeError):
                             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("ABB关节数据解析失败: %s", e)
         return joints
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:

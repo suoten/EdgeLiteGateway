@@ -215,8 +215,8 @@ class SparkplugBDriver(DriverPlugin):
         if self._client:
             try:
                 await self._client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SparkPlug断开连接失败: %s", e)
             self._client = None
 
         self._nbirth_published = False

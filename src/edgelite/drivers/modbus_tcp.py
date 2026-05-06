@@ -202,8 +202,8 @@ class ModbusTcpDriver(DriverPlugin):
                             "port": port,
                             "slave_id": slave_id,
                         })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Modbus TCP发现设备异常[%s:%s]: %s", host, port, e)
             finally:
                 client.close()
 
@@ -270,8 +270,8 @@ class ModbusTcpDriver(DriverPlugin):
         if client:
             try:
                 client.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Modbus TCP客户端关闭失败[%s]: %s", device_id, e)
 
         host = config.get("host", "127.0.0.1")
         port = config.get("port", 502)

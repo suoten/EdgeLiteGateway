@@ -70,8 +70,8 @@ class IntegrationEndpoint:
         if ws:
             try:
                 await ws.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("集成WebSocket关闭失败[%s]: %s", session_id, e)
         self._sessions.pop(session_id, None)
 
     async def handle_message(self, session_id: str, raw_data: str) -> dict[str, Any] | None:

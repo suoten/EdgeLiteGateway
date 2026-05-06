@@ -59,8 +59,8 @@ class OpcUaDriver(DriverPlugin):
         for device_id, client in self._clients.items():
             try:
                 await client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("OPC-UA客户端断开失败[%s]: %s", device_id, e)
         self._clients.clear()
         self._subscriptions.clear()
         logger.info("OPC-UA驱动停止")
@@ -98,8 +98,8 @@ class OpcUaDriver(DriverPlugin):
         if client:
             try:
                 await client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("OPC-UA设备断开失败[%s]: %s", device_id, e)
         self._subscriptions.pop(device_id, None)
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
@@ -203,8 +203,8 @@ class OpcUaDriver(DriverPlugin):
                 if client:
                     try:
                         await client.disconnect()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("OPC-UA写入回调断开失败[%s]: %s", device_id, e)
                 self._subscriptions.pop(device_id, None)
 
     async def _create_subscription(self, device_id: str, client: Any) -> None:

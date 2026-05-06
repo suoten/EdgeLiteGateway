@@ -118,8 +118,8 @@ class KukaDriver(DriverPlugin):
             try:
                 self._writer.close()
                 await self._writer.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("KUKA连接关闭失败: %s", e)
         self._reader = None
         self._writer = None
         self._connected = False
