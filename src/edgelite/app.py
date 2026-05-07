@@ -437,6 +437,18 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-API-Key"],
     )
 
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    from edgelite.models.common import ApiResponse
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        logger.exception("未处理的异常: %s %s -> %s", request.method, request.url.path, exc)
+        return JSONResponse(
+            status_code=500,
+            content=ApiResponse(code=1, message=f"服务器内部错误: {exc}", data=None).model_dump(),
+        )
+
     # 注册路由
     from edgelite.api import auth, devices, rules, alarms, data, video, system, users
     app.include_router(auth.router)

@@ -18,6 +18,8 @@ import pymodbus
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
 
+logger = logging.getLogger(__name__)
+
 from edgelite.drivers.base import DriverPlugin
 
 def _slave_kwarg(slave_id: int) -> dict:

@@ -176,6 +176,7 @@ async def change_password(
     async with db.get_session() as session:
         repo = UserRepo(session, write_lock)
         await repo.update_password(user["username"], hashed)
+        await repo.update_user(user["username"], {"must_change_password": False})
     return ApiResponse(data={"message": "密码修改成功"})
 
 

@@ -431,7 +431,10 @@ async function onSelectDevice(device: any) {
     else if (data && typeof data === 'object') currentDevicePoints.value = Object.entries(data).map(([name, info]: [string, any]) => ({ name, ...(typeof info === 'object' ? info : { value: info }) }))
     else currentDevicePoints.value = device.points || []
     await fetchPointValues(device.device_id)
-  } catch { currentDevicePoints.value = device.points || [] }
+  } catch (e) {
+    currentDevicePoints.value = device.points || []
+    console.warn('获取设备测点失败:', e)
+  }
 }
 
 async function fetchPointValues(deviceId: string) {
@@ -633,7 +636,9 @@ onMounted(async () => {
           widgets.value = data.widgets
           widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0)
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        console.warn('解析本地存储项目失败:', e)
+      }
     }
   }
   pageLoading.value = false

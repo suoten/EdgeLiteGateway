@@ -273,7 +273,7 @@ export const driverApi = {
     http.get<ApiResponse<{ driver_name: string; schema: any }>>(`/drivers/${driverName}/config-schema`).then((r) => r.data.data),
 
   discover: (driverName: string, config?: Record<string, any>) =>
-    http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, config || {}).then((r) => r.data.data),
+    http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, { config: config || {} }).then((r) => r.data.data),
 }
 
 // ─── 预处理配置 ───
