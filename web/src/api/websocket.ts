@@ -18,10 +18,10 @@ const WS_BASE = import.meta.env.VITE_WS_BASE_URL
   || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
 
 const CHANNELS = {
-  realtime: '/ws/v1/realtime',
-  alarm: '/ws/v1/alarm',
-  device: '/ws/v1/device',
-  integration: '/ws/v1/integration',
+  realtime: '/realtime',
+  alarm: '/alarm',
+  device: '/device',
+  integration: '/integration',
 } as const
 
 type ChannelName = keyof typeof CHANNELS
