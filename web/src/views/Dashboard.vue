@@ -391,22 +391,34 @@ onUnmounted(() => {
 })
 
 function onRealtimeMessage(data: any) {
-  if (data?.device_id && status.value) {
-    updateResourceHistory()
+  try {
+    if (data?.device_id && status.value) {
+      updateResourceHistory()
+    }
+  } catch (e) {
+    console.warn('处理实时数据消息失败:', e)
   }
 }
 
 function onAlarmMessage(data: any) {
-  if (data) {
-    fetchAlarms()
-    if (status.value) status.value.alarm_firing = (status.value.alarm_firing ?? 0) + 1
+  try {
+    if (data) {
+      fetchAlarms()
+      if (status.value) status.value.alarm_firing = (status.value.alarm_firing ?? 0) + 1
+    }
+  } catch (e) {
+    console.warn('处理告警消息失败:', e)
   }
 }
 
 function onDeviceMessage(data: any) {
-  if (data?.device_id) {
-    fetchDevices()
-    fetchStatus()
+  try {
+    if (data?.device_id) {
+      fetchDevices()
+      fetchStatus()
+    }
+  } catch (e) {
+    console.warn('处理设备消息失败:', e)
   }
 }
 </script>

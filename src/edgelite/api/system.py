@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import re
 
+import logging
+
 from fastapi import APIRouter, Body, HTTPException
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/system", tags=["系统管理"])
 
@@ -20,23 +24,35 @@ def _get_system_service():
 
 @router.get("/status", response_model=ApiResponse)
 async def get_system_status(user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
-    svc = _get_system_service()
-    status_data = await svc.get_status()
-    return ApiResponse(data=status_data)
+    try:
+        svc = _get_system_service()
+        status_data = await svc.get_status()
+        return ApiResponse(data=status_data)
+    except Exception as e:
+        logger.error("获取系统状态失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"获取系统状态失败: {e}")
 
 
 @router.get("/backup", response_model=ApiResponse)
 async def list_backups(user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
-    svc = _get_system_service()
-    backups = await svc.list_backups()
-    return ApiResponse(data=backups)
+    try:
+        svc = _get_system_service()
+        backups = await svc.list_backups()
+        return ApiResponse(data=backups)
+    except Exception as e:
+        logger.error("获取备份列表失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"获取备份列表失败: {e}")
 
 
 @router.post("/backup", response_model=ApiResponse, status_code=201)
 async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
-    svc = _get_system_service()
-    backup = await svc.create_backup()
-    return ApiResponse(data=backup)
+    try:
+        svc = _get_system_service()
+        backup = await svc.create_backup()
+        return ApiResponse(data=backup)
+    except Exception as e:
+        logger.error("创建备份失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"创建备份失败: {e}")
 
 
 @router.post("/restore", response_model=ApiResponse)

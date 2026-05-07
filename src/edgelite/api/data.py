@@ -38,9 +38,14 @@ async def query_timeseries(
     _VALID_AGGREGATES = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
     if aggregate and aggregate.lower() not in _VALID_AGGREGATES:
         raise HTTPException(status_code=400, detail=f"不支持的聚合函数: {aggregate}，可选值: {', '.join(sorted(_VALID_AGGREGATES))}")
-    svc = _get_data_service()
-    data = await svc.query_timeseries(device_id, point_name, start, stop, aggregate)
-    return ApiResponse(data=data)
+    try:
+        svc = _get_data_service()
+        data = await svc.query_timeseries(device_id, point_name, start, stop, aggregate)
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"时序数据查询失败: {e}")
 
 
 @router.get("/export")
@@ -52,8 +57,13 @@ async def export_data(
     format: str = Query("csv", pattern="^(csv|json)$"),
     user: CurrentUser = require_permission(Permission.DATA_EXPORT),
 ):
-    svc = _get_data_service()
-    content = await svc.export_data(device_id, point_name, start, stop, format)
+    try:
+        svc = _get_data_service()
+        content = await svc.export_data(device_id, point_name, start, stop, format)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"数据导出失败: {e}")
 
     media_type = "text/csv" if format == "csv" else "application/json"
     filename = f"{_safe_filename(device_id)}_{_safe_filename(point_name)}.{format}"

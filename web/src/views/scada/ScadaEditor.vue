@@ -438,7 +438,9 @@ async function fetchPointValues(deviceId: string) {
   try {
     const data = await deviceApi.getPoints(deviceId)
     if (data) pointValues.value = { ...pointValues.value, [deviceId]: data }
-  } catch { /* ignore point fetch errors for background refresh */ }
+  } catch (e) {
+    console.warn('获取设备测点值失败:', deviceId, e)
+  }
 }
 
 async function refreshAllValues() {
