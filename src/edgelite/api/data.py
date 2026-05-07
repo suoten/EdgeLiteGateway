@@ -45,7 +45,7 @@ async def query_timeseries(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"时序数据查询失败: {e}")
+        raise HTTPException(status_code=500, detail="时序数据查询失败，请检查参数或稍后重试")
 
 
 @router.get("/export")
@@ -63,7 +63,7 @@ async def export_data(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"数据导出失败: {e}")
+        raise HTTPException(status_code=500, detail="数据导出失败，请检查参数或稍后重试")
 
     media_type = "text/csv" if format == "csv" else "application/json"
     filename = f"{_safe_filename(device_id)}_{_safe_filename(point_name)}.{format}"

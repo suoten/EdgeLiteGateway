@@ -12,7 +12,7 @@
     <n-modal v-model:show="showCreateModal" title="创建用户" preset="card" style="width: 500px">
       <n-form :model="createForm" label-placement="left" label-width="80" :rules="createRules" ref="createFormRef">
         <n-form-item label="用户名" path="username"><n-input v-model:value="createForm.username" placeholder="请输入用户名" /></n-form-item>
-        <n-form-item label="密码" path="password"><n-input v-model:value="createForm.password" type="password" show-password-on="click" placeholder="请输入密码（至少6位）" /></n-form-item>
+        <n-form-item label="密码" path="password"><n-input v-model:value="createForm.password" type="password" show-password-on="click" placeholder="请输入密码（至少8位，含字母和数字）" /></n-form-item>
         <n-form-item label="角色" path="role">
           <n-select v-model:value="createForm.role" :options="roleOptions" placeholder="选择角色" />
         </n-form-item>
@@ -76,8 +76,8 @@ const roleColor: Record<string, any> = { admin: 'error', operator: 'warning', vi
 const roleLabel: Record<string, string> = { admin: '管理员', operator: '操作员', viewer: '观察者' }
 
 const createRules = {
-  username: { required: true, message: '请输入用户名', trigger: 'blur' },
-  password: { required: true, min: 6, message: '密码至少6位', trigger: 'blur' },
+  username: { required: true, pattern: /^[a-zA-Z0-9_]+$/, message: '用户名仅支持字母、数字和下划线', trigger: 'blur' },
+  password: { required: true, min: 8, message: '密码至少8位，需包含字母和数字', trigger: 'blur' },
   role: { required: true, message: '请选择角色', trigger: 'change' },
 }
 

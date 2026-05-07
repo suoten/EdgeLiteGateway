@@ -24,9 +24,9 @@ class ModbusConfig(BaseModel):
     """Modbus TCP连接配置"""
 
     host: str = "127.0.0.1"
-    port: int = 502
-    slave_id: int = 1
-    timeout: float = 5.0
+    port: int = Field(default=502, ge=1, le=65535)
+    slave_id: int = Field(default=1, ge=0, le=247)
+    timeout: float = Field(default=5.0, ge=0.1)
 
 
 class SimulatorConfig(BaseModel):

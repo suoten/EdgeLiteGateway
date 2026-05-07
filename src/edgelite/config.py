@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
-    port: int = 8080
+    port: int = Field(default=8080, ge=1, le=65535)
     cors_origins: list[str] = ["http://localhost:3000"]
     webhook_api_key: str = ""
 
@@ -43,7 +43,7 @@ class InfluxDBConfig(BaseModel):
 
 class MQTTConfig(BaseModel):
     broker: str = "localhost"
-    port: int = 1883
+    port: int = Field(default=1883, ge=1, le=65535)
     username: str = ""
     password: str = ""
     topic_prefix: str = "edgelite"
@@ -61,8 +61,8 @@ class VideoConfig(BaseModel):
 
 class SecurityConfig(BaseModel):
     secret_key: str = ""
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_days: int = 7
+    access_token_expire_minutes: int = Field(default=30, ge=1)
+    refresh_token_expire_days: int = Field(default=7, ge=1)
     algorithm: str = "HS256"
 
 
@@ -134,8 +134,8 @@ class MqttServerConfig(BaseModel):
     """内置MQTT Server配置"""
     enabled: bool = False
     host: str = "0.0.0.0"
-    port: int = 1888
-    ws_port: int | None = None
+    port: int = Field(default=1888, ge=1, le=65535)
+    ws_port: int | None = Field(default=None, ge=1, le=65535)
     username: str = ""
     password: str = ""
 
@@ -144,9 +144,9 @@ class ModbusSlaveConfig(BaseModel):
     """内置Modbus Slave配置"""
     enabled: bool = False
     host: str = "0.0.0.0"
-    port: int = 502
-    holding_size: int = 1000
-    input_size: int = 1000
+    port: int = Field(default=502, ge=1, le=65535)
+    holding_size: int = Field(default=1000, ge=1)
+    input_size: int = Field(default=1000, ge=1)
 
 
 class SparkplugBConfig(BaseModel):

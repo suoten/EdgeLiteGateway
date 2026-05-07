@@ -159,6 +159,7 @@ import VChart from 'vue-echarts'
 import { deviceApi, dataApi, videoApi, type Device } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { deviceStatusLabel, deviceStatusColor, qualityLabel, protocolLabel } from '@/utils/enumLabels'
+import { connect as wsConnect, disconnect as wsDisconnect } from '@/api/websocket'
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
 
@@ -208,11 +209,8 @@ const editRules = {
   name: { required: true, message: '请输入设备名称', trigger: 'blur' },
   collect_interval: { required: true, type: 'number' as const, min: 1, max: 3600, message: '采集间隔1-3600秒', trigger: 'blur' },
 }
-let ws: WebSocket | null = null
-let wsReconnectTimer: number | null = null
+let wsHandler: ((data: any) => void) | null = null
 const writeValues = ref<Record<string, any>>({})
-let wsRetryCount = 0
-let wsManualClose = false
 
 const deviceId = computed(() => route.params.id as string)
 
@@ -403,60 +401,39 @@ async function fetchChartData() {
 
 function toggleWS(val: boolean) {
   if (val) {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const token = sessionStorage.getItem('edgelite_token') || ''
-    ws = new WebSocket(`${protocol}//${location.host}/ws/v1/realtime?token=${encodeURIComponent(token)}`)
-    ws.onopen = () => { wsConnected.value = true; wsRetryCount = 0; message.success('WebSocket 已连接') }
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data.device_id === deviceId.value) {
-          if (!pointValues.value) pointValues.value = {}
-          pointValues.value[data.point_name] = { value: data.value, quality: data.quality || 'good' }
-        }
-      } catch (err) {
-        // 静默处理非JSON消息（如ping/pong心跳消息）
+    if (wsHandler) return
+    wsHandler = (data: any) => {
+      if (data.device_id === deviceId.value) {
+        if (!pointValues.value) pointValues.value = {}
+        pointValues.value[data.point_name] = { value: data.value, quality: data.quality || 'good' }
       }
     }
-    ws.onclose = () => {
-      wsConnected.value = false
-      if (wsManualClose) { wsManualClose = false; return }
-      if (wsRetryCount > 10) {
-        message.warning('WebSocket重连次数过多，已停止重连')
-        return
-      }
-      if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
-      const backoff = Math.min(2000 * Math.pow(2, wsRetryCount), 60000) + Math.random() * 1000
-      wsRetryCount++
-      wsReconnectTimer = window.setTimeout(() => {
-        if (!wsConnected.value) toggleWS(true)
-      }, backoff)
-    }
-    ws.onerror = () => { wsConnected.value = false; message.error('WebSocket 连接失败') }
+    wsConnect('realtime', wsHandler)
+    wsConnected.value = true
+    message.success('WebSocket 已连接')
   } else {
-    wsManualClose = true
-    ws?.close()
-    ws = null
+    if (wsHandler) {
+      wsDisconnect('realtime', wsHandler)
+      wsHandler = null
+    }
     wsConnected.value = false
   }
 }
 
 onMounted(() => { fetchDevice(); fetchPoints() })
 onUnmounted(() => {
-  wsManualClose = true
-  ws?.close()
-  if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
-  wsReconnectTimer = null
+  if (wsHandler) {
+    wsDisconnect('realtime', wsHandler)
+    wsHandler = null
+  }
 })
 
 watch(deviceId, () => {
-  wsManualClose = true
-  ws?.close()
-  ws = null
+  if (wsHandler) {
+    wsDisconnect('realtime', wsHandler)
+    wsHandler = null
+  }
   wsConnected.value = false
-  wsRetryCount = 0
-  if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
-  wsReconnectTimer = null
   chartData.value = []
   pointValues.value = null
   notFound.value = false

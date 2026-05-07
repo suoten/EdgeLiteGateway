@@ -20,8 +20,12 @@ class VideoService:
 
     async def init_provider(self) -> None:
         """初始化视频提供者"""
-        self._provider = PyGBSentryProvider()
-        await self._provider.connect()
+        try:
+            self._provider = PyGBSentryProvider()
+            await self._provider.connect()
+        except Exception as e:
+            logger.error("视频提供者初始化失败: %s", e)
+            self._provider = None
 
     async def close(self) -> None:
         if self._provider:

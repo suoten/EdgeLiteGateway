@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -18,11 +18,11 @@ router = APIRouter(prefix="/api/v1/modbus-slave", tags=["Modbus Slave"])
 
 class ModbusSlaveConfigModel(BaseModel):
     host: str = "0.0.0.0"
-    port: int = 502
-    holding_size: int = 100
-    input_size: int = 100
-    coil_size: int = 100
-    discrete_size: int = 100
+    port: int = Field(default=502, ge=1, le=65535)
+    holding_size: int = Field(default=100, ge=1)
+    input_size: int = Field(default=100, ge=1)
+    coil_size: int = Field(default=100, ge=1)
+    discrete_size: int = Field(default=100, ge=1)
 
 
 def _get_modbus_slave():

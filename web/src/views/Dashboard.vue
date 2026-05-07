@@ -318,7 +318,7 @@ async function fetchStatus() {
     status.value = await systemApi.getStatus()
     uptime.value = status.value?.uptime ?? 0
   } catch (e: any) {
-    msg.warning('获取系统状态失败')
+    msg.warning(e?.response?.data?.detail || e?.message || '获取系统状态失败')
   }
 }
 
@@ -331,8 +331,8 @@ async function fetchProtocols() {
       const protoData = await driverApi.protocols()
       supportedProtocols.value = protoData?.protocols || []
     }
-  } catch (e) {
-    msg.warning('获取协议列表失败')
+  } catch (e: any) {
+    msg.warning(e?.response?.data?.detail || e?.message || '获取协议列表失败')
     supportedProtocols.value = []
   }
 }
@@ -341,8 +341,8 @@ async function fetchDevices() {
   try {
     const data = await deviceApi.list({ page: 1, size: 500 })
     devices.value = data?.data ?? []
-  } catch (e) {
-    msg.warning('获取设备列表失败')
+  } catch (e: any) {
+    msg.warning(e?.response?.data?.detail || e?.message || '获取设备列表失败')
     devices.value = []
   }
 }
@@ -351,8 +351,8 @@ async function fetchAlarms() {
   try {
     const data = await alarmApi.list({ page: 1, size: 500 })
     alarms.value = data?.data ?? []
-  } catch (e) {
-    msg.warning('获取告警列表失败')
+  } catch (e: any) {
+    msg.warning(e?.response?.data?.detail || e?.message || '获取告警列表失败')
     alarms.value = []
   }
 }

@@ -57,8 +57,8 @@ class UserResponse(BaseModel):
 class LoginRequest(BaseModel):
     """登录请求"""
 
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=32)
+    password: str = Field(min_length=1, max_length=72)
 
 
 class TokenResponse(BaseModel):
@@ -67,4 +67,4 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    expires_in: int
+    expires_in: int = Field(ge=1)

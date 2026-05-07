@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/v1/mqtt-server", tags=["MQTT Server"])
 
 class MqttServerConfigModel(BaseModel):
     host: str = "0.0.0.0"
-    port: int = 1883
-    ws_port: int = 8083
+    port: int = Field(default=1883, ge=1, le=65535)
+    ws_port: int = Field(default=8083, ge=1, le=65535)
     username: str = ""
     password: str = ""
 

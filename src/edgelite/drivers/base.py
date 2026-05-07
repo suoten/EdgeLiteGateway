@@ -34,8 +34,8 @@ class DriverPlugin(ABC):
         return []
 
     def on_data(self, callback: Callable) -> None:
-        """注册数据回调（可选，用于推送型协议如MQTT）"""
-        pass
+        """注册数据回调（可选，用于推送型协议如MQTT）。子类如需支持推送，应覆盖此方法保存callback。"""
+        self._data_callback = callback
 
     @property
     def is_running(self) -> bool:

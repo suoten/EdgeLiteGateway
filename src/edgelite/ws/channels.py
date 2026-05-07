@@ -42,6 +42,13 @@ class WebSocketChannels:
             name="ws-device",
         ))
 
+        # integration频道：北向集成事件
+        integration_queue = self._event_bus.subscribe("ws_integration")
+        self._tasks.append(asyncio.create_task(
+            self._channel_loop("integration", integration_queue, self._format_integration),
+            name="ws-integration",
+        ))
+
         logger.info("WebSocket频道启动完成")
 
     async def stop(self) -> None:
@@ -107,3 +114,11 @@ class WebSocketChannels:
             "new_status": event.new_status,
             "timestamp": event.timestamp,
         }
+
+    @staticmethod
+    def _format_integration(event) -> dict | None:
+        if isinstance(event, dict):
+            return event
+        if hasattr(event, "model_dump"):
+            return event.model_dump()
+        return None

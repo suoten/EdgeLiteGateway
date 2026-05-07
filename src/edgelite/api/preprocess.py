@@ -78,14 +78,18 @@ async def update_preprocess_config(
     if req.global_config:
         config = _get_config()
         if hasattr(config, "preprocess") and config.preprocess:
-            if req.global_config.enabled is not None:
-                config.preprocess.enabled = req.global_config.enabled
-            if req.global_config.default_deadband is not None:
-                config.preprocess.default_deadband = req.global_config.default_deadband
-            if req.global_config.default_filter_window is not None:
-                config.preprocess.default_filter_window = req.global_config.default_filter_window
-            if req.global_config.default_aggregate_window_sec is not None:
-                config.preprocess.default_aggregate_window_sec = req.global_config.default_aggregate_window_sec
+            enabled = req.global_config.get("enabled")
+            if enabled is not None:
+                config.preprocess.enabled = enabled
+            deadband = req.global_config.get("default_deadband")
+            if deadband is not None:
+                config.preprocess.default_deadband = deadband
+            filter_window = req.global_config.get("default_filter_window")
+            if filter_window is not None:
+                config.preprocess.default_filter_window = filter_window
+            aggregate_window = req.global_config.get("default_aggregate_window_sec")
+            if aggregate_window is not None:
+                config.preprocess.default_aggregate_window_sec = aggregate_window
 
     for point_key, config in req.points.items():
         preprocessor.configure(point_key, config)
