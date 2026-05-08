@@ -59,8 +59,14 @@ async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM
 async def restore_backup(backup_id: str = Body(..., embed=True), user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     if not re.match(r'^[a-zA-Z0-9_-]+$', backup_id):
         raise HTTPException(status_code=400, detail="无效的备份ID")
-    svc = _get_system_service()
-    success = await svc.restore_backup(backup_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="备份不存在")
-    return ApiResponse()
+    try:
+        svc = _get_system_service()
+        success = await svc.restore_backup(backup_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="备份不存在")
+        return ApiResponse()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("恢复失败: %s", e)
+        raise HTTPException(status_code=500, detail="恢复失败")

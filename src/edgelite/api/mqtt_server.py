@@ -41,30 +41,36 @@ async def get_mqtt_server_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    info = mgr.get_service_info("mqtt_server")
+    try:
+        mgr = get_service_manager()
+        info = mgr.get_service_info("mqtt_server")
 
-    mqtt_server = _get_mqtt_server()
-    connections = 0
-    if mqtt_server and hasattr(mqtt_server, "get_client_count"):
-        try:
-            connections = mqtt_server.get_client_count()
-        except Exception as e:
-            logger.warning("获取MQTT客户端数量失败: %s", e)
+        mqtt_server = _get_mqtt_server()
+        connections = 0
+        if mqtt_server and hasattr(mqtt_server, "get_client_count"):
+            try:
+                connections = mqtt_server.get_client_count()
+            except Exception as e:
+                logger.warning("获取MQTT客户端数量失败: %s", e)
 
-    return ApiResponse(data={
-        "enabled": info.state.value != "disabled",
-        "running": info.state.value == "running",
-        "state": info.state.value,
-        "host": info.current_config.get("host", "0.0.0.0"),
-        "port": info.current_config.get("port", 1883),
-        "ws_port": info.current_config.get("ws_port", 8083),
-        "connections": connections,
-        "dependencies": [
-            {"package": d.package, "installed": d.installed, "version": d.version}
-            for d in info.dependencies
-        ],
-    })
+        return ApiResponse(data={
+            "enabled": info.state.value != "disabled",
+            "running": info.state.value == "running",
+            "state": info.state.value,
+            "host": info.current_config.get("host", "0.0.0.0"),
+            "port": info.current_config.get("port", 1883),
+            "ws_port": info.current_config.get("ws_port", 8083),
+            "connections": connections,
+            "dependencies": [
+                {"package": d.package, "installed": d.installed, "version": d.version}
+                for d in info.dependencies
+            ],
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")
 
 
 @router.post("/start", response_model=ApiResponse)
@@ -72,11 +78,17 @@ async def start_mqtt_server(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    result = await mgr.start_service("mqtt_server")
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
-    return ApiResponse(data=result)
+    try:
+        mgr = get_service_manager()
+        result = await mgr.start_service("mqtt_server")
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("启动失败: %s", e)
+        raise HTTPException(status_code=500, detail="启动失败")
 
 
 @router.post("/stop", response_model=ApiResponse)
@@ -84,11 +96,17 @@ async def stop_mqtt_server(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    result = await mgr.stop_service("mqtt_server")
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
-    return ApiResponse(data=result)
+    try:
+        mgr = get_service_manager()
+        result = await mgr.stop_service("mqtt_server")
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("停止失败: %s", e)
+        raise HTTPException(status_code=500, detail="停止失败")
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -97,8 +115,14 @@ async def update_mqtt_server_config(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    result = await mgr.update_service_config("mqtt_server", config.model_dump())
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "配置更新失败"))
-    return ApiResponse(data=result)
+    try:
+        mgr = get_service_manager()
+        result = await mgr.update_service_config("mqtt_server", config.model_dump())
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "配置更新失败"))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("更新失败: %s", e)
+        raise HTTPException(status_code=500, detail="更新失败")

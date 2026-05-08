@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/audit", tags=["审计日志"])
 
@@ -62,11 +66,17 @@ async def verify_integrity(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     svc = _get_audit_service()
-    if not svc:
-        raise HTTPException(status_code=501, detail="审计日志服务未启用")
+    try:
+        if not svc:
+            raise HTTPException(status_code=501, detail="审计日志服务未启用")
 
-    result = await svc.verify_integrity()
-    return ApiResponse(data=result)
+        result = await svc.verify_integrity()
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("验证失败: %s", e)
+        raise HTTPException(status_code=500, detail="验证失败")
 
 
 @router.get("/export/csv", response_model=ApiResponse)
@@ -98,8 +108,14 @@ async def cleanup_audit_logs(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     svc = _get_audit_service()
-    if not svc:
-        raise HTTPException(status_code=501, detail="审计日志服务未启用")
+    try:
+        if not svc:
+            raise HTTPException(status_code=501, detail="审计日志服务未启用")
 
-    deleted = await svc.cleanup(retention_days=retention_days)
-    return ApiResponse(data={"deleted": deleted})
+        deleted = await svc.cleanup(retention_days=retention_days)
+        return ApiResponse(data={"deleted": deleted})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("清理失败: %s", e)
+        raise HTTPException(status_code=500, detail="清理失败")

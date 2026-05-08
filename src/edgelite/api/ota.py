@@ -40,7 +40,7 @@ async def check_update(
     try:
         result = await mgr.check_update()
         return ApiResponse(data=result)
-    except Exception as e:
+    except Exception:
         logger.exception("OTA检查更新失败")
         raise HTTPException(status_code=500, detail="检查更新失败，请稍后重试")
 
@@ -51,28 +51,34 @@ async def apply_update(
 ):
     if _ota_lock.locked():
         raise HTTPException(status_code=409, detail="OTA升级正在进行中，请勿重复提交")
-    async with _ota_lock:
-        mgr = _get_ota_manager()
-        if not mgr:
-            raise HTTPException(status_code=503, detail="OTA升级服务未启用")
-        try:
-            update_info = await mgr.check_update()
-            if not update_info:
-                raise HTTPException(status_code=404, detail="没有可用更新")
-            version = update_info.get("version", "")
-            download_url = update_info.get("download_url", "")
-            if not download_url:
-                raise HTTPException(status_code=500, detail="更新信息中缺少下载地址")
-            update_file = await mgr.download_update(version, download_url)
-            if not update_file:
-                raise HTTPException(status_code=500, detail="下载更新包失败")
-            result = await mgr.apply_update(update_file)
-            return ApiResponse(data={"success": result})
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.exception("OTA应用更新失败")
-            raise HTTPException(status_code=500, detail="应用更新失败，请稍后重试")
+    try:
+        async with _ota_lock:
+            mgr = _get_ota_manager()
+            if not mgr:
+                raise HTTPException(status_code=503, detail="OTA升级服务未启用")
+            try:
+                update_info = await mgr.check_update()
+                if not update_info:
+                    raise HTTPException(status_code=404, detail="没有可用更新")
+                version = update_info.get("version", "")
+                download_url = update_info.get("download_url", "")
+                if not download_url:
+                    raise HTTPException(status_code=500, detail="更新信息中缺少下载地址")
+                update_file = await mgr.download_update(version, download_url)
+                if not update_file:
+                    raise HTTPException(status_code=500, detail="下载更新包失败")
+                result = await mgr.apply_update(update_file)
+                return ApiResponse(data={"success": result})
+            except HTTPException:
+                raise
+            except Exception:
+                logger.exception("OTA应用更新失败")
+                raise HTTPException(status_code=500, detail="应用更新失败，请稍后重试")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("操作失败: %s", e)
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @router.post("/rollback", response_model=ApiResponse)
@@ -86,7 +92,7 @@ async def rollback_update(
     try:
         result = await mgr.rollback(version if version else None)
         return ApiResponse(data=result)
-    except Exception as e:
+    except Exception:
         logger.exception("OTA回滚失败")
         raise HTTPException(status_code=500, detail="回滚失败，请稍后重试")
 
@@ -101,6 +107,6 @@ async def list_ota_backups(
     try:
         result = await asyncio.to_thread(mgr.list_backups)
         return ApiResponse(data={"backups": result})
-    except Exception as e:
+    except Exception:
         logger.exception("OTA获取备份列表失败")
         raise HTTPException(status_code=500, detail="获取备份列表失败")

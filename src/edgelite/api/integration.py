@@ -1,7 +1,7 @@
 """EdgeLite v1.0 联调集成API路由"""
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -36,8 +36,14 @@ async def handshake(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     endpoint = _get_integration_endpoint()
-    response = await endpoint.handle_handshake(req.model_dump())
-    return ApiResponse(data=response)
+    try:
+        response = await endpoint.handle_handshake(req.model_dump())
+        return ApiResponse(data=response)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("握手失败: %s", e)
+        raise HTTPException(status_code=500, detail="握手失败")
 
 
 @router.get("/status", response_model=ApiResponse)
@@ -45,11 +51,17 @@ async def get_integration_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     endpoint = _get_integration_endpoint()
-    sessions = getattr(endpoint, "_sessions", {})
-    session_ids = list(sessions.keys())
-    return ApiResponse(data={
-        "connected": len(session_ids) > 0,
-        "session_id": session_ids[0] if session_ids else None,
-        "sessions": len(session_ids),
-        "session_ids": session_ids,
-    })
+    try:
+        sessions = getattr(endpoint, "_sessions", {})
+        session_ids = list(sessions.keys())
+        return ApiResponse(data={
+            "connected": len(session_ids) > 0,
+            "session_id": session_ids[0] if session_ids else None,
+            "sessions": len(session_ids),
+            "session_ids": session_ids,
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")

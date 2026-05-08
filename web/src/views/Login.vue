@@ -59,7 +59,7 @@
         <h1 class="login-title">EdgeLiteGateway</h1>
         <p class="login-subtitle">轻量级边缘计算物联网网关</p>
       </div>
-      <n-form ref="formRef" :model="form" :rules="rules" size="large">
+      <n-form v-if="!showChangePassword" ref="formRef" :model="form" :rules="rules" size="large">
         <n-form-item path="username">
           <n-input v-model:value="form.username" placeholder="请输入用户名" @keyup.enter="handleLogin">
             <template #prefix><n-icon :component="PersonOutline" /></template>
@@ -72,6 +72,23 @@
         </n-form-item>
         <n-button type="primary" block :loading="loading" @click="handleLogin" style="margin-top: 8px">
           登 录
+        </n-button>
+      </n-form>
+      <n-form v-else ref="changePwdFormRef" :model="changePwdForm" :rules="changePwdRules" size="large">
+        <n-alert type="warning" style="margin-bottom:16px">
+          首次登录需要修改密码后才能继续使用
+        </n-alert>
+        <n-form-item path="old_password" label="当前密码">
+          <n-input v-model:value="changePwdForm.old_password" type="password" show-password-on="click" placeholder="请输入当前密码" />
+        </n-form-item>
+        <n-form-item path="new_password" label="新密码">
+          <n-input v-model:value="changePwdForm.new_password" type="password" show-password-on="click" placeholder="至少8位，包含字母和数字" />
+        </n-form-item>
+        <n-form-item path="confirm_password" label="确认新密码">
+          <n-input v-model:value="changePwdForm.confirm_password" type="password" show-password-on="click" placeholder="再次输入新密码" />
+        </n-form-item>
+        <n-button type="primary" block :loading="changingPwd" @click="handleChangePassword" style="margin-top: 8px">
+          修改密码
         </n-button>
       </n-form>
       <n-text depth="3" style="display:block;text-align:center;margin-top:16px;font-size:13px">
@@ -90,11 +107,14 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api'
 
 const router = useRouter()
 const message = useMessage()
 const auth = useAuthStore()
 const loading = ref(false)
+const showChangePassword = ref(false)
+const changingPwd = ref(false)
 
 const form = reactive({ username: '', password: '' })
 const rules = {
@@ -103,6 +123,21 @@ const rules = {
 }
 const formRef = ref<any>(null)
 
+const changePwdForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
+const changePwdRules = {
+  old_password: { required: true, message: '请输入当前密码', trigger: 'blur' },
+  new_password: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 8, message: '密码至少8位', trigger: 'blur' },
+    { validator: (_rule: any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: '密码需包含字母和数字', trigger: 'blur' },
+  ],
+  confirm_password: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: '两次输入的密码不一致', trigger: 'blur' },
+  ],
+}
+const changePwdFormRef = ref<any>(null)
+
 async function handleLogin() {
   try {
     await formRef.value?.validate()
@@ -110,8 +145,14 @@ async function handleLogin() {
   loading.value = true
   try {
     await auth.login(form.username, form.password)
-    message.success('登录成功，欢迎回来！')
-    router.push('/')
+    if (auth.mustChangePassword) {
+      showChangePassword.value = true
+      changePwdForm.old_password = form.password
+      message.warning('首次登录需要修改密码')
+    } else {
+      message.success('登录成功，欢迎回来！')
+      router.push('/')
+    }
   } catch (e: any) {
     const detail = e?.response?.data?.detail || e?.message || ''
     if (detail.includes('429') || detail.includes('频繁') || detail.includes('过多')) {
@@ -127,6 +168,28 @@ async function handleLogin() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function handleChangePassword() {
+  try {
+    await changePwdFormRef.value?.validate()
+  } catch { return }
+  changingPwd.value = true
+  try {
+    await authApi.changePassword({
+      old_password: changePwdForm.old_password,
+      new_password: changePwdForm.new_password,
+    })
+    auth.mustChangePassword = false
+    sessionStorage.setItem('edgelite_mustChangePassword', 'false')
+    message.success('密码修改成功，正在进入系统...')
+    router.push('/')
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail || e?.message || ''
+    message.error(detail || '密码修改失败，请重试')
+  } finally {
+    changingPwd.value = false
   }
 }
 </script>

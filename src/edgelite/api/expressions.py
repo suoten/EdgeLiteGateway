@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -11,6 +13,8 @@ from edgelite.security.rbac import Permission
 
 _MAX_EXPR_LEN = 2048
 _MAX_BATCH_SIZE = 50
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/expressions", tags=["表达式管理"])
 
@@ -95,21 +99,27 @@ async def list_available_functions(
         {"name": "log", "description": "自然对数", "example": "log(${device.value})"},
         {"name": "log10", "description": "常用对数", "example": "log10(${device.value})"},
     ]
-    operators = [
-        {"symbol": "+", "description": "加法"},
-        {"symbol": "-", "description": "减法"},
-        {"symbol": "*", "description": "乘法"},
-        {"symbol": "/", "description": "除法"},
-        {"symbol": "%", "description": "取模"},
-        {"symbol": "**", "description": "幂运算"},
-        {"symbol": "==", "description": "等于"},
-        {"symbol": "!=", "description": "不等于"},
-        {"symbol": ">", "description": "大于"},
-        {"symbol": "<", "description": "小于"},
-        {"symbol": ">=", "description": "大于等于"},
-        {"symbol": "<=", "description": "小于等于"},
-        {"symbol": "and", "description": "逻辑与"},
-        {"symbol": "or", "description": "逻辑或"},
-        {"symbol": "not", "description": "逻辑非"},
-    ]
-    return ApiResponse(data={"functions": functions, "operators": operators})
+    try:
+        operators = [
+            {"symbol": "+", "description": "加法"},
+            {"symbol": "-", "description": "减法"},
+            {"symbol": "*", "description": "乘法"},
+            {"symbol": "/", "description": "除法"},
+            {"symbol": "%", "description": "取模"},
+            {"symbol": "**", "description": "幂运算"},
+            {"symbol": "==", "description": "等于"},
+            {"symbol": "!=", "description": "不等于"},
+            {"symbol": ">", "description": "大于"},
+            {"symbol": "<", "description": "小于"},
+            {"symbol": ">=", "description": "大于等于"},
+            {"symbol": "<=", "description": "小于等于"},
+            {"symbol": "and", "description": "逻辑与"},
+            {"symbol": "or", "description": "逻辑或"},
+            {"symbol": "not", "description": "逻辑非"},
+        ]
+        return ApiResponse(data={"functions": functions, "operators": operators})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")

@@ -66,7 +66,7 @@ const backupColumns = [
     title: '操作', key: 'actions', width: 100,
     render: (row: any) =>
       h(NPopconfirm as any, { onPositiveClick: () => handleRollback(row.version) }, {
-        trigger: () => h(NButton, { text: true, type: 'warning' }, { default: () => '回滚' }),
+        trigger: () => h(NButton, { text: true, type: 'warning', loading: rollingBack.value }, { default: () => '回滚' }),
         default: () => `确定回滚到 ${row.version}？回滚后系统将重启。`,
       }),
   },

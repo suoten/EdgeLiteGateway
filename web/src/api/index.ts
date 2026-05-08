@@ -309,7 +309,7 @@ export const platformApi = {
     http.get<ApiResponse<{ platform_name: string; schema: any }>>(`/platforms/config-schema/${platformName}`).then((r) => r.data.data),
 
   connect: (platformName: string, config: Record<string, any>) =>
-    http.post<ApiResponse<{ status: string }>>(`/platforms/connect/${platformName}`, config).then((r) => r.data.data),
+    http.post<ApiResponse<{ status: string }>>(`/platforms/connect/${platformName}`, { config }).then((r) => r.data.data),
 
   disconnect: (platformName: string) =>
     http.post<ApiResponse<{ status: string }>>(`/platforms/disconnect/${platformName}`).then((r) => r.data.data),

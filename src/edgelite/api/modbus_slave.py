@@ -42,22 +42,28 @@ async def get_modbus_slave_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    info = mgr.get_service_info("modbus_slave")
+    try:
+        mgr = get_service_manager()
+        info = mgr.get_service_info("modbus_slave")
 
-    return ApiResponse(data={
-        "enabled": info.state.value != "disabled",
-        "running": info.state.value == "running",
-        "state": info.state.value,
-        "host": info.current_config.get("host", "0.0.0.0"),
-        "port": info.current_config.get("port", 502),
-        "holding_size": info.current_config.get("holding_size", 100),
-        "input_size": info.current_config.get("input_size", 100),
-        "dependencies": [
-            {"package": d.package, "installed": d.installed, "version": d.version}
-            for d in info.dependencies
-        ],
-    })
+        return ApiResponse(data={
+            "enabled": info.state.value != "disabled",
+            "running": info.state.value == "running",
+            "state": info.state.value,
+            "host": info.current_config.get("host", "0.0.0.0"),
+            "port": info.current_config.get("port", 502),
+            "holding_size": info.current_config.get("holding_size", 100),
+            "input_size": info.current_config.get("input_size", 100),
+            "dependencies": [
+                {"package": d.package, "installed": d.installed, "version": d.version}
+                for d in info.dependencies
+            ],
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")
 
 
 @router.post("/start", response_model=ApiResponse)
@@ -65,11 +71,17 @@ async def start_modbus_slave(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    result = await mgr.start_service("modbus_slave")
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
-    return ApiResponse(data=result)
+    try:
+        mgr = get_service_manager()
+        result = await mgr.start_service("modbus_slave")
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("启动失败: %s", e)
+        raise HTTPException(status_code=500, detail="启动失败")
 
 
 @router.post("/stop", response_model=ApiResponse)
@@ -77,11 +89,17 @@ async def stop_modbus_slave(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    result = await mgr.stop_service("modbus_slave")
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
-    return ApiResponse(data=result)
+    try:
+        mgr = get_service_manager()
+        result = await mgr.stop_service("modbus_slave")
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("停止失败: %s", e)
+        raise HTTPException(status_code=500, detail="停止失败")
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -90,8 +108,14 @@ async def update_modbus_slave_config(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     from edgelite.services.service_manager import get_service_manager
-    mgr = get_service_manager()
-    result = await mgr.update_service_config("modbus_slave", config.model_dump())
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "配置更新失败"))
-    return ApiResponse(data=result)
+    try:
+        mgr = get_service_manager()
+        result = await mgr.update_service_config("modbus_slave", config.model_dump())
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "配置更新失败"))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("更新失败: %s", e)
+        raise HTTPException(status_code=500, detail="更新失败")

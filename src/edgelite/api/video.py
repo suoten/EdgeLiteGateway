@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import BaseModel, Field
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/video", tags=["视频接入"])
 
@@ -47,10 +51,16 @@ async def get_stream_url(
     user: CurrentUser = require_permission(Permission.VIDEO_READ),
 ):
     svc = _get_video_service()
-    url = await svc.get_stream_url(device_id, channel_id)
-    if not url:
-        raise HTTPException(status_code=503, detail="视频流地址获取失败")
-    return ApiResponse(data={"url": url, "device_id": device_id, "channel_id": channel_id})
+    try:
+        url = await svc.get_stream_url(device_id, channel_id)
+        if not url:
+            raise HTTPException(status_code=503, detail="视频流地址获取失败")
+        return ApiResponse(data={"url": url, "device_id": device_id, "channel_id": channel_id})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")
 
 
 @router.post("/{device_id}/ptz", response_model=ApiResponse)
@@ -61,15 +71,27 @@ async def ptz_control(
     user: CurrentUser = require_permission(Permission.VIDEO_CONTROL),
 ):
     svc = _get_video_service()
-    success = await svc.ptz_control(device_id, channel_id, action)
-    if not success:
-        raise HTTPException(status_code=400, detail="云台控制失败")
-    return ApiResponse()
+    try:
+        success = await svc.ptz_control(device_id, channel_id, action)
+        if not success:
+            raise HTTPException(status_code=400, detail="云台控制失败")
+        return ApiResponse()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("云台控制失败: %s", e)
+        raise HTTPException(status_code=500, detail="云台控制失败")
 
 
 @router.post("/webhook", response_model=ApiResponse)
 async def video_webhook(event: VideoWebhookEvent, auth: None = Depends(_verify_webhook_key)):
     """接收PyGBSentry Webhook回调"""
-    svc = _get_video_service()
-    await svc.handle_webhook(event.model_dump())
-    return ApiResponse()
+    try:
+        svc = _get_video_service()
+        await svc.handle_webhook(event.model_dump())
+        return ApiResponse()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("操作失败: %s", e)
+        raise HTTPException(status_code=500, detail="操作失败")

@@ -44,7 +44,7 @@ async def query_timeseries(
         return ApiResponse(data=data)
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="时序数据查询失败，请检查参数或稍后重试")
 
 
@@ -62,7 +62,7 @@ async def export_data(
         content = await svc.export_data(device_id, point_name, start, stop, format)
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="数据导出失败，请检查参数或稍后重试")
 
     media_type = "text/csv" if format == "csv" else "application/json"

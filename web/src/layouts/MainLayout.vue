@@ -159,7 +159,16 @@ const pwdFormRef = ref<any>(null)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 const pwdRules = {
   oldPassword: { required: true, message: '请输入当前密码', trigger: 'blur' },
-  newPassword: { required: true, min: 6, message: '新密码至少需要6个字符', trigger: 'blur' },
+  newPassword: {
+    required: true,
+    trigger: 'blur',
+    validator: (_rule: any, value: string) => {
+      if (!value) return new Error('请输入新密码')
+      if (value.length < 8) return new Error('新密码至少8位，需包含字母和数字')
+      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error('新密码需同时包含字母和数字')
+      return true
+    },
+  },
   confirmPassword: {
     required: true,
     trigger: 'blur',

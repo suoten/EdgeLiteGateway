@@ -58,6 +58,15 @@ const editFormRef = ref<any>(null)
 
 const editRules = {
   role: { required: true, message: '请选择角色', trigger: 'change' },
+  password: {
+    trigger: 'blur',
+    validator: (_rule: any, value: string) => {
+      if (!value) return true
+      if (value.length < 8) return new Error('密码至少8位，需包含字母和数字')
+      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error('密码需同时包含字母和数字')
+      return true
+    },
+  },
 }
 
 const filteredUsers = computed(() => {
@@ -77,7 +86,16 @@ const roleLabel: Record<string, string> = { admin: '管理员', operator: '操�
 
 const createRules = {
   username: { required: true, pattern: /^[a-zA-Z0-9_]+$/, message: '用户名仅支持字母、数字和下划线', trigger: 'blur' },
-  password: { required: true, min: 8, message: '密码至少8位，需包含字母和数字', trigger: 'blur' },
+  password: {
+    required: true,
+    trigger: 'blur',
+    validator: (_rule: any, value: string) => {
+      if (!value) return new Error('请输入密码')
+      if (value.length < 8) return new Error('密码至少8位，需包含字母和数字')
+      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error('密码需同时包含字母和数字')
+      return true
+    },
+  },
   role: { required: true, message: '请选择角色', trigger: 'change' },
 }
 

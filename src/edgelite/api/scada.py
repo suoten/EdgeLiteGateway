@@ -52,50 +52,74 @@ def _write_json(path: Path, data: dict) -> None:
 @router.get("/projects", response_model=ApiResponse)
 async def list_projects(_user: CurrentUser):
     projects = []
-    for f in _STORE_DIR.glob("*.json"):
-        data = await asyncio.to_thread(_read_json, f)
-        if data is not None:
-            projects.append({
-                "name": data.get("name", f.stem),
-                "widget_count": len(data.get("widgets", [])),
-                "updated_at": data.get("updated_at", ""),
-            })
-        else:
-            logger.warning("读取组态项目文件失败 %s", f.name)
-    return ApiResponse(data=projects)
+    try:
+        for f in _STORE_DIR.glob("*.json"):
+            data = await asyncio.to_thread(_read_json, f)
+            if data is not None:
+                projects.append({
+                    "name": data.get("name", f.stem),
+                    "widget_count": len(data.get("widgets", [])),
+                    "updated_at": data.get("updated_at", ""),
+                })
+            else:
+                logger.warning("读取组态项目文件失败 %s", f.name)
+        return ApiResponse(data=projects)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")
 
 
 @router.get("/project/{name}", response_model=ApiResponse)
 async def get_project(name: str, _user: CurrentUser):
     path = _project_path(name)
-    if not path.exists():
-        return ApiResponse(data={"name": name, "widgets": [], "updated_at": None})
-    data = await asyncio.to_thread(_read_json, path)
-    if data is None:
-        raise HTTPException(status_code=500, detail="读取组态项目失败")
-    return ApiResponse(data=data)
+    try:
+        if not path.exists():
+            return ApiResponse(data={"name": name, "widgets": [], "updated_at": None})
+        data = await asyncio.to_thread(_read_json, path)
+        if data is None:
+            raise HTTPException(status_code=500, detail="读取组态项目失败")
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")
 
 
 @router.post("/project", response_model=ApiResponse)
 async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
     path = _project_path(req.name)
-    data = {
-        "name": req.name,
-        "widgets": req.widgets,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    async with _file_lock:
-        try:
-            await asyncio.to_thread(_write_json, path, data)
-            return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
+    try:
+        data = {
+            "name": req.name,
+            "widgets": req.widgets,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        async with _file_lock:
+            try:
+                await asyncio.to_thread(_write_json, path, data)
+                return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("保存失败: %s", e)
+        raise HTTPException(status_code=500, detail="保存失败")
 
 
 @router.delete("/project/{name}", response_model=ApiResponse)
 async def delete_project(name: str, _user: CurrentUser):
     path = _project_path(name)
-    if path.exists():
-        await asyncio.to_thread(path.unlink)
-        return ApiResponse(data={"deleted": True, "name": name})
-    raise HTTPException(status_code=404, detail=f"项目 {name} 不存在")
+    try:
+        if path.exists():
+            await asyncio.to_thread(path.unlink)
+            return ApiResponse(data={"deleted": True, "name": name})
+        raise HTTPException(status_code=404, detail=f"项目 {name} 不存在")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("删除失败: %s", e)
+        raise HTTPException(status_code=500, detail="删除失败")

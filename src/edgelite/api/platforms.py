@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/platforms", tags=["平台配置"])
 
@@ -117,21 +121,27 @@ async def list_platforms(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     _ensure_registry()
-    handlers = _get_platform_handlers()
-    platforms = []
-    for name, handler in handlers.items():
-        platforms.append({
-            "name": getattr(handler, "platform_name", name),
-            "version": getattr(handler, "platform_version", "1.0.0"),
-            "connected": getattr(handler, "_connected", False),
-        })
+    try:
+        handlers = _get_platform_handlers()
+        platforms = []
+        for name, handler in handlers.items():
+            platforms.append({
+                "name": getattr(handler, "platform_name", name),
+                "version": getattr(handler, "platform_version", "1.0.0"),
+                "connected": getattr(handler, "_connected", False),
+            })
 
-    all_supported = [
-        {"name": k, "label": v["label"], "description": v["description"]}
-        for k, v in _PLATFORM_REGISTRY.items()
-    ]
+        all_supported = [
+            {"name": k, "label": v["label"], "description": v["description"]}
+            for k, v in _PLATFORM_REGISTRY.items()
+        ]
 
-    return ApiResponse(data={"platforms": platforms, "supported": all_supported})
+        return ApiResponse(data={"platforms": platforms, "supported": all_supported})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")
 
 
 @router.get("/config-schema/{platform_name}", response_model=ApiResponse)
@@ -140,11 +150,17 @@ async def get_platform_config_schema(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     _ensure_registry()
-    entry = _PLATFORM_REGISTRY.get(platform_name)
-    if not entry:
-        raise HTTPException(status_code=404, detail=f"平台 {platform_name} 配置模板不存在")
+    try:
+        entry = _PLATFORM_REGISTRY.get(platform_name)
+        if not entry:
+            raise HTTPException(status_code=404, detail=f"平台 {platform_name} 配置模板不存在")
 
-    return ApiResponse(data={"platform_name": platform_name, "schema": entry["schema"]})
+        return ApiResponse(data={"platform_name": platform_name, "schema": entry["schema"]})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")
 
 
 class PlatformConnectRequest(BaseModel):
@@ -216,12 +232,18 @@ async def get_platform_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     handlers = _get_platform_handlers()
-    handler = handlers.get(platform_name)
-    if not handler:
-        return ApiResponse(data={"connected": False})
+    try:
+        handler = handlers.get(platform_name)
+        if not handler:
+            return ApiResponse(data={"connected": False})
 
-    return ApiResponse(data={
-        "connected": getattr(handler, "_connected", False),
-        "name": getattr(handler, "platform_name", platform_name),
-        "version": getattr(handler, "platform_version", "1.0.0"),
-    })
+        return ApiResponse(data={
+            "connected": getattr(handler, "_connected", False),
+            "name": getattr(handler, "platform_name", platform_name),
+            "version": getattr(handler, "platform_version", "1.0.0"),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取失败")

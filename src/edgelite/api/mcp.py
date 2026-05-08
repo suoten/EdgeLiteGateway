@@ -180,38 +180,62 @@ _mcp_server = MCPServer()
 
 @router.get("/tools", response_model=ApiResponse)
 async def list_tools(_user=Depends(get_current_user)):
-    return ApiResponse(data={"tools": list(_mcp_server._tools.values())})
+    try:
+        return ApiResponse(data={"tools": list(_mcp_server._tools.values())})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")
 
 
 @router.post("/call", response_model=ApiResponse)
 async def call_tool(req: ToolCallRequest, _user=Depends(get_current_user)):
     if req.name not in _mcp_server._tools:
         raise HTTPException(status_code=400, detail=f"未知工具: {req.name}")
-    tool_def = _mcp_server._tools[req.name]
-    input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else getattr(tool_def, "input_schema", None)
-    if input_schema and isinstance(input_schema, dict):
-        required = input_schema.get("required", [])
-        properties = input_schema.get("properties", {})
-        if req.arguments is None:
-            req.arguments = {}
-        for field_name in required:
-            if field_name not in req.arguments:
-                raise HTTPException(status_code=400, detail=f"缺少必填参数: {field_name}")
-        for key in req.arguments:
-            if key not in properties:
-                raise HTTPException(status_code=400, detail=f"未知参数: {key}")
-    result = await _mcp_server.call_tool(req.name, req.arguments or {})
-    return ApiResponse(data=result)
+    try:
+        tool_def = _mcp_server._tools[req.name]
+        input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else getattr(tool_def, "input_schema", None)
+        if input_schema and isinstance(input_schema, dict):
+            required = input_schema.get("required", [])
+            properties = input_schema.get("properties", {})
+            if req.arguments is None:
+                req.arguments = {}
+            for field_name in required:
+                if field_name not in req.arguments:
+                    raise HTTPException(status_code=400, detail=f"缺少必填参数: {field_name}")
+            for key in req.arguments:
+                if key not in properties:
+                    raise HTTPException(status_code=400, detail=f"未知参数: {key}")
+        result = await _mcp_server.call_tool(req.name, req.arguments or {})
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("操作失败: %s", e)
+        raise HTTPException(status_code=500, detail="操作失败")
 
 
 @router.get("/resources", response_model=ApiResponse)
 async def list_resources(_user=Depends(get_current_user)):
-    return ApiResponse(data={"resources": list(_mcp_server._resources.values())})
+    try:
+        return ApiResponse(data={"resources": list(_mcp_server._resources.values())})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")
 
 
 @router.get("/prompts", response_model=ApiResponse)
 async def list_prompts(_user=Depends(get_current_user)):
-    return ApiResponse(data={"prompts": list(_mcp_server._prompts.values())})
+    try:
+        return ApiResponse(data={"prompts": list(_mcp_server._prompts.values())})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")
 
 
 class MCPAuthManager:
@@ -269,7 +293,13 @@ _mcp_auth = MCPAuthManager()
 
 @router.get("/auth-keys", response_model=ApiResponse)
 async def list_auth_keys(_user=Depends(get_current_user)):
-    return ApiResponse(data={"keys": _mcp_auth.list_keys(), "enabled": _mcp_auth._enabled})
+    try:
+        return ApiResponse(data={"keys": _mcp_auth.list_keys(), "enabled": _mcp_auth._enabled})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取列表失败: %s", e)
+        raise HTTPException(status_code=500, detail="获取列表失败")
 
 
 class CreateKeyRequest(BaseModel):
@@ -280,38 +310,56 @@ class CreateKeyRequest(BaseModel):
 @router.post("/auth-keys", response_model=ApiResponse)
 async def create_auth_key(req: CreateKeyRequest, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     result = _mcp_auth.create_key(req.name, req.scopes)
-    return ApiResponse(data=result)
+    try:
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("创建失败: %s", e)
+        raise HTTPException(status_code=500, detail="创建失败")
 
 
 @router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
 async def delete_auth_key(key_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     if _mcp_auth.delete_key(key_id):
         return ApiResponse(data={"deleted": True, "key_id": key_id})
-    raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")
+    try:
+        raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("删除失败: %s", e)
+        raise HTTPException(status_code=500, detail="删除失败")
 
 
 @router.get("/sse")
 async def mcp_sse(_user=Depends(get_current_user)):
     """MCP SSE传输端点 - 供AI助手通过EventSource连接"""
-    import asyncio as _asyncio
-    from fastapi.responses import StreamingResponse as _SR
+    try:
+        import asyncio as _asyncio
+        from fastapi.responses import StreamingResponse as _SR
 
-    async def event_generator():
-        yield f"event: connected\ndata: {{\"server\": \"edgelite-mcp\", \"version\": \"1.0\"}}\n\n"
-        queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
-        try:
-            while True:
-                try:
-                    message = await _asyncio.wait_for(queue.get(), timeout=30)
-                    yield f"event: message\ndata: {message}\n\n"
-                except _asyncio.TimeoutError:
-                    import time as _time
-                    yield f"event: ping\ndata: {{\"timestamp\": {_time.time()}}}\n\n"
-        except _asyncio.CancelledError:
-            pass
+        async def event_generator():
+            yield "event: connected\ndata: {\"server\": \"edgelite-mcp\", \"version\": \"1.0\"}\n\n"
+            queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
+            try:
+                while True:
+                    try:
+                        message = await _asyncio.wait_for(queue.get(), timeout=30)
+                        yield f"event: message\ndata: {message}\n\n"
+                    except _asyncio.TimeoutError:
+                        import time as _time
+                        yield f"event: ping\ndata: {{\"timestamp\": {_time.time()}}}\n\n"
+            except _asyncio.CancelledError:
+                pass
 
-    return _SR(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
-    )
+        return _SR(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("SSE连接失败: %s", e)
+        raise HTTPException(status_code=500, detail="SSE连接失败")

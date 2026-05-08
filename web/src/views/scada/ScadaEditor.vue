@@ -170,7 +170,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, onBeforeUnmount } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import {
   NButton, NButtonGroup, NSpace, NInput, NSelect, NTag, NSwitch, NModal,
   NInputNumber, NAlert, NSpin, useMessage, useDialog,
@@ -205,6 +206,7 @@ const editForm = ref<any>({})
 const editPointOptions = ref<{ label: string; value: string }[]>([])
 const pageLoading = ref(true)
 const saving = ref(false)
+const dirty = ref(false)
 
 let widgetIdCounter = 0
 let dragging: any = null
@@ -592,9 +594,11 @@ async function saveProject() {
   try {
     await scadaApi.saveProject({ name: 'default', widgets: widgets.value })
     localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
+    dirty.value = false
     message.success('项目已保存到服务器')
   } catch {
     localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
+    dirty.value = false
     message.warning('服务器保存失败，已保存到本地')
   } finally {
     saving.value = false
@@ -652,6 +656,35 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeyDown)
   localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
 })
+
+watch(widgets, () => { dirty.value = true }, { deep: true })
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (dirty.value) {
+    dialog.warning({
+      title: '未保存的更改',
+      content: '组态项目有未保存的更改，确定要离开吗？',
+      positiveText: '离开',
+      negativeText: '留下',
+      onPositiveClick: () => next(),
+      onNegativeClick: () => next(false),
+    })
+  } else {
+    next()
+  }
+})
+
+onBeforeUnmount(() => {
+  window.onbeforeunload = null
+})
+
+if (typeof window !== 'undefined') {
+  window.onbeforeunload = (e) => {
+    if (dirty.value) {
+      e.preventDefault()
+    }
+  }
+}
 </script>
 
 <style scoped>

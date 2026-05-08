@@ -72,7 +72,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, h, watch, onBeforeUnmount } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { NButton, NSpace, NTag, NSpin, useMessage, useDialog } from 'naive-ui'
 import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { preprocessApi } from '@/api'
@@ -91,6 +92,7 @@ const globalForm = reactive({
 const pointConfigs = ref<Record<string, any>>({})
 const pointList = ref<any[]>([])
 const saving = ref(false)
+const dirty = ref(false)
 const showAddModal = ref(false)
 const addFormRef = ref<any>(null)
 
@@ -170,6 +172,7 @@ async function handleSave() {
       points: pointConfigs.value,
     })
     message.success('配置已保存')
+    dirty.value = false
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '保存失败')
   } finally {
@@ -219,4 +222,27 @@ function handleDelete(pointKey: string) {
 }
 
 onMounted(fetchConfig)
+
+watch([() => ({ ...globalForm }), pointConfigs], () => { dirty.value = true }, { deep: true })
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (dirty.value) {
+    dialog.warning({
+      title: '未保存的更改',
+      content: '预处理配置有未保存的更改，确定要离开吗？',
+      positiveText: '离开',
+      negativeText: '留下',
+      onPositiveClick: () => next(),
+      onNegativeClick: () => next(false),
+    })
+  } else {
+    next()
+  }
+})
+
+onBeforeUnmount(() => { window.onbeforeunload = null })
+
+if (typeof window !== 'undefined') {
+  window.onbeforeunload = (e) => { if (dirty.value) e.preventDefault() }
+}
 </script>
