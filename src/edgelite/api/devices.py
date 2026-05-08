@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Header, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 
+from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.device import (
     DeviceCreate,
-    DeviceUpdate,
     DeviceResponse,
+    DeviceUpdate,
+    DiscoverRequest,
     SimulatorCreate,
     WritePointRequest,
-    DiscoverRequest,
 )
-from edgelite.models.common import ApiResponse, PagedResponse
-from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api/v1/devices", tags=["设备管理"])
 
 def _get_device_service():
     from edgelite.app import _app_state
+
     return _app_state.device_service
 
 
@@ -45,7 +46,7 @@ async def list_devices(
         raise
     except Exception as e:
         logger.error("获取设备列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取设备列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取设备列表失败: {e}") from e
 
 
 @router.post("", response_model=ApiResponse[DeviceResponse], status_code=201)
@@ -61,11 +62,13 @@ async def create_device(
         raise
     except Exception as e:
         logger.error("创建设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建设备失败: {e}")
+        raise HTTPException(status_code=500, detail=f"创建设备失败: {e}") from e
 
 
 @router.get("/{device_id}", response_model=ApiResponse[DeviceResponse])
-async def get_device(device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_READ)):
+async def get_device(
+    device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_READ)
+):
     try:
         svc = _get_device_service()
         device = await svc.get_device(device_id)
@@ -76,7 +79,7 @@ async def get_device(device_id: str, user: CurrentUser = require_permission(Perm
         raise
     except Exception as e:
         logger.error("获取设备详情失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取设备详情失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取设备详情失败: {e}") from e
 
 
 @router.put("/{device_id}", response_model=ApiResponse[DeviceResponse])
@@ -96,11 +99,13 @@ async def update_device(
         raise
     except Exception as e:
         logger.error("更新设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"更新设备失败: {e}")
+        raise HTTPException(status_code=500, detail=f"更新设备失败: {e}") from e
 
 
 @router.delete("/{device_id}", response_model=ApiResponse)
-async def delete_device(device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_DELETE)):
+async def delete_device(
+    device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_DELETE)
+):
     try:
         svc = _get_device_service()
         success, error = await svc.delete_device(device_id)
@@ -111,11 +116,13 @@ async def delete_device(device_id: str, user: CurrentUser = require_permission(P
         raise
     except Exception as e:
         logger.error("删除设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"删除设备失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除设备失败: {e}") from e
 
 
 @router.get("/{device_id}/points", response_model=ApiResponse)
-async def get_device_points(device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_READ)):
+async def get_device_points(
+    device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_READ)
+):
     try:
         svc = _get_device_service()
         values = await svc.read_points(device_id)
@@ -124,7 +131,7 @@ async def get_device_points(device_id: str, user: CurrentUser = require_permissi
         raise
     except Exception as e:
         logger.error("读取设备测点失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"读取设备测点失败: {e}")
+        raise HTTPException(status_code=500, detail=f"读取设备测点失败: {e}") from e
 
 
 @router.post("/{device_id}/points", response_model=ApiResponse)
@@ -143,7 +150,7 @@ async def write_device_point(
         raise
     except Exception as e:
         logger.error("写入测点值失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"写入测点值失败: {e}")
+        raise HTTPException(status_code=500, detail=f"写入测点值失败: {e}") from e
 
 
 @router.post("/simulator", response_model=ApiResponse[DeviceResponse], status_code=201)
@@ -159,7 +166,7 @@ async def create_simulator(
         raise
     except Exception as e:
         logger.error("创建模拟设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建模拟设备失败: {e}")
+        raise HTTPException(status_code=500, detail=f"创建模拟设备失败: {e}") from e
 
 
 @router.post("/discover", response_model=ApiResponse)
@@ -175,21 +182,28 @@ async def discover_devices(
         raise
     except Exception as e:
         logger.error("设备发现失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"设备发现失败: {e}")
+        raise HTTPException(status_code=500, detail=f"设备发现失败: {e}") from e
 
 
 @router.post("/{device_id}/push", response_model=ApiResponse)
-async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(default=""), authorization: str = Header(default="")):
+async def push_device_data(
+    device_id: str,
+    body: dict,
+    x_api_key: str = Header(default=""),
+    authorization: str = Header(default=""),
+):
     """HTTP Webhook数据推送端点"""
     if not device_id or not isinstance(device_id, str) or len(device_id) > 128:
         raise HTTPException(status_code=400, detail="无效的设备ID")
     if not isinstance(body, dict) or not body:
         raise HTTPException(status_code=400, detail="推送数据不能为空")
     from edgelite.app import _app_state
+
     config = _app_state.config
 
-    if config and hasattr(config, 'webhook_auth'):
+    if config and hasattr(config, "webhook_auth"):
         from edgelite.engine.webhook_auth import WebhookAuthMiddleware
+
         auth_mw = WebhookAuthMiddleware(
             mode=config.webhook_auth.mode,
             token=config.webhook_auth.token,
@@ -199,12 +213,17 @@ async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(d
         if not auth_mw.verify(authorization):
             raise HTTPException(status_code=401, detail="Webhook认证失败")
 
-    if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
+    if (
+        config
+        and getattr(config, "server", None)
+        and getattr(config.server, "webhook_api_key", None)
+    ):
         import hmac
+
         if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
-        if not (config and hasattr(config, 'webhook_auth') and config.webhook_auth.mode != "none"):
+        if not (config and hasattr(config, "webhook_auth") and config.webhook_auth.mode != "none"):
             raise HTTPException(status_code=401, detail="API Key not configured")
 
     try:
@@ -217,4 +236,4 @@ async def push_device_data(device_id: str, body: dict, x_api_key: str = Header(d
         raise
     except Exception as e:
         logger.error("推送设备数据失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"推送设备数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"推送设备数据失败: {e}") from e

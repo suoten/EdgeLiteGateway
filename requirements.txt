@@ -2,7 +2,6 @@
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.6.0
-pydantic-settings>=2.2.0
 python-dotenv>=1.0.0
 aiosqlite>=0.20.0
 influxdb-client[async]>=1.44.0
@@ -11,11 +10,12 @@ httpx>=0.27.0
 pyyaml>=6.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
-python-multipart>=0.0.9
 psutil>=5.9.0
 aiomqtt>=2.1.0
 asyncua>=1.1.0
 sparkplugb>=0.3.0
+pyserial>=3.5
+amqtt>=0.11.0b0
 
 # ORM与数据库迁移
 sqlalchemy[asyncio]>=2.0.30

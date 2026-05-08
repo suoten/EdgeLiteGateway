@@ -11,7 +11,9 @@ class PointDef(BaseModel):
     """测点定义"""
 
     name: str
-    data_type: Literal["bool", "int16", "int32", "uint16", "uint32", "float32", "float64", "string"] = "float32"
+    data_type: Literal[
+        "bool", "int16", "int32", "uint16", "uint32", "float32", "float64", "string"
+    ] = "float32"
     unit: str = ""
     address: str = "0"
     access_mode: Literal["r", "w", "rw"] = "r"
@@ -58,12 +60,16 @@ class DeviceCreate(BaseModel):
     def validate_protocol(cls, v: str) -> str:
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             registry = get_driver_registry()
             supported = registry.get_supported_protocols()
             if v not in supported and v not in ("video", "simulator", "modbus_rtu"):
                 import logging
+
                 logging.getLogger(__name__).warning(
-                    "Protocol '%s' not in driver registry (available: %s)", v, supported,
+                    "Protocol '%s' not in driver registry (available: %s)",
+                    v,
+                    supported,
                 )
         except ImportError:
             pass

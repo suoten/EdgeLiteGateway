@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from edgelite.drivers.base import DriverPlugin
 from edgelite.config import get_config
+from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +136,11 @@ class SparkplugBDriver(DriverPlugin):
                 value = m.get("value")
                 datatype = m.get("datatype") or _map_datatype(value)
                 if datatype is None:
-                    logger.warning("跳过不支持的类型测点: name=%s, type=%s", m.get("name"), type(value).__name__)
+                    logger.warning(
+                        "跳过不支持的类型测点: name=%s, type=%s",
+                        m.get("name"),
+                        type(value).__name__,
+                    )
                     continue
 
                 metric = payload.metrics.add()
@@ -207,14 +213,12 @@ class SparkplugBDriver(DriverPlugin):
 
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
 
         if self._client:
             try:
-                await self._client.disconnect()
+                await self._client.__aexit__(None, None, None)
             except Exception as e:
                 logger.debug("SparkPlug断开连接失败: %s", e)
             self._client = None
@@ -223,7 +227,11 @@ class SparkplugBDriver(DriverPlugin):
         self._dbirth_published.clear()
         logger.info("Sparkplug B驱动停止")
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
+    async def add_device(
+        self, device_id: str, config: dict, points: list[dict] | None = None
+    ) -> None:
+        if points is None:
+            points = []
         self._device_metadata[device_id] = config
         self._device_points[device_id] = {p.get("name", p.get("address", "")): None for p in points}
         self._latest_values[device_id] = {}
@@ -291,7 +299,6 @@ class SparkplugBDriver(DriverPlugin):
                     retain=False,
                 )
 
-                tls_params = None
                 if sp_config.tls_enabled:
                     import ssl
 
@@ -300,7 +307,6 @@ class SparkplugBDriver(DriverPlugin):
                         ctx.load_verify_locations(sp_config.tls_ca_cert)
                     if sp_config.tls_client_cert and sp_config.tls_client_key:
                         ctx.load_cert_chain(sp_config.tls_client_cert, sp_config.tls_client_key)
-                    tls_params = aiomqtt.TLSParameters(ssl_context=ctx)
 
                 async with aiomqtt.Client(
                     hostname=broker,
@@ -309,7 +315,6 @@ class SparkplugBDriver(DriverPlugin):
                     password=password,
                     keepalive=60,
                     will=will,
-                    tls_params=tls_params,
                 ) as client:
                     self._client = client
                     retry_delay = 1.0
@@ -347,7 +352,11 @@ class SparkplugBDriver(DriverPlugin):
 
         metrics = [
             {"name": "bdSeq", "value": 0},
-            {"name": "Node Control/NextSeq", "value": self._seq_num, "datatype": _SPB_DATATYPE_INT32},
+            {
+                "name": "Node Control/NextSeq",
+                "value": self._seq_num,
+                "datatype": _SPB_DATATYPE_INT32,
+            },
             {"name": "Node Control/Rebirth", "value": False},
         ]
 

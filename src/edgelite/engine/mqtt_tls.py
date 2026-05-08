@@ -1,10 +1,10 @@
 """MQTT TLS/SSL 配置模块"""
 
 from __future__ import annotations
+
 import logging
 import ssl
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class MqttTlsHelper:
         client_cert: str = "",
         client_key: str = "",
         cert_reqs: str = "required",
-    ) -> Optional[ssl.SSLContext]:
+    ) -> ssl.SSLContext | None:
         """构建SSL上下文"""
         if not ca_cert and not client_cert:
             return None
@@ -43,7 +43,9 @@ class MqttTlsHelper:
                 raise ValueError(f"CA证书文件无效: {ca_cert}")
 
         if client_cert and client_key:
-            if MqttTlsHelper.validate_cert_file(client_cert) and MqttTlsHelper.validate_cert_file(client_key):
+            if MqttTlsHelper.validate_cert_file(client_cert) and MqttTlsHelper.validate_cert_file(
+                client_key
+            ):
                 ctx.load_cert_chain(client_cert, client_key)
             else:
                 raise ValueError(f"客户端证书/密钥文件无效: {client_cert} / {client_key}")

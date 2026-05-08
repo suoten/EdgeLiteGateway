@@ -38,8 +38,10 @@ class SimulatorDriver(DriverPlugin):
         self._running = False
         logger.info("模拟器驱动停止")
 
-    def add_device(self, device_id: str, points: list[dict]) -> None:
+    def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         """添加模拟设备"""
+        if points is None:
+            points = []
         self._devices[device_id] = {}
         for pt in points:
             name = pt["name"]
@@ -97,7 +99,7 @@ class SimulatorDriver(DriverPlugin):
 
         elif mode == "random_walk":
             # 随机游走
-            current = self._walk_state.get(key, (min_val + max_val) / 2)
+            current: float = self._walk_state.get(key, (min_val + max_val) / 2)
             step = (max_val - min_val) * 0.02  # 步长为范围的2%
             current += random.gauss(0, step)
             # 限制在范围内

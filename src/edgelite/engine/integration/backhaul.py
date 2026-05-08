@@ -1,10 +1,9 @@
 """EdgeLite v1.0 数据回传管理器 - 基于v1.0的EventBus(register_handler)接口"""
 
-import asyncio
 import logging
 import time
 from collections import deque
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -72,33 +71,47 @@ class BackhaulManager:
             return
         self._last_send_time[device_id] = now
 
-        await self._send_or_buffer({
-            "type": "point_data",
-            "timestamp": now,
-            "payload": {"device_id": device_id, "point_name": point_name, "value": value,
-                        "quality": getattr(event, "quality", "good")},
-        })
+        await self._send_or_buffer(
+            {
+                "type": "point_data",
+                "timestamp": now,
+                "payload": {
+                    "device_id": device_id,
+                    "point_name": point_name,
+                    "value": value,
+                    "quality": getattr(event, "quality", "good"),
+                },
+            }
+        )
 
     async def _on_device_status(self, event: Any) -> None:
-        await self._send_or_buffer({
-            "type": "device_status_changed",
-            "timestamp": time.time(),
-            "payload": {"device_id": getattr(event, "device_id", ""),
-                        "new_status": getattr(event, "new_status", ""),
-                        "old_status": getattr(event, "old_status", "")},
-        })
+        await self._send_or_buffer(
+            {
+                "type": "device_status_changed",
+                "timestamp": time.time(),
+                "payload": {
+                    "device_id": getattr(event, "device_id", ""),
+                    "new_status": getattr(event, "new_status", ""),
+                    "old_status": getattr(event, "old_status", ""),
+                },
+            }
+        )
 
     async def _on_alarm(self, event: Any) -> None:
         action = getattr(event, "action", "firing")
-        await self._send_or_buffer({
-            "type": "alarm_fired" if action == "firing" else "alarm_recovered",
-            "timestamp": time.time(),
-            "payload": {"alarm_id": getattr(event, "alarm_id", ""),
-                        "rule_id": getattr(event, "rule_id", ""),
-                        "device_id": getattr(event, "device_id", ""),
-                        "severity": getattr(event, "severity", ""),
-                        "action": action},
-        })
+        await self._send_or_buffer(
+            {
+                "type": "alarm_fired" if action == "firing" else "alarm_recovered",
+                "timestamp": time.time(),
+                "payload": {
+                    "alarm_id": getattr(event, "alarm_id", ""),
+                    "rule_id": getattr(event, "rule_id", ""),
+                    "device_id": getattr(event, "device_id", ""),
+                    "severity": getattr(event, "severity", ""),
+                    "action": action,
+                },
+            }
+        )
 
     async def _send_or_buffer(self, message: dict[str, Any]) -> None:
         if self._endpoint and self._endpoint.has_connections:

@@ -35,9 +35,7 @@ class McDriver(DriverPlugin):
         try:
             from pymcprotocol import Type3E
         except ImportError:
-            raise ImportError(
-                "pymcprotocol未安装，请执行: pip install pymcprotocol"
-            )
+            raise ImportError("pymcprotocol未安装，请执行: pip install pymcprotocol") from None
 
         self._config = config
         ip = config.get("ip", "")
@@ -86,9 +84,7 @@ class McDriver(DriverPlugin):
         async with self._lock:
             for point_addr in points:
                 try:
-                    value = await asyncio.to_thread(
-                        self._read_point, point_addr
-                    )
+                    value = await asyncio.to_thread(self._read_point, point_addr)
                     result[point_addr] = value
                 except Exception as e:
                     logger.warning("MC读取失败 %s: %s", point_addr, e)
@@ -119,6 +115,7 @@ class McDriver(DriverPlugin):
         elif suffix == "float":
             # 浮点数读取(32位)
             import struct
+
             values = self._client.read_device(addr, 2)
             raw = struct.pack(">HH", values[0] & 0xFFFF, values[1] & 0xFFFF)
             return struct.unpack(">f", raw)[0]
@@ -170,7 +167,6 @@ class McDriver(DriverPlugin):
             self._client.write_bit_device(addr, [int(bool(value))])
         else:
             self._client.write_device(addr, [int(value)])
-
 
     def _read_points_batch(self, points: list[str]) -> dict[str, Any]:
         """同步批量读取（单次to_thread调用，减少线程切换开销）"""

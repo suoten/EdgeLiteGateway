@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent
-from edgelite.storage.influx_storage import InfluxDBStorage
-from edgelite.storage.cache import CacheManager
 from edgelite.engine.preprocessor import DataPreprocessor
+from edgelite.storage.cache import CacheManager
+from edgelite.storage.influx_storage import InfluxDBStorage
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,9 @@ class CollectScheduler:
             name=f"collect-{device_id}",
         )
         self._tasks[device_id] = task
-        logger.info("采集任务启动: %s (间隔=%ds, 测点=%d)", device_id, collect_interval, len(points))
+        logger.info(
+            "采集任务启动: %s (间隔=%ds, 测点=%d)", device_id, collect_interval, len(points)
+        )
 
     async def stop_collect(self, device_id: str) -> None:
         """停止设备采集任务"""
@@ -61,10 +64,8 @@ class CollectScheduler:
         self._device_info.pop(device_id, None)
         if task and not task.done():
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
             logger.info("采集任务停止: %s", device_id)
 
     async def stop_all(self) -> None:
@@ -106,7 +107,7 @@ class CollectScheduler:
                 )
 
                 if values:
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     # 批量写入InfluxDB（一次API调用替代N次）
                     records = []
                     for point_name, value in values.items():
@@ -128,13 +129,15 @@ class CollectScheduler:
                             quality="good",
                         )
                         await self._event_bus.publish(event)
-                        records.append({
-                            "device_id": device_id,
-                            "point_name": point_name,
-                            "value": v,
-                            "timestamp": now,
-                            "quality": "good",
-                        })
+                        records.append(
+                            {
+                                "device_id": device_id,
+                                "point_name": point_name,
+                                "value": v,
+                                "timestamp": now,
+                                "quality": "good",
+                            }
+                        )
 
                     # 批量写入时序数据库
                     success = await self._influx.write_points_batch(records)
@@ -144,12 +147,16 @@ class CollectScheduler:
                         for rec in records:
                             await self._cache.add_to_cache(
                                 measurement="device_points",
-                                tags={"device_id": rec["device_id"], "point_name": rec["point_name"], "quality": rec["quality"]},
+                                tags={
+                                    "device_id": rec["device_id"],
+                                    "point_name": rec["point_name"],
+                                    "quality": rec["quality"],
+                                },
                                 fields={"value": rec["value"]},
                                 timestamp=now.isoformat(),
                             )
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("采集超时: %s (%.1fs)", device_id, timeout)
                 # 发布超时事件
                 for point_name in point_names:

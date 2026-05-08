@@ -58,6 +58,7 @@ class ToledoDriver(DriverPlugin):
             # Serial模式
             try:
                 import serial_asyncio
+
                 baudrate = int(config.get("baudrate", 9600))
                 self._reader, self._writer = await serial_asyncio.open_serial_connection(
                     url=serial_port, baudrate=baudrate
@@ -65,7 +66,9 @@ class ToledoDriver(DriverPlugin):
                 self._running = True
                 logger.info("托利多串口连接成功: %s @ %d", serial_port, baudrate)
             except ImportError:
-                raise ImportError("serial_asyncio未安装，请执行: pip install pyserial-asyncio")
+                raise ImportError(
+                    "serial_asyncio未安装，请执行: pip install pyserial-asyncio"
+                ) from None
             except Exception as e:
                 logger.error("托利多串口连接失败: %s - %s", serial_port, e)
                 raise
@@ -97,7 +100,7 @@ class ToledoDriver(DriverPlugin):
             return {}
 
         result = {}
-        protocol = self._config.get("protocol", "mt-sics")
+        self._config.get("protocol", "mt-sics")
 
         async with self._lock:
             for point_name in points:
@@ -121,9 +124,7 @@ class ToledoDriver(DriverPlugin):
 
         if name_lower in ("weight", "net_weight"):
             cmd = b"S I R\r\n"
-        elif name_lower == "gross_weight":
-            cmd = b"S I L\r\n"
-        elif name_lower == "tare_weight":
+        elif name_lower == "gross_weight" or name_lower == "tare_weight":
             cmd = b"S I L\r\n"
         elif name_lower == "stable":
             cmd = b"S F R\r\n"
@@ -137,8 +138,8 @@ class ToledoDriver(DriverPlugin):
         try:
             data = await asyncio.wait_for(self._reader.readline(), timeout=5.0)
             response = data.decode("ascii", errors="replace").strip()
-        except asyncio.TimeoutError:
-            raise TimeoutError("托利多响应超时")
+        except TimeoutError:
+            raise TimeoutError("托利多响应超时") from None
 
         # 解析MT-SICS响应
         # 格式: "S A <value> <unit>" 或 "S S <value> <unit>" (稳定)

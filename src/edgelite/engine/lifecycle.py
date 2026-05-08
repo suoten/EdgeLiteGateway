@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from edgelite.engine.event_bus import EventBus, DeviceStatusEvent
+from edgelite.engine.event_bus import DeviceStatusEvent, EventBus
 
 logger = logging.getLogger(__name__)
 

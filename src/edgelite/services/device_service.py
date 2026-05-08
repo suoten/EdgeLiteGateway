@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo
-from edgelite.engine.scheduler import CollectScheduler
-from edgelite.engine.lifecycle import DeviceLifecycleManager
 from edgelite.drivers.registry import get_driver_registry
 from edgelite.drivers.simulator import SimulatorDriver
+from edgelite.engine.lifecycle import DeviceLifecycleManager
+from edgelite.engine.scheduler import CollectScheduler
+from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,9 @@ class DeviceService:
                         data.get("points", []),
                     )
                 self._driver_instances[device["device_id"]] = driver
-                connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(device["device_id"])
+                connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(
+                    device["device_id"]
+                )
                 if connected:
                     await self._lifecycle.on_device_online(device["device_id"])
                     await self._repo.update_status(device["device_id"], "online")
@@ -90,7 +92,7 @@ class DeviceService:
         except Exception as e:
             logger.error("设备驱动启动失败，回滚数据库记录: %s - %s", device["device_id"], e)
             await self._repo.delete(device["device_id"])
-            raise ValueError(f"设备驱动启动失败: {e}")
+            raise ValueError(f"设备驱动启动失败: {e}") from e
 
         return device
 
@@ -98,7 +100,12 @@ class DeviceService:
         return await self._repo.get(device_id)
 
     async def list_devices(
-        self, page: int = 1, size: int = 20, status: str | None = None, protocol: str | None = None, search: str | None = None
+        self,
+        page: int = 1,
+        size: int = 20,
+        status: str | None = None,
+        protocol: str | None = None,
+        search: str | None = None,
     ) -> tuple[list[dict], int]:
         return await self._repo.list_all(page, size, status, protocol, search)
 
@@ -122,7 +129,7 @@ class DeviceService:
         if driver:
             if isinstance(driver, SimulatorDriver):
                 driver.remove_device(device_id)
-            elif hasattr(driver, 'stop'):
+            elif hasattr(driver, "stop"):
                 try:
                     await driver.stop()
                 except Exception as e:
@@ -232,7 +239,9 @@ class DeviceService:
                                 device.get("points", []),
                             )
                         self._driver_instances[device["device_id"]] = driver
-                        connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(device["device_id"])
+                        connected = hasattr(
+                            driver, "is_device_connected"
+                        ) and driver.is_device_connected(device["device_id"])
                         if connected:
                             await self._lifecycle.on_device_online(device["device_id"])
                             await self._repo.update_status(device["device_id"], "online")

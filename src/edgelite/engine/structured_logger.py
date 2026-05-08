@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import logging.handlers
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +27,7 @@ class StructuredFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -42,9 +42,11 @@ class StructuredFormatter(logging.Formatter):
                 if value:
                     log_entry[key] = value
 
-        if record.exc_info and record.exc_info[1]:
+        if record.exc_info and record.exc_info[0]:
             log_entry["exception"] = {
-                "type": record.exc_info[0].__name__,
+                "type": record.exc_info[0].__name__
+                if hasattr(record.exc_info[0], "__name__")
+                else str(record.exc_info[0]),
                 "message": str(record.exc_info[1]),
                 "traceback": self.formatException(record.exc_info),
             }
@@ -146,8 +148,6 @@ class StructuredLogger:
 
 
 def log_with_data(logger: logging.Logger, level: int, msg: str, **data: Any) -> None:
-    record = logger.makeRecord(
-        logger.name, level, "", 0, msg, (), None
-    )
+    record = logger.makeRecord(logger.name, level, "", 0, msg, (), None)
     record.extra_data = data
     logger.handle(record)

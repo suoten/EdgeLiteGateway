@@ -7,8 +7,8 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 _MAX_EXPR_LEN = 2048
@@ -36,6 +36,7 @@ def _get_engine():
     global _engine_instance
     if _engine_instance is None:
         from edgelite.engine.expression_engine import ExpressionEngine
+
         _engine_instance = ExpressionEngine()
     return _engine_instance
 
@@ -49,7 +50,7 @@ async def evaluate_expression(
     try:
         result = engine.evaluate(req.expression, req.variables or {})
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"表达式求值失败: {e}")
+        raise HTTPException(status_code=400, detail=f"表达式求值失败: {e}") from e
     return ApiResponse(data={"expression": req.expression, "result": result})
 
 
@@ -62,7 +63,7 @@ async def evaluate_batch(
     try:
         results = engine.evaluate_batch(req.expressions, req.variables or {})
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"批量表达式求值失败: {e}")
+        raise HTTPException(status_code=400, detail=f"批量表达式求值失败: {e}") from e
     return ApiResponse(data={"results": results})
 
 
@@ -88,8 +89,16 @@ async def list_available_functions(
     functions = [
         {"name": "abs", "description": "绝对值", "example": "abs(${device.temp})"},
         {"name": "round", "description": "四舍五入", "example": "round(${device.temp}, 2)"},
-        {"name": "min", "description": "最小值", "example": "min(${device.temp1}, ${device.temp2})"},
-        {"name": "max", "description": "最大值", "example": "max(${device.temp1}, ${device.temp2})"},
+        {
+            "name": "min",
+            "description": "最小值",
+            "example": "min(${device.temp1}, ${device.temp2})",
+        },
+        {
+            "name": "max",
+            "description": "最大值",
+            "example": "max(${device.temp1}, ${device.temp2})",
+        },
         {"name": "pow", "description": "幂运算", "example": "pow(${device.voltage}, 2)"},
         {"name": "sqrt", "description": "平方根", "example": "sqrt(${device.power})"},
         {"name": "int", "description": "转整数", "example": "int(${device.value})"},
@@ -122,4 +131,4 @@ async def list_available_functions(
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败")
+        raise HTTPException(status_code=500, detail="获取列表失败") from e

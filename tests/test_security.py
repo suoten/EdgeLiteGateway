@@ -1,12 +1,11 @@
 """安全模块单元测试"""
 
-import pytest
-from edgelite.security.jwt import create_access_token, verify_token, decode_token
+from edgelite.security.jwt import create_access_token, decode_token, verify_token
 from edgelite.security.password import hash_password, verify_password
-from edgelite.security.rbac import has_permission, Role, Permission
-
+from edgelite.security.rbac import Permission, Role, has_permission
 
 # ─── JWT ───
+
 
 def test_create_and_verify_token():
     """测试JWT创建和验证"""
@@ -30,12 +29,13 @@ def test_invalid_token():
     """测试无效token"""
     try:
         verify_token("invalid.token.here")
-        assert False, "应该抛异常"
+        raise AssertionError("应该抛异常")
     except Exception:
         pass  # 预期行为
 
 
 # ─── Password ───
+
 
 def test_hash_and_verify_password():
     """测试密码哈希和验证"""
@@ -52,6 +52,7 @@ def test_wrong_password():
 
 
 # ─── RBAC ───
+
 
 def test_admin_has_all_permissions():
     """测试管理员拥有所有权限"""

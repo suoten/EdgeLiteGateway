@@ -1,12 +1,12 @@
 """HTTP Webhook 安全认证中间件"""
 
 from __future__ import annotations
+
 import base64
 import hmac
 import logging
 import os
 import re
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class WebhookAuthMiddleware:
             return env_val
         return value
 
-    def verify(self, authorization_header: Optional[str]) -> bool:
+    def verify(self, authorization_header: str | None) -> bool:
         """验证Authorization头"""
         if self._mode == "none":
             return True
@@ -64,6 +64,8 @@ class WebhookAuthMiddleware:
         try:
             decoded = base64.b64decode(header[6:].strip()).decode("utf-8")
             username, password = decoded.split(":", 1)
-            return hmac.compare_digest(username, self._username) and hmac.compare_digest(password, self._password)
+            return hmac.compare_digest(username, self._username) and hmac.compare_digest(
+                password, self._password
+            )
         except Exception:
             return False

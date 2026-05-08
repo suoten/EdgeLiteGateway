@@ -14,11 +14,13 @@ ThingsPanel MQTT Topic体系:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from edgelite.platform.base import PlatformHandler
 
@@ -44,7 +46,7 @@ class ThingsPanelHandler(PlatformHandler):
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt")
+            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -66,10 +68,8 @@ class ThingsPanelHandler(PlatformHandler):
         self._running = False
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
         if self._client:
             try:
                 self._client.disconnect()
@@ -85,18 +85,22 @@ class ThingsPanelHandler(PlatformHandler):
             "ts": int(time.time() * 1000),
             "values": data,
         }
-        await self._pub_queue.put({
-            "topic": "v1/gateway/telemetry",
-            "payload": json.dumps({device_id: [payload]}, ensure_ascii=False),
-        })
+        await self._pub_queue.put(
+            {
+                "topic": "v1/gateway/telemetry",
+                "payload": json.dumps({device_id: [payload]}, ensure_ascii=False),
+            }
+        )
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
         if not self._pub_queue:
             return
-        await self._pub_queue.put({
-            "topic": "v1/gateway/attributes",
-            "payload": json.dumps({device_id: attrs}, ensure_ascii=False),
-        })
+        await self._pub_queue.put(
+            {
+                "topic": "v1/gateway/attributes",
+                "payload": json.dumps({device_id: attrs}, ensure_ascii=False),
+            }
+        )
 
     async def on_rpc_request(self, callback: Callable) -> None:
         self._rpc_callback = callback
@@ -106,16 +110,20 @@ class ThingsPanelHandler(PlatformHandler):
             return
         if online:
             payload = {"device": device_id}
-            await self._pub_queue.put({
-                "topic": "v1/gateway/connect",
-                "payload": json.dumps(payload, ensure_ascii=False),
-            })
+            await self._pub_queue.put(
+                {
+                    "topic": "v1/gateway/connect",
+                    "payload": json.dumps(payload, ensure_ascii=False),
+                }
+            )
         else:
             payload = {"device": device_id}
-            await self._pub_queue.put({
-                "topic": "v1/gateway/disconnect",
-                "payload": json.dumps(payload, ensure_ascii=False),
-            })
+            await self._pub_queue.put(
+                {
+                    "topic": "v1/gateway/disconnect",
+                    "payload": json.dumps(payload, ensure_ascii=False),
+                }
+            )
 
     async def _connect_loop(
         self, broker: str, port: int, username: str, password: str, device_token: str
@@ -133,8 +141,7 @@ class ThingsPanelHandler(PlatformHandler):
                     username=username or None,
                     password=password or None,
                     keepalive=60,
-                    clean_session=True,
-                    client_id=f"edgelite-thingspanel-{uuid.uuid4().hex[:8]}",
+                    identifier=f"edgelite-thingspanel-{uuid.uuid4().hex[:8]}",
                 ) as client:
                     self._client = client
                     self._connected = True
@@ -174,7 +181,9 @@ class ThingsPanelHandler(PlatformHandler):
                     if self._rpc_callback:
                         result = await self._rpc_callback("gateway", method, params)
                         response_topic = f"v1/devices/me/rpc/response/{request_id}"
-                        response_payload = json.dumps({"result": result} if result is not None else {}, ensure_ascii=False)
+                        response_payload = json.dumps(
+                            {"result": result} if result is not None else {}, ensure_ascii=False
+                        )
                         await client.publish(response_topic, response_payload)
                         logger.debug("ThingsPanel RPC响应: %s -> %s", method, request_id)
                 except Exception as e:
@@ -185,19 +194,20 @@ class ThingsPanelHandler(PlatformHandler):
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
                     msg = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
                 try:
                     await client.publish(msg["topic"], msg["payload"])
                 except Exception as e:
                     logger.error("ThingsPanel发布失败: %s", e)
                     if self._pub_queue:
-                        try:
+                        with contextlib.suppress(asyncio.QueueFull):
                             self._pub_queue.put_nowait(msg)
-                        except asyncio.QueueFull:
-                            pass
                     raise
         except asyncio.CancelledError:
             pass

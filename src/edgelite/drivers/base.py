@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 class DriverPlugin(ABC):
@@ -32,6 +33,16 @@ class DriverPlugin(ABC):
     async def discover_devices(self, config: dict) -> list[dict]:
         """发现设备（可选实现）"""
         return []
+
+    async def add_device(
+        self, device_id: str, config: dict, points: list[dict] | None = None
+    ) -> None:
+        """添加设备到驱动实例（可选实现）"""
+        pass
+
+    def is_device_connected(self, device_id: str) -> bool:
+        """检查设备是否已连接（可选实现）"""
+        return False
 
     def on_data(self, callback: Callable) -> None:
         """注册数据回调（可选，用于推送型协议如MQTT）。子类如需支持推送，应覆盖此方法保存callback。"""

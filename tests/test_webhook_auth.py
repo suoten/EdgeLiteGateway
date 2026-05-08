@@ -1,9 +1,10 @@
 """Webhook认证中间件单元测试"""
-import pytest
+
 import base64
 import os
 import sys
-sys.path.insert(0, 'src')
+
+sys.path.insert(0, "src")
 
 from edgelite.engine.webhook_auth import WebhookAuthMiddleware
 

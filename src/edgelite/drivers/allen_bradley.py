@@ -36,9 +36,7 @@ class AllenBradleyDriver(DriverPlugin):
         try:
             from pylogix import PLC
         except ImportError:
-            raise ImportError(
-                "pylogix未安装，请执行: pip install pylogix"
-            )
+            raise ImportError("pylogix未安装，请执行: pip install pylogix") from None
 
         self._config = config
         ip = config.get("ip", "")
@@ -84,9 +82,7 @@ class AllenBradleyDriver(DriverPlugin):
         async with self._lock:
             try:
                 # pylogix支持批量读取
-                response = await asyncio.to_thread(
-                    self._client.Read, points
-                )
+                response = await asyncio.to_thread(self._client.Read, points)
                 if isinstance(response, list):
                     for i, point in enumerate(points):
                         if i < len(response):
@@ -100,9 +96,7 @@ class AllenBradleyDriver(DriverPlugin):
                 logger.warning("AB批量读取失败，尝试逐个读取: %s", e)
                 for point_addr in points:
                     try:
-                        resp = await asyncio.to_thread(
-                            self._client.Read, point_addr
-                        )
+                        resp = await asyncio.to_thread(self._client.Read, point_addr)
                         result[point_addr] = resp.Value
                     except Exception as e2:
                         logger.warning("AB读取失败 %s: %s", point_addr, e2)
@@ -116,9 +110,7 @@ class AllenBradleyDriver(DriverPlugin):
 
         try:
             async with self._lock:
-                response = await asyncio.to_thread(
-                    self._client.Write, point, value
-                )
+                response = await asyncio.to_thread(self._client.Write, point, value)
                 return response.Status == 0
         except Exception as e:
             logger.error("AB写入失败 %s: %s", point, e)
@@ -135,18 +127,18 @@ class AllenBradleyDriver(DriverPlugin):
             slot = self._config.get("slot", 0)
 
             # 尝试读取项目名称
-            response = await asyncio.to_thread(
-                self._client.Read, "ProgramName"
-            )
+            response = await asyncio.to_thread(self._client.Read, "ProgramName")
             project_name = response.Value if response.Status == 0 else "Unknown"
 
-            return [{
-                "device_id": f"ab_{ip.replace('.', '_')}",
-                "name": f"AB PLC ({project_name})",
-                "ip": ip,
-                "protocol": "ab",
-                "slot": slot,
-            }]
+            return [
+                {
+                    "device_id": f"ab_{ip.replace('.', '_')}",
+                    "name": f"AB PLC ({project_name})",
+                    "ip": ip,
+                    "protocol": "ab",
+                    "slot": slot,
+                }
+            ]
         except Exception as e:
             logger.error("AB设备发现失败: %s", e)
             return []
@@ -161,16 +153,16 @@ class AllenBradleyDriver(DriverPlugin):
             return []
 
         try:
-            response = await asyncio.to_thread(
-                self._client.GetTagList, program
-            )
+            response = await asyncio.to_thread(self._client.GetTagList, program)
             tags = []
             for tag in response.Value or []:
-                tags.append({
-                    "name": tag.TagName,
-                    "type": tag.DataType,
-                    "dimensions": tag.ArrayDimensions,
-                })
+                tags.append(
+                    {
+                        "name": tag.TagName,
+                        "type": tag.DataType,
+                        "dimensions": tag.ArrayDimensions,
+                    }
+                )
             return tags
         except Exception as e:
             logger.error("AB标签发现失败: %s", e)

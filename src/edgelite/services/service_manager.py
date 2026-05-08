@@ -5,10 +5,9 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
-import subprocess
 import sys
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from edgelite.config import get_config, update_config_section
@@ -16,7 +15,7 @@ from edgelite.config import get_config, update_config_section
 logger = logging.getLogger(__name__)
 
 
-class ServiceState(str, Enum):
+class ServiceState(StrEnum):
     DISABLED = "disabled"
     ENABLED = "enabled"
     RUNNING = "running"
@@ -80,11 +79,37 @@ SERVICE_DEFINITIONS = {
             "启动服务后，设备即可通过MQTT协议连接",
         ],
         "config_schema": {
-            "host": {"type": "string", "default": "0.0.0.0", "label": "监听地址", "description": "MQTT Broker监听的IP地址，0.0.0.0表示所有网卡"},
-            "port": {"type": "integer", "default": 1883, "label": "TCP端口", "description": "MQTT TCP连接端口，标准端口为1883"},
-            "ws_port": {"type": "integer", "default": 8083, "label": "WebSocket端口", "description": "WebSocket连接端口，供浏览器端客户端使用", "nullable": True},
-            "username": {"type": "string", "default": "", "label": "认证用户名", "description": "留空则允许匿名连接"},
-            "password": {"type": "string", "default": "", "label": "认证密码", "description": "留空则不需要密码"},
+            "host": {
+                "type": "string",
+                "default": "0.0.0.0",
+                "label": "监听地址",
+                "description": "MQTT Broker监听的IP地址，0.0.0.0表示所有网卡",
+            },
+            "port": {
+                "type": "integer",
+                "default": 1883,
+                "label": "TCP端口",
+                "description": "MQTT TCP连接端口，标准端口为1883",
+            },
+            "ws_port": {
+                "type": "integer",
+                "default": 8083,
+                "label": "WebSocket端口",
+                "description": "WebSocket连接端口，供浏览器端客户端使用",
+                "nullable": True,
+            },
+            "username": {
+                "type": "string",
+                "default": "",
+                "label": "认证用户名",
+                "description": "留空则允许匿名连接",
+            },
+            "password": {
+                "type": "string",
+                "default": "",
+                "label": "认证密码",
+                "description": "留空则不需要密码",
+            },
         },
     },
     "modbus_slave": {
@@ -111,10 +136,30 @@ SERVICE_DEFINITIONS = {
             "启动服务后，上位机可通过Modbus TCP读取数据",
         ],
         "config_schema": {
-            "host": {"type": "string", "default": "0.0.0.0", "label": "监听地址", "description": "Modbus从站监听的IP地址"},
-            "port": {"type": "integer", "default": 502, "label": "监听端口", "description": "Modbus TCP标准端口为502"},
-            "holding_size": {"type": "integer", "default": 1000, "label": "保持寄存器数量", "description": "可读写的保持寄存器数量"},
-            "input_size": {"type": "integer", "default": 1000, "label": "输入寄存器数量", "description": "只读的输入寄存器数量"},
+            "host": {
+                "type": "string",
+                "default": "0.0.0.0",
+                "label": "监听地址",
+                "description": "Modbus从站监听的IP地址",
+            },
+            "port": {
+                "type": "integer",
+                "default": 502,
+                "label": "监听端口",
+                "description": "Modbus TCP标准端口为502",
+            },
+            "holding_size": {
+                "type": "integer",
+                "default": 1000,
+                "label": "保持寄存器数量",
+                "description": "可读写的保持寄存器数量",
+            },
+            "input_size": {
+                "type": "integer",
+                "default": 1000,
+                "label": "输入寄存器数量",
+                "description": "只读的输入寄存器数量",
+            },
         },
     },
     "serial_bridge": {
@@ -142,11 +187,36 @@ SERVICE_DEFINITIONS = {
             "启动服务后，远程客户端可通过TCP连接访问串口",
         ],
         "config_schema": {
-            "serial_port": {"type": "string", "default": "/dev/ttyUSB0", "label": "串口设备", "description": "串口设备路径，Linux如/dev/ttyUSB0，Windows如COM3"},
-            "baud_rate": {"type": "integer", "default": 9600, "label": "波特率", "description": "串口通信波特率，需与设备一致"},
-            "tcp_port": {"type": "integer", "default": 9000, "label": "TCP监听端口", "description": "远程客户端连接的TCP端口"},
-            "ip_whitelist": {"type": "array", "default": [], "label": "IP白名单", "description": "允许连接的IP地址列表，留空则允许所有"},
-            "max_clients": {"type": "integer", "default": 5, "label": "最大客户端数", "description": "同时连接的最大客户端数量"},
+            "serial_port": {
+                "type": "string",
+                "default": "/dev/ttyUSB0",
+                "label": "串口设备",
+                "description": "串口设备路径，Linux如/dev/ttyUSB0，Windows如COM3",
+            },
+            "baud_rate": {
+                "type": "integer",
+                "default": 9600,
+                "label": "波特率",
+                "description": "串口通信波特率，需与设备一致",
+            },
+            "tcp_port": {
+                "type": "integer",
+                "default": 9000,
+                "label": "TCP监听端口",
+                "description": "远程客户端连接的TCP端口",
+            },
+            "ip_whitelist": {
+                "type": "array",
+                "default": [],
+                "label": "IP白名单",
+                "description": "允许连接的IP地址列表，留空则允许所有",
+            },
+            "max_clients": {
+                "type": "integer",
+                "default": 5,
+                "label": "最大客户端数",
+                "description": "同时连接的最大客户端数量",
+            },
         },
     },
     "mcp_server": {
@@ -200,9 +270,24 @@ SERVICE_DEFINITIONS = {
             "在Grafana中配置InfluxDB数据源指向网关的时序数据库",
         ],
         "config_schema": {
-            "url": {"type": "string", "default": "http://localhost:3000", "label": "Grafana地址", "description": "Grafana服务的完整访问地址"},
-            "api_key": {"type": "string", "default": "", "label": "API Key", "description": "Grafana API密钥，用于访问仪表板接口"},
-            "datasource": {"type": "string", "default": "InfluxDB", "label": "数据源名称", "description": "Grafana中配置的数据源名称"},
+            "url": {
+                "type": "string",
+                "default": "http://localhost:3000",
+                "label": "Grafana地址",
+                "description": "Grafana服务的完整访问地址",
+            },
+            "api_key": {
+                "type": "string",
+                "default": "",
+                "label": "API Key",
+                "description": "Grafana API密钥，用于访问仪表板接口",
+            },
+            "datasource": {
+                "type": "string",
+                "default": "InfluxDB",
+                "label": "数据源名称",
+                "description": "Grafana中配置的数据源名称",
+            },
         },
     },
 }
@@ -217,6 +302,7 @@ class ServiceManager:
 
     def _get_app_state(self):
         from edgelite.app import _app_state
+
         return _app_state
 
     def check_dependency(self, package_name: str) -> DependencyInfo:
@@ -240,17 +326,29 @@ class ServiceManager:
     async def install_dependency(self, package_name: str) -> dict:
         try:
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "pip", "install", package_name,
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                package_name,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
             if proc.returncode == 0:
                 logger.info("依赖安装成功: %s", package_name)
-                return {"package": package_name, "success": True, "output": stdout.decode(errors="replace")}
+                return {
+                    "package": package_name,
+                    "success": True,
+                    "output": stdout.decode(errors="replace"),
+                }
             else:
                 logger.error("依赖安装失败: %s - %s", package_name, stderr.decode(errors="replace"))
-                return {"package": package_name, "success": False, "error": stderr.decode(errors="replace")}
+                return {
+                    "package": package_name,
+                    "success": False,
+                    "error": stderr.decode(errors="replace"),
+                }
         except Exception as e:
             logger.error("依赖安装异常: %s - %s", package_name, e)
             return {"package": package_name, "success": False, "error": str(e)}
@@ -268,7 +366,14 @@ class ServiceManager:
                 if result.get("success"):
                     verify = self.check_dependency(dep)
                     if not verify.installed:
-                        result = {"package": dep, "success": False, "error": f"pip安装成功但模块验证失败(pip包:{dep}, 导入名:{_PIP_TO_IMPORT.get(dep, dep)})"}
+                        result = {
+                            "package": dep,
+                            "success": False,
+                            "error": (
+                                f"pip安装成功但模块验证失败"
+                                f"(pip包:{dep}, 导入名:{_PIP_TO_IMPORT.get(dep, dep)})"
+                            ),
+                        }
                 results.append(result)
             else:
                 results.append({"package": dep, "success": True, "skipped": True})
@@ -316,11 +421,9 @@ class ServiceManager:
                 except Exception as e:
                     logger.debug("获取服务 %s 运行信息失败: %s", service_name, e)
 
-        _API_ONLY_SERVICES = {"mcp_server", "grafana"}
+        api_only_services = {"mcp_server", "grafana"}
 
-        if is_running:
-            state = ServiceState.RUNNING
-        elif service_name in _API_ONLY_SERVICES and enabled and all_deps_met:
+        if is_running or service_name in api_only_services and enabled and all_deps_met:
             state = ServiceState.RUNNING
         elif enabled and all_deps_met:
             state = ServiceState.ENABLED
@@ -332,9 +435,7 @@ class ServiceManager:
         current_config = {}
         if section_config:
             current_config = {
-                k: getattr(section_config, k)
-                for k in section_config.model_fields
-                if k != "enabled"
+                k: getattr(section_config, k) for k in section_config.model_fields if k != "enabled"
             }
 
         return ServiceInfo(
@@ -361,14 +462,14 @@ class ServiceManager:
         app_state = self._get_app_state()
         if service_name == "serial_bridge":
             from edgelite.api.serial_bridge import _get_serial_bridge
+
             return _get_serial_bridge()
         return getattr(app_state, service_name, None)
 
     def _set_instance(self, service_name: str, instance: Any) -> None:
         app_state = self._get_app_state()
         if service_name == "serial_bridge":
-            from edgelite.api import serial_bridge as sb_module
-            sb_module._serial_bridge = instance
+            app_state.serial_bridge = instance
         else:
             setattr(app_state, service_name, instance)
 
@@ -402,7 +503,11 @@ class ServiceManager:
             await self._start_service_instance(service_name, config_values)
         except RuntimeError as e:
             logger.warning("服务启用但启动失败: %s - %s", service_name, e)
-            return {"success": True, "warning": f"服务已启用但启动失败: {e}", "error_type": "runtime"}
+            return {
+                "success": True,
+                "warning": f"服务已启用但启动失败: {e}",
+                "error_type": "runtime",
+            }
         except Exception as e:
             logger.error("启动服务失败: %s - %s", service_name, e)
             return {"success": True, "warning": f"服务已启用但启动失败: {e}"}
@@ -436,9 +541,8 @@ class ServiceManager:
             return {"success": False, "error": f"未知服务: {service_name}"}
 
         instance = self._get_instance(service_name)
-        if instance:
-            if hasattr(instance, "is_running") and instance.is_running:
-                return {"success": True, "message": "服务已在运行中"}
+        if instance and hasattr(instance, "is_running") and instance.is_running:
+            return {"success": True, "message": "服务已在运行中"}
 
         if not self.all_dependencies_met(service_name):
             return {"success": False, "error": "缺少依赖，请先安装依赖"}
@@ -466,9 +570,11 @@ class ServiceManager:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _start_service_instance(self, service_name: str, config_values: dict | None = None) -> None:
+    async def _start_service_instance(
+        self, service_name: str, config_values: dict | None = None
+    ) -> None:
         svc_def = SERVICE_DEFINITIONS[service_name]
-        engine_class_path = svc_def["engine_class"]
+        svc_def["engine_class"]
 
         if service_name == "mcp_server":
             return
@@ -481,6 +587,7 @@ class ServiceManager:
 
         if service_name == "mqtt_server":
             from edgelite.engine.mqtt_server import MqttServer
+
             instance = MqttServer()
             start_config = {
                 "host": getattr(section_config, "host", "0.0.0.0"),
@@ -496,6 +603,7 @@ class ServiceManager:
 
         elif service_name == "modbus_slave":
             from edgelite.engine.modbus_slave import ModbusSlaveServer
+
             instance = ModbusSlaveServer()
             start_config = {
                 "host": getattr(section_config, "host", "0.0.0.0"),
@@ -510,6 +618,7 @@ class ServiceManager:
 
         elif service_name == "serial_bridge":
             from edgelite.engine.serial_bridge import SerialTcpBridge
+
             instance = SerialTcpBridge()
             start_config = {
                 "serial_port": getattr(section_config, "serial_port", "/dev/ttyUSB0"),

@@ -11,7 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from edgelite.platform.base import PlatformHandler
 
@@ -37,7 +38,7 @@ class CustomMqttHandler(PlatformHandler):
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt")
+            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -150,11 +151,12 @@ class CustomMqttHandler(PlatformHandler):
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(
-                        self._pub_queue.get(), timeout=1.0
-                    )
-                except asyncio.TimeoutError:
+                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                except TimeoutError:
                     continue
                 try:
                     await client.publish(topic, payload, qos=qos)

@@ -6,11 +6,11 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.models.user import UserCreate, UserUpdate, UserResponse
-from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.api.deps import CurrentUser, require_permission
-from edgelite.security.rbac import Permission
+from edgelite.models.common import ApiResponse, PagedResponse
+from edgelite.models.user import UserCreate, UserResponse, UserUpdate
 from edgelite.security.password import hash_password
+from edgelite.security.rbac import Permission
 from edgelite.storage.sqlite_repo import UserRepo
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,15 @@ router = APIRouter(prefix="/api/v1/users", tags=["用户管理"])
 
 def _get_db():
     from edgelite.app import _app_state
+
     return _app_state.database
 
 
 @router.get("", response_model=PagedResponse[UserResponse])
 async def list_users(
     user: CurrentUser = require_permission(Permission.USER_READ),
-    page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=1000),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=1000),
 ):
     try:
         db = _get_db()
@@ -38,11 +40,13 @@ async def list_users(
         raise
     except Exception as e:
         logger.error("获取用户列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取用户列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取用户列表失败: {e}") from e
 
 
 @router.post("", response_model=ApiResponse[UserResponse], status_code=201)
-async def create_user(body: UserCreate, user: CurrentUser = require_permission(Permission.USER_CREATE)):
+async def create_user(
+    body: UserCreate, user: CurrentUser = require_permission(Permission.USER_CREATE)
+):
     try:
         db = _get_db()
         async with db.get_session() as session:
@@ -58,11 +62,13 @@ async def create_user(body: UserCreate, user: CurrentUser = require_permission(P
         raise
     except Exception as e:
         logger.error("创建用户失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建用户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"创建用户失败: {e}") from e
 
 
 @router.put("/{user_id}", response_model=ApiResponse[UserResponse])
-async def update_user(user_id: str, body: UserUpdate, user: CurrentUser = require_permission(Permission.USER_UPDATE)):
+async def update_user(
+    user_id: str, body: UserUpdate, user: CurrentUser = require_permission(Permission.USER_UPDATE)
+):
     try:
         db = _get_db()
         async with db.get_session() as session:
@@ -84,7 +90,7 @@ async def update_user(user_id: str, body: UserUpdate, user: CurrentUser = requir
         raise
     except Exception as e:
         logger.error("更新用户失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"更新用户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"更新用户失败: {e}") from e
 
 
 @router.delete("/{user_id}", response_model=ApiResponse)
@@ -108,4 +114,4 @@ async def delete_user(user_id: str, user: CurrentUser = require_permission(Permi
         raise
     except Exception as e:
         logger.error("删除用户失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"删除用户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除用户失败: {e}") from e

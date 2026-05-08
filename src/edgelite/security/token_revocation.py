@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ class TokenRevocationManager:
         self._revoked_tokens: dict[str, float] = {}
         self._lock = threading.Lock()
 
-    def revoke_token(self, jti: str, exp: Optional[float] = None) -> None:
+    def revoke_token(self, jti: str, exp: float | None = None) -> None:
         """撤销指定jti的令牌，exp为过期时间戳(Unix)"""
         with self._lock:
             self._revoked_tokens[jti] = exp or (time.time() + 86400)
@@ -35,9 +34,7 @@ class TokenRevocationManager:
     def _cleanup_expired(self) -> None:
         """清理已过期的撤销记录"""
         now = time.time()
-        expired_jtis = [
-            jti for jti, exp in self._revoked_tokens.items() if exp <= now
-        ]
+        expired_jtis = [jti for jti, exp in self._revoked_tokens.items() if exp <= now]
         for jti in expired_jtis:
             del self._revoked_tokens[jti]
 
@@ -56,7 +53,7 @@ class TokenRevocationManager:
 _revocation_manager = TokenRevocationManager()
 
 
-def revoke_token(jti: str, exp: Optional[float] = None) -> None:
+def revoke_token(jti: str, exp: float | None = None) -> None:
     _revocation_manager.revoke_token(jti, exp)
 
 

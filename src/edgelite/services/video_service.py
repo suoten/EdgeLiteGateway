@@ -6,7 +6,7 @@ import logging
 
 from edgelite.drivers.video.provider import DeviceStatus
 from edgelite.drivers.video.pygbsentry import PyGBSentryProvider
-from edgelite.engine.event_bus import EventBus, AlarmEvent
+from edgelite.engine.event_bus import AlarmEvent, EventBus
 
 logger = logging.getLogger(__name__)
 

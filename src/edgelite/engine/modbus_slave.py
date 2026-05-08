@@ -16,12 +16,17 @@ from typing import Any
 
 try:
     from edgelite._cython import map_device_data_fast
+
     _HAS_CYTHON_MAPPER = True
 except ImportError:
     _HAS_CYTHON_MAPPER = False
+    map_device_data_fast = None
+
+import contextlib
 
 import pymodbus
-_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
+
+_PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +60,12 @@ class ModbusSlaveServer:
                 input_size: Input寄存器数量 (默认1000)
         """
         try:
-            from pymodbus.server import StartAsyncTcpServer
             from pymodbus.datastore import (
                 ModbusSequentialDataBlock,
                 ModbusServerContext,
             )
+            from pymodbus.server import StartAsyncTcpServer
+
             try:
                 from pymodbus.datastore import ModbusSlaveContext as _SlaveCtx
             except ImportError:
@@ -107,7 +113,10 @@ class ModbusSlaveServer:
             self._running = True
             logger.info(
                 "内置Modbus Slave启动: %s:%d (Holding=%d, Input=%d)",
-                host, port, holding_size, input_size,
+                host,
+                port,
+                holding_size,
+                input_size,
             )
 
         except Exception as e:
@@ -120,10 +129,8 @@ class ModbusSlaveServer:
         self._running = False
         if self._task and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._context = None
         logger.info("内置Modbus Slave已停止")
 
@@ -159,7 +166,9 @@ class ModbusSlaveServer:
         except Exception as e:
             logger.debug("Modbus Slave写入Coil失败: %s", e)
 
-    async def map_device_data(self, device_id: str, points: dict[str, Any], base_address: int = 0) -> None:
+    async def map_device_data(
+        self, device_id: str, points: dict[str, Any], base_address: int = 0
+    ) -> None:
         """将设备测点数据映射到Holding寄存器
 
         Args:
@@ -200,7 +209,7 @@ class ModbusSlaveServer:
                 return
 
             offset = base_address
-            for point_name, value in points.items():
+            for _point_name, value in points.items():
                 if isinstance(value, bool):
                     await self.set_coil(offset, value)
                     offset += 1

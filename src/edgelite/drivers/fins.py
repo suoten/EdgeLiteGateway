@@ -36,9 +36,7 @@ class OmronFinsDriver(DriverPlugin):
         try:
             from pyfins import FinsClient
         except ImportError:
-            raise ImportError(
-                "pyfins未安装，请执行: pip install pyfins"
-            )
+            raise ImportError("pyfins未安装，请执行: pip install pyfins") from None
 
         self._config = config
         ip = config.get("ip", "")
@@ -81,9 +79,7 @@ class OmronFinsDriver(DriverPlugin):
         async with self._lock:
             for point_addr in points:
                 try:
-                    value = await asyncio.to_thread(
-                        self._read_point, point_addr
-                    )
+                    value = await asyncio.to_thread(self._read_point, point_addr)
                     result[point_addr] = value
                 except Exception as e:
                     logger.warning("FINS读取失败 %s: %s", point_addr, e)
@@ -111,7 +107,7 @@ class OmronFinsDriver(DriverPlugin):
         elif addr_upper.startswith("CIO") or addr_upper.startswith("C"):
             # CIO区
             prefix = "CIO" if addr_upper.startswith("CIO") else "C"
-            offset = int(addr_upper[len(prefix):])
+            offset = int(addr_upper[len(prefix) :])
             return (0xB0, offset, 16)
         elif addr_upper.startswith("W"):
             # 工作区
@@ -162,14 +158,11 @@ class OmronFinsDriver(DriverPlugin):
                         self._client.write_bit, area, offset, 0, int(bool(value))
                     )
                 else:
-                    await asyncio.to_thread(
-                        self._client.write_word, area, offset, int(value)
-                    )
+                    await asyncio.to_thread(self._client.write_word, area, offset, int(value))
             return True
         except Exception as e:
             logger.error("FINS写入失败 %s: %s", point, e)
             return False
-
 
     def _read_points_batch(self, points: list[str]) -> dict[str, Any]:
         """同步批量读取（单次to_thread调用，减少线程切换开销）"""

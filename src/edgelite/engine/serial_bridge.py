@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ MAX_RECONNECT_DELAY = 30.0
 @dataclass
 class BridgeStats:
     """桥接统计信息"""
+
     serial_rx_bytes: int = 0
     serial_tx_bytes: int = 0
     tcp_rx_bytes: int = 0
@@ -48,31 +49,36 @@ class SerialTcpBridge:
         self._running = False
         self._serial = None
         self._config: dict = {}
-        self._tcp_server: Optional[asyncio.AbstractServer] = None
+        self._tcp_server: asyncio.AbstractServer | None = None
         self._clients: dict[asyncio.StreamReader, asyncio.StreamWriter] = {}
         self._stats = BridgeStats()
         self._serial_queue: asyncio.Queue = asyncio.Queue(maxsize=10000)
-        self._relay_task: Optional[asyncio.Task] = None
-        self._serial_read_task: Optional[asyncio.Task] = None
+        self._relay_task: asyncio.Task | None = None
+        self._serial_read_task: asyncio.Task | None = None
 
     async def start(self, config: dict) -> None:
         """启动串口TCP透传桥接"""
         try:
             import serial
         except ImportError:
-            raise ImportError("pyserial未安装，请执行: pip install pyserial")
+            raise ImportError("pyserial未安装，请执行: pip install pyserial") from None
 
         self._config = config
         self._stats = BridgeStats(start_time=time.time(), running=True)
 
-        serial_port = config.get("serial_port", "COM1")
+        serial_port = str(config.get("serial_port", "COM1"))
         baudrate = int(config.get("baudrate", 9600))
         bytesize = int(config.get("bytesize", 8))
-        parity = config.get("parity", "N")
+        parity = str(config.get("parity", "N"))
         stopbits = float(config.get("stopbits", 1))
 
         parity_map = {"N": serial.PARITY_NONE, "E": serial.PARITY_EVEN, "O": serial.PARITY_ODD}
-        bytesize_map = {5: serial.FIVEBITS, 6: serial.SIXBITS, 7: serial.SEVENBITS, 8: serial.EIGHTBITS}
+        bytesize_map = {
+            5: serial.FIVEBITS,
+            6: serial.SIXBITS,
+            7: serial.SEVENBITS,
+            8: serial.EIGHTBITS,
+        }
         stopbits_map = {1: serial.STOPBITS_ONE, 2: serial.STOPBITS_TWO}
 
         try:
@@ -81,7 +87,7 @@ class SerialTcpBridge:
                 baudrate=baudrate,
                 bytesize=bytesize_map.get(bytesize, serial.EIGHTBITS),
                 parity=parity_map.get(parity, serial.PARITY_NONE),
-                stopbits=stopbits_map.get(stopbits, serial.STOPBITS_ONE),
+                stopbits=stopbits_map.get(int(stopbits), serial.STOPBITS_ONE),
                 timeout=0.1,
             )
             logger.info("串口打开成功: %s @ %d", serial_port, baudrate)
@@ -90,10 +96,10 @@ class SerialTcpBridge:
             raise RuntimeError(
                 f"串口 '{serial_port}' 打开失败: {e}。"
                 f"请检查: 1)串口设备是否存在 2)是否有访问权限 3)是否被其他程序占用"
-            )
+            ) from None
         except Exception as e:
             logger.error("串口打开异常: %s - %s", serial_port, e)
-            raise RuntimeError(f"串口 '{serial_port}' 初始化异常: {e}")
+            raise RuntimeError(f"串口 '{serial_port}' 初始化异常: {e}") from e
 
         tcp_host = config.get("tcp_host", "0.0.0.0")
         tcp_port = int(config.get("tcp_port", DEFAULT_TCP_PORT))
@@ -109,15 +115,12 @@ class SerialTcpBridge:
             if self._serial and self._serial.is_open:
                 self._serial.close()
             logger.error("TCP监听启动失败: %s:%d - %s", tcp_host, tcp_port, e)
-            raise RuntimeError(
-                f"TCP监听端口 {tcp_port} 启动失败: {e}。"
-                f"请检查端口是否被占用"
-            )
+            raise RuntimeError(f"TCP监听端口 {tcp_port} 启动失败: {e}。请检查端口是否被占用") from e
         except Exception as e:
             if self._serial and self._serial.is_open:
                 self._serial.close()
             logger.error("TCP监听启动异常: %s", e)
-            raise RuntimeError(f"TCP服务器启动异常: {e}")
+            raise RuntimeError(f"TCP服务器启动异常: {e}") from e
 
         self._running = True
         self._serial_read_task = asyncio.create_task(
@@ -135,14 +138,12 @@ class SerialTcpBridge:
         for task in (self._serial_read_task, self._relay_task):
             if task and not task.done():
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
         self._serial_read_task = None
         self._relay_task = None
 
-        for reader, writer in list(self._clients.items()):
+        for _reader, writer in list(self._clients.items()):
             try:
                 writer.close()
                 await writer.wait_closed()
@@ -207,7 +208,8 @@ class SerialTcpBridge:
                 if not data:
                     break
                 self._stats.tcp_rx_bytes += len(data)
-                await asyncio.to_thread(self._serial.write, data)
+                if self._serial:
+                    await asyncio.to_thread(self._serial.write, data)
                 self._stats.serial_tx_bytes += len(data)
             except asyncio.CancelledError:
                 raise
@@ -221,16 +223,17 @@ class SerialTcpBridge:
         while self._running:
             try:
                 if self._serial and self._serial.in_waiting > 0:
-                    data = await asyncio.to_thread(self._serial.read, min(self._serial.in_waiting, buffer_size))
+                    data = await asyncio.to_thread(
+                        self._serial.read,
+                        min(self._serial.in_waiting, buffer_size),
+                    )
                     if data:
                         self._stats.serial_rx_bytes += len(data)
                         try:
                             self._serial_queue.put_nowait(data)
                         except asyncio.QueueFull:
-                            try:
+                            with contextlib.suppress(asyncio.QueueEmpty):
                                 self._serial_queue.get_nowait()
-                            except asyncio.QueueEmpty:
-                                pass
                             self._serial_queue.put_nowait(data)
                 await asyncio.sleep(0.01)
             except asyncio.CancelledError:
@@ -262,7 +265,7 @@ class SerialTcpBridge:
                         except Exception as e:
                             logger.debug("关闭写入端失败: %s", e)
                     self._stats.client_count = len(self._clients)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 raise

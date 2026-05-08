@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
-from edgelite.engine.event_bus import EventBus, PointUpdateEvent, AlarmEvent, DeviceStatusEvent
+from edgelite.engine.event_bus import AlarmEvent, DeviceStatusEvent, EventBus, PointUpdateEvent
 from edgelite.ws.manager import ConnectionManager
 
 logger = logging.getLogger(__name__)
@@ -23,31 +24,39 @@ class WebSocketChannels:
         """启动所有频道的EventBus订阅"""
         # realtime频道：测点值更新
         realtime_queue = self._event_bus.subscribe("ws_realtime")
-        self._tasks.append(asyncio.create_task(
-            self._channel_loop("realtime", realtime_queue, self._format_point_update),
-            name="ws-realtime",
-        ))
+        self._tasks.append(
+            asyncio.create_task(
+                self._channel_loop("realtime", realtime_queue, self._format_point_update),
+                name="ws-realtime",
+            )
+        )
 
         # alarm频道：告警事件
         alarm_queue = self._event_bus.subscribe("ws_alarm")
-        self._tasks.append(asyncio.create_task(
-            self._channel_loop("alarm", alarm_queue, self._format_alarm),
-            name="ws-alarm",
-        ))
+        self._tasks.append(
+            asyncio.create_task(
+                self._channel_loop("alarm", alarm_queue, self._format_alarm),
+                name="ws-alarm",
+            )
+        )
 
         # device频道：设备状态变更
         device_queue = self._event_bus.subscribe("ws_device")
-        self._tasks.append(asyncio.create_task(
-            self._channel_loop("device", device_queue, self._format_device_status),
-            name="ws-device",
-        ))
+        self._tasks.append(
+            asyncio.create_task(
+                self._channel_loop("device", device_queue, self._format_device_status),
+                name="ws-device",
+            )
+        )
 
         # integration频道：北向集成事件
         integration_queue = self._event_bus.subscribe("ws_integration")
-        self._tasks.append(asyncio.create_task(
-            self._channel_loop("integration", integration_queue, self._format_integration),
-            name="ws-integration",
-        ))
+        self._tasks.append(
+            asyncio.create_task(
+                self._channel_loop("integration", integration_queue, self._format_integration),
+                name="ws-integration",
+            )
+        )
 
         logger.info("WebSocket频道启动完成")
 
@@ -56,10 +65,8 @@ class WebSocketChannels:
         for task in self._tasks:
             if not task.done():
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
         self._tasks.clear()
         logger.info("WebSocket频道停止")
 

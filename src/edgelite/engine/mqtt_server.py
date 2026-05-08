@@ -8,6 +8,7 @@ Pro版特性：内置MQTT Server方便前端直连和系统级联，
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,10 +44,7 @@ class MqttServer:
         try:
             from amqtt.broker import Broker
         except ImportError:
-            logger.warning(
-                "amqtt未安装，内置MQTT Server不可用。"
-                "请执行: pip install amqtt"
-            )
+            logger.warning("amqtt未安装，内置MQTT Server不可用。请执行: pip install amqtt")
             return
 
         config = config or {}
@@ -85,9 +83,7 @@ class MqttServer:
 
         try:
             self._broker = Broker(broker_config)
-            self._task = asyncio.create_task(
-                self._broker.start(), name="mqtt-server"
-            )
+            self._task = asyncio.create_task(self._broker.start(), name="mqtt-server")
             self._running = True
             logger.info("内置MQTT Server启动: %s:%d", host, port)
             if ws_port:
@@ -108,10 +104,8 @@ class MqttServer:
             self._broker = None
         if self._task and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         logger.info("内置MQTT Server已停止")
 
     @property

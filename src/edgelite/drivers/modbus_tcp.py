@@ -7,6 +7,7 @@ import logging
 import struct
 from typing import Any
 
+import pymodbus
 from pymodbus.client import AsyncModbusTcpClient
 
 try:
@@ -14,13 +15,12 @@ try:
 except ImportError:
     ModbusException = Exception
 
-import pymodbus
+from edgelite.drivers.base import DriverPlugin
 
-_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
+_PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
 
 logger = logging.getLogger(__name__)
 
-from edgelite.drivers.base import DriverPlugin
 
 def _slave_kwarg(slave_id: int) -> dict:
     """返回正确的 Modbus 设备 ID 参数"""
@@ -28,12 +28,13 @@ def _slave_kwarg(slave_id: int) -> dict:
         return {"unit": slave_id}  # pymodbus 2.x
     return {"device_id": slave_id}  # pymodbus 3.x
 
+
 # 寄存器类型映射
 REGISTER_TYPES = {
-    "coil": (0, 1),       # 0x区, 读: read_coils, 写: write_coil
-    "discrete": (1, 1),   # 1x区, 读: read_discrete_inputs
-    "holding": (3, 2),    # 3x区, 读: read_holding_registers, 写: write_register
-    "input": (4, 2),      # 4x区, 读: read_input_registers
+    "coil": (0, 1),  # 0x区, 读: read_coils, 写: write_coil
+    "discrete": (1, 1),  # 1x区, 读: read_discrete_inputs
+    "holding": (3, 2),  # 3x区, 读: read_holding_registers, 写: write_register
+    "input": (4, 2),  # 4x区, 读: read_input_registers
 }
 
 # 数据类型→寄存器数量映射
@@ -168,7 +169,7 @@ class ModbusTcpDriver(DriverPlugin):
                 # 转换为寄存器值
                 if data_type == "float32":
                     raw = struct.pack(">f", float(value))
-                    regs = [struct.unpack(">H", raw[i:i+2])[0] for i in range(0, 4, 2)]
+                    regs = [struct.unpack(">H", raw[i : i + 2])[0] for i in range(0, 4, 2)]
                 else:
                     regs = [int(value)]
                 if len(regs) == 1:
@@ -199,11 +200,13 @@ class ModbusTcpDriver(DriverPlugin):
                 if connected:
                     result = await client.read_holding_registers(0, 1, **_slave_kwarg(slave_id))
                     if not result.isError():
-                        discovered.append({
-                            "host": host,
-                            "port": port,
-                            "slave_id": slave_id,
-                        })
+                        discovered.append(
+                            {
+                                "host": host,
+                                "port": port,
+                                "slave_id": slave_id,
+                            }
+                        )
             except Exception as e:
                 logger.debug("Modbus TCP发现设备异常[%s:%s]: %s", host, port, e)
             finally:
@@ -233,7 +236,9 @@ class ModbusTcpDriver(DriverPlugin):
         elif reg_type == "input":
             result = await client.read_input_registers(address, reg_count, **_slave_kwarg(slave_id))
         else:
-            result = await client.read_holding_registers(address, reg_count, **_slave_kwarg(slave_id))
+            result = await client.read_holding_registers(
+                address, reg_count, **_slave_kwarg(slave_id)
+            )
 
         if result.isError():
             raise ModbusException(f"读取错误: {result}")

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Callable
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ MAX_QUEUE_SIZE = 10000
 class Event:
     """事件基类"""
 
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -97,10 +98,8 @@ class EventBus:
                 queue.put_nowait(event)
             except asyncio.QueueFull:
                 # 丢弃最旧事件
-                try:
+                with contextlib.suppress(asyncio.QueueEmpty):
                     queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
                 queue.put_nowait(event)
                 logger.debug("事件队列满，丢弃最旧事件: subscriber=%s", name)
 

@@ -12,7 +12,9 @@ class UserCreate(BaseModel):
     """创建用户请求"""
 
     username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
-    password: str = Field(min_length=8, max_length=72, description="密码8-72字符，必须包含字母和数字")
+    password: str = Field(
+        min_length=8, max_length=72, description="密码8-72字符，必须包含字母和数字"
+    )
     role: Literal["admin", "operator", "viewer"]
 
     @field_validator("password")
@@ -51,7 +53,9 @@ class UserResponse(BaseModel):
     username: str
     role: str
     enabled: bool
+    must_change_password: bool = False
     created_at: str
+    updated_at: str = ""
 
 
 class LoginRequest(BaseModel):

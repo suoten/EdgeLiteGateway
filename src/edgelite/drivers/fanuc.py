@@ -43,7 +43,7 @@ class FanucCncDriver(DriverPlugin):
             raise ImportError(
                 "pyfanuc未安装，请执行: pip install pyfanuc。"
                 "注意：FOCAS库需要FANUC官方提供的fwlib32.dll/fwlib64.dll"
-            )
+            ) from None
 
         self._config = config
         ip = config.get("ip", "")
@@ -94,9 +94,7 @@ class FanucCncDriver(DriverPlugin):
         async with self._lock:
             for point_name in points:
                 try:
-                    value = await asyncio.to_thread(
-                        self._read_point, point_name
-                    )
+                    value = await asyncio.to_thread(self._read_point, point_name)
                     result[point_name] = value
                 except Exception as e:
                     logger.warning("FANUC读取失败 %s: %s", point_name, e)
@@ -130,7 +128,7 @@ class FanucCncDriver(DriverPlugin):
                 axis = parts[1].upper()
                 prop = parts[2].lower()
                 pos_data = self._handle.read_cnc_position()
-                axis_idx = ord(axis) - ord('X')
+                axis_idx = ord(axis) - ord("X")
                 if prop == "pos" and axis_idx < len(pos_data):
                     return pos_data[axis_idx]
                 elif prop == "speed":
@@ -152,16 +150,13 @@ class FanucCncDriver(DriverPlugin):
             async with self._lock:
                 if point.lower().startswith("param."):
                     param_num = int(point.split(".")[1])
-                    await asyncio.to_thread(
-                        self._handle.write_cnc_parameter, param_num, int(value)
-                    )
+                    await asyncio.to_thread(self._handle.write_cnc_parameter, param_num, int(value))
                     return True
                 logger.warning("FANUC CNC仅支持写入参数: %s", point)
                 return False
         except Exception as e:
             logger.error("FANUC写入失败 %s: %s", point, e)
             return False
-
 
     def _read_points_batch(self, points: list[str]) -> dict[str, Any]:
         """同步批量读取（单次to_thread调用，减少线程切换开销）"""

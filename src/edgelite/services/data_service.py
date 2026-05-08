@@ -28,7 +28,9 @@ class DataService:
         """查询时序数据"""
         return await self._influx.query_points(device_id, point_name, start, stop, aggregate)
 
-    async def get_latest_points(self, device_id: str, point_names: list[str] | None = None) -> dict[str, Any]:
+    async def get_latest_points(
+        self, device_id: str, point_names: list[str] | None = None
+    ) -> dict[str, Any]:
         """获取设备最新测点值"""
         return await self._influx.query_latest(device_id, point_names)
 
@@ -38,25 +40,28 @@ class DataService:
         point_name: str,
         start: str,
         stop: str | None = None,
-        format: str = "csv",
+        fmt: str = "csv",
     ) -> str:
         """导出数据"""
         data = await self._influx.query_points(device_id, point_name, start, stop)
 
-        if format == "csv":
+        if fmt == "csv":
             output = io.StringIO()
             writer = csv.writer(output)
             writer.writerow(["time", "device_id", "point_name", "value", "quality"])
             for record in data:
-                writer.writerow([
-                    record.get("time", ""),
-                    record.get("device_id", ""),
-                    record.get("point_name", ""),
-                    record.get("value", ""),
-                    record.get("quality", ""),
-                ])
+                writer.writerow(
+                    [
+                        record.get("time", ""),
+                        record.get("device_id", ""),
+                        record.get("point_name", ""),
+                        record.get("value", ""),
+                        record.get("quality", ""),
+                    ]
+                )
             return output.getvalue()
         else:
             # JSON格式
             import json
+
             return json.dumps(data, ensure_ascii=False, indent=2)

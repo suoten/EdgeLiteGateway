@@ -7,7 +7,6 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
 from jose import JWTError
 
 from edgelite.security.jwt import verify_token
@@ -20,7 +19,7 @@ security_scheme = HTTPBearer()
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)],
-) -> dict:
+) -> dict[str, str]:
     """从JWT Token解析当前用户，并从数据库实时校验角色"""
     try:
         payload = verify_token(credentials.credentials, token_type="access")
@@ -29,11 +28,12 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token无效或已过期",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     jti = payload.get("jti")
     if jti:
         from edgelite.security.token_revocation import is_token_revoked
+
         if is_token_revoked(jti):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -44,8 +44,9 @@ async def get_current_user(
         logger.warning("Token无jti字段(旧格式)，跳过撤销检查")
 
     username = payload.get("username", "")
-    from edgelite.storage.sqlite_repo import UserRepo
     from edgelite.app import _app_state
+    from edgelite.storage.sqlite_repo import UserRepo
+
     async with _app_state.database.get_session() as session:
         repo = UserRepo(session, _app_state.database.write_lock)
         user = await repo.get_by_username(username)
@@ -63,13 +64,13 @@ async def get_current_user(
     }
 
 
-CurrentUser = Annotated[dict, Depends(get_current_user)]
+CurrentUser = Annotated[dict[str, str], Depends(get_current_user)]
 
 
 def require_permission(permission: Permission):
     """权限校验依赖"""
 
-    async def _check(user: CurrentUser) -> dict:
+    async def _check(user: CurrentUser) -> dict[str, str]:
         check_permission(user["role"], permission)
         return user
 

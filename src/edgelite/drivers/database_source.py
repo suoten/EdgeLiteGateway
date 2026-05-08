@@ -70,7 +70,7 @@ class DatabaseSourceDriver(DriverPlugin):
         try:
             import aiomysql
         except ImportError:
-            raise ImportError("aiomysql未安装，请执行: pip install aiomysql")
+            raise ImportError("aiomysql未安装，请执行: pip install aiomysql") from None
 
         self._pool = await aiomysql.create_pool(
             host=config.get("host", "localhost"),
@@ -87,11 +87,19 @@ class DatabaseSourceDriver(DriverPlugin):
         try:
             import asyncpg
         except ImportError:
-            raise ImportError("asyncpg未安装，请执行: pip install asyncpg")
+            raise ImportError("asyncpg未安装，请执行: pip install asyncpg") from None
 
         from urllib.parse import quote_plus
-        dsn = f"postgresql://{quote_plus(config.get('username', 'postgres'))}:{quote_plus(config.get('password', ''))}@{config.get('host', 'localhost')}:{config.get('port', 5432)}/{config.get('database', 'postgres')}"
-        self._pool = await asyncpg.create_pool(dsn, min_size=1, max_size=int(config.get("pool_size", 5)))
+
+        dsn = (
+            f"postgresql://{quote_plus(config.get('username', 'postgres'))}:"
+            f"{quote_plus(config.get('password', ''))}@"
+            f"{config.get('host', 'localhost')}:{config.get('port', 5432)}/"
+            f"{config.get('database', 'postgres')}"
+        )
+        self._pool = await asyncpg.create_pool(
+            dsn, min_size=1, max_size=int(config.get("pool_size", 5))
+        )
 
     async def _init_sqlite(self, config: dict) -> None:
         import aiosqlite
@@ -103,7 +111,7 @@ class DatabaseSourceDriver(DriverPlugin):
         try:
             import aioodbc
         except ImportError:
-            raise ImportError("aioodbc未安装，请执行: pip install aioodbc")
+            raise ImportError("aioodbc未安装，请执行: pip install aioodbc") from None
 
         conn_str = (
             f"DRIVER={{ODBC Driver 18 for SQL Server}};"
@@ -113,16 +121,16 @@ class DatabaseSourceDriver(DriverPlugin):
             f"PWD={config.get('password', '')};"
             f"TrustServerCertificate=yes"
         )
-        self._pool = await aioodbc.create_pool(dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5)))
+        self._pool = await aioodbc.create_pool(
+            dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5))
+        )
 
     async def stop(self) -> None:
         self._running = False
         if self._pool:
             try:
                 db_type = self._config.get("db_type", "mysql")
-                if db_type == "sqlite":
-                    await self._pool.close()
-                elif hasattr(self._pool, "close"):
+                if db_type == "sqlite" or hasattr(self._pool, "close"):
                     await self._pool.close()
                 elif hasattr(self._pool, "terminate"):
                     self._pool.terminate()
@@ -148,7 +156,9 @@ class DatabaseSourceDriver(DriverPlugin):
                 rows = await self._execute_query(sql)
                 if rows:
                     if len(rows) == 1 and len(rows[0]) == 1:
-                        result[point] = list(rows[0].values())[0] if isinstance(rows[0], dict) else rows[0][0]
+                        result[point] = (
+                            list(rows[0].values())[0] if isinstance(rows[0], dict) else rows[0][0]
+                        )
                     elif len(rows) == 1:
                         result[point] = rows[0]
                     else:
@@ -165,12 +175,11 @@ class DatabaseSourceDriver(DriverPlugin):
         db_type = self._config.get("db_type", "mysql")
 
         if db_type in ("mysql", "mariadb"):
-            async with self._pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute(sql, params)
-                    rows = await cur.fetchall()
-                    columns = [desc[0] for desc in cur.description] if cur.description else []
-                    return [dict(zip(columns, row)) for row in rows]
+            async with self._pool.acquire() as conn, conn.cursor() as cur:
+                await cur.execute(sql, params)
+                rows = await cur.fetchall()
+                columns = [desc[0] for desc in cur.description] if cur.description else []
+                return [dict(zip(columns, row, strict=False)) for row in rows]
 
         elif db_type in ("postgresql", "postgres"):
             async with self._pool.acquire() as conn:
@@ -181,7 +190,7 @@ class DatabaseSourceDriver(DriverPlugin):
             cursor = await self._pool.execute(sql, params or ())
             rows = await cursor.fetchall()
             columns = [desc[0] for desc in cursor.description] if cursor.description else []
-            return [dict(zip(columns, row)) for row in rows]
+            return [dict(zip(columns, row, strict=False)) for row in rows]
 
         elif db_type == "mssql":
             async with self._pool.acquire() as conn:

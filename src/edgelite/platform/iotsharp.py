@@ -10,10 +10,12 @@ IoTSharp MQTT Topic体系:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from edgelite.platform.base import PlatformHandler
 
@@ -38,7 +40,7 @@ class IoTSharpHandler(PlatformHandler):
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt")
+            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -60,10 +62,8 @@ class IoTSharpHandler(PlatformHandler):
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
         if self._connect_task:
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
         self._connected = False
         logger.info("IoTSharp平台对接已断开")
 
@@ -134,10 +134,8 @@ class IoTSharpHandler(PlatformHandler):
                             if not t.done():
                                 t.cancel()
                         for t in [rpc_task, pub_task]:
-                            try:
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await t
-                            except asyncio.CancelledError:
-                                pass
                         self._connected = False
 
             except asyncio.CancelledError:
@@ -150,11 +148,12 @@ class IoTSharpHandler(PlatformHandler):
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(
-                        self._pub_queue.get(), timeout=1.0
-                    )
-                except asyncio.TimeoutError:
+                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                except TimeoutError:
                     continue
                 try:
                     await client.publish(topic, payload, qos=qos)
@@ -178,12 +177,14 @@ class IoTSharpHandler(PlatformHandler):
                         params = payload.get("params", {})
 
                         if self._rpc_callback:
-                            result = await self._rpc_callback(device_id, method, params)
+                            rpc_result = await self._rpc_callback(device_id, method, params)
                             response_topic = f"devices/{device_id}/rpc/response"
-                            response_data = json.dumps({
-                                "method": method,
-                                "result": result,
-                            })
+                            response_data = json.dumps(
+                                {
+                                    "method": method,
+                                    "result": rpc_result,
+                                }
+                            )
                             await client.publish(
                                 response_topic,
                                 response_data.encode("utf-8"),

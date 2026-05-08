@@ -160,6 +160,7 @@ export interface Alarm {
   device_id: string
   severity: string
   status: string
+  message: string
   trigger_value: Record<string, any>
   trigger_count: number
   fired_at: string
@@ -239,6 +240,8 @@ export interface User {
   user_id: string
   username: string
   role: string
+  enabled: boolean
+  must_change_password: boolean
   created_at: string
   updated_at: string
 }

@@ -1,13 +1,14 @@
 """自定义驱动插件管理器"""
 
 from __future__ import annotations
+
 import importlib
 import importlib.util
 import inspect
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
 
@@ -30,7 +31,7 @@ class PluginManager:
     def __init__(self, driver_registry: Any):
         self._registry = driver_registry
         self._loaded_plugins: dict[str, PluginInfo] = {}
-        self._allowed_dir: Optional[Path] = None
+        self._allowed_dir: Path | None = None
 
     def discover_custom_drivers(self, custom_dir: str) -> list[PluginInfo]:
         """扫描自定义驱动目录，加载所有DriverPlugin子类"""
@@ -94,7 +95,7 @@ class PluginManager:
     def _find_driver_subclasses(self, module) -> list[type]:
         """查找模块中所有DriverPlugin的子类"""
         classes = []
-        for name, obj in inspect.getmembers(module, inspect.isclass):
+        for _name, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, DriverPlugin) and obj is not DriverPlugin:
                 classes.append(obj)
         return classes
@@ -108,7 +109,7 @@ class PluginManager:
         self._loaded_plugins[info.name] = info
         logger.info("已加载自定义驱动: %s (%s)", info.name, info.class_name)
 
-    def reload_plugin(self, plugin_name: str) -> Optional[PluginInfo]:
+    def reload_plugin(self, plugin_name: str) -> PluginInfo | None:
         """热重载指定驱动"""
         info = self._loaded_plugins.get(plugin_name)
         if not info:

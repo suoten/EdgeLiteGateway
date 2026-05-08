@@ -32,6 +32,7 @@ class OTAManager:
         """获取当前版本"""
         try:
             from edgelite import __version__
+
             return __version__
         except Exception:
             return "unknown"
@@ -152,8 +153,8 @@ class OTAManager:
                 if backup_path is None:
                     return False
 
-                import zipfile
                 import shutil
+                import zipfile
 
                 extract_dir = Path(tempfile.mkdtemp(prefix="edgelite_update_"))
                 try:

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -19,6 +18,7 @@ router = APIRouter(prefix="/api/v1/audit", tags=["审计日志"])
 
 def _get_audit_service():
     from edgelite.app import _app_state
+
     return getattr(_app_state, "audit_service", None)
 
 
@@ -38,25 +38,31 @@ async def query_audit_logs(
         raise HTTPException(status_code=501, detail="审计日志服务未启用")
 
     from edgelite.services.audit_service import AuditAction
+
     action_enum = None
     if action:
         try:
             action_enum = AuditAction(action)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"无效的action: {action}")
+            raise HTTPException(status_code=400, detail=f"无效的action: {action}") from None
 
     try:
         st = datetime.fromisoformat(start_time) if start_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}")
+        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}") from None
     try:
         et = datetime.fromisoformat(end_time) if end_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}")
+        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
 
     logs, total = await svc.query(
-        user_id=user_id, action=action_enum, resource_type=resource_type,
-        start_time=st, end_time=et, page=page, size=size,
+        user_id=user_id,
+        action=action_enum,
+        resource_type=resource_type,
+        start_time=st,
+        end_time=et,
+        page=page,
+        size=size,
     )
     return ApiResponse(data={"logs": logs, "total": total})
 
@@ -76,7 +82,7 @@ async def verify_integrity(
         raise
     except Exception as e:
         logger.error("验证失败: %s", e)
-        raise HTTPException(status_code=500, detail="验证失败")
+        raise HTTPException(status_code=500, detail="验证失败") from e
 
 
 @router.get("/export/csv", response_model=ApiResponse)
@@ -92,11 +98,11 @@ async def export_audit_csv(
     try:
         st = datetime.fromisoformat(start_time) if start_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}")
+        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}") from None
     try:
         et = datetime.fromisoformat(end_time) if end_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}")
+        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
 
     csv_content = await svc.export_csv(start_time=st, end_time=et)
     return ApiResponse(data={"content": csv_content})
@@ -118,4 +124,4 @@ async def cleanup_audit_logs(
         raise
     except Exception as e:
         logger.error("清理失败: %s", e)
-        raise HTTPException(status_code=500, detail="清理失败")
+        raise HTTPException(status_code=500, detail="清理失败") from e

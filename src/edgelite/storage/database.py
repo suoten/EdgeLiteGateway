@@ -7,7 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from edgelite.config import get_config
 from edgelite.models.db import Base
@@ -83,7 +88,7 @@ def _check_driver(backend: str) -> None:
         raise ImportError(
             f"数据库后端 '{backend}' 需要安装驱动 '{driver_name}'，"
             f"请运行: pip install {driver_name}"
-        )
+        ) from None
 
 
 class Database:
@@ -151,19 +156,24 @@ class Database:
         """初始化所有表（仅用于开发/首次部署，生产环境请使用 Alembic）"""
         if self._engine is None:
             raise RuntimeError("数据库未连接")
+        if self._session_factory is None:
+            raise RuntimeError("数据库会话工厂未初始化")
 
         async with self._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            if self._backend == "sqlite":
+                await self._migrate_sqlite(conn)
 
         async with self._session_factory() as session:
             from sqlalchemy import select
+
             from edgelite.models.db import UserORM
-            result = await session.execute(
-                select(UserORM).where(UserORM.username == "admin")
-            )
+
+            result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
             if result.scalar_one_or_none() is None:
                 try:
                     from edgelite.security.password import hash_password
+
                     hashed = hash_password("admin123")
                     admin = UserORM(
                         user_id="admin",
@@ -177,6 +187,27 @@ class Database:
                     logger.info("已创建默认管理员用户 (admin/admin123)")
                 except ImportError:
                     pass
+
+    async def _migrate_sqlite(self, conn: Any) -> None:
+        """SQLite 自动迁移：为已有表添加缺失的列"""
+        from sqlalchemy import text
+
+        migrations = [
+            ("users", "must_change_password", "BOOLEAN NOT NULL DEFAULT 0"),
+            ("users", "updated_at", "DATETIME DEFAULT NULL"),
+            ("alarms", "message", "VARCHAR(256) NOT NULL DEFAULT ''"),
+        ]
+        for table, column, definition in migrations:
+            try:
+                result = await conn.execute(text(f"PRAGMA table_info({table})"))
+                columns = {row[1] for row in result.fetchall()}
+                if column not in columns:
+                    await conn.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+                    )
+                    logger.info("数据库迁移: %s.%s 列已添加", table, column)
+            except Exception as e:
+                logger.warning("数据库迁移 %s.%s 跳过: %s", table, column, e)
 
     def get_session(self) -> AsyncSession:
         """获取新的数据库会话"""

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import String, Text, Integer, Boolean, Index
+from sqlalchemy import Boolean, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -13,7 +13,7 @@ class Base(DeclarativeBase):
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class DeviceORM(Base):
@@ -53,6 +53,7 @@ class AlarmORM(Base):
     device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     severity: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="firing")
+    message: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     trigger_value: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     trigger_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     fired_at: Mapped[datetime] = mapped_column(default=_utcnow)
@@ -74,7 +75,9 @@ class UserORM(Base):
     password: Mapped[str] = mapped_column(String(128), nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
 
 class CacheQueueORM(Base):

@@ -61,7 +61,7 @@ class Dlt645Driver(DriverPlugin):
         try:
             import serial
         except ImportError:
-            raise ImportError("pyserial未安装，请执行: pip install pyserial")
+            raise ImportError("pyserial未安装，请执行: pip install pyserial") from None
 
         self._config = config
         port = config.get("port", "COM1")
@@ -102,7 +102,9 @@ class Dlt645Driver(DriverPlugin):
             self._running = True
             logger.info(
                 "DL/T 645驱动启动 (port=%s, baud=%d, parity=%s)",
-                port, baud_rate, parity,
+                port,
+                baud_rate,
+                parity,
             )
         except Exception as e:
             logger.error("DL/T 645驱动启动失败: %s", e)
@@ -119,12 +121,14 @@ class Dlt645Driver(DriverPlugin):
         self._devices.clear()
         logger.info("DL/T 645驱动已停止")
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+    async def add_device(
+        self, device_id: str, config: dict, points: list[dict] | None = None
+    ) -> None:
         address = config.get("address", "")
         if not address:
             raise ValueError(f"设备 {device_id} 缺少电表地址(address)")
 
-        di_map = config.get("di_map", None)
+        di_map = config.get("di_map")
         if di_map is None:
             di_map = dict(DLT645_DI_MAP)
 
@@ -167,21 +171,22 @@ class Dlt645Driver(DriverPlugin):
 
                     if not response:
                         logger.debug(
-                            "测点 %s 第%d次读取无响应", point_name, attempt,
+                            "测点 %s 第%d次读取无响应",
+                            point_name,
+                            attempt,
                         )
                         continue
 
                     if not self._validate_cs(response):
                         logger.debug(
-                            "测点 %s 第%d次读取CS校验失败", point_name, attempt,
+                            "测点 %s 第%d次读取CS校验失败",
+                            point_name,
+                            attempt,
                         )
                         continue
 
                     parsed = self._parse_response(response, point_name, point_info)
-                    if parsed is not None:
-                        all_data = parsed
-                    else:
-                        all_data = None
+                    all_data = parsed if parsed is not None else None
 
                     if all_data is not None:
                         seq = 1
@@ -192,10 +197,13 @@ class Dlt645Driver(DriverPlugin):
                             try:
                                 async with self._lock:
                                     next_frame = self._build_read_next_frame(
-                                        address, di, seq,
+                                        address,
+                                        di,
+                                        seq,
                                     )
                                     await asyncio.to_thread(
-                                        self._serial.write, next_frame,
+                                        self._serial.write,
+                                        next_frame,
                                     )
                                     await asyncio.sleep(0.05)
                                     next_resp = await asyncio.to_thread(
@@ -204,7 +212,9 @@ class Dlt645Driver(DriverPlugin):
                                 if not next_resp or not self._validate_cs(next_resp):
                                     break
                                 next_data = self._parse_response(
-                                    next_resp, point_name, point_info,
+                                    next_resp,
+                                    point_name,
+                                    point_info,
                                 )
                                 if next_data is None:
                                     break
@@ -218,7 +228,10 @@ class Dlt645Driver(DriverPlugin):
 
                 except Exception as e:
                     logger.debug(
-                        "测点 %s 第%d次读取异常: %s", point_name, attempt, e,
+                        "测点 %s 第%d次读取异常: %s",
+                        point_name,
+                        attempt,
+                        e,
                     )
 
             if point_name not in result:
@@ -245,9 +258,7 @@ class Dlt645Driver(DriverPlugin):
         if len(addr_str) != 12:
             raise ValueError(f"电表地址长度必须为12位BCD，实际: {len(addr_str)}")
 
-        bcd_bytes = bytes(
-            int(addr_str[i : i + 2], 16) for i in range(0, 12, 2)
-        )
+        bcd_bytes = bytes(int(addr_str[i : i + 2], 16) for i in range(0, 12, 2))
         return bcd_bytes[::-1]
 
     @staticmethod
@@ -340,7 +351,7 @@ class Dlt645Driver(DriverPlugin):
 
         value = int(bcd_str)
         if decimal_places > 0:
-            value = value / (10 ** decimal_places)
+            value = value / (10**decimal_places)
         return float(value)
 
     @staticmethod
@@ -371,7 +382,7 @@ class Dlt645Driver(DriverPlugin):
             raw_data = cls._sub_33h(encrypted_data)
 
             di_len = 4
-            di_raw = raw_data[:di_len]
+            raw_data[:di_len]
             value_data = raw_data[di_len:]
 
             data_type = point_info.get("type", "bcd")

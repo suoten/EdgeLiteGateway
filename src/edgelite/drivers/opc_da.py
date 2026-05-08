@@ -43,7 +43,7 @@ class OpcDaDriver(DriverPlugin):
             raise ImportError(
                 "OpenOPC未安装，请执行: pip install OpenOPC-Python3。"
                 "注意：OPC DA需要Windows平台或通过OPC网关代理访问"
-            )
+            ) from None
 
         self._config = config
         server = config.get("server", "")
@@ -90,9 +90,7 @@ class OpcDaDriver(DriverPlugin):
         async with self._lock:
             try:
                 # OpenOPC支持批量读取
-                tags = await asyncio.to_thread(
-                    self._client.read, points
-                )
+                tags = await asyncio.to_thread(self._client.read, points)
                 if isinstance(tags, list):
                     for item in tags:
                         # OpenOPC返回 (tag_name, value, quality, timestamp)
@@ -119,9 +117,7 @@ class OpcDaDriver(DriverPlugin):
 
         try:
             async with self._lock:
-                await asyncio.to_thread(
-                    self._client.write, (point, value)
-                )
+                await asyncio.to_thread(self._client.write, (point, value))
             return True
         except Exception as e:
             logger.error("OPC DA写入失败 %s: %s", point, e)
@@ -137,10 +133,12 @@ class OpcDaDriver(DriverPlugin):
             tree = await asyncio.to_thread(self._client.browse)
             items = []
             for branch in tree:
-                items.append({
-                    "name": branch,
-                    "protocol": "opc_da",
-                })
+                items.append(
+                    {
+                        "name": branch,
+                        "protocol": "opc_da",
+                    }
+                )
             return items
         except Exception as e:
             logger.error("OPC DA浏览失败: %s", e)
@@ -150,6 +148,7 @@ class OpcDaDriver(DriverPlugin):
         """列出指定主机上的OPC DA Server"""
         try:
             import OpenOPC
+
             client = OpenOPC.client(host=host)
             return client.servers()
         except Exception as e:

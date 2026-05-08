@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, get_current_user, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -47,22 +48,42 @@ class MCPServer:
             "get_device_status": {
                 "name": "get_device_status",
                 "description": "获取指定设备的运行状态",
-                "inputSchema": {"type": "object", "properties": {"device_id": {"type": "string", "description": "设备ID"}}, "required": ["device_id"]},
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"device_id": {"type": "string", "description": "设备ID"}},
+                    "required": ["device_id"],
+                },
             },
             "read_device_points": {
                 "name": "read_device_points",
                 "description": "读取设备测点当前值",
-                "inputSchema": {"type": "object", "properties": {"device_id": {"type": "string", "description": "设备ID"}}, "required": ["device_id"]},
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"device_id": {"type": "string", "description": "设备ID"}},
+                    "required": ["device_id"],
+                },
             },
             "write_device_point": {
                 "name": "write_device_point",
                 "description": "写入设备测点值",
-                "inputSchema": {"type": "object", "properties": {"device_id": {"type": "string"}, "point_name": {"type": "string"}, "value": {"type": "number"}}, "required": ["device_id", "point_name", "value"]},
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string"},
+                        "point_name": {"type": "string"},
+                        "value": {"type": "number"},
+                    },
+                    "required": ["device_id", "point_name", "value"],
+                },
             },
             "list_alarms": {
                 "name": "list_alarms",
                 "description": "获取当前活跃告警列表",
-                "inputSchema": {"type": "object", "properties": {"severity": {"type": "string", "description": "告警级别过滤"}}, "required": []},
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"severity": {"type": "string", "description": "告警级别过滤"}},
+                    "required": [],
+                },
             },
             "get_system_status": {
                 "name": "get_system_status",
@@ -78,9 +99,24 @@ class MCPServer:
 
     def _register_resources(self):
         self._resources = {
-            "devices": {"uri": "edgelite://devices", "name": "设备列表", "description": "所有已注册设备的概要信息", "mimeType": "application/json"},
-            "alarms/active": {"uri": "edgelite://alarms/active", "name": "活跃告警", "description": "当前未确认的告警列表", "mimeType": "application/json"},
-            "system/status": {"uri": "edgelite://system/status", "name": "系统状态", "description": "系统运行状态概要", "mimeType": "application/json"},
+            "devices": {
+                "uri": "edgelite://devices",
+                "name": "设备列表",
+                "description": "所有已注册设备的概要信息",
+                "mimeType": "application/json",
+            },
+            "alarms/active": {
+                "uri": "edgelite://alarms/active",
+                "name": "活跃告警",
+                "description": "当前未确认的告警列表",
+                "mimeType": "application/json",
+            },
+            "system/status": {
+                "uri": "edgelite://system/status",
+                "name": "系统状态",
+                "description": "系统运行状态概要",
+                "mimeType": "application/json",
+            },
         }
 
     def _register_prompts(self):
@@ -88,12 +124,16 @@ class MCPServer:
             "analyze_device": {
                 "name": "analyze_device",
                 "description": "分析设备运行状态和异常",
-                "arguments": [{"name": "device_id", "description": "要分析的设备ID", "required": True}],
+                "arguments": [
+                    {"name": "device_id", "description": "要分析的设备ID", "required": True}
+                ],
             },
             "alarm_summary": {
                 "name": "alarm_summary",
                 "description": "生成告警摘要报告",
-                "arguments": [{"name": "severity", "description": "告警级别过滤", "required": False}],
+                "arguments": [
+                    {"name": "severity", "description": "告警级别过滤", "required": False}
+                ],
             },
         }
 
@@ -140,7 +180,12 @@ class MCPServer:
                 svc = getattr(_app_state, "device_service", None)
                 if svc:
                     await svc.write_point(device_id, point_name, value)
-                    return {"success": True, "device_id": device_id, "point_name": point_name, "value": value}
+                    return {
+                        "success": True,
+                        "device_id": device_id,
+                        "point_name": point_name,
+                        "value": value,
+                    }
                 raise HTTPException(status_code=503, detail="设备服务不可用")
 
             elif name == "list_alarms":
@@ -172,7 +217,7 @@ class MCPServer:
             raise
         except Exception as e:
             logger.error("MCP工具调用异常 %s: %s", name, e)
-            raise HTTPException(status_code=500, detail=f"工具调用失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"工具调用失败: {str(e)}") from e
 
 
 _mcp_server = MCPServer()
@@ -186,7 +231,7 @@ async def list_tools(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败")
+        raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
 @router.post("/call", response_model=ApiResponse)
@@ -195,7 +240,11 @@ async def call_tool(req: ToolCallRequest, _user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail=f"未知工具: {req.name}")
     try:
         tool_def = _mcp_server._tools[req.name]
-        input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else getattr(tool_def, "input_schema", None)
+        input_schema = (
+            tool_def.get("inputSchema")
+            if isinstance(tool_def, dict)
+            else getattr(tool_def, "input_schema", None)
+        )
         if input_schema and isinstance(input_schema, dict):
             required = input_schema.get("required", [])
             properties = input_schema.get("properties", {})
@@ -213,7 +262,7 @@ async def call_tool(req: ToolCallRequest, _user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败")
+        raise HTTPException(status_code=500, detail="操作失败") from e
 
 
 @router.get("/resources", response_model=ApiResponse)
@@ -224,7 +273,7 @@ async def list_resources(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败")
+        raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
 @router.get("/prompts", response_model=ApiResponse)
@@ -235,7 +284,7 @@ async def list_prompts(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败")
+        raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
 class MCPAuthManager:
@@ -249,7 +298,7 @@ class MCPAuthManager:
     def _load(self):
         try:
             if self._STORE_FILE.exists():
-                with open(self._STORE_FILE, "r", encoding="utf-8") as f:
+                with open(self._STORE_FILE, encoding="utf-8") as f:
                     data = json.load(f)
                 self._keys = data.get("keys", {})
                 self._enabled = data.get("enabled", False)
@@ -262,19 +311,35 @@ class MCPAuthManager:
         try:
             self._STORE_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(self._STORE_FILE, "w", encoding="utf-8") as f:
-                json.dump({"keys": self._keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2)
+                json.dump(
+                    {"keys": self._keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2
+                )
         except Exception as e:
             logger.warning("保存MCP密钥文件失败: %s", e)
 
     def list_keys(self) -> list[dict[str, Any]]:
-        return [{"id": k, "name": v["name"], "scopes": v["scopes"], "created_at": v.get("created_at", "")} for k, v in self._keys.items()]
+        return [
+            {
+                "id": k,
+                "name": v["name"],
+                "scopes": v["scopes"],
+                "created_at": v.get("created_at", ""),
+            }
+            for k, v in self._keys.items()
+        ]
 
     def create_key(self, name: str, scopes: list[str]) -> dict[str, Any]:
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         key_id = str(uuid.uuid4())[:8]
         new_api_key = f"mcp_{uuid.uuid4().hex[:32]}"
-        self._keys[key_id] = {"name": name, "scopes": scopes, "key": new_api_key, "created_at": datetime.now(timezone.utc).isoformat()}
+        self._keys[key_id] = {
+            "name": name,
+            "scopes": scopes,
+            "key": new_api_key,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
         self._enabled = True
         self._save()
         return {"id": key_id, "name": name, "key": new_api_key, "scopes": scopes}
@@ -299,7 +364,7 @@ async def list_auth_keys(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败")
+        raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
 class CreateKeyRequest(BaseModel):
@@ -308,7 +373,9 @@ class CreateKeyRequest(BaseModel):
 
 
 @router.post("/auth-keys", response_model=ApiResponse)
-async def create_auth_key(req: CreateKeyRequest, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
+async def create_auth_key(
+    req: CreateKeyRequest, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)
+):
     result = _mcp_auth.create_key(req.name, req.scopes)
     try:
         return ApiResponse(data=result)
@@ -316,11 +383,13 @@ async def create_auth_key(req: CreateKeyRequest, user: CurrentUser = require_per
         raise
     except Exception as e:
         logger.error("创建失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建失败")
+        raise HTTPException(status_code=500, detail="创建失败") from e
 
 
 @router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
-async def delete_auth_key(key_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
+async def delete_auth_key(
+    key_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)
+):
     if _mcp_auth.delete_key(key_id):
         return ApiResponse(data={"deleted": True, "key_id": key_id})
     try:
@@ -329,7 +398,7 @@ async def delete_auth_key(key_id: str, user: CurrentUser = require_permission(Pe
         raise
     except Exception as e:
         logger.error("删除失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除失败")
+        raise HTTPException(status_code=500, detail="删除失败") from e
 
 
 @router.get("/sse")
@@ -337,29 +406,35 @@ async def mcp_sse(_user=Depends(get_current_user)):
     """MCP SSE传输端点 - 供AI助手通过EventSource连接"""
     try:
         import asyncio as _asyncio
-        from fastapi.responses import StreamingResponse as _SR
+
+        from fastapi.responses import StreamingResponse as _StreamingResp
 
         async def event_generator():
-            yield "event: connected\ndata: {\"server\": \"edgelite-mcp\", \"version\": \"1.0\"}\n\n"
+            yield 'event: connected\ndata: {"server": "edgelite-mcp", "version": "1.0"}\n\n'
             queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
             try:
                 while True:
                     try:
                         message = await _asyncio.wait_for(queue.get(), timeout=30)
                         yield f"event: message\ndata: {message}\n\n"
-                    except _asyncio.TimeoutError:
+                    except TimeoutError:
                         import time as _time
-                        yield f"event: ping\ndata: {{\"timestamp\": {_time.time()}}}\n\n"
+
+                        yield f'event: ping\ndata: {{"timestamp": {_time.time()}}}\n\n'
             except _asyncio.CancelledError:
                 pass
 
-        return _SR(
+        return _StreamingResp(
             event_generator(),
             media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
         )
     except HTTPException:
         raise
     except Exception as e:
         logger.error("SSE连接失败: %s", e)
-        raise HTTPException(status_code=500, detail="SSE连接失败")
+        raise HTTPException(status_code=500, detail="SSE连接失败") from e

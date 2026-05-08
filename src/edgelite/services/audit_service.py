@@ -17,13 +17,13 @@ import io
 import json
 import logging
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class AuditAction(str, Enum):
+class AuditAction(StrEnum):
     LOGIN = "login"
     LOGOUT = "logout"
     LOGIN_FAILED = "login_failed"
@@ -74,6 +74,7 @@ class AuditService:
     def _sync_initialize(self) -> None:
         import sqlite3
         from pathlib import Path
+
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -99,17 +100,17 @@ class AuditService:
 
         cursor.execute("PRAGMA table_info(audit_logs)")
         columns = [col[1] for col in cursor.fetchall()]
-        if 'timestamp' in columns and 'created_at' not in columns:
+        if "timestamp" in columns and "created_at" not in columns:
             cursor.execute("ALTER TABLE audit_logs RENAME COLUMN timestamp TO created_at")
-            columns = [c if c != 'timestamp' else 'created_at' for c in columns]
+            columns = [c if c != "timestamp" else "created_at" for c in columns]
 
         expected_columns = {
-            'user_agent': 'TEXT',
-            'details': 'TEXT',
-            'status': "TEXT DEFAULT 'success'",
-            'error_message': 'TEXT',
-            'prev_hash': 'TEXT',
-            'record_hash': 'TEXT',
+            "user_agent": "TEXT",
+            "details": "TEXT",
+            "status": "TEXT DEFAULT 'success'",
+            "error_message": "TEXT",
+            "prev_hash": "TEXT",
+            "record_hash": "TEXT",
         }
         for col_name, col_def in expected_columns.items():
             if col_name not in columns:
@@ -130,7 +131,17 @@ class AuditService:
         self._initialized = True
 
     def _compute_record_hash(self, record: dict, prev_hash: str) -> str:
-        content = f"{record['created_at']}|{record.get('user_id', '')}|{record.get('username', '')}|{record['action']}|{record.get('resource_type', '')}|{record.get('resource_id', '')}|{record.get('ip_address', '')}|{record.get('status', '')}|{prev_hash}"
+        content = (
+            f"{record['created_at']}|"
+            f"{record.get('user_id', '')}|"
+            f"{record.get('username', '')}|"
+            f"{record['action']}|"
+            f"{record.get('resource_type', '')}|"
+            f"{record.get('resource_id', '')}|"
+            f"{record.get('ip_address', '')}|"
+            f"{record.get('status', '')}|"
+            f"{prev_hash}"
+        )
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     async def log(
@@ -156,17 +167,33 @@ class AuditService:
         record_hash = ""
         if self._tamper_proof:
             record = {
-                "created_at": timestamp, "user_id": user_id, "username": username,
-                "action": action.value, "resource_type": resource_type,
-                "resource_id": resource_id, "ip_address": ip_address, "status": status,
+                "created_at": timestamp,
+                "user_id": user_id,
+                "username": username,
+                "action": action.value,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "ip_address": ip_address,
+                "status": status,
             }
             prev_hash = self._last_hash
             record_hash = self._compute_record_hash(record, prev_hash)
 
         await asyncio.to_thread(
-            self._sync_log, timestamp, user_id, username, action.value,
-            resource_type, resource_id, ip_address, user_agent,
-            details_json, status, error_message, prev_hash, record_hash,
+            self._sync_log,
+            timestamp,
+            user_id,
+            username,
+            action.value,
+            resource_type,
+            resource_id,
+            ip_address,
+            user_agent,
+            details_json,
+            status,
+            error_message,
+            prev_hash,
+            record_hash,
         )
 
         if self._tamper_proof and record_hash:
@@ -175,24 +202,51 @@ class AuditService:
         if action == AuditAction.LOGIN_FAILED and ip_address:
             await self._check_login_anomaly(ip_address, username)
 
-    def _sync_log(self, timestamp, user_id, username, action, resource_type,
-                  resource_id, ip_address, user_agent, details_json, status,
-                  error_message, prev_hash, record_hash) -> None:
+    def _sync_log(
+        self,
+        timestamp,
+        user_id,
+        username,
+        action,
+        resource_type,
+        resource_id,
+        ip_address,
+        user_agent,
+        details_json,
+        status,
+        error_message,
+        prev_hash,
+        record_hash,
+    ) -> None:
         import sqlite3
+
         conn = sqlite3.connect(self._db_path)
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO audit_logs (
                     created_at, user_id, username, action, resource_type, resource_id,
                     ip_address, user_agent, details, status, error_message,
                     prev_hash, record_hash
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                timestamp, user_id, username, action, resource_type, resource_id,
-                ip_address, user_agent, details_json, status, error_message,
-                prev_hash, record_hash,
-            ))
+            """,
+                (
+                    timestamp,
+                    user_id,
+                    username,
+                    action,
+                    resource_type,
+                    resource_id,
+                    ip_address,
+                    user_agent,
+                    details_json,
+                    status,
+                    error_message,
+                    prev_hash,
+                    record_hash,
+                ),
+            )
             conn.commit()
         finally:
             conn.close()
@@ -203,12 +257,14 @@ class AuditService:
         if self._login_fail_counts[key] >= self._login_fail_threshold:
             if self._on_audit_alert:
                 try:
-                    await self._on_audit_alert({
-                        "type": "login_anomaly",
-                        "ip_address": ip_address,
-                        "username": username,
-                        "fail_count": self._login_fail_counts[key],
-                    })
+                    await self._on_audit_alert(
+                        {
+                            "type": "login_anomaly",
+                            "ip_address": ip_address,
+                            "username": username,
+                            "fail_count": self._login_fail_counts[key],
+                        }
+                    )
                 except Exception as e:
                     logger.warning("审计告警回调失败: %s", e)
             self._login_fail_counts[key] = 0
@@ -224,12 +280,19 @@ class AuditService:
         size: int = 20,
     ) -> tuple[list[dict], int]:
         return await asyncio.to_thread(
-            self._sync_query, user_id, action, resource_type,
-            start_time, end_time, page, size,
+            self._sync_query,
+            user_id,
+            action,
+            resource_type,
+            start_time,
+            end_time,
+            page,
+            size,
         )
 
     def _sync_query(self, user_id, action, resource_type, start_time, end_time, page, size):
         import sqlite3
+
         conn = sqlite3.connect(self._db_path)
         try:
             cursor = conn.cursor()
@@ -264,7 +327,7 @@ class AuditService:
                 params + [size, offset],
             )
             columns = [desc[0] for desc in cursor.description]
-            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            rows = [dict(zip(columns, row, strict=False)) for row in cursor.fetchall()]
 
             return rows, total
         finally:
@@ -275,10 +338,15 @@ class AuditService:
 
     def _sync_verify_integrity(self) -> dict:
         import sqlite3
+
         conn = sqlite3.connect(self._db_path)
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT id, created_at, user_id, username, action, resource_type, resource_id, ip_address, status, prev_hash, record_hash FROM audit_logs ORDER BY id ASC")
+            cursor.execute(
+                "SELECT id, created_at, user_id, username, action, "
+                "resource_type, resource_id, ip_address, status, "
+                "prev_hash, record_hash FROM audit_logs ORDER BY id ASC"
+            )
             rows = cursor.fetchall()
         finally:
             conn.close()
@@ -288,9 +356,14 @@ class AuditService:
         prev_hash = ""
         for row in rows:
             record = {
-                "created_at": row[1], "user_id": row[2], "username": row[3],
-                "action": row[4], "resource_type": row[5], "resource_id": row[6],
-                "ip_address": row[7], "status": row[8],
+                "created_at": row[1],
+                "user_id": row[2],
+                "username": row[3],
+                "action": row[4],
+                "resource_type": row[5],
+                "resource_id": row[6],
+                "ip_address": row[7],
+                "status": row[8],
             }
             expected_hash = self._compute_record_hash(record, prev_hash)
             if row[10] != expected_hash:
@@ -299,11 +372,14 @@ class AuditService:
 
         return {"valid": len(broken_at) == 0, "total": total, "broken_at": broken_at}
 
-    async def export_csv(self, start_time: datetime | None = None, end_time: datetime | None = None) -> str:
+    async def export_csv(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> str:
         return await asyncio.to_thread(self._sync_export_csv, start_time, end_time)
 
     def _sync_export_csv(self, start_time, end_time) -> str:
         import sqlite3
+
         conn = sqlite3.connect(self._db_path)
         try:
             cursor = conn.cursor()
@@ -338,6 +414,7 @@ class AuditService:
     def _sync_cleanup(self, retention_days: int) -> int:
         import sqlite3
         from datetime import timedelta
+
         cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
         conn = sqlite3.connect(self._db_path)
         try:

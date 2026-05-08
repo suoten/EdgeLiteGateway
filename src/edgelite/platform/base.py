@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 class PlatformHandler(ABC):
@@ -57,7 +58,8 @@ class PlatformHandler(ABC):
         当平台下发RPC请求时，调用callback处理
 
         Args:
-            callback: RPC请求处理函数，签名为 async def callback(device_id, method, params) -> result
+            callback: RPC请求处理函数，
+                签名为 async def callback(device_id, method, params) -> result
         """
 
     @abstractmethod

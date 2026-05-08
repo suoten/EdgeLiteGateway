@@ -1,10 +1,10 @@
 """边缘数据预处理模块 - 死区/滤波/聚合"""
 
 from __future__ import annotations
+
 import logging
 import time
 from collections import deque
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ class DataPreprocessor:
         """
         self._configs[point_key] = config
 
-    def process(self, point_key: str, value: float, timestamp: Optional[float] = None) -> tuple[Optional[float], bool]:
+    def process(
+        self, point_key: str, value: float, timestamp: float | None = None
+    ) -> tuple[float | None, bool]:
         """处理数据值，返回(处理后的值, 是否应上报)
         如果死区过滤判定不需要上报，返回(None, False)
         """
@@ -55,7 +57,7 @@ class DataPreprocessor:
 
         return filtered, True
 
-    def _apply_filter(self, point_key: str, value: float, config: dict) -> Optional[float]:
+    def _apply_filter(self, point_key: str, value: float, config: dict) -> float | None:
         """中值滤波"""
         filter_type = config.get("filter")
         if not filter_type:
@@ -91,9 +93,8 @@ class DataPreprocessor:
             self._last_values[point_key] = value
             return True
 
-        if deadband is not None and deadband > 0:
-            if abs(value - last) < deadband:
-                return False
+        if deadband is not None and deadband > 0 and abs(value - last) < deadband:
+            return False
 
         if deadband_pct is not None and deadband_pct > 0:
             if abs(last) < 1e-6:
@@ -108,7 +109,9 @@ class DataPreprocessor:
 
     MAX_AGGREGATE_POINTS = 10000
 
-    def _apply_aggregation(self, point_key: str, value: float, ts: float, config: dict) -> Optional[float]:
+    def _apply_aggregation(
+        self, point_key: str, value: float, ts: float, config: dict
+    ) -> float | None:
         """时间窗口聚合"""
         agg = config.get("aggregate")
         agg_window = config.get("aggregate_window_sec")
@@ -122,7 +125,9 @@ class DataPreprocessor:
         window.append((ts, value))
 
         if len(window) > self.MAX_AGGREGATE_POINTS:
-            del window[:self.MAX_AGGREGATE_POINTS // 2]
+            for _ in range(self.MAX_AGGREGATE_POINTS // 2):
+                if window:
+                    window.popleft()
 
         cutoff = ts - agg_window
         while window and window[0][0] < cutoff:

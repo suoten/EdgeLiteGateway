@@ -19,12 +19,13 @@ class VideoDriver(DriverPlugin):
 
     async def start(self, config: dict) -> None:
         from edgelite.drivers.video.pygbsentry import PyGBSentryProvider
-        self._provider = PyGBSentryProvider()
-        await self._provider.connect(config)
+
+        self._provider = PyGBSentryProvider(config)
+        await self._provider.connect()
 
     async def stop(self) -> None:
         if self._provider:
-            await self._provider.disconnect()
+            await self._provider.close()
             self._provider = None
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
@@ -52,7 +53,12 @@ class VideoDriver(DriverPlugin):
         try:
             if point.startswith("ptz_"):
                 action = point.replace("ptz_", "")
-                return await self._provider.ptz_control(device_id, "1", action, **({"speed": value} if isinstance(value, (int, float)) else {}))
+                return await self._provider.ptz_control(
+                    device_id,
+                    "1",
+                    action,
+                    **({"speed": value} if isinstance(value, (int, float)) else {}),
+                )
             return False
         except Exception:
             return False

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Type
 
 from edgelite.drivers.base import DriverPlugin
 
@@ -14,10 +13,10 @@ class DriverRegistry:
     """驱动注册表，管理协议→驱动类的映射"""
 
     def __init__(self):
-        self._drivers: dict[str, Type[DriverPlugin]] = {}
+        self._drivers: dict[str, type[DriverPlugin]] = {}
         self._discovered = False
 
-    def register(self, driver_class: Type[DriverPlugin]) -> None:
+    def register(self, driver_class: type[DriverPlugin]) -> None:
         """注册驱动类"""
         for protocol in driver_class.supported_protocols:
             self._drivers[protocol] = driver_class
@@ -29,7 +28,7 @@ class DriverRegistry:
             )
         self._drivers[driver_class.plugin_name] = driver_class
 
-    def get_driver_class(self, protocol: str) -> Type[DriverPlugin] | None:
+    def get_driver_class(self, protocol: str) -> type[DriverPlugin] | None:
         """按协议类型获取驱动类"""
         return self._drivers.get(protocol)
 
@@ -51,7 +50,7 @@ class DriverRegistry:
             del self._drivers[p]
         return len(to_remove)
 
-    def items(self) -> list[tuple[str, Type[DriverPlugin]]]:
+    def items(self) -> list[tuple[str, type[DriverPlugin]]]:
         """获取所有已注册的协议-驱动对"""
         return list(self._drivers.items())
 
@@ -98,6 +97,7 @@ class DriverRegistry:
         """加载单个驱动模块"""
         try:
             import importlib
+
             module = importlib.import_module(module_path)
             driver_cls = getattr(module, class_name)
             self.register(driver_cls)
@@ -114,6 +114,7 @@ class DriverRegistry:
         """从custom_dir发现并加载自定义驱动"""
         try:
             from edgelite.config import get_config
+
             custom_dir = get_config().drivers.custom_dir
         except Exception:
             return
@@ -144,9 +145,11 @@ class DriverRegistry:
                 spec.loader.exec_module(module)
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type)
-                            and issubclass(attr, DriverPlugin)
-                            and attr is not DriverPlugin):
+                    if (
+                        isinstance(attr, type)
+                        and issubclass(attr, DriverPlugin)
+                        and attr is not DriverPlugin
+                    ):
                         self.register(attr)
                         loaded += 1
             except Exception as e:

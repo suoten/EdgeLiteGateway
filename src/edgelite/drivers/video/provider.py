@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Callable
+from collections.abc import Callable
+from enum import StrEnum
 
 
-class DeviceStatus(str, Enum):
+class DeviceStatus(StrEnum):
     ONLINE = "online"
     OFFLINE = "offline"
     UNKNOWN = "unknown"

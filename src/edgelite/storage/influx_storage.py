@@ -10,11 +10,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-from influxdb_client import InfluxDBClient, Point, WriteOptions
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client.client.influxdb_client import InfluxDBClient
+from influxdb_client.client.write.point import Point
+from influxdb_client.client.write_api import WriteOptions
 
 from edgelite.config import get_config
 
@@ -52,7 +53,7 @@ class InfluxDBStorage:
                     timeout=5.0,
                 )
                 self._available = health.status == "pass"
-            except (asyncio.TimeoutError, Exception) as e:
+            except (TimeoutError, Exception) as e:
                 self._available = False
                 logger.warning("InfluxDB健康检查超时或失败: %s", e)
 
@@ -113,9 +114,14 @@ class InfluxDBStorage:
 
         try:
             import math
+
             float_val = float(value)
             if math.isnan(float_val) or math.isinf(float_val):
-                logger.warning("InfluxDB写入跳过: 值为NaN/Infinity (device=%s, point=%s)", device_id, point_name)
+                logger.warning(
+                    "InfluxDB写入跳过: 值为NaN/Infinity (device=%s, point=%s)",
+                    device_id,
+                    point_name,
+                )
                 return False
 
             point = (
@@ -128,9 +134,7 @@ class InfluxDBStorage:
             if timestamp:
                 point = point.time(timestamp)
 
-            await asyncio.to_thread(
-                self._write_api.write, bucket=self._bucket, record=point
-            )
+            await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=point)
             return True
         except Exception as e:
             logger.error("InfluxDB写入失败: %s", e)
@@ -142,13 +146,15 @@ class InfluxDBStorage:
     async def write_points_batch(self, records: list[dict]) -> bool:
         """批量写入测点数据
 
-        records格式: [{"device_id": ..., "point_name": ..., "value": ..., "timestamp": ..., "quality": ...}]
+        records格式: [{"device_id": ..., "point_name": ..., "value": ...,
+                       "timestamp": ..., "quality": ...}]
         """
         if not self._available or not self._write_api:
             return False
 
         try:
             import math
+
             points = []
             for rec in records:
                 device_id = rec.get("device_id")
@@ -159,7 +165,11 @@ class InfluxDBStorage:
                     continue
                 float_val = float(raw_value)
                 if math.isnan(float_val) or math.isinf(float_val):
-                    logger.warning("批量写入跳过: 值为NaN/Infinity (device=%s, point=%s)", device_id, point_name)
+                    logger.warning(
+                        "批量写入跳过: 值为NaN/Infinity (device=%s, point=%s)",
+                        device_id,
+                        point_name,
+                    )
                     continue
                 p = (
                     Point("device_points")
@@ -172,9 +182,7 @@ class InfluxDBStorage:
                     p = p.time(rec["timestamp"])
                 points.append(p)
 
-            await asyncio.to_thread(
-                self._write_api.write, bucket=self._bucket, record=points
-            )
+            await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=points)
             return True
         except Exception as e:
             logger.error("InfluxDB批量写入失败: %s", e)
@@ -186,13 +194,14 @@ class InfluxDBStorage:
     @staticmethod
     def _escape_flux_value(value: str) -> str:
         """转义 Flux 查询中的字符串值，防止注入"""
-        return (value
-            .replace("\\", "\\\\")
+        return (
+            value.replace("\\", "\\\\")
             .replace('"', '\\"')
             .replace("'", "\\'")
             .replace("\n", "\\n")
             .replace("\r", "\\r")
-            .replace("|", "\\|"))
+            .replace("|", "\\|")
+        )
 
     async def query_points(
         self,
@@ -206,9 +215,12 @@ class InfluxDBStorage:
         if not self._available or not self._query_api:
             return []
 
-        _TIME_RANGE_RE = re.compile(r'^-?\d+[smhdwMy]$|^\d{4}-\d{2}-\d{2}')
+        time_range_re = re.compile(r"^-?\d+[smhdwMy]$|^\d{4}-\d{2}-\d{2}")
         for param_name, param_val in [("start", start), ("stop", stop)]:
-            if param_val and not (_TIME_RANGE_RE.match(param_val) or param_val.lstrip("-").replace(".", "", 1).isdigit()):
+            if param_val and not (
+                time_range_re.match(param_val)
+                or param_val.lstrip("-").replace(".", "", 1).isdigit()
+            ):
                 logger.error("非法的时间范围参数 %s: %s", param_name, param_val)
                 return []
 
@@ -227,30 +239,32 @@ from(bucket: "{self._bucket}")
 """
         if aggregate:
             safe_agg = self._escape_flux_value(aggregate)
-            flux += f'  |> aggregateWindow(every: {safe_agg}, fn: mean, createEmpty: false)\n'
+            flux += f"  |> aggregateWindow(every: {safe_agg}, fn: mean, createEmpty: false)\n"
 
         flux += '  |> yield(name: "result")'
 
         try:
-            tables = await asyncio.to_thread(
-                self._query_api.query, flux, self._org
-            )
+            tables = await asyncio.to_thread(self._query_api.query, flux, self._org)
             results = []
             for table in tables:
                 for record in table.records:
-                    results.append({
-                        "time": record.get_time().isoformat() if record.get_time() else None,
-                        "value": record.get_value(),
-                        "device_id": record.values.get("device_id"),
-                        "point_name": record.values.get("point_name"),
-                        "quality": record.values.get("quality"),
-                    })
+                    results.append(
+                        {
+                            "time": record.get_time().isoformat() if record.get_time() else None,
+                            "value": record.get_value(),
+                            "device_id": record.values.get("device_id"),
+                            "point_name": record.values.get("point_name"),
+                            "quality": record.values.get("quality"),
+                        }
+                    )
             return results
         except Exception as e:
             logger.error("InfluxDB查询失败: %s", e)
             return []
 
-    async def query_latest(self, device_id: str, point_names: list[str] | None = None) -> dict[str, Any]:
+    async def query_latest(
+        self, device_id: str, point_names: list[str] | None = None
+    ) -> dict[str, Any]:
         """查询设备最新测点值"""
         if not self._available or not self._query_api:
             return {}
@@ -259,7 +273,9 @@ from(bucket: "{self._bucket}")
         point_filter = ""
         if point_names:
             safe_names = ", ".join(f'"{self._escape_flux_value(n)}"' for n in point_names)
-            point_filter = f"  |> filter(fn: (r) => contains(value: r.point_name, set: [{safe_names}]))\n"
+            point_filter = (
+                f"  |> filter(fn: (r) => contains(value: r.point_name, set: [{safe_names}]))\n"
+            )
 
         flux = f"""
 from(bucket: "{self._bucket}")
@@ -271,9 +287,7 @@ from(bucket: "{self._bucket}")
 """
 
         try:
-            tables = await asyncio.to_thread(
-                self._query_api.query, flux, self._org
-            )
+            tables = await asyncio.to_thread(self._query_api.query, flux, self._org)
             result = {}
             for table in tables:
                 for record in table.records:

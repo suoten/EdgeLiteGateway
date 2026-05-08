@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import httpx
 
-from edgelite.drivers.video.provider import DeviceStatus, VideoProvider
 from edgelite.config import get_config
+from edgelite.drivers.video.provider import DeviceStatus, VideoProvider
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,9 @@ class PyGBSentryProvider(VideoProvider):
                 logger.info("视频设备注册成功: %s", device_id)
                 return True
             else:
-                logger.warning("视频设备在PyGBSentry中不存在: %s (status=%d)", device_id, resp.status_code)
+                logger.warning(
+                    "视频设备在PyGBSentry中不存在: %s (status=%d)", device_id, resp.status_code
+                )
                 return False
         except Exception as e:
             logger.error("视频设备注册失败: %s - %s", device_id, e)
@@ -63,7 +65,9 @@ class PyGBSentryProvider(VideoProvider):
         if not self._client:
             return ""
         try:
-            resp = await self._client.get(f"/api/v1/devices/{device_id}/channels/{channel_id}/stream")
+            resp = await self._client.get(
+                f"/api/v1/devices/{device_id}/channels/{channel_id}/stream"
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("data", {}).get("url", "")

@@ -1,9 +1,10 @@
 """DL/T 645-2007 驱动单元测试"""
-import pytest
-import sys
-sys.path.insert(0, 'src')
 
-from edgelite.drivers.dlt645 import Dlt645Driver, DLT645_DI_MAP
+import sys
+
+sys.path.insert(0, "src")
+
+from edgelite.drivers.dlt645 import DLT645_DI_MAP, Dlt645Driver
 
 
 class TestDlt645Frame:
@@ -62,8 +63,9 @@ class TestDlt645Frame:
         """IEEE 754浮点解析"""
         driver = Dlt645Driver.__new__(Dlt645Driver)
         import struct
+
         expected = 220.5
-        data = struct.pack('<f', expected)
+        data = struct.pack("<f", expected)
         result = driver._decode_float32(data)
         assert abs(result - expected) < 1e-6
 

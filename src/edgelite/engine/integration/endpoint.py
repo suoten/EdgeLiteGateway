@@ -45,6 +45,7 @@ class IntegrationEndpoint:
         }
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             supported_protocols = get_driver_registry().get_supported_protocols()
         except Exception:
             supported_protocols = []
@@ -53,7 +54,13 @@ class IntegrationEndpoint:
             "type": "handshake_ack",
             "version": "1.0",
             "protocols": supported_protocols,
-            "capabilities": ["push_device", "device_control", "delete_device", "backhaul", "alarm_forward"],
+            "capabilities": [
+                "push_device",
+                "device_control",
+                "delete_device",
+                "backhaul",
+                "alarm_forward",
+            ],
             "session_id": session_id,
         }
         logger.info("联调握手完成, session: %s", session_id)
@@ -108,9 +115,9 @@ class IntegrationEndpoint:
     async def _cleanup_expired_sessions(self) -> None:
         now = time.time()
         expired = [
-            sid for sid, info in self._sessions.items()
-            if sid not in self._connections
-            and now - info.get("connected_at", 0) > self.SESSION_TTL
+            sid
+            for sid, info in self._sessions.items()
+            if sid not in self._connections and now - info.get("connected_at", 0) > self.SESSION_TTL
         ]
         for sid in expired:
             self._sessions.pop(sid, None)

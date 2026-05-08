@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
+import hashlib
+import hmac
 import json
 import logging
-import ssl
 import time
-import hmac
-import hashlib
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from edgelite.platform.base import PlatformHandler
 
@@ -40,14 +41,16 @@ class HuaweiIoTDAHandler(PlatformHandler):
 
     def _generate_password(self, device_id: str, secret: str, timestamp: str) -> str:
         message = f"{timestamp}"
-        hmac_code = hmac.new(secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
+        hmac_code = hmac.new(
+            secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
+        ).digest()
         return base64.b64encode(hmac_code).decode("utf-8")
 
     async def connect(self, config: dict) -> None:
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt")
+            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -77,10 +80,8 @@ class HuaweiIoTDAHandler(PlatformHandler):
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
         if self._connect_task:
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
         self._connected = False
         logger.info("华为云IoTDA平台对接已断开")
 
@@ -88,13 +89,19 @@ class HuaweiIoTDAHandler(PlatformHandler):
         if not self._connected or not self._pub_queue:
             return
         topic = f"$oc/devices/{device_id}/sys/properties/report"
-        payload = json.dumps({
-            "services": [{
-                "service_id": "edgelite",
-                "properties": data,
-                "event_time": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
-            }]
-        }, ensure_ascii=False, default=str)
+        payload = json.dumps(
+            {
+                "services": [
+                    {
+                        "service_id": "edgelite",
+                        "properties": data,
+                        "event_time": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
+                    }
+                ]
+            },
+            ensure_ascii=False,
+            default=str,
+        )
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
@@ -104,13 +111,19 @@ class HuaweiIoTDAHandler(PlatformHandler):
         if not self._connected or not self._pub_queue:
             return
         topic = f"$oc/devices/{device_id}/sys/properties/report"
-        payload = json.dumps({
-            "services": [{
-                "service_id": "edgelite_attrs",
-                "properties": attrs,
-                "event_time": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
-            }]
-        }, ensure_ascii=False, default=str)
+        payload = json.dumps(
+            {
+                "services": [
+                    {
+                        "service_id": "edgelite_attrs",
+                        "properties": attrs,
+                        "event_time": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
+                    }
+                ]
+            },
+            ensure_ascii=False,
+            default=str,
+        )
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
@@ -123,20 +136,28 @@ class HuaweiIoTDAHandler(PlatformHandler):
         if not self._connected or not self._pub_queue:
             return
         topic = f"$oc/devices/{device_id}/sys/events/report"
-        payload = json.dumps({
-            "services": [{
-                "service_id": "$device_status",
-                "event_type": "device_status_change",
-                "paras": {"status": "ONLINE" if online else "OFFLINE"},
-                "event_time": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
-            }]
-        }, ensure_ascii=False, default=str)
+        payload = json.dumps(
+            {
+                "services": [
+                    {
+                        "service_id": "$device_status",
+                        "event_type": "device_status_change",
+                        "paras": {"status": "ONLINE" if online else "OFFLINE"},
+                        "event_time": time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
+                    }
+                ]
+            },
+            ensure_ascii=False,
+            default=str,
+        )
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
             logger.warning("华为云IoTDA发布队列已满，丢弃消息")
 
-    async def _connect_loop(self, broker: str, port: int, username: str, password: str, device_id: str) -> None:
+    async def _connect_loop(
+        self, broker: str, port: int, username: str, password: str, device_id: str
+    ) -> None:
         import aiomqtt
 
         while self._running:
@@ -147,7 +168,6 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     username=username,
                     password=password,
                     keepalive=60,
-                    tls_params=aiomqtt.TLSParameters(ssl_context=ssl.create_default_context()) if port == 8883 else None,
                 ) as client:
                     self._connected = True
                     logger.info("华为云IoTDA MQTT连接成功: %s:%d", broker, port)
@@ -172,10 +192,8 @@ class HuaweiIoTDAHandler(PlatformHandler):
                             if not t.done():
                                 t.cancel()
                         for t in [msg_task, pub_task]:
-                            try:
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await t
-                            except asyncio.CancelledError:
-                                pass
                         self._connected = False
 
             except asyncio.CancelledError:
@@ -188,11 +206,12 @@ class HuaweiIoTDAHandler(PlatformHandler):
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(
-                        self._pub_queue.get(), timeout=1.0
-                    )
-                except asyncio.TimeoutError:
+                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                except TimeoutError:
                     continue
                 try:
                     await client.publish(topic, payload, qos=qos)
@@ -214,7 +233,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
                         cmd_name = payload.get("command_name", "")
                         paras = payload.get("paras", {})
                         if self._rpc_callback:
-                            result = await self._rpc_callback(device_id, cmd_name, paras)
+                            await self._rpc_callback(device_id, cmd_name, paras)
 
                     elif "/sys/properties/set/" in topic:
                         props = payload.get("properties", {})

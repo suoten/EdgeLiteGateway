@@ -1,7 +1,10 @@
 """MQTT TLS配置单元测试"""
-import pytest
+
 import sys
-sys.path.insert(0, 'src')
+
+sys.path.insert(0, "src")
+
+import contextlib
 
 from edgelite.engine.mqtt_tls import MqttTlsHelper
 
@@ -22,7 +25,5 @@ class TestMqttTls:
 
     def test_cert_reqs_modes(self):
         """cert_reqs模式名称"""
-        try:
+        with contextlib.suppress(Exception):
             MqttTlsHelper.create_ssl_context(cert_reqs="none")
-        except Exception:
-            pass

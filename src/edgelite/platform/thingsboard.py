@@ -12,10 +12,12 @@ ThingsBoard Gateway MQTT Topic体系:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from edgelite.platform.base import PlatformHandler
 
@@ -40,7 +42,7 @@ class ThingsBoardHandler(PlatformHandler):
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt")
+            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -62,10 +64,8 @@ class ThingsBoardHandler(PlatformHandler):
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
         if self._connect_task:
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
         self._connected = False
         logger.info("ThingsBoard平台对接已断开")
 
@@ -73,12 +73,18 @@ class ThingsBoardHandler(PlatformHandler):
         if not self._connected or not self._pub_queue:
             return
         topic = "v1/gateway/telemetry"
-        payload = json.dumps({
-            device_id: [{
-                "ts": int(time.time() * 1000),
-                "values": data,
-            }]
-        }, ensure_ascii=False, default=str)
+        payload = json.dumps(
+            {
+                device_id: [
+                    {
+                        "ts": int(time.time() * 1000),
+                        "values": data,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+            default=str,
+        )
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
@@ -142,10 +148,8 @@ class ThingsBoardHandler(PlatformHandler):
                             if not t.done():
                                 t.cancel()
                         for t in [msg_task, pub_task]:
-                            try:
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await t
-                            except asyncio.CancelledError:
-                                pass
                         self._connected = False
 
             except asyncio.CancelledError:
@@ -158,11 +162,12 @@ class ThingsBoardHandler(PlatformHandler):
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(
-                        self._pub_queue.get(), timeout=1.0
-                    )
-                except asyncio.TimeoutError:
+                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                except TimeoutError:
                     continue
                 try:
                     await client.publish(topic, payload, qos=qos)
@@ -190,11 +195,13 @@ class ThingsBoardHandler(PlatformHandler):
                         if self._rpc_callback:
                             result = await self._rpc_callback(device_id, method, params)
                             response_topic = "v1/gateway/rpc"
-                            response_data = json.dumps({
-                                "device": device_id,
-                                "id": request_id,
-                                "data": result,
-                            })
+                            response_data = json.dumps(
+                                {
+                                    "device": device_id,
+                                    "id": request_id,
+                                    "data": result,
+                                }
+                            )
                             await client.publish(
                                 response_topic,
                                 response_data.encode("utf-8"),

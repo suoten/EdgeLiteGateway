@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -43,7 +44,7 @@ class BarcodeScannerDriver(DriverPlugin):
         try:
             import serial
         except ImportError:
-            raise ImportError("pyserial未安装，请执行: pip install pyserial")
+            raise ImportError("pyserial未安装，请执行: pip install pyserial") from None
 
         self._config = config
         port = config.get("port", "COM1")
@@ -69,10 +70,8 @@ class BarcodeScannerDriver(DriverPlugin):
         self._running = False
         if self._read_task and not self._read_task.done():
             self._read_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._read_task
-            except asyncio.CancelledError:
-                pass
         if self._serial and self._serial.is_open:
             try:
                 self._serial.close()
@@ -111,18 +110,20 @@ class BarcodeScannerDriver(DriverPlugin):
                         if prefix and not line.startswith(prefix):
                             continue
 
-                        barcode = line[len(prefix):] if prefix else line
+                        barcode = line[len(prefix) :] if prefix else line
                         if barcode:
                             self._latest_barcodes["barcode"] = barcode
                             self._latest_barcodes["last_scan"] = barcode
                             logger.info("扫码枪读取: %s", barcode)
 
                             if self._data_callback:
-                                await self._data_callback({
-                                    "point": "barcode",
-                                    "value": barcode,
-                                    "raw": line,
-                                })
+                                await self._data_callback(
+                                    {
+                                        "point": "barcode",
+                                        "value": barcode,
+                                        "raw": line,
+                                    }
+                                )
                 await asyncio.sleep(0.02)
             except asyncio.CancelledError:
                 raise
@@ -139,12 +140,16 @@ class BarcodeScannerDriver(DriverPlugin):
         ports = serial.tools.list_ports.comports()
         result = []
         for p in ports:
-            if any(kw in (p.description or "").lower() or kw in (p.manufacturer or "").lower()
-                   for kw in ["scanner", "barcode", "symbol", "zebra", "honeywell", "datalogic"]):
-                result.append({
-                    "device_id": p.device,
-                    "name": p.description,
-                    "ip": p.device,
-                    "protocol": "barcode_scanner",
-                })
+            if any(
+                kw in (p.description or "").lower() or kw in (p.manufacturer or "").lower()
+                for kw in ["scanner", "barcode", "symbol", "zebra", "honeywell", "datalogic"]
+            ):
+                result.append(
+                    {
+                        "device_id": p.device,
+                        "name": p.description,
+                        "ip": p.device,
+                        "protocol": "barcode_scanner",
+                    }
+                )
         return result

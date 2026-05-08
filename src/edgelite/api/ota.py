@@ -7,8 +7,8 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ _ota_lock = asyncio.Lock()
 def _get_ota_manager():
     try:
         from edgelite.app import _app_state
+
         return getattr(_app_state, "ota_manager", None)
     except (ImportError, AttributeError) as e:
         logger.debug("OTA管理器未加载: %s", e)
@@ -42,7 +43,7 @@ async def check_update(
         return ApiResponse(data=result)
     except Exception:
         logger.exception("OTA检查更新失败")
-        raise HTTPException(status_code=500, detail="检查更新失败，请稍后重试")
+        raise HTTPException(status_code=500, detail="检查更新失败，请稍后重试") from None
 
 
 @router.post("/apply", response_model=ApiResponse)
@@ -73,12 +74,12 @@ async def apply_update(
                 raise
             except Exception:
                 logger.exception("OTA应用更新失败")
-                raise HTTPException(status_code=500, detail="应用更新失败，请稍后重试")
+                raise HTTPException(status_code=500, detail="应用更新失败，请稍后重试") from None
     except HTTPException:
         raise
     except Exception as e:
         logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败")
+        raise HTTPException(status_code=500, detail="操作失败") from e
 
 
 @router.post("/rollback", response_model=ApiResponse)
@@ -94,7 +95,7 @@ async def rollback_update(
         return ApiResponse(data=result)
     except Exception:
         logger.exception("OTA回滚失败")
-        raise HTTPException(status_code=500, detail="回滚失败，请稍后重试")
+        raise HTTPException(status_code=500, detail="回滚失败，请稍后重试") from None
 
 
 @router.get("/backups", response_model=ApiResponse)
@@ -109,4 +110,4 @@ async def list_ota_backups(
         return ApiResponse(data={"backups": result})
     except Exception:
         logger.exception("OTA获取备份列表失败")
-        raise HTTPException(status_code=500, detail="获取备份列表失败")
+        raise HTTPException(status_code=500, detail="获取备份列表失败") from None

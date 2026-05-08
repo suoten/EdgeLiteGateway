@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -46,10 +47,8 @@ class MqttForwarder:
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
         if self._connect_task:
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
 
         self._connected = False
         logger.info("MQTT北向转发器停止")
@@ -128,10 +127,8 @@ class MqttForwarder:
                     finally:
                         if not pub_task.done():
                             pub_task.cancel()
-                        try:
+                        with contextlib.suppress(asyncio.CancelledError):
                             await pub_task
-                        except asyncio.CancelledError:
-                            pass
                         self._connected = False
 
             except asyncio.CancelledError:
@@ -142,7 +139,9 @@ class MqttForwarder:
             except Exception as e:
                 err_str = str(e)
                 if "Connection refused" in err_str or "Errno 111" in err_str:
-                    logger.warning("MQTT Broker未可达(%s:%d)，5秒后重试", config.mqtt.broker, config.mqtt.port)
+                    logger.warning(
+                        "MQTT Broker未可达(%s:%d)，5秒后重试", config.mqtt.broker, config.mqtt.port
+                    )
                 else:
                     logger.error("MQTT转发器连接异常: %s，5秒后重试", e)
                 self._connected = False
@@ -151,9 +150,12 @@ class MqttForwarder:
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
                     data = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 try:

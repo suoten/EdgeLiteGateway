@@ -24,7 +24,6 @@ dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
     "pydantic>=2.6.0",
-    "pydantic-settings>=2.2.0",
     "aiosqlite>=0.20.0",
     "sqlalchemy[asyncio]>=2.0.30",
     "alembic>=1.13.0",
@@ -34,12 +33,13 @@ dependencies = [
     "pyyaml>=6.0",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
-    "python-multipart>=0.0.9",
     "psutil>=5.9.0",
     "aiomqtt>=2.1.0",
     "asyncua>=1.1.0",
     "sparkplugb>=0.3.0",
     "python-dotenv>=1.0.0",
+    "pyserial>=3.5",
+    "amqtt>=0.11.0b0",
 ]
 
 [project.urls]
@@ -81,6 +81,22 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+ignore = ["B008", "B027", "N812", "N813", "N814"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/edgelite/drivers/*.py" = ["F401"]
+"src/edgelite/engine/*.py" = ["F401"]
+"src/edgelite/platform/*.py" = ["F401"]
+"scripts/*.py" = ["F401"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportMissingImports = "warning"
+reportMissingModuleSource = "none"
+reportArgumentType = "warning"
+reportOptionalMemberAccess = "warning"
+reportOptionalCall = "warning"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
 
@@ -49,10 +51,8 @@ class OpcUaDriver(DriverPlugin):
             if not task.done():
                 task.cancel()
         for task in self._connect_tasks.values():
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
         self._connect_tasks.clear()
 
         # 断开所有客户端
@@ -88,10 +88,8 @@ class OpcUaDriver(DriverPlugin):
         task = self._connect_tasks.pop(device_id, None)
         if task and not task.done():
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         # 断开客户端
         client = self._clients.pop(device_id, None)
@@ -158,7 +156,7 @@ class OpcUaDriver(DriverPlugin):
         server_url = config.get("server_url", "opc.tcp://localhost:4840")
         username = config.get("username")
         password = config.get("password")
-        security_mode = config.get("security_mode", "None")
+        config.get("security_mode", "None")
         use_subscription = config.get("use_subscription", True)
 
         while self._running:
@@ -210,8 +208,6 @@ class OpcUaDriver(DriverPlugin):
     async def _create_subscription(self, device_id: str, client: Any) -> None:
         """创建OPC-UA订阅"""
         try:
-            from asyncua import ua
-
             points = self._device_points.get(device_id, [])
             if not points:
                 return
@@ -232,18 +228,24 @@ class OpcUaDriver(DriverPlugin):
                 except Exception as e:
                     logger.warning(
                         "OPC-UA节点订阅跳过: %s.%s (node=%s) - %s",
-                        device_id, point_name, node_id, e,
+                        device_id,
+                        point_name,
+                        node_id,
+                        e,
                     )
 
             if success_count > 0:
                 logger.info(
                     "OPC-UA订阅创建: %s (%d/%d节点成功)",
-                    device_id, success_count, len(points),
+                    device_id,
+                    success_count,
+                    len(points),
                 )
             else:
                 logger.error(
                     "OPC-UA订阅全部失败: %s (0/%d节点)",
-                    device_id, len(points),
+                    device_id,
+                    len(points),
                 )
 
         except Exception as e:
@@ -275,17 +277,17 @@ class _SubHandler:
             # 在事件循环中调度回调
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(
-                    self._data_callback(self.device_id, {node_id: val})
-                )
+                loop.create_task(self._data_callback(self.device_id, {node_id: val}))
             except RuntimeError:
                 pass
 
         # 发布PointUpdateEvent到EventBus
         try:
             from edgelite.app import _app_state
+
             if _app_state.event_bus:
                 from edgelite.engine.event_bus import PointUpdateEvent
+
                 point_name = node_id.split(".")[-1] if "." in node_id else node_id
                 event = PointUpdateEvent(
                     device_id=self.device_id,

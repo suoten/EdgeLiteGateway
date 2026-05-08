@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-import asyncio
 import psutil
 
-from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo, AlarmRepo, UserRepo
-from edgelite.storage.database import Database
-from edgelite.engine.scheduler import CollectScheduler
 from edgelite.config import get_config
+from edgelite.engine.scheduler import CollectScheduler
+from edgelite.storage.database import Database
+from edgelite.storage.sqlite_repo import AlarmRepo, DeviceRepo, RuleRepo, UserRepo
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +43,13 @@ class SystemService:
 
     async def get_status(self) -> dict:
         """获取系统运行状态"""
-        import asyncio
         # 系统资源（psutil 是同步阻塞调用，放到线程池中执行）
         loop = asyncio.get_running_loop()
         cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
         memory = await loop.run_in_executor(None, psutil.virtual_memory)
-        disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/"))
+        disk = await loop.run_in_executor(
+            None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/")
+        )
 
         # 设备统计
         devices, device_total = await self._device_repo.list_all(page=1, size=1)
@@ -56,9 +57,12 @@ class SystemService:
 
         # 规则统计
         _, rule_total = await self._rule_repo.list_all(page=1, size=1)
-        from sqlalchemy import select, func as sa_func
-        from edgelite.models.db import RuleORM
+        from sqlalchemy import func as sa_func
+        from sqlalchemy import select
+
         from edgelite.app import _app_state
+        from edgelite.models.db import RuleORM
+
         async with _app_state.database.get_session() as session:
             result = await session.execute(
                 select(sa_func.count()).select_from(RuleORM).where(RuleORM.enabled.is_(True))
@@ -94,7 +98,7 @@ class SystemService:
         backup_dir = Path(config.database.backup_dir)
         backup_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         backup_file = backup_dir / f"backup_{timestamp}.db"
 
         # 备份SQLite数据库
@@ -110,7 +114,7 @@ class SystemService:
             "backup_id": timestamp,
             "db_file": str(backup_file),
             "json_file": str(json_file),
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
     async def list_backups(self) -> list[dict]:
@@ -122,11 +126,13 @@ class SystemService:
 
         backups = []
         for f in sorted(backup_dir.glob("backup_*.json"), reverse=True):
-            backups.append({
-                "backup_id": f.stem.replace("backup_", ""),
-                "file": str(f),
-                "size": f.stat().st_size,
-            })
+            backups.append(
+                {
+                    "backup_id": f.stem.replace("backup_", ""),
+                    "file": str(f),
+                    "size": f.stat().st_size,
+                }
+            )
         return backups[:20]  # 最多返回20个
 
     async def restore_backup(self, backup_id: str) -> bool:
@@ -138,8 +144,8 @@ class SystemService:
         if not json_file.exists():
             return False
 
-        with open(json_file, "r", encoding="utf-8") as f:
-            backup_data = json.load(f)
+        with open(json_file, encoding="utf-8") as f:
+            json.load(f)
 
         # 恢复配置（需要重启生效）
         # MVP阶段：仅标记恢复请求，实际恢复在重启时执行
@@ -154,8 +160,16 @@ class SystemService:
 
         return {
             "version": "1.0.0",
-            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
             "devices": devices,
             "rules": rules,
-            "users": [{"user_id": u["user_id"], "username": u["username"], "role": u["role"], "enabled": u["enabled"]} for u in users],
+            "users": [
+                {
+                    "user_id": u["user_id"],
+                    "username": u["username"],
+                    "role": u["role"],
+                    "enabled": u["enabled"],
+                }
+                for u in users
+            ],
         }

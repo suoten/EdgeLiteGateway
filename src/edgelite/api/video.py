@@ -2,42 +2,62 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
-
 import logging
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/video", tags=["视频接入"])
 
-_PTZ_ACTIONS = Literal["up", "down", "left", "right", "up_left", "up_right", "down_left", "down_right", "zoom_in", "zoom_out", "focus_in", "focus_out", "stop"]
+_PTZ_ACTIONS = Literal[
+    "up",
+    "down",
+    "left",
+    "right",
+    "up_left",
+    "up_right",
+    "down_left",
+    "down_right",
+    "zoom_in",
+    "zoom_out",
+    "focus_in",
+    "focus_out",
+    "stop",
+]
 
 
 class VideoWebhookEvent(BaseModel):
     event_type: str = Field(default="", description="事件类型")
     device_id: str = Field(default="", description="设备ID")
-    timestamp: Optional[str] = Field(default=None, description="事件时间戳")
+    timestamp: str | None = Field(default=None, description="事件时间戳")
 
     model_config = {"extra": "allow"}
 
 
 def _get_video_service():
     from edgelite.app import _app_state
+
     return _app_state.video_service
 
 
 def _verify_webhook_key(x_api_key: str = Header(default="")) -> None:
     import hmac
+
     from edgelite.app import _app_state
+
     config = _app_state.config
-    if config and getattr(config, 'server', None) and getattr(config.server, 'webhook_api_key', None):
+    if (
+        config
+        and getattr(config, "server", None)
+        and getattr(config.server, "webhook_api_key", None)
+    ):
         if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
@@ -60,7 +80,7 @@ async def get_stream_url(
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败")
+        raise HTTPException(status_code=500, detail="获取失败") from e
 
 
 @router.post("/{device_id}/ptz", response_model=ApiResponse)
@@ -80,7 +100,7 @@ async def ptz_control(
         raise
     except Exception as e:
         logger.error("云台控制失败: %s", e)
-        raise HTTPException(status_code=500, detail="云台控制失败")
+        raise HTTPException(status_code=500, detail="云台控制失败") from e
 
 
 @router.post("/webhook", response_model=ApiResponse)
@@ -94,4 +114,4 @@ async def video_webhook(event: VideoWebhookEvent, auth: None = Depends(_verify_w
         raise
     except Exception as e:
         logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败")
+        raise HTTPException(status_code=500, detail="操作失败") from e

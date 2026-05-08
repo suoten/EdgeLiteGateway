@@ -45,9 +45,7 @@ class OnvifDriver(DriverPlugin):
             self._running = True
             logger.info("ONVIF驱动启动: %s", ip)
         except ImportError:
-            raise ImportError(
-                "python-onvif-zeep未安装，请执行: pip install onvif-zeep"
-            )
+            raise ImportError("python-onvif-zeep未安装，请执行: pip install onvif-zeep") from None
         except Exception as e:
             logger.error("ONVIF驱动启动失败: %s - %s", ip, e)
             raise
@@ -83,7 +81,11 @@ class OnvifDriver(DriverPlugin):
         logger.info("ONVIF驱动已停止")
 
     def _close_camera(self) -> None:
-        if self._cam and hasattr(self._cam, "devicemgmt") and hasattr(self._cam.devicemgmt, "soap_client"):
+        if (
+            self._cam
+            and hasattr(self._cam, "devicemgmt")
+            and hasattr(self._cam.devicemgmt, "soap_client")
+        ):
             try:
                 self._cam.devicemgmt.soap_client.get_transport().close()
             except Exception as e:
@@ -104,9 +106,10 @@ class OnvifDriver(DriverPlugin):
     async def discover_devices(self, config: dict) -> list[dict]:
         """WS-Discovery发现ONVIF设备"""
         try:
-            from onvif import ONVIFCamera
             import socket
             from urllib.parse import urlparse
+
+            from onvif import ONVIFCamera
         except ImportError:
             logger.error("onvif-zeep未安装，无法发现设备")
             return []
@@ -121,9 +124,7 @@ class OnvifDriver(DriverPlugin):
     @staticmethod
     def _ws_discover() -> list[dict]:
         """同步WS-Discovery"""
-        from onvif import ONVIFCamera
         import socket
-        from urllib.parse import urlparse
 
         multicast_group = "239.255.255.250"
         multicast_port = 3702
@@ -132,12 +133,12 @@ class OnvifDriver(DriverPlugin):
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" '
             'xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery">'
-            '<s:Header><d:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</d:Action>'
-            '<d:MessageID>uuid:edgelite-onvif-probe</d:MessageID>'
-            '<d:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</d:To>'
-            '</s:Header>'
-            '<s:Body><d:Probe/><d:Types>dn:NetworkVideoTransmitter</d:Types></s:Body>'
-            '</s:Envelope>'
+            "<s:Header><d:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</d:Action>"
+            "<d:MessageID>uuid:edgelite-onvif-probe</d:MessageID>"
+            "<d:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</d:To>"
+            "</s:Header>"
+            "<s:Body><d:Probe/><d:Types>dn:NetworkVideoTransmitter</d:Types></s:Body>"
+            "</s:Envelope>"
         )
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -156,14 +157,16 @@ class OnvifDriver(DriverPlugin):
                     response = data.decode("utf-8", errors="replace")
                     if "onvif" in response.lower() and addr[0] not in seen:
                         seen.add(addr[0])
-                        devices.append({
-                            "device_id": addr[0],
-                            "name": f"ONVIF Device @ {addr[0]}",
-                            "ip": addr[0],
-                            "protocol": "onvif",
-                            "details": {"port": 80},
-                        })
-                except socket.timeout:
+                        devices.append(
+                            {
+                                "device_id": addr[0],
+                                "name": f"ONVIF Device @ {addr[0]}",
+                                "ip": addr[0],
+                                "protocol": "onvif",
+                                "details": {"port": 80},
+                            }
+                        )
+                except TimeoutError:
                     break
         finally:
             sock.close()
@@ -275,9 +278,7 @@ class OnvifDriver(DriverPlugin):
             return False
 
         try:
-            await asyncio.to_thread(
-                ptz.Stop, ProfileToken=profile_token, PanTilt=True, Zoom=True
-            )
+            await asyncio.to_thread(ptz.Stop, ProfileToken=profile_token, PanTilt=True, Zoom=True)
             return True
         except Exception as e:
             logger.error("ONVIF PTZ停止失败: %s", e)
@@ -316,9 +317,7 @@ class OnvifDriver(DriverPlugin):
                     token = point.split(":", 1)[1]
                     ptz = self._ensure_ptz()
                     if ptz:
-                        status = await asyncio.to_thread(
-                            ptz.GetStatus, {"ProfileToken": token}
-                        )
+                        status = await asyncio.to_thread(ptz.GetStatus, {"ProfileToken": token})
                         result[point] = status
                     else:
                         result[point] = None

@@ -39,7 +39,7 @@ class S7Driver(DriverPlugin):
             raise ImportError(
                 "snap7未安装，请执行: pip install python-snap7。"
                 "同时需要下载snap7动态库: https://snap7.sourceforge.net/"
-            )
+            ) from None
 
         self._config = config
         ip = config.get("ip", "")
@@ -143,6 +143,7 @@ class S7Driver(DriverPlugin):
             # 读取实数(FLOAT32)
             data = self._client.db_read(db_number, byte_offset, 4)
             import struct
+
             return struct.unpack(">f", data)[0]
         else:
             raise ValueError(f"不支持的S7数据类型: {type_char}")
@@ -171,7 +172,7 @@ class S7Driver(DriverPlugin):
         if type_char == "X":
             data = self._client.db_read(db_number, byte_offset, 1)
             if value:
-                data[0] |= (1 << bit_offset)
+                data[0] |= 1 << bit_offset
             else:
                 data[0] &= ~(1 << bit_offset)
             self._client.db_write(db_number, byte_offset, data)
@@ -183,6 +184,7 @@ class S7Driver(DriverPlugin):
             self._client.db_write(db_number, byte_offset, data)
         elif type_char == "R":
             import struct
+
             data = struct.pack(">f", float(value))
             self._client.db_write(db_number, byte_offset, data)
 

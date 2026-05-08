@@ -11,14 +11,15 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
-from edgelite.drivers.base import DriverPlugin
-
 import pymodbus
 
-_PYMODBUS_MAJOR = int(getattr(pymodbus, '__version__', '2.0.0').split('.')[0])
+from edgelite.drivers.base import DriverPlugin
+
+_PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
 
 
 def _slave_kwarg(slave_id: int) -> dict:
@@ -31,6 +32,7 @@ def _slave_kwarg(slave_id: int) -> dict:
 def _create_serial_client(port: str, baudrate: int, parity: str) -> Any:
     """创建 pymodbus 3.x 兼容的串口客户端"""
     from pymodbus.client import ModbusSerialClient
+
     return ModbusSerialClient(
         port=port,
         baudrate=baudrate,
@@ -73,7 +75,7 @@ class SerialPortDriver(DriverPlugin):
         try:
             import serial
         except ImportError:
-            raise ImportError("pyserial未安装，请执行: pip install pyserial")
+            raise ImportError("pyserial未安装，请执行: pip install pyserial") from None
 
         self._config = config
         port = config.get("port", "COM1")
@@ -83,9 +85,24 @@ class SerialPortDriver(DriverPlugin):
         stopbits = float(config.get("stopbits", 1))
         timeout = float(config.get("timeout", 1.0))
 
-        parity_map = {"N": serial.PARITY_NONE, "E": serial.PARITY_EVEN, "O": serial.PARITY_ODD, "M": serial.PARITY_MARK, "S": serial.PARITY_SPACE}
-        bytesize_map = {5: serial.FIVEBITS, 6: serial.SIXBITS, 7: serial.SEVENBITS, 8: serial.EIGHTBITS}
-        stopbits_map = {1: serial.STOPBITS_ONE, 1.5: serial.STOPBITS_ONE_POINT_FIVE, 2: serial.STOPBITS_TWO}
+        parity_map = {
+            "N": serial.PARITY_NONE,
+            "E": serial.PARITY_EVEN,
+            "O": serial.PARITY_ODD,
+            "M": serial.PARITY_MARK,
+            "S": serial.PARITY_SPACE,
+        }
+        bytesize_map = {
+            5: serial.FIVEBITS,
+            6: serial.SIXBITS,
+            7: serial.SEVENBITS,
+            8: serial.EIGHTBITS,
+        }
+        stopbits_map = {
+            1: serial.STOPBITS_ONE,
+            1.5: serial.STOPBITS_ONE_POINT_FIVE,
+            2: serial.STOPBITS_TWO,
+        }
 
         try:
             self._serial = serial.Serial(
@@ -110,10 +127,8 @@ class SerialPortDriver(DriverPlugin):
         self._running = False
         if self._read_task and not self._read_task.done():
             self._read_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._read_task
-            except asyncio.CancelledError:
-                pass
         if self._serial and self._serial.is_open:
             try:
                 self._serial.close()
@@ -178,6 +193,7 @@ class SerialPortDriver(DriverPlugin):
     def _read_holding(self, slave_id: int, addr: int, count: int) -> list[int] | None:
         try:
             from pymodbus.client import ModbusSerialClient
+
             client = ModbusSerialClient(
                 port=self._serial.port,
                 baudrate=self._serial.baudrate,
@@ -195,6 +211,7 @@ class SerialPortDriver(DriverPlugin):
     def _read_input(self, slave_id: int, addr: int, count: int) -> list[int] | None:
         try:
             from pymodbus.client import ModbusSerialClient
+
             client = ModbusSerialClient(
                 port=self._serial.port,
                 baudrate=self._serial.baudrate,
@@ -212,6 +229,7 @@ class SerialPortDriver(DriverPlugin):
     def _read_coils(self, slave_id: int, addr: int, count: int) -> list[bool] | None:
         try:
             from pymodbus.client import ModbusSerialClient
+
             client = ModbusSerialClient(
                 port=self._serial.port,
                 baudrate=self._serial.baudrate,
@@ -235,7 +253,9 @@ class SerialPortDriver(DriverPlugin):
                     async with self._lock:
                         await asyncio.to_thread(self._serial.write, cmd.encode("utf-8"))
                         await asyncio.sleep(0.1)
-                        data = await asyncio.to_thread(self._serial.read, self._serial.in_waiting or 1024)
+                        data = await asyncio.to_thread(
+                            self._serial.read, self._serial.in_waiting or 1024
+                        )
                     result[point] = data.decode("utf-8", errors="replace").strip() if data else None
                 else:
                     result[point] = None
@@ -288,15 +308,17 @@ class SerialPortDriver(DriverPlugin):
         ports = serial.tools.list_ports.comports()
         result = []
         for p in ports:
-            result.append({
-                "device_id": p.device,
-                "name": p.description,
-                "ip": p.device,
-                "protocol": "serial",
-                "details": {
-                    "hwid": p.hwid,
-                    "manufacturer": p.manufacturer,
-                    "serial_number": p.serial_number,
-                },
-            })
+            result.append(
+                {
+                    "device_id": p.device,
+                    "name": p.description,
+                    "ip": p.device,
+                    "protocol": "serial",
+                    "details": {
+                        "hwid": p.hwid,
+                        "manufacturer": p.manufacturer,
+                        "serial_number": p.serial_number,
+                    },
+                }
+            )
         return result

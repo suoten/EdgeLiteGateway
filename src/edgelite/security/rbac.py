@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from functools import wraps
 
 from fastapi import HTTPException, status
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     ADMIN = "admin"
     OPERATOR = "operator"
     VIEWER = "viewer"
 
 
-class Permission(str, Enum):
+class Permission(StrEnum):
     # 设备管理
     DEVICE_CREATE = "device:create"
     DEVICE_READ = "device:read"
@@ -89,13 +89,9 @@ def require_permission(permission: Permission):
         @wraps(func)
         async def wrapper(*args, current_user=None, **kwargs):
             if current_user is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="未认证"
-                )
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未认证")
             if not has_permission(current_user.role, permission):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-                )
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
             return await func(*args, current_user=current_user, **kwargs)
 
         return wrapper

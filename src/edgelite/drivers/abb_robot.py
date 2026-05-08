@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -39,7 +40,7 @@ class AbbRobotDriver(DriverPlugin):
         try:
             import httpx
         except ImportError:
-            raise ImportError("httpx未安装，请执行: pip install httpx")
+            raise ImportError("httpx未安装，请执行: pip install httpx") from None
 
         self._config = config
         ip = config.get("ip", "")
@@ -129,10 +130,8 @@ class AbbRobotDriver(DriverPlugin):
                         joints.append(float(item[f"raxis_{i}"]))
                 if "value" in item and isinstance(item["value"], (list, tuple)):
                     for v in item["value"]:
-                        try:
+                        with contextlib.suppress(ValueError, TypeError):
                             joints.append(float(v))
-                        except (ValueError, TypeError):
-                            pass
         except Exception as e:
             logger.debug("ABB关节数据解析失败: %s", e)
         return joints

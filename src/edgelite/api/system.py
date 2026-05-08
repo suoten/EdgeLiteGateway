@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import re
-
 import logging
+import re
 
 from fastapi import APIRouter, Body, HTTPException
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -19,6 +18,7 @@ router = APIRouter(prefix="/api/v1/system", tags=["系统管理"])
 
 def _get_system_service():
     from edgelite.app import _app_state
+
     return _app_state.system_service
 
 
@@ -30,7 +30,7 @@ async def get_system_status(user: CurrentUser = require_permission(Permission.SY
         return ApiResponse(data=status_data)
     except Exception as e:
         logger.error("获取系统状态失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取系统状态失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取系统状态失败: {e}") from e
 
 
 @router.get("/backup", response_model=ApiResponse)
@@ -41,7 +41,7 @@ async def list_backups(user: CurrentUser = require_permission(Permission.SYSTEM_
         return ApiResponse(data=backups)
     except Exception as e:
         logger.error("获取备份列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取备份列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取备份列表失败: {e}") from e
 
 
 @router.post("/backup", response_model=ApiResponse, status_code=201)
@@ -52,12 +52,15 @@ async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM
         return ApiResponse(data=backup)
     except Exception as e:
         logger.error("创建备份失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建备份失败: {e}")
+        raise HTTPException(status_code=500, detail=f"创建备份失败: {e}") from e
 
 
 @router.post("/restore", response_model=ApiResponse)
-async def restore_backup(backup_id: str = Body(..., embed=True), user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
-    if not re.match(r'^[a-zA-Z0-9_-]+$', backup_id):
+async def restore_backup(
+    backup_id: str = Body(..., embed=True),
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
+    if not re.match(r"^[a-zA-Z0-9_-]+$", backup_id):
         raise HTTPException(status_code=400, detail="无效的备份ID")
     try:
         svc = _get_system_service()
@@ -69,4 +72,4 @@ async def restore_backup(backup_id: str = Body(..., embed=True), user: CurrentUs
         raise
     except Exception as e:
         logger.error("恢复失败: %s", e)
-        raise HTTPException(status_code=500, detail="恢复失败")
+        raise HTTPException(status_code=500, detail="恢复失败") from e

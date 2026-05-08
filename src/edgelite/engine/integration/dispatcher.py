@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,9 @@ class MessageDispatcher:
     def register_service(self, name: str, service: Any) -> None:
         self._services[name] = service
 
-    async def dispatch(self, msg_type: str, payload: dict[str, Any], session_id: str = "") -> dict[str, Any] | None:
+    async def dispatch(
+        self, msg_type: str, payload: dict[str, Any], session_id: str = ""
+    ) -> dict[str, Any] | None:
         handler = self._handlers.get(msg_type)
         if handler:
             try:
@@ -89,8 +92,7 @@ class MessageDispatcher:
                             device.get("points", []),
                             device.get("collect_interval", 5),
                         )
-                        from edgelite.engine.lifecycle import DeviceLifecycleManager
-                        if hasattr(device_service, '_lifecycle') and device_service._lifecycle:
+                        if hasattr(device_service, "_lifecycle") and device_service._lifecycle:
                             await device_service._lifecycle.on_device_online(device_id)
                         await device_service._repo.update_status(device_id, "online")
                     else:
@@ -100,7 +102,7 @@ class MessageDispatcher:
             elif action == "stop_collect":
                 if scheduler:
                     await scheduler.stop_collect(device_id)
-                    if hasattr(device_service, '_lifecycle') and device_service._lifecycle:
+                    if hasattr(device_service, "_lifecycle") and device_service._lifecycle:
                         await device_service._lifecycle.on_device_offline(device_id)
                     await device_service._repo.update_status(device_id, "offline")
                 else:

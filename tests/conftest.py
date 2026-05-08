@@ -1,9 +1,9 @@
 """测试配置和fixture"""
 
 import asyncio
+
 import pytest
 import pytest_asyncio
-from pathlib import Path
 
 
 @pytest.fixture(scope="session")
@@ -16,7 +16,8 @@ def event_loop():
 @pytest_asyncio.fixture
 async def db_session(tmp_path):
     """测试用SQLAlchemy异步会话"""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
     from edgelite.models.db import Base
 
     db_path = tmp_path / "test.db"

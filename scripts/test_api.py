@@ -1,7 +1,9 @@
 """API集成验证脚本"""
+
 import httpx
 
 BASE = "http://127.0.0.1:8080"
+
 
 def main():
     # 1. API文档
@@ -12,8 +14,8 @@ def main():
     r = httpx.get(f"{BASE}/openapi.json")
     schema = r.json()
     print(f"2. OpenAPI endpoints: {len(schema['paths'])}")
-    for path in sorted(schema['paths'].keys()):
-        methods = list(schema['paths'][path].keys())
+    for path in sorted(schema["paths"].keys()):
+        methods = list(schema["paths"][path].keys())
         print(f"   {path}: {methods}")
 
     # 3. 登录
@@ -37,7 +39,12 @@ def main():
     print(f"5. System status: {r.status_code}")
     if r.status_code == 200:
         s = r.json()["data"]
-        print(f"   CPU: {s['cpu_percent']:.1f}%, Mem: {s['memory_percent']:.1f}%, Devices: {s['device_total']}, Online: {s['device_online']}")
+        print(
+            f"   CPU: {s['cpu_percent']:.1f}%, "
+            f"Mem: {s['memory_percent']:.1f}%, "
+            f"Devices: {s['device_total']}, "
+            f"Online: {s['device_online']}"
+        )
 
     # 6. 告警列表
     r = httpx.get(f"{BASE}/api/v1/alarms", headers=headers)
@@ -55,15 +62,19 @@ def main():
             print(f"   - {u['username']} ({u['role']})")
 
     # 9. 创建规则测试
-    r = httpx.post(f"{BASE}/api/v1/rules", headers=headers, json={
-        "name": "温度过高告警",
-        "device_id": "sim-temperature-01",
-        "conditions": [{"point": "temperature", "operator": ">", "threshold": 30}],
-        "logic": "AND",
-        "duration": 0,
-        "severity": "warning",
-        "notify_channels": ["dingtalk"],
-    })
+    r = httpx.post(
+        f"{BASE}/api/v1/rules",
+        headers=headers,
+        json={
+            "name": "温度过高告警",
+            "device_id": "sim-temperature-01",
+            "conditions": [{"point": "temperature", "operator": ">", "threshold": 30}],
+            "logic": "AND",
+            "duration": 0,
+            "severity": "warning",
+            "notify_channels": ["dingtalk"],
+        },
+    )
     print(f"9. Create rule: {r.status_code}")
     if r.status_code == 201:
         rule = r.json()["data"]
@@ -78,6 +89,7 @@ def main():
 
     print()
     print("=== All API tests passed! ===")
+
 
 if __name__ == "__main__":
     main()

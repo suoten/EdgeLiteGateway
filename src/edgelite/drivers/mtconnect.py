@@ -18,6 +18,8 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET  # 回退到纯Python实现
 
+import contextlib
+
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ class MTConnectDriver(DriverPlugin):
             try:
                 # 获取当前值 (Current)
                 device = self._config.get("device", "")
-                path = f"/current"
+                path = "/current"
                 if device:
                     path += f"?device={device}"
 
@@ -118,10 +120,8 @@ class MTConnectDriver(DriverPlugin):
                     for child in data_item:
                         value = child.text
                         if value:
-                            try:
+                            with contextlib.suppress(ValueError, TypeError):
                                 value = float(value)
-                            except (ValueError, TypeError):
-                                pass
                             data_items[name] = value
                             data_items[data_item_id] = value
                             break  # 取最新的
@@ -156,12 +156,14 @@ class MTConnectDriver(DriverPlugin):
 
             devices = []
             for device in root.findall(".//mt:Device", ns):
-                devices.append({
-                    "device_id": device.get("id", ""),
-                    "name": device.get("name", ""),
-                    "uuid": device.get("uuid", ""),
-                    "protocol": "mtconnect",
-                })
+                devices.append(
+                    {
+                        "device_id": device.get("id", ""),
+                        "name": device.get("name", ""),
+                        "uuid": device.get("uuid", ""),
+                        "protocol": "mtconnect",
+                    }
+                )
             return devices
         except Exception as e:
             logger.error("MTConnect设备发现失败: %s", e)

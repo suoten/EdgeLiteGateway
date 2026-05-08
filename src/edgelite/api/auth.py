@@ -9,12 +9,12 @@ from collections import defaultdict
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from jose import JWTError
 
-from edgelite.models.user import LoginRequest, TokenResponse
+from edgelite.api.deps import CurrentUser, get_current_user
 from edgelite.models.common import ApiResponse
+from edgelite.models.user import LoginRequest, TokenResponse
 from edgelite.security.jwt import create_access_token, create_refresh_token, verify_token
 from edgelite.security.password import verify_password
 from edgelite.storage.sqlite_repo import UserRepo
-from edgelite.api.deps import CurrentUser, get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,11 @@ def _check_login_rate(ip: str) -> None:
     _login_attempts[ip] = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
     # 容量限制：超过10000个IP条目时清理最旧的
     if len(_login_attempts) > 10000:
-        oldest_ips = sorted(_login_attempts.keys(), key=lambda k: min(_login_attempts[k]) if _login_attempts[k] else 0)
-        for ip_to_remove in oldest_ips[:len(_login_attempts) - 8000]:
+        oldest_ips = sorted(
+            _login_attempts.keys(),
+            key=lambda k: min(_login_attempts[k]) if _login_attempts[k] else 0,
+        )
+        for ip_to_remove in oldest_ips[: len(_login_attempts) - 8000]:
             del _login_attempts[ip_to_remove]
     if len(_login_attempts[ip]) >= _MAX_LOGIN_ATTEMPTS:
         raise HTTPException(
@@ -47,6 +50,7 @@ def _record_login_attempt(ip: str) -> None:
 
 def _get_user_repo():
     from edgelite.app import _app_state
+
     return _app_state.database, _app_state.database.write_lock
 
 
@@ -87,18 +91,21 @@ async def login(req: LoginRequest, request: Request):
         )
 
         from edgelite.config import get_config
+
         config = get_config()
 
-        return ApiResponse(data=TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            expires_in=config.security.access_token_expire_minutes * 60,
-        ))
+        return ApiResponse(
+            data=TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                expires_in=config.security.access_token_expire_minutes * 60,
+            )
+        )
     except HTTPException:
         raise
     except Exception as e:
         logger.error("登录失败: %s", e)
-        raise HTTPException(status_code=500, detail="登录失败")
+        raise HTTPException(status_code=500, detail="登录失败") from e
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
@@ -107,7 +114,9 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
     try:
         payload = verify_token(refresh, token_type="refresh")
     except (JWTError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效"
+        ) from None
 
     db, write_lock = _get_user_repo()
     async with db.get_session() as session:
@@ -126,20 +135,25 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
     )
 
     from edgelite.config import get_config
+
     config = get_config()
 
-    return ApiResponse(data=TokenResponse(
-        access_token=access_token,
-        refresh_token=new_refresh,
-        expires_in=config.security.access_token_expire_minutes * 60,
-    ))
+    return ApiResponse(
+        data=TokenResponse(
+            access_token=access_token,
+            refresh_token=new_refresh,
+            expires_in=config.security.access_token_expire_minutes * 60,
+        )
+    )
 
 
 @router.get("/me", response_model=ApiResponse)
 async def get_current_user_info(user: CurrentUser):
     from edgelite.app import _app_state
+
     try:
         from edgelite.storage.sqlite_repo import UserRepo
+
         db = _app_state.database
         must_change = False
         async with db.get_session() as session:
@@ -147,17 +161,19 @@ async def get_current_user_info(user: CurrentUser):
             db_user = await repo.get_by_username(user["username"])
             if db_user:
                 must_change = db_user.get("must_change_password", False)
-        return ApiResponse(data={
-            "user_id": user["user_id"],
-            "username": user["username"],
-            "role": user["role"],
-            "must_change_password": must_change,
-        })
+        return ApiResponse(
+            data={
+                "user_id": user["user_id"],
+                "username": user["username"],
+                "role": user["role"],
+                "must_change_password": must_change,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败")
+        raise HTTPException(status_code=500, detail="获取失败") from e
 
 
 @router.post("/change-password", response_model=ApiResponse)
@@ -176,15 +192,22 @@ async def change_password(
         if not verify_password(old_password, db_user["password"]):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
         if len(new_password) < 8:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少8位，需包含字母和数字")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少8位，需包含字母和数字"
+            )
         if old_password == new_password:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码不能与原密码相同")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="新密码不能与原密码相同"
+            )
         has_letter = any(c.isalpha() for c in new_password)
         has_digit = any(c.isdigit() for c in new_password)
         if not (has_letter and has_digit):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码需同时包含字母和数字")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="新密码需同时包含字母和数字"
+            )
 
         from edgelite.security.password import hash_password
+
         hashed = hash_password(new_password)
         async with db.get_session() as session:
             repo = UserRepo(session, write_lock)
@@ -195,15 +218,15 @@ async def change_password(
         raise
     except Exception as e:
         logger.error("修改失败: %s", e)
-        raise HTTPException(status_code=500, detail="修改失败")
+        raise HTTPException(status_code=500, detail="修改失败") from e
 
 
 @router.post("/logout", response_model=ApiResponse)
 async def logout(request: Request):
     """用户登出，撤销Token"""
     try:
-        from edgelite.security.token_revocation import revoke_token
         from edgelite.security.jwt import decode_token
+        from edgelite.security.token_revocation import revoke_token
 
         access_token = request.cookies.get("edgelite_access")
         if access_token:
@@ -228,6 +251,7 @@ async def logout(request: Request):
                 logger.warning("Refresh Token撤销失败: %s", e)
 
         from fastapi.responses import JSONResponse
+
         response = JSONResponse(content=ApiResponse().model_dump())
         response.delete_cookie("edgelite_access", path="/api/v1")
         response.delete_cookie("edgelite_refresh", path="/api/v1/auth")
@@ -236,4 +260,4 @@ async def logout(request: Request):
         raise
     except Exception as e:
         logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败")
+        raise HTTPException(status_code=500, detail="操作失败") from e

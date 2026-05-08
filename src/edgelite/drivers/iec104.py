@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import struct
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
 from edgelite.engine.event_bus import PointUpdateEvent
@@ -59,18 +61,18 @@ QUALITY_OV = 0x02
 def _cp56time2a_to_datetime(data: bytes, offset: int) -> datetime:
     ms = struct.unpack_from("<H", data, offset)[0]
     minute = data[offset + 2] & 0x3F
-    iv_minute = (data[offset + 2] >> 7) & 0x01
+    (data[offset + 2] >> 7) & 0x01
     hour = data[offset + 3] & 0x1F
-    su = (data[offset + 3] >> 5) & 0x01
+    (data[offset + 3] >> 5) & 0x01
     day = data[offset + 4] & 0x1F
-    dow = (data[offset + 4] >> 5) & 0x07
+    (data[offset + 4] >> 5) & 0x07
     month = data[offset + 5] & 0x0F
     year = data[offset + 6] & 0x7F
     year += 2000 if year < 70 else 1900
     try:
-        dt = datetime(year, month, day, hour, minute, ms // 1000, (ms % 1000) * 1000, tzinfo=timezone.utc)
+        dt = datetime(year, month, day, hour, minute, ms // 1000, (ms % 1000) * 1000, tzinfo=UTC)
     except ValueError:
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
     return dt
 
 
@@ -144,10 +146,8 @@ class Iec104Driver(DriverPlugin):
         for task in (self._connect_task, self._heartbeat_task, self._receive_task):
             if task and not task.done():
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
         self._connect_task = None
         self._heartbeat_task = None
         self._receive_task = None
@@ -174,7 +174,7 @@ class Iec104Driver(DriverPlugin):
                 ioa = ioa_key
                 break
         if ioa is None:
-            for ioa_key, name in self._ioa_map.items():
+            for ioa_key, _name in self._ioa_map.items():
                 if str(ioa_key) == point:
                     ioa = ioa_key
                     break
@@ -235,7 +235,9 @@ class Iec104Driver(DriverPlugin):
         length = len(payload)
         return struct.pack("=BB", START_BYTE, length) + payload
 
-    def _build_asdu_header(self, ti: int, sq: int, num_obj: int, cot: int, oa: int, asdu_addr: int) -> bytes:
+    def _build_asdu_header(
+        self, ti: int, sq: int, num_obj: int, cot: int, oa: int, asdu_addr: int
+    ) -> bytes:
         header = struct.pack("BBB", ti, (sq << 7) | (num_obj & 0x7F), cot & 0x3F)
         if self._cause_of_tx_length == 2:
             header += struct.pack("B", (cot >> 8) & 0x03)
@@ -279,8 +281,12 @@ class Iec104Driver(DriverPlugin):
 
     async def _send_general_interrogation(self) -> None:
         asdu_header = self._build_asdu_header(
-            ti=TI_C_IC_NA_1, sq=0, num_obj=1,
-            cot=COT_ACTIVATION, oa=0, asdu_addr=self._asdu_addr,
+            ti=TI_C_IC_NA_1,
+            sq=0,
+            num_obj=1,
+            cot=COT_ACTIVATION,
+            oa=0,
+            asdu_addr=self._asdu_addr,
         )
         ioa_bytes = struct.pack("<H", 0)
         ioc = struct.pack("B", SBO_SELECT)
@@ -290,7 +296,7 @@ class Iec104Driver(DriverPlugin):
         logger.info("发送总召唤命令, ASDU_ADDR=%d", self._asdu_addr)
 
     async def _send_clock_sync(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ms = now.second * 1000 + now.microsecond // 1000
         minute = now.minute
         hour = now.hour
@@ -309,8 +315,12 @@ class Iec104Driver(DriverPlugin):
             year,
         )
         asdu_header = self._build_asdu_header(
-            ti=TI_C_CS_NA_1, sq=0, num_obj=1,
-            cot=COT_ACTIVATION, oa=0, asdu_addr=self._asdu_addr,
+            ti=TI_C_CS_NA_1,
+            sq=0,
+            num_obj=1,
+            cot=COT_ACTIVATION,
+            oa=0,
+            asdu_addr=self._asdu_addr,
         )
         ioa_bytes = struct.pack("<H", 0)
         asdu = asdu_header + ioa_bytes + time_bytes
@@ -322,8 +332,12 @@ class Iec104Driver(DriverPlugin):
         is_double = isinstance(value, (int, float)) and abs(value) > 1
         ti = TI_C_DC_NA if is_double else TI_C_SC_NA
         asdu_header = self._build_asdu_header(
-            ti=ti, sq=0, num_obj=1,
-            cot=COT_ACTIVATION, oa=0, asdu_addr=self._asdu_addr,
+            ti=ti,
+            sq=0,
+            num_obj=1,
+            cot=COT_ACTIVATION,
+            oa=0,
+            asdu_addr=self._asdu_addr,
         )
         ioa_bytes = struct.pack("<H", ioa & 0xFFFF)
         if is_double:
@@ -340,7 +354,7 @@ class Iec104Driver(DriverPlugin):
         try:
             await asyncio.wait_for(self._sbo_select_event.wait(), timeout=self._sbo_select_timeout)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("SBO选择超时: IOA=%d", ioa)
             self._sbo_selected_ioa = None
             return False
@@ -349,8 +363,12 @@ class Iec104Driver(DriverPlugin):
         is_double = isinstance(value, (int, float)) and abs(value) > 1
         ti = TI_C_DC_NA if is_double else TI_C_SC_NA
         asdu_header = self._build_asdu_header(
-            ti=ti, sq=0, num_obj=1,
-            cot=COT_ACTIVATION, oa=0, asdu_addr=self._asdu_addr,
+            ti=ti,
+            sq=0,
+            num_obj=1,
+            cot=COT_ACTIVATION,
+            oa=0,
+            asdu_addr=self._asdu_addr,
         )
         ioa_bytes = struct.pack("<H", ioa & 0xFFFF)
         if is_double:
@@ -366,7 +384,7 @@ class Iec104Driver(DriverPlugin):
         try:
             await asyncio.wait_for(self._sbo_execute_event.wait(), timeout=self._sbo_select_timeout)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("SBO执行超时: IOA=%d", ioa)
             return False
 
@@ -392,7 +410,7 @@ class Iec104Driver(DriverPlugin):
         else:
             cot = cot_low
             cot_high = 0
-        oa = data[offset]
+        data[offset]
         offset += 1
         if self._asdu_addr_length == 2:
             asdu_addr = struct.unpack_from("<H", data, offset)[0]
@@ -430,7 +448,9 @@ class Iec104Driver(DriverPlugin):
                 break
         return results
 
-    def _parse_information_object(self, ti: int, data: bytes, offset: int, ioa: int, cot: int, asdu_addr: int) -> dict | None:
+    def _parse_information_object(
+        self, ti: int, data: bytes, offset: int, ioa: int, cot: int, asdu_addr: int
+    ) -> dict | None:
         result: dict[str, Any] = {
             "ioa": ioa,
             "ti": ti,
@@ -567,20 +587,16 @@ class Iec104Driver(DriverPlugin):
                 self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
                 if self._receive_task:
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError):
                         await self._receive_task
-                    except asyncio.CancelledError:
-                        pass
 
                 if self._heartbeat_task and not self._heartbeat_task.done():
                     self._heartbeat_task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError):
                         await self._heartbeat_task
-                    except asyncio.CancelledError:
-                        pass
                 self._heartbeat_task = None
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("IEC 104连接超时: %s:%d", self._host, self._port)
             except ConnectionRefusedError:
                 logger.warning("IEC 104连接被拒绝: %s:%d", self._host, self._port)
@@ -650,7 +666,7 @@ class Iec104Driver(DriverPlugin):
     async def _handle_frame(self, frame: bytes) -> None:
         if len(frame) < 6:
             return
-        apdu_length = frame[1]
+        frame[1]
         ctrl_byte1 = frame[2]
         frame_type = ctrl_byte1 & 0x03
 
@@ -721,7 +737,11 @@ class Iec104Driver(DriverPlugin):
 
         logger.debug(
             "测点更新: IOA=%d, TI=%d, COT=%d, value=%s, quality=%s",
-            ioa, ti, cot, value, quality,
+            ioa,
+            ti,
+            cot,
+            value,
+            quality,
         )
 
     async def _close_connection(self) -> None:

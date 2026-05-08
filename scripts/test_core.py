@@ -1,8 +1,11 @@
 """核心链路验证脚本"""
-import httpx
+
 import time
 
+import httpx
+
 BASE = "http://127.0.0.1:8080"
+
 
 def main():
     # 登录
@@ -37,14 +40,27 @@ def main():
             print(f"  - {rule['rule_id']}: {rule['name']} enabled={rule['enabled']}")
 
     # 创建新模拟设备
-    r = httpx.post(f"{BASE}/api/v1/devices/simulator", headers=headers, json={
-        "device_id": "sim-pressure-01",
-        "name": "压力传感器模拟",
-        "points": [
-            {"name": "pressure", "data_type": "float32", "unit": "MPa", "address": "0", "access_mode": "r", "min": 0.1, "max": 2.0, "mode": "random_walk"},
-        ],
-        "collect_interval": 3,
-    })
+    r = httpx.post(
+        f"{BASE}/api/v1/devices/simulator",
+        headers=headers,
+        json={
+            "device_id": "sim-pressure-01",
+            "name": "压力传感器模拟",
+            "points": [
+                {
+                    "name": "pressure",
+                    "data_type": "float32",
+                    "unit": "MPa",
+                    "address": "0",
+                    "access_mode": "r",
+                    "min": 0.1,
+                    "max": 2.0,
+                    "mode": "random_walk",
+                },
+            ],
+            "collect_interval": 3,
+        },
+    )
     print(f"创建新模拟设备: {r.status_code}")
 
     # 验证设备列表
@@ -60,6 +76,7 @@ def main():
 
     print()
     print("=== 核心链路验证完成 ===")
+
 
 if __name__ == "__main__":
     main()

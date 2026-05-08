@@ -1,8 +1,9 @@
 """数据预处理模块单元测试"""
-import pytest
+
 import sys
 import time
-sys.path.insert(0, 'src')
+
+sys.path.insert(0, "src")
 
 from edgelite.engine.preprocessor import DataPreprocessor
 

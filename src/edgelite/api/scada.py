@@ -1,9 +1,9 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -23,7 +23,7 @@ _file_lock = asyncio.Lock()
 class ScadaProject(BaseModel):
     name: str = "default"
     widgets: list[dict[str, Any]] = []
-    updated_at: Optional[str] = None
+    updated_at: str | None = None
 
 
 class ScadaSaveRequest(BaseModel):
@@ -38,7 +38,7 @@ def _project_path(name: str) -> Path:
 
 def _read_json(path: Path) -> dict | None:
     try:
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     except Exception:
         return None
@@ -56,11 +56,13 @@ async def list_projects(_user: CurrentUser):
         for f in _STORE_DIR.glob("*.json"):
             data = await asyncio.to_thread(_read_json, f)
             if data is not None:
-                projects.append({
-                    "name": data.get("name", f.stem),
-                    "widget_count": len(data.get("widgets", [])),
-                    "updated_at": data.get("updated_at", ""),
-                })
+                projects.append(
+                    {
+                        "name": data.get("name", f.stem),
+                        "widget_count": len(data.get("widgets", [])),
+                        "updated_at": data.get("updated_at", ""),
+                    }
+                )
             else:
                 logger.warning("读取组态项目文件失败 %s", f.name)
         return ApiResponse(data=projects)
@@ -68,7 +70,7 @@ async def list_projects(_user: CurrentUser):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败")
+        raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
 @router.get("/project/{name}", response_model=ApiResponse)
@@ -85,7 +87,7 @@ async def get_project(name: str, _user: CurrentUser):
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败")
+        raise HTTPException(status_code=500, detail="获取失败") from e
 
 
 @router.post("/project", response_model=ApiResponse)
@@ -95,19 +97,21 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
         data = {
             "name": req.name,
             "widgets": req.widgets,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
         async with _file_lock:
             try:
                 await asyncio.to_thread(_write_json, path, data)
-                return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
+                return ApiResponse(
+                    data={"saved": True, "name": req.name, "widget_count": len(req.widgets)}
+                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}")
+                raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}") from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error("保存失败: %s", e)
-        raise HTTPException(status_code=500, detail="保存失败")
+        raise HTTPException(status_code=500, detail="保存失败") from e
 
 
 @router.delete("/project/{name}", response_model=ApiResponse)
@@ -122,4 +126,4 @@ async def delete_project(name: str, _user: CurrentUser):
         raise
     except Exception as e:
         logger.error("删除失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除失败")
+        raise HTTPException(status_code=500, detail="删除失败") from e

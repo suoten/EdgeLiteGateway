@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
-from edgelite.engine.event_bus import EventBus, PointUpdateEvent, AlarmEvent
-from edgelite.storage.sqlite_repo import RuleRepo, AlarmRepo
+from edgelite.engine.event_bus import AlarmEvent, EventBus, PointUpdateEvent
+from edgelite.storage.sqlite_repo import AlarmRepo, RuleRepo
 
 try:
     from edgelite._cython import check_condition_fast
+
     _HAS_CYTHON = True
 except ImportError:
     _HAS_CYTHON = False
+    check_condition_fast = None
 
 logger = logging.getLogger(__name__)
 
@@ -47,16 +49,16 @@ class RuleEvaluator:
     async def _get_rules_for_point(self, device_id: str, point_name: str) -> list:
         now = time.time()
         cache_key = f"{device_id}:{point_name}"
-        
+
         # 缓存过期时清空整个缓存，防止无限增长
         if (now - self._cache_time) >= self._cache_ttl:
             self._rule_cache.clear()
             self._cache_time = now
-        
+
         # 缓存命中
         if cache_key in self._rule_cache:
             return self._rule_cache[cache_key]
-        
+
         # 查询数据库并更新缓存
         rules = await self._rule_repo.list_enabled_by_point(device_id, point_name)
         self._rule_cache[cache_key] = rules
@@ -66,10 +68,8 @@ class RuleEvaluator:
         """停止评估器"""
         if self._task and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._rule_cache.clear()
         self._duration_tracker.clear()
         logger.info("规则评估器停止")
@@ -119,7 +119,7 @@ class RuleEvaluator:
         conditions = rule["conditions"]
         logic = rule["logic"]
         duration = rule["duration"]
-        severity = rule["severity"]
+        rule["severity"]
         rule_type = rule.get("rule_type", "threshold")
         script = rule.get("script", "")
 
@@ -139,6 +139,7 @@ class RuleEvaluator:
                 else:
                     try:
                         from edgelite.app import _app_state
+
                         influx = _app_state.influx_storage
                         if influx:
                             latest_dict = await influx.query_latest(event.device_id, [cond_point])
@@ -150,7 +151,9 @@ class RuleEvaluator:
                                     point_values[cond_point] = latest_val
                                     self._point_value_cache[cond_cache_key] = (latest_val, now)
                     except Exception as e:
-                        logger.debug("从InfluxDB获取测点值失败 %s.%s: %s", event.device_id, cond_point, e)
+                        logger.debug(
+                            "从InfluxDB获取测点值失败 %s.%s: %s", event.device_id, cond_point, e
+                        )
 
         # 评估条件
         if rule_type == "script" and script:
@@ -167,10 +170,10 @@ class RuleEvaluator:
                 first_time = self._duration_tracker.get(tracker_key)
                 if first_time is None:
                     # 首次满足，记录时间
-                    self._duration_tracker[tracker_key] = datetime.now(timezone.utc)
+                    self._duration_tracker[tracker_key] = datetime.now(UTC)
                 else:
                     # 检查是否持续满足到时间窗口
-                    elapsed = (datetime.now(timezone.utc) - first_time).total_seconds()
+                    elapsed = (datetime.now(UTC) - first_time).total_seconds()
                     if elapsed >= duration:
                         # 持续窗口到期，触发告警
                         await self._fire_alarm(rule, point_values)
@@ -206,7 +209,7 @@ class RuleEvaluator:
                 fast_conds.append({"operator": cond["operator"], "threshold": cond["threshold"]})
             if all_available and fast_conds:
                 values = [point_values[c["point"]] for c in conditions]
-                for actual, fc in zip(values, fast_conds):
+                for actual, fc in zip(values, fast_conds, strict=False):
                     if not check_condition_fast(actual, fc["operator"], fc["threshold"]):
                         if logic == "AND":
                             return False
@@ -287,7 +290,9 @@ class RuleEvaluator:
             result = safe_locals.get("result", False)
             return bool(result)
         except ImportError:
-            logger.error("RestrictedPython未安装，脚本规则不可用，请执行: pip install RestrictedPython")
+            logger.error(
+                "RestrictedPython未安装，脚本规则不可用，请执行: pip install RestrictedPython"
+            )
             return False
         except Exception as e:
             logger.warning("脚本规则执行失败: %s", e)
@@ -308,12 +313,14 @@ class RuleEvaluator:
             return
 
         # 创建新告警
-        alarm = await self._alarm_repo.create({
-            "rule_id": rule_id,
-            "device_id": device_id,
-            "severity": severity,
-            "trigger_value": trigger_value,
-        })
+        alarm = await self._alarm_repo.create(
+            {
+                "rule_id": rule_id,
+                "device_id": device_id,
+                "severity": severity,
+                "trigger_value": trigger_value,
+            }
+        )
 
         # 发布告警事件
         alarm_event = AlarmEvent(
@@ -325,7 +332,13 @@ class RuleEvaluator:
             trigger_value=trigger_value,
         )
         await self._event_bus.publish(alarm_event)
-        logger.info("告警触发: %s (规则=%s, 设备=%s, 级别=%s)", alarm["alarm_id"], rule_id, device_id, severity)
+        logger.info(
+            "告警触发: %s (规则=%s, 设备=%s, 级别=%s)",
+            alarm["alarm_id"],
+            rule_id,
+            device_id,
+            severity,
+        )
 
     async def _recover_alarm(self, alarm_id: str, rule: dict) -> None:
         """恢复告警"""

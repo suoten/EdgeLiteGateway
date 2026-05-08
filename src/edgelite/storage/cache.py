@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, func, delete as sa_delete, update as sa_update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select
+from sqlalchemy import update as sa_update
 
 from edgelite.models.db import CacheQueueORM
 
@@ -45,7 +46,7 @@ class CacheManager:
                 tags=json.dumps(tags, ensure_ascii=False),
                 fields=json.dumps(fields, ensure_ascii=False),
                 timestamp=timestamp,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             session.add(orm)
             await session.commit()

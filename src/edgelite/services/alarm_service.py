@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from edgelite.storage.sqlite_repo import AlarmRepo
 from edgelite.engine.event_bus import AlarmEvent
+from edgelite.storage.sqlite_repo import AlarmRepo
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +19,20 @@ class AlarmService:
     async def handle_alarm_event(self, event: AlarmEvent) -> None:
         """处理告警事件（由EventBus调用）"""
         if event.action == "firing":
-            logger.info("告警触发: %s (规则=%s, 设备=%s)", event.alarm_id, event.rule_id, event.device_id)
+            logger.info(
+                "告警触发: %s (规则=%s, 设备=%s)", event.alarm_id, event.rule_id, event.device_id
+            )
         elif event.action == "recovered":
             logger.info("告警恢复: %s", event.alarm_id)
 
     async def list_alarms(
-        self, page: int = 1, size: int = 20, status: str | None = None, severity: str | None = None, device_id: str | None = None, search: str | None = None
+        self,
+        page: int = 1,
+        size: int = 20,
+        status: str | None = None,
+        severity: str | None = None,
+        device_id: str | None = None,
+        search: str | None = None,
     ) -> tuple[list[dict], int]:
         return await self._repo.list_all(page, size, status, severity, device_id, search)
 

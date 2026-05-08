@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.models.common import ApiResponse
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 router = APIRouter(prefix="/api/v1/preprocess", tags=["数据预处理"])
@@ -36,11 +36,13 @@ class PreprocessUpdateRequest(BaseModel):
 
 def _get_preprocessor():
     from edgelite.app import _app_state
+
     return getattr(_app_state, "preprocessor", None)
 
 
 def _get_config():
     from edgelite.config import get_config
+
     return get_config()
 
 
@@ -57,13 +59,23 @@ async def get_preprocess_config(
 
     preprocess_config = getattr(config, "preprocess", None)
 
-    return ApiResponse(data={
-        "enabled": getattr(preprocess_config, "enabled", False) if preprocess_config else False,
-        "default_deadband": getattr(preprocess_config, "default_deadband", 0.0) if preprocess_config else 0.0,
-        "default_filter_window": getattr(preprocess_config, "default_filter_window", 3) if preprocess_config else 3,
-        "default_aggregate_window_sec": getattr(preprocess_config, "default_aggregate_window_sec", 0) if preprocess_config else 0,
-        "point_configs": point_configs,
-    })
+    return ApiResponse(
+        data={
+            "enabled": getattr(preprocess_config, "enabled", False) if preprocess_config else False,
+            "default_deadband": getattr(preprocess_config, "default_deadband", 0.0)
+            if preprocess_config
+            else 0.0,
+            "default_filter_window": getattr(preprocess_config, "default_filter_window", 3)
+            if preprocess_config
+            else 3,
+            "default_aggregate_window_sec": getattr(
+                preprocess_config, "default_aggregate_window_sec", 0
+            )
+            if preprocess_config
+            else 0,
+            "point_configs": point_configs,
+        }
+    )
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -85,7 +97,9 @@ async def update_preprocess_config(
             if req.global_config.default_filter_window is not None:
                 config.preprocess.default_filter_window = req.global_config.default_filter_window
             if req.global_config.default_aggregate_window_sec is not None:
-                config.preprocess.default_aggregate_window_sec = req.global_config.default_aggregate_window_sec
+                config.preprocess.default_aggregate_window_sec = (
+                    req.global_config.default_aggregate_window_sec
+                )
 
     for point_key, config in req.points.items():
         preprocessor.configure(point_key, config)

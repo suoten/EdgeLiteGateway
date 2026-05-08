@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from edgelite.storage.sqlite_repo import RuleRepo, DeviceRepo
+from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo
 
 
 class RuleService:
@@ -19,6 +19,7 @@ class RuleService:
             raise ValueError(f"设备不存在: {data['device_id']}")
         result = await self._repo.create(data)
         from edgelite.app import _app_state
+
         if _app_state.evaluator:
             _app_state.evaluator.invalidate_cache()
         return result
@@ -26,13 +27,21 @@ class RuleService:
     async def get_rule(self, rule_id: str) -> dict | None:
         return await self._repo.get(rule_id)
 
-    async def list_rules(self, page: int = 1, size: int = 20, device_id: str | None = None, search: str | None = None, severity: str | None = None) -> tuple[list[dict], int]:
+    async def list_rules(
+        self,
+        page: int = 1,
+        size: int = 20,
+        device_id: str | None = None,
+        search: str | None = None,
+        severity: str | None = None,
+    ) -> tuple[list[dict], int]:
         return await self._repo.list_all(page, size, device_id, search, severity)
 
     async def update_rule(self, rule_id: str, data: dict) -> dict | None:
         result = await self._repo.update(rule_id, data)
         if result:
             from edgelite.app import _app_state
+
             if _app_state.evaluator:
                 _app_state.evaluator.invalidate_cache()
         return result
@@ -41,6 +50,7 @@ class RuleService:
         result = await self._repo.delete(rule_id)
         if result:
             from edgelite.app import _app_state
+
             if _app_state.evaluator:
                 _app_state.evaluator.cleanup_duration_tracker(rule_id)
                 _app_state.evaluator.invalidate_cache()
@@ -50,6 +60,7 @@ class RuleService:
         result = await self._repo.toggle(rule_id, True)
         if result:
             from edgelite.app import _app_state
+
             if _app_state.evaluator:
                 _app_state.evaluator.invalidate_cache()
         return result
@@ -58,6 +69,7 @@ class RuleService:
         result = await self._repo.toggle(rule_id, False)
         if result:
             from edgelite.app import _app_state
+
             if _app_state.evaluator:
                 _app_state.evaluator.invalidate_cache()
         return result
@@ -72,7 +84,12 @@ class RuleService:
         logic = rule["logic"]
 
         if not conditions:
-            return {"rule_id": rule_id, "logic": logic, "condition_results": [], "all_matched": False}
+            return {
+                "rule_id": rule_id,
+                "logic": logic,
+                "condition_results": [],
+                "all_matched": False,
+            }
 
         results = []
         for cond in conditions:
@@ -88,11 +105,27 @@ class RuleService:
             matched = self._compare(value, operator, threshold)
             results.append({"condition": cond, "matched": matched, "actual_value": value})
 
-        all_matched = all(r["matched"] for r in results) if logic == "AND" else any(r["matched"] for r in results)
+        all_matched = (
+            all(r["matched"] for r in results)
+            if logic == "AND"
+            else any(r["matched"] for r in results)
+        )
 
-        return {"rule_id": rule_id, "logic": logic, "condition_results": results, "all_matched": all_matched}
+        return {
+            "rule_id": rule_id,
+            "logic": logic,
+            "condition_results": results,
+            "all_matched": all_matched,
+        }
 
     @staticmethod
     def _compare(value: float, operator: str, threshold: float) -> bool:
-        ops = {">": value > threshold, ">=": value >= threshold, "<": value < threshold, "<=": value <= threshold, "==": abs(value - threshold) < 1e-9, "!=": abs(value - threshold) >= 1e-9}
+        ops = {
+            ">": value > threshold,
+            ">=": value >= threshold,
+            "<": value < threshold,
+            "<=": value <= threshold,
+            "==": abs(value - threshold) < 1e-9,
+            "!=": abs(value - threshold) >= 1e-9,
+        }
         return ops.get(operator, False)

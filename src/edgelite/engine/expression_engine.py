@@ -42,28 +42,89 @@ _SAFE_BUILTINS = {
     "None": None,
 }
 
-_DANGEROUS_NAMES = frozenset({
-    "exec", "eval", "compile", "open", "input", "__import__",
-    "globals", "locals", "vars", "dir", "getattr", "setattr",
-    "delattr", "hasattr", "type", "object", "__builtins__",
-    "__name__", "__file__", "__class__", "__mro__", "__subclasses__",
-    "__bases__", "__dict__", "__self__",
-})
+_DANGEROUS_NAMES = frozenset(
+    {
+        "exec",
+        "eval",
+        "compile",
+        "open",
+        "input",
+        "__import__",
+        "globals",
+        "locals",
+        "vars",
+        "dir",
+        "getattr",
+        "setattr",
+        "delattr",
+        "hasattr",
+        "type",
+        "object",
+        "__builtins__",
+        "__name__",
+        "__file__",
+        "__class__",
+        "__mro__",
+        "__subclasses__",
+        "__bases__",
+        "__dict__",
+        "__self__",
+    }
+)
 
-_ALLOWED_CALL_NAMES = frozenset({
-    "abs", "round", "min", "max", "pow", "int", "float", "str", "bool",
-    "sqrt", "ceil", "floor", "log", "log10",
-})
+_ALLOWED_CALL_NAMES = frozenset(
+    {
+        "abs",
+        "round",
+        "min",
+        "max",
+        "pow",
+        "int",
+        "float",
+        "str",
+        "bool",
+        "sqrt",
+        "ceil",
+        "floor",
+        "log",
+        "log10",
+    }
+)
 
 _SAFE_AST_NODES = {
-    ast.Expression, ast.Constant, ast.Name, ast.Load,
-    ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.Call, ast.IfExp,
-    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.Pow,
-    ast.USub, ast.UAdd, ast.Not,
-    ast.And, ast.Or,
-    ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
-    ast.Is, ast.IsNot, ast.In, ast.NotIn,
-    ast.List, ast.Tuple,
+    ast.Expression,
+    ast.Constant,
+    ast.Name,
+    ast.Load,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.BoolOp,
+    ast.Compare,
+    ast.Call,
+    ast.IfExp,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.Mod,
+    ast.Pow,
+    ast.USub,
+    ast.UAdd,
+    ast.Not,
+    ast.And,
+    ast.Or,
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.Is,
+    ast.IsNot,
+    ast.In,
+    ast.NotIn,
+    ast.List,
+    ast.Tuple,
 }
 
 
@@ -85,14 +146,14 @@ class SafeExpressionVisitor(ast.NodeVisitor):
             if node.func.id not in _ALLOWED_CALL_NAMES:
                 raise ValueError(f"表达式包含不允许的函数调用: {node.func.id}")
         elif isinstance(node.func, ast.Attribute):
-            if node.func.attr in _DANGEROUS_NAMES or node.func.attr.startswith('_'):
+            if node.func.attr in _DANGEROUS_NAMES or node.func.attr.startswith("_"):
                 raise ValueError(f"表达式包含不允许的属性访问: {node.func.attr}")
         else:
             raise ValueError("表达式包含不允许的调用方式")
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        if node.attr.startswith('_') or node.attr in _DANGEROUS_NAMES:
+        if node.attr.startswith("_") or node.attr in _DANGEROUS_NAMES:
             raise ValueError(f"表达式包含不允许的属性: {node.attr}")
         self.generic_visit(node)
 
@@ -116,10 +177,10 @@ class ExpressionEngine:
 
         try:
             resolved = self._resolve_variables(expression, variables or {})
-            tree = ast.parse(resolved, mode='eval')
+            tree = ast.parse(resolved, mode="eval")
             SafeExpressionVisitor().visit(tree)
             namespace = {**_SAFE_BUILTINS, **self._custom_functions}
-            code = compile(tree, '<expression>', 'eval')
+            code = compile(tree, "<expression>", "eval")
             result = eval(code, {"__builtins__": {}}, namespace)
             return result
         except ValueError:
@@ -128,7 +189,9 @@ class ExpressionEngine:
             logger.warning("表达式计算失败 '%s': %s", expression, e)
             return None
 
-    def evaluate_batch(self, expressions: dict[str, str], variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def evaluate_batch(
+        self, expressions: dict[str, str], variables: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         results = {}
         for name, expr in expressions.items():
             results[name] = self.evaluate(expr, variables)
@@ -138,7 +201,7 @@ class ExpressionEngine:
         """验证表达式安全性（供API调用）"""
         if not expression or not expression.strip():
             return
-        tree = ast.parse(expression, mode='eval')
+        tree = ast.parse(expression, mode="eval")
         SafeExpressionVisitor().visit(tree)
 
     def _resolve_variables(self, expression: str, variables: dict[str, Any]) -> str:

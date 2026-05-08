@@ -1,7 +1,10 @@
 """表达式引擎AST安全测试"""
-import pytest
+
 import sys
-sys.path.insert(0, 'src')
+
+import pytest
+
+sys.path.insert(0, "src")
 
 from edgelite.engine.expression_engine import ExpressionEngine
 
@@ -13,7 +16,7 @@ class TestExpressionEngineAST:
         assert engine.evaluate("2 + 3") == 5
         assert engine.evaluate("10 - 4") == 6
         assert engine.evaluate("3 * 4") == 12
-        assert engine.evaluate("10 / 3") == pytest.approx(10/3)
+        assert engine.evaluate("10 / 3") == pytest.approx(10 / 3)
         assert engine.evaluate("2 ** 3") == 8
 
     def test_comparison(self):

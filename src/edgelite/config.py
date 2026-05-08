@@ -132,6 +132,7 @@ class NotifyConfig(BaseModel):
 
 class MqttServerConfig(BaseModel):
     """内置MQTT Server配置"""
+
     enabled: bool = False
     host: str = "0.0.0.0"
     port: int = Field(default=1888, ge=1, le=65535)
@@ -142,6 +143,7 @@ class MqttServerConfig(BaseModel):
 
 class ModbusSlaveConfig(BaseModel):
     """内置Modbus Slave配置"""
+
     enabled: bool = False
     host: str = "0.0.0.0"
     port: int = Field(default=502, ge=1, le=65535)
@@ -151,6 +153,7 @@ class ModbusSlaveConfig(BaseModel):
 
 class SparkplugBConfig(BaseModel):
     """MQTT Sparkplug B 配置"""
+
     group_id: str = "group1"
     edge_node_id: str = "edgelite_node"
     mqtt_broker: str = "localhost"
@@ -166,6 +169,7 @@ class SparkplugBConfig(BaseModel):
 
 class Dlt645DefaultsConfig(BaseModel):
     """DL/T 645 电表规约默认配置"""
+
     baud_rate: int = Field(default=2400, ge=300, le=115200)
     data_bits: int = 8
     parity: str = "E"
@@ -175,6 +179,7 @@ class Dlt645DefaultsConfig(BaseModel):
 
 class Iec104Config(BaseModel):
     """IEC 104 电力远动规约配置"""
+
     default_port: int = 2404
     asdu_addr_length: int = Field(default=2, ge=1, le=2)
     cause_of_tx_length: int = Field(default=2, ge=1, le=2)
@@ -188,6 +193,7 @@ class Iec104Config(BaseModel):
 
 class SerialBridgeConfig(BaseModel):
     """串口TCP透传配置"""
+
     enabled: bool = False
     serial_port: str = "/dev/ttyUSB0"
     baud_rate: int = 9600
@@ -198,6 +204,7 @@ class SerialBridgeConfig(BaseModel):
 
 class PreprocessGlobalConfig(BaseModel):
     """边缘数据预处理全局配置"""
+
     enabled: bool = False
     default_deadband: float = Field(default=0.0, ge=0.0)
     default_filter_window: int = Field(default=3, ge=1, le=21)
@@ -206,6 +213,7 @@ class PreprocessGlobalConfig(BaseModel):
 
 class WebhookAuthConfig(BaseModel):
     """HTTP Webhook 安全认证配置"""
+
     mode: Literal["none", "bearer", "basic"] = "none"
     token: str = ""
     username: str = ""
@@ -214,6 +222,7 @@ class WebhookAuthConfig(BaseModel):
 
 class MqttTlsConfigModel(BaseModel):
     """MQTT TLS/SSL 配置"""
+
     enabled: bool = False
     ca_cert: str = ""
     client_cert: str = ""
@@ -223,11 +232,13 @@ class MqttTlsConfigModel(BaseModel):
 
 class McpServerConfig(BaseModel):
     """MCP Server配置"""
+
     enabled: bool = False
 
 
 class GrafanaConfig(BaseModel):
     """Grafana集成配置"""
+
     enabled: bool = False
     url: str = "http://localhost:3000"
     api_key: str = ""
@@ -236,6 +247,7 @@ class GrafanaConfig(BaseModel):
 
 class DriversConfig(BaseModel):
     """驱动配置"""
+
     custom_dir: str = ""
     auto_reload: bool = False
 
@@ -290,7 +302,7 @@ def _load_env_overrides() -> dict[str, Any]:
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
-        raw = key[len(prefix):]
+        raw = key[len(prefix) :]
         if "__" in raw:
             parts = raw.lower().split("__")
             d = overrides
@@ -315,7 +327,7 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
 
     path = Path(config_path)
     if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             config_data = yaml.safe_load(f) or {}
 
     # 环境变量覆盖（优先级：环境变量 > .env > config.yaml）
@@ -373,7 +385,9 @@ def save_config(config: AppConfig, config_path: str | Path | None = None) -> Non
     _config = config
 
 
-def update_config_section(section: str, values: dict, config_path: str | Path | None = None) -> AppConfig:
+def update_config_section(
+    section: str, values: dict, config_path: str | Path | None = None
+) -> AppConfig:
     """更新配置的某个段落并持久化
 
     Args:

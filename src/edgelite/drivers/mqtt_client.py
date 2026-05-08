@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from edgelite.drivers.base import DriverPlugin
 from edgelite.config import get_config
+from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +42,8 @@ class MqttClientDriver(DriverPlugin):
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
         if self._connect_task:
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
         logger.info("MQTT Client驱动停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
@@ -88,15 +88,16 @@ class MqttClientDriver(DriverPlugin):
                 import aiomqtt
 
                 ssl_context = None
-                tls_config = getattr(config.mqtt, 'tls', None)
+                tls_config = getattr(config.mqtt, "tls", None)
                 if tls_config:
                     try:
                         from edgelite.engine.mqtt_tls import MqttTlsHelper
+
                         ssl_context = MqttTlsHelper.create_ssl_context(
-                            ca_cert=getattr(tls_config, 'ca_cert', ''),
-                            client_cert=getattr(tls_config, 'client_cert', ''),
-                            client_key=getattr(tls_config, 'client_key', ''),
-                            cert_reqs=getattr(tls_config, 'cert_reqs', 'required'),
+                            ca_cert=getattr(tls_config, "ca_cert", ""),
+                            client_cert=getattr(tls_config, "client_cert", ""),
+                            client_key=getattr(tls_config, "client_key", ""),
+                            cert_reqs=getattr(tls_config, "cert_reqs", "required"),
                         )
                         if ssl_context:
                             logger.info("MQTT TLS已启用")
@@ -109,7 +110,6 @@ class MqttClientDriver(DriverPlugin):
                     username=username,
                     password=password,
                     keepalive=60,
-                    tls_params=aiomqtt.TLSParameters(ssl_context=ssl_context) if ssl_context else None,
                 ) as client:
                     logger.info("MQTT连接成功: %s:%d", broker, port)
 
@@ -132,10 +132,8 @@ class MqttClientDriver(DriverPlugin):
                             if not t.done():
                                 t.cancel()
                         for t in [msg_task, pub_task]:
-                            try:
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await t
-                            except asyncio.CancelledError:
-                                pass
 
             except asyncio.CancelledError:
                 raise
@@ -158,11 +156,12 @@ class MqttClientDriver(DriverPlugin):
     async def _publish_loop(self, client: Any) -> None:
         try:
             while self._running:
+                if self._pub_queue is None:
+                    await asyncio.sleep(0.1)
+                    continue
                 try:
-                    topic, payload = await asyncio.wait_for(
-                        self._pub_queue.get(), timeout=1.0
-                    )
-                except asyncio.TimeoutError:
+                    topic, payload = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                except TimeoutError:
                     continue
                 try:
                     await client.publish(topic, payload)

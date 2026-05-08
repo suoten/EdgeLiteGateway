@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
-import base64
 import json
 import logging
 import smtplib
@@ -77,7 +77,8 @@ class NotifyService:
                 f"- **规则**: {alarm_data.get('rule_id', '')}\n"
                 f"- **级别**: {alarm_data.get('severity', '')}\n"
                 f"- **状态**: {alarm_data.get('status', '')}\n"
-                f"- **触发值**: {json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}\n"
+                f"- **触发值**: "
+                f"{json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}\n"
                 f"- **时间**: {alarm_data.get('fired_at', '')}\n",
             },
         }
@@ -119,17 +120,23 @@ class NotifyService:
         subject = f"[EdgeLite告警] {label} - 设备 {alarm_data.get('device_id', '')}"
         body_html = f"""
         <html><body>
-        <h2 style="color: {'red' if severity == 'critical' else 'orange' if severity == 'warning' else 'green'}">
+        <h2 style="color: {
+                    "red" if severity == "critical"
+                    else "orange" if severity == "warning"
+                    else "green"
+                }">
             EdgeLite告警通知
         </h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-            <tr><td><b>设备ID</b></td><td>{alarm_data.get('device_id', '')}</td></tr>
-            <tr><td><b>规则ID</b></td><td>{alarm_data.get('rule_id', '')}</td></tr>
+            <tr><td><b>设备ID</b></td><td>{alarm_data.get("device_id", "")}</td></tr>
+            <tr><td><b>规则ID</b></td><td>{alarm_data.get("rule_id", "")}</td></tr>
             <tr><td><b>告警级别</b></td><td>{label}</td></tr>
-            <tr><td><b>告警状态</b></td><td>{alarm_data.get('status', '')}</td></tr>
-            <tr><td><b>触发值</b></td><td>{json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}</td></tr>
-            <tr><td><b>触发次数</b></td><td>{alarm_data.get('trigger_count', 1)}</td></tr>
-            <tr><td><b>触发时间</b></td><td>{alarm_data.get('fired_at', '')}</td></tr>
+            <tr><td><b>告警状态</b></td><td>{alarm_data.get("status", "")}</td></tr>
+            <tr><td><b>触发值</b></td><td>{
+                        json.dumps(alarm_data.get("trigger_value", {}), ensure_ascii=False)
+                    }</td></tr>
+            <tr><td><b>触发次数</b></td><td>{alarm_data.get("trigger_count", 1)}</td></tr>
+            <tr><td><b>触发时间</b></td><td>{alarm_data.get("fired_at", "")}</td></tr>
         </table>
         </body></html>
         """
@@ -157,7 +164,7 @@ class NotifyService:
             server = smtplib.SMTP_SSL(email_config.smtp_host, email_config.smtp_port, timeout=15)
         else:
             server = smtplib.SMTP(email_config.smtp_host, email_config.smtp_port, timeout=15)
-            if getattr(email_config, 'use_starttls', False):
+            if getattr(email_config, "use_starttls", False):
                 server.starttls()
 
         try:
@@ -188,11 +195,14 @@ class NotifyService:
             "msgtype": "markdown",
             "markdown": {
                 "content": f"### EdgeLite告警\n"
-                f"> **级别**: <font color=\"{'warning' if severity == 'critical' else 'info'}\">{label}</font>\n"
+                f'> **级别**: <font color="'
+                f'{"warning" if severity == "critical" else "info"}'
+                f'">{label}</font>\n'
                 f"> **设备**: {alarm_data.get('device_id', '')}\n"
                 f"> **规则**: {alarm_data.get('rule_id', '')}\n"
                 f"> **状态**: {alarm_data.get('status', '')}\n"
-                f"> **触发值**: {json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}\n"
+                f"> **触发值**: "
+                f"{json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}\n"
                 f"> **时间**: {alarm_data.get('fired_at', '')}\n",
             },
         }

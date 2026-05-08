@@ -6,9 +6,9 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
+from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.models.alarm import AlarmResponse
 from edgelite.models.common import ApiResponse, PagedResponse
-from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -18,14 +18,18 @@ router = APIRouter(prefix="/api/v1/alarms", tags=["告警管理"])
 
 def _get_alarm_service():
     from edgelite.app import _app_state
+
     return _app_state.alarm_service
 
 
 @router.get("", response_model=PagedResponse[AlarmResponse])
 async def list_alarms(
     user: CurrentUser = require_permission(Permission.ALARM_READ),
-    page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=1000),
-    status: str | None = None, severity: str | None = None, device_id: str | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=1000),
+    status: str | None = None,
+    severity: str | None = None,
+    device_id: str | None = None,
     search: str | None = None,
 ):
     try:
@@ -36,7 +40,7 @@ async def list_alarms(
         raise
     except Exception as e:
         logger.error("获取告警列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取告警列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取告警列表失败: {e}") from e
 
 
 @router.get("/{alarm_id}", response_model=ApiResponse[AlarmResponse])
@@ -51,7 +55,7 @@ async def get_alarm(alarm_id: str, user: CurrentUser = require_permission(Permis
         raise
     except Exception as e:
         logger.error("获取告警详情失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取告警详情失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取告警详情失败: {e}") from e
 
 
 @router.put("/{alarm_id}/ack", response_model=ApiResponse[AlarmResponse])
@@ -66,4 +70,4 @@ async def ack_alarm(alarm_id: str, user: CurrentUser = require_permission(Permis
         raise
     except Exception as e:
         logger.error("确认告警失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"确认告警失败: {e}")
+        raise HTTPException(status_code=500, detail=f"确认告警失败: {e}") from e

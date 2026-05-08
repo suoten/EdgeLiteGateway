@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -50,9 +51,7 @@ class KukaDriver(DriverPlugin):
             raise ValueError("KUKA驱动配置缺少ip参数")
 
         if config.get("reconnect", True):
-            self._connect_task = asyncio.create_task(
-                self._connect_loop(), name="kuka-connect"
-            )
+            self._connect_task = asyncio.create_task(self._connect_loop(), name="kuka-connect")
         else:
             await self._connect_once()
         logger.info("KUKA驱动启动: %s", ip)
@@ -61,10 +60,8 @@ class KukaDriver(DriverPlugin):
         self._running = False
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
-            except asyncio.CancelledError:
-                pass
         self._connect_task = None
         await self._disconnect()
         logger.info("KUKA驱动已停止")
@@ -102,12 +99,8 @@ class KukaDriver(DriverPlugin):
                         self._writer.write(keepalive_xml.encode("utf-8"))
                         await self._writer.drain()
                     if self._reader:
-                        try:
-                            await asyncio.wait_for(
-                                self._reader.read(RECV_BUFFER_SIZE), timeout=0.1
-                            )
-                        except asyncio.TimeoutError:
-                            pass
+                        with contextlib.suppress(asyncio.TimeoutError):
+                            await asyncio.wait_for(self._reader.read(RECV_BUFFER_SIZE), timeout=0.1)
                     await asyncio.sleep(10)
                 except Exception:
                     self._connected = False
@@ -190,9 +183,10 @@ class KukaDriver(DriverPlugin):
                 while True:
                     remaining = deadline - asyncio.get_running_loop().time()
                     if remaining <= 0:
-                        raise asyncio.TimeoutError()
+                        raise TimeoutError()
                     chunk = await asyncio.wait_for(
-                        self._reader.read(RECV_BUFFER_SIZE), timeout=remaining,
+                        self._reader.read(RECV_BUFFER_SIZE),
+                        timeout=remaining,
                     )
                     if not chunk:
                         break
@@ -207,7 +201,7 @@ class KukaDriver(DriverPlugin):
                 response_str = buf.decode("utf-8").strip()
                 return self._parse_ekrl_response(response_str)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("KUKA读取超时: %s", device_id)
                 self._connected = False
                 return {}
@@ -238,7 +232,7 @@ class KukaDriver(DriverPlugin):
                 parsed = self._parse_ekrl_response(response_str)
                 return point in parsed
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("KUKA写入超时: %s", device_id)
                 self._connected = False
                 return False
