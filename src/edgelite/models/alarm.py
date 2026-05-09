@@ -15,6 +15,7 @@ class AlarmResponse(BaseModel):
     device_id: str | None
     severity: str
     status: str
+    message: str = ""
     trigger_value: dict[str, Any]
     trigger_count: int
     fired_at: str

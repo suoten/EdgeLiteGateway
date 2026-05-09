@@ -89,7 +89,7 @@ export const deviceApi = {
     http.post(`/devices/${id}/points`, { point, value }),
 
   createSimulator: (data: Omit<DeviceCreateParams, 'protocol'>) =>
-    http.post<ApiResponse<Device>>('/devices/simulator', { ...data, protocol: 'simulator' }).then((r) => r.data.data),
+    http.post<ApiResponse<Device>>('/devices/simulator', data).then((r) => r.data.data),
 
   discover: (params: { protocol: string; host?: string; port?: number }) =>
     http.post<ApiResponse<any[]>>('/devices/discover', { protocol: params.protocol, config: { host: params.host, port: params.port } }).then((r) => r.data.data),
@@ -100,7 +100,7 @@ export const deviceApi = {
 export interface Rule {
   rule_id: string
   name: string
-  device_id: string
+  device_id: string | null
   conditions: RuleCondition[]
   logic: string
   duration: number
@@ -157,7 +157,7 @@ export const ruleApi = {
 export interface Alarm {
   alarm_id: string
   rule_id: string
-  device_id: string
+  device_id: string | null
   severity: string
   status: string
   message: string
@@ -192,9 +192,15 @@ export const dataApi = {
 
 // ─── 视频 ───
 
+export interface VideoStreamInfo {
+  url: string
+  device_id: string
+  channel_id: string
+}
+
 export const videoApi = {
   getStreamUrl: (deviceId: string, channelId?: string) =>
-    http.get<ApiResponse<{ url: string }>>(`/video/${deviceId}/stream`, { params: { channel_id: channelId || '1' } }).then((r) => r.data.data),
+    http.get<ApiResponse<VideoStreamInfo>>(`/video/${deviceId}/stream`, { params: { channel_id: channelId || '1' } }).then((r) => r.data.data),
 
   ptzControl: (deviceId: string, action: string, channelId?: string) =>
     http.post(`/video/${deviceId}/ptz`, null, { params: { action, channel_id: channelId || '1' } }),
@@ -281,11 +287,23 @@ export const driverApi = {
 
 // ─── 预处理配置 ───
 
+export interface PreprocessGlobalConfig {
+  enabled?: boolean
+  default_deadband?: number
+  default_filter_window?: number
+  default_aggregate_window_sec?: number
+}
+
+export interface PreprocessUpdateParams {
+  global?: PreprocessGlobalConfig
+  points?: Record<string, Record<string, any>>
+}
+
 export const preprocessApi = {
   getConfig: () =>
     http.get<ApiResponse<any>>('/preprocess/config').then((r) => r.data.data),
 
-  updateConfig: (data: any) =>
+  updateConfig: (data: PreprocessUpdateParams) =>
     http.put<ApiResponse>('/preprocess/config', data).then((r) => r.data),
 }
 
@@ -424,6 +442,14 @@ export const serviceApi = {
 
 // ─── MQTT Server ───
 
+export interface MqttServerConfig {
+  host?: string
+  port?: number
+  ws_port?: number
+  username?: string
+  password?: string
+}
+
 export const mqttServerApi = {
   status: () =>
     http.get<ApiResponse<any>>('/mqtt-server/status').then((r) => r.data.data),
@@ -434,11 +460,20 @@ export const mqttServerApi = {
   stop: () =>
     http.post<ApiResponse>('/mqtt-server/stop').then((r) => r.data),
 
-  updateConfig: (data: any) =>
+  updateConfig: (data: MqttServerConfig) =>
     http.put<ApiResponse>('/mqtt-server/config', data).then((r) => r.data),
 }
 
 // ─── Modbus Slave ───
+
+export interface ModbusSlaveConfig {
+  host?: string
+  port?: number
+  holding_size?: number
+  input_size?: number
+  coil_size?: number
+  discrete_size?: number
+}
 
 export const modbusSlaveApi = {
   status: () =>
@@ -450,11 +485,16 @@ export const modbusSlaveApi = {
   stop: () =>
     http.post<ApiResponse>('/modbus-slave/stop').then((r) => r.data),
 
-  updateConfig: (data: any) =>
+  updateConfig: (data: ModbusSlaveConfig) =>
     http.put<ApiResponse>('/modbus-slave/config', data).then((r) => r.data),
 }
 
 // ─── MCP协议 ───
+
+export interface McpCreateKeyParams {
+  name: string
+  scopes?: string[]
+}
 
 export const mcpApi = {
   tools: () =>
@@ -472,7 +512,7 @@ export const mcpApi = {
   authKeys: () =>
     http.get<ApiResponse<{ keys: any[]; enabled: boolean }>>('/mcp/auth-keys').then((r) => r.data.data),
 
-  createKey: (data: any) =>
+  createKey: (data: McpCreateKeyParams) =>
     http.post<ApiResponse>('/mcp/auth-keys', data).then((r) => r.data),
 
   deleteKey: (keyId: string) =>
@@ -510,8 +550,15 @@ export const grafanaApi = {
 
 // ─── 联调集成 ───
 
+export interface IntegrationHandshakeParams {
+  cloud_url?: string
+  protocol_version?: string
+  device_id?: string
+  [key: string]: any
+}
+
 export const integrationApi = {
-  handshake: (data: any) =>
+  handshake: (data: IntegrationHandshakeParams) =>
     http.post<ApiResponse>('/integration/handshake', data).then((r) => r.data),
 
   status: () =>

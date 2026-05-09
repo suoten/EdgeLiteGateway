@@ -38,7 +38,7 @@ class DriverPlugin(ABC):
         self, device_id: str, config: dict, points: list[dict] | None = None
     ) -> None:
         """添加设备到驱动实例（可选实现）"""
-        pass
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement add_device")
 
     def is_device_connected(self, device_id: str) -> bool:
         """检查设备是否已连接（可选实现）"""

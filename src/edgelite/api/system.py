@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, HTTPException
 
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.models.common import ApiResponse
+from edgelite.models.system import SystemStatusResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ def _get_system_service():
     return _app_state.system_service
 
 
-@router.get("/status", response_model=ApiResponse)
+@router.get("/status", response_model=ApiResponse[SystemStatusResponse])
 async def get_system_status(user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
     try:
         svc = _get_system_service()

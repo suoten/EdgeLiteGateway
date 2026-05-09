@@ -66,12 +66,14 @@ class DeviceService:
             elif driver_class is not None:
                 driver = driver_class()
                 await driver.start(data.get("config", {}))
-                if hasattr(driver, "add_device"):
+                try:
                     await driver.add_device(
                         device["device_id"],
                         data.get("config", {}),
                         data.get("points", []),
                     )
+                except NotImplementedError:
+                    pass
                 self._driver_instances[device["device_id"]] = driver
                 connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(
                     device["device_id"]
@@ -232,12 +234,14 @@ class DeviceService:
                     elif driver_class is not None:
                         driver = driver_class()
                         await driver.start(device.get("config", {}))
-                        if hasattr(driver, "add_device"):
+                        try:
                             await driver.add_device(
                                 device["device_id"],
                                 device.get("config", {}),
                                 device.get("points", []),
                             )
+                        except NotImplementedError:
+                            pass
                         self._driver_instances[device["device_id"]] = driver
                         connected = hasattr(
                             driver, "is_device_connected"
