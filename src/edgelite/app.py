@@ -501,7 +501,7 @@ def create_app() -> FastAPI:
         logger.exception("未处理的异常: %s %s -> %s", request.method, request.url.path, exc)
         return JSONResponse(
             status_code=500,
-            content=ApiResponse(code=1, message=f"服务器内部错误: {exc}", data=None).model_dump(),
+            content=ApiResponse(code=1, message="服务器内部错误，请稍后重试", data=None).model_dump(),
         )
 
     # 注册路由

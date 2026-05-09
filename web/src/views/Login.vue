@@ -177,10 +177,10 @@ async function handleChangePassword() {
   } catch { return }
   changingPwd.value = true
   try {
-    await authApi.changePassword({
-      old_password: changePwdForm.old_password,
-      new_password: changePwdForm.new_password,
-    })
+    await authApi.changePassword(
+      changePwdForm.old_password,
+      changePwdForm.new_password,
+    )
     auth.mustChangePassword = false
     sessionStorage.setItem('edgelite_mustChangePassword', 'false')
     message.success('密码修改成功，正在进入系统...')

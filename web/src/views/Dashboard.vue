@@ -396,7 +396,7 @@ function onRealtimeMessage(data: any) {
       updateResourceHistory()
     }
   } catch (e) {
-    console.warn('处理实时数据消息失败:', e)
+    msg.warning('处理实时数据消息异常')
   }
 }
 
@@ -407,7 +407,7 @@ function onAlarmMessage(data: any) {
       if (status.value) status.value.alarm_firing = (status.value.alarm_firing ?? 0) + 1
     }
   } catch (e) {
-    console.warn('处理告警消息失败:', e)
+    msg.warning('处理告警消息异常')
   }
 }
 
@@ -418,7 +418,7 @@ function onDeviceMessage(data: any) {
       fetchStatus()
     }
   } catch (e) {
-    console.warn('处理设备消息失败:', e)
+    msg.warning('处理设备消息异常')
   }
 }
 </script>

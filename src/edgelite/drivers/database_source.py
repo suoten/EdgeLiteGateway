@@ -219,9 +219,12 @@ class DatabaseSourceDriver(DriverPlugin):
                     sql = sql_template.replace("{{value}}", "%s")
                 else:
                     sql = sql_template.replace("{{value}}", "?")
+                if not isinstance(value, (int, float, bool)):
+                    value = str(value)
                 await self._execute_query(sql, (value,))
             else:
-                await self._execute_query(sql_template)
+                logger.warning("写入查询未使用参数化占位符: %s", point)
+                return False
             return True
         except Exception as e:
             logger.error("数据库写入失败 %s: %s", point, e)

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 from datetime import UTC
@@ -352,12 +353,19 @@ class MCPAuthManager:
             return True
         return False
 
+    def verify_key(self, api_key: str) -> dict[str, Any] | None:
+        for key_id, key_data in self._keys.items():
+            stored_key = key_data.get("key", "")
+            if stored_key and hmac.compare_digest(stored_key, api_key):
+                return {"id": key_id, "name": key_data["name"], "scopes": key_data["scopes"]}
+        return None
+
 
 _mcp_auth = MCPAuthManager()
 
 
 @router.get("/auth-keys", response_model=ApiResponse)
-async def list_auth_keys(_user=Depends(get_current_user)):
+async def list_auth_keys(user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     try:
         return ApiResponse(data={"keys": _mcp_auth.list_keys(), "enabled": _mcp_auth._enabled})
     except HTTPException:
@@ -412,7 +420,22 @@ async def mcp_sse(_user=Depends(get_current_user)):
         async def event_generator():
             yield 'event: connected\ndata: {"server": "edgelite-mcp", "version": "1.0"}\n\n'
             queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
+            event_bus = None
             try:
+                from edgelite.app import _app_state
+
+                event_bus = getattr(_app_state, "event_bus", None)
+                if event_bus:
+
+                    def _on_event(event_data: dict):
+                        try:
+                            queue.put_nowait(json.dumps(event_data, default=str, ensure_ascii=False))
+                        except _asyncio.QueueFull:
+                            pass
+
+                    event_bus.subscribe("alarm.*", _on_event)
+                    event_bus.subscribe("device.*", _on_event)
+                    event_bus.subscribe("rule.*", _on_event)
                 while True:
                     try:
                         message = await _asyncio.wait_for(queue.get(), timeout=30)
@@ -423,6 +446,14 @@ async def mcp_sse(_user=Depends(get_current_user)):
                         yield f'event: ping\ndata: {{"timestamp": {_time.time()}}}\n\n'
             except _asyncio.CancelledError:
                 pass
+            finally:
+                if event_bus:
+                    try:
+                        event_bus.unsubscribe("alarm.*", _on_event)
+                        event_bus.unsubscribe("device.*", _on_event)
+                        event_bus.unsubscribe("rule.*", _on_event)
+                    except Exception:
+                        pass
 
         return _StreamingResp(
             event_generator(),

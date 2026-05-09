@@ -10,7 +10,7 @@
         </template>
 
         <n-space vertical size="large">
-          <n-descriptions v-if="isRunning && runningFields.length" label-placement="left" :column="2" bordered>
+          <n-descriptions v-if="isRunning && runningFields?.length" label-placement="left" :column="2" bordered>
             <n-descriptions-item v-for="field in runningFields" :key="field.label" :label="field.label">
               {{ field.value }}
             </n-descriptions-item>
@@ -116,7 +116,7 @@ async function fetchStatus() {
   loading.value = true
   try {
     const resp = await serviceApi.status(props.serviceName)
-    statusData.value = resp.data || resp
+    statusData.value = (resp as any)?.data || resp
     emit('status-loaded', statusData.value)
   } catch {
     statusData.value = { enabled: false, state: 'unknown', error: '无法获取服务状态' }

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
+import re
 import time
 from collections import defaultdict
 
@@ -57,10 +59,19 @@ def _get_user_repo():
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        ip_str = forwarded.split(",")[0].strip()
+        try:
+            ipaddress.ip_address(ip_str)
+            return ip_str
+        except ValueError:
+            pass
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
-        return real_ip
+        try:
+            ipaddress.ip_address(real_ip)
+            return real_ip
+        except ValueError:
+            pass
     return request.client.host if request.client else "unknown"
 
 
@@ -194,6 +205,10 @@ async def change_password(
         if len(new_password) < 8:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少8位，需包含字母和数字"
+            )
+        if len(new_password) > 128:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="密码长度不能超过128位"
             )
         if old_password == new_password:
             raise HTTPException(

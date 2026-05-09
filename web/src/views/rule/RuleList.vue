@@ -328,7 +328,7 @@ async function handleCreate() {
 function openEdit(r: Rule) {
   editingRuleId.value = r.rule_id
   editForm.name = r.name
-  editForm.device_id = r.device_id
+  editForm.device_id = r.device_id ?? ''
   editForm.logic = r.logic
   editForm.duration = r.duration
   editForm.severity = r.severity
