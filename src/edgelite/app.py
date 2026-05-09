@@ -72,6 +72,19 @@ async def lifespan(app: FastAPI):
             "⚠️  JWT密钥未配置，已自动生成随机密钥。"
             "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置固定密钥！"
         )
+        try:
+            from pathlib import Path
+
+            env_file = Path(".env")
+            lines = []
+            if env_file.exists():
+                lines = env_file.read_text(encoding="utf-8").splitlines()
+            lines = [l for l in lines if not l.startswith("EDGELITE_SECURITY__SECRET_KEY=")]
+            lines.append(f"EDGELITE_SECURITY__SECRET_KEY={config.security.secret_key}")
+            env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            logger.info("已将自动生成的JWT密钥保存到 .env 文件")
+        except Exception as e:
+            logger.warning("无法保存JWT密钥到.env文件: %s", e)
     elif len(config.security.secret_key) < 32:
         logger.warning(
             "⚠️  安全警告: JWT密钥过短(%d字符)，"

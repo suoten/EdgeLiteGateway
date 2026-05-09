@@ -925,15 +925,15 @@ docker compose ps influxdb
 curl http://localhost:8086/health
 ```
 
-**Q: 后端启动报** **`安全警告: JWT密钥使用默认值`？**
+**Q: 后端启动报** **`JWT密钥未配置，已自动生成随机密钥`？**
 
-这是安全警告，开发环境可忽略。生产环境请设置环境变量：
+系统会自动生成随机密钥并保存到 `.env` 文件，重启后密钥不会丢失。但生产环境强烈建议手动设置固定密钥：
 
 ```bash
 export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
 ```
 
-或在 `.env` 文件中设置 `EDGELITE_SECURITY__SECRET_KEY=你的随机密钥`。
+或在 `.env` 文件中设置 `EDGELITE_SECURITY__SECRET_KEY=你的随机密钥`（至少32位）。
 
 **Q: 前端 `npm run build` 报 `require is not defined`？**
 

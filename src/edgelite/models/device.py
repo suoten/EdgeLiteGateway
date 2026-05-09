@@ -127,5 +127,5 @@ class WritePointRequest(BaseModel):
 class DiscoverRequest(BaseModel):
     """设备发现请求"""
 
-    protocol: Literal["modbus_tcp"] = "modbus_tcp"
+    protocol: str = "modbus_tcp"
     config: dict[str, Any] = {}

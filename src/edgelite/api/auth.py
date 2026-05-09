@@ -243,10 +243,16 @@ async def logout(request: Request):
         from edgelite.security.jwt import decode_token
         from edgelite.security.token_revocation import revoke_token
 
-        access_token = request.cookies.get("edgelite_access")
-        if access_token:
+        tokens_to_revoke = []
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            tokens_to_revoke.append(auth_header[7:])
+        cookie_access = request.cookies.get("edgelite_access")
+        if cookie_access:
+            tokens_to_revoke.append(cookie_access)
+        for raw_token in tokens_to_revoke:
             try:
-                payload = decode_token(access_token, verify_exp=False)
+                payload = decode_token(raw_token, verify_exp=False)
                 jti = payload.get("jti")
                 exp = payload.get("exp")
                 if jti:
@@ -254,10 +260,20 @@ async def logout(request: Request):
             except Exception as e:
                 logger.warning("Access Token撤销失败: %s", e)
 
-        refresh_token = request.cookies.get("edgelite_refresh")
-        if refresh_token:
+        refresh_tokens = []
+        cookie_refresh = request.cookies.get("edgelite_refresh")
+        if cookie_refresh:
+            refresh_tokens.append(cookie_refresh)
+        try:
+            body = await request.json()
+            body_refresh = body.get("refresh_token")
+            if body_refresh:
+                refresh_tokens.append(body_refresh)
+        except Exception:
+            pass
+        for raw_token in refresh_tokens:
             try:
-                payload = decode_token(refresh_token, verify_exp=False)
+                payload = decode_token(raw_token, verify_exp=False)
                 jti = payload.get("jti")
                 exp = payload.get("exp")
                 if jti:
