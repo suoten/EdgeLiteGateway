@@ -34,6 +34,14 @@ class PreprocessUpdateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class PreprocessConfigResponse(BaseModel):
+    enabled: bool = False
+    default_deadband: float = 0.0
+    default_filter_window: int = 3
+    default_aggregate_window_sec: int = 0
+    point_configs: dict[str, dict] = {}
+
+
 def _get_preprocessor():
     from edgelite.app import _app_state
 
@@ -46,7 +54,7 @@ def _get_config():
     return get_config()
 
 
-@router.get("/config", response_model=ApiResponse)
+@router.get("/config", response_model=ApiResponse[PreprocessConfigResponse])
 async def get_preprocess_config(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):

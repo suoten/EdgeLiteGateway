@@ -11,7 +11,7 @@ from jose import JWTError
 
 from edgelite.api.deps import CurrentUser, get_current_user
 from edgelite.models.common import ApiResponse
-from edgelite.models.user import LoginRequest, TokenResponse
+from edgelite.models.user import LoginRequest, TokenResponse, UserInfoResponse
 from edgelite.security.jwt import create_access_token, create_refresh_token, verify_token
 from edgelite.security.password import verify_password
 from edgelite.storage.sqlite_repo import UserRepo
@@ -147,7 +147,7 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
     )
 
 
-@router.get("/me", response_model=ApiResponse)
+@router.get("/me", response_model=ApiResponse[UserInfoResponse])
 async def get_current_user_info(user: CurrentUser):
     from edgelite.app import _app_state
 

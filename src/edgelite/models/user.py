@@ -72,3 +72,12 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int = Field(ge=1)
+
+
+class UserInfoResponse(BaseModel):
+    """当前用户信息响应"""
+
+    user_id: str
+    username: str
+    role: str
+    must_change_password: bool = False

@@ -15,6 +15,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/platforms", tags=["平台配置"])
 
+
+class PlatformInfo(BaseModel):
+    name: str
+    version: str = "1.0.0"
+    connected: bool = False
+
+
+class SupportedPlatform(BaseModel):
+    name: str
+    label: str
+    description: str = ""
+
+
+class PlatformListResponse(BaseModel):
+    platforms: list[PlatformInfo]
+    supported: list[SupportedPlatform]
+
+
+class PlatformConfigSchemaResponse(BaseModel):
+    platform_name: str
+    schema: dict
+
 _PLATFORM_REGISTRY: dict[str, dict] = {}
 
 
@@ -200,7 +222,7 @@ def _get_platform_handlers():
     return getattr(_app_state, "platform_handlers", {})
 
 
-@router.get("/list", response_model=ApiResponse)
+@router.get("/list", response_model=ApiResponse[PlatformListResponse])
 async def list_platforms(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
@@ -230,7 +252,7 @@ async def list_platforms(
         raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
-@router.get("/config-schema/{platform_name}", response_model=ApiResponse)
+@router.get("/config-schema/{platform_name}", response_model=ApiResponse[PlatformConfigSchemaResponse])
 async def get_platform_config_schema(
     platform_name: str,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),

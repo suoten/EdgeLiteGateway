@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.models.common import ApiResponse
@@ -16,13 +16,49 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/drivers", tags=["驱动配置"])
 
 
+class DriverInfo(BaseModel):
+    name: str
+    version: str = "1.0.0"
+    protocols: list[str] = []
+    description: str = ""
+
+
+class DriverListResponse(BaseModel):
+    drivers: list[DriverInfo]
+    total: int
+
+
+class DriverProtocolsResponse(BaseModel):
+    protocols: list[str]
+
+
+class DriverConfigSchemaResponse(BaseModel):
+    driver_name: str
+    schema: dict
+
+
+class DriverStatusInfo(BaseModel):
+    name: str
+    class_: str = Field(alias="class")
+    module: str
+    custom: bool | None = None
+    loaded: bool | None = None
+    error: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class DriverDiscoverResponse(BaseModel):
+    devices: list[dict]
+
+
 def _get_registry():
     from edgelite.app import _app_state
 
     return getattr(_app_state, "driver_registry", None)
 
 
-@router.get("/list", response_model=ApiResponse)
+@router.get("/list", response_model=ApiResponse[DriverListResponse])
 async def list_drivers(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
@@ -51,7 +87,7 @@ async def list_drivers(
         raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
-@router.get("/protocols", response_model=ApiResponse)
+@router.get("/protocols", response_model=ApiResponse[DriverProtocolsResponse])
 async def list_protocols(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
@@ -69,7 +105,7 @@ async def list_protocols(
         raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
-@router.get("/{driver_name}/config-schema", response_model=ApiResponse)
+@router.get("/{driver_name}/config-schema", response_model=ApiResponse[DriverConfigSchemaResponse])
 async def get_driver_config_schema(
     driver_name: str,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
@@ -853,7 +889,7 @@ async def get_driver_config_schema(
         raise HTTPException(status_code=500, detail="获取失败") from e
 
 
-@router.get("", response_model=ApiResponse)
+@router.get("", response_model=ApiResponse[list[DriverStatusInfo]])
 async def list_all_drivers(user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
     """查询所有驱动状态"""
     try:
@@ -894,7 +930,7 @@ class DriverDiscoverRequest(BaseModel):
     config: dict = {}
 
 
-@router.post("/{driver_name}/discover", response_model=ApiResponse)
+@router.post("/{driver_name}/discover", response_model=ApiResponse[DriverDiscoverResponse])
 async def discover_devices(
     driver_name: str,
     req: DriverDiscoverRequest = None,

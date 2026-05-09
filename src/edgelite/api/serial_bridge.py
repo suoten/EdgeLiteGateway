@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.models.common import ApiResponse
@@ -13,6 +14,29 @@ from edgelite.security.rbac import Permission
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/serial-bridge", tags=["串口透传"])
+
+
+class DependencyInfo(BaseModel):
+    package: str
+    installed: bool
+    version: str = ""
+
+
+class SerialBridgeStatusResponse(BaseModel):
+    enabled: bool = False
+    running: bool = False
+    state: str = "disabled"
+    serial_port: str = "/dev/ttyUSB0"
+    baud_rate: int = 9600
+    tcp_port: int = 9000
+    serial_rx_bytes: int = 0
+    serial_tx_bytes: int = 0
+    tcp_rx_bytes: int = 0
+    tcp_tx_bytes: int = 0
+    client_count: int = 0
+    total_connections: int = 0
+    start_time: str | None = None
+    dependencies: list[DependencyInfo] = []
 
 
 def _get_serial_bridge():
@@ -28,7 +52,7 @@ def _get_serial_bridge():
         return None
 
 
-@router.get("/status", response_model=ApiResponse)
+@router.get("/status", response_model=ApiResponse[SerialBridgeStatusResponse])
 async def get_serial_bridge_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
