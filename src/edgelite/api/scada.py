@@ -106,7 +106,7 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
                     data={"saved": True, "name": req.name, "widget_count": len(req.widgets)}
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"保存组态项目失败: {e}") from e
+                raise HTTPException(status_code=500, detail="保存组态项目失败") from e
     except HTTPException:
         raise
     except Exception as e:

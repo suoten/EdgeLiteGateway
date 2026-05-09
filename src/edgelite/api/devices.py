@@ -46,7 +46,7 @@ async def list_devices(
         raise
     except Exception as e:
         logger.error("获取设备列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取设备列表失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取设备列表失败") from e
 
 
 @router.post("", response_model=ApiResponse[DeviceResponse], status_code=201)
@@ -62,7 +62,7 @@ async def create_device(
         raise
     except Exception as e:
         logger.error("创建设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建设备失败: {e}") from e
+        raise HTTPException(status_code=500, detail="创建设备失败") from e
 
 
 @router.get("/{device_id}", response_model=ApiResponse[DeviceResponse])
@@ -79,7 +79,7 @@ async def get_device(
         raise
     except Exception as e:
         logger.error("获取设备详情失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取设备详情失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取设备详情失败") from e
 
 
 @router.put("/{device_id}", response_model=ApiResponse[DeviceResponse])
@@ -99,7 +99,7 @@ async def update_device(
         raise
     except Exception as e:
         logger.error("更新设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"更新设备失败: {e}") from e
+        raise HTTPException(status_code=500, detail="更新设备失败") from e
 
 
 @router.delete("/{device_id}", response_model=ApiResponse)
@@ -116,7 +116,7 @@ async def delete_device(
         raise
     except Exception as e:
         logger.error("删除设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"删除设备失败: {e}") from e
+        raise HTTPException(status_code=500, detail="删除设备失败") from e
 
 
 @router.get("/{device_id}/points", response_model=ApiResponse)
@@ -131,7 +131,7 @@ async def get_device_points(
         raise
     except Exception as e:
         logger.error("读取设备测点失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"读取设备测点失败: {e}") from e
+        raise HTTPException(status_code=500, detail="读取设备测点失败") from e
 
 
 @router.post("/{device_id}/points", response_model=ApiResponse)
@@ -150,7 +150,7 @@ async def write_device_point(
         raise
     except Exception as e:
         logger.error("写入测点值失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"写入测点值失败: {e}") from e
+        raise HTTPException(status_code=500, detail="写入测点值失败") from e
 
 
 @router.post("/simulator", response_model=ApiResponse[DeviceResponse], status_code=201)
@@ -166,7 +166,7 @@ async def create_simulator(
         raise
     except Exception as e:
         logger.error("创建模拟设备失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建模拟设备失败: {e}") from e
+        raise HTTPException(status_code=500, detail="创建模拟设备失败") from e
 
 
 @router.post("/discover", response_model=ApiResponse)
@@ -182,7 +182,7 @@ async def discover_devices(
         raise
     except Exception as e:
         logger.error("设备发现失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"设备发现失败: {e}") from e
+        raise HTTPException(status_code=500, detail="设备发现失败") from e
 
 
 @router.post("/{device_id}/push", response_model=ApiResponse)
@@ -236,4 +236,4 @@ async def push_device_data(
         raise
     except Exception as e:
         logger.error("推送设备数据失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"推送设备数据失败: {e}") from e
+        raise HTTPException(status_code=500, detail="推送设备数据失败") from e

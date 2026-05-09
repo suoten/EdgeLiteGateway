@@ -40,7 +40,7 @@ async def list_users(
         raise
     except Exception as e:
         logger.error("获取用户列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取用户列表失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取用户列表失败") from e
 
 
 @router.post("", response_model=ApiResponse[UserResponse], status_code=201)
@@ -62,7 +62,7 @@ async def create_user(
         raise
     except Exception as e:
         logger.error("创建用户失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建用户失败: {e}") from e
+        raise HTTPException(status_code=500, detail="创建用户失败") from e
 
 
 @router.put("/{user_id}", response_model=ApiResponse[UserResponse])
@@ -90,7 +90,7 @@ async def update_user(
         raise
     except Exception as e:
         logger.error("更新用户失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"更新用户失败: {e}") from e
+        raise HTTPException(status_code=500, detail="更新用户失败") from e
 
 
 @router.delete("/{user_id}", response_model=ApiResponse)
@@ -114,4 +114,4 @@ async def delete_user(user_id: str, user: CurrentUser = require_permission(Permi
         raise
     except Exception as e:
         logger.error("删除用户失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"删除用户失败: {e}") from e
+        raise HTTPException(status_code=500, detail="删除用户失败") from e

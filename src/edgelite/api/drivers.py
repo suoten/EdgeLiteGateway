@@ -955,4 +955,4 @@ async def discover_devices(
             logger.warning("驱动停止失败: %s", e)
         return ApiResponse(data={"devices": devices})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"设备发现失败: {e}") from e
+        raise HTTPException(status_code=500, detail="设备发现失败") from e

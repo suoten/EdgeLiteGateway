@@ -40,7 +40,7 @@ async def list_alarms(
         raise
     except Exception as e:
         logger.error("获取告警列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取告警列表失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取告警列表失败") from e
 
 
 @router.get("/{alarm_id}", response_model=ApiResponse[AlarmResponse])
@@ -55,7 +55,7 @@ async def get_alarm(alarm_id: str, user: CurrentUser = require_permission(Permis
         raise
     except Exception as e:
         logger.error("获取告警详情失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取告警详情失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取告警详情失败") from e
 
 
 @router.put("/{alarm_id}/ack", response_model=ApiResponse[AlarmResponse])
@@ -70,4 +70,4 @@ async def ack_alarm(alarm_id: str, user: CurrentUser = require_permission(Permis
         raise
     except Exception as e:
         logger.error("确认告警失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"确认告警失败: {e}") from e
+        raise HTTPException(status_code=500, detail="确认告警失败") from e

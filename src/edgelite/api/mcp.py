@@ -421,21 +421,55 @@ async def mcp_sse(_user=Depends(get_current_user)):
             yield 'event: connected\ndata: {"server": "edgelite-mcp", "version": "1.0"}\n\n'
             queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
             event_bus = None
+            _handler_types = []
             try:
                 from edgelite.app import _app_state
 
                 event_bus = getattr(_app_state, "event_bus", None)
                 if event_bus:
 
-                    def _on_event(event_data: dict):
+                    def _on_alarm_event(event):
                         try:
-                            queue.put_nowait(json.dumps(event_data, default=str, ensure_ascii=False))
+                            data = {
+                                "type": "alarm",
+                                "alarm_id": getattr(event, "alarm_id", ""),
+                                "device_id": getattr(event, "device_id", ""),
+                                "severity": getattr(event, "severity", ""),
+                                "action": getattr(event, "action", ""),
+                            }
+                            queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
                         except _asyncio.QueueFull:
                             pass
 
-                    event_bus.subscribe("alarm.*", _on_event)
-                    event_bus.subscribe("device.*", _on_event)
-                    event_bus.subscribe("rule.*", _on_event)
+                    def _on_device_event(event):
+                        try:
+                            data = {
+                                "type": "device",
+                                "device_id": getattr(event, "device_id", ""),
+                                "new_status": getattr(event, "new_status", ""),
+                            }
+                            queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
+                        except _asyncio.QueueFull:
+                            pass
+
+                    def _on_point_event(event):
+                        try:
+                            data = {
+                                "type": "realtime",
+                                "device_id": getattr(event, "device_id", ""),
+                                "point_name": getattr(event, "point_name", ""),
+                                "value": getattr(event, "value", ""),
+                            }
+                            queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
+                        except _asyncio.QueueFull:
+                            pass
+
+                    event_bus.register_handler("AlarmEvent", _on_alarm_event)
+                    _handler_types.append(("AlarmEvent", _on_alarm_event))
+                    event_bus.register_handler("DeviceStatusEvent", _on_device_event)
+                    _handler_types.append(("DeviceStatusEvent", _on_device_event))
+                    event_bus.register_handler("PointUpdateEvent", _on_point_event)
+                    _handler_types.append(("PointUpdateEvent", _on_point_event))
                 while True:
                     try:
                         message = await _asyncio.wait_for(queue.get(), timeout=30)
@@ -448,12 +482,11 @@ async def mcp_sse(_user=Depends(get_current_user)):
                 pass
             finally:
                 if event_bus:
-                    try:
-                        event_bus.unsubscribe("alarm.*", _on_event)
-                        event_bus.unsubscribe("device.*", _on_event)
-                        event_bus.unsubscribe("rule.*", _on_event)
-                    except Exception:
-                        pass
+                    for event_type, handler in _handler_types:
+                        try:
+                            event_bus.unregister_handler(event_type, handler)
+                        except Exception:
+                            pass
 
         return _StreamingResp(
             event_generator(),

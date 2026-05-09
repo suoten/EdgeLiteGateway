@@ -312,7 +312,7 @@ async def connect_platform(
         _app_state.platform_handlers[platform_name] = handler
         return ApiResponse(data={"status": "connected"})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"平台连接失败: {e}") from e
+        raise HTTPException(status_code=500, detail="平台连接失败") from e
 
 
 @router.post("/disconnect/{platform_name}", response_model=ApiResponse)
@@ -332,7 +332,7 @@ async def disconnect_platform(
         handlers.pop(platform_name, None)
         return ApiResponse(data={"status": "disconnected"})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"断开失败: {e}") from e
+        raise HTTPException(status_code=500, detail="断开失败") from e
 
 
 @router.get("/status/{platform_name}", response_model=ApiResponse)

@@ -39,7 +39,7 @@ async def list_rules(
         raise
     except Exception as e:
         logger.error("获取规则列表失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取规则列表失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取规则列表失败") from e
 
 
 @router.post("", response_model=ApiResponse[RuleResponse], status_code=201)
@@ -53,7 +53,7 @@ async def create_rule(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("创建规则失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"创建规则失败: {e}") from e
+        raise HTTPException(status_code=500, detail="创建规则失败") from e
     return ApiResponse(data=rule)
 
 
@@ -69,7 +69,7 @@ async def get_rule(rule_id: str, user: CurrentUser = require_permission(Permissi
         raise
     except Exception as e:
         logger.error("获取规则详情失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"获取规则详情失败: {e}") from e
+        raise HTTPException(status_code=500, detail="获取规则详情失败") from e
 
 
 @router.put("/{rule_id}", response_model=ApiResponse[RuleResponse])
@@ -87,7 +87,7 @@ async def update_rule(
         raise
     except Exception as e:
         logger.error("更新规则失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"更新规则失败: {e}") from e
+        raise HTTPException(status_code=500, detail="更新规则失败") from e
 
 
 @router.delete("/{rule_id}", response_model=ApiResponse)
@@ -102,7 +102,7 @@ async def delete_rule(rule_id: str, user: CurrentUser = require_permission(Permi
         raise
     except Exception as e:
         logger.error("删除规则失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"删除规则失败: {e}") from e
+        raise HTTPException(status_code=500, detail="删除规则失败") from e
 
 
 @router.post("/{rule_id}/enable", response_model=ApiResponse[RuleResponse])
@@ -117,7 +117,7 @@ async def enable_rule(rule_id: str, user: CurrentUser = require_permission(Permi
         raise
     except Exception as e:
         logger.error("启用规则失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"启用规则失败: {e}") from e
+        raise HTTPException(status_code=500, detail="启用规则失败") from e
 
 
 @router.post("/{rule_id}/disable", response_model=ApiResponse[RuleResponse])
@@ -134,7 +134,7 @@ async def disable_rule(
         raise
     except Exception as e:
         logger.error("禁用规则失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"禁用规则失败: {e}") from e
+        raise HTTPException(status_code=500, detail="禁用规则失败") from e
 
 
 @router.post("/{rule_id}/test", response_model=ApiResponse)
@@ -150,5 +150,5 @@ async def test_rule(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("测试规则失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"测试规则失败: {e}") from e
+        raise HTTPException(status_code=500, detail="测试规则失败") from e
     return ApiResponse(data=result)
