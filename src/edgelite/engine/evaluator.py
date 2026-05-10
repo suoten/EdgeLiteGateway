@@ -120,7 +120,7 @@ class RuleEvaluator:
         conditions = rule["conditions"]
         logic = rule["logic"]
         duration = rule["duration"]
-        rule["severity"]
+        severity = rule["severity"]
         rule_type = rule.get("rule_type", "threshold")
         script = rule.get("script", "")
 
