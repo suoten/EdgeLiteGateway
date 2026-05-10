@@ -9,8 +9,9 @@ from __future__ import annotations
 import hmac
 import json
 import logging
-from datetime import timezone
-UTC = timezone.utc
+from datetime import UTC
+
+import contextlib
 from pathlib import Path
 from typing import Any
 
@@ -489,10 +490,8 @@ async def mcp_sse(token: str | None = None, _user=Depends(get_current_user)):
             finally:
                 if event_bus:
                     for event_type, handler in _handler_types:
-                        try:
+                        with contextlib.suppress(Exception):
                             event_bus.unregister_handler(event_type, handler)
-                        except Exception:
-                            pass
 
         return _StreamingResp(
             event_generator(),

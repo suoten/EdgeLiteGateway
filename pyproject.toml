@@ -36,10 +36,8 @@ dependencies = [
     "psutil>=5.9.0",
     "aiomqtt>=2.1.0",
     "asyncua>=1.1.0",
-    "sparkplugb>=0.3.0",
     "python-dotenv>=1.0.0",
     "pyserial>=3.5",
-    "amqtt>=0.11.0b0",
 ]
 
 [project.urls]
@@ -53,13 +51,19 @@ cython = [
     "Cython>=3.0.0",
 ]
 all = [
-    "edgelite[opcua,mqtt,cython]",
+    "edgelite[opcua,mqtt,sparkplug,amqtt,cython]",
 ]
 opcua = [
     "asyncua>=1.1.0",
 ]
 mqtt = [
     "aiomqtt>=2.1.0",
+]
+sparkplug = [
+    "sparkplugb>=0.3.0",
+]
+amqtt = [
+    "amqtt>=0.11.0b0",
 ]
 dev = [
     "pytest>=8.0",

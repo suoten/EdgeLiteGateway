@@ -79,7 +79,10 @@ async def lifespan(app: FastAPI):
             lines = []
             if env_file.exists():
                 lines = env_file.read_text(encoding="utf-8").splitlines()
-            lines = [l for l in lines if not l.startswith("EDGELITE_SECURITY__SECRET_KEY=")]
+            lines = [
+                line for line in lines
+                if not line.startswith("EDGELITE_SECURITY__SECRET_KEY=")
+            ]
             lines.append(f"EDGELITE_SECURITY__SECRET_KEY={config.security.secret_key}")
             env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
             try:
@@ -518,7 +521,9 @@ def create_app() -> FastAPI:
         logger.exception("未处理的异常: %s %s -> %s", request.method, request.url.path, exc)
         return JSONResponse(
             status_code=500,
-            content=ApiResponse(code=1, message="服务器内部错误，请稍后重试", data=None).model_dump(),
+            content=ApiResponse(
+                code=1, message="服务器内部错误，请稍后重试", data=None
+            ).model_dump(),
         )
 
     # 注册路由

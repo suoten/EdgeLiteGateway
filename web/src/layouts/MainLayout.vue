@@ -220,6 +220,7 @@ const currentTitle = computed(() => {
     AuditLog: '审计日志',
     OtaUpdate: 'OTA升级', GrafanaDashboard: 'Grafana监控', McpServer: 'MCP Server',
     MqttServer: 'MQTT Server', ModbusSlave: 'Modbus Slave', SerialBridge: '串口透传',
+    ServiceOverview: '服务总览',
   }
   return titles[route.name as string] || 'EdgeLiteGateway'
 })

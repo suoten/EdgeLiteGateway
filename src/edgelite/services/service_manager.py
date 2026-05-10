@@ -431,7 +431,10 @@ class ServiceManager:
                     if hasattr(instance, "get_client_count"):
                         running_info["connections"] = instance.get_client_count()
                     elif hasattr(instance, "_clients"):
-                        running_info["connections"] = len(instance._clients) if isinstance(instance._clients, (list, set, dict)) else 0
+                        clients = instance._clients
+                        running_info["connections"] = (
+                            len(clients) if isinstance(clients, (list, set, dict)) else 0
+                        )
                     else:
                         running_info["connections"] = 0
                 except Exception:
@@ -440,7 +443,10 @@ class ServiceManager:
                 try:
                     if hasattr(instance, "get_status"):
                         sb_stats = instance.get_status()
-                        running_info["total_connections"] = getattr(sb_stats, "total_connections", getattr(sb_stats, "client_count", 0))
+                        running_info["total_connections"] = getattr(
+                            sb_stats, "total_connections",
+                            getattr(sb_stats, "client_count", 0)
+                        )
                 except Exception:
                     running_info["total_connections"] = 0
 

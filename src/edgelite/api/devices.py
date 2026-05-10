@@ -227,11 +227,12 @@ async def push_device_data(
             raise HTTPException(status_code=401, detail="API Key not configured")
 
     try:
-        driver = _app_state.driver_registry.get_driver_class("http_webhook")
+        device_service = _app_state.device_service
+        driver = device_service._driver_instances.get(device_id) if device_service else None
         if driver and hasattr(driver, "receive_data"):
             await driver.receive_data(device_id, body)
             return ApiResponse()
-        raise HTTPException(status_code=400, detail="HTTP Webhook驱动未启动")
+        raise HTTPException(status_code=400, detail="HTTP Webhook驱动未启动或设备不存在")
     except HTTPException:
         raise
     except Exception as e:

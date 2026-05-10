@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import Any
 
@@ -66,14 +67,12 @@ class DeviceService:
             elif driver_class is not None:
                 driver = driver_class()
                 await driver.start(data.get("config", {}))
-                try:
+                with contextlib.suppress(NotImplementedError):
                     await driver.add_device(
                         device["device_id"],
                         data.get("config", {}),
                         data.get("points", []),
                     )
-                except NotImplementedError:
-                    pass
                 self._driver_instances[device["device_id"]] = driver
                 connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(
                     device["device_id"]
@@ -234,14 +233,12 @@ class DeviceService:
                     elif driver_class is not None:
                         driver = driver_class()
                         await driver.start(device.get("config", {}))
-                        try:
+                        with contextlib.suppress(NotImplementedError):
                             await driver.add_device(
                                 device["device_id"],
                                 device.get("config", {}),
                                 device.get("points", []),
                             )
-                        except NotImplementedError:
-                            pass
                         self._driver_instances[device["device_id"]] = driver
                         connected = hasattr(
                             driver, "is_device_connected"

@@ -116,7 +116,7 @@ async function fetchStatus() {
   loading.value = true
   try {
     const resp = await serviceApi.status(props.serviceName)
-    statusData.value = (resp as any)?.data || resp
+    statusData.value = resp
     emit('status-loaded', statusData.value)
   } catch {
     statusData.value = { state: 'disabled', error_message: '无法获取服务状态', dependencies: [] }

@@ -1,5 +1,7 @@
 """EdgeLite v1.0 联调集成API路由"""
 
+from __future__ import annotations
+
 import logging
 
 from fastapi import APIRouter, HTTPException

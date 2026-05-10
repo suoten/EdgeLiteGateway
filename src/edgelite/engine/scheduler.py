@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime, timezone
-UTC = timezone.utc
+from datetime import UTC, datetime
+
 from typing import Any
 
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent

@@ -252,7 +252,10 @@ async def list_platforms(
         raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
-@router.get("/config-schema/{platform_name}", response_model=ApiResponse[PlatformConfigSchemaResponse])
+@router.get(
+    "/config-schema/{platform_name}",
+    response_model=ApiResponse[PlatformConfigSchemaResponse],
+)
 async def get_platform_config_schema(
     platform_name: str,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),

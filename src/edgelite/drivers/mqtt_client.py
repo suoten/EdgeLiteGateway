@@ -88,7 +88,7 @@ class MqttClientDriver(DriverPlugin):
                 import aiomqtt
 
                 ssl_context = None
-                tls_config = getattr(config.mqtt, "tls", None)
+                tls_config = getattr(config, "mqtt_tls", None)
                 if tls_config:
                     try:
                         from edgelite.engine.mqtt_tls import MqttTlsHelper

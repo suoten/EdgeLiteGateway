@@ -93,7 +93,7 @@ class ThingsPanelHandler(PlatformHandler):
         )
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
-        if not self._pub_queue:
+        if not self._connected or not self._pub_queue:
             return
         await self._pub_queue.put(
             {

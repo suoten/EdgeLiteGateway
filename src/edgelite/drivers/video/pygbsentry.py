@@ -16,11 +16,17 @@ logger = logging.getLogger(__name__)
 class PyGBSentryProvider(VideoProvider):
     """PyGBSentry视频平台适配器"""
 
-    def __init__(self):
-        config = get_config()
-        self._endpoint = config.video.pygbsentry.endpoint
-        self._api_key = config.video.pygbsentry.api_key
-        self._timeout = config.video.pygbsentry.timeout
+    def __init__(self, config: dict | None = None):
+        app_config = get_config()
+        self._endpoint = (
+            config.get("endpoint", "") if config else app_config.video.pygbsentry.endpoint
+        )
+        self._api_key = (
+            config.get("api_key", "") if config else app_config.video.pygbsentry.api_key
+        )
+        self._timeout = (
+            config.get("timeout", 10) if config else app_config.video.pygbsentry.timeout
+        )
         self._client: httpx.AsyncClient | None = None
         self._alarm_callback: Callable | None = None
 

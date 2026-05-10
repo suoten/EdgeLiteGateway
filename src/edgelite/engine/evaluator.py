@@ -6,8 +6,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from datetime import datetime, timezone
-UTC = timezone.utc
+from datetime import UTC, datetime
 
 from edgelite.engine.event_bus import AlarmEvent, EventBus, PointUpdateEvent
 from edgelite.storage.sqlite_repo import AlarmRepo, RuleRepo
@@ -120,7 +119,7 @@ class RuleEvaluator:
         conditions = rule["conditions"]
         logic = rule["logic"]
         duration = rule["duration"]
-        severity = rule["severity"]
+        rule["severity"]
         rule_type = rule.get("rule_type", "threshold")
         script = rule.get("script", "")
 

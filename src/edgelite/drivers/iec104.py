@@ -7,8 +7,8 @@ import contextlib
 import logging
 import struct
 from collections.abc import Callable
-from datetime import datetime, timezone
-UTC = timezone.utc
+from datetime import UTC, datetime
+
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
@@ -62,11 +62,11 @@ QUALITY_OV = 0x02
 def _cp56time2a_to_datetime(data: bytes, offset: int) -> datetime:
     ms = struct.unpack_from("<H", data, offset)[0]
     minute = data[offset + 2] & 0x3F
-    iv = (data[offset + 2] >> 7) & 0x01
+    (data[offset + 2] >> 7) & 0x01
     hour = data[offset + 3] & 0x1F
-    dow = (data[offset + 3] >> 5) & 0x07
+    (data[offset + 3] >> 5) & 0x07
     day = data[offset + 4] & 0x1F
-    dow2 = (data[offset + 4] >> 5) & 0x07
+    (data[offset + 4] >> 5) & 0x07
     month = data[offset + 5] & 0x0F
     year = data[offset + 6] & 0x7F
     year += 2000 if year < 70 else 1900
@@ -411,7 +411,7 @@ class Iec104Driver(DriverPlugin):
         else:
             cot = cot_low
             cot_high = 0
-        oa = data[offset]
+        data[offset]
         offset += 1
         if self._asdu_addr_length == 2:
             asdu_addr = struct.unpack_from("<H", data, offset)[0]
@@ -667,7 +667,7 @@ class Iec104Driver(DriverPlugin):
     async def _handle_frame(self, frame: bytes) -> None:
         if len(frame) < 6:
             return
-        apdu_length = frame[1]
+        frame[1]
         ctrl_byte1 = frame[2]
         frame_type = ctrl_byte1 & 0x03
 
