@@ -30,10 +30,11 @@ class NotifyService:
     """告警通知服务"""
 
     def __init__(self):
-        self._http_client = httpx.AsyncClient(timeout=10.0)
+        self._http_client = httpx.AsyncClient(timeout=10.0) if httpx else None
 
     async def close(self) -> None:
-        await self._http_client.aclose()
+        if self._http_client:
+            await self._http_client.aclose()
 
     async def send_notification(
         self, channels: list[str], alarm_data: dict, retry_count: int = 0
@@ -101,6 +102,9 @@ class NotifyService:
             url = f"{url}&timestamp={timestamp}&sign={sign}"
 
         try:
+            if not self._http_client:
+                logger.error("httpx 未安装，无法发送钉钉通知")
+                return False
             resp = await self._http_client.post(url, json=message)
             return resp.status_code == 200
         except Exception as e:
@@ -218,6 +222,9 @@ class NotifyService:
         }
 
         try:
+            if not self._http_client:
+                logger.error("httpx 未安装，无法发送企业微信通知")
+                return False
             resp = await self._http_client.post(wechat.webhook_url, json=message)
             return resp.status_code == 200
         except Exception as e:
@@ -238,6 +245,9 @@ class NotifyService:
             headers = {"Content-Type": "application/json"}
             if wh.headers:
                 headers.update(wh.headers)
+            if not self._http_client:
+                logger.error("httpx 未安装，无法发送Webhook通知")
+                return False
             resp = await self._http_client.post(wh.url, json=alarm_data, headers=headers)
             return resp.status_code < 400
         except Exception as e:

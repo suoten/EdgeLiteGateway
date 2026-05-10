@@ -30,6 +30,9 @@
           <n-select v-model:value="editForm.role" :options="roleOptions" />
         </n-form-item>
         <n-form-item label="新密码"><n-input v-model:value="editForm.password" type="password" show-password-on="click" placeholder="留空则不修改" /></n-form-item>
+        <n-form-item label="启用状态">
+          <n-switch v-model:value="editForm.enabled" />
+        </n-form-item>
       </n-form>
       <template #action>
         <n-button @click="showEditModal = false">取消</n-button>
@@ -41,7 +44,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage, useDialog } from 'naive-ui'
+import { NButton, NTag, NSpace, NSwitch, useMessage, useDialog } from 'naive-ui'
 import { userApi, type User } from '@/api'
 
 const message = useMessage()
@@ -102,9 +105,12 @@ const createRules = {
 const columns = [
   { title: '用户ID', key: 'user_id', width: 140 },
   { title: '用户名', key: 'username', width: 150 },
-  {
-    title: '角色', key: 'role', width: 120,
+  { title: '角色', key: 'role', width: 120,
     render: (row: User) => h(NTag, { type: roleColor[row.role] || 'default', size: 'small' }, { default: () => roleLabel[row.role] || row.role }),
+  },
+  {
+    title: '状态', key: 'enabled', width: 80,
+    render: (row: User) => h(NTag, { type: row.enabled !== false ? 'success' : 'default', size: 'small' }, { default: () => row.enabled !== false ? '启用' : '禁用' }),
   },
   { title: '创建时间', key: 'created_at', width: 180 },
   { title: '更新时间', key: 'updated_at', width: 180 },
@@ -123,7 +129,7 @@ const columns = [
 ]
 
 const createForm = reactive({ username: '', password: '', role: 'viewer' })
-const editForm = reactive({ user_id: '', username: '', role: '', password: '' })
+const editForm = reactive({ user_id: '', username: '', role: '', password: '', enabled: true })
 
 function filterUsers() {}
 
@@ -164,6 +170,7 @@ function openEdit(row: User) {
   editForm.username = row.username
   editForm.role = row.role
   editForm.password = ''
+  editForm.enabled = row.enabled !== false
   showEditModal.value = true
 }
 
@@ -173,7 +180,7 @@ async function handleEdit() {
   } catch { return }
   editing.value = true
   try {
-    const data: any = { role: editForm.role }
+    const data: any = { role: editForm.role, enabled: editForm.enabled }
     if (editForm.password) data.password = editForm.password
     await userApi.update(editForm.user_id, data)
     message.success('用户更新成功')

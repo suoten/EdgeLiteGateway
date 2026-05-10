@@ -47,13 +47,19 @@ class SystemService:
 
     async def get_status(self) -> dict:
         """获取系统运行状态"""
-        # 系统资源（psutil 是同步阻塞调用，放到线程池中执行）
         loop = asyncio.get_running_loop()
-        cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
-        memory = await loop.run_in_executor(None, psutil.virtual_memory)
-        disk = await loop.run_in_executor(
-            None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/")
-        )
+        if psutil:
+            cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
+            memory = await loop.run_in_executor(None, psutil.virtual_memory)
+            disk = await loop.run_in_executor(
+                None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/")
+            )
+            mem_total, mem_used, mem_pct = memory.total, memory.used, memory.percent
+            disk_total, disk_used, disk_pct = disk.total, disk.used, disk.percent
+        else:
+            cpu_percent = 0.0
+            mem_total, mem_used, mem_pct = 0, 0, 0.0
+            disk_total, disk_used, disk_pct = 0, 0, 0.0
 
         # 设备统计
         devices, device_total = await self._device_repo.list_all(page=1, size=1)
@@ -80,12 +86,12 @@ class SystemService:
 
         return {
             "cpu_percent": cpu_percent,
-            "memory_total": memory.total,
-            "memory_used": memory.used,
-            "memory_percent": memory.percent,
-            "disk_total": disk.total,
-            "disk_used": disk.used,
-            "disk_percent": disk.percent,
+            "memory_total": mem_total,
+            "memory_used": mem_used,
+            "memory_percent": mem_pct,
+            "disk_total": disk_total,
+            "disk_used": disk_used,
+            "disk_percent": disk_pct,
             "device_total": device_total,
             "device_online": online_devices,
             "rule_total": rule_total,

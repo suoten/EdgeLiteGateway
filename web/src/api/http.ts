@@ -46,7 +46,7 @@ function addRefreshSubscriber(cb: (token: string | null) => void) {
 async function refreshAuthToken(refreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
   const resp = await http.post<ApiResponse<{ access_token: string; refresh_token: string }>>(
     '/auth/refresh',
-    { refresh_token: refreshToken }
+    { refresh: refreshToken }
   )
   const data = resp.data
   return (data as any)?.data || data

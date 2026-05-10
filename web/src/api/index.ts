@@ -11,6 +11,7 @@ export interface LoginParams {
 export interface TokenData {
   access_token: string
   refresh_token: string
+  token_type: string
   expires_in: number
 }
 
@@ -258,7 +259,7 @@ export const userApi = {
   create: (data: { username: string; password: string; role: string }) =>
     http.post<ApiResponse<User>>('/users', data).then((r) => r.data.data),
 
-  update: (id: string, data: { role?: string; password?: string }) =>
+  update: (id: string, data: { role?: string; password?: string; enabled?: boolean }) =>
     http.put<ApiResponse<User>>(`/users/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
