@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import platform
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -12,6 +13,8 @@ from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_SERIAL_PORT = "COM1" if platform.system() == "Windows" else "/dev/ttyUSB0"
 
 router = APIRouter(prefix="/api/v1/serial-bridge", tags=["串口透传"])
 
@@ -26,7 +29,7 @@ class SerialBridgeStatusResponse(BaseModel):
     enabled: bool = False
     running: bool = False
     state: str = "disabled"
-    serial_port: str = "/dev/ttyUSB0"
+    serial_port: str = _DEFAULT_SERIAL_PORT
     baud_rate: int = 9600
     tcp_port: int = 9000
     serial_rx_bytes: int = 0

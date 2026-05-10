@@ -410,8 +410,13 @@ async def delete_auth_key(
 
 
 @router.get("/sse")
-async def mcp_sse(_user=Depends(get_current_user)):
-    """MCP SSE传输端点 - 供AI助手通过EventSource连接"""
+async def mcp_sse(token: str | None = None, _user=Depends(get_current_user)):
+    """MCP SSE传输端点 - 供AI助手通过EventSource连接
+
+    支持两种认证方式：
+    1. Authorization Header (Bearer Token) - 标准方式
+    2. ?token=xxx URL参数 - 兼容浏览器EventSource
+    """
     try:
         import asyncio as _asyncio
 
