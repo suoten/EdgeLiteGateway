@@ -121,7 +121,7 @@ async function viewSchema(name: string) {
   try {
     const data = await driverApi.configSchema(name)
     if (data) {
-      currentSchema.value = data.schema
+      currentSchema.value = data.config_schema
       showSchemaModal.value = true
     }
   } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '获取配置模板失败') }

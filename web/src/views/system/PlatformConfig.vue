@@ -217,8 +217,8 @@ async function loadConfigSchema() {
   schemaLoading.value = true
   try {
     const data = await platformApi.configSchema(formData.value.platform_name)
-    if (data?.schema?.fields) {
-      platformFields.value = data.schema.fields
+    if (data?.config_schema?.fields) {
+      platformFields.value = data.config_schema.fields
       const newConfig: Record<string, any> = {}
       for (const f of platformFields.value) {
         newConfig[f.name] = f.default ?? null

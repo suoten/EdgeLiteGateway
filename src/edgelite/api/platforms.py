@@ -35,7 +35,7 @@ class PlatformListResponse(BaseModel):
 
 class PlatformConfigSchemaResponse(BaseModel):
     platform_name: str
-    schema: dict
+    config_schema: dict
 
 _PLATFORM_REGISTRY: dict[str, dict] = {}
 
@@ -263,7 +263,7 @@ async def get_platform_config_schema(
         if not entry:
             raise HTTPException(status_code=404, detail=f"平台 {platform_name} 配置模板不存在")
 
-        return ApiResponse(data={"platform_name": platform_name, "schema": entry["schema"]})
+        return ApiResponse(data={"platform_name": platform_name, "config_schema": entry["schema"]})
     except HTTPException:
         raise
     except Exception as e:

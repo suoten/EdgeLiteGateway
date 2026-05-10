@@ -420,7 +420,7 @@ cd /opt/edgelite/web
 # 3.2 确认前端环境变量使用相对路径（同域部署）
 # 文件：web/.env
 # VITE_API_BASE_URL=/api/v1
-# VITE_WS_BASE_URL=/ws/v1
+# VITE_WS_BASE_URL=  （留空，WebSocket 路径由代码自动拼接）
 
 # 3.3 安装依赖并构建
 npm install

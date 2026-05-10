@@ -275,6 +275,7 @@ class AppConfig(BaseModel):
     mcp_server: McpServerConfig = Field(default_factory=McpServerConfig)
     grafana: GrafanaConfig = Field(default_factory=GrafanaConfig)
     drivers: DriversConfig = Field(default_factory=DriversConfig)
+    ota_update_url: str = ""
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

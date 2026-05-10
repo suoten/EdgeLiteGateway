@@ -45,8 +45,8 @@ class DeviceService:
         """创建设备"""
         protocol = data["protocol"]
         driver_class = self._registry.get_driver_class(protocol)
-        if driver_class is None:
-            logger.warning("不支持的协议: %s", protocol)
+        if driver_class is None and protocol != "simulator":
+            raise ValueError(f"不支持的协议: {protocol}，请检查协议名称或安装对应驱动")
 
         device = await self._repo.create(data)
 

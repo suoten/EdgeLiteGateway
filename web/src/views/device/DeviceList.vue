@@ -327,7 +327,7 @@ async function loadDriverSchemas() {
     for (const p of protocols) {
       try {
         const data = await driverApi.configSchema(p)
-        if (data?.schema) driverSchemas.value[p] = data.schema
+        if (data?.config_schema) driverSchemas.value[p] = data.config_schema
       } catch { /* skip */ }
     }
   } catch { /* ignore */ }

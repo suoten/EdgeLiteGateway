@@ -82,6 +82,11 @@ async def lifespan(app: FastAPI):
             lines = [l for l in lines if not l.startswith("EDGELITE_SECURITY__SECRET_KEY=")]
             lines.append(f"EDGELITE_SECURITY__SECRET_KEY={config.security.secret_key}")
             env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            try:
+                import os
+                os.chmod(str(env_file), 0o600)
+            except OSError:
+                pass
             logger.info("已将自动生成的JWT密钥保存到 .env 文件")
         except Exception as e:
             logger.warning("无法保存JWT密钥到.env文件: %s", e)
@@ -337,10 +342,10 @@ async def lifespan(app: FastAPI):
             )
             initialized.append(("modbus_slave", modbus_slave))
 
-        # 14. 加载已有设备并恢复采集
+        # 17. 加载已有设备并恢复采集
         await device_service.load_existing_devices()
 
-        # 15. 自动创建模拟设备
+        # 18. 自动创建模拟设备
         if config.simulator.auto_create:
             for dev_config in config.simulator.default_devices:
                 existing = await device_repo.get(dev_config.device_id)

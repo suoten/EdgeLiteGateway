@@ -423,7 +423,7 @@ class ServiceManager:
 
         api_only_services = {"mcp_server", "grafana"}
 
-        if is_running or service_name in api_only_services and enabled and all_deps_met:
+        if is_running or (service_name in api_only_services and enabled and all_deps_met):
             state = ServiceState.RUNNING
         elif enabled and all_deps_met:
             state = ServiceState.ENABLED

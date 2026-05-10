@@ -40,9 +40,12 @@ class OTAManager:
     async def check_update(self, channel: str = "stable") -> dict | None:
         """检查可用更新"""
         config = get_config()
-        update_url = getattr(config, "ota_update_url", "https://api.edgelite.io/updates")
+        update_url = config.ota_update_url
 
         try:
+            if not update_url:
+                logger.info("未配置OTA更新地址，跳过检查")
+                return None
             resp = await self._client.get(
                 f"{update_url}/check",
                 params={"version": self._current_version, "channel": channel},

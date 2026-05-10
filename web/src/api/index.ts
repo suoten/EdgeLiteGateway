@@ -279,7 +279,7 @@ export const driverApi = {
     http.get<ApiResponse<any[]>>('/drivers').then((r) => r.data.data),
 
   configSchema: (driverName: string) =>
-    http.get<ApiResponse<{ driver_name: string; schema: any }>>(`/drivers/${driverName}/config-schema`).then((r) => r.data.data),
+    http.get<ApiResponse<{ driver_name: string; config_schema: any }>>(`/drivers/${driverName}/config-schema`).then((r) => r.data.data),
 
   discover: (driverName: string, config?: Record<string, any>) =>
     http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, { config: config || {} }).then((r) => r.data.data),
@@ -327,7 +327,7 @@ export const platformApi = {
     http.get<ApiResponse<{ platforms: any[]; supported: any[] }>>('/platforms/list').then((r) => r.data.data),
 
   configSchema: (platformName: string) =>
-    http.get<ApiResponse<{ platform_name: string; schema: any }>>(`/platforms/config-schema/${platformName}`).then((r) => r.data.data),
+    http.get<ApiResponse<{ platform_name: string; config_schema: any }>>(`/platforms/config-schema/${platformName}`).then((r) => r.data.data),
 
   connect: (platformName: string, config: Record<string, any>) =>
     http.post<ApiResponse<{ status: string }>>(`/platforms/connect/${platformName}`, { config }).then((r) => r.data.data),

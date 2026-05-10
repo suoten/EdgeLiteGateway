@@ -6,6 +6,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import html
 import json
 import logging
 import smtplib
@@ -117,7 +118,7 @@ class NotifyService:
         severity = alarm_data.get("severity", "")
         label = severity_label.get(severity, severity)
 
-        subject = f"[EdgeLite告警] {label} - 设备 {alarm_data.get('device_id', '')}"
+        subject = f"[EdgeLite告警] {label} - 设备 {html.escape(alarm_data.get('device_id', ''))}"
         body_html = f"""
         <html><body>
         <h2 style="color: {
@@ -128,15 +129,13 @@ class NotifyService:
             EdgeLite告警通知
         </h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-            <tr><td><b>设备ID</b></td><td>{alarm_data.get("device_id", "")}</td></tr>
-            <tr><td><b>规则ID</b></td><td>{alarm_data.get("rule_id", "")}</td></tr>
-            <tr><td><b>告警级别</b></td><td>{label}</td></tr>
-            <tr><td><b>告警状态</b></td><td>{alarm_data.get("status", "")}</td></tr>
-            <tr><td><b>触发值</b></td><td>{
-                        json.dumps(alarm_data.get("trigger_value", {}), ensure_ascii=False)
-                    }</td></tr>
+            <tr><td><b>设备ID</b></td><td>{html.escape(str(alarm_data.get("device_id", "")))}</td></tr>
+            <tr><td><b>规则ID</b></td><td>{html.escape(str(alarm_data.get("rule_id", "")))}</td></tr>
+            <tr><td><b>告警级别</b></td><td>{html.escape(label)}</td></tr>
+            <tr><td><b>告警状态</b></td><td>{html.escape(str(alarm_data.get("status", "")))}</td></tr>
+            <tr><td><b>触发值</b></td><td>{html.escape(json.dumps(alarm_data.get("trigger_value", {}), ensure_ascii=False))}</td></tr>
             <tr><td><b>触发次数</b></td><td>{alarm_data.get("trigger_count", 1)}</td></tr>
-            <tr><td><b>触发时间</b></td><td>{alarm_data.get("fired_at", "")}</td></tr>
+            <tr><td><b>触发时间</b></td><td>{html.escape(str(alarm_data.get("fired_at", "")))}</td></tr>
         </table>
         </body></html>
         """

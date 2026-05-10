@@ -34,7 +34,7 @@ class DriverProtocolsResponse(BaseModel):
 
 class DriverConfigSchemaResponse(BaseModel):
     driver_name: str
-    schema: dict
+    config_schema: dict
 
 
 class DriverStatusInfo(BaseModel):
@@ -884,7 +884,7 @@ async def get_driver_config_schema(
             },
         )
 
-        return ApiResponse(data={"driver_name": driver_name, "schema": schema})
+        return ApiResponse(data={"driver_name": driver_name, "config_schema": schema})
     except HTTPException:
         raise
     except Exception as e:
