@@ -119,6 +119,9 @@ async def get_driver_config_schema(
         if not driver_cls:
             raise HTTPException(status_code=404, detail=f"驱动 {driver_name} 不存在")
 
+        if getattr(driver_cls, "config_schema", None):
+            return ApiResponse(data={"driver_name": driver_name, "schema": driver_cls.config_schema})
+
         schemas = {
             "modbus_tcp": {
                 "description": "Modbus TCP 工业标准协议，用于读写PLC/仪表的线圈和寄存器",

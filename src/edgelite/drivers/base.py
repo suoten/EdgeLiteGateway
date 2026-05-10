@@ -13,6 +13,7 @@ class DriverPlugin(ABC):
     plugin_name: str = ""
     plugin_version: str = "0.1.0"
     supported_protocols: list[str] = []
+    config_schema: dict = {}
 
     @abstractmethod
     async def start(self, config: dict) -> None:

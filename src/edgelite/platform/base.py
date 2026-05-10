@@ -20,6 +20,7 @@ class PlatformHandler(ABC):
 
     platform_name: str = ""
     platform_version: str = "1.0.0"
+    config_schema: dict = {}
 
     @abstractmethod
     async def connect(self, config: dict) -> None:
