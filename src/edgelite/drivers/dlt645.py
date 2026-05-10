@@ -382,7 +382,7 @@ class Dlt645Driver(DriverPlugin):
             raw_data = cls._sub_33h(encrypted_data)
 
             di_len = 4
-            raw_data[:di_len]
+            di = raw_data[:di_len]
             value_data = raw_data[di_len:]
 
             data_type = point_info.get("type", "bcd")

@@ -420,6 +420,23 @@ class ServiceManager:
                     }
                 except Exception as e:
                     logger.debug("获取服务 %s 运行信息失败: %s", service_name, e)
+            if is_running and service_name == "mqtt_server":
+                try:
+                    if hasattr(instance, "get_client_count"):
+                        running_info["connections"] = instance.get_client_count()
+                    elif hasattr(instance, "_clients"):
+                        running_info["connections"] = len(instance._clients) if isinstance(instance._clients, (list, set, dict)) else 0
+                    else:
+                        running_info["connections"] = 0
+                except Exception:
+                    running_info["connections"] = 0
+            if is_running and service_name == "serial_bridge":
+                try:
+                    if hasattr(instance, "get_status"):
+                        sb_stats = instance.get_status()
+                        running_info["total_connections"] = getattr(sb_stats, "total_connections", getattr(sb_stats, "client_count", 0))
+                except Exception:
+                    running_info["total_connections"] = 0
 
         api_only_services = {"mcp_server", "grafana"}
 

@@ -24,9 +24,9 @@ const isRunning = ref(false)
 const statusData = ref<any>({})
 
 const runningFields = computed(() => [
-  { label: '监听地址', value: statusData.value.host || '0.0.0.0' },
-  { label: 'TCP端口', value: statusData.value.port || 1883 },
-  { label: 'WebSocket端口', value: statusData.value.ws_port || 8083 },
+  { label: '监听地址', value: statusData.value.current_config?.host || '0.0.0.0' },
+  { label: 'TCP端口', value: statusData.value.current_config?.port || 1883 },
+  { label: 'WebSocket端口', value: statusData.value.current_config?.ws_port || 8083 },
 ])
 
 function onStatusLoaded(data: any) {

@@ -15,11 +15,14 @@ import contextlib
 import logging
 from typing import Any
 
-import pymodbus
+try:
+    import pymodbus
+except ImportError:
+    pymodbus = None
 
 from edgelite.drivers.base import DriverPlugin
 
-_PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
+_PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0]) if pymodbus else 2
 
 
 def _slave_kwarg(slave_id: int) -> dict:

@@ -14,10 +14,10 @@ import ServiceManager from '@/components/ServiceManager.vue'
 const statusData = ref<any>({})
 
 const runningFields = computed(() => [
-  { label: '监听地址', value: statusData.value.host || '0.0.0.0' },
-  { label: '端口', value: statusData.value.port || 502 },
-  { label: '保持寄存器', value: statusData.value.holding_size || 1000 },
-  { label: '输入寄存器', value: statusData.value.input_size || 1000 },
+  { label: '监听地址', value: statusData.value.current_config?.host || '0.0.0.0' },
+  { label: '端口', value: statusData.value.current_config?.port || 502 },
+  { label: '保持寄存器', value: statusData.value.current_config?.holding_size || 1000 },
+  { label: '输入寄存器', value: statusData.value.current_config?.input_size || 1000 },
 ])
 
 function onStatusLoaded(data: any) {

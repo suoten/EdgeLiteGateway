@@ -66,8 +66,8 @@
             </n-button>
           </n-space>
 
-          <n-alert v-if="statusData.error" type="error" :show-icon="true" style="margin-top:8px">
-            {{ statusData.error }}
+          <n-alert v-if="statusData.error_message" type="error" :show-icon="true" style="margin-top:8px">
+            {{ statusData.error_message }}
           </n-alert>
         </n-space>
       </n-card>
@@ -96,9 +96,9 @@ const toggleLoading = ref(false)
 const installing = ref(false)
 const statusData = ref<any>({})
 
-const isEnabled = computed(() => statusData.value.enabled !== false)
+const isEnabled = computed(() => statusData.value.state !== 'disabled')
 const isRunning = computed(() => statusData.value.state === 'running')
-const depsInstalled = computed(() => statusData.value.deps_installed !== false)
+const depsInstalled = computed(() => (statusData.value.dependencies || []).every((d: any) => d.installed))
 
 const statusLabel = computed(() => {
   if (isRunning.value) return '运行中'
@@ -119,7 +119,7 @@ async function fetchStatus() {
     statusData.value = (resp as any)?.data || resp
     emit('status-loaded', statusData.value)
   } catch {
-    statusData.value = { enabled: false, state: 'unknown', error: '无法获取服务状态' }
+    statusData.value = { state: 'disabled', error_message: '无法获取服务状态', dependencies: [] }
   } finally {
     loading.value = false
   }

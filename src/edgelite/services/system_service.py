@@ -10,7 +10,10 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 from edgelite.config import get_config
 from edgelite.engine.scheduler import CollectScheduler

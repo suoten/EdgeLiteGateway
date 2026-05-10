@@ -11,7 +11,10 @@ import asyncio
 import logging
 from typing import Any
 
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 try:
     from lxml import etree as ET  # C扩展，比ElementTree快5-10倍

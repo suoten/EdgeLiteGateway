@@ -36,9 +36,9 @@ const bridgeStats = reactive({
 })
 
 const runningFields = computed(() => [
-  { label: '串口设备', value: statusData.value.serial_port || '/dev/ttyUSB0' },
-  { label: '波特率', value: statusData.value.baud_rate || 9600 },
-  { label: 'TCP端口', value: statusData.value.tcp_port || 9000 },
+  { label: '串口设备', value: statusData.value.current_config?.serial_port || '/dev/ttyUSB0' },
+  { label: '波特率', value: statusData.value.current_config?.baud_rate || 9600 },
+  { label: 'TCP端口', value: statusData.value.current_config?.tcp_port || 9000 },
 ])
 
 function onStatusLoaded(data: any) {
