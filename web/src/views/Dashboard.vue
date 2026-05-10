@@ -404,7 +404,7 @@ function onAlarmMessage(data: any) {
   try {
     if (data) {
       fetchAlarms()
-      if (status.value) status.value.alarm_firing = (status.value.alarm_firing ?? 0) + 1
+      fetchStatus()
     }
   } catch (e) {
     msg.warning('处理告警消息异常')

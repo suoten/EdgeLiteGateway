@@ -151,7 +151,8 @@ async function handleLogin() {
       message.warning('首次登录需要修改密码')
     } else {
       message.success('登录成功，欢迎回来！')
-      router.push('/')
+      const redirect = (router.currentRoute.value.query.redirect as string) || '/'
+      router.push(redirect)
     }
   } catch (e: any) {
     const detail = e?.response?.data?.detail || e?.message || ''

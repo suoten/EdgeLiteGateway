@@ -93,9 +93,9 @@ SERVICE_DEFINITIONS = {
             },
             "port": {
                 "type": "integer",
-                "default": 1883,
+                "default": 1888,
                 "label": "TCP端口",
-                "description": "MQTT TCP连接端口，标准端口为1883",
+                "description": "MQTT TCP连接端口，默认1888避免与外部Broker冲突",
             },
             "ws_port": {
                 "type": "integer",
@@ -269,7 +269,7 @@ SERVICE_DEFINITIONS = {
             {"name": "系统管理", "route": "System", "hint": "系统状态可同步到Grafana监控"},
         ],
         "setup_guide": [
-            "确保已部署Grafana服务（默认端口3000）",
+            "确保已部署Grafana服务（默认端口3001）",
             "开启服务开关启用Grafana集成",
             "如缺少依赖，点击「一键安装」自动安装httpx",
             "配置Grafana地址和API Key",
@@ -278,7 +278,7 @@ SERVICE_DEFINITIONS = {
         "config_schema": {
             "url": {
                 "type": "string",
-                "default": "http://localhost:3000",
+                "default": "http://localhost:3001",
                 "label": "Grafana地址",
                 "description": "Grafana服务的完整访问地址",
             },
@@ -620,7 +620,7 @@ class ServiceManager:
             instance = MqttServer()
             start_config = {
                 "host": getattr(section_config, "host", "0.0.0.0"),
-                "port": getattr(section_config, "port", 1883),
+                "port": getattr(section_config, "port", 1888),
                 "ws_port": getattr(section_config, "ws_port", None),
                 "username": getattr(section_config, "username", ""),
                 "password": getattr(section_config, "password", ""),

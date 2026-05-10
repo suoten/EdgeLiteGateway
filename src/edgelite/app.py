@@ -377,7 +377,7 @@ async def lifespan(app: FastAPI):
 
         event_bus.register_handler("AlarmEvent", handle_alarm_for_notify)
 
-        # 16. 初始化联调集成端点
+        # 19. 初始化联调集成端点
         try:
             from edgelite.engine.integration.backhaul import BackhaulManager
             from edgelite.engine.integration.dispatcher import MessageDispatcher
@@ -699,12 +699,10 @@ def create_app() -> FastAPI:
         if not _app_state.integration_endpoint:
             await websocket.close(code=1003, reason="Integration not available")
             return
-        from edgelite.security.jwt import decode_token
+        from edgelite.security.jwt import verify_token
 
         try:
-            if not decode_token(token):
-                await websocket.close(code=4001, reason="Invalid token")
-                return
+            verify_token(token, token_type="access")
         except Exception:
             await websocket.close(code=4001, reason="Auth failed")
             return

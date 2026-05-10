@@ -1,15 +1,25 @@
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
-from edgelite.models.db import Base
-
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+try:
+    from edgelite.config import get_config
+
+    app_config = get_config()
+    db_url = f"sqlite+aiosqlite:///{Path(app_config.database.sqlite_path).resolve()}"
+    config.set_main_option("sqlalchemy.url", db_url)
+except Exception:
+    pass
+
+from edgelite.models.db import Base
 
 target_metadata = Base.metadata
 

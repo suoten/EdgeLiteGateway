@@ -1,3 +1,11 @@
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --registry https://registry.npmmirror.com
+COPY web/ ./
+RUN npm run build
+
 FROM python:3.11-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
@@ -13,6 +21,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY --from=builder /install /usr/local
+COPY --from=frontend-builder /web/dist /app/frontend/dist
 COPY configs/ configs/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini

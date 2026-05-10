@@ -32,9 +32,13 @@ export const useAuthStore = defineStore('auth', () => {
       mustChangePassword.value = data.must_change_password ?? false
       sessionStorage.setItem('edgelite_role', role.value)
       sessionStorage.setItem('edgelite_mustChangePassword', String(mustChangePassword.value))
-    } catch {
-      role.value = 'viewer'
-      mustChangePassword.value = false
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        await logout()
+      } else {
+        role.value = 'viewer'
+        mustChangePassword.value = false
+      }
     }
   }
 

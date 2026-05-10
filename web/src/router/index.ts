@@ -49,7 +49,7 @@ router.beforeEach(async (to) => {
     await auth.fetchUserInfo()
   }
   if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
-    return { name: 'Login' }
+    return { name: 'Login', query: { redirect: to.fullPath } }
   }
   if (to.meta.requiredRole) {
     const required = to.meta.requiredRole as string

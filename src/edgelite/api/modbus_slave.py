@@ -19,10 +19,10 @@ router = APIRouter(prefix="/api/v1/modbus-slave", tags=["Modbus Slave"])
 class ModbusSlaveConfigModel(BaseModel):
     host: str = "0.0.0.0"
     port: int = Field(default=502, ge=1, le=65535)
-    holding_size: int = Field(default=100, ge=1)
-    input_size: int = Field(default=100, ge=1)
-    coil_size: int = Field(default=100, ge=1)
-    discrete_size: int = Field(default=100, ge=1)
+    holding_size: int = Field(default=1000, ge=1)
+    input_size: int = Field(default=1000, ge=1)
+    coil_size: int = Field(default=1000, ge=1)
+    discrete_size: int = Field(default=1000, ge=1)
 
 
 def _get_modbus_slave():

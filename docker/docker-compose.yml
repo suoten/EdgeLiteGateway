@@ -10,6 +10,7 @@ services:
       - ../data:/app/data
       - ../configs:/app/configs
       - ../logs:/app/logs
+      - frontend-dist:/app/frontend/dist
     environment:
       - EDGELITE_INFLUXDB__URL=http://influxdb:8086
       - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:?请在.env中设置INFLUXDB_TOKEN}
@@ -38,7 +39,7 @@ services:
     ports:
       - "3000:80"
     volumes:
-      - ../web/dist:/usr/share/nginx/html:ro
+      - frontend-dist:/usr/share/nginx/html:ro
       - ./nginx-frontend.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       edgelite:
@@ -95,6 +96,7 @@ services:
 volumes:
   influxdb-data:
   mosquitto-data:
+  frontend-dist:
 
 networks:
   edgelite-net:
