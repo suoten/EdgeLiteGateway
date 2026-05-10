@@ -8,7 +8,6 @@ import logging
 import struct
 from collections.abc import Callable
 from datetime import UTC, datetime
-
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin

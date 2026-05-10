@@ -6,12 +6,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import hmac
 import json
 import logging
 from datetime import UTC
-
-import contextlib
 from pathlib import Path
 from typing import Any
 

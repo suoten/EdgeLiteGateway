@@ -42,9 +42,9 @@ async def get_grafana_config(
             data={
                 "enabled": info.state.value != "disabled",
                 "state": info.state.value,
-                "url": getattr(grafana_config, "url", "http://localhost:3000")
+                "url": getattr(grafana_config, "url", "http://localhost:3001")
                 if grafana_config
-                else "http://localhost:3000",
+                else "http://localhost:3001",
                 "datasource": getattr(grafana_config, "datasource", "InfluxDB")
                 if grafana_config
                 else "InfluxDB",
@@ -69,7 +69,7 @@ async def list_grafana_dashboards(
     if not grafana_config or not getattr(grafana_config, "enabled", False):
         raise HTTPException(status_code=503, detail="Grafana集成未启用")
 
-    grafana_url = getattr(grafana_config, "url", "http://localhost:3000")
+    grafana_url = getattr(grafana_config, "url", "http://localhost:3001")
     api_key = getattr(grafana_config, "api_key", "")
 
     try:
@@ -100,7 +100,7 @@ async def get_grafana_embed_url(
         if not grafana_config or not getattr(grafana_config, "enabled", False):
             raise HTTPException(status_code=503, detail="Grafana集成未启用")
 
-        grafana_url = getattr(grafana_config, "url", "http://localhost:3000")
+        grafana_url = getattr(grafana_config, "url", "http://localhost:3001")
         if dashboard_uid:
             if not re.match(r"^[a-zA-Z0-9_-]+$", dashboard_uid):
                 raise HTTPException(status_code=400, detail="dashboard_uid 包含非法字符")

@@ -6,7 +6,6 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime
-
 from typing import Any
 
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent
@@ -33,10 +32,9 @@ class CollectScheduler:
         self._influx = influx_storage
         self._cache = cache_manager
         self._preprocessor = preprocessor
-        # device_id -> asyncio.Task
         self._tasks: dict[str, asyncio.Task] = {}
-        # device_id -> (driver_instance, points, collect_interval)
         self._device_info: dict[str, tuple] = {}
+        self._cache_flush_task: asyncio.Task | None = None
 
     async def start_collect(
         self,
@@ -48,6 +46,9 @@ class CollectScheduler:
         """为设备启动采集任务"""
         if device_id in self._tasks:
             await self.stop_collect(device_id)
+
+        if not self._cache_flush_task and self._cache:
+            self._cache_flush_task = asyncio.create_task(self._cache_flush_loop())
 
         self._device_info[device_id] = (driver, points, collect_interval)
         task = asyncio.create_task(
@@ -71,6 +72,11 @@ class CollectScheduler:
 
     async def stop_all(self) -> None:
         """停止所有采集任务"""
+        if self._cache_flush_task:
+            self._cache_flush_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._cache_flush_task
+            self._cache_flush_task = None
         device_ids = list(self._tasks.keys())
         for device_id in device_ids:
             await self.stop_collect(device_id)
@@ -176,3 +182,45 @@ class CollectScheduler:
 
             # 等待下一个采集周期
             await asyncio.sleep(collect_interval)
+
+    async def _cache_flush_loop(self) -> None:
+        """定期检查InfluxDB可用性并回写缓存数据"""
+        while True:
+            try:
+                await asyncio.sleep(30)
+                if not self._cache or not self._influx:
+                    continue
+                if not await self._influx.check_health():
+                    continue
+                records = await self._cache.get_cached_records(limit=500)
+                if not records:
+                    continue
+                success_count = 0
+                for rec in records:
+                    try:
+                        ts = rec.get("timestamp")
+                        if ts:
+                            from datetime import datetime as dt
+                            try:
+                                timestamp = dt.fromisoformat(ts)
+                            except (ValueError, TypeError):
+                                timestamp = dt.now(UTC)
+                        else:
+                            timestamp = dt.now(UTC)
+                        ok = await self._influx.write_point(
+                            measurement=rec.get("measurement", "device_points"),
+                            tags=rec.get("tags", {}),
+                            fields=rec.get("fields", {}),
+                            timestamp=timestamp,
+                        )
+                        if ok:
+                            await self._cache.delete_cached(rec["id"])
+                            success_count += 1
+                    except Exception:
+                        break
+                if success_count > 0:
+                    logger.info("缓存回写: %d 条记录已写入InfluxDB", success_count)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("缓存回写异常: %s", e)

@@ -240,7 +240,7 @@ class GrafanaConfig(BaseModel):
     """Grafana集成配置"""
 
     enabled: bool = False
-    url: str = "http://localhost:3000"
+    url: str = "http://localhost:3001"
     api_key: str = ""
     datasource: str = "InfluxDB"
 

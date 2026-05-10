@@ -374,7 +374,7 @@ function formatBytes(bytes?: number) {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchStatus(), fetchDevices(), fetchAlarms(), fetchProtocols()])
+  await Promise.allSettled([fetchStatus(), fetchDevices(), fetchAlarms(), fetchProtocols()])
   pageLoading.value = false
   timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
   uptimeTimer = window.setInterval(() => { uptime.value++ }, 1000)
