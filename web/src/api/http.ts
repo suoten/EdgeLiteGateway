@@ -112,6 +112,7 @@ http.interceptors.response.use(
         window.location.href = '/login'
         return Promise.reject(error)
       }
+      return Promise.reject(new Error(error.response?.data?.detail || '权限不足，无法执行此操作'))
     }
 
     return Promise.reject(error)

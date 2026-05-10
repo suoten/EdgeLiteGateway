@@ -40,7 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     try {
-      await authApi.logout()
+      await authApi.logout(refreshToken.value || undefined)
     } catch { /* ignore */ }
     token.value = ''
     refreshToken.value = ''

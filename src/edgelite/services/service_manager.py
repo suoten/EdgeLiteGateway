@@ -7,7 +7,13 @@ import importlib
 import logging
 import sys
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
+
+try:
+    from enum import StrEnum
+except ImportError:
+    class StrEnum(str, Enum):
+        pass
 from typing import Any
 
 from edgelite.config import get_config, update_config_section

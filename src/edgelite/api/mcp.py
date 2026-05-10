@@ -9,7 +9,8 @@ from __future__ import annotations
 import hmac
 import json
 import logging
-from datetime import UTC
+from datetime import timezone
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any
 

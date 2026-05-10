@@ -7,7 +7,8 @@ import contextlib
 import logging
 import struct
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = timezone.utc
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin

@@ -11,7 +11,6 @@ export interface LoginParams {
 export interface TokenData {
   access_token: string
   refresh_token: string
-  token_type: string
   expires_in: number
 }
 
@@ -25,8 +24,8 @@ export const authApi = {
   me: () =>
     http.get<ApiResponse<{ user_id: string; username: string; role: string; must_change_password?: boolean }>>('/auth/me').then((r) => r.data.data),
 
-  logout: () =>
-    http.post('/auth/logout'),
+  logout: (refreshToken?: string) =>
+    http.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : undefined),
 
   changePassword: (oldPassword: string, newPassword: string) =>
     http.post<ApiResponse>('/auth/change-password', { old_password: oldPassword, new_password: newPassword }).then((r) => r.data),
@@ -186,7 +185,7 @@ export const dataApi = {
   query: (params: { device_id: string; point_name: string; start: string; stop?: string; aggregate?: string }) =>
     http.get<ApiResponse<any[]>>('/data/query', { params }).then((r) => r.data.data),
 
-  export: (params: { device_id: string; point_name: string; start: string; format?: string }) =>
+  export: (params: { device_id: string; point_name: string; start: string; stop?: string; format?: string }) =>
     http.get('/data/export', { params, responseType: 'blob' }),
 }
 

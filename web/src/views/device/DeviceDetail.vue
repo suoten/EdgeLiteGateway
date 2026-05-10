@@ -157,7 +157,6 @@ import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } fr
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, dataApi, videoApi, type Device } from '@/api'
-import { useAuthStore } from '@/stores/auth'
 import { deviceStatusLabel, deviceStatusColor, qualityLabel, protocolLabel } from '@/utils/enumLabels'
 import { connect as wsConnect, disconnect as wsDisconnect } from '@/api/websocket'
 
@@ -167,7 +166,6 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
-const auth = useAuthStore()
 
 const device = ref<Device | null>(null)
 const notFound = ref(false)
@@ -335,7 +333,6 @@ async function fetchDevice() {
     if (e?.response?.status === 404) {
       notFound.value = true
     } else {
-      notFound.value = true
       message.error(e?.response?.data?.detail || e?.message || '加载设备信息失败')
     }
   } finally {

@@ -488,7 +488,6 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """创建FastAPI应用"""
     config = get_config()
 
     app = FastAPI(
@@ -730,5 +729,10 @@ def create_app() -> FastAPI:
         finally:
             if session_id:
                 await _app_state.integration_endpoint.unregister_connection(session_id)
+
+    # Health check endpoint for Docker HEALTHCHECK
+    @app.get("/health", tags=["系统"], summary="健康检查", include_in_schema=False)
+    async def health_check():
+        return {"status": "ok"}
 
     return app

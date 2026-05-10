@@ -293,8 +293,8 @@ async function handleInstallDeps(name: string) {
   installingMap[name] = true
   try {
     await serviceApi.installDeps(name)
-    message.success('依赖安装成功，正在启动服务...')
-    await serviceApi.start(name)
+    message.success('依赖安装成功，正在启用服务...')
+    await serviceApi.enable(name)
     await fetchServices()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || '安装失败')

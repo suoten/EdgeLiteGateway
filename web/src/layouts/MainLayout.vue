@@ -232,6 +232,9 @@ const breadcrumbItems = computed(() => {
     DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
     PreprocessConfig: '数据预处理',
     System: '系统管理', Users: '用户管理', AuditLog: '审计日志',
+    OtaUpdate: 'OTA升级', GrafanaDashboard: 'Grafana监控', McpServer: 'MCP Server',
+    MqttServer: 'MQTT Server', ModbusSlave: 'Modbus Slave', SerialBridge: '串口透传',
+    ServiceOverview: '服务总览',
   }
   return route.matched
     .filter(r => r.name)
@@ -243,7 +246,7 @@ const roleType = computed(() => ({ admin: 'error', operator: 'warning', viewer: 
 
 const renderIcon = (icon: any) => () => h(NIcon, { component: icon, size: 18 })
 
-const menuOptions = [
+const allMenuOptions = [
   { label: '仪表盘', key: 'Dashboard', icon: renderIcon(SpeedometerOutline) },
   { label: '设备管理', key: 'Devices', icon: renderIcon(HardwareChip) },
   { label: '规则管理', key: 'Rules', icon: renderIcon(SettingsOutline) },
@@ -257,7 +260,7 @@ const menuOptions = [
     ],
   },
   {
-    label: '服务管理', key: 'service-group', icon: renderIcon(RadioOutline),
+    label: '服务管理', key: 'service-group', icon: renderIcon(RadioOutline), adminOnly: true,
     children: [
       { label: '服务总览', key: 'ServiceOverview', icon: renderIcon(RadioOutline) },
       { label: 'MQTT Server', key: 'MqttServer', icon: renderIcon(RadioOutline) },
@@ -268,7 +271,7 @@ const menuOptions = [
     ],
   },
   {
-    label: '系统配置', key: 'system-group', icon: renderIcon(ServerOutline),
+    label: '系统配置', key: 'system-group', icon: renderIcon(ServerOutline), adminOnly: true,
     children: [
       { label: '系统管理', key: 'System', icon: renderIcon(ServerOutline) },
       { label: '驱动配置', key: 'DriverConfig', icon: renderIcon(PulseOutline) },
@@ -281,6 +284,11 @@ const menuOptions = [
     ],
   },
 ]
+
+const menuOptions = computed(() => {
+  if (auth.role === 'admin') return allMenuOptions
+  return allMenuOptions.filter(item => !(item as any).adminOnly)
+})
 
 const userOptions = [
   { label: '修改密码', key: 'changePassword', icon: renderIcon(DocumentTextOutline) },
@@ -329,8 +337,8 @@ onUnmounted(() => { if (alarmTimer) clearInterval(alarmTimer) })
 }
 .logo-icon { display: flex; align-items: center; }
 .logo-text { display: flex; flex-direction: column; line-height: 1.2; }
-.logo-title { font-size: 18px; font-weight: 700; color: #333; }
-.logo-subtitle { font-size: 11px; color: #999; letter-spacing: 2px; }
+.logo-title { font-size: 18px; font-weight: 700; }
+.logo-subtitle { font-size: 11px; opacity: 0.6; letter-spacing: 2px; }
 .sider-footer {
   position: absolute; bottom: 12px; left: 0; right: 0;
   text-align: center; padding: 8px;
@@ -339,12 +347,10 @@ onUnmounted(() => { if (alarmTimer) clearInterval(alarmTimer) })
   height: 56px;
   display: flex; align-items: center; padding: 0 20px;
   justify-content: space-between;
-  background: #fff;
 }
 .main-content {
   height: calc(100vh - 56px);
   overflow: auto;
-  background: #f5f7fa;
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

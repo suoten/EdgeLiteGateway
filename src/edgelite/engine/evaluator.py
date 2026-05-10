@@ -6,7 +6,8 @@ import asyncio
 import contextlib
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = timezone.utc
 
 from edgelite.engine.event_bus import AlarmEvent, EventBus, PointUpdateEvent
 from edgelite.storage.sqlite_repo import AlarmRepo, RuleRepo

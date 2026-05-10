@@ -6,7 +6,8 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = timezone.utc
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
