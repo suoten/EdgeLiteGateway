@@ -36,8 +36,11 @@
       <template #header-extra>
         <n-button @click="fetchBackups" :loading="fetchingBackups">刷新</n-button>
       </template>
-      <n-data-table :columns="backupColumns" :data="backups" :bordered="false" size="small" />
-      <n-empty v-if="!backups.length" description="暂无备份版本" />
+      <n-data-table :columns="backupColumns" :data="backups" :bordered="false" size="small">
+        <template #empty>
+          <n-empty description="暂无备份版本" />
+        </template>
+      </n-data-table>
     </n-card>
   </n-space>
   </n-spin>

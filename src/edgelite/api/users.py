@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, DatabaseDep, require_permission
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.user import UserCreate, UserResponse, UserUpdate
 from edgelite.security.password import hash_password
@@ -20,12 +20,12 @@ router = APIRouter(prefix="/api/v1/users", tags=["用户管理"])
 
 @router.get("", response_model=PagedResponse[UserResponse])
 async def list_users(
+    db: DatabaseDep,
     user: CurrentUser = require_permission(Permission.USER_READ),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=1000),
 ):
     try:
-        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             users, total = await repo.list_all(page, size)
@@ -39,10 +39,11 @@ async def list_users(
 
 @router.post("", response_model=ApiResponse[UserResponse], status_code=201)
 async def create_user(
-    body: UserCreate, user: CurrentUser = require_permission(Permission.USER_CREATE)
+    body: UserCreate,
+    db: DatabaseDep,
+    user: CurrentUser = require_permission(Permission.USER_CREATE),
 ):
     try:
-        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             existing = await repo.get_by_username(body.username)
@@ -61,10 +62,12 @@ async def create_user(
 
 @router.put("/{user_id}", response_model=ApiResponse[UserResponse])
 async def update_user(
-    user_id: str, body: UserUpdate, user: CurrentUser = require_permission(Permission.USER_UPDATE)
+    user_id: str,
+    body: UserUpdate,
+    db: DatabaseDep,
+    user: CurrentUser = require_permission(Permission.USER_UPDATE),
 ):
     try:
-        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             data = body.model_dump(exclude_none=True)
@@ -88,11 +91,14 @@ async def update_user(
 
 
 @router.delete("/{user_id}", response_model=ApiResponse)
-async def delete_user(user_id: str, user: CurrentUser = require_permission(Permission.USER_DELETE)):
+async def delete_user(
+    user_id: str,
+    db: DatabaseDep,
+    user: CurrentUser = require_permission(Permission.USER_DELETE),
+):
     try:
         if user_id == user.get("user_id"):
             raise HTTPException(status_code=400, detail="不能删除自己")
-        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             target = await repo.get(user_id)

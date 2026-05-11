@@ -196,6 +196,17 @@ async function handleAdd() {
   pointConfigs.value[addForm.point_key] = config
   updatePointList()
 
+  try {
+    await preprocessApi.updateConfig({
+      global: { ...globalForm },
+      points: { [addForm.point_key]: config },
+    })
+    dirty.value = false
+    message.success('测点已添加并保存')
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.message || '保存失败')
+  }
+
   addForm.point_key = ''
   addForm.deadband = 0
   addForm.deadband_percent = 0
@@ -204,7 +215,6 @@ async function handleAdd() {
   addForm.aggregate = null
   addForm.aggregate_window_sec = 60
   showAddModal.value = false
-  message.success('测点已添加')
 }
 
 function handleDelete(pointKey: string) {
@@ -213,10 +223,21 @@ function handleDelete(pointKey: string) {
     content: `确定要删除测点「${pointKey}」的预处理配置吗？`,
     positiveText: '确认删除',
     negativeText: '取消',
-    onPositiveClick: () => {
+    onPositiveClick: async () => {
       delete pointConfigs.value[pointKey]
       updatePointList()
-      message.success('测点已删除')
+      try {
+        const remaining = { ...pointConfigs.value }
+        delete remaining[pointKey]
+        await preprocessApi.updateConfig({
+          global: { ...globalForm },
+          points: pointConfigs.value,
+        })
+        dirty.value = false
+        message.success('测点已删除并保存')
+      } catch (e: any) {
+        message.error(e?.response?.data?.detail || e?.message || '保存失败')
+      }
     },
   })
 }

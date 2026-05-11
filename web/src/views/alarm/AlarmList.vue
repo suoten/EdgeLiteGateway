@@ -18,8 +18,11 @@
       :columns="columns" :data="alarms" :loading="loading"
       :pagination="pagination" :row-key="(r: Alarm) => r.alarm_id"
       v-model:checked-row-keys="checkedKeys"
-    />
-    <n-empty v-if="!loading && alarms.length === 0" description="暂无告警，系统运行正常" style="padding: 40px 0" />
+    >
+      <template #empty>
+        <n-empty v-if="!loading" description="暂无告警，系统运行正常" style="padding: 40px 0" />
+      </template>
+    </n-data-table>
   </n-space>
 </template>
 

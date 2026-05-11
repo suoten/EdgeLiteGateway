@@ -138,10 +138,19 @@ const dynamicFormRules = computed(() => {
   const rules: Record<string, any> = {}
   for (const field of platformFields.value) {
     if (field.required) {
-      rules['config.' + field.name] = {
-        required: true,
-        message: `${field.label || field.name}不能为空`,
-        trigger: ['blur', 'change'],
+      if (field.type === 'integer' || field.type === 'number') {
+        rules['config.' + field.name] = {
+          type: 'number',
+          required: true,
+          message: `${field.label || field.name}不能为空`,
+          trigger: ['blur', 'change'],
+        }
+      } else {
+        rules['config.' + field.name] = {
+          required: true,
+          message: `${field.label || field.name}不能为空`,
+          trigger: ['blur', 'change'],
+        }
       }
     }
   }
@@ -221,7 +230,11 @@ async function loadConfigSchema() {
       platformFields.value = data.config_schema.fields
       const newConfig: Record<string, any> = {}
       for (const f of platformFields.value) {
-        newConfig[f.name] = f.default ?? null
+        if (f.type === 'integer' || f.type === 'number') {
+          newConfig[f.name] = f.default !== undefined ? f.default : undefined
+        } else {
+          newConfig[f.name] = f.default ?? null
+        }
       }
       formData.value.config = newConfig
     }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy import text
 
 from edgelite.config import get_config
 from edgelite.models.db import Base
@@ -149,8 +151,39 @@ class Database:
             self._engine, class_=AsyncSession, expire_on_commit=False
         )
 
+        if self._backend == "sqlite":
+            await self._check_sqlite_integrity()
+
         logger.info("数据库连接已建立 (backend=%s)", self._backend)
         return self._engine
+
+    async def _check_sqlite_integrity(self) -> None:
+        if not self._engine:
+            return
+        try:
+            async with self._engine.begin() as conn:
+                result = await conn.execute(text("PRAGMA integrity_check"))
+                row = result.fetchone()
+                if row and row[0] != "ok":
+                    logger.warning("SQLite完整性检查异常: %s，尝试修复...", row[0])
+                    try:
+                        db_path = self.db_path
+                        if db_path and Path(db_path).exists():
+                            import shutil
+                            corrupt_backup = f"{db_path}.corrupt.{int(time.time())}"
+                            shutil.copy2(db_path, corrupt_backup)
+                            logger.warning("已备份损坏数据库到: %s", corrupt_backup)
+                    except Exception as backup_err:
+                        logger.warning("备份损坏数据库失败: %s", backup_err)
+                    await conn.execute(text("PRAGMA wal_checkpoint=TRUNCATE"))
+                    result2 = await conn.execute(text("PRAGMA integrity_check"))
+                    row2 = result2.fetchone()
+                    if row2 and row2[0] != "ok":
+                        logger.error("SQLite修复失败，数据库仍损坏: %s", row2[0])
+                    else:
+                        logger.info("SQLite修复成功")
+        except Exception as e:
+            logger.warning("SQLite完整性检查失败: %s", e)
 
     async def init_tables(self) -> None:
         """初始化所有表（仅用于开发/首次部署，生产环境请使用 Alembic）"""

@@ -8,8 +8,11 @@
       <n-button type="primary" @click="showCreateModal = true">创建规则</n-button>
     </n-space>
 
-    <n-data-table :columns="columns" :data="rules" :loading="loading" :pagination="pagination" :row-key="(r: Rule) => r.rule_id" />
-    <n-empty v-if="!loading && rules.length === 0" description="暂无规则，点击「创建规则」添加告警规则" style="padding: 40px 0" />
+    <n-data-table :columns="columns" :data="rules" :loading="loading" :pagination="pagination" :row-key="(r: Rule) => r.rule_id">
+      <template #empty>
+        <n-empty v-if="!loading" description="暂无规则，点击「创建规则」添加告警规则" style="padding: 40px 0" />
+      </template>
+    </n-data-table>
 
     <n-modal v-model:show="showCreateModal" title="创建告警规则" preset="card" style="width: 640px">
       <n-form :model="createForm" label-placement="left" label-width="90" :rules="createRules" ref="createFormRef">

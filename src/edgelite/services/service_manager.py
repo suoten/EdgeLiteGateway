@@ -483,10 +483,6 @@ class ServiceManager:
 
     def _get_instance(self, service_name: str) -> Any:
         app_state = self._get_app_state()
-        if service_name == "serial_bridge":
-            from edgelite.api.serial_bridge import _get_serial_bridge
-
-            return _get_serial_bridge()
         return getattr(app_state, service_name, None)
 
     def _set_instance(self, service_name: str, instance: Any) -> None:
