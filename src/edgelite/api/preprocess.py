@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import ConfigDep, CurrentUser, PreprocessorDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -42,19 +42,12 @@ class PreprocessConfigResponse(BaseModel):
     point_configs: dict[str, dict] = {}
 
 
-def svc:
-    from edgelite.config import get_config
-
-    return get_config()
-
-
 @router.get("/config", response_model=ApiResponse[PreprocessConfigResponse])
 async def get_preprocess_config(
+    config: ConfigDep,
+    preprocessor: PreprocessorDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    config = svc
-    preprocessor = svc
-
     point_configs = {}
     if preprocessor:
         point_configs = getattr(preprocessor, "_configs", {})
@@ -83,14 +76,14 @@ async def get_preprocess_config(
 @router.put("/config", response_model=ApiResponse)
 async def update_preprocess_config(
     req: PreprocessUpdateRequest,
+    config: ConfigDep,
+    preprocessor: PreprocessorDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    preprocessor = svc
     if not preprocessor:
         raise HTTPException(status_code=503, detail="预处理器未初始化")
 
     if req.global_config:
-        config = svc
         if hasattr(config, "preprocess") and config.preprocess:
             if req.global_config.enabled is not None:
                 config.preprocess.enabled = req.global_config.enabled
@@ -103,7 +96,7 @@ async def update_preprocess_config(
                     req.global_config.default_aggregate_window_sec
                 )
 
-    for point_key, config in req.points.items():
-        preprocessor.configure(point_key, config)
+    for point_key, point_config in req.points.items():
+        preprocessor.configure(point_key, point_config)
 
     return ApiResponse(data={"status": "updated", "points_configured": len(req.points)})

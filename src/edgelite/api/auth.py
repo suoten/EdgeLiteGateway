@@ -110,7 +110,7 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep):
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
-async def refresh_token(refresh: str = Body(..., embed=True), db: DatabaseDep = Depends()):
+async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
     try:
         payload = verify_token(refresh, token_type="refresh")
     except (JWTError, ValueError):
@@ -174,10 +174,10 @@ async def get_current_user_info(user: CurrentUser, db: DatabaseDep):
 
 @router.post("/change-password", response_model=ApiResponse)
 async def change_password(
+    db: DatabaseDep,
     old_password: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
     user: dict = Depends(get_current_user),
-    db: DatabaseDep = Depends(),
 ):
     try:
         async with db.get_session() as session:

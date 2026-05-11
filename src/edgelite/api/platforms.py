@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -11,236 +10,31 @@ from pydantic import BaseModel
 from edgelite.api.deps import CurrentUser, PlatformHandlersDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
+from edgelite.services.platform_service import PlatformService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/platforms", tags=["平台配置"])
 
 
-class PlatformInfo(BaseModel):
-    name: str
-    version: str = "1.0.0"
-    connected: bool = False
+class PlatformConnectRequest(BaseModel):
+    config: dict
 
 
-class SupportedPlatform(BaseModel):
-    name: str
-    label: str
-    description: str = ""
+def _get_service(handlers: dict) -> PlatformService:
+    return PlatformService(handlers)
 
 
-class PlatformListResponse(BaseModel):
-    platforms: list[PlatformInfo]
-    supported: list[SupportedPlatform]
-
-
-class PlatformConfigSchemaResponse(BaseModel):
-    platform_name: str
-    config_schema: dict
-
-
-_PLATFORM_REGISTRY: dict[str, dict] = {}
-
-
-def _ensure_registry():
-    if _PLATFORM_REGISTRY:
-        return
-    _PLATFORM_REGISTRY.update(
-        {
-            "iotsharp": {
-                "label": "IoTSharp",
-                "description": "开源IoT平台",
-                "module": "edgelite.platform.iotsharp",
-                "class": "IoTSharpHandler",
-                "schema": {
-                    "fields": [
-                        {
-                            "name": "broker",
-                            "type": "string",
-                            "label": "MQTT Broker地址",
-                            "default": "localhost",
-                            "required": True,
-                        },
-                        {
-                            "name": "port",
-                            "type": "integer",
-                            "label": "MQTT端口",
-                            "default": 1883,
-                            "required": True,
-                        },
-                        {"name": "username", "type": "string", "label": "MQTT用户名"},
-                        {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
-                    ]
-                },
-            },
-            "thingsboard": {
-                "label": "ThingsBoard",
-                "description": "开源IoT平台",
-                "module": "edgelite.platform.thingsboard",
-                "class": "ThingsBoardHandler",
-                "schema": {
-                    "fields": [
-                        {
-                            "name": "broker",
-                            "type": "string",
-                            "label": "MQTT Broker地址",
-                            "default": "localhost",
-                            "required": True,
-                        },
-                        {
-                            "name": "port",
-                            "type": "integer",
-                            "label": "MQTT端口",
-                            "default": 1883,
-                            "required": True,
-                        },
-                        {
-                            "name": "token",
-                            "type": "string",
-                            "label": "网关AccessToken",
-                            "required": True,
-                        },
-                        {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
-                    ]
-                },
-            },
-            "huawei_iotda": {
-                "label": "华为云IoTDA",
-                "description": "华为云设备接入服务",
-                "module": "edgelite.platform.huawei_iotda",
-                "class": "HuaweiIoTDAHandler",
-                "schema": {
-                    "fields": [
-                        {
-                            "name": "broker",
-                            "type": "string",
-                            "label": "MQTT Broker",
-                            "required": True,
-                        },
-                        {"name": "port", "type": "integer", "label": "端口", "default": 8883},
-                        {
-                            "name": "device_id",
-                            "type": "string",
-                            "label": "设备ID",
-                            "required": True,
-                        },
-                        {
-                            "name": "secret",
-                            "type": "string",
-                            "label": "设备密钥",
-                            "secret": True,
-                            "required": True,
-                        },
-                    ]
-                },
-            },
-            "thingscloud": {
-                "label": "ThingsCloud",
-                "description": "ThingsCloud物联网平台",
-                "module": "edgelite.platform.thingscloud",
-                "class": "ThingsCloudHandler",
-                "schema": {
-                    "fields": [
-                        {
-                            "name": "broker",
-                            "type": "string",
-                            "label": "MQTT Broker",
-                            "required": True,
-                        },
-                        {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                        {
-                            "name": "access_key",
-                            "type": "string",
-                            "label": "Access Key",
-                            "required": True,
-                        },
-                        {
-                            "name": "access_secret",
-                            "type": "string",
-                            "label": "Access Secret",
-                            "secret": True,
-                            "required": True,
-                        },
-                    ]
-                },
-            },
-            "thingspanel": {
-                "label": "ThingsPanel",
-                "description": "ThingsPanel开源物联网平台",
-                "module": "edgelite.platform.thingspanel",
-                "class": "ThingsPanelHandler",
-                "schema": {
-                    "fields": [
-                        {
-                            "name": "broker",
-                            "type": "string",
-                            "label": "MQTT Broker",
-                            "required": True,
-                        },
-                        {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                        {"name": "username", "type": "string", "label": "用户名"},
-                        {"name": "password", "type": "string", "label": "密码", "secret": True},
-                        {
-                            "name": "device_token",
-                            "type": "string",
-                            "label": "设备Token",
-                            "required": True,
-                        },
-                    ]
-                },
-            },
-            "custom": {
-                "label": "自定义平台",
-                "description": "MQTT/HTTP自定义对接",
-                "module": "edgelite.platform.custom_mqtt",
-                "class": "CustomMqttHandler",
-                "schema": {
-                    "fields": [
-                        {
-                            "name": "broker",
-                            "type": "string",
-                            "label": "MQTT Broker",
-                            "required": True,
-                        },
-                        {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                        {"name": "username", "type": "string", "label": "用户名"},
-                        {"name": "password", "type": "string", "label": "密码", "secret": True},
-                        {
-                            "name": "topic_prefix",
-                            "type": "string",
-                            "label": "Topic前缀",
-                            "default": "edgelite",
-                        },
-                    ]
-                },
-            },
-        }
-    )
-
-
-@router.get("/list", response_model=ApiResponse[PlatformListResponse])
+@router.get("/list", response_model=ApiResponse)
 async def list_platforms(
     handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    _ensure_registry()
     try:
-        platforms = []
-        for name, handler in handlers.items():
-            platforms.append(
-                {
-                    "name": getattr(handler, "platform_name", name),
-                    "version": getattr(handler, "platform_version", "1.0.0"),
-                    "connected": getattr(handler, "_connected", False),
-                }
-            )
-
-        all_supported = [
-            {"name": k, "label": v["label"], "description": v["description"]}
-            for k, v in _PLATFORM_REGISTRY.items()
-        ]
-
-        return ApiResponse(data={"platforms": platforms, "supported": all_supported})
+        svc = _get_service(handlers)
+        platforms = svc.list_platforms()
+        supported = svc.list_supported()
+        return ApiResponse(data={"platforms": platforms, "supported": supported})
     except HTTPException:
         raise
     except Exception as e:
@@ -248,30 +42,22 @@ async def list_platforms(
         raise HTTPException(status_code=500, detail="获取列表失败") from e
 
 
-@router.get(
-    "/config-schema/{platform_name}",
-    response_model=ApiResponse[PlatformConfigSchemaResponse],
-)
+@router.get("/config-schema/{platform_name}", response_model=ApiResponse)
 async def get_platform_config_schema(
     platform_name: str,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    _ensure_registry()
     try:
-        entry = _PLATFORM_REGISTRY.get(platform_name)
-        if not entry:
+        svc = PlatformService()
+        schema = svc.get_config_schema(platform_name)
+        if not schema:
             raise HTTPException(status_code=404, detail=f"平台 {platform_name} 配置模板不存在")
-
-        return ApiResponse(data={"platform_name": platform_name, "config_schema": entry["schema"]})
+        return ApiResponse(data={"platform_name": platform_name, "config_schema": schema})
     except HTTPException:
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
         raise HTTPException(status_code=500, detail="获取失败") from e
-
-
-class PlatformConnectRequest(BaseModel):
-    config: dict
 
 
 @router.post("/connect/{platform_name}", response_model=ApiResponse)
@@ -281,32 +67,15 @@ async def connect_platform(
     handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    _ensure_registry()
-
-    config = req.config
-    if not config:
+    if not req.config:
         raise HTTPException(status_code=400, detail="平台配置不能为空")
 
-    entry = _PLATFORM_REGISTRY.get(platform_name)
-    if not entry:
-        raise HTTPException(status_code=400, detail=f"不支持的平台: {platform_name}")
-
-    schema_fields = entry.get("schema", {}).get("fields", [])
-    required_fields = [f["name"] for f in schema_fields if f.get("required")]
-    missing = [f for f in required_fields if f not in config or not config[f]]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"缺少必填配置项: {', '.join(missing)}")
-
-    if platform_name in handlers:
-        return ApiResponse(data={"status": "already_connected"})
-
     try:
-        module = importlib.import_module(entry["module"])
-        handler_cls = getattr(module, entry["class"])
-        handler = handler_cls()
-        await handler.connect(config)
-        handlers[platform_name] = handler
-        return ApiResponse(data={"status": "connected"})
+        svc = _get_service(handlers)
+        result = await svc.connect(platform_name, req.config)
+        return ApiResponse(data=result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail="平台连接失败") from e
 
@@ -317,14 +86,12 @@ async def disconnect_platform(
     handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    handler = handlers.get(platform_name)
-    if not handler:
-        raise HTTPException(status_code=404, detail=f"平台 {platform_name} 未连接")
-
     try:
-        await handler.disconnect()
-        handlers.pop(platform_name, None)
-        return ApiResponse(data={"status": "disconnected"})
+        svc = _get_service(handlers)
+        result = await svc.disconnect(platform_name)
+        return ApiResponse(data=result)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail="断开失败") from e
 
@@ -336,17 +103,9 @@ async def get_platform_status(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     try:
-        handler = handlers.get(platform_name)
-        if not handler:
-            return ApiResponse(data={"connected": False})
-
-        return ApiResponse(
-            data={
-                "connected": getattr(handler, "_connected", False),
-                "name": getattr(handler, "platform_name", platform_name),
-                "version": getattr(handler, "platform_version", "1.0.0"),
-            }
-        )
+        svc = _get_service(handlers)
+        status = svc.get_status(platform_name)
+        return ApiResponse(data=status)
     except HTTPException:
         raise
     except Exception as e:
