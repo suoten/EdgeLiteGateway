@@ -11,6 +11,14 @@ class VideoDriver(DriverPlugin):
     plugin_name = "video"
     plugin_version = "1.0.0"
     supported_protocols = ["gb28181", "video"]
+    config_schema = {
+        "description": "GB28181视频监控协议，通过PyGBSentry接入视频流和云台控制",
+        "fields": [
+            {"name": "pygbsentry_url", "type": "string", "label": "PyGBSentry地址", "description": "PyGBSentry平台API地址", "default": "http://127.0.0.1:8080", "required": True},
+            {"name": "username", "type": "string", "label": "用户名", "description": "PyGBSentry登录用户名", "default": "admin"},
+            {"name": "password", "type": "string", "label": "密码", "description": "PyGBSentry登录密码", "secret": True},
+        ],
+    }
 
     def __init__(self):
         self._provider = None

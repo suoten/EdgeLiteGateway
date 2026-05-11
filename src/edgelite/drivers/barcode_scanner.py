@@ -30,6 +30,15 @@ class BarcodeScannerDriver(DriverPlugin):
     plugin_name = "barcode_scanner"
     plugin_version = "1.0.0"
     supported_protocols = ["barcode_scanner"]
+    config_schema = {
+        "description": "USB/串口扫码枪，自动解析条码数据",
+        "fields": [
+            {"name": "port", "type": "string", "label": "串口设备", "description": "扫码枪连接的串口，如 COM1 或 /dev/ttyUSB0", "default": "COM1", "required": True},
+            {"name": "baudrate", "type": "integer", "label": "波特率", "description": "扫码枪串口波特率", "default": 9600},
+            {"name": "prefix", "type": "string", "label": "条码前缀", "description": "条码数据前缀标识，用于过滤特定条码"},
+            {"name": "suffix", "type": "string", "label": "条码后缀", "description": "条码结束符，通常为回车符 \\r", "default": "\\r"},
+        ],
+    }
 
     def __init__(self):
         self._running = False

@@ -49,6 +49,15 @@ class Dlt645Driver(DriverPlugin):
     plugin_name = "dlt645"
     plugin_version = "1.0.0"
     supported_protocols = ["dlt645", "dlt645_2007"]
+    config_schema = {
+        "description": "DL/T 645-2007 多功能电能表通信协议，通过RS485串口采集电表数据",
+        "fields": [
+            {"name": "port", "type": "string", "label": "串口设备", "description": "RS485串口设备路径", "default": "COM1", "required": True},
+            {"name": "baud_rate", "type": "integer", "label": "波特率", "description": "电表通信波特率，默认2400", "default": 2400},
+            {"name": "parity", "type": "string", "label": "校验位", "description": "E=偶校验（默认）", "default": "E", "options": ["E", "N", "O"]},
+            {"name": "timeout", "type": "number", "label": "超时(秒)", "description": "通信超时时间", "default": 5.0},
+        ],
+    }
 
     def __init__(self):
         self._running = False

@@ -1,7 +1,8 @@
-"""MCP (Model Context Protocol) 服务端API路由
+"""MCP (Model Context Protocol) 服务
 
 提供AI助手与EdgeLite网关交互的标准协议接口。
-包含工具调用、资源访问、提示模板等核心能力。
+包含工具调用、资源访问、提示模板、SSE推送和密钥管理等核心能力。
+业务逻辑从API层解耦到此处。
 """
 
 from __future__ import annotations
@@ -10,37 +11,17 @@ import contextlib
 import hmac
 import json
 import logging
-from datetime import UTC
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
-from edgelite.api.deps import (
-    AlarmServiceDep,
-    CurrentUser,
-    DeviceServiceDep,
-    EventBusDep,
-    RuleServiceDep,
-    SystemServiceDep,
-    get_current_user,
-    require_permission,
-)
-from edgelite.models.common import ApiResponse
-from edgelite.security.rbac import Permission
-
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/mcp", tags=["MCP协议"])
 
+class MCPToolService:
+    """MCP工具调用服务"""
 
-class ToolCallRequest(BaseModel):
-    name: str
-    arguments: dict[str, Any] | None = None
-
-
-class MCPServer:
     def __init__(self):
         self._tools: dict[str, dict] = {}
         self._resources: dict[str, dict] = {}
@@ -148,6 +129,18 @@ class MCPServer:
             },
         }
 
+    @property
+    def tools(self) -> dict[str, dict]:
+        return self._tools
+
+    @property
+    def resources(self) -> dict[str, dict]:
+        return self._resources
+
+    @property
+    def prompts(self) -> dict[str, dict]:
+        return self._prompts
+
     async def call_tool(
         self,
         name: str,
@@ -158,6 +151,8 @@ class MCPServer:
         system_service=None,
         rule_service=None,
     ) -> Any:
+        from fastapi import HTTPException
+
         args = arguments or {}
         try:
             if name == "list_devices":
@@ -195,12 +190,7 @@ class MCPServer:
                 if not device_service:
                     raise HTTPException(status_code=503, detail="设备服务不可用")
                 await device_service.write_point(device_id, point_name, value)
-                return {
-                    "success": True,
-                    "device_id": device_id,
-                    "point_name": point_name,
-                    "value": value,
-                }
+                return {"success": True, "device_id": device_id, "point_name": point_name, "value": value}
 
             elif name == "list_alarms":
                 severity = args.get("severity")
@@ -212,8 +202,7 @@ class MCPServer:
             elif name == "get_system_status":
                 if not system_service:
                     raise HTTPException(status_code=503, detail="系统服务不可用")
-                status = await system_service.get_status()
-                return status
+                return await system_service.get_status()
 
             elif name == "list_rules":
                 if not rule_service:
@@ -230,89 +219,31 @@ class MCPServer:
             logger.error("MCP工具调用异常 %s: %s", name, e)
             raise HTTPException(status_code=500, detail=f"工具调用失败: {str(e)}") from e
 
+    def validate_tool_call(self, name: str, arguments: dict[str, Any] | None) -> list[str]:
+        from fastapi import HTTPException
 
-_mcp_server = MCPServer()
+        if name not in self._tools:
+            raise HTTPException(status_code=400, detail=f"未知工具: {name}")
 
-
-@router.get("/tools", response_model=ApiResponse)
-async def list_tools(_user=Depends(get_current_user)):
-    try:
-        return ApiResponse(data={"tools": list(_mcp_server._tools.values())})
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
-
-
-@router.post("/call", response_model=ApiResponse)
-async def call_tool(
-    req: ToolCallRequest,
-    device_service: DeviceServiceDep,
-    alarm_service: AlarmServiceDep,
-    system_service: SystemServiceDep,
-    rule_service: RuleServiceDep,
-    _user=Depends(get_current_user),
-):
-    if req.name not in _mcp_server._tools:
-        raise HTTPException(status_code=400, detail=f"未知工具: {req.name}")
-    try:
-        tool_def = _mcp_server._tools[req.name]
-        input_schema = (
-            tool_def.get("inputSchema")
-            if isinstance(tool_def, dict)
-            else getattr(tool_def, "input_schema", None)
-        )
+        tool_def = self._tools[name]
+        input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else None
+        errors = []
         if input_schema and isinstance(input_schema, dict):
             required = input_schema.get("required", [])
             properties = input_schema.get("properties", {})
-            if req.arguments is None:
-                req.arguments = {}
+            args = arguments or {}
             for field_name in required:
-                if field_name not in req.arguments:
-                    raise HTTPException(status_code=400, detail=f"缺少必填参数: {field_name}")
-            for key in req.arguments:
+                if field_name not in args:
+                    errors.append(f"缺少必填参数: {field_name}")
+            for key in args:
                 if key not in properties:
-                    raise HTTPException(status_code=400, detail=f"未知参数: {key}")
-        result = await _mcp_server.call_tool(
-            req.name,
-            req.arguments or {},
-            device_service=device_service,
-            alarm_service=alarm_service,
-            system_service=system_service,
-            rule_service=rule_service,
-        )
-        return ApiResponse(data=result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败") from e
-
-
-@router.get("/resources", response_model=ApiResponse)
-async def list_resources(_user=Depends(get_current_user)):
-    try:
-        return ApiResponse(data={"resources": list(_mcp_server._resources.values())})
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
-
-
-@router.get("/prompts", response_model=ApiResponse)
-async def list_prompts(_user=Depends(get_current_user)):
-    try:
-        return ApiResponse(data={"prompts": list(_mcp_server._prompts.values())})
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+                    errors.append(f"未知参数: {key}")
+        return errors
 
 
 class MCPAuthManager:
+    """MCP API密钥管理"""
+
     _STORE_FILE = Path("data/mcp_keys.json")
 
     def __init__(self):
@@ -336,27 +267,21 @@ class MCPAuthManager:
         try:
             self._STORE_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(self._STORE_FILE, "w", encoding="utf-8") as f:
-                json.dump(
-                    {"keys": self._keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2
-                )
+                json.dump({"keys": self._keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.warning("保存MCP密钥文件失败: %s", e)
 
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
     def list_keys(self) -> list[dict[str, Any]]:
         return [
-            {
-                "id": k,
-                "name": v["name"],
-                "scopes": v["scopes"],
-                "created_at": v.get("created_at", ""),
-            }
+            {"id": k, "name": v["name"], "scopes": v["scopes"], "created_at": v.get("created_at", "")}
             for k, v in self._keys.items()
         ]
 
     def create_key(self, name: str, scopes: list[str]) -> dict[str, Any]:
-        import uuid
-        from datetime import datetime
-
         key_id = str(uuid.uuid4())[:8]
         new_api_key = f"mcp_{uuid.uuid4().hex[:32]}"
         self._keys[key_id] = {
@@ -383,149 +308,3 @@ class MCPAuthManager:
             if stored_key and hmac.compare_digest(stored_key, api_key):
                 return {"id": key_id, "name": key_data["name"], "scopes": key_data["scopes"]}
         return None
-
-
-_mcp_auth = MCPAuthManager()
-
-
-@router.get("/auth-keys", response_model=ApiResponse)
-async def list_auth_keys(user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
-    try:
-        return ApiResponse(data={"keys": _mcp_auth.list_keys(), "enabled": _mcp_auth._enabled})
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
-
-
-class CreateKeyRequest(BaseModel):
-    name: str
-    scopes: list[str] = []
-
-
-@router.post("/auth-keys", response_model=ApiResponse)
-async def create_auth_key(
-    req: CreateKeyRequest, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)
-):
-    result = _mcp_auth.create_key(req.name, req.scopes)
-    try:
-        return ApiResponse(data=result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("创建失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建失败") from e
-
-
-@router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
-async def delete_auth_key(
-    key_id: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)
-):
-    if _mcp_auth.delete_key(key_id):
-        return ApiResponse(data={"deleted": True, "key_id": key_id})
-    try:
-        raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("删除失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除失败") from e
-
-
-@router.get("/sse")
-async def mcp_sse(
-    event_bus: EventBusDep,
-    token: str | None = None,
-    _user=Depends(get_current_user),
-):
-    """MCP SSE传输端点 - 供AI助手通过EventSource连接
-
-    支持两种认证方式：
-    1. Authorization Header (Bearer Token) - 标准方式
-    2. ?token=xxx URL参数 - 兼容浏览器EventSource
-    """
-    try:
-        import asyncio as _asyncio
-
-        from fastapi.responses import StreamingResponse as _StreamingResp
-
-        async def event_generator():
-            yield 'event: connected\ndata: {"server": "edgelite-mcp", "version": "1.0"}\n\n'
-            queue: _asyncio.Queue = _asyncio.Queue(maxsize=100)
-            _handler_types = []
-            try:
-                if event_bus:
-
-                    def _on_alarm_event(event):
-                        try:
-                            data = {
-                                "type": "alarm",
-                                "alarm_id": getattr(event, "alarm_id", ""),
-                                "device_id": getattr(event, "device_id", ""),
-                                "severity": getattr(event, "severity", ""),
-                                "action": getattr(event, "action", ""),
-                            }
-                            queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
-                        except _asyncio.QueueFull:
-                            pass
-
-                    def _on_device_event(event):
-                        try:
-                            data = {
-                                "type": "device",
-                                "device_id": getattr(event, "device_id", ""),
-                                "new_status": getattr(event, "new_status", ""),
-                            }
-                            queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
-                        except _asyncio.QueueFull:
-                            pass
-
-                    def _on_point_event(event):
-                        try:
-                            data = {
-                                "type": "realtime",
-                                "device_id": getattr(event, "device_id", ""),
-                                "point_name": getattr(event, "point_name", ""),
-                                "value": getattr(event, "value", ""),
-                            }
-                            queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
-                        except _asyncio.QueueFull:
-                            pass
-
-                    event_bus.register_handler("AlarmEvent", _on_alarm_event)
-                    _handler_types.append(("AlarmEvent", _on_alarm_event))
-                    event_bus.register_handler("DeviceStatusEvent", _on_device_event)
-                    _handler_types.append(("DeviceStatusEvent", _on_device_event))
-                    event_bus.register_handler("PointUpdateEvent", _on_point_event)
-                    _handler_types.append(("PointUpdateEvent", _on_point_event))
-                while True:
-                    try:
-                        message = await _asyncio.wait_for(queue.get(), timeout=30)
-                        yield f"event: message\ndata: {message}\n\n"
-                    except TimeoutError:
-                        import time as _time
-
-                        yield f'event: ping\ndata: {{"timestamp": {_time.time()}}}\n\n'
-            except _asyncio.CancelledError:
-                pass
-            finally:
-                if event_bus:
-                    for event_type, handler in _handler_types:
-                        with contextlib.suppress(Exception):
-                            event_bus.unregister_handler(event_type, handler)
-
-        return _StreamingResp(
-            event_generator(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            },
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("SSE连接失败: %s", e)
-        raise HTTPException(status_code=500, detail="SSE连接失败") from e

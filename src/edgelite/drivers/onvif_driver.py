@@ -25,6 +25,15 @@ class OnvifDriver(DriverPlugin):
     plugin_name = "onvif"
     plugin_version = "1.0.0"
     supported_protocols = ["onvif"]
+    config_schema = {
+        "description": "ONVIF视频设备协议，支持设备发现/RTSP流/PTZ云台控制",
+        "fields": [
+            {"name": "ip", "type": "string", "label": "IP地址", "description": "ONVIF设备IP地址", "default": "", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "ONVIF服务端口，默认80", "default": 80},
+            {"name": "username", "type": "string", "label": "用户名", "description": "设备认证用户名", "default": "admin"},
+            {"name": "password", "type": "string", "label": "密码", "description": "设备认证密码", "secret": True},
+        ],
+    }
 
     def __init__(self):
         self._running = False

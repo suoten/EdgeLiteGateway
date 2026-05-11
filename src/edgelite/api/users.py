@@ -18,12 +18,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/users", tags=["用户管理"])
 
 
-def _get_db():
-    from edgelite.app import _app_state
-
-    return _app_state.database
-
-
 @router.get("", response_model=PagedResponse[UserResponse])
 async def list_users(
     user: CurrentUser = require_permission(Permission.USER_READ),
@@ -31,7 +25,7 @@ async def list_users(
     size: int = Query(20, ge=1, le=1000),
 ):
     try:
-        db = _get_db()
+        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             users, total = await repo.list_all(page, size)
@@ -48,7 +42,7 @@ async def create_user(
     body: UserCreate, user: CurrentUser = require_permission(Permission.USER_CREATE)
 ):
     try:
-        db = _get_db()
+        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             existing = await repo.get_by_username(body.username)
@@ -70,7 +64,7 @@ async def update_user(
     user_id: str, body: UserUpdate, user: CurrentUser = require_permission(Permission.USER_UPDATE)
 ):
     try:
-        db = _get_db()
+        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             data = body.model_dump(exclude_none=True)
@@ -98,7 +92,7 @@ async def delete_user(user_id: str, user: CurrentUser = require_permission(Permi
     try:
         if user_id == user.get("user_id"):
             raise HTTPException(status_code=400, detail="不能删除自己")
-        db = _get_db()
+        db = svc
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             target = await repo.get(user_id)

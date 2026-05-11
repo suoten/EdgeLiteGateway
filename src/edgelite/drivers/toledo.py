@@ -30,6 +30,14 @@ class ToledoDriver(DriverPlugin):
     plugin_name = "toledo"
     plugin_version = "1.0.0"
     supported_protocols = ["toledo"]
+    config_schema = {
+        "description": "托利多称重仪表协议，支持TCP/Serial/MT-SICS通信",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "称重仪表IP地址（TCP模式）", "default": "192.168.1.1"},
+            {"name": "port", "type": "integer", "label": "端口", "description": "TCP端口，默认1701", "default": 1701},
+            {"name": "mode", "type": "string", "label": "通信模式", "description": "TCP或Serial", "default": "tcp", "options": ["tcp", "serial"]},
+        ],
+    }
 
     def __init__(self):
         self._running = False

@@ -64,6 +64,17 @@ class SerialPortDriver(DriverPlugin):
     plugin_name = "serial_port"
     plugin_version = "1.0.0"
     supported_protocols = ["serial", "serial_modbus_rtu", "serial_raw"]
+    config_schema = {
+        "description": "串口通信（RS232/RS485），支持Modbus RTU等协议",
+        "fields": [
+            {"name": "port", "type": "string", "label": "串口设备", "description": "串口设备路径，Windows如 COM1/COM2，Linux如 /dev/ttyUSB0", "default": "COM1", "required": True},
+            {"name": "baudrate", "type": "integer", "label": "波特率", "description": "串口通信速率，需与设备一致", "default": 9600, "options": [9600, 19200, 38400, 57600, 115200]},
+            {"name": "bytesize", "type": "integer", "label": "数据位", "description": "每个字节的数据位数", "default": 8, "options": [5, 6, 7, 8]},
+            {"name": "parity", "type": "string", "label": "校验位", "description": "N=无校验，E=偶校验，O=奇校验", "default": "N", "options": ["N", "E", "O"]},
+            {"name": "stopbits", "type": "number", "label": "停止位", "description": "停止位数量", "default": 1, "options": [1, 1.5, 2]},
+            {"name": "protocol", "type": "string", "label": "上层协议", "description": "raw=原始数据透传，modbus_rtu=Modbus RTU协议", "default": "raw", "options": ["raw", "modbus_rtu"]},
+        ],
+    }
 
     def __init__(self):
         self._running = False

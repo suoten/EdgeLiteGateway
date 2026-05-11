@@ -24,6 +24,15 @@ class OmronFinsDriver(DriverPlugin):
     plugin_name = "omron_fins"
     plugin_version = "1.0.0"
     supported_protocols = ["fins"]
+    config_schema = {
+        "description": "欧姆龙FINS协议，支持CJ/CP/NJ系列PLC",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "FINS UDP端口，默认9600", "default": 9600},
+            {"name": "source_node", "type": "integer", "label": "源节点号", "description": "本机FINS节点号", "default": 0},
+            {"name": "dest_node", "type": "integer", "label": "目标节点号", "description": "PLC的FINS节点号", "default": 1},
+        ],
+    }
 
     def __init__(self):
         self._running = False

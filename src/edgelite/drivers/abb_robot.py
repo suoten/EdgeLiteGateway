@@ -28,6 +28,13 @@ class AbbRobotDriver(DriverPlugin):
     plugin_name = "abb_robot"
     plugin_version = "1.0.0"
     supported_protocols = ["abb_rws"]
+    config_schema = {
+        "description": "ABB机器人Robot Web Services协议，通过REST API读写机器人数据",
+        "fields": [
+            {"name": "ip", "type": "string", "label": "IP地址", "description": "ABB控制器IP地址", "default": "192.168.1.100", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "RWS端口，默认80", "default": 80},
+        ],
+    }
 
     def __init__(self):
         self._running = False

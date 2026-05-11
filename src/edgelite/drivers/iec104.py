@@ -82,6 +82,15 @@ class Iec104Driver(DriverPlugin):
     plugin_name = "iec104"
     plugin_version = "1.0.0"
     supported_protocols = ["iec104"]
+    config_schema = {
+        "description": "IEC 60870-5-104 电力远动规约，用于与电力SCADA系统通信",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "SCADA或保护装置IP地址", "default": "127.0.0.1", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "IEC 104默认端口2404", "default": 2404},
+            {"name": "asdu_addr", "type": "integer", "label": "ASDU地址", "description": "ASDU公共地址", "default": 1},
+            {"name": "heartbeat_interval", "type": "number", "label": "心跳间隔(秒)", "description": "T3超时时间，心跳发送间隔", "default": 30.0},
+        ],
+    }
 
     def __init__(self):
         self._running = False

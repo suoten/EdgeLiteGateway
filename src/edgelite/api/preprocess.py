@@ -42,13 +42,7 @@ class PreprocessConfigResponse(BaseModel):
     point_configs: dict[str, dict] = {}
 
 
-def _get_preprocessor():
-    from edgelite.app import _app_state
-
-    return getattr(_app_state, "preprocessor", None)
-
-
-def _get_config():
+def svc:
     from edgelite.config import get_config
 
     return get_config()
@@ -58,8 +52,8 @@ def _get_config():
 async def get_preprocess_config(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    config = _get_config()
-    preprocessor = _get_preprocessor()
+    config = svc
+    preprocessor = svc
 
     point_configs = {}
     if preprocessor:
@@ -91,12 +85,12 @@ async def update_preprocess_config(
     req: PreprocessUpdateRequest,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    preprocessor = _get_preprocessor()
+    preprocessor = svc
     if not preprocessor:
         raise HTTPException(status_code=503, detail="预处理器未初始化")
 
     if req.global_config:
-        config = _get_config()
+        config = svc
         if hasattr(config, "preprocess") and config.preprocess:
             if req.global_config.enabled is not None:
                 config.preprocess.enabled = req.global_config.enabled

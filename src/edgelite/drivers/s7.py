@@ -24,6 +24,14 @@ class S7Driver(DriverPlugin):
     plugin_name = "siemens_s7"
     plugin_version = "1.0.0"
     supported_protocols = ["s7"]
+    config_schema = {
+        "description": "西门子S7系列PLC通信协议（S7-200/300/400/1200/1500）",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
+            {"name": "rack", "type": "integer", "label": "机架号", "description": "硬件机架号，通常为0", "default": 0},
+            {"name": "slot", "type": "integer", "label": "槽号", "description": "CPU插槽号，S7-300通常为2，S7-1200/1500通常为0或1", "default": 1},
+        ],
+    }
 
     def __init__(self):
         self._running = False

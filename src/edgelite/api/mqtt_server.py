@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, MqttServerDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -24,21 +24,9 @@ class MqttServerConfigModel(BaseModel):
     password: str = ""
 
 
-def _get_mqtt_server():
-    try:
-        from edgelite.app import _app_state
-
-        return getattr(_app_state, "mqtt_server", None)
-    except (ImportError, AttributeError) as e:
-        logger.debug("MQTT Server服务未加载: %s", e)
-        return None
-    except Exception as e:
-        logger.warning("获取MQTT Server服务异常: %s", e)
-        return None
-
-
 @router.get("/status", response_model=ApiResponse)
 async def get_mqtt_server_status(
+    mqtt_server: MqttServerDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     from edgelite.services.service_manager import get_service_manager
@@ -47,7 +35,6 @@ async def get_mqtt_server_status(
         mgr = get_service_manager()
         info = mgr.get_service_info("mqtt_server")
 
-        mqtt_server = _get_mqtt_server()
         connections = 0
         if mqtt_server and hasattr(mqtt_server, "get_client_count"):
             try:

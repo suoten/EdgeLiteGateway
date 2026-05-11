@@ -53,6 +53,15 @@ class ModbusTcpDriver(DriverPlugin):
     plugin_name = "modbus_tcp"
     plugin_version = "0.1.0"
     supported_protocols = ["modbus_tcp"]
+    config_schema = {
+        "description": "Modbus TCP 工业标准协议，用于读写PLC/仪表的线圈和寄存器",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC或网关的IP地址，如 192.168.1.100", "default": "192.168.1.100", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "Modbus TCP服务端口号，默认502", "default": 502, "required": True},
+            {"name": "slave_id", "type": "integer", "label": "从站ID", "description": "设备从站地址（Unit ID），通常为1", "default": 1, "required": True},
+            {"name": "timeout", "type": "number", "label": "超时(秒)", "description": "连接和读取超时时间", "default": 3.0},
+        ],
+    }
 
     def __init__(self):
         self._running = False

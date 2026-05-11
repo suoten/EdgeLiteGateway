@@ -91,6 +91,15 @@ class SparkplugBDriver(DriverPlugin):
     plugin_name = "sparkplug_b"
     plugin_version = "0.1.0"
     supported_protocols = ["sparkplug_b"]
+    config_schema = {
+        "description": "MQTT Sparkplug B工业物联网协议，标准化设备数据发布/订阅",
+        "fields": [
+            {"name": "group_id", "type": "string", "label": "组ID", "description": "Sparkplug B逻辑组ID", "default": "group1", "required": True},
+            {"name": "edge_node_id", "type": "string", "label": "边缘节点ID", "description": "本网关在Sparkplug B中的节点ID", "default": "edgelite_node", "required": True},
+            {"name": "mqtt_broker", "type": "string", "label": "Broker地址", "description": "MQTT Broker地址", "default": "localhost", "required": True},
+            {"name": "mqtt_port", "type": "integer", "label": "端口", "description": "MQTT Broker端口", "default": 1883},
+        ],
+    }
 
     def __init__(self):
         self._running = False

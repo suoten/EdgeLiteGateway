@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import ConfigDep, CurrentUser, VideoServiceDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -41,18 +41,8 @@ class VideoWebhookEvent(BaseModel):
     model_config = {"extra": "allow"}
 
 
-def _get_video_service():
-    from edgelite.app import _app_state
-
-    return _app_state.video_service
-
-
-def _verify_webhook_key(x_api_key: str = Header(default="")) -> None:
+def _verify_webhook_key(config=Depends(ConfigDep), x_api_key: str = Header(default="")) -> None:
     import hmac
-
-    from edgelite.app import _app_state
-
-    config = _app_state.config
     if (
         config
         and getattr(config, "server", None)
@@ -67,10 +57,10 @@ def _verify_webhook_key(x_api_key: str = Header(default="")) -> None:
 @router.get("/{device_id}/stream", response_model=ApiResponse)
 async def get_stream_url(
     device_id: str,
+    svc: VideoServiceDep,
     channel_id: str = "1",
     user: CurrentUser = require_permission(Permission.VIDEO_READ),
 ):
-    svc = _get_video_service()
     try:
         url = await svc.get_stream_url(device_id, channel_id)
         if not url:
@@ -87,10 +77,10 @@ async def get_stream_url(
 async def ptz_control(
     device_id: str,
     action: _PTZ_ACTIONS,
+    svc: VideoServiceDep,
     channel_id: str = "1",
     user: CurrentUser = require_permission(Permission.VIDEO_CONTROL),
 ):
-    svc = _get_video_service()
     try:
         success = await svc.ptz_control(device_id, channel_id, action)
         if not success:
@@ -104,10 +94,12 @@ async def ptz_control(
 
 
 @router.post("/webhook", response_model=ApiResponse)
-async def video_webhook(event: VideoWebhookEvent, auth: None = Depends(_verify_webhook_key)):
-    """接收PyGBSentry Webhook回调"""
+async def video_webhook(
+    event: VideoWebhookEvent,
+    svc: VideoServiceDep,
+    auth: None = Depends(_verify_webhook_key),
+):
     try:
-        svc = _get_video_service()
         await svc.handle_webhook(event.model_dump())
         return ApiResponse()
     except HTTPException:

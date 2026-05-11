@@ -21,6 +21,16 @@ class MqttClientDriver(DriverPlugin):
     plugin_name = "mqtt_client"
     plugin_version = "0.1.0"
     supported_protocols = ["mqtt"]
+    config_schema = {
+        "description": "MQTT客户端，订阅设备数据主题，支持JSON解析",
+        "fields": [
+            {"name": "broker", "type": "string", "label": "Broker地址", "description": "MQTT服务器地址，如 localhost 或 broker.emqx.io", "default": "localhost", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "MQTT服务端口，默认1883（非加密）或8883（TLS）", "default": 1883},
+            {"name": "username", "type": "string", "label": "用户名", "description": "MQTT认证用户名，无认证可留空"},
+            {"name": "password", "type": "string", "label": "密码", "description": "MQTT认证密码", "secret": True},
+            {"name": "topic", "type": "string", "label": "订阅主题", "description": "要订阅的MQTT主题，支持通配符如 device/+/data", "required": True},
+        ],
+    }
 
     def __init__(self):
         self._running = False

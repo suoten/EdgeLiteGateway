@@ -19,6 +19,15 @@ class OpcUaDriver(DriverPlugin):
     plugin_name = "opcua"
     plugin_version = "0.1.0"
     supported_protocols = ["opcua"]
+    config_schema = {
+        "description": "OPC UA 工业互联协议，支持加密认证和节点浏览",
+        "fields": [
+            {"name": "endpoint", "type": "string", "label": "OPC UA端点", "description": "OPC UA服务器端点URL", "default": "opc.tcp://localhost:4840", "required": True},
+            {"name": "username", "type": "string", "label": "用户名", "description": "匿名登录可留空"},
+            {"name": "password", "type": "string", "label": "密码", "description": "用户密码，匿名登录可留空", "secret": True},
+            {"name": "security_mode", "type": "string", "label": "安全模式", "description": "通信加密方式，None为明文，SignAndEncrypt为最高安全", "default": "None", "options": ["None", "Sign", "SignAndEncrypt"]},
+        ],
+    }
 
     def __init__(self):
         self._running = False

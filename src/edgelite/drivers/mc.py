@@ -23,6 +23,14 @@ class McDriver(DriverPlugin):
     plugin_name = "mitsubishi_mc"
     plugin_version = "1.0.0"
     supported_protocols = ["mc"]
+    config_schema = {
+        "description": "三菱MC协议（MELSEC Communication），支持Q/L/FX系列PLC",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "MC协议端口，默认5007", "default": 5007},
+            {"name": "plc_type", "type": "string", "label": "PLC型号", "description": "Q系列=Q，L系列=L，FX系列=iQ-R", "default": "Q", "options": ["Q", "L", "iQ-R"]},
+        ],
+    }
 
     def __init__(self):
         self._running = False

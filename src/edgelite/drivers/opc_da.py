@@ -28,6 +28,13 @@ class OpcDaDriver(DriverPlugin):
     plugin_name = "opc_da"
     plugin_version = "1.0.0"
     supported_protocols = ["opc_da"]
+    config_schema = {
+        "description": "OPC DA经典协议（Windows COM），读取传统OPC服务器数据",
+        "fields": [
+            {"name": "prog_id", "type": "string", "label": "ProgID", "description": "OPC DA服务器的ProgID，如 Matrikon.OPC.Simulation", "required": True},
+            {"name": "host", "type": "string", "label": "主机", "description": "OPC服务器所在主机，本机留空", "default": ""},
+        ],
+    }
 
     def __init__(self):
         self._running = False

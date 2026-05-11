@@ -10,7 +10,7 @@ from collections import defaultdict
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from jose import JWTError
 
-from edgelite.api.deps import CurrentUser, get_current_user
+from edgelite.api.deps import CurrentUser, DatabaseDep, get_current_user
 from edgelite.models.common import ApiResponse
 from edgelite.models.user import LoginRequest, TokenResponse, UserInfoResponse
 from edgelite.security.jwt import create_access_token, create_refresh_token, verify_token
@@ -30,7 +30,6 @@ def _check_login_rate(ip: str) -> None:
     now = time.time()
     attempts = _login_attempts[ip]
     _login_attempts[ip] = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
-    # 容量限制：超过10000个IP条目时清理最旧的
     if len(_login_attempts) > 10000:
         oldest_ips = sorted(
             _login_attempts.keys(),
@@ -47,12 +46,6 @@ def _check_login_rate(ip: str) -> None:
 
 def _record_login_attempt(ip: str) -> None:
     _login_attempts[ip].append(time.time())
-
-
-def _get_user_repo():
-    from edgelite.app import _app_state
-
-    return _app_state.database, _app_state.database.write_lock
 
 
 def _get_client_ip(request: Request) -> str:
@@ -75,15 +68,13 @@ def _get_client_ip(request: Request) -> str:
 
 
 @router.post("/login", response_model=ApiResponse[TokenResponse])
-async def login(req: LoginRequest, request: Request):
-    """用户登录"""
+async def login(req: LoginRequest, request: Request, db: DatabaseDep):
     try:
         client_ip = _get_client_ip(request)
         _check_login_rate(client_ip)
 
-        db, write_lock = _get_user_repo()
         async with db.get_session() as session:
-            repo = UserRepo(session, write_lock)
+            repo = UserRepo(session, db.write_lock)
             user = await repo.get_by_username_with_password(req.username)
 
         if user is None or not verify_password(req.password, user["password"]):
@@ -119,8 +110,7 @@ async def login(req: LoginRequest, request: Request):
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
-async def refresh_token(refresh: str = Body(..., embed=True)):
-    """刷新Access Token"""
+async def refresh_token(refresh: str = Body(..., embed=True), db: DatabaseDep = Depends()):
     try:
         payload = verify_token(refresh, token_type="refresh")
     except (JWTError, ValueError):
@@ -128,9 +118,8 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效"
         ) from None
 
-    db, write_lock = _get_user_repo()
     async with db.get_session() as session:
-        repo = UserRepo(session, write_lock)
+        repo = UserRepo(session, db.write_lock)
         user = await repo.get_by_username(payload.get("username", ""))
     if user is None or not user["enabled"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
@@ -158,13 +147,10 @@ async def refresh_token(refresh: str = Body(..., embed=True)):
 
 
 @router.get("/me", response_model=ApiResponse[UserInfoResponse])
-async def get_current_user_info(user: CurrentUser):
-    from edgelite.app import _app_state
-
+async def get_current_user_info(user: CurrentUser, db: DatabaseDep):
     try:
         from edgelite.storage.sqlite_repo import UserRepo
 
-        db = _app_state.database
         must_change = False
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
@@ -191,11 +177,11 @@ async def change_password(
     old_password: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
     user: dict = Depends(get_current_user),
+    db: DatabaseDep = Depends(),
 ):
-    db, write_lock = _get_user_repo()
     try:
         async with db.get_session() as session:
-            repo = UserRepo(session, write_lock)
+            repo = UserRepo(session, db.write_lock)
             db_user = await repo.get_by_username_with_password(user["username"])
         if db_user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
@@ -224,7 +210,7 @@ async def change_password(
 
         hashed = hash_password(new_password)
         async with db.get_session() as session:
-            repo = UserRepo(session, write_lock)
+            repo = UserRepo(session, db.write_lock)
             await repo.update_password(user["username"], hashed)
             await repo.update_user(user["username"], {"must_change_password": False})
         return ApiResponse(data={"message": "密码修改成功"})
@@ -237,7 +223,6 @@ async def change_password(
 
 @router.post("/logout", response_model=ApiResponse)
 async def logout(request: Request, user: CurrentUser = None):
-    """用户登出，撤销Token"""
     try:
         from edgelite.security.jwt import decode_token
         from edgelite.security.token_revocation import revoke_token

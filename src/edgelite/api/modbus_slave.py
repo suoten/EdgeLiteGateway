@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, ModbusSlaveDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -25,21 +25,9 @@ class ModbusSlaveConfigModel(BaseModel):
     discrete_size: int = Field(default=1000, ge=1)
 
 
-def _get_modbus_slave():
-    try:
-        from edgelite.app import _app_state
-
-        return getattr(_app_state, "modbus_slave", None)
-    except (ImportError, AttributeError) as e:
-        logger.debug("Modbus Slave服务未加载: %s", e)
-        return None
-    except Exception as e:
-        logger.warning("获取Modbus Slave服务异常: %s", e)
-        return None
-
-
 @router.get("/status", response_model=ApiResponse)
 async def get_modbus_slave_status(
+    _slave: ModbusSlaveDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     from edgelite.services.service_manager import get_service_manager

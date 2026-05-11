@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import AuditServiceDep, CurrentUser, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -16,14 +16,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/audit", tags=["审计日志"])
 
 
-def _get_audit_service():
-    from edgelite.app import _app_state
-
-    return getattr(_app_state, "audit_service", None)
-
-
 @router.get("/logs", response_model=ApiResponse)
 async def query_audit_logs(
+    svc: AuditServiceDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=1000),
@@ -33,7 +28,6 @@ async def query_audit_logs(
     start_time: str | None = None,
     end_time: str | None = None,
 ):
-    svc = _get_audit_service()
     if not svc:
         raise HTTPException(status_code=501, detail="审计日志服务未启用")
 
@@ -69,9 +63,9 @@ async def query_audit_logs(
 
 @router.get("/integrity", response_model=ApiResponse)
 async def verify_integrity(
+    svc: AuditServiceDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    svc = _get_audit_service()
     try:
         if not svc:
             raise HTTPException(status_code=501, detail="审计日志服务未启用")
@@ -87,11 +81,11 @@ async def verify_integrity(
 
 @router.get("/export/csv", response_model=ApiResponse)
 async def export_audit_csv(
+    svc: AuditServiceDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
     start_time: str | None = None,
     end_time: str | None = None,
 ):
-    svc = _get_audit_service()
     if not svc:
         raise HTTPException(status_code=501, detail="审计日志服务未启用")
 
@@ -110,10 +104,10 @@ async def export_audit_csv(
 
 @router.post("/cleanup", response_model=ApiResponse)
 async def cleanup_audit_logs(
+    svc: AuditServiceDep,
     retention_days: int = Query(90, ge=1),
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    svc = _get_audit_service()
     try:
         if not svc:
             raise HTTPException(status_code=501, detail="审计日志服务未启用")

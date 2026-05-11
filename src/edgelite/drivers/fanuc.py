@@ -28,6 +28,14 @@ class FanucCncDriver(DriverPlugin):
     plugin_name = "fanuc_cnc"
     plugin_version = "1.0.0"
     supported_protocols = ["fanuc", "focas"]
+    config_schema = {
+        "description": "FANUC CNC数控系统FOCAS协议，支持读取机床状态和坐标",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "CNC控制器IP地址", "default": "192.168.1.1", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "FOCAS端口，默认8193", "default": 8193},
+            {"name": "timeout", "type": "integer", "label": "超时(秒)", "description": "连接超时时间", "default": 5},
+        ],
+    }
 
     def __init__(self):
         self._running = False

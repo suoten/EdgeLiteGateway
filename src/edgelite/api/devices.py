@@ -6,7 +6,12 @@ import logging
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import (
+    ConfigDep,
+    CurrentUser,
+    DeviceServiceDep,
+    require_permission,
+)
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.device import (
     DeviceCreate,
@@ -23,14 +28,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/devices", tags=["设备管理"])
 
 
-def _get_device_service():
-    from edgelite.app import _app_state
-
-    return _app_state.device_service
-
-
 @router.get("", response_model=PagedResponse[DeviceResponse])
 async def list_devices(
+    svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_READ),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=1000),
@@ -39,7 +39,6 @@ async def list_devices(
     search: str | None = None,
 ):
     try:
-        svc = _get_device_service()
         devices, total = await svc.list_devices(page, size, status, protocol, search)
         return PagedResponse(data=devices, total=total, page=page, size=size)
     except HTTPException:
@@ -52,10 +51,10 @@ async def list_devices(
 @router.post("", response_model=ApiResponse[DeviceResponse], status_code=201)
 async def create_device(
     body: DeviceCreate,
+    svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_CREATE),
 ):
     try:
-        svc = _get_device_service()
         device = await svc.create_device(body.model_dump())
         return ApiResponse(data=device)
     except HTTPException:
@@ -67,10 +66,11 @@ async def create_device(
 
 @router.get("/{device_id}", response_model=ApiResponse[DeviceResponse])
 async def get_device(
-    device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_READ)
+    device_id: str,
+    svc: DeviceServiceDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_READ),
 ):
     try:
-        svc = _get_device_service()
         device = await svc.get_device(device_id)
         if device is None:
             raise HTTPException(status_code=404, detail="设备不存在")
@@ -86,10 +86,10 @@ async def get_device(
 async def update_device(
     device_id: str,
     body: DeviceUpdate,
+    svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_UPDATE),
 ):
     try:
-        svc = _get_device_service()
         data = body.model_dump(exclude_none=True)
         device = await svc.update_device(device_id, data)
         if device is None:
@@ -104,10 +104,11 @@ async def update_device(
 
 @router.delete("/{device_id}", response_model=ApiResponse)
 async def delete_device(
-    device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_DELETE)
+    device_id: str,
+    svc: DeviceServiceDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_DELETE),
 ):
     try:
-        svc = _get_device_service()
         success, error = await svc.delete_device(device_id)
         if not success:
             raise HTTPException(status_code=409, detail=error or "删除失败")
@@ -121,10 +122,11 @@ async def delete_device(
 
 @router.get("/{device_id}/points", response_model=ApiResponse)
 async def get_device_points(
-    device_id: str, user: CurrentUser = require_permission(Permission.DEVICE_READ)
+    device_id: str,
+    svc: DeviceServiceDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_READ),
 ):
     try:
-        svc = _get_device_service()
         values = await svc.read_points(device_id)
         return ApiResponse(data=values)
     except HTTPException:
@@ -138,10 +140,10 @@ async def get_device_points(
 async def write_device_point(
     device_id: str,
     body: WritePointRequest,
+    svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_WRITE_POINT),
 ):
     try:
-        svc = _get_device_service()
         success = await svc.write_point(device_id, body.point, body.value)
         if not success:
             raise HTTPException(status_code=400, detail="写入失败")
@@ -156,10 +158,10 @@ async def write_device_point(
 @router.post("/simulator", response_model=ApiResponse[DeviceResponse], status_code=201)
 async def create_simulator(
     body: SimulatorCreate,
+    svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_CREATE),
 ):
     try:
-        svc = _get_device_service()
         device = await svc.create_simulator(body.model_dump())
         return ApiResponse(data=device)
     except HTTPException:
@@ -172,10 +174,10 @@ async def create_simulator(
 @router.post("/discover", response_model=ApiResponse)
 async def discover_devices(
     body: DiscoverRequest,
+    svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_CREATE),
 ):
     try:
-        svc = _get_device_service()
         devices = await svc.discover_devices(body.protocol, body.config)
         return ApiResponse(data=devices)
     except HTTPException:
@@ -189,17 +191,15 @@ async def discover_devices(
 async def push_device_data(
     device_id: str,
     body: dict,
+    config: ConfigDep,
+    svc: DeviceServiceDep,
     x_api_key: str = Header(default=""),
     authorization: str = Header(default=""),
 ):
-    """HTTP Webhook数据推送端点"""
     if not device_id or not isinstance(device_id, str) or len(device_id) > 128:
         raise HTTPException(status_code=400, detail="无效的设备ID")
     if not isinstance(body, dict) or not body:
         raise HTTPException(status_code=400, detail="推送数据不能为空")
-    from edgelite.app import _app_state
-
-    config = _app_state.config
 
     if config and hasattr(config, "webhook_auth"):
         from edgelite.engine.webhook_auth import WebhookAuthMiddleware
@@ -227,8 +227,7 @@ async def push_device_data(
             raise HTTPException(status_code=401, detail="API Key not configured")
 
     try:
-        device_service = _app_state.device_service
-        driver = device_service._driver_instances.get(device_id) if device_service else None
+        driver = svc._driver_instances.get(device_id) if svc else None
         if driver and hasattr(driver, "receive_data"):
             await driver.receive_data(device_id, body)
             return ApiResponse()

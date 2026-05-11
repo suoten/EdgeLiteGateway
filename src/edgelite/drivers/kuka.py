@@ -32,6 +32,13 @@ class KukaDriver(DriverPlugin):
     plugin_name = "kuka"
     plugin_version = "1.0.0"
     supported_protocols = ["kuka_ekrl"]
+    config_schema = {
+        "description": "KUKA机器人Ethernet KRL XML协议，用于读写机器人变量",
+        "fields": [
+            {"name": "ip", "type": "string", "label": "IP地址", "description": "KUKA控制器IP地址", "default": "192.168.1.100", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "EKRL端口，默认54600", "default": 54600},
+        ],
+    }
 
     def __init__(self):
         self._running = False

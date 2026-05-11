@@ -24,6 +24,13 @@ class AllenBradleyDriver(DriverPlugin):
     plugin_name = "allen_bradley"
     plugin_version = "1.0.0"
     supported_protocols = ["ab", "ab_cip", "ab_pccc"]
+    config_schema = {
+        "description": "Allen-Bradley PLC协议（pylogix），支持ControlLogix/CompactLogix",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "AB PLC的IP地址", "default": "192.168.1.1", "required": True},
+            {"name": "slot", "type": "integer", "label": "槽号", "description": "CPU所在槽位，ControlLogix默认0，CompactLogix默认0", "default": 0},
+        ],
+    }
 
     def __init__(self):
         self._running = False

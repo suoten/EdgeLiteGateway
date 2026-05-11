@@ -8,26 +8,20 @@ import re
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, DataServiceDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 router = APIRouter(prefix="/api/v1/data", tags=["数据查询"])
 
 
-def _get_data_service():
-    from edgelite.app import _app_state
-
-    return _app_state.data_service
-
-
 def _safe_filename(name: str) -> str:
-    """清理文件名中的特殊字符，防止HTTP头注入"""
     return re.sub(r"[^\w\-.]", "_", name)
 
 
 @router.get("/query", response_model=ApiResponse)
 async def query_timeseries(
+    svc: DataServiceDep,
     device_id: str = Query(...),
     point_name: str = Query(...),
     start: str = Query(..., description="开始时间(RFC3339或相对时间如-1h)"),
@@ -42,7 +36,6 @@ async def query_timeseries(
             detail=f"不支持的聚合函数: {aggregate}，可选值: {', '.join(sorted(valid_aggregates))}",
         )
     try:
-        svc = _get_data_service()
         data = await svc.query_timeseries(device_id, point_name, start, stop, aggregate)
         return ApiResponse(data=data)
     except HTTPException:
@@ -55,6 +48,7 @@ async def query_timeseries(
 
 @router.get("/export")
 async def export_data(
+    svc: DataServiceDep,
     device_id: str = Query(...),
     point_name: str = Query(...),
     start: str = Query(...),
@@ -64,7 +58,6 @@ async def export_data(
 ):
     _fmt = _format
     try:
-        svc = _get_data_service()
         content = await svc.export_data(device_id, point_name, start, stop, _fmt)
     except HTTPException:
         raise

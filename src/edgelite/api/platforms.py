@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, PlatformHandlersDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -36,6 +37,7 @@ class PlatformListResponse(BaseModel):
 class PlatformConfigSchemaResponse(BaseModel):
     platform_name: str
     config_schema: dict
+
 
 _PLATFORM_REGISTRY: dict[str, dict] = {}
 
@@ -216,19 +218,13 @@ def _ensure_registry():
     )
 
 
-def _get_platform_handlers():
-    from edgelite.app import _app_state
-
-    return getattr(_app_state, "platform_handlers", {})
-
-
 @router.get("/list", response_model=ApiResponse[PlatformListResponse])
 async def list_platforms(
+    handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     _ensure_registry()
     try:
-        handlers = _get_platform_handlers()
         platforms = []
         for name, handler in handlers.items():
             platforms.append(
@@ -282,12 +278,10 @@ class PlatformConnectRequest(BaseModel):
 async def connect_platform(
     platform_name: str,
     req: PlatformConnectRequest,
+    handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     _ensure_registry()
-    import importlib
-
-    from edgelite.app import _app_state
 
     config = req.config
     if not config:
@@ -303,7 +297,6 @@ async def connect_platform(
     if missing:
         raise HTTPException(status_code=400, detail=f"缺少必填配置项: {', '.join(missing)}")
 
-    handlers = getattr(_app_state, "platform_handlers", {})
     if platform_name in handlers:
         return ApiResponse(data={"status": "already_connected"})
 
@@ -312,7 +305,7 @@ async def connect_platform(
         handler_cls = getattr(module, entry["class"])
         handler = handler_cls()
         await handler.connect(config)
-        _app_state.platform_handlers[platform_name] = handler
+        handlers[platform_name] = handler
         return ApiResponse(data={"status": "connected"})
     except Exception as e:
         raise HTTPException(status_code=500, detail="平台连接失败") from e
@@ -321,11 +314,9 @@ async def connect_platform(
 @router.post("/disconnect/{platform_name}", response_model=ApiResponse)
 async def disconnect_platform(
     platform_name: str,
+    handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    from edgelite.app import _app_state
-
-    handlers = getattr(_app_state, "platform_handlers", {})
     handler = handlers.get(platform_name)
     if not handler:
         raise HTTPException(status_code=404, detail=f"平台 {platform_name} 未连接")
@@ -341,9 +332,9 @@ async def disconnect_platform(
 @router.get("/status/{platform_name}", response_model=ApiResponse)
 async def get_platform_status(
     platform_name: str,
+    handlers: PlatformHandlersDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    handlers = _get_platform_handlers()
     try:
         handler = handlers.get(platform_name)
         if not handler:

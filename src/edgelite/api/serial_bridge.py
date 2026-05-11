@@ -8,7 +8,7 @@ import platform
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, SerialBridgeDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -42,21 +42,9 @@ class SerialBridgeStatusResponse(BaseModel):
     dependencies: list[DependencyInfo] = []
 
 
-def _get_serial_bridge():
-    try:
-        from edgelite.app import _app_state
-
-        return getattr(_app_state, "serial_bridge", None)
-    except (ImportError, AttributeError) as e:
-        logger.debug("串口透传服务未加载: %s", e)
-        return None
-    except Exception as e:
-        logger.warning("获取串口透传服务异常: %s", e)
-        return None
-
-
 @router.get("/status", response_model=ApiResponse[SerialBridgeStatusResponse])
 async def get_serial_bridge_status(
+    bridge: SerialBridgeDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     from edgelite.services.service_manager import get_service_manager
@@ -65,7 +53,6 @@ async def get_serial_bridge_status(
         mgr = get_service_manager()
         info = mgr.get_service_info("serial_bridge")
 
-        bridge = _get_serial_bridge()
         if bridge and hasattr(bridge, "get_status"):
             stats = bridge.get_status()
             return ApiResponse(
@@ -142,7 +129,6 @@ async def stop_serial_bridge(
         result = await mgr.stop_service("serial_bridge")
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
-
         return ApiResponse(data=result)
     except HTTPException:
         raise

@@ -7,7 +7,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, OtaManagerDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -18,24 +18,11 @@ router = APIRouter(prefix="/api/v1/ota", tags=["OTA升级"])
 _ota_lock = asyncio.Lock()
 
 
-def _get_ota_manager():
-    try:
-        from edgelite.app import _app_state
-
-        return getattr(_app_state, "ota_manager", None)
-    except (ImportError, AttributeError) as e:
-        logger.debug("OTA管理器未加载: %s", e)
-        return None
-    except Exception as e:
-        logger.warning("获取OTA管理器异常: %s", e)
-        return None
-
-
 @router.get("/check", response_model=ApiResponse)
 async def check_update(
+    mgr: OtaManagerDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    mgr = _get_ota_manager()
     if not mgr:
         raise HTTPException(status_code=503, detail="OTA升级服务未启用")
     try:
@@ -48,13 +35,13 @@ async def check_update(
 
 @router.post("/apply", response_model=ApiResponse)
 async def apply_update(
+    mgr: OtaManagerDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if _ota_lock.locked():
         raise HTTPException(status_code=409, detail="OTA升级正在进行中，请勿重复提交")
     try:
         async with _ota_lock:
-            mgr = _get_ota_manager()
             if not mgr:
                 raise HTTPException(status_code=503, detail="OTA升级服务未启用")
             try:
@@ -84,10 +71,10 @@ async def apply_update(
 
 @router.post("/rollback", response_model=ApiResponse)
 async def rollback_update(
+    mgr: OtaManagerDep,
     version: str = Query(default="", description="回滚目标版本号"),
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    mgr = _get_ota_manager()
     if not mgr:
         raise HTTPException(status_code=503, detail="OTA升级服务未启用")
     try:
@@ -100,9 +87,9 @@ async def rollback_update(
 
 @router.get("/backups", response_model=ApiResponse)
 async def list_ota_backups(
+    mgr: OtaManagerDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    mgr = _get_ota_manager()
     if not mgr:
         raise HTTPException(status_code=503, detail="OTA升级服务未启用")
     try:

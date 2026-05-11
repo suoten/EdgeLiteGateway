@@ -37,6 +37,18 @@ class DatabaseSourceDriver(DriverPlugin):
     plugin_name = "database_source"
     plugin_version = "1.0.0"
     supported_protocols = ["database", "mysql", "postgresql", "sqlite", "mssql"]
+    config_schema = {
+        "description": "数据库接入，通过SQL查询将数据库表字段映射为测点",
+        "fields": [
+            {"name": "db_type", "type": "string", "label": "数据库类型", "description": "目标数据库类型", "default": "mysql", "required": True, "options": ["mysql", "postgresql", "sqlite", "mssql"]},
+            {"name": "host", "type": "string", "label": "主机地址", "description": "数据库服务器IP或域名", "default": "localhost"},
+            {"name": "port", "type": "integer", "label": "端口", "description": "数据库服务端口，MySQL默认3306，PostgreSQL默认5432", "default": 3306},
+            {"name": "database", "type": "string", "label": "数据库名", "description": "要连接的数据库名称", "required": True},
+            {"name": "username", "type": "string", "label": "用户名", "description": "数据库登录用户名"},
+            {"name": "password", "type": "string", "label": "密码", "description": "数据库登录密码", "secret": True},
+            {"name": "pool_size", "type": "integer", "label": "连接池大小", "description": "数据库连接池最大连接数", "default": 5},
+        ],
+    }
 
     def __init__(self):
         self._running = False

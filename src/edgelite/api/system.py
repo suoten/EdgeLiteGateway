@@ -7,7 +7,7 @@ import re
 
 from fastapi import APIRouter, Body, HTTPException
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, SystemServiceDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.models.system import SystemStatusResponse
 from edgelite.security.rbac import Permission
@@ -17,16 +17,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/system", tags=["系统管理"])
 
 
-def _get_system_service():
-    from edgelite.app import _app_state
-
-    return _app_state.system_service
-
-
 @router.get("/status", response_model=ApiResponse[SystemStatusResponse])
-async def get_system_status(user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
+async def get_system_status(
+    svc: SystemServiceDep,
+    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+):
     try:
-        svc = _get_system_service()
         status_data = await svc.get_status()
         return ApiResponse(data=status_data)
     except Exception as e:
@@ -35,9 +31,11 @@ async def get_system_status(user: CurrentUser = require_permission(Permission.SY
 
 
 @router.get("/backup", response_model=ApiResponse)
-async def list_backups(user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
+async def list_backups(
+    svc: SystemServiceDep,
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
     try:
-        svc = _get_system_service()
         backups = await svc.list_backups()
         return ApiResponse(data=backups)
     except Exception as e:
@@ -46,9 +44,11 @@ async def list_backups(user: CurrentUser = require_permission(Permission.SYSTEM_
 
 
 @router.post("/backup", response_model=ApiResponse, status_code=201)
-async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
+async def create_backup(
+    svc: SystemServiceDep,
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
     try:
-        svc = _get_system_service()
         backup = await svc.create_backup()
         return ApiResponse(data=backup)
     except Exception as e:
@@ -58,13 +58,13 @@ async def create_backup(user: CurrentUser = require_permission(Permission.SYSTEM
 
 @router.post("/restore", response_model=ApiResponse)
 async def restore_backup(
+    svc: SystemServiceDep,
     backup_id: str = Body(..., embed=True),
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if not re.match(r"^[a-zA-Z0-9_-]+$", backup_id):
         raise HTTPException(status_code=400, detail="无效的备份ID")
     try:
-        svc = _get_system_service()
         success = await svc.restore_backup(backup_id)
         if not success:
             raise HTTPException(status_code=404, detail="备份不存在")

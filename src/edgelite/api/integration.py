@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, IntegrationEndpointDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -24,20 +24,12 @@ class HandshakeRequest(BaseModel):
     model_config = {"extra": "allow"}
 
 
-def _get_integration_endpoint():
-    from edgelite.app import _app_state
-
-    if not hasattr(_app_state, "integration_endpoint") or not _app_state.integration_endpoint:
-        raise HTTPException(status_code=503, detail="Integration not available")
-    return _app_state.integration_endpoint
-
-
 @router.post("/handshake", response_model=ApiResponse)
 async def handshake(
     req: HandshakeRequest,
+    endpoint: IntegrationEndpointDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
-    endpoint = _get_integration_endpoint()
     try:
         response = await endpoint.handle_handshake(req.model_dump())
         return ApiResponse(data=response)
@@ -50,9 +42,9 @@ async def handshake(
 
 @router.get("/status", response_model=ApiResponse)
 async def get_integration_status(
+    endpoint: IntegrationEndpointDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    endpoint = _get_integration_endpoint()
     try:
         sessions = getattr(endpoint, "_sessions", {})
         session_ids = list(sessions.keys())

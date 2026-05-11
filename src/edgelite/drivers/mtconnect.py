@@ -40,6 +40,13 @@ class MTConnectDriver(DriverPlugin):
     plugin_name = "mtconnect"
     plugin_version = "1.0.0"
     supported_protocols = ["mtconnect"]
+    config_schema = {
+        "description": "MTConnect数控设备标准协议，通过HTTP获取CNC运行数据",
+        "fields": [
+            {"name": "host", "type": "string", "label": "IP地址", "description": "MTConnect代理地址", "default": "127.0.0.1", "required": True},
+            {"name": "port", "type": "integer", "label": "端口", "description": "HTTP端口，默认5000", "default": 5000},
+        ],
+    }
 
     def __init__(self):
         self._running = False
