@@ -1,6 +1,6 @@
 FROM node:18-alpine AS frontend-builder
 
-WORKDIR /web
+WORKDIR /build
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --registry https://registry.npmmirror.com
 COPY web/ ./
@@ -21,7 +21,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY --from=builder /install /usr/local
-COPY --from=frontend-builder /web/dist /app/frontend/dist
+COPY --from=frontend-builder /build/dist /app/frontend/dist
 COPY configs/ configs/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini

@@ -60,6 +60,7 @@ class AuditService:
         self._last_hash = ""
         self._login_fail_counts: dict[str, int] = {}
         self._login_fail_threshold = 5
+        self._login_fail_max_keys = 10000
         self._on_audit_alert: Any = None
 
     def set_alert_callback(self, callback: Any) -> None:
@@ -254,6 +255,13 @@ class AuditService:
     async def _check_login_anomaly(self, ip_address: str, username: str | None) -> None:
         key = f"{ip_address}:{username or 'unknown'}"
         self._login_fail_counts[key] = self._login_fail_counts.get(key, 0) + 1
+        if len(self._login_fail_counts) > self._login_fail_max_keys:
+            sorted_keys = sorted(
+                self._login_fail_counts.keys(),
+                key=lambda k: self._login_fail_counts[k],
+            )
+            for k in sorted_keys[: len(self._login_fail_counts) - self._login_fail_max_keys // 2]:
+                del self._login_fail_counts[k]
         if self._login_fail_counts[key] >= self._login_fail_threshold:
             if self._on_audit_alert:
                 try:

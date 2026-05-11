@@ -38,6 +38,7 @@ class RuleEvaluator:
         self._task: asyncio.Task | None = None
         self._point_value_cache: dict[str, tuple[float, float]] = {}
         self._point_cache_ttl: float = 300.0
+        self._point_cache_max_size: int = 10000
 
     async def start(self) -> None:
         """启动评估器"""
@@ -119,7 +120,6 @@ class RuleEvaluator:
         conditions = rule["conditions"]
         logic = rule["logic"]
         duration = rule["duration"]
-        rule["severity"]
         rule_type = rule.get("rule_type", "threshold")
         script = rule.get("script", "")
 
@@ -128,6 +128,20 @@ class RuleEvaluator:
         point_values = {event.point_name: event.value}
         cache_key = f"{event.device_id}:{event.point_name}"
         self._point_value_cache[cache_key] = (event.value, now)
+        if len(self._point_value_cache) > self._point_cache_max_size:
+            expired_keys = [
+                k for k, (_, t) in self._point_value_cache.items()
+                if (now - t) > self._point_cache_ttl
+            ]
+            for k in expired_keys:
+                del self._point_value_cache[k]
+            if len(self._point_value_cache) > self._point_cache_max_size:
+                oldest_keys = sorted(
+                    self._point_value_cache.keys(),
+                    key=lambda k: self._point_value_cache[k][1],
+                )
+                for k in oldest_keys[: len(self._point_value_cache) - self._point_cache_max_size // 2]:
+                    del self._point_value_cache[k]
 
         for cond in conditions:
             cond_point = cond["point"]

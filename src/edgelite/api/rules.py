@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import CurrentUser, RuleServiceDep, require_permission
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.rule import RuleCreate, RuleResponse, RuleTestRequest, RuleUpdate
 from edgelite.security.rbac import Permission
@@ -16,14 +16,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/rules", tags=["规则管理"])
 
 
-def _get_rule_service():
-    from edgelite.app import _app_state
-
-    return _app_state.rule_service
-
-
 @router.get("", response_model=PagedResponse[RuleResponse])
 async def list_rules(
+    svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_READ),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=1000),
@@ -32,7 +27,6 @@ async def list_rules(
     severity: str | None = None,
 ):
     try:
-        svc = _get_rule_service()
         rules, total = await svc.list_rules(page, size, device_id, search, severity)
         return PagedResponse(data=rules, total=total, page=page, size=size)
     except HTTPException:
@@ -44,9 +38,10 @@ async def list_rules(
 
 @router.post("", response_model=ApiResponse[RuleResponse], status_code=201)
 async def create_rule(
-    body: RuleCreate, user: CurrentUser = require_permission(Permission.RULE_CREATE)
+    body: RuleCreate,
+    svc: RuleServiceDep,
+    user: CurrentUser = require_permission(Permission.RULE_CREATE),
 ):
-    svc = _get_rule_service()
     try:
         rule = await svc.create_rule(body.model_dump())
     except ValueError as e:
@@ -58,9 +53,12 @@ async def create_rule(
 
 
 @router.get("/{rule_id}", response_model=ApiResponse[RuleResponse])
-async def get_rule(rule_id: str, user: CurrentUser = require_permission(Permission.RULE_READ)):
+async def get_rule(
+    rule_id: str,
+    svc: RuleServiceDep,
+    user: CurrentUser = require_permission(Permission.RULE_READ),
+):
     try:
-        svc = _get_rule_service()
         rule = await svc.get_rule(rule_id)
         if rule is None:
             raise HTTPException(status_code=404, detail="规则不存在")
@@ -74,10 +72,12 @@ async def get_rule(rule_id: str, user: CurrentUser = require_permission(Permissi
 
 @router.put("/{rule_id}", response_model=ApiResponse[RuleResponse])
 async def update_rule(
-    rule_id: str, body: RuleUpdate, user: CurrentUser = require_permission(Permission.RULE_UPDATE)
+    rule_id: str,
+    body: RuleUpdate,
+    svc: RuleServiceDep,
+    user: CurrentUser = require_permission(Permission.RULE_UPDATE),
 ):
     try:
-        svc = _get_rule_service()
         data = body.model_dump(exclude_none=True)
         rule = await svc.update_rule(rule_id, data)
         if rule is None:
@@ -91,9 +91,12 @@ async def update_rule(
 
 
 @router.delete("/{rule_id}", response_model=ApiResponse)
-async def delete_rule(rule_id: str, user: CurrentUser = require_permission(Permission.RULE_DELETE)):
+async def delete_rule(
+    rule_id: str,
+    svc: RuleServiceDep,
+    user: CurrentUser = require_permission(Permission.RULE_DELETE),
+):
     try:
-        svc = _get_rule_service()
         success = await svc.delete_rule(rule_id)
         if not success:
             raise HTTPException(status_code=404, detail="规则不存在")
@@ -106,9 +109,12 @@ async def delete_rule(rule_id: str, user: CurrentUser = require_permission(Permi
 
 
 @router.post("/{rule_id}/enable", response_model=ApiResponse[RuleResponse])
-async def enable_rule(rule_id: str, user: CurrentUser = require_permission(Permission.RULE_TOGGLE)):
+async def enable_rule(
+    rule_id: str,
+    svc: RuleServiceDep,
+    user: CurrentUser = require_permission(Permission.RULE_TOGGLE),
+):
     try:
-        svc = _get_rule_service()
         rule = await svc.enable_rule(rule_id)
         if rule is None:
             raise HTTPException(status_code=404, detail="规则不存在")
@@ -122,10 +128,11 @@ async def enable_rule(rule_id: str, user: CurrentUser = require_permission(Permi
 
 @router.post("/{rule_id}/disable", response_model=ApiResponse[RuleResponse])
 async def disable_rule(
-    rule_id: str, user: CurrentUser = require_permission(Permission.RULE_TOGGLE)
+    rule_id: str,
+    svc: RuleServiceDep,
+    user: CurrentUser = require_permission(Permission.RULE_TOGGLE),
 ):
     try:
-        svc = _get_rule_service()
         rule = await svc.disable_rule(rule_id)
         if rule is None:
             raise HTTPException(status_code=404, detail="规则不存在")
@@ -141,9 +148,9 @@ async def disable_rule(
 async def test_rule(
     rule_id: str,
     body: RuleTestRequest,
+    svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_READ),
 ):
-    svc = _get_rule_service()
     try:
         result = await svc.test_rule(rule_id, body.point_values)
     except ValueError as e:

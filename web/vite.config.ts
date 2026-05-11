@@ -28,4 +28,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'naive-ui': ['naive-ui'],
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'echarts': ['echarts', 'vue-echarts'],
+          'three': ['three'],
+        },
+      },
+    },
+  },
 })

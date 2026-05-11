@@ -236,7 +236,7 @@ async def change_password(
 
 
 @router.post("/logout", response_model=ApiResponse)
-async def logout(request: Request):
+async def logout(request: Request, user: CurrentUser = None):
     """用户登出，撤销Token"""
     try:
         from edgelite.security.jwt import decode_token
