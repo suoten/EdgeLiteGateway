@@ -260,8 +260,12 @@ async function handleToggle(name: string, val: boolean) {
   } else {
     toggleLoadingMap[name] = true
     try {
-      await serviceApi.enable(name)
-      message.success('服务已启用')
+      const result = await serviceApi.enable(name)
+      if (result?.warning) {
+        message.warning(result.warning || result.message || '服务已启用但启动失败')
+      } else {
+        message.success('服务已启用')
+      }
       await fetchServices()
     } catch (e: any) {
       const detail = e?.response?.data?.detail

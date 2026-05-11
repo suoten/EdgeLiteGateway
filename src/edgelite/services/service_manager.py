@@ -526,10 +526,11 @@ class ServiceManager:
                 "success": True,
                 "warning": f"服务已启用但启动失败: {e}",
                 "error_type": "runtime",
+                "detail": str(e),
             }
         except Exception as e:
             logger.error("启动服务失败: %s - %s", service_name, e)
-            return {"success": True, "warning": f"服务已启用但启动失败: {e}"}
+            return {"success": True, "warning": f"服务已启用但启动失败: {e}", "error_type": "runtime", "detail": str(e)}
 
         return {"success": True, "message": f"{svc_def['display_name']}已启用并启动"}
 

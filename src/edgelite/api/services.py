@@ -131,6 +131,9 @@ async def enable_service(
                 )
             raise HTTPException(status_code=500, detail=result.get("error", "启用失败"))
 
+        if result.get("warning"):
+            return ApiResponse(data={**result, "message": result.get("warning", "")})
+
         return ApiResponse(data=result)
     except HTTPException:
         raise

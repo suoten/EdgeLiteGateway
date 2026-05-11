@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="theme">
+  <n-config-provider :theme="theme" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-dialog-provider>
         <n-notification-provider>
@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { ref, computed, provide } from 'vue'
-import { darkTheme, type GlobalTheme } from 'naive-ui'
+import { darkTheme, zhCN, dateZhCN, type GlobalTheme } from 'naive-ui'
 
 const isDark = ref(localStorage.getItem('edgelite_theme') === 'dark')
 const theme = computed<GlobalTheme | null>(() => isDark.value ? darkTheme : null)

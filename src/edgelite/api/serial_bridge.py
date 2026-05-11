@@ -108,12 +108,21 @@ async def start_serial_bridge(
         mgr = get_service_manager()
         result = await mgr.start_service("serial_bridge")
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
+            error_msg = result.get("error", "启动失败")
+            if "error_type" in result and result["error_type"] == "runtime":
+                raise HTTPException(status_code=409, detail=error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
 
         return ApiResponse(data=result)
     except HTTPException:
         raise
     except Exception as e:
+        error_msg = str(e)
+        if "could not open port" in error_msg or "No such file" in error_msg:
+            raise HTTPException(
+                status_code=409,
+                detail="串口设备不存在或无法访问，请检查串口配置和设备连接",
+            ) from e
         logger.error("启动失败: %s", e)
         raise HTTPException(status_code=500, detail="启动失败") from e
 

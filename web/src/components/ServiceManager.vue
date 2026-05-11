@@ -128,15 +128,19 @@ async function fetchStatus() {
 async function handleEnable() {
   toggleLoading.value = true
   try {
-    await serviceApi.enable(props.serviceName)
-    msg.success('服务已启用')
+    const result = await serviceApi.enable(props.serviceName)
+    if (result?.warning) {
+      msg.warning(result.warning || result.message || '服务已启用但启动失败')
+    } else {
+      msg.success('服务已启用')
+    }
     await fetchStatus()
   } catch (e: any) {
-    const detail = e?.message || ''
-    if (detail.includes('424') || detail.includes('依赖')) {
+    const detail = e?.response?.data?.detail || e?.message || ''
+    if (typeof detail === 'string' && (detail.includes('依赖') || detail.includes('424'))) {
       msg.warning('缺少依赖，请先安装依赖')
     } else {
-      msg.error('启用失败: ' + (detail || '未知错误'))
+      msg.error('启用失败: ' + (typeof detail === 'string' ? detail : '未知错误'))
     }
   } finally {
     toggleLoading.value = false
@@ -163,7 +167,8 @@ async function handleStart() {
     msg.success('服务已启动')
     await fetchStatus()
   } catch (e: any) {
-    msg.error('启动失败: ' + (e?.message || '未知错误'))
+    const detail = e?.response?.data?.detail || e?.message || '未知错误'
+    msg.error('启动失败: ' + (typeof detail === 'string' ? detail : '未知错误'))
   } finally {
     toggleLoading.value = false
   }
