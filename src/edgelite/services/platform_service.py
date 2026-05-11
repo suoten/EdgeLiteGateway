@@ -117,7 +117,7 @@ class PlatformService:
     """平台管理服务"""
 
     def __init__(self, handlers: dict[str, PlatformHandler] | None = None):
-        self._handlers: dict[str, PlatformHandler] = handlers or {}
+        self._handlers: dict[str, PlatformHandler] = handlers if handlers is not None else {}
 
     @property
     def handlers(self) -> dict[str, PlatformHandler]:

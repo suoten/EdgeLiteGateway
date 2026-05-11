@@ -52,13 +52,6 @@ async def create_backup(
         backup = await svc.create_backup()
         return ApiResponse(data=backup)
     except Exception as e:
-        error_msg = str(e)
-        if "malformed" in error_msg.lower() or "database disk image" in error_msg.lower():
-            logger.error("数据库损坏，创建备份失败: %s", e)
-            raise HTTPException(
-                status_code=503,
-                detail="数据库文件损坏，无法创建备份。请执行数据库修复或删除损坏的数据库文件后重启系统。",
-            ) from e
         logger.error("创建备份失败: %s", e)
         raise HTTPException(status_code=500, detail="创建备份失败") from e
 

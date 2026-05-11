@@ -175,7 +175,13 @@ class Database:
                             logger.warning("已备份损坏数据库到: %s", corrupt_backup)
                     except Exception as backup_err:
                         logger.warning("备份损坏数据库失败: %s", backup_err)
-                    await conn.execute(text("PRAGMA wal_checkpoint=TRUNCATE"))
+                    try:
+                        await conn.execute(text("PRAGMA wal_checkpoint=TRUNCATE"))
+                    except Exception:
+                        try:
+                            await conn.execute(text("PRAGMA wal_checkpoint=PASSIVE"))
+                        except Exception:
+                            pass
                     result2 = await conn.execute(text("PRAGMA integrity_check"))
                     row2 = result2.fetchone()
                     if row2 and row2[0] != "ok":
@@ -265,11 +271,23 @@ class Database:
 
         if self._backend == "sqlite":
             if self._engine:
-                async with self._engine.begin() as conn:
-                    await conn.execute(
-                        __import__("sqlalchemy").text("PRAGMA wal_checkpoint=TRUNCATE")
-                    )
+                try:
+                    async with self._engine.begin() as conn:
+                        await conn.execute(text("PRAGMA wal_checkpoint=TRUNCATE"))
+                except Exception as e:
+                    logger.warning("WAL checkpoint TRUNCATE失败: %s，尝试PASSIVE模式", e)
+                    try:
+                        async with self._engine.begin() as conn:
+                            await conn.execute(text("PRAGMA wal_checkpoint=PASSIVE"))
+                    except Exception as e2:
+                        logger.warning("WAL checkpoint PASSIVE也失败: %s，直接复制文件", e2)
             shutil.copy2(self._config.database.sqlite_path, backup_path)
+            wal_path = self._config.database.sqlite_path + "-wal"
+            if Path(wal_path).exists():
+                try:
+                    shutil.copy2(wal_path, backup_path + "-wal")
+                except Exception as e:
+                    logger.warning("WAL文件备份失败: %s", e)
         else:
             logger.warning(
                 "备份功能暂不支持 %s 后端，请使用数据库自带的备份工具（如 pg_dump/mysqldump）",
