@@ -149,6 +149,8 @@ class ModbusSlaveConfig(BaseModel):
     port: int = Field(default=502, ge=1, le=65535)
     holding_size: int = Field(default=1000, ge=1)
     input_size: int = Field(default=1000, ge=1)
+    coil_size: int = Field(default=1000, ge=1)
+    discrete_size: int = Field(default=1000, ge=1)
 
 
 class SparkplugBConfig(BaseModel):

@@ -4,13 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from enum import Enum
-
-try:
-    from enum import StrEnum
-except ImportError:
-    class StrEnum(str, Enum):
-        pass
+from enum import StrEnum
 
 
 class DeviceStatus(StrEnum):

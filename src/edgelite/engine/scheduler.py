@@ -118,7 +118,11 @@ class CollectScheduler:
                     # 批量写入InfluxDB（一次API调用替代N次）
                     records = []
                     for point_name, value in values.items():
-                        v = float(value) if not isinstance(value, bool) else value
+                        try:
+                            v = float(value) if not isinstance(value, bool) else value
+                        except (ValueError, TypeError):
+                            logger.warning("测点值转换失败 %s.%s: %r", device_id, point_name, value)
+                            continue
                         # 数据预处理
                         if self._preprocessor:
                             processed_value, should_report = self._preprocessor.process(

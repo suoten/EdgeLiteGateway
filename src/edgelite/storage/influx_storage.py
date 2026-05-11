@@ -135,6 +135,7 @@ class InfluxDBStorage:
                 point = point.time(timestamp)
 
             await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=point)
+            self._fail_count = 0
             return True
         except Exception as e:
             logger.error("InfluxDB写入失败: %s", e)
@@ -183,6 +184,7 @@ class InfluxDBStorage:
                 points.append(p)
 
             await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=points)
+            self._fail_count = 0
             return True
         except Exception as e:
             logger.error("InfluxDB批量写入失败: %s", e)
@@ -238,8 +240,10 @@ from(bucket: "{self._bucket}")
   |> filter(fn: (r) => r.point_name == "{safe_point_name}")
 """
         if aggregate:
-            safe_agg = self._escape_flux_value(aggregate)
-            flux += f"  |> aggregateWindow(every: {safe_agg}, fn: mean, createEmpty: false)\n"
+            if not re.match(r"^\d+[smh]$", aggregate):
+                logger.error("非法的聚合窗口参数: %s", aggregate)
+                return []
+            flux += f"  |> aggregateWindow(every: {aggregate}, fn: mean, createEmpty: false)\n"
 
         flux += '  |> yield(name: "result")'
 

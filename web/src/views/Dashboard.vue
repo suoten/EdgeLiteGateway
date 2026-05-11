@@ -400,11 +400,18 @@ function onRealtimeMessage(data: any) {
   }
 }
 
+let _alarmTimer: ReturnType<typeof setTimeout> | null = null
+let _deviceTimer: ReturnType<typeof setTimeout> | null = null
+
 function onAlarmMessage(data: any) {
   try {
     if (data) {
-      fetchAlarms()
-      fetchStatus()
+      if (_alarmTimer) clearTimeout(_alarmTimer)
+      _alarmTimer = setTimeout(() => {
+        fetchAlarms()
+        fetchStatus()
+        _alarmTimer = null
+      }, 500)
     }
   } catch (e) {
     msg.warning('处理告警消息异常')
@@ -414,8 +421,12 @@ function onAlarmMessage(data: any) {
 function onDeviceMessage(data: any) {
   try {
     if (data?.device_id) {
-      fetchDevices()
-      fetchStatus()
+      if (_deviceTimer) clearTimeout(_deviceTimer)
+      _deviceTimer = setTimeout(() => {
+        fetchDevices()
+        fetchStatus()
+        _deviceTimer = null
+      }, 500)
     }
   } catch (e) {
     msg.warning('处理设备消息异常')

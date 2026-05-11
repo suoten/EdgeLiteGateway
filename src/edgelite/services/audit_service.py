@@ -17,13 +17,7 @@ import io
 import json
 import logging
 from datetime import datetime
-from enum import Enum
-
-try:
-    from enum import StrEnum
-except ImportError:
-    class StrEnum(str, Enum):
-        pass
+from enum import StrEnum
 from typing import Any
 
 logger = logging.getLogger(__name__)

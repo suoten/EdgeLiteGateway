@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 from typing import Any
@@ -30,10 +31,9 @@ class DeviceService:
         self._scheduler = scheduler
         self._lifecycle = lifecycle
         self._registry = get_driver_registry()
-        # device_id -> driver_instance
         self._driver_instances: dict[str, Any] = {}
-        # 模拟器驱动（共享实例）
         self._simulator_driver: SimulatorDriver | None = None
+        self._lock = asyncio.Lock()
 
     async def _get_simulator_driver(self) -> SimulatorDriver:
         """获取模拟器驱动实例"""
@@ -44,6 +44,10 @@ class DeviceService:
 
     async def create_device(self, data: dict) -> dict:
         """创建设备"""
+        async with self._lock:
+            return await self._create_device_unlocked(data)
+
+    async def _create_device_unlocked(self, data: dict) -> dict:
         protocol = data["protocol"]
         driver_class = self._registry.get_driver_class(protocol)
         if driver_class is None and protocol != "simulator":
@@ -115,6 +119,10 @@ class DeviceService:
 
     async def delete_device(self, device_id: str) -> tuple[bool, str | None]:
         """删除设备，返回(成功, 错误信息)"""
+        async with self._lock:
+            return await self._delete_device_unlocked(device_id)
+
+    async def _delete_device_unlocked(self, device_id: str) -> tuple[bool, str | None]:
         # 检查规则关联
         rules, _ = await self._rule_repo.list_all(device_id=device_id)
         active_rules = [r for r in rules if r.get("enabled", False)]

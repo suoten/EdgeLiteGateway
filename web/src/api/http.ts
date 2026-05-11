@@ -89,6 +89,9 @@ http.interceptors.response.use(
               reject(error)
               return
             }
+            if (originalRequest.headers) {
+              originalRequest.headers['Authorization'] = `Bearer ${token}`
+            }
             resolve(http(originalRequest))
           })
         })
@@ -105,6 +108,9 @@ http.interceptors.response.use(
         sessionStorage.setItem('edgelite_refresh', tokenData.refresh_token)
         isRefreshing = false
         onTokenRefreshed(tokenData.access_token)
+        if (originalRequest.headers) {
+          originalRequest.headers['Authorization'] = `Bearer ${tokenData.access_token}`
+        }
         return http(originalRequest)
       } catch (refreshError) {
         isRefreshing = false
