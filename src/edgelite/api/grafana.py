@@ -36,6 +36,9 @@ async def get_grafana_config(
     try:
         mgr = get_service_manager()
         info = mgr.get_service_info("grafana")
+        # FIXED: get_service_info()可能返回None导致500
+        if info is None:
+            raise HTTPException(status_code=404, detail="Grafana服务未注册")
 
         grafana_config = _get_grafana_config()
         return ApiResponse(

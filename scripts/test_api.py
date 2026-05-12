@@ -1,8 +1,13 @@
 """API集成验证脚本"""
 
+import os
+
 import httpx
 
-BASE = "http://127.0.0.1:8080"
+BASE = os.environ.get("EDGELITE_TEST_BASE", "http://127.0.0.1:8080")
+# FIXED: 硬编码密码admin123，改为环境变量读取
+_TEST_USER = os.environ.get("EDGELITE_TEST_USER", "admin")
+_TEST_PASS = os.environ.get("EDGELITE_TEST_PASS", "")
 
 
 def main():
@@ -19,7 +24,10 @@ def main():
         print(f"   {path}: {methods}")
 
     # 3. 登录
-    r = httpx.post(f"{BASE}/api/v1/auth/login", json={"username": "admin", "password": "admin123"})
+    if not _TEST_PASS:
+        print("3. Login: SKIPPED (set EDGELITE_TEST_PASS env var)")
+        return
+    r = httpx.post(f"{BASE}/api/v1/auth/login", json={"username": _TEST_USER, "password": _TEST_PASS})
     print(f"3. Login: {r.status_code}")
     token_data = r.json()["data"]
     token = token_data["access_token"]

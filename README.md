@@ -114,7 +114,7 @@ curl http://localhost:8080/health
 # 测试 2：后端能正常响应登录（应返回 JSON，含 code 和 message）
 curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"admin","password":"<启动日志中的临时密码>"}'
 
 # 测试 3：前端页面能访问（应返回 HTML 内容）
 curl -s http://localhost:3000/ | head -20
@@ -128,7 +128,7 @@ curl -s http://localhost:3000/ | head -20
 
 > **💡 Windows 用户如果没有 `curl`**：在 PowerShell 输入 `curl.exe`（不是 `curl`），或者直接用浏览器打开 `http://localhost:3000`，看到登录页面即为成功。
 
-**全部 3 项通过后**，浏览器打开 `http://localhost:3000`，用 `admin` / `admin123` 登录。
+**全部 3 项通过后**，浏览器打开 `http://localhost:3000`，用 `admin` / 启动日志中输出的临时密码登录（首次登录需修改密码）。
 
 ---
 
@@ -150,12 +150,12 @@ curl -s http://localhost:3000/ | head -20
 
 在部署之前，请确认你的环境满足以下要求。**如果不满足，下面的步骤会报错。**
 
-| 软件                        | 最低版本   | 检查命令               | 安装方法（点击对应链接）                                                  |
-| ------------------------- | ------ | ------------------ | ------------------------------------------------------------- |
-| **Docker**                | 20.10+ | `docker --version` | [Docker Desktop](https://docs.docker.com/get-docker/)         |
-| **Node.js**               | 18+    | `node --version`   | [Node.js 官网](https://nodejs.org/zh-cn/download/) 下载 LTS 版本    |
-| **Git**                   | 2.30+  | `git --version`    | [Git 下载](https://git-scm.com/downloads)                       |
-| **Python** (Python开发模式需要) | 3.11+  | `python --version` | [Python 官网](https://www.python.org/downloads/) 下载 3.11 或 3.12 |
+| 软件                        | 最低版本   | 检查命令               | 安装方法                                                                                                      |
+| ------------------------- | ------ | ------------------ | --------------------------------------------------------------------------------------------------------- |
+| **Docker**                | 20.10+ | `docker --version` | Windows/Mac: [Docker Desktop](https://docs.docker.com/get-docker/)；Linux: `curl -fsSL https://get.docker.com \| sudo sh` |
+| **Node.js**               | 18+    | `node --version`   | [Node.js 官网](https://nodejs.org/zh-cn/download/) 下载 LTS 版本                                                 |
+| **Git**                   | 2.30+  | `git --version`    | [Git 下载](https://git-scm.com/downloads)                                                                    |
+| **Python** (仅开发模式需要)       | 3.11+  | `python --version` | [Python 官网](https://www.python.org/downloads/) 下载 3.11 或 3.12                                             |
 
 > **💡 Windows 用户特别注意**：Windows 自带 CMD 不支持 `&&` 连接命令，请使用 **PowerShell**（右键开始菜单 -> Windows PowerShell）或安装 [Git Bash](https://git-scm.com/downloads)。
 
@@ -177,7 +177,7 @@ curl -s http://localhost:3000/ | head -20
 | `Error: ENOSPC: System limit`   | Linux 文件监听限制  | 执行 `echo fs.inotify.max_user_watches=524288 \| sudo tee -a /etc/sysctl.conf && sudo sysctl -p` |
 | 页面打开白屏/一直在加载                    | 前端没构建或其他原因   | **[→ 看这里，分步诊断](#-页面打不开怎么办逐步诊断)**                                                    |
 | `npm run build` 报内存不足           | Node.js 内存限制  | 执行 `set NODE_OPTIONS=--max-old-space-size=4096 && npm run build`                               |
-| 登录时提示"用户名或密码错误"                 | 忘了密码          | 默认 admin/admin123，如修改过请删除 `data/edgelite.db` 重新启动                                              |
+| 登录时提示"用户名或密码错误"                 | 忘了密码          | 首次启动查看日志获取临时密码，如修改过请删除 `data/edgelite.db` 重新启动                                              |
 
 > 如果上面没有你的错误，请去 [GitHub Issues](https://github.com/suoten/EdgeLiteGateway/issues) 搜索或提交新问题。
 
@@ -186,6 +186,8 @@ curl -s http://localhost:3000/ | head -20
 ### 🔍 页面打不开怎么办？（逐步诊断）
 
 这是最常见的求助问题。**不要慌，按下面顺序一条条跑，每一步都会告诉你问题出在哪里。**
+
+> **💡 Windows PowerShell 用户注意**：下面命令中的 `ls` 换成 `dir`，`curl` 换成 `curl.exe`，其他不变。
 
 ```bash
 # 诊断 1：Docker 容器在不在？
@@ -222,7 +224,7 @@ curl http://localhost:8086/health
 > ✅ 正常：返回 `{"status":"pass"}`  
 > ❌ → 等 30 秒再试，或 `docker compose -f docker/docker-compose.yml restart influxdb`
 
-**以上 5 步全部通过后**，浏览器打开 `http://localhost:3000`，用 `admin` / `admin123` 登录。
+**以上 5 步全部通过后**，浏览器打开 `http://localhost:3000`，用 `admin` / 启动日志中输出的临时密码登录。
 
 > 💡 **还不行？** 终极重装法：`docker compose -f docker/docker-compose.yml down -v && rm -rf data/ && cd web && npm install && npm run build && cd .. && cp docker/.env.example docker/.env && cd docker && docker compose up -d`（注意这会**清空所有数据**）
 
@@ -356,7 +358,7 @@ cd docker && docker compose up -d
 docker compose logs -f edgelite    # 后端日志
 docker compose logs -f frontend    # 前端日志
 
-# 6. 浏览器打开 http://localhost:3000，账号 admin，密码 admin123
+# 6. 浏览器打开 http://localhost:3000，账号 admin，密码见启动日志
 ```
 
 | 端口     | 服务             | 说明                   |
@@ -404,7 +406,7 @@ npm install
 npm run dev                    # Vite dev server, 默认 http://localhost:5173
 
 # 8. 浏览器打开 http://localhost:5173
-#    首次登录：admin / admin123
+#    首次登录：admin / 启动日志中的临时密码
 ```
 
 > **💡 为什么需要虚拟环境？** 隔离项目依赖，避免和系统Python其他项目冲突。如果你已激活虚拟环境，终端前面会显示 `(.venv)`。
@@ -537,16 +539,15 @@ v2.0 EdgeMesh     ← 分布式集群网, 跨网关协同  (2026/27远景)
 | 渠道                                                                | 说明                        |
 | ----------------------------------------------------------------- | ------------------------- |
 | [GitHub Issues](https://github.com/suoten/EdgeLiteGateway/issues) | 提交 bug / 功能建议（中英文均可）      |
-| QQ 群: 738699357                                                   | 技术交流与解答（加群请注明 "EdgeLite"） |
+| QQ 群: 1094562415                                                   | 技术交流与解答（加群请注明 "EdgeLite"） |
 | 📧 <suoten@163.com>                                               | 商业授权、企业版、定制开发咨询           |
 
 ### 文档索引
 
-| 文档                                                                                                                                     | 内容                       |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| [EdgeLiteGateway 规划文档](https://github.com/suoten/EdgeLiteGateway/blob/master/EdgeLite-Gateway-%E8%A7%84%E5%88%92%E6%96%87%E6%A1%A3.md) | 完整架构设计、API 设计、数据库设计、安全设计 |
-| [Docker 部署指南](#-快速开始)                                                                                                                  | Docker Compose 一键部署      |
-| [Python 本地部署](#方式二python-本地部署开发模式)                                                                                                     | 开发环境搭建                   |
+| 文档                                                                                                  | 内容                  |
+| --------------------------------------------------------------------------------------------------- | ------------------- |
+| [Docker 部署指南](#-快速开始)                                                                               | Docker Compose 一键部署 |
+| [Python 本地部署](#方式二python-本地部署开发模式)                                                                  | 开发环境搭建              |
 
 ***
 

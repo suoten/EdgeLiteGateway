@@ -118,32 +118,39 @@ async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效"
         ) from None
 
-    async with db.get_session() as session:
-        repo = UserRepo(session, db.write_lock)
-        user = await repo.get_by_username(payload.get("username", ""))
-    if user is None or not user["enabled"]:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
+    # FIXED: 数据库操作和token创建无异常保护
+    try:
+        async with db.get_session() as session:
+            repo = UserRepo(session, db.write_lock)
+            user = await repo.get_by_username(payload.get("username", ""))
+        if user is None or not user["enabled"]:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
 
-    current_role = user["role"]
+        current_role = user["role"]
 
-    access_token = create_access_token(
-        data={"sub": payload["sub"], "username": payload["username"], "role": current_role}
-    )
-    new_refresh = create_refresh_token(
-        data={"sub": payload["sub"], "username": payload["username"], "role": current_role}
-    )
-
-    from edgelite.config import get_config
-
-    config = get_config()
-
-    return ApiResponse(
-        data=TokenResponse(
-            access_token=access_token,
-            refresh_token=new_refresh,
-            expires_in=config.security.access_token_expire_minutes * 60,
+        access_token = create_access_token(
+            data={"sub": payload["sub"], "username": payload["username"], "role": current_role}
         )
-    )
+        new_refresh = create_refresh_token(
+            data={"sub": payload["sub"], "username": payload["username"], "role": current_role}
+        )
+
+        from edgelite.config import get_config
+
+        config = get_config()
+
+        return ApiResponse(
+            data=TokenResponse(
+                access_token=access_token,
+                refresh_token=new_refresh,
+                expires_in=config.security.access_token_expire_minutes * 60,
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Token刷新失败: %s", e)
+        raise HTTPException(status_code=500, detail="Token刷新失败") from e
 
 
 @router.get("/me", response_model=ApiResponse[UserInfoResponse])

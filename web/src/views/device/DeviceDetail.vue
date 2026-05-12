@@ -324,8 +324,9 @@ async function fetchDevice() {
     if (!device.value) { notFound.value = true; return }
     if (device.value?.points?.length) {
     const pointNames = device.value.points.map((p: any) => p.name)
+    // FIXED: points[0]可能不存在，增加安全检查
     if (!chartPoint.value || !pointNames.includes(chartPoint.value)) {
-      chartPoint.value = device.value.points[0].name
+      chartPoint.value = device.value.points[0]?.name || ''
     }
   }
     if (route.query.tab) activeTab.value = route.query.tab as string

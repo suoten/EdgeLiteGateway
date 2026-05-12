@@ -53,6 +53,9 @@ async def create_user(
             data["password"] = hash_password(data["password"])
             new_user = await repo.create(data)
         return ApiResponse(data=new_user)
+    except ValueError as e:
+        # FIXED: IntegrityError转ValueError后返回409
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:

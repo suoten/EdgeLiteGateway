@@ -80,8 +80,9 @@ async function loadLogs() {
       params.end_time = new Date(timeRange.value[1]).toISOString()
     }
     const data = await auditApi.list(params)
-    logs.value = data?.logs || []
-    pagination.itemCount = data?.total || 0
+    // FIXED: 使用??替代||，避免0和[]等falsy值被错误替换
+    logs.value = data?.logs ?? []
+    pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '加载审计日志失败')
   } finally { loading.value = false; pageLoading.value = false }

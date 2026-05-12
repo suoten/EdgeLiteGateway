@@ -57,6 +57,9 @@ async def create_device(
     try:
         device = await svc.create_device(body.model_dump())
         return ApiResponse(data=device)
+    except ValueError as e:
+        # FIXED: 重复设备ID返回409而非500
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
+import string
 import time
 from pathlib import Path
 from typing import Any
@@ -213,7 +215,10 @@ class Database:
                 try:
                     from edgelite.security.password import hash_password
 
-                    hashed = hash_password("admin123")
+                    # FIXED: 硬编码默认密码admin123，改为随机生成
+                    _alphabet = string.ascii_letters + string.digits
+                    temp_password = "".join(secrets.choice(_alphabet) for _ in range(16))
+                    hashed = hash_password(temp_password)
                     admin = UserORM(
                         user_id="admin",
                         username="admin",
@@ -224,7 +229,10 @@ class Database:
                     )
                     session.add(admin)
                     await session.commit()
-                    logger.info("已创建默认管理员用户 (admin/admin123)，首次登录需修改密码")
+                    logger.warning(
+                        "已创建默认管理员用户 (admin)，临时密码: %s  请立即登录修改！",
+                        temp_password,
+                    )
                 except ImportError:
                     pass
 

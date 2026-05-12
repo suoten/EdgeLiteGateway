@@ -48,29 +48,33 @@ async def get_preprocess_config(
     preprocessor: PreprocessorDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
-    point_configs = {}
-    if preprocessor:
-        point_configs = getattr(preprocessor, "_configs", {})
+    # FIXED: 整个函数无异常保护
+    try:
+        point_configs = {}
+        if preprocessor:
+            point_configs = getattr(preprocessor, "_configs", {})
 
-    preprocess_config = getattr(config, "preprocess", None)
+        preprocess_config = getattr(config, "preprocess", None)
 
-    return ApiResponse(
-        data={
-            "enabled": getattr(preprocess_config, "enabled", False) if preprocess_config else False,
-            "default_deadband": getattr(preprocess_config, "default_deadband", 0.0)
-            if preprocess_config
-            else 0.0,
-            "default_filter_window": getattr(preprocess_config, "default_filter_window", 3)
-            if preprocess_config
-            else 3,
-            "default_aggregate_window_sec": getattr(
-                preprocess_config, "default_aggregate_window_sec", 0
-            )
-            if preprocess_config
-            else 0,
-            "point_configs": point_configs,
-        }
-    )
+        return ApiResponse(
+            data={
+                "enabled": getattr(preprocess_config, "enabled", False) if preprocess_config else False,
+                "default_deadband": getattr(preprocess_config, "default_deadband", 0.0)
+                if preprocess_config
+                else 0.0,
+                "default_filter_window": getattr(preprocess_config, "default_filter_window", 3)
+                if preprocess_config
+                else 3,
+                "default_aggregate_window_sec": getattr(
+                    preprocess_config, "default_aggregate_window_sec", 0
+                )
+                if preprocess_config
+                else 0,
+                "point_configs": point_configs,
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取预处理配置失败: {e}") from e
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -83,20 +87,26 @@ async def update_preprocess_config(
     if not preprocessor:
         raise HTTPException(status_code=503, detail="预处理器未初始化")
 
-    if req.global_config:
-        if hasattr(config, "preprocess") and config.preprocess:
-            if req.global_config.enabled is not None:
-                config.preprocess.enabled = req.global_config.enabled
-            if req.global_config.default_deadband is not None:
-                config.preprocess.default_deadband = req.global_config.default_deadband
-            if req.global_config.default_filter_window is not None:
-                config.preprocess.default_filter_window = req.global_config.default_filter_window
-            if req.global_config.default_aggregate_window_sec is not None:
-                config.preprocess.default_aggregate_window_sec = (
-                    req.global_config.default_aggregate_window_sec
-                )
+    # FIXED: 配置更新操作无异常保护
+    try:
+        if req.global_config:
+            if hasattr(config, "preprocess") and config.preprocess:
+                if req.global_config.enabled is not None:
+                    config.preprocess.enabled = req.global_config.enabled
+                if req.global_config.default_deadband is not None:
+                    config.preprocess.default_deadband = req.global_config.default_deadband
+                if req.global_config.default_filter_window is not None:
+                    config.preprocess.default_filter_window = req.global_config.default_filter_window
+                if req.global_config.default_aggregate_window_sec is not None:
+                    config.preprocess.default_aggregate_window_sec = (
+                        req.global_config.default_aggregate_window_sec
+                    )
 
-    for point_key, point_config in req.points.items():
-        preprocessor.configure(point_key, point_config)
+        for point_key, point_config in req.points.items():
+            preprocessor.configure(point_key, point_config)
 
-    return ApiResponse(data={"status": "updated", "points_configured": len(req.points)})
+        return ApiResponse(data={"status": "updated", "points_configured": len(req.points)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新预处理配置失败: {e}") from e

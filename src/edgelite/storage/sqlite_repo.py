@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edgelite.models.db import AlarmORM, DeviceORM, RuleORM, UserORM
@@ -66,23 +67,27 @@ class BaseRepo:
 
 class DeviceRepo(BaseRepo):
     async def create(self, data: dict) -> dict:
-        async with self._auto_session() as session:
-            now = _now()
-            orm = DeviceORM(
-                device_id=data["device_id"],
-                name=data["name"],
-                protocol=data["protocol"],
-                status=data.get("status", "offline"),
-                config=json.dumps(data.get("config", {}), ensure_ascii=False),
-                points=json.dumps(data.get("points", []), ensure_ascii=False),
-                collect_interval=data.get("collect_interval", 5),
-                created_at=now,
-                updated_at=now,
-            )
-            session.add(orm)
-            await self._commit(session)
-            await session.refresh(orm)
-            return _orm_to_device(orm)
+        # FIXED: 数据库插入无IntegrityError处理
+        try:
+            async with self._auto_session() as session:
+                now = _now()
+                orm = DeviceORM(
+                    device_id=data["device_id"],
+                    name=data["name"],
+                    protocol=data["protocol"],
+                    status=data.get("status", "offline"),
+                    config=json.dumps(data.get("config", {}), ensure_ascii=False),
+                    points=json.dumps(data.get("points", []), ensure_ascii=False),
+                    collect_interval=data.get("collect_interval", 5),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(orm)
+                await self._commit(session)
+                await session.refresh(orm)
+                return _orm_to_device(orm)
+        except IntegrityError:
+            raise ValueError(f"设备已存在: {data.get('device_id', '')}") from None
 
     async def get(self, device_id: str) -> dict | None:
         async with self._auto_session() as session:
@@ -173,25 +178,29 @@ class DeviceRepo(BaseRepo):
 
 class RuleRepo(BaseRepo):
     async def create(self, data: dict) -> dict:
-        async with self._auto_session() as session:
-            rule_id = _uuid()
-            now = _now()
-            orm = RuleORM(
-                rule_id=rule_id,
-                name=data["name"],
-                device_id=data["device_id"],
-                conditions=json.dumps(data["conditions"], ensure_ascii=False),
-                logic=data.get("logic", "AND"),
-                duration=data.get("duration", 0),
-                severity=data["severity"],
-                enabled=data.get("enabled", True),
-                notify_channels=json.dumps(data.get("notify_channels", []), ensure_ascii=False),
-                created_at=now,
-            )
-            session.add(orm)
-            await self._commit(session)
-            await session.refresh(orm)
-            return _orm_to_rule(orm)
+        # FIXED: 数据库插入无IntegrityError处理
+        try:
+            async with self._auto_session() as session:
+                rule_id = _uuid()
+                now = _now()
+                orm = RuleORM(
+                    rule_id=rule_id,
+                    name=data["name"],
+                    device_id=data["device_id"],
+                    conditions=json.dumps(data["conditions"], ensure_ascii=False),
+                    logic=data.get("logic", "AND"),
+                    duration=data.get("duration", 0),
+                    severity=data["severity"],
+                    enabled=data.get("enabled", True),
+                    notify_channels=json.dumps(data.get("notify_channels", []), ensure_ascii=False),
+                    created_at=now,
+                )
+                session.add(orm)
+                await self._commit(session)
+                await session.refresh(orm)
+                return _orm_to_rule(orm)
+        except IntegrityError:
+            raise ValueError(f"规则已存在") from None
 
     async def get(self, rule_id: str) -> dict | None:
         async with self._auto_session() as session:
@@ -391,21 +400,25 @@ class AlarmRepo(BaseRepo):
 
 class UserRepo(BaseRepo):
     async def create(self, data: dict) -> dict:
-        async with self._auto_session() as session:
-            user_id = _uuid()
-            now = _now()
-            orm = UserORM(
-                user_id=user_id,
-                username=data["username"],
-                password=data["password"],
-                role=data["role"],
-                enabled=True,
-                created_at=now,
-            )
-            session.add(orm)
-            await self._commit(session)
-            await session.refresh(orm)
-            return _orm_to_user(orm)
+        # FIXED: 数据库插入无IntegrityError处理
+        try:
+            async with self._auto_session() as session:
+                user_id = _uuid()
+                now = _now()
+                orm = UserORM(
+                    user_id=user_id,
+                    username=data["username"],
+                    password=data["password"],
+                    role=data["role"],
+                    enabled=True,
+                    created_at=now,
+                )
+                session.add(orm)
+                await self._commit(session)
+                await session.refresh(orm)
+                return _orm_to_user(orm)
+        except IntegrityError:
+            raise ValueError(f"用户名已存在: {data.get('username', '')}") from None
 
     async def get(self, user_id: str) -> dict | None:
         async with self._auto_session() as session:

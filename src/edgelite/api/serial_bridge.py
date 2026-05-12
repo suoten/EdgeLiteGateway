@@ -52,6 +52,9 @@ async def get_serial_bridge_status(
     try:
         mgr = get_service_manager()
         info = mgr.get_service_info("serial_bridge")
+        # FIXED: get_service_info()可能返回None导致500
+        if info is None:
+            raise HTTPException(status_code=404, detail="串口桥接服务未注册")
 
         if bridge and hasattr(bridge, "get_status"):
             stats = bridge.get_status()

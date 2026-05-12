@@ -49,16 +49,21 @@ async def query_audit_logs(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
 
-    logs, total = await svc.query(
-        user_id=user_id,
-        action=action_enum,
-        resource_type=resource_type,
-        start_time=st,
-        end_time=et,
-        page=page,
-        size=size,
-    )
-    return ApiResponse(data={"logs": logs, "total": total})
+    # FIXED: 数据库查询无异常保护
+    try:
+        logs, total = await svc.query(
+            user_id=user_id,
+            action=action_enum,
+            resource_type=resource_type,
+            start_time=st,
+            end_time=et,
+            page=page,
+            size=size,
+        )
+        return ApiResponse(data={"logs": logs, "total": total})
+    except Exception as e:
+        logger.error("查询审计日志失败: %s", e)
+        raise HTTPException(status_code=500, detail="查询审计日志失败") from e
 
 
 @router.get("/integrity", response_model=ApiResponse)
@@ -98,8 +103,13 @@ async def export_audit_csv(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
 
-    csv_content = await svc.export_csv(start_time=st, end_time=et)
-    return ApiResponse(data={"content": csv_content})
+    # FIXED: 导出操作无异常保护
+    try:
+        csv_content = await svc.export_csv(start_time=st, end_time=et)
+        return ApiResponse(data={"content": csv_content})
+    except Exception as e:
+        logger.error("导出审计日志失败: %s", e)
+        raise HTTPException(status_code=500, detail="导出审计日志失败") from e
 
 
 @router.post("/cleanup", response_model=ApiResponse)

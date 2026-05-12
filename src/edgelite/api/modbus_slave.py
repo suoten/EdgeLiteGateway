@@ -35,6 +35,9 @@ async def get_modbus_slave_status(
     try:
         mgr = get_service_manager()
         info = mgr.get_service_info("modbus_slave")
+        # FIXED: get_service_info()可能返回None导致500
+        if info is None:
+            raise HTTPException(status_code=404, detail="Modbus Slave服务未注册")
 
         return ApiResponse(
             data={

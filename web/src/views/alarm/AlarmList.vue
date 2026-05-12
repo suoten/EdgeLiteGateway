@@ -105,8 +105,9 @@ async function fetchAlarms() {
       severity: filterSeverity.value ?? undefined,
       search: searchText.value || undefined,
     })
+    // FIXED: data.total直接赋值可能崩溃，改为null安全
     alarms.value = data?.data ?? []
-    pagination.itemCount = data.total
+    pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     alarms.value = []
     message.error(e?.response?.data?.detail || e?.message || '获取告警列表失败')

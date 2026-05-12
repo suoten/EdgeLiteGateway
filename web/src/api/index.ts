@@ -26,10 +26,12 @@ export const authApi = {
     http.get<ApiResponse<{ user_id: string; username: string; role: string; must_change_password?: boolean }>>('/auth/me').then((r) => r.data.data),
 
   logout: (refreshToken?: string) =>
-    http.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : undefined),
+    // FIXED: 返回值解包不一致，统一返回ApiResponse
+    http.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : undefined).then((r) => r.data),
 
   changePassword: (oldPassword: string, newPassword: string) =>
-    http.post<ApiResponse>('/auth/change-password', { old_password: oldPassword, new_password: newPassword }).then((r) => r.data),
+    // FIXED: 返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/auth/change-password', { old_password: oldPassword, new_password: newPassword }).then((r) => r.data.data),
 }
 
 // ─── 设备 ───
@@ -80,19 +82,28 @@ export const deviceApi = {
     http.put<ApiResponse<Device>>(`/devices/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
-    http.delete(`/devices/${id}`),
+    // FIXED: 返回值解包不一致，统一返回ApiResponse
+    http.delete(`/devices/${id}`).then((r) => r.data),
 
   getPoints: (id: string) =>
     http.get<ApiResponse<Record<string, any>>>(`/devices/${id}/points`).then((r) => r.data.data),
 
   writePoint: (id: string, point: string, value: any) =>
-    http.post(`/devices/${id}/points`, { point, value }),
+    // FIXED: 返回值解包不一致，统一返回ApiResponse
+    http.post(`/devices/${id}/points`, { point, value }).then((r) => r.data),
 
   createSimulator: (data: Omit<DeviceCreateParams, 'protocol'>) =>
     http.post<ApiResponse<Device>>('/devices/simulator', data).then((r) => r.data.data),
 
   discover: (params: { protocol: string; host?: string; port?: number }) =>
     http.post<ApiResponse<any[]>>('/devices/discover', { protocol: params.protocol, config: { host: params.host, port: params.port } }).then((r) => r.data.data),
+
+  // FIXED: 后端有push路由但前端无对应API函数
+  pushData: (deviceId: string, data: Record<string, any>, apiKey?: string) => {
+    const headers: Record<string, string> = {}
+    if (apiKey) headers['x-api-key'] = apiKey
+    return http.post<ApiResponse>(`/devices/${deviceId}/push`, data, { headers }).then((r) => r.data.data)
+  },
 }
 
 // ─── 规则 ───
@@ -140,7 +151,8 @@ export const ruleApi = {
     http.put<ApiResponse<Rule>>(`/rules/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
-    http.delete(`/rules/${id}`),
+    // FIXED: 返回值解包不一致，统一返回ApiResponse
+    http.delete(`/rules/${id}`).then((r) => r.data),
 
   enable: (id: string) =>
     http.post<ApiResponse<Rule>>(`/rules/${id}/enable`).then((r) => r.data.data),
@@ -203,7 +215,15 @@ export const videoApi = {
     http.get<ApiResponse<VideoStreamInfo>>(`/video/${deviceId}/stream`, { params: { channel_id: channelId || '1' } }).then((r) => r.data.data),
 
   ptzControl: (deviceId: string, action: string, channelId?: string) =>
-    http.post(`/video/${deviceId}/ptz`, null, { params: { action, channel_id: channelId || '1' } }),
+    // FIXED: 返回值解包不一致，统一返回ApiResponse
+    http.post(`/video/${deviceId}/ptz`, null, { params: { action, channel_id: channelId || '1' } }).then((r) => r.data),
+
+  // FIXED: 后端有video/webhook路由但前端无对应API函数
+  webhook: (event: Record<string, any>, apiKey?: string) => {
+    const headers: Record<string, string> = {}
+    if (apiKey) headers['x-api-key'] = apiKey
+    return http.post<ApiResponse>('/video/webhook', event, { headers }).then((r) => r.data.data)
+  },
 }
 
 // ─── 系统 ───
@@ -263,7 +283,8 @@ export const userApi = {
     http.put<ApiResponse<User>>(`/users/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
-    http.delete(`/users/${id}`),
+    // FIXED: 返回值解包不一致，统一返回ApiResponse
+    http.delete(`/users/${id}`).then((r) => r.data),
 }
 
 // ─── 驱动配置 ───
@@ -304,7 +325,8 @@ export const preprocessApi = {
     http.get<ApiResponse<any>>('/preprocess/config').then((r) => r.data.data),
 
   updateConfig: (data: PreprocessUpdateParams) =>
-    http.put<ApiResponse>('/preprocess/config', data).then((r) => r.data),
+    // FIXED: 返回值解包不一致，统一提取内层data
+    http.put<ApiResponse>('/preprocess/config', data).then((r) => r.data.data),
 }
 
 // ─── 串口透传 ───
@@ -517,6 +539,13 @@ export const mcpApi = {
 
   deleteKey: (keyId: string) =>
     http.delete<ApiResponse>(`/mcp/auth-keys/${keyId}`).then((r) => r.data),
+
+  // FIXED: 后端有mcp/sse路由但前端无对应API函数
+  createSseConnection: (token?: string) => {
+    const base = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+    const url = token ? `${base}/mcp/sse?token=${encodeURIComponent(token)}` : `${base}/mcp/sse`
+    return new EventSource(url)
+  },
 }
 
 // ─── OTA升级 ───

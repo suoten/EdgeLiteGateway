@@ -158,7 +158,9 @@ class DeviceService:
         if device is None:
             return {}
 
-        point_names = [p["name"] for p in device.get("points", [])]
+        # FIXED: points可能为None，device.get("points", [])不防None
+        points = device.get("points") or []
+        point_names = [p["name"] for p in points]
         return await driver.read_points(device_id, point_names)
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:

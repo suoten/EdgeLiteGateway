@@ -110,14 +110,21 @@ class SystemService:
         timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         backup_file = backup_dir / f"backup_{timestamp}.db"
 
-        # 备份SQLite数据库
-        await self._database.backup(str(backup_file))
+        # FIXED: 备份操作无异常保护
+        try:
+            await self._database.backup(str(backup_file))
+        except Exception as e:
+            logger.error("数据库备份失败: %s", e)
+            raise RuntimeError(f"数据库备份失败: {e}") from e
 
-        # 同时导出JSON格式
         json_file = backup_dir / f"backup_{timestamp}.json"
-        backup_data = await self._export_all_config()
-        with open(json_file, "w", encoding="utf-8") as f:
-            json.dump(backup_data, f, ensure_ascii=False, indent=2)
+        try:
+            backup_data = await self._export_all_config()
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(backup_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error("配置导出失败: %s", e)
+            raise RuntimeError(f"配置导出失败: {e}") from e
 
         return {
             "backup_id": timestamp,
@@ -135,11 +142,16 @@ class SystemService:
 
         backups = []
         for f in sorted(backup_dir.glob("backup_*.json"), reverse=True):
+            # FIXED: f.stat()可能因文件被删除而抛出FileNotFoundError
+            try:
+                size = f.stat().st_size
+            except OSError:
+                continue
             backups.append(
                 {
                     "backup_id": f.stem.replace("backup_", ""),
                     "file": str(f),
-                    "size": f.stat().st_size,
+                    "size": size,
                 }
             )
         return backups[:20]  # 最多返回20个
@@ -153,11 +165,14 @@ class SystemService:
         if not json_file.exists():
             return False
 
-        with open(json_file, encoding="utf-8") as f:
-            json.load(f)
+        # FIXED: 文件读取无异常保护
+        try:
+            with open(json_file, encoding="utf-8") as f:
+                json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error("备份文件读取失败: %s", e)
+            raise RuntimeError(f"备份文件损坏或无法读取: {e}") from e
 
-        # 恢复配置（需要重启生效）
-        # MVP阶段：仅标记恢复请求，实际恢复在重启时执行
         logger.info("配置恢复请求: %s (需重启生效)", backup_id)
         return True
 

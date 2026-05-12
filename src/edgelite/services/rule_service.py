@@ -18,10 +18,14 @@ class RuleService:
         if device is None:
             raise ValueError(f"设备不存在: {data['device_id']}")
         result = await self._repo.create(data)
-        from edgelite.app import _app_state
+        # FIXED: _app_state.evaluator可能为None
+        try:
+            from edgelite.app import _app_state
 
-        if _app_state.evaluator:
-            _app_state.evaluator.invalidate_cache()
+            if _app_state.evaluator:
+                _app_state.evaluator.invalidate_cache()
+        except (ImportError, AttributeError):
+            pass
         return result
 
     async def get_rule(self, rule_id: str) -> dict | None:
@@ -80,8 +84,9 @@ class RuleService:
         if rule is None:
             raise ValueError(f"规则不存在: {rule_id}")
 
-        conditions = rule["conditions"]
-        logic = rule["logic"]
+        # FIXED: conditions可能为None
+        conditions = rule.get("conditions") or []
+        logic = rule.get("logic", "AND")
 
         if not conditions:
             return {

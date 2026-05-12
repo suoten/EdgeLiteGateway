@@ -34,6 +34,9 @@ async def get_mqtt_server_status(
     try:
         mgr = get_service_manager()
         info = mgr.get_service_info("mqtt_server")
+        # FIXED: get_service_info()可能返回None导致500
+        if info is None:
+            raise HTTPException(status_code=404, detail="MQTT Server服务未注册")
 
         connections = 0
         if mqtt_server and hasattr(mqtt_server, "get_client_count"):

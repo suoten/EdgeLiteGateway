@@ -77,6 +77,9 @@ async def get_service_status(
     try:
         mgr = get_service_manager()
         info = mgr.get_service_info(service_name)
+        # FIXED: get_service_info()可能返回None导致500
+        if info is None:
+            raise HTTPException(status_code=404, detail=f"服务未注册: {service_name}")
         svc_def = SERVICE_DEFINITIONS.get(service_name, {})
         return ApiResponse(
             data={
