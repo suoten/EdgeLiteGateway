@@ -4,11 +4,11 @@
 
 ### 轻量级边缘计算物联网网关 —— 让设备接入像插U盘一样简单
 
-[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/suoten/EdgeLiteGateway?color=blue&label=license)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Vue](https://img.shields.io/badge/Vue-3.4%2B-4FC08D?logo=vue.js&logoColor=white)](https://vuejs.org/)
-[![Version](https://img.shields.io/badge/version-1.0.0-community-brightgreen.svg)](https://github.com/suoten/EdgeLiteGateway)
+[![Version](https://img.shields.io/badge/version-1.0.0--community-brightgreen)](https://github.com/suoten/EdgeLiteGateway)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
 **🇨🇳 国内首个开源 Python 边缘计算网关 | 🎯 22 种工业协议开箱即用 | 📹 视频物联网一体化 | 🚀 10 分钟 Docker 部署**
