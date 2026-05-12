@@ -4,12 +4,12 @@
 
 ### 轻量级边缘计算物联网网关 —— 让设备接入像插U盘一样简单
 
-[!\[License\](https://img.shields.io/badge/license-GPL--3.0-blue.svg null)](LICENSE)
-[!\[Python\](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python\&logoColor=white null)](https://www.python.org/)
-[!\[FastAPI\](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi\&logoColor=white null)](https://fastapi.tiangolo.com/)
-[!\[Vue\](https://img.shields.io/badge/Vue-3.4%2B-4FC08D?logo=vue.js\&logoColor=white null)](https://vuejs.org/)
-[!\[Version\](https://img.shields.io/badge/version-1.0.0-community-brightgreen.svg null)](https://github.com/suoten/EdgeLiteGateway)
-[!\[Docker\](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker\&logoColor=white null)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue](https://img.shields.io/badge/Vue-3.4%2B-4FC08D?logo=vue.js&logoColor=white)](https://vuejs.org/)
+[![Version](https://img.shields.io/badge/version-1.0.0-community-brightgreen.svg)](https://github.com/suoten/EdgeLiteGateway)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
 **🇨🇳 国内首个开源 Python 边缘计算网关 | 🎯 22 种工业协议开箱即用 | 📹 视频物联网一体化 | 🚀 10 分钟 Docker 部署**
 
@@ -185,12 +185,12 @@ cd docker && docker compose up -d
 
 **最低硬件要求**：
 
-| 资源   | 最低配置    | 推荐配置     |
-| ------ | ------- | -------- |
-| CPU    | 1 核     | 2 核+     |
-| 内存     | 1 GB    | 2 GB+    |
-| 磁盘     | 2 GB    | 10 GB+   |
-| 操作系统   | Linux/Windows/macOS | Linux (Ubuntu 20.04+) |
+| 资源   | 最低配置                | 推荐配置                  |
+| ---- | ------------------- | --------------------- |
+| CPU  | 1 核                 | 2 核+                  |
+| 内存   | 1 GB                | 2 GB+                 |
+| 磁盘   | 2 GB                | 10 GB+                |
+| 操作系统 | Linux/Windows/macOS | Linux (Ubuntu 20.04+) |
 
 > 💡 树莓派 4B (4GB) 即可流畅运行！
 
@@ -256,6 +256,7 @@ docker compose logs -f influxdb
 > 首次登录请使用管理员账号，详见下方"默认账号"章节
 
 > ⚠️ **首次启动注意事项**：
+>
 > 1. InfluxDB 首次启动需要约 30 秒完成初始化（创建 org/bucket/token），期间后端日志可能出现 `InfluxDB connection refused`，这是正常的，后端会自动降级到 SQLite 缓存模式
 > 2. 等待约 1 分钟后所有服务就绪，刷新页面即可正常使用
 > 3. 如果 1 分钟后仍有问题，检查 InfluxDB 状态：`docker compose logs influxdb | tail -20`
@@ -738,8 +739,8 @@ cd web && cp .env.example .env && cd ..
 | `EDGELITE_MQTT__PORT`            | mqtt.port             | MQTT Broker 端口  |
 | `EDGELITE_SECURITY__SECRET_KEY`  | security.secret\_key  | JWT 签名密钥        |
 | `EDGELITE_SECURITY__ALGORITHM`   | security.algorithm    | JWT 算法          |
-| `EDGELITE_DRIVERS__CUSTOM_DIR`  | drivers.custom_dir    | 自定义驱动目录       |
-| `EDGELITE_DRIVERS__AUTO_RELOAD` | drivers.auto_reload   | 驱动自动重载        |
+| `EDGELITE_DRIVERS__CUSTOM_DIR`   | drivers.custom\_dir   | 自定义驱动目录         |
+| `EDGELITE_DRIVERS__AUTO_RELOAD`  | drivers.auto\_reload  | 驱动自动重载          |
 | `EDGELITE_LOGGING__LEVEL`        | logging.level         | 日志级别            |
 
 示例：
@@ -901,7 +902,7 @@ pip install -e ".[dev]" -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 Cython 是可选加速模块，编译失败不影响运行。系统会自动回退到纯 Python 实现。如需编译，请安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)。
 
-**Q: `ModuleNotFoundError: No module named 'sqlalchemy'`？**
+**Q:** **`ModuleNotFoundError: No module named 'sqlalchemy'`？**
 
 确保使用 `pip install -e ".[dev]"` 安装（而非仅 `pip install -r requirements.txt`），`pyproject.toml` 中已包含所有核心依赖。
 
@@ -935,7 +936,7 @@ export EDGELITE_SECURITY__SECRET_KEY=$(python -c "import secrets; print(secrets.
 
 或在 `.env` 文件中设置 `EDGELITE_SECURITY__SECRET_KEY=你的随机密钥`（至少32位）。
 
-**Q: 前端 `npm run build` 报 `require is not defined`？**
+**Q: 前端** **`npm run build`** **报** **`require is not defined`？**
 
 确保 Node.js 版本 >= 18，且已安装最新依赖（`npm install`）。vite.config.ts 已使用 `createRequire` 兼容 ESM 模式。
 
@@ -1014,7 +1015,7 @@ drivers:
 export EDGELITE_DRIVERS__CUSTOM_DIR=/path/to/your/custom/drivers
 ```
 
-3. 重启服务，驱动将被自动发现和加载
+1. 重启服务，驱动将被自动发现和加载
 
 **方式二：在内置驱动目录中添加**
 
