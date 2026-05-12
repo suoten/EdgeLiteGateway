@@ -6,6 +6,7 @@ export interface ApiResponse<T = any> {
   code: number
   message: string
   data: T
+  warning?: string
 }
 
 export interface PagedData<T = any> {
