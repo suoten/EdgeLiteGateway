@@ -523,15 +523,6 @@ rm -rf data/ logs/
 | **技术支持**  |              Community (Issue / QQ)              |                     7×24 Priority + 远程实施                     |
 | **开源协议**  |                      GPL-3.0                     |                             需商业授权                            |
 
-### Roadmap
-
-```
-v1.0 Community    ← 项目开源  (2025 Q1) ✅
-v1.1 Community    ← C 扩展 GCC/Clang/MSVC, 传感器向导  (2025 Q3) 🚧
-v1.5 Enterprise   ← SDK 全面开放 (2025 Q4) 💼
-v2.0 EdgeMesh     ← 分布式集群网, 跨网关协同  (2026/27远景)
-```
-
 ***
 
 ## 🙋 技术支持
