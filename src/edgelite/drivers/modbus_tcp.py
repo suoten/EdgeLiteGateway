@@ -196,32 +196,54 @@ class ModbusTcpDriver(DriverPlugin):
         return client is not None and client.connected
 
     async def discover_devices(self, config: dict) -> list[dict]:
-        """扫描指定IP段内的Modbus设备"""
+        """扫描指定IP或IP段内的Modbus设备"""
         host = config.get("host", "127.0.0.1")
         port = config.get("port", 502)
         slave_ids = config.get("slave_ids", list(range(1, 248)))
 
+        # FIXED: 支持网段扫描，如192.168.1.0/24或192.168.1.*
+        hosts = self._expand_hosts(host)
+
         discovered = []
-        for slave_id in slave_ids:
-            client = AsyncModbusTcpClient(host=host, port=port, timeout=2.0)
-            try:
-                connected = await client.connect()
-                if connected:
-                    result = await client.read_holding_registers(0, 1, **_slave_kwarg(slave_id))
-                    if not result.isError():
-                        discovered.append(
-                            {
-                                "host": host,
-                                "port": port,
-                                "slave_id": slave_id,
-                            }
-                        )
-            except Exception as e:
-                logger.debug("Modbus TCP发现设备异常[%s:%s]: %s", host, port, e)
-            finally:
-                client.close()
+        for h in hosts:
+            for slave_id in slave_ids:
+                client = AsyncModbusTcpClient(host=h, port=port, timeout=2.0)
+                try:
+                    connected = await client.connect()
+                    if connected:
+                        result = await client.read_holding_registers(0, 1, **_slave_kwarg(slave_id))
+                        if not result.isError():
+                            discovered.append(
+                                {
+                                    "host": h,
+                                    "port": port,
+                                    "slave_id": slave_id,
+                                    "protocol": "modbus_tcp",
+                                    "name": f"modbus-{h.split('.')[-1]}-{slave_id}",
+                                }
+                            )
+                except Exception as e:
+                    logger.debug("Modbus TCP发现设备异常[%s:%s]: %s", h, port, e)
+                finally:
+                    client.close()
 
         return discovered
+
+    @staticmethod
+    def _expand_hosts(host: str) -> list[str]:
+        """将IP或网段展开为IP列表，支持x.x.x.x/x和x.x.x.*格式"""
+        if "/" in host:
+            try:
+                import ipaddress
+
+                network = ipaddress.ip_network(host, strict=False)
+                return [str(ip) for ip in network.hosts()]
+            except ValueError:
+                return [host.split("/")[0]]
+        if "*" in host:
+            prefix = host.rsplit(".", 1)[0]
+            return [f"{prefix}.{i}" for i in range(1, 255)]
+        return [host]
 
     async def _read_single_point(
         self, client: AsyncModbusTcpClient, slave_id: int, pt_def: dict

@@ -1,9 +1,12 @@
+import { t } from '@/i18n'
+
 type TagType = 'primary' | 'error' | 'warning' | 'info' | 'default' | 'success'
 
+// FIXED: 原问题-中文标签硬编码，现使用i18n t()函数
 export const severityLabel: Record<string, string> = {
-  critical: '严重',
-  warning: '警告',
-  info: '信息',
+  critical: t('severity.critical'),
+  warning: t('severity.warning'),
+  info: t('severity.info'),
 }
 
 export const severityColor: Record<string, TagType> = {
@@ -13,17 +16,17 @@ export const severityColor: Record<string, TagType> = {
 }
 
 export const channelLabel: Record<string, string> = {
-  dingtalk: '钉钉',
-  email: '邮件',
-  wechat: '企业微信',
-  webhook: 'Webhook',
+  dingtalk: t('channel.dingtalk'),
+  email: t('channel.email'),
+  wechat: t('channel.wechat'),
+  webhook: t('channel.webhook'),
 }
 
 export const deviceStatusLabel: Record<string, string> = {
-  online: '在线',
-  offline: '离线',
-  unknown: '未知',
-  error: '异常',
+  online: t('device.online'),
+  offline: t('device.offline'),
+  unknown: t('device.unknown'),
+  error: t('device.error'),
 }
 
 export const deviceStatusColor: Record<string, TagType> = {
@@ -48,9 +51,9 @@ export const qualityColor: Record<string, TagType> = {
 }
 
 export const alarmStatusLabel: Record<string, string> = {
-  firing: '触发中',
-  acknowledged: '已确认',
-  recovered: '已恢复',
+  firing: t('alarm.firing'),
+  acknowledged: t('alarm.acknowledged'),
+  recovered: t('alarm.recovered'),
 }
 
 export const alarmStatusColor: Record<string, TagType> = {
@@ -94,9 +97,9 @@ export const auditActionLabel: Record<string, string> = {
 }
 
 export const roleLabel: Record<string, string> = {
-  admin: '管理员',
-  operator: '操作员',
-  viewer: '观察者',
+  admin: t('role.admin'),
+  operator: t('role.operator'),
+  viewer: t('role.viewer'),
 }
 
 export const roleColor: Record<string, TagType> = {
@@ -106,11 +109,11 @@ export const roleColor: Record<string, TagType> = {
 }
 
 export const serviceStateLabel: Record<string, string> = {
-  disabled: '未启用',
-  enabled: '已启用',
-  running: '运行中',
-  error: '异常',
-  installing: '安装中',
+  disabled: t('serviceState.disabled'),
+  enabled: t('serviceState.enabled'),
+  running: t('serviceState.running'),
+  error: t('serviceState.error'),
+  installing: t('serviceState.installing'),
 }
 
 export const serviceStateColor: Record<string, TagType> = {

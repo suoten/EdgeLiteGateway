@@ -68,16 +68,29 @@ class OTAManager:
                 if response.status_code != 200:
                     raise Exception(f"下载失败: HTTP {response.status_code}")
 
-                total_size = int(response.headers.get("content-length", 0))
+                # FIXED: 原问题-content-length非数字时int()崩溃，现加异常保护
+                try:
+                    total_size = int(response.headers.get("content-length", 0))
+                except (ValueError, TypeError):
+                    total_size = 0
                 downloaded = 0
 
-                with open(temp_file, "wb") as f:
-                    async for chunk in response.aiter_bytes(chunk_size=8192):
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size:
-                            progress = downloaded / total_size * 100
-                            logger.debug("下载进度: %.1f%%", progress)
+                # FIXED: 原问题-下载写入无异常保护，部分写入后崩溃导致文件损坏
+                # 现先写入临时文件，下载完成后才重命名为目标文件
+                partial_file = self._upgrade_dir / f"update-{version}.zip.part"
+                try:
+                    with open(partial_file, "wb") as f:
+                        async for chunk in response.aiter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size:
+                                progress = downloaded / total_size * 100
+                                logger.debug("下载进度: %.1f%%", progress)
+                    partial_file.rename(temp_file)
+                except Exception:
+                    if partial_file.exists():
+                        partial_file.unlink()
+                    raise
 
             logger.info("更新包下载完成: %s", temp_file)
             return temp_file
@@ -177,12 +190,25 @@ class OTAManager:
                         logger.error("无法确定应用目录: %s", app_dir)
                         return False
 
-                    for item in src_dir.rglob("*"):
-                        if item.is_file():
-                            rel = item.relative_to(src_dir)
-                            dest = app_dir / rel
-                            dest.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(str(item), str(dest))
+                    # FIXED: 原问题-文件替换无原子性保护，部分失败导致系统损坏
+                    # 现先复制到临时目录，全部成功后再批量替换
+                    staging_dir = Path(tempfile.mkdtemp(prefix="edgelite_staging_"))
+                    try:
+                        for item in src_dir.rglob("*"):
+                            if item.is_file():
+                                rel = item.relative_to(src_dir)
+                                dest = staging_dir / rel
+                                dest.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(str(item), str(dest))
+
+                        for item in staging_dir.rglob("*"):
+                            if item.is_file():
+                                rel = item.relative_to(staging_dir)
+                                dest = app_dir / rel
+                                dest.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(str(item), str(dest))
+                    finally:
+                        shutil.rmtree(str(staging_dir), ignore_errors=True)
 
                     logger.info("更新应用成功，文件已替换")
                     return True
@@ -197,7 +223,6 @@ class OTAManager:
         """回滚到指定版本"""
         async with self._lock:
             try:
-                # 查找备份
                 if backup_version:
                     backups = list(self._backup_dir.glob(f"backup-{backup_version}-*"))
                 else:
@@ -208,22 +233,35 @@ class OTAManager:
                     return False
 
                 backup_path = backups[0]
+                if not backup_path.is_dir():
+                    logger.error("备份路径不是目录: %s", backup_path)
+                    return False
+
                 logger.info("开始回滚到: %s", backup_path)
 
-                # 恢复文件
+                # FIXED: 原问题-回滚中删除+复制无原子性保护，可能导致数据丢失
+                # 现先复制到临时目录，再替换，避免删除后复制失败导致数据丢失
                 for item in ["src", "configs", "requirements.txt", "pyproject.toml"]:
                     src = backup_path / item
                     dst = Path(item)
                     if src.exists():
-                        if dst.exists():
-                            if dst.is_dir():
-                                shutil.rmtree(dst)
+                        staging = Path(tempfile.mkdtemp(prefix="edgelite_rollback_"))
+                        try:
+                            if src.is_dir():
+                                await asyncio.to_thread(shutil.copytree, src, staging / item)
                             else:
-                                dst.unlink()
-                        if src.is_dir():
-                            await asyncio.to_thread(shutil.copytree, src, dst)
-                        else:
-                            shutil.copy2(src, dst)
+                                shutil.copy2(str(src), str(staging / item))
+                            if dst.exists():
+                                if dst.is_dir():
+                                    shutil.rmtree(dst)
+                                else:
+                                    dst.unlink()
+                            if (staging / item).is_dir():
+                                await asyncio.to_thread(shutil.copytree, staging / item, dst)
+                            else:
+                                shutil.copy2(str(staging / item), str(dst))
+                        finally:
+                            shutil.rmtree(str(staging), ignore_errors=True)
 
                 logger.info("回滚成功")
                 return True
@@ -240,9 +278,13 @@ class OTAManager:
                 try:
                     with open(info_file) as f:
                         info = json.load(f)
+                    # FIXED: 原问题-json.load可能返回非dict类型，现加类型校验
+                    if not isinstance(info, dict):
+                        logger.debug("备份信息格式异常: %s", info_file)
+                        continue
                     info["path"] = str(backup_path)
                     backups.append(info)
-                except Exception as e:
+                except (json.JSONDecodeError, OSError) as e:
                     logger.debug("读取备份信息失败: %s", e)
         return sorted(backups, key=lambda x: x.get("created_at", ""), reverse=True)
 

@@ -183,7 +183,12 @@ class ThingsBoardHandler(PlatformHandler):
                     break
                 try:
                     topic = str(message.topic)
-                    payload = json.loads(message.payload.decode("utf-8"))
+                    # FIXED: 原问题-MQTT消息JSON解析无异常保护
+                    try:
+                        payload = json.loads(message.payload.decode("utf-8"))
+                    except json.JSONDecodeError as e:
+                        logger.warning("ThingsBoard MQTT消息JSON解析失败: %s", e)
+                        continue
 
                     if topic == "v1/gateway/rpc":
                         device_id = payload.get("device", "")

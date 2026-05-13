@@ -57,26 +57,26 @@
           </svg>          
         </div>
         <h1 class="login-title">EdgeLiteGateway</h1>
-        <p class="login-subtitle">轻量级边缘计算物联网网关</p>
+        <p class="login-subtitle">{{ t('login.title') }}</p>
       </div>
       <n-form v-if="!showChangePassword" ref="formRef" :model="form" :rules="rules" size="large">
         <n-form-item path="username">
-          <n-input v-model:value="form.username" placeholder="请输入用户名" @keyup.enter="handleLogin">
+          <n-input v-model:value="form.username" :placeholder="t('login.username')" @keyup.enter="handleLogin">
             <template #prefix><n-icon :component="PersonOutline" /></template>
           </n-input>
         </n-form-item>
         <n-form-item path="password">
-          <n-input v-model:value="form.password" type="password" show-password-on="click" placeholder="请输入密码" @keyup.enter="handleLogin">
+          <n-input v-model:value="form.password" type="password" show-password-on="click" :placeholder="t('login.password')" @keyup.enter="handleLogin">
             <template #prefix><n-icon :component="LockClosedOutline" /></template>
           </n-input>
         </n-form-item>
         <n-button type="primary" block :loading="loading" @click="handleLogin" style="margin-top: 8px">
-          登 录
+          {{ t('login.submit') }}
         </n-button>
       </n-form>
       <n-form v-else ref="changePwdFormRef" :model="changePwdForm" :rules="changePwdRules" size="large">
         <n-alert type="warning" style="margin-bottom:16px">
-          首次登录需要修改密码后才能继续使用
+          {{ t('login.mustChangePassword') }}
         </n-alert>
         <n-form-item path="old_password" label="当前密码">
           <n-input v-model:value="changePwdForm.old_password" type="password" show-password-on="click" placeholder="请输入当前密码" />
@@ -88,11 +88,11 @@
           <n-input v-model:value="changePwdForm.confirm_password" type="password" show-password-on="click" placeholder="再次输入新密码" />
         </n-form-item>
         <n-button type="primary" block :loading="changingPwd" @click="handleChangePassword" style="margin-top: 8px">
-          修改密码
+          {{ t('login.changePassword') }}
         </n-button>
       </n-form>
       <n-text depth="3" style="display:block;text-align:center;margin-top:16px;font-size:13px">
-        首次登录请使用管理员账号
+        {{ t('login.firstLoginHint') }}
       </n-text>
       <div class="login-footer">
         <n-text depth="3">v1.0.0 Community Edition</n-text>
@@ -108,6 +108,7 @@ import { useMessage } from 'naive-ui'
 import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
+import { t } from '@/i18n'
 
 const router = useRouter()
 const message = useMessage()
@@ -118,22 +119,22 @@ const changingPwd = ref(false)
 
 const form = reactive({ username: '', password: '' })
 const rules = {
-  username: { required: true, message: '请输入用户名', trigger: 'blur' },
-  password: { required: true, message: '请输入密码', trigger: 'blur' },
+  username: { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
+  password: { required: true, message: t('login.password'), trigger: 'blur' },
 }
 const formRef = ref<any>(null)
 
 const changePwdForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
 const changePwdRules = {
-  old_password: { required: true, message: '请输入当前密码', trigger: 'blur' },
+  old_password: { required: true, message: t('login.oldPassword'), trigger: 'blur' },
   new_password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, message: '密码至少8位', trigger: 'blur' },
-    { validator: (_rule: any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: '密码需包含字母和数字', trigger: 'blur' },
+    { required: true, message: t('login.newPassword'), trigger: 'blur' },
+    { min: 8, message: t('login.passwordMinLength'), trigger: 'blur' },
+    { validator: (_rule: any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: 'Password must contain letters and numbers', trigger: 'blur' },
   ],
   confirm_password: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
-    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: '两次输入的密码不一致', trigger: 'blur' },
+    { required: true, message: t('login.confirmPassword'), trigger: 'blur' },
+    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: 'Passwords do not match', trigger: 'blur' },
   ],
 }
 const changePwdFormRef = ref<any>(null)

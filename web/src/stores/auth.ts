@@ -36,8 +36,15 @@ export const useAuthStore = defineStore('auth', () => {
       if (e?.response?.status === 401) {
         await logout()
       } else {
-        role.value = 'viewer'
+        // FIXED: 原问题-非401错误时role默认viewer导致权限静默降级
+        // 现清除认证状态并跳转登录页，避免用户以错误权限操作系统
+        role.value = ''
         mustChangePassword.value = false
+        token.value = ''
+        sessionStorage.removeItem('edgelite_token')
+        sessionStorage.removeItem('edgelite_role')
+        sessionStorage.removeItem('edgelite_mustChangePassword')
+        throw new Error(e?.response?.data?.detail || e?.message || 'Failed to fetch user info')
       }
     }
   }

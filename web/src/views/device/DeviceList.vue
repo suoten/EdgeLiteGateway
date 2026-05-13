@@ -10,8 +10,9 @@
         <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">批量删除 ({{ checkedKeys.length }})</n-button>
         <n-button type="primary" @click="showCreateModal = true">创建设备</n-button>
         <n-button @click="showSimModal = true">创建模拟器</n-button>
-        <n-input v-model:value="discoverHost" placeholder="发现主机" size="small" style="width: 130px" />
+        <n-input v-model:value="discoverHost" placeholder="IP或网段(如192.168.1.*)" size="small" style="width: 170px" />
         <n-input-number v-model:value="discoverPort" :min="1" :max="65535" size="small" style="width: 90px" />
+        <n-select v-model:value="discoverProtocol" :options="discoverProtocolOptions" size="small" style="width: 130px" />
         <n-button @click="handleDiscover" :loading="discovering">设备发现</n-button>
       </n-space>
     </n-space>
@@ -137,16 +138,27 @@
         <n-button type="primary" :loading="creating" @click="handleCreateSim">创建</n-button>
       </template>
     </n-modal>
+
+    <!-- 发现结果弹窗 -->
+    <n-modal v-model:show="showDiscoverModal" title="发现设备" preset="card" style="width: 600px">
+      <n-empty v-if="discoverResults.length === 0" description="未发现设备" />
+      <n-data-table v-else :columns="discoverColumns" :data="discoverResults" :max-height="400" :row-key="(r: any) => r.name" v-model:checked-row-keys="selectedDiscoverKeys" />
+      <template #action>
+        <n-button @click="showDiscoverModal = false">关闭</n-button>
+        <n-button type="primary" :disabled="selectedDiscoverKeys.length === 0" :loading="addingDevices" @click="handleAddDiscovered">添加选中 ({{ selectedDiscoverKeys.length }})</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, h } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 import { deviceApi, driverApi, type Device } from '@/api'
 import { deviceStatusLabel, deviceStatusColor, protocolLabel } from '@/utils/enumLabels'
 import { PROTOCOL_CONFIGS, getProtocolConfig } from '@/constants/protocolConfig'
+import * as ws from '@/api/websocket'
 
 const router = useRouter()
 const message = useMessage()
@@ -181,9 +193,41 @@ const showSimModal = ref(false)
 const creating = ref(false)
 const discovering = ref(false)
 const checkedKeys = ref<string[]>([])
-const discoverHost = ref('192.168.1.0')
+const discoverHost = ref('192.168.1.*')
 const discoverPort = ref(502)
+const discoverProtocol = ref('modbus_tcp')
+const discoverResults = ref<any[]>([])
+const showDiscoverModal = ref(false)
+const selectedDiscoverKeys = ref<string[]>([])
+const addingDevices = ref(false)
 const createFormRef = ref<any>(null)
+
+// FIXED: 添加WebSocket device频道监听，设备列表自动刷新
+let _wsDeviceTimer: ReturnType<typeof setTimeout> | null = null
+function onDeviceWsMessage(data: any) {
+  try {
+    if (data?.device_id) {
+      if (_wsDeviceTimer) clearTimeout(_wsDeviceTimer)
+      _wsDeviceTimer = setTimeout(() => {
+        fetchDevices()
+        _wsDeviceTimer = null
+      }, 500)
+    }
+  } catch { /* ignore */ }
+}
+
+const discoverProtocolOptions = computed(() =>
+  protocolOptions.value.filter(o => o.value !== 'simulator' && o.value !== 'video')
+)
+
+const discoverColumns = [
+  { type: 'selection' as const },
+  { title: '名称', key: 'name', width: 180 },
+  { title: '协议', key: 'protocol', width: 120 },
+  { title: '主机', key: 'host', width: 140 },
+  { title: '端口', key: 'port', width: 80 },
+  { title: '从站ID', key: 'slave_id', width: 80 },
+]
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchDevices() } })
 
@@ -457,18 +501,45 @@ async function handleCreateSim() {
 async function handleDiscover() {
   discovering.value = true
   try {
-    const result = await deviceApi.discover({ protocol: filterProtocol.value || 'modbus_tcp', host: discoverHost.value, port: discoverPort.value })
-    if (result && result.length > 0) {
-      message.success(`发现 ${result.length} 个设备`)
-    } else {
-      message.info('未发现新设备')
-    }
-    fetchDevices()
+    const result = await deviceApi.discover({ protocol: discoverProtocol.value, host: discoverHost.value, port: discoverPort.value })
+    discoverResults.value = result || []
+    selectedDiscoverKeys.value = []
+    showDiscoverModal.value = true
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || '设备发现失败')
   } finally {
     discovering.value = false
   }
+}
+
+// FIXED: 一键添加发现的设备
+async function handleAddDiscovered() {
+  addingDevices.value = true
+  const selected = discoverResults.value.filter(r => selectedDiscoverKeys.value.includes(r.name))
+  let succeeded = 0
+  let failed = 0
+  for (const item of selected) {
+    try {
+      await deviceApi.create({
+        device_id: item.name,
+        name: item.name,
+        protocol: item.protocol || discoverProtocol.value,
+        config: { host: item.host, port: item.port, slave_id: item.slave_id },
+        points: [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }],
+      } as any)
+      succeeded++
+    } catch {
+      failed++
+    }
+  }
+  if (failed > 0) {
+    message.warning(`成功添加 ${succeeded} 个设备，${failed} 个添加失败`)
+  } else {
+    message.success(`成功添加 ${succeeded} 个设备`)
+  }
+  showDiscoverModal.value = false
+  fetchDevices()
+  addingDevices.value = false
 }
 
 function handleWritePoint(row: Device) {
@@ -507,5 +578,9 @@ async function handleBatchDelete() {
   })
 }
 
-onMounted(() => { fetchDevices(); loadDriverSchemas(); loadProtocols() })
+onMounted(() => { fetchDevices(); loadDriverSchemas(); loadProtocols(); ws.connect('device', onDeviceWsMessage) })
+onUnmounted(() => {
+  if (_wsDeviceTimer) clearTimeout(_wsDeviceTimer)
+  ws.disconnect('device', onDeviceWsMessage)
+})
 </script>

@@ -22,20 +22,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
 
 _login_attempts: dict[str, list[float]] = defaultdict(list)
+# FIXED: 原问题-魔法数字散布在代码中，现提取为命名常量
 _MAX_LOGIN_ATTEMPTS = 5
 _LOGIN_WINDOW_SECONDS = 300
+_LOGIN_ATTEMPTS_MAX_ENTRIES = 10000
+_LOGIN_ATTEMPTS_TRIM_TARGET = 8000
+_MIN_PASSWORD_LENGTH = 8
+_MAX_PASSWORD_LENGTH = 128
 
 
 def _check_login_rate(ip: str) -> None:
     now = time.time()
     attempts = _login_attempts[ip]
     _login_attempts[ip] = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
-    if len(_login_attempts) > 10000:
+    if len(_login_attempts) > _LOGIN_ATTEMPTS_MAX_ENTRIES:
         oldest_ips = sorted(
             _login_attempts.keys(),
             key=lambda k: min(_login_attempts[k]) if _login_attempts[k] else 0,
         )
-        for ip_to_remove in oldest_ips[: len(_login_attempts) - 8000]:
+        for ip_to_remove in oldest_ips[: len(_login_attempts) - _LOGIN_ATTEMPTS_TRIM_TARGET]:
             del _login_attempts[ip_to_remove]
     if len(_login_attempts[ip]) >= _MAX_LOGIN_ATTEMPTS:
         raise HTTPException(
@@ -194,11 +199,11 @@ async def change_password(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
         if not verify_password(old_password, db_user["password"]):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
-        if len(new_password) < 8:
+        if len(new_password) < _MIN_PASSWORD_LENGTH:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少8位，需包含字母和数字"
             )
-        if len(new_password) > 128:
+        if len(new_password) > _MAX_PASSWORD_LENGTH:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="密码长度不能超过128位"
             )

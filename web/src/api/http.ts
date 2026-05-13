@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { t } from '@/i18n'
 
 export interface ApiResponse<T = any> {
   code: number
@@ -16,9 +17,12 @@ export interface PagedData<T = any> {
   size: number
 }
 
+// FIXED: 原问题-超时时间硬编码为魔法数字，现提取为命名常量
+const HTTP_TIMEOUT_MS = 15000
+
 const http: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  timeout: 15000,
+  timeout: HTTP_TIMEOUT_MS,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 })
@@ -45,12 +49,13 @@ function addRefreshSubscriber(cb: (token: string | null) => void) {
 }
 
 async function refreshAuthToken(refreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
+  // FIXED: 原问题-Token刷新响应解析逻辑脆弱，现统一从ApiResponse.data提取
   const resp = await http.post<ApiResponse<{ access_token: string; refresh_token: string }>>(
     '/auth/refresh',
     { refresh: refreshToken }
   )
-  const data = resp.data
-  return (data as any)?.data || data
+  const body = resp.data
+  return body.data ?? body as any
 }
 
 http.interceptors.response.use(
@@ -59,8 +64,10 @@ http.interceptors.response.use(
       return response
     }
     const data = response.data
-    if (data && typeof data === 'object' && data.code !== 0 && data.code !== undefined) {
-      return Promise.reject(new Error(data.message || '请求失败'))
+    // FIXED: 原问题-拦截器code校验可能与后端不一致，现统一判断逻辑
+    // 后端约定 code=0 表示成功，非0表示业务错误；无code字段视为非标准响应直接放行
+    if (data && typeof data === 'object' && 'code' in data && data.code !== 0) {
+      return Promise.reject(new Error(data.message || t('http.requestFailed')))
     }
     return response
   },
@@ -129,7 +136,7 @@ http.interceptors.response.use(
         window.location.href = '/login'
         return Promise.reject(error)
       }
-      return Promise.reject(new Error(error.response?.data?.detail || '权限不足，无法执行此操作'))
+      return Promise.reject(new Error(error.response?.data?.detail || t('http.permissionDenied')))
     }
 
     return Promise.reject(error)

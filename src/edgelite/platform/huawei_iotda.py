@@ -227,7 +227,12 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     break
                 try:
                     topic = str(message.topic)
-                    payload = json.loads(message.payload.decode("utf-8"))
+                    # FIXED: 原问题-MQTT消息JSON解析无异常保护
+                    try:
+                        payload = json.loads(message.payload.decode("utf-8"))
+                    except json.JSONDecodeError as e:
+                        logger.warning("华为云IoTDA MQTT消息JSON解析失败: %s", e)
+                        continue
 
                     if "/sys/commands/" in topic:
                         cmd_name = payload.get("command_name", "")

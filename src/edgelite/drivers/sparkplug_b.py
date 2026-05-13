@@ -392,7 +392,9 @@ class SparkplugBDriver(DriverPlugin):
 
         for point_name, value in points.items():
             m: dict[str, Any] = {"name": point_name, "value": value if value is not None else 0}
-            point_meta = metadata.get("points", {}).get(point_name, {})
+            # FIXED: 原问题-metadata.get("points")可能返回None，链式.get()会AttributeError
+            points_meta = metadata.get("points") or {}
+            point_meta = points_meta.get(point_name, {})
             if "datatype" in point_meta:
                 m["datatype"] = point_meta["datatype"]
             if "alias" in point_meta:

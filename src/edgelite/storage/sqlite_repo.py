@@ -20,6 +20,17 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+# FIXED: 原问题-json.loads无异常保护，数据库字段损坏导致整个查询崩溃
+# 现提供安全解析辅助函数
+def _safe_json_loads(value: Any, default: Any = None) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return default
+    return value
+
+
 def _uuid() -> str:
     return uuid.uuid4().hex[:16]
 
@@ -510,8 +521,8 @@ def _orm_to_device(orm: DeviceORM) -> dict:
         "name": orm.name,
         "protocol": orm.protocol,
         "status": orm.status,
-        "config": json.loads(orm.config) if isinstance(orm.config, str) else orm.config,
-        "points": json.loads(orm.points) if isinstance(orm.points, str) else orm.points,
+        "config": _safe_json_loads(orm.config, {}),
+        "points": _safe_json_loads(orm.points, []),
         "collect_interval": orm.collect_interval,
         "created_at": orm.created_at.isoformat()
         if isinstance(orm.created_at, datetime)
@@ -527,16 +538,12 @@ def _orm_to_rule(orm: RuleORM) -> dict:
         "rule_id": orm.rule_id,
         "name": orm.name,
         "device_id": orm.device_id,
-        "conditions": json.loads(orm.conditions)
-        if isinstance(orm.conditions, str)
-        else orm.conditions,
+        "conditions": _safe_json_loads(orm.conditions, []),
         "logic": orm.logic,
         "duration": orm.duration,
         "severity": orm.severity,
         "enabled": bool(orm.enabled),
-        "notify_channels": json.loads(orm.notify_channels)
-        if isinstance(orm.notify_channels, str)
-        else orm.notify_channels,
+        "notify_channels": _safe_json_loads(orm.notify_channels, []),
         "created_at": orm.created_at.isoformat()
         if isinstance(orm.created_at, datetime)
         else str(orm.created_at),
@@ -551,9 +558,7 @@ def _orm_to_alarm(orm: AlarmORM) -> dict:
         "severity": orm.severity,
         "status": orm.status,
         "message": orm.message,
-        "trigger_value": json.loads(orm.trigger_value)
-        if isinstance(orm.trigger_value, str)
-        else orm.trigger_value,
+        "trigger_value": _safe_json_loads(orm.trigger_value),
         "trigger_count": orm.trigger_count,
         "fired_at": orm.fired_at.isoformat()
         if isinstance(orm.fired_at, datetime)

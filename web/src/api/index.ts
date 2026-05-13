@@ -26,8 +26,8 @@ export const authApi = {
     http.get<ApiResponse<{ user_id: string; username: string; role: string; must_change_password?: boolean }>>('/auth/me').then((r) => r.data.data),
 
   logout: (refreshToken?: string) =>
-    // FIXED: 返回值解包不一致，统一返回ApiResponse
-    http.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : undefined).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/auth/logout', refreshToken ? { refresh_token: refreshToken } : undefined).then((r) => r.data.data ?? r.data),
 
   changePassword: (oldPassword: string, newPassword: string) =>
     // FIXED: 返回值解包不一致，统一提取内层data
@@ -82,15 +82,15 @@ export const deviceApi = {
     http.put<ApiResponse<Device>>(`/devices/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
-    // FIXED: 返回值解包不一致，统一返回ApiResponse
-    http.delete(`/devices/${id}`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.delete<ApiResponse>(`/devices/${id}`).then((r) => r.data.data ?? r.data),
 
   getPoints: (id: string) =>
     http.get<ApiResponse<Record<string, any>>>(`/devices/${id}/points`).then((r) => r.data.data),
 
   writePoint: (id: string, point: string, value: any) =>
-    // FIXED: 返回值解包不一致，统一返回ApiResponse
-    http.post(`/devices/${id}/points`, { point, value }).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/devices/${id}/points`, { point, value }).then((r) => r.data.data ?? r.data),
 
   createSimulator: (data: Omit<DeviceCreateParams, 'protocol'>) =>
     http.post<ApiResponse<Device>>('/devices/simulator', data).then((r) => r.data.data),
@@ -151,8 +151,8 @@ export const ruleApi = {
     http.put<ApiResponse<Rule>>(`/rules/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
-    // FIXED: 返回值解包不一致，统一返回ApiResponse
-    http.delete(`/rules/${id}`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.delete<ApiResponse>(`/rules/${id}`).then((r) => r.data.data ?? r.data),
 
   enable: (id: string) =>
     http.post<ApiResponse<Rule>>(`/rules/${id}/enable`).then((r) => r.data.data),
@@ -215,8 +215,8 @@ export const videoApi = {
     http.get<ApiResponse<VideoStreamInfo>>(`/video/${deviceId}/stream`, { params: { channel_id: channelId || '1' } }).then((r) => r.data.data),
 
   ptzControl: (deviceId: string, action: string, channelId?: string) =>
-    // FIXED: 返回值解包不一致，统一返回ApiResponse
-    http.post(`/video/${deviceId}/ptz`, null, { params: { action, channel_id: channelId || '1' } }).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/video/${deviceId}/ptz`, null, { params: { action, channel_id: channelId || '1' } }).then((r) => r.data.data ?? r.data),
 
   // FIXED: 后端有video/webhook路由但前端无对应API函数
   webhook: (event: Record<string, any>, apiKey?: string) => {
@@ -283,8 +283,8 @@ export const userApi = {
     http.put<ApiResponse<User>>(`/users/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>
-    // FIXED: 返回值解包不一致，统一返回ApiResponse
-    http.delete(`/users/${id}`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.delete<ApiResponse>(`/users/${id}`).then((r) => r.data.data ?? r.data),
 }
 
 // ─── 驱动配置 ───
@@ -336,10 +336,12 @@ export const serialBridgeApi = {
     http.get<ApiResponse<any>>('/serial-bridge/status').then((r) => r.data.data),
 
   start: () =>
-    http.post<ApiResponse>('/serial-bridge/start').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/serial-bridge/start').then((r) => r.data.data ?? r.data),
 
   stop: () =>
-    http.post<ApiResponse>('/serial-bridge/stop').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/serial-bridge/stop').then((r) => r.data.data ?? r.data),
 }
 
 // ─── 平台对接 ───
@@ -444,22 +446,28 @@ export const serviceApi = {
     http.get<ApiResponse<ServiceInfo & { running_info?: Record<string, any> }>>(`/services/${serviceName}/status`).then((r) => r.data.data),
 
   enable: (serviceName: string, config?: Record<string, any>) =>
-    http.post<ApiResponse>(`/services/${serviceName}/enable`, { config }).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/services/${serviceName}/enable`, { config }).then((r) => r.data.data ?? r.data),
 
   disable: (serviceName: string) =>
-    http.post<ApiResponse>(`/services/${serviceName}/disable`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/services/${serviceName}/disable`).then((r) => r.data.data ?? r.data),
 
   start: (serviceName: string) =>
-    http.post<ApiResponse>(`/services/${serviceName}/start`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/services/${serviceName}/start`).then((r) => r.data.data ?? r.data),
 
   stop: (serviceName: string) =>
-    http.post<ApiResponse>(`/services/${serviceName}/stop`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/services/${serviceName}/stop`).then((r) => r.data.data ?? r.data),
 
   installDeps: (serviceName: string) =>
-    http.post<ApiResponse>(`/services/${serviceName}/install-deps`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>(`/services/${serviceName}/install-deps`).then((r) => r.data.data ?? r.data),
 
   updateConfig: (serviceName: string, config: Record<string, any>) =>
-    http.put<ApiResponse>(`/services/${serviceName}/config`, { config }).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.put<ApiResponse>(`/services/${serviceName}/config`, { config }).then((r) => r.data.data ?? r.data),
 }
 
 // ─── MQTT Server ───
@@ -477,13 +485,16 @@ export const mqttServerApi = {
     http.get<ApiResponse<any>>('/mqtt-server/status').then((r) => r.data.data),
 
   start: () =>
-    http.post<ApiResponse>('/mqtt-server/start').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/mqtt-server/start').then((r) => r.data.data ?? r.data),
 
   stop: () =>
-    http.post<ApiResponse>('/mqtt-server/stop').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/mqtt-server/stop').then((r) => r.data.data ?? r.data),
 
   updateConfig: (data: MqttServerConfig) =>
-    http.put<ApiResponse>('/mqtt-server/config', data).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.put<ApiResponse>('/mqtt-server/config', data).then((r) => r.data.data ?? r.data),
 }
 
 // ─── Modbus Slave ───
@@ -502,13 +513,16 @@ export const modbusSlaveApi = {
     http.get<ApiResponse<any>>('/modbus-slave/status').then((r) => r.data.data),
 
   start: () =>
-    http.post<ApiResponse>('/modbus-slave/start').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/modbus-slave/start').then((r) => r.data.data ?? r.data),
 
   stop: () =>
-    http.post<ApiResponse>('/modbus-slave/stop').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/modbus-slave/stop').then((r) => r.data.data ?? r.data),
 
   updateConfig: (data: ModbusSlaveConfig) =>
-    http.put<ApiResponse>('/modbus-slave/config', data).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.put<ApiResponse>('/modbus-slave/config', data).then((r) => r.data.data ?? r.data),
 }
 
 // ─── MCP协议 ───
@@ -535,10 +549,12 @@ export const mcpApi = {
     http.get<ApiResponse<{ keys: any[]; enabled: boolean }>>('/mcp/auth-keys').then((r) => r.data.data),
 
   createKey: (data: McpCreateKeyParams) =>
-    http.post<ApiResponse>('/mcp/auth-keys', data).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/mcp/auth-keys', data).then((r) => r.data.data ?? r.data),
 
   deleteKey: (keyId: string) =>
-    http.delete<ApiResponse>(`/mcp/auth-keys/${keyId}`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.delete<ApiResponse>(`/mcp/auth-keys/${keyId}`).then((r) => r.data.data ?? r.data),
 
   // FIXED: 后端有mcp/sse路由但前端无对应API函数
   createSseConnection: (token?: string) => {
@@ -555,10 +571,12 @@ export const otaApi = {
     http.get<ApiResponse<any>>('/ota/check').then((r) => r.data.data),
 
   apply: () =>
-    http.post<ApiResponse>('/ota/apply').then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/ota/apply').then((r) => r.data.data ?? r.data),
 
   rollback: (version?: string) =>
-    http.post<ApiResponse>('/ota/rollback', null, { params: { version: version || '' } }).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/ota/rollback', null, { params: { version: version || '' } }).then((r) => r.data.data ?? r.data),
 
   backups: () =>
     http.get<ApiResponse<any>>('/ota/backups').then((r) => r.data.data),
@@ -588,7 +606,8 @@ export interface IntegrationHandshakeParams {
 
 export const integrationApi = {
   handshake: (data: IntegrationHandshakeParams) =>
-    http.post<ApiResponse>('/integration/handshake', data).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/integration/handshake', data).then((r) => r.data.data ?? r.data),
 
   status: () =>
     http.get<ApiResponse<any>>('/integration/status').then((r) => r.data.data),
@@ -604,8 +623,10 @@ export const scadaApi = {
     http.get<ApiResponse<any>>(`/scada/project/${encodeURIComponent(name)}`).then((r) => r.data.data),
 
   saveProject: (data: { name: string; widgets: any[] }) =>
-    http.post<ApiResponse>('/scada/project', data).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.post<ApiResponse>('/scada/project', data).then((r) => r.data.data ?? r.data),
 
   deleteProject: (name: string) =>
-    http.delete<ApiResponse>(`/scada/project/${encodeURIComponent(name)}`).then((r) => r.data),
+    // FIXED: 原问题-返回值解包不一致，统一提取内层data
+    http.delete<ApiResponse>(`/scada/project/${encodeURIComponent(name)}`).then((r) => r.data.data ?? r.data),
 }

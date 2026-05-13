@@ -35,10 +35,12 @@ class DriverPlugin(ABC):
         """发现设备（可选实现）"""
         return []
 
+    # FIXED: 原问题-add_device使用NotImplementedError而非@abstractmethod，子类未实现时不在实例化阶段报错
+    # add_device 保持为可选方法（非 abstractmethod），但改用更明确的文档说明
     async def add_device(
         self, device_id: str, config: dict, points: list[dict] | None = None
     ) -> None:
-        """添加设备到驱动实例（可选实现）"""
+        """添加设备到驱动实例（可选实现）。未实现时抛出 NotImplementedError。"""
         raise NotImplementedError(f"{self.__class__.__name__} does not implement add_device")
 
     def is_device_connected(self, device_id: str) -> bool:

@@ -134,7 +134,12 @@ def _register_websocket_routes(app: FastAPI) -> None:
             handshake_msg = await websocket.receive_text()
             import json as _json
 
-            handshake_data = _json.loads(handshake_msg)
+            # FIXED: 原问题-WebSocket握手消息JSON解析无异常保护，恶意连接可导致崩溃
+            try:
+                handshake_data = _json.loads(handshake_msg)
+            except _json.JSONDecodeError:
+                await websocket.send(_json.dumps({"type": "error", "message": "Invalid JSON"}))
+                return
             if handshake_data.get("type") == "handshake":
                 response = await _app_state.integration_endpoint.handle_handshake(handshake_data)
                 session_id = response.get("session_id", "")

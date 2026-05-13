@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
@@ -183,7 +184,19 @@ class DatabaseSourceDriver(DriverPlugin):
 
         return result
 
+    # FIXED: 原问题-SQL查询直接执行无注入防护，现增加基本SQL注入检测
+    _SQL_DANGEROUS_PATTERNS = re.compile(
+        r";\s*(DROP|ALTER|CREATE|TRUNCATE|DELETE|INSERT|UPDATE|GRANT|REVOKE)\b",
+        re.IGNORECASE,
+    )
+
+    def _validate_sql(self, sql: str) -> None:
+        if self._SQL_DANGEROUS_PATTERNS.search(sql):
+            raise ValueError("SQL contains potentially dangerous statement")
+
     async def _execute_query(self, sql: str, params: tuple | None = None) -> list[dict]:
+        # FIXED: 原问题-SQL查询直接执行无注入防护，现执行前先验证
+        self._validate_sql(sql)
         db_type = self._config.get("db_type", "mysql")
 
         if db_type in ("mysql", "mariadb"):

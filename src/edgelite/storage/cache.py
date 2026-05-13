@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 MAX_CACHE_SIZE = 100_000
 
 
+# FIXED: 原问题-json.loads无异常保护，数据库字段损坏导致整个查询崩溃
+def _safe_json_loads(value: Any, default: Any = None) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return default
+    return value
+
+
 class CacheManager:
     """InfluxDB不可用时的数据缓存管理"""
 
@@ -61,8 +71,8 @@ class CacheManager:
                 {
                     "id": r.id,
                     "measurement": r.measurement,
-                    "tags": json.loads(r.tags) if isinstance(r.tags, str) else r.tags,
-                    "fields": json.loads(r.fields) if isinstance(r.fields, str) else r.fields,
+                    "tags": _safe_json_loads(r.tags, {}),
+                    "fields": _safe_json_loads(r.fields, {}),
                     "timestamp": r.timestamp,
                     "retry_count": r.retry_count,
                 }

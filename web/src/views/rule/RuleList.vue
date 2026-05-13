@@ -192,9 +192,16 @@ const templateOptions = computed(() => {
     })),
   }))
 })
+// FIXED: 原问题-pointOptions仅依赖createForm，编辑弹窗测点下拉框始终为空
+// 现根据当前活跃表单（创建或编辑）动态计算测点选项
+const activeDeviceId = computed(() => {
+  if (showEditModal.value) return editForm.device_id
+  if (showCreateModal.value) return createForm.device_id
+  return ''
+})
 const pointOptions = computed(() => {
-  if (!createForm.device_id) return []
-  const dev = devices.value.find(d => d.device_id === createForm.device_id)
+  if (!activeDeviceId.value) return []
+  const dev = devices.value.find(d => d.device_id === activeDeviceId.value)
   return dev?.points?.map((p: any) => ({ label: `${p.name}${p.unit ? ' (' + p.unit + ')' : ''}`, value: p.name })) || []
 })
 
@@ -278,7 +285,8 @@ async function fetchRules() {
   try {
     const data = await ruleApi.list({ page: pagination.page, size: pagination.pageSize, search: searchText.value || undefined, severity: filterSeverity.value ?? undefined })
     rules.value = data?.data ?? []
-    pagination.itemCount = data.total
+    // FIXED: 原问题-pagination.itemCount无空值保护，可能显示NaN
+    pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     rules.value = []
     message.error(e?.response?.data?.detail || e?.message || '获取规则列表失败')
@@ -341,6 +349,10 @@ function openEdit(r: Rule) {
 }
 
 async function handleEdit() {
+  // FIXED: 原问题-编辑表单未做验证，必填字段可提交空值
+  try {
+    await editFormRef.value?.validate()
+  } catch { return }
   if (!editForm.conditions || !editForm.conditions.length || editForm.conditions.some((c: any) => !c.point)) {
     message.error('请至少添加一个有效的条件')
     return
