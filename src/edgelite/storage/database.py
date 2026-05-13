@@ -215,7 +215,7 @@ class Database:
                 try:
                     from edgelite.security.password import hash_password
 
-                    # FIXED: 硬编码默认密码admin123，改为随机生成
+                    # FIXED: 原问题-默认密码硬编码，改为随机生成
                     _alphabet = string.ascii_letters + string.digits
                     temp_password = "".join(secrets.choice(_alphabet) for _ in range(16))
                     hashed = hash_password(temp_password)

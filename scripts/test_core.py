@@ -6,7 +6,7 @@ import time
 import httpx
 
 BASE = os.environ.get("EDGELITE_TEST_BASE", "http://127.0.0.1:8080")
-# FIXED: 硬编码密码admin123，改为环境变量读取
+# FIXED: 原问题-密码硬编码，改为环境变量读取
 _TEST_USER = os.environ.get("EDGELITE_TEST_USER", "admin")
 _TEST_PASS = os.environ.get("EDGELITE_TEST_PASS", "")
 
