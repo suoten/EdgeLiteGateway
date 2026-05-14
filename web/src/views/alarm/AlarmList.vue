@@ -2,15 +2,15 @@
   <n-space vertical :size="16">
     <n-space justify="space-between">
       <n-space>
-        <n-input v-model:value="searchText" placeholder="搜索设备ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
-        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
-        <n-select v-model:value="filterSeverity" :options="severityOptions" placeholder="级别筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+        <n-input v-model:value="searchText" :placeholder="t('alarmList.searchPlaceholder')" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+        <n-select v-model:value="filterStatus" :options="statusOptions" :placeholder="t('alarmList.statusFilter')" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
+        <n-select v-model:value="filterSeverity" :options="severityOptions" :placeholder="t('alarmList.levelFilter')" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchAlarms() }" />
       </n-space>
       <n-popconfirm v-if="firingAlarms.length" @positive-click="handleBatchAck">
         <template #trigger>
-          <n-button type="warning" :loading="batchAcking">批量确认 ({{ firingAlarms.length }})</n-button>
+          <n-button type="warning" :loading="batchAcking">{{ t('alarmList.batchAck') }} ({{ firingAlarms.length }})</n-button>
         </template>
-        确定批量确认 {{ firingAlarms.length }} 条触发中的告警？
+        {{ t('alarmList.batchAckConfirm', { count: firingAlarms.length }) }}
       </n-popconfirm>
     </n-space>
 
@@ -20,7 +20,7 @@
       v-model:checked-row-keys="checkedKeys"
     >
       <template #empty>
-        <n-empty v-if="!loading" description="暂无告警，系统运行正常" style="padding: 40px 0" />
+        <n-empty v-if="!loading" :description="t('alarmList.emptyDesc')" style="padding: 40px 0" />
       </template>
     </n-data-table>
   </n-space>
@@ -32,6 +32,8 @@ import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } f
 import { alarmApi, type Alarm } from '@/api'
 import { severityLabel, alarmStatusLabel, alarmStatusColor } from '@/utils/enumLabels'
 import * as ws from '@/api/websocket'
+// FIXED: 原问题-添加i18n支持
+import { t } from '@/i18n'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -48,48 +50,49 @@ const firingAlarms = computed(() => alarms.value.filter(a => a.status === 'firin
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchAlarms() } })
 
 const statusOptions = [
-  { label: '触发中', value: 'firing' },
-  { label: '已确认', value: 'acknowledged' },
-  { label: '已恢复', value: 'recovered' },
+  { label: t('alarm.firing'), value: 'firing' },
+  { label: t('alarm.acknowledged'), value: 'acknowledged' },
+  { label: t('alarm.recovered'), value: 'recovered' },
 ]
 
 const severityOptions = [
-  { label: '严重', value: 'critical' },
-  { label: '警告', value: 'warning' },
-  { label: '信息', value: 'info' },
+  { label: t('alarm.critical'), value: 'critical' },
+  { label: t('alarm.warning'), value: 'warning' },
+  { label: t('alarm.info'), value: 'info' },
 ]
 
 const severityColor: Record<string, any> = { critical: 'error', warning: 'warning', info: 'info' }
 const statusColor: Record<string, any> = { firing: 'error', acknowledged: 'warning', recovered: 'success' }
-const statusLabel: Record<string, string> = { firing: '触发中', acknowledged: '已确认', recovered: '已恢复' }
+// FIXED: 原问题-statusLabel中文硬编码，改为i18n
+const statusLabel: Record<string, string> = { firing: t('alarm.firing'), acknowledged: t('alarm.acknowledged'), recovered: t('alarm.recovered') }
 
 const columns = [
-  { title: '告警ID', key: 'alarm_id', width: 140 },
-  { title: '规则ID', key: 'rule_id', width: 140 },
-  { title: '设备ID', key: 'device_id', width: 160 },
+  { title: t('alarmList.alarmId'), key: 'alarm_id', width: 140 },
+  { title: t('alarmList.ruleId'), key: 'rule_id', width: 140 },
+  { title: t('alarmList.deviceId'), key: 'device_id', width: 160 },
   {
-    title: '级别', key: 'severity', width: 80,
+    title: t('alarmList.level'), key: 'severity', width: 80,
     render: (r: Alarm) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => severityLabel[r.severity] || r.severity }),
   },
   {
-    title: '状态', key: 'status', width: 90,
+    title: t('alarmList.status'), key: 'status', width: 90,
     render: (r: Alarm) => h(NTag, { type: statusColor[r.status] || 'default', size: 'small' }, { default: () => statusLabel[r.status] || r.status }),
   },
-  { title: '触发次数', key: 'trigger_count', width: 80 },
+  { title: t('alarmList.triggerCount'), key: 'trigger_count', width: 80 },
   {
-    title: '触发值', key: 'trigger_value', width: 160,
+    title: t('alarmList.triggerValue'), key: 'trigger_value', width: 160,
     render: (r: Alarm) => r.trigger_value ? h(NTooltip, {}, { trigger: () => h('span', { style: 'max-width:140px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, JSON.stringify(r.trigger_value)), default: () => JSON.stringify(r.trigger_value) }) : '-',
   },
-  { title: '触发时间', key: 'fired_at', width: 180, sorter: true, defaultSortOrder: 'descend' },
-  { title: '确认人', key: 'acknowledged_by', width: 100, render: (r: Alarm) => r.acknowledged_by || '-' },
-  { title: '恢复时间', key: 'recovered_at', width: 180, render: (r: Alarm) => r.recovered_at || '-' },
+  { title: t('alarmList.triggerTime'), key: 'fired_at', width: 180, sorter: true, defaultSortOrder: 'descend' },
+  { title: t('alarmList.ackBy'), key: 'acknowledged_by', width: 100, render: (r: Alarm) => r.acknowledged_by || '-' },
+  { title: t('alarmList.recoverTime'), key: 'recovered_at', width: 180, render: (r: Alarm) => r.recovered_at || '-' },
   {
-    title: '操作', key: 'actions', width: 100,
+    title: t('alarmList.actions'), key: 'actions', width: 100,
     render: (r: Alarm) =>
       r.status === 'firing'
         ? h(NPopconfirm as any, { onPositiveClick: () => doAck(r.alarm_id) }, {
-          trigger: () => h(NButton, { text: true, type: 'primary' }, { default: () => '确认' }),
-          default: () => '确定确认该告警？',
+          trigger: () => h(NButton, { text: true, type: 'primary' }, { default: () => t('alarmList.ack') }),
+          default: () => t('alarmList.ackConfirm'),
         })
         : null,
   },
@@ -105,12 +108,11 @@ async function fetchAlarms() {
       severity: filterSeverity.value ?? undefined,
       search: searchText.value || undefined,
     })
-    // FIXED: data.total直接赋值可能崩溃，改为null安全
     alarms.value = data?.data ?? []
     pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     alarms.value = []
-    message.error(e?.response?.data?.detail || e?.message || '获取告警列表失败')
+    message.error(e?.response?.data?.detail || e?.message || t('alarmList.fetchFailed'))
   } finally {
     loading.value = false
   }
@@ -119,10 +121,10 @@ async function fetchAlarms() {
 async function doAck(alarmId: string) {
   try {
     await alarmApi.ack(alarmId)
-    message.success('告警已确认')
+    message.success(t('alarmList.ackSuccess'))
     fetchAlarms()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '确认失败')
+    message.error(e?.response?.data?.detail || e?.message || t('alarmList.ackFailed'))
   }
 }
 
@@ -134,9 +136,9 @@ async function handleBatchAck() {
     const succeeded = results.filter(r => r.status === 'fulfilled').length
     const failed = results.filter(r => r.status === 'rejected').length
     if (failed > 0) {
-      message.warning(`成功确认 ${succeeded} 条告警，${failed} 条确认失败`)
+      message.warning(t('alarmList.batchAckResult', { success: succeeded, failed }))
     } else {
-      message.success(`成功确认 ${succeeded} 条告警`)
+      message.success(t('alarmList.batchAckResultAll', { success: succeeded }))
     }
     fetchAlarms()
   } finally {

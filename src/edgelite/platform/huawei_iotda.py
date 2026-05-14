@@ -54,14 +54,14 @@ class HuaweiIoTDAHandler(PlatformHandler):
 
         self._config = config
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
 
         broker = config.get("broker", config.get("host", ""))
         port = int(config.get("port", 8883))
         device_id = config.get("device_id", "")
         secret = config.get("secret", "")
 
-        timestamp = str(int(time.time() * 1000))
+        timestamp = str(timestamp_ms())  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
         if secret:
             password = self._generate_password(device_id, secret, timestamp)
         else:
@@ -167,7 +167,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     port=port,
                     username=username,
                     password=password,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                 ) as client:
                     self._connected = True
                     logger.info("华为云IoTDA MQTT连接成功: %s:%d", broker, port)
@@ -201,7 +201,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
             except Exception as e:
                 logger.error("华为云IoTDA MQTT连接异常: %s，5秒后重试", e)
                 self._connected = False
-                await asyncio.sleep(5)
+                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
 
     async def _publish_loop(self, client: Any) -> None:
         try:

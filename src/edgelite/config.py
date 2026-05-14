@@ -330,8 +330,13 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
 
     path = Path(config_path)
     if path.exists():
-        with open(path, encoding="utf-8") as f:
-            config_data = yaml.safe_load(f) or {}
+        # FIXED: 原问题-load_config文件读取无try-except保护，文件权限不足或损坏导致启动失败
+        try:
+            with open(path, encoding="utf-8") as f:
+                config_data = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError) as e:
+            logger.error("load_config failed to read %s: %s", path, e)
+            config_data = {}
 
     # 环境变量覆盖（优先级：环境变量 > .env > config.yaml）
     env_overrides = _load_env_overrides()
@@ -381,8 +386,13 @@ def save_config(config: AppConfig, config_path: str | Path | None = None) -> Non
     if env_overrides:
         config_dict = _deep_merge(config_dict, env_overrides)
 
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    # FIXED: 原问题-save_config文件写入无try-except保护，磁盘满或权限不足导致未处理异常
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    except OSError as e:
+        logger.error("save_config failed to write %s: %s", path, e)
+        raise
 
     global _config
     _config = config

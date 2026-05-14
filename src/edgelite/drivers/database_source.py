@@ -85,16 +85,21 @@ class DatabaseSourceDriver(DriverPlugin):
         except ImportError:
             raise ImportError("aiomysql未安装，请执行: pip install aiomysql") from None
 
-        self._pool = await aiomysql.create_pool(
-            host=config.get("host", "localhost"),
-            port=int(config.get("port", 3306)),
-            db=config.get("database", ""),
-            user=config.get("username", "root"),
-            password=config.get("password", ""),
-            minsize=1,
-            maxsize=int(config.get("pool_size", 5)),
-            autocommit=True,
-        )
+        # FIXED: 原问题-_init_mysql连接池创建无try-except保护
+        try:
+            self._pool = await aiomysql.create_pool(
+                host=config.get("host", "localhost"),
+                port=int(config.get("port", 3306)),
+                db=config.get("database", ""),
+                user=config.get("username", "root"),
+                password=config.get("password", ""),
+                minsize=1,
+                maxsize=int(config.get("pool_size", 5)),
+                autocommit=True,
+            )
+        except Exception as e:
+            logger.error("DatabaseSource._init_mysql connection failed: %s", e)
+            raise
 
     async def _init_postgresql(self, config: dict) -> None:
         try:
@@ -110,15 +115,25 @@ class DatabaseSourceDriver(DriverPlugin):
             f"{config.get('host', 'localhost')}:{config.get('port', 5432)}/"
             f"{config.get('database', 'postgres')}"
         )
-        self._pool = await asyncpg.create_pool(
-            dsn, min_size=1, max_size=int(config.get("pool_size", 5))
-        )
+        # FIXED: 原问题-_init_postgresql连接池创建无try-except保护
+        try:
+            self._pool = await asyncpg.create_pool(
+                dsn, min_size=1, max_size=int(config.get("pool_size", 5))
+            )
+        except Exception as e:
+            logger.error("DatabaseSource._init_postgresql connection failed: %s", e)
+            raise
 
     async def _init_sqlite(self, config: dict) -> None:
         import aiosqlite
 
         db_path = config.get("database", config.get("path", "data/source.db"))
-        self._pool = await aiosqlite.connect(db_path)
+        # FIXED: 原问题-_init_sqlite连接创建无try-except保护
+        try:
+            self._pool = await aiosqlite.connect(db_path)
+        except Exception as e:
+            logger.error("DatabaseSource._init_sqlite connection failed: %s", e)
+            raise
 
     async def _init_mssql(self, config: dict) -> None:
         try:
@@ -134,9 +149,14 @@ class DatabaseSourceDriver(DriverPlugin):
             f"PWD={config.get('password', '')};"
             f"TrustServerCertificate=yes"
         )
-        self._pool = await aioodbc.create_pool(
-            dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5))
-        )
+        # FIXED: 原问题-_init_mssql连接池创建无try-except保护
+        try:
+            self._pool = await aioodbc.create_pool(
+                dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5))
+            )
+        except Exception as e:
+            logger.error("DatabaseSource._init_mssql connection failed: %s", e)
+            raise
 
     async def stop(self) -> None:
         self._running = False

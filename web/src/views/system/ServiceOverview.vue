@@ -3,25 +3,25 @@
     <n-card :bordered="false">
       <template #header>
         <n-space align="center" :size="12">
-          <span style="font-size: 18px; font-weight: 600">服务管理</span>
-          <n-tag round>{{ runningCount }}/{{ services.length }} 运行中</n-tag>
+          <span style="font-size: 18px; font-weight: 600">{{ t('serviceOverview.title') }}</span>
+          <n-tag round>{{ runningCount }}/{{ services.length }} {{ t('serviceOverview.running') }}</n-tag>
         </n-space>
       </template>
       <template #header-extra>
         <n-button @click="fetchServices" :loading="loading" quaternary size="small">
           <template #icon><n-icon><refresh-outline /></n-icon></template>
-          刷新
+          {{ t('serviceOverview.refresh') }}
         </n-button>
       </template>
 
       <n-alert type="info" :bordered="false" style="margin-bottom: 16px">
-        在这里可以管理网关的所有可选服务。点击开关即可启用或停用服务，无需重启网关。如果缺少依赖组件，系统会自动提示并支持一键安装。
+        {{ t('serviceOverview.desc') }}
       </n-alert>
     </n-card>
 
-    <n-card title="内置服务" :bordered="false">
+    <n-card :title="t('serviceOverview.builtInService')" :bordered="false">
       <template #header-extra>
-        <n-text depth="3" style="font-size: 13px">网关内置的通信和仿真服务</n-text>
+        <n-text depth="3" style="font-size: 13px">{{ t('serviceOverview.builtInDesc') }}</n-text>
       </template>
       <n-grid :cols="3" :x-gap="16" :y-gap="16" responsive="screen">
         <n-gi v-for="svc in builtinServices" :key="svc.name">
@@ -41,12 +41,12 @@
             <n-divider style="margin: 12px 0 8px" />
 
             <n-space vertical :size="6">
-              <n-text depth="3" style="font-size: 12px; font-weight: 600">适用场景：</n-text>
-              <n-text v-for="(uc, i) in svc.use_cases.slice(0, 2)" :key="i" depth="3" style="font-size: 12px; display: block; padding-left: 8px">
+              <n-text depth="3" style="font-size: 12px; font-weight: 600">{{ t('serviceOverview.useCases') }}</n-text>
+              <n-text v-for="(uc, i) in (svc.use_cases ?? []).slice(0, 2)" :key="i" depth="3" style="font-size: 12px; display: block; padding-left: 8px">
                 · {{ uc }}
               </n-text>
-              <n-text v-if="svc.use_cases.length > 2" depth="3" style="font-size: 12px; padding-left: 8px">
-                ...等{{ svc.use_cases.length }}个场景
+              <n-text v-if="(svc.use_cases ?? []).length > 2" depth="3" style="font-size: 12px; padding-left: 8px">
+                {{ t('serviceOverview.moreScenes', { count: (svc.use_cases ?? []).length }) }}
               </n-text>
             </n-space>
 
@@ -59,11 +59,11 @@
                 size="small"
                 @update:value="(v: boolean) => handleToggle(svc.name, v)"
               >
-                <template #checked>启用</template>
-                <template #unchecked>停用</template>
+                <template #checked>{{ t('serviceOverview.enable') }}</template>
+                <template #unchecked>{{ t('serviceOverview.disable') }}</template>
               </n-switch>
               <n-button text type="primary" size="small" @click="$router.push(serviceRoute(svc.name))">
-                详情 →
+                {{ t('serviceOverview.viewDetail') }}
               </n-button>
             </n-space>
 
@@ -74,17 +74,17 @@
               style="margin-top: 8px"
               size="small"
             >
-              缺少依赖：{{ getMissingDeps(svc).join(', ') }}
-              <n-button text type="primary" size="tiny" @click.stop="handleInstallDeps(svc.name)" :loading="installingMap[svc.name]">安装</n-button>
+              {{ t('serviceOverview.missingDeps') }}{{ getMissingDeps(svc).join(', ') }}
+              <n-button text type="primary" size="tiny" @click.stop="handleInstallDeps(svc.name)" :loading="installingMap[svc.name]">{{ t('serviceOverview.install') }}</n-button>
             </n-alert>
           </n-card>
         </n-gi>
       </n-grid>
     </n-card>
 
-    <n-card title="集成服务" :bordered="false">
+    <n-card :title="t('serviceOverview.integrationService')" :bordered="false">
       <template #header-extra>
-        <n-text depth="3" style="font-size: 13px">与外部系统的集成服务</n-text>
+        <n-text depth="3" style="font-size: 13px">{{ t('serviceOverview.integrationDesc') }}</n-text>
       </template>
       <n-grid :cols="3" :x-gap="16" :y-gap="16" responsive="screen">
         <n-gi v-for="svc in integrationServices" :key="svc.name">
@@ -104,8 +104,8 @@
             <n-divider style="margin: 12px 0 8px" />
 
             <n-space vertical :size="6">
-              <n-text depth="3" style="font-size: 12px; font-weight: 600">适用场景：</n-text>
-              <n-text v-for="(uc, i) in svc.use_cases.slice(0, 2)" :key="i" depth="3" style="font-size: 12px; display: block; padding-left: 8px">
+              <n-text depth="3" style="font-size: 12px; font-weight: 600">{{ t('serviceOverview.useCases') }}</n-text>
+              <n-text v-for="(uc, i) in (svc.use_cases ?? []).slice(0, 2)" :key="i" depth="3" style="font-size: 12px; display: block; padding-left: 8px">
                 · {{ uc }}
               </n-text>
             </n-space>
@@ -119,11 +119,11 @@
                 size="small"
                 @update:value="(v: boolean) => handleToggle(svc.name, v)"
               >
-                <template #checked>启用</template>
-                <template #unchecked>停用</template>
+                <template #checked>{{ t('serviceOverview.enable') }}</template>
+                <template #unchecked>{{ t('serviceOverview.disable') }}</template>
               </n-switch>
               <n-button text type="primary" size="small" @click="$router.push(serviceRoute(svc.name))">
-                详情 →
+                {{ t('serviceOverview.viewDetail') }}
               </n-button>
             </n-space>
 
@@ -134,8 +134,8 @@
               style="margin-top: 8px"
               size="small"
             >
-              缺少依赖：{{ getMissingDeps(svc).join(', ') }}
-              <n-button text type="primary" size="tiny" @click.stop="handleInstallDeps(svc.name)" :loading="installingMap[svc.name]">安装</n-button>
+              {{ t('serviceOverview.missingDeps') }}{{ getMissingDeps(svc).join(', ') }}
+              <n-button text type="primary" size="tiny" @click.stop="handleInstallDeps(svc.name)" :loading="installingMap[svc.name]">{{ t('serviceOverview.install') }}</n-button>
             </n-alert>
           </n-card>
         </n-gi>
@@ -158,6 +158,8 @@ import {
 } from '@vicons/ionicons5'
 import { serviceApi } from '@/api'
 import type { ServiceInfo } from '@/api'
+// FIXED: 原问题-添加i18n支持
+import { t } from '@/i18n'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -199,13 +201,14 @@ function stateTagType(state: string) {
   }
 }
 
+// FIXED: 原问题-stateLabel中文硬编码，改为i18n
 function stateLabel(state: string) {
   switch (state) {
-    case 'running': return '运行中'
-    case 'enabled': return '已启用'
-    case 'error': return '异常'
-    case 'installing': return '安装中'
-    case 'disabled': return '未启用'
+    case 'running': return t('serviceState.running')
+    case 'enabled': return t('serviceState.enabled')
+    case 'error': return t('serviceState.error')
+    case 'installing': return t('serviceState.installing')
+    case 'disabled': return t('serviceState.disabled')
     default: return state
   }
 }
@@ -230,7 +233,7 @@ async function fetchServices() {
     if (e?.response?.status === 404) {
       services.value = []
     } else {
-      message.error(e?.message || '获取服务列表失败')
+      message.error(e?.message || t('serviceOverview.fetchFailed'))
     }
   } finally {
     loading.value = false
@@ -240,18 +243,18 @@ async function fetchServices() {
 async function handleToggle(name: string, val: boolean) {
   if (!val) {
     dialog.warning({
-      title: '确认停用服务',
-      content: `停用「${name}」服务后，依赖该服务的设备可能断开连接。确定继续？`,
-      positiveText: '确认停用',
-      negativeText: '取消',
+      title: t('serviceOverview.disableTitle'),
+      content: t('serviceOverview.disableContent', { name }),
+      positiveText: t('serviceOverview.confirmDisable'),
+      negativeText: t('common.cancel'),
       onPositiveClick: async () => {
         toggleLoadingMap[name] = true
         try {
           await serviceApi.disable(name)
-          message.success('服务已停用')
+          message.success(t('serviceOverview.disableSuccess'))
           await fetchServices()
         } catch (e: any) {
-          message.error(e?.response?.data?.detail || e?.message || '操作失败')
+          message.error(e?.response?.data?.detail || e?.message || t('serviceOverview.operationFailed'))
         } finally {
           toggleLoadingMap[name] = false
         }
@@ -262,9 +265,9 @@ async function handleToggle(name: string, val: boolean) {
     try {
       const result = await serviceApi.enable(name)
       if (result?.warning) {
-        message.warning(result.warning || result.message || '服务已启用但启动失败')
+        message.warning(result.warning || result.message || t('serviceOverview.enableButStartFailed'))
       } else {
-        message.success('服务已启用')
+        message.success(t('serviceOverview.enableSuccess'))
       }
       await fetchServices()
     } catch (e: any) {
@@ -274,18 +277,18 @@ async function handleToggle(name: string, val: boolean) {
         const svc = services.value.find(s => s.name === name)
         const missingPkgs = typeof detail === 'object' && detail?.missing_dependencies
           ? detail.missing_dependencies.join(', ')
-          : (svc ? getMissingDeps(svc).join(', ') : '未知依赖')
+          : (svc ? getMissingDeps(svc).join(', ') : t('serviceOverview.unknownDep'))
         dialog.warning({
-          title: '缺少依赖',
-          content: `启用「${name}」需要安装以下依赖：${missingPkgs}。是否立即安装？`,
-          positiveText: '一键安装',
-          negativeText: '稍后再说',
+          title: t('serviceOverview.depTitle'),
+          content: t('serviceOverview.depContent', { name, deps: missingPkgs }),
+          positiveText: t('serviceOverview.oneClickInstall'),
+          negativeText: t('serviceOverview.later'),
           onPositiveClick: async () => {
             await handleInstallDeps(name)
           },
         })
       } else {
-        message.error(typeof detail === 'string' ? detail : (e?.message || '操作失败'))
+        message.error(typeof detail === 'string' ? detail : (e?.message || t('serviceOverview.operationFailed')))
       }
     } finally {
       toggleLoadingMap[name] = false
@@ -297,11 +300,11 @@ async function handleInstallDeps(name: string) {
   installingMap[name] = true
   try {
     await serviceApi.installDeps(name)
-    message.success('依赖安装成功，正在启用服务...')
+    message.success(t('serviceOverview.installSuccess'))
     await serviceApi.enable(name)
     await fetchServices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '安装失败')
+    message.error(e?.response?.data?.detail || t('serviceOverview.installFailed'))
   } finally {
     installingMap[name] = false
   }

@@ -1,44 +1,44 @@
 <template>
-  <n-spin :show="pageLoading" description="加载OTA信息...">
+  <n-spin :show="pageLoading" :description="t('common.loading')">
   <n-space vertical :size="16">
-    <n-card title="OTA升级" :bordered="false">
+    <n-card :title="t('ota.title')" :bordered="false">
       <template #header-extra>
         <n-space>
-          <n-button @click="checkUpdate" :loading="checking">检查更新</n-button>
+          <n-button @click="checkUpdate" :loading="checking">{{ t('ota.checkUpdate') }}</n-button>
         </n-space>
       </template>
 
       <n-descriptions label-placement="left" :column="2" bordered v-if="updateInfo">
-        <n-descriptions-item label="当前版本">{{ updateInfo.current_version || '-' }}</n-descriptions-item>
-        <n-descriptions-item label="最新版本">
+        <n-descriptions-item :label="t('ota.currentVersion')">{{ updateInfo.current_version || '-' }}</n-descriptions-item>
+        <n-descriptions-item :label="t('ota.latestVersion')">
           <n-tag v-if="updateInfo.has_update" type="warning" size="small">{{ updateInfo.latest_version }}</n-tag>
-          <n-tag v-else type="success" size="small">已是最新</n-tag>
+          <n-tag v-else type="success" size="small">{{ t('otaState.up_to_date') }}</n-tag>
         </n-descriptions-item>
-        <n-descriptions-item label="更新说明" :span="2">{{ updateInfo.release_notes || '-' }}</n-descriptions-item>
+        <n-descriptions-item :label="t('ota.releaseNotes')" :span="2">{{ updateInfo.release_notes || '-' }}</n-descriptions-item>
       </n-descriptions>
-      <n-empty v-else description="点击检查更新查看可用版本" />
+      <n-empty v-else :description="t('ota.checkHint')" />
 
       <n-space style="margin-top: 16px" v-if="updateInfo?.has_update">
         <n-popconfirm @positive-click="applyUpdate">
           <template #trigger>
-            <n-button type="error" :loading="applying">应用更新</n-button>
+            <n-button type="error" :loading="applying">{{ t('ota.applyUpdate') }}</n-button>
           </template>
           <div style="max-width: 320px">
-            <n-text strong>确定应用更新？</n-text>
-            <n-p>更新后系统将自动重启，期间所有服务暂停。建议先确认备份版本可用。</n-p>
-            <n-p v-if="updateInfo?.latest_version">目标版本：{{ updateInfo.latest_version }}</n-p>
+            <n-text strong>{{ t('ota.confirmApply') }}</n-text>
+            <n-p>{{ t('ota.applyWarning') }}</n-p>
+            <n-p v-if="updateInfo?.latest_version">{{ t('ota.targetVersion') }}：{{ updateInfo.latest_version }}</n-p>
           </div>
         </n-popconfirm>
       </n-space>
     </n-card>
 
-    <n-card title="备份版本" :bordered="false">
+    <n-card :title="t('ota.backupVersions')" :bordered="false">
       <template #header-extra>
-        <n-button @click="fetchBackups" :loading="fetchingBackups">刷新</n-button>
+        <n-button @click="fetchBackups" :loading="fetchingBackups">{{ t('common.refresh') || 'Refresh' }}</n-button>
       </template>
       <n-data-table :columns="backupColumns" :data="backups" :bordered="false" size="small">
         <template #empty>
-          <n-empty description="暂无备份版本" />
+          <n-empty :description="t('ota.noBackup')" />
         </template>
       </n-data-table>
     </n-card>
@@ -50,6 +50,8 @@
 import { ref, onMounted, h } from 'vue'
 import { NButton, NPopconfirm, NSpin, useMessage, useDialog } from 'naive-ui'
 import { otaApi } from '@/api'
+// FIXED: 原问题-添加i18n支持
+import { t } from '@/i18n'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -62,15 +64,15 @@ const backups = ref<any[]>([])
 const pageLoading = ref(true)
 
 const backupColumns = [
-  { title: '版本', key: 'version', width: 150 },
-  { title: '备份时间', key: 'created_at', width: 200 },
-  { title: '大小', key: 'size', width: 100 },
+  { title: t('ota.version'), key: 'version', width: 150 },
+  { title: t('ota.backupTime'), key: 'created_at', width: 200 },
+  { title: t('ota.size'), key: 'size', width: 100 },
   {
-    title: '操作', key: 'actions', width: 100,
+    title: t('alarmList.actions'), key: 'actions', width: 100,
     render: (row: any) =>
       h(NPopconfirm as any, { onPositiveClick: () => handleRollback(row.version) }, {
-        trigger: () => h(NButton, { text: true, type: 'warning', loading: rollingBack.value }, { default: () => '回滚' }),
-        default: () => `确定回滚到 ${row.version}？回滚后系统将重启。`,
+        trigger: () => h(NButton, { text: true, type: 'warning', loading: rollingBack.value }, { default: () => t('ota.rollback') }),
+        default: () => t('ota.rollbackConfirm', { version: row.version }),
       }),
   },
 ]
@@ -81,7 +83,7 @@ async function checkUpdate() {
     const data = await otaApi.check()
     updateInfo.value = data
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '检查更新失败')
+    message.error(e?.response?.data?.detail || t('ota.checkFailed'))
   } finally { checking.value = false }
 }
 
@@ -89,9 +91,9 @@ async function applyUpdate() {
   applying.value = true
   try {
     await otaApi.apply()
-    message.success('更新已应用，系统将重启')
+    message.success(t('ota.applySuccess'))
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '应用更新失败')
+    message.error(e?.response?.data?.detail || t('ota.applyFailed'))
   } finally { applying.value = false }
 }
 
@@ -99,10 +101,10 @@ async function handleRollback(version: string) {
   rollingBack.value = true
   try {
     await otaApi.rollback(version)
-    message.success('已回滚到版本 ' + version)
+    message.success(t('otaUpdate.rollbackSuccess', { version }))
     await fetchBackups()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '回滚失败')
+    message.error(e?.response?.data?.detail || t('otaUpdate.rollbackFailed'))
   } finally {
     rollingBack.value = false
   }
@@ -114,7 +116,7 @@ async function fetchBackups() {
     const data = await otaApi.backups()
     backups.value = data?.backups || []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '获取备份失败')
+    message.error(e?.response?.data?.detail || e?.message || t('otaUpdate.fetchBackupFailed'))
   } finally {
     pageLoading.value = false
     fetchingBackups.value = false

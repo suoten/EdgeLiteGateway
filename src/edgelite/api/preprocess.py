@@ -5,11 +5,12 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import ConfigDep, CurrentUser, PreprocessorDep, require_permission
+from edgelite.api.deps import CurrentUser, ConfigDep, PreprocessorDep, require_permission
+from edgelite.api.error_codes import PreprocessErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
-router = APIRouter(prefix="/api/v1/preprocess", tags=["数据预处理"])
+router = APIRouter(prefix="/api/v1/preprocess", tags=["Preprocess"])
 
 
 class PreprocessGlobalModel(BaseModel):
@@ -74,7 +75,8 @@ async def get_preprocess_config(
             }
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取预处理配置失败: {e}") from e
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=PreprocessErrors.GET_FAILED) from e
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -85,7 +87,7 @@ async def update_preprocess_config(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if not preprocessor:
-        raise HTTPException(status_code=503, detail="预处理器未初始化")
+        raise HTTPException(status_code=503, detail=PreprocessErrors.NOT_INITIALIZED)
 
     # FIXED: 配置更新操作无异常保护
     try:
@@ -109,4 +111,5 @@ async def update_preprocess_config(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"更新预处理配置失败: {e}") from e
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=PreprocessErrors.UPDATE_FAILED) from e

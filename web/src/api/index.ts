@@ -342,6 +342,10 @@ export const serialBridgeApi = {
   stop: () =>
     // FIXED: 原问题-返回值解包不一致，统一提取内层data
     http.post<ApiResponse>('/serial-bridge/stop').then((r) => r.data.data ?? r.data),
+
+  // FIXED: 原问题-后端有PUT /serial-bridge/config路由但前端缺失对应API函数
+  updateConfig: (data: Record<string, any>) =>
+    http.put<ApiResponse>('/serial-bridge/config', data).then((r) => r.data.data ?? r.data),
 }
 
 // ─── 平台对接 ───

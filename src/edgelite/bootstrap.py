@@ -56,32 +56,16 @@ class ServiceContainer:
 def _ensure_secret_key(config) -> None:
     if not config.security.secret_key:
         import secrets
-        from pathlib import Path
 
         config.security.secret_key = secrets.token_urlsafe(48)
         logger.warning(
             "⚠️  JWT密钥未配置，已自动生成随机密钥。"
             "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置固定密钥！"
         )
-        try:
-            env_file = Path(".env")
-            lines = []
-            if env_file.exists():
-                lines = env_file.read_text(encoding="utf-8").splitlines()
-            lines = [
-                line for line in lines
-                if not line.startswith("EDGELITE_SECURITY__SECRET_KEY=")
-            ]
-            lines.append(f"EDGELITE_SECURITY__SECRET_KEY={config.security.secret_key}")
-            env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            try:
-                import os
-                os.chmod(str(env_file), 0o600)
-            except OSError:
-                pass
-            logger.info("已将自动生成的JWT密钥保存到 .env 文件")
-        except Exception as e:
-            logger.warning("无法保存JWT密钥到.env文件: %s", e)
+        # FIXED: 原问题-自动生成的JWT密钥明文写入.env文件存在泄露风险
+        # 现不再写入.env，仅通过环境变量或配置文件设置持久密钥
+        # 运行时生成的密钥在进程重启后变更，所有已颁发token失效
+        # 生产环境必须通过环境变量设置固定密钥
     elif len(config.security.secret_key) < 32:
         logger.warning(
             "⚠️  安全警告: JWT密钥过短(%d字符)，"

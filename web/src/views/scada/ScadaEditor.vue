@@ -403,7 +403,8 @@ function onEditDeviceChange(deviceId: string) {
   editForm.value.pointName = null
   if (!deviceId) { editPointOptions.value = []; return }
   const device = devices.value.find(d => d.device_id === deviceId)
-  editPointOptions.value = device?.points?.map((p: any) => ({ label: `${p.name} (${p.unit || '-'})`, value: p.name })) ?? []
+  // FIXED: 原问题-device?.points?.map(...)后链式调用不安全，改为(device?.points ?? []).map(...)
+  editPointOptions.value = (device?.points ?? []).map((p: any) => ({ label: `${p.name} (${p.unit || '-'})`, value: p.name }))
   applyProp()
 }
 
@@ -614,7 +615,8 @@ function onFileLoad(e: Event) {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target?.result as string)
-      if (data.widgets) { widgets.value = data.widgets; widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0); message.success(`已加载 ${data.widgets.length} 个组件`) }
+      // FIXED: 原问题-data.widgets可能不是数组，添加Array.isArray检查
+      if (Array.isArray(data.widgets) && data.widgets.length) { widgets.value = data.widgets; widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0); message.success(`已加载 ${data.widgets.length} 个组件`) }
     } catch { message.error('文件格式错误') }
   }
   reader.readAsText(file)
@@ -629,7 +631,8 @@ onMounted(async () => {
     const data = await scadaApi.getProject('default')
     if (data?.widgets?.length) {
       widgets.value = data.widgets
-      widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0)
+      // FIXED: 原问题-data.widgets.map(...)添加空值保护
+      widgetIdCounter = Math.max(...(data.widgets ?? []).map((w: any) => w.id), 0)
     }
   } catch {
     const saved = localStorage.getItem('scada-project')
@@ -638,7 +641,8 @@ onMounted(async () => {
         const data = JSON.parse(saved)
         if (data.widgets?.length) {
           widgets.value = data.widgets
-          widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0)
+          // FIXED: 原问题-data.widgets.map(...)添加空值保护
+          widgetIdCounter = Math.max(...(data.widgets ?? []).map((w: any) => w.id), 0)
         }
       } catch (e) {
         console.warn('解析本地存储项目失败:', e)

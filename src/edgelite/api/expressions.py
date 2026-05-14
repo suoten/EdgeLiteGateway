@@ -8,15 +8,16 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.constants import _EXPRESSION_BATCH_LIMIT, _EXPRESSION_MAX_LENGTH
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
-_MAX_EXPR_LEN = 2048
-_MAX_BATCH_SIZE = 50
+_MAX_EXPR_LEN = _EXPRESSION_MAX_LENGTH  # FIXED: 原问题-硬编码魔法数字，现引用constants.py
+_MAX_BATCH_SIZE = _EXPRESSION_BATCH_LIMIT
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/expressions", tags=["表达式管理"])
+router = APIRouter(prefix="/api/v1/expressions", tags=["Expressions"])
 
 
 class ExpressionTestRequest(BaseModel):

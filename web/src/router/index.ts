@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { t } from '@/i18n'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,7 +27,8 @@ const router = createRouter({
         { path: 'system/drivers', name: 'DriverConfig', component: () => import('@/views/system/DriverConfig.vue') },
         { path: 'system/platforms', name: 'PlatformConfig', component: () => import('@/views/system/PlatformConfig.vue') },
         { path: 'system/expressions', name: 'ExpressionConfig', component: () => import('@/views/system/ExpressionConfig.vue') },
-        { path: 'system/preprocess', name: 'PreprocessConfig', component: () => import('@/views/system/PreprocessConfig.vue'), meta: { title: '数据预处理', requiredRole: 'admin' } },
+        // FIXED: 原问题-路由meta.title硬编码中文，改为i18n
+        { path: 'system/preprocess', name: 'PreprocessConfig', component: () => import('@/views/system/PreprocessConfig.vue'), meta: { title: t('router.preprocess'), requiredRole: 'admin' } },
         { path: 'system/audit', name: 'AuditLog', component: () => import('@/views/system/AuditLog.vue'), meta: { requiredRole: 'admin' } },
         { path: 'system/serial-bridge', name: 'SerialBridge', component: () => import('@/views/system/SerialBridge.vue'), meta: { requiredRole: 'admin' } },
         { path: 'system/mqtt-server', name: 'MqttServer', component: () => import('@/views/system/MqttServer.vue'), meta: { requiredRole: 'admin' } },

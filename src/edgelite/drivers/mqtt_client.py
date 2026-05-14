@@ -43,7 +43,7 @@ class MqttClientDriver(DriverPlugin):
 
     async def start(self, config: dict) -> None:
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
         self._connect_task = asyncio.create_task(self._connect_loop(), name="mqtt-client-connect")
         logger.info("MQTT Client驱动启动")
 
@@ -119,7 +119,7 @@ class MqttClientDriver(DriverPlugin):
                     port=port,
                     username=username,
                     password=password,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                 ) as client:
                     logger.info("MQTT连接成功: %s:%d", broker, port)
 
@@ -152,7 +152,7 @@ class MqttClientDriver(DriverPlugin):
                 await asyncio.sleep(30)
             except Exception as e:
                 logger.error("MQTT连接异常: %s，5秒后重试", e)
-                await asyncio.sleep(5)
+                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
 
     async def _message_loop(self, client: Any) -> None:
         try:

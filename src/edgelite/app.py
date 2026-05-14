@@ -47,21 +47,22 @@ def _register_routes(app: FastAPI) -> None:
     app.include_router(system.router)
     app.include_router(users.router)
 
+    # FIXED: 原问题-路由标签中文硬编码，现改为英文标签
     _optional_routers = [
-        ("驱动配置", "edgelite.api.drivers", "router"),
-        ("平台配置", "edgelite.api.platforms", "router"),
-        ("表达式管理", "edgelite.api.expressions", "router"),
-        ("数据预处理", "edgelite.api.preprocess", "router"),
-        ("审计日志", "edgelite.api.audit", "router"),
-        ("串口透传", "edgelite.api.serial_bridge", "router"),
-        ("联调集成", "edgelite.api.integration", "router"),
+        ("Drivers", "edgelite.api.drivers", "router"),
+        ("Platforms", "edgelite.api.platforms", "router"),
+        ("Expressions", "edgelite.api.expressions", "router"),
+        ("Preprocess", "edgelite.api.preprocess", "router"),
+        ("Audit", "edgelite.api.audit", "router"),
+        ("SerialBridge", "edgelite.api.serial_bridge", "router"),
+        ("Integration", "edgelite.api.integration", "router"),
         ("MQTT Server", "edgelite.api.mqtt_server", "router"),
         ("Modbus Slave", "edgelite.api.modbus_slave", "router"),
-        ("MCP协议", "edgelite.api.mcp", "router"),
-        ("OTA升级", "edgelite.api.ota", "router"),
-        ("服务管理", "edgelite.api.services", "router"),
-        ("Grafana集成", "edgelite.api.grafana", "router"),
-        ("组态管理", "edgelite.api.scada", "router"),
+        ("MCP", "edgelite.api.mcp", "router"),
+        ("OTA", "edgelite.api.ota", "router"),
+        ("Services", "edgelite.api.services", "router"),
+        ("Grafana", "edgelite.api.grafana", "router"),
+        ("SCADA", "edgelite.api.scada", "router"),
     ]
 
     for label, module_path, attr in _optional_routers:
@@ -166,7 +167,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="EdgeLiteGateway",
-        description="轻量级边缘计算物联网网关 API",
+        description="Lightweight Edge Computing IoT Gateway API",
         version=__import__("edgelite").__version__,
         lifespan=lifespan,
     )
@@ -188,18 +189,21 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        logger.exception("未处理的异常: %s %s -> %s", request.method, request.url.path, exc)
+        logger.exception("Unhandled exception: %s %s -> %s", request.method, request.url.path, exc)
+        # FIXED: 原问题-全局异常处理器中文硬编码，现使用错误码
+        from edgelite.api.error_codes import CommonErrors
+
         return JSONResponse(
             status_code=500,
             content=ApiResponse(
-                code=1, message="服务器内部错误，请稍后重试", data=None
+                code=1, message=CommonErrors.INTERNAL_ERROR, data=None
             ).model_dump(),
         )
 
     _register_routes(app)
     _register_websocket_routes(app)
 
-    @app.get("/health", tags=["系统"], summary="健康检查", include_in_schema=False)
+    @app.get("/health", tags=["System"], summary="Health Check", include_in_schema=False)
     async def health_check():
         return {"status": "ok"}
 

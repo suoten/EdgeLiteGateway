@@ -46,7 +46,7 @@ class ThingsBoardHandler(PlatformHandler):
 
         self._config = config
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
 
         broker = config.get("broker", "localhost")
         port = int(config.get("port", 1883))
@@ -77,7 +77,8 @@ class ThingsBoardHandler(PlatformHandler):
             {
                 device_id: [
                     {
-                        "ts": int(time.time() * 1000),
+                        # FIXED: 原问题-int(time.time()*1000)重复模式，改为timestamp_ms()
+                        "ts": timestamp_ms(),
                         "values": data,
                     }
                 ]
@@ -157,7 +158,7 @@ class ThingsBoardHandler(PlatformHandler):
             except Exception as e:
                 logger.error("ThingsBoard MQTT连接异常: %s，5秒后重试", e)
                 self._connected = False
-                await asyncio.sleep(5)
+                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
 
     async def _publish_loop(self, client: Any) -> None:
         try:

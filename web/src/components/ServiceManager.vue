@@ -26,7 +26,7 @@
               :loading="toggleLoading"
               @click="handleEnable"
             >
-              启用服务
+              {{ t('serviceManager.enableService') }}
             </n-button>
             <n-button
               v-if="isEnabled && !isRunning"
@@ -35,7 +35,7 @@
               :loading="toggleLoading"
               @click="handleStart"
             >
-              启动
+              {{ t('serviceManager.start') }}
             </n-button>
             <n-button
               v-if="isRunning"
@@ -44,7 +44,7 @@
               :loading="toggleLoading"
               @click="handleStop"
             >
-              停止
+              {{ t('serviceManager.stop') }}
             </n-button>
             <n-button
               v-if="isEnabled"
@@ -53,7 +53,7 @@
               :loading="toggleLoading"
               @click="handleDisable"
             >
-              禁用服务
+              {{ t('serviceManager.disableService') }}
             </n-button>
             <n-button
               v-if="isEnabled && !depsInstalled"
@@ -62,7 +62,7 @@
               :loading="installing"
               @click="handleInstallDeps"
             >
-              安装依赖
+              {{ t('serviceManager.installDeps') }}
             </n-button>
           </n-space>
 
@@ -79,6 +79,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { serviceApi } from '@/api'
+// FIXED: 原问题-添加i18n支持
+import { t } from '@/i18n'
 
 const props = defineProps<{
   serviceName: string
@@ -101,9 +103,9 @@ const isRunning = computed(() => statusData.value.state === 'running')
 const depsInstalled = computed(() => (statusData.value.dependencies || []).every((d: any) => d.installed))
 
 const statusLabel = computed(() => {
-  if (isRunning.value) return '运行中'
-  if (isEnabled.value) return '已启用'
-  return '未启用'
+  if (isRunning.value) return t('serviceManager.running')
+  if (isEnabled.value) return t('serviceManager.enabled')
+  return t('serviceManager.notEnabled')
 })
 
 const statusTagType = computed(() => {
@@ -119,7 +121,7 @@ async function fetchStatus() {
     statusData.value = resp
     emit('status-loaded', statusData.value)
   } catch {
-    statusData.value = { state: 'disabled', error_message: '无法获取服务状态', dependencies: [] }
+    statusData.value = { state: 'disabled', error_message: t('serviceManager.statusFailed'), dependencies: [] }
   } finally {
     loading.value = false
   }
@@ -130,17 +132,17 @@ async function handleEnable() {
   try {
     const result = await serviceApi.enable(props.serviceName)
     if (result?.warning) {
-      msg.warning(result.warning || result.message || '服务已启用但启动失败')
+      msg.warning(result.warning || result.message || t('serviceManager.enableStartFailed'))
     } else {
-      msg.success('服务已启用')
+      msg.success(t('serviceManager.enableSuccess'))
     }
     await fetchStatus()
   } catch (e: any) {
     const detail = e?.response?.data?.detail || e?.message || ''
-    if (typeof detail === 'string' && (detail.includes('依赖') || detail.includes('424'))) {
-      msg.warning('缺少依赖，请先安装依赖')
+    if (typeof detail === 'string' && (detail.includes('depend') || detail.includes('424') || detail.includes('ERR_'))) {
+      msg.warning(t('serviceManager.depMissing'))
     } else {
-      msg.error('启用失败: ' + (typeof detail === 'string' ? detail : '未知错误'))
+      msg.error(t('serviceManager.enableFailed') + (typeof detail === 'string' ? ': ' + detail : ''))
     }
   } finally {
     toggleLoading.value = false
@@ -151,10 +153,10 @@ async function handleDisable() {
   toggleLoading.value = true
   try {
     await serviceApi.disable(props.serviceName)
-    msg.success('服务已禁用')
+    msg.success(t('serviceManager.disableSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    msg.error('禁用失败: ' + (e?.message || '未知错误'))
+    msg.error(t('serviceManager.disableFailed') + (e?.message ? ': ' + e.message : ''))
   } finally {
     toggleLoading.value = false
   }
@@ -164,11 +166,11 @@ async function handleStart() {
   toggleLoading.value = true
   try {
     await serviceApi.start(props.serviceName)
-    msg.success('服务已启动')
+    msg.success(t('serviceManager.startSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || '未知错误'
-    msg.error('启动失败: ' + (typeof detail === 'string' ? detail : '未知错误'))
+    const detail = e?.response?.data?.detail || e?.message || t('serviceManager.unknownError')
+    msg.error(t('serviceManager.startFailed') + (typeof detail === 'string' ? ': ' + detail : ''))
   } finally {
     toggleLoading.value = false
   }
@@ -178,10 +180,10 @@ async function handleStop() {
   toggleLoading.value = true
   try {
     await serviceApi.stop(props.serviceName)
-    msg.success('服务已停止')
+    msg.success(t('serviceManager.stopSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    msg.error('停止失败: ' + (e?.message || '未知错误'))
+    msg.error(t('serviceManager.stopFailed') + (e?.message ? ': ' + e.message : ''))
   } finally {
     toggleLoading.value = false
   }
@@ -191,10 +193,10 @@ async function handleInstallDeps() {
   installing.value = true
   try {
     await serviceApi.installDeps(props.serviceName)
-    msg.success('依赖安装成功')
+    msg.success(t('serviceManager.installSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    msg.error('安装依赖失败: ' + (e?.message || '未知错误'))
+    msg.error(t('serviceManager.installFailed') + (e?.message ? ': ' + e.message : ''))
   } finally {
     installing.value = false
   }

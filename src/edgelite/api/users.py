@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
-from edgelite.api.deps import CurrentUser, DatabaseDep, require_permission
+from edgelite.api.deps import CurrentUser, DatabaseDep, PaginationDep, require_permission
+from edgelite.api.error_codes import UserErrors
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.user import UserCreate, UserResponse, UserUpdate
 from edgelite.security.password import hash_password
@@ -15,26 +16,26 @@ from edgelite.storage.sqlite_repo import UserRepo
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/users", tags=["用户管理"])
+router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 
 @router.get("", response_model=PagedResponse[UserResponse])
 async def list_users(
     db: DatabaseDep,
     user: CurrentUser = require_permission(Permission.USER_READ),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=1000),
+    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
 ):
     try:
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
-            users, total = await repo.list_all(page, size)
-        return PagedResponse(data=users, total=total, page=page, size=size)
+            users, total = await repo.list_all(pagination.page, pagination.size)
+        return PagedResponse(data=users, total=total, page=pagination.page, size=pagination.size)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取用户列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取用户列表失败") from e
+        logger.error("list_users failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail，现使用错误码
+        raise HTTPException(status_code=500, detail=UserErrors.LIST_FAILED) from e
 
 
 @router.post("", response_model=ApiResponse[UserResponse], status_code=201)
@@ -48,19 +49,20 @@ async def create_user(
             repo = UserRepo(session, db.write_lock)
             existing = await repo.get_by_username(body.username)
             if existing:
-                raise HTTPException(status_code=409, detail="用户名已存在")
+                # FIXED: 原问题-中文硬编码detail
+                raise HTTPException(status_code=409, detail=UserErrors.USERNAME_EXISTS)
             data = body.model_dump()
             data["password"] = hash_password(data["password"])
             new_user = await repo.create(data)
         return ApiResponse(data=new_user)
     except ValueError as e:
-        # FIXED: IntegrityError转ValueError后返回409
         raise HTTPException(status_code=409, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("创建用户失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建用户失败") from e
+        logger.error("create_user failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=UserErrors.CREATE_FAILED) from e
 
 
 @router.put("/{user_id}", response_model=ApiResponse[UserResponse])
@@ -81,16 +83,19 @@ async def update_user(
                 if target and target["role"] == "admin":
                     admin_count = await repo.count_by_role("admin")
                     if admin_count <= 1:
-                        raise HTTPException(status_code=403, detail="不能移除最后一个管理员的角色")
+                        # FIXED: 原问题-中文硬编码detail
+                        raise HTTPException(status_code=403, detail=UserErrors.CANNOT_REMOVE_LAST_ADMIN)
             updated = await repo.update(user_id, data)
         if updated is None:
-            raise HTTPException(status_code=404, detail="用户不存在")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=404, detail=UserErrors.USER_NOT_FOUND)
         return ApiResponse(data=updated)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("更新用户失败: %s", e)
-        raise HTTPException(status_code=500, detail="更新用户失败") from e
+        logger.error("update_user failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=UserErrors.UPDATE_FAILED) from e
 
 
 @router.delete("/{user_id}", response_model=ApiResponse)
@@ -101,20 +106,24 @@ async def delete_user(
 ):
     try:
         if user_id == user.get("user_id"):
-            raise HTTPException(status_code=400, detail="不能删除自己")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=400, detail=UserErrors.CANNOT_DELETE_SELF)
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             target = await repo.get(user_id)
             if target and target["role"] == "admin":
                 admin_count = await repo.count_by_role("admin")
                 if admin_count <= 1:
-                    raise HTTPException(status_code=403, detail="不能删除最后一个管理员")
+                    # FIXED: 原问题-中文硬编码detail
+                    raise HTTPException(status_code=403, detail=UserErrors.CANNOT_DELETE_LAST_ADMIN)
             success = await repo.delete(user_id)
         if not success:
-            raise HTTPException(status_code=404, detail="用户不存在")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=404, detail=UserErrors.USER_NOT_FOUND)
         return ApiResponse()
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("删除用户失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除用户失败") from e
+        logger.error("delete_user failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=UserErrors.DELETE_FAILED) from e

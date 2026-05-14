@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import CurrentUser, MqttServerDep, require_permission
+from edgelite.api.error_codes import ServiceErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -36,7 +37,7 @@ async def get_mqtt_server_status(
         info = mgr.get_service_info("mqtt_server")
         # FIXED: get_service_info()可能返回None导致500
         if info is None:
-            raise HTTPException(status_code=404, detail="MQTT Server服务未注册")
+            raise HTTPException(status_code=404, detail=ServiceErrors.NOT_REGISTERED)
 
         connections = 0
         if mqtt_server and hasattr(mqtt_server, "get_client_count"):
@@ -45,14 +46,16 @@ async def get_mqtt_server_status(
             except Exception as e:
                 logger.warning("获取MQTT客户端数量失败: %s", e)
 
+        # FIXED: 原问题-info.current_config可能为None时直接调用.get()崩溃
+        _cfg = info.current_config or {}
         return ApiResponse(
             data={
                 "enabled": info.state.value != "disabled",
                 "running": info.state.value == "running",
                 "state": info.state.value,
-                "host": info.current_config.get("host", "0.0.0.0"),
-                "port": info.current_config.get("port", 1883),
-                "ws_port": info.current_config.get("ws_port", 8083),
+                "host": _cfg.get("host", "0.0.0.0"),
+                "port": _cfg.get("port", 1883),
+                "ws_port": _cfg.get("ws_port", 8083),
                 "connections": connections,
                 "dependencies": [
                     {"package": d.package, "installed": d.installed, "version": d.version}
@@ -64,7 +67,7 @@ async def get_mqtt_server_status(
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        raise HTTPException(status_code=500, detail=ServiceErrors.STATUS_FAILED) from e
 
 
 @router.post("/start", response_model=ApiResponse)
@@ -77,13 +80,14 @@ async def start_mqtt_server(
         mgr = get_service_manager()
         result = await mgr.start_service("mqtt_server")
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "启动失败"))
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.START_FAILED))
         return ApiResponse(data=result)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("启动失败: %s", e)
-        raise HTTPException(status_code=500, detail="启动失败") from e
+        logger.error("start_mqtt_server failed: %s", e)
+        raise HTTPException(status_code=500, detail=ServiceErrors.START_FAILED) from e
 
 
 @router.post("/stop", response_model=ApiResponse)
@@ -96,13 +100,14 @@ async def stop_mqtt_server(
         mgr = get_service_manager()
         result = await mgr.stop_service("mqtt_server")
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.STOP_FAILED))
         return ApiResponse(data=result)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("停止失败: %s", e)
-        raise HTTPException(status_code=500, detail="停止失败") from e
+        logger.error("stop_mqtt_server failed: %s", e)
+        raise HTTPException(status_code=500, detail=ServiceErrors.STOP_FAILED) from e
 
 
 @router.put("/config", response_model=ApiResponse)
@@ -116,10 +121,11 @@ async def update_mqtt_server_config(
         mgr = get_service_manager()
         result = await mgr.update_service_config("mqtt_server", config.model_dump())
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "配置更新失败"))
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.CONFIG_UPDATE_FAILED))
         return ApiResponse(data=result)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("更新失败: %s", e)
-        raise HTTPException(status_code=500, detail="更新失败") from e
+        logger.error("update_mqtt_server_config failed: %s", e)
+        raise HTTPException(status_code=500, detail=ServiceErrors.CONFIG_UPDATE_FAILED) from e

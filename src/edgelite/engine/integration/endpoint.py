@@ -6,13 +6,14 @@ import time
 import uuid
 from typing import Any
 
+from edgelite.constants import _INTEGRATION_SESSION_TTL
 from edgelite.engine.integration.dispatcher import MessageDispatcher
 
 logger = logging.getLogger(__name__)
 
 
 class IntegrationEndpoint:
-    SESSION_TTL = 300
+    SESSION_TTL = _INTEGRATION_SESSION_TTL  # FIXED: 原问题-硬编码会话TTL，现引用constants.py
 
     def __init__(self, dispatcher: MessageDispatcher | None = None):
         self._dispatcher = dispatcher or MessageDispatcher()

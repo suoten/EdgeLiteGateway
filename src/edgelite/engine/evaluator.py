@@ -9,6 +9,7 @@ import time
 from datetime import UTC, datetime
 
 from edgelite.engine.event_bus import AlarmEvent, EventBus, PointUpdateEvent
+from edgelite.constants import _RULE_CACHE_TTL, _POINT_VALUE_CACHE_TTL, _POINT_VALUE_CACHE_MAX
 from edgelite.storage.sqlite_repo import AlarmRepo, RuleRepo
 
 try:
@@ -34,11 +35,11 @@ class RuleEvaluator:
         # 规则缓存: cache_key -> rules
         self._rule_cache: dict[str, list] = {}
         self._cache_time: float = 0.0
-        self._cache_ttl: float = 5.0  # 缓存有效期5秒
+        self._cache_ttl: float = _RULE_CACHE_TTL  # FIXED: 原问题-硬编码缓存TTL，现引用constants.py
         self._task: asyncio.Task | None = None
         self._point_value_cache: dict[str, tuple[float, float]] = {}
-        self._point_cache_ttl: float = 300.0
-        self._point_cache_max_size: int = 10000
+        self._point_cache_ttl: float = _POINT_VALUE_CACHE_TTL
+        self._point_cache_max_size: int = _POINT_VALUE_CACHE_MAX
 
     async def start(self) -> None:
         """启动评估器"""
@@ -61,7 +62,12 @@ class RuleEvaluator:
             return self._rule_cache[cache_key]
 
         # 查询数据库并更新缓存
-        rules = await self._rule_repo.list_enabled_by_point(device_id, point_name)
+        # FIXED: 原问题-数据库查询无异常保护，异常导致评估循环崩溃
+        try:
+            rules = await self._rule_repo.list_enabled_by_point(device_id, point_name)
+        except Exception as e:
+            logger.error("查询规则失败 %s/%s: %s", device_id, point_name, e)
+            rules = []
         self._rule_cache[cache_key] = rules
         return rules
 
@@ -203,7 +209,12 @@ class RuleEvaluator:
                 self._duration_tracker.pop(tracker_key, None)
 
             # 检查是否有firing告警需要恢复
-            firing_alarm = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
+            # FIXED: 原问题-数据库查询无异常保护，异常导致评估循环崩溃
+            try:
+                firing_alarm = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
+            except Exception as e:
+                logger.error("查询firing告警失败 %s/%s: %s", rule_id, device_id, e)
+                firing_alarm = None
             if firing_alarm:
                 await self._recover_alarm(firing_alarm["alarm_id"], rule)
 
@@ -318,23 +329,25 @@ class RuleEvaluator:
         device_id = rule["device_id"]
         severity = rule["severity"]
 
-        # 告警收敛：检查是否已有firing告警
-        existing = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
-        if existing:
-            # 更新触发次数和值
-            await self._alarm_repo.update_trigger_count(existing["alarm_id"], trigger_value)
-            logger.debug("告警收敛: %s 已有firing告警，更新触发次数", rule_id)
-            return
+        # FIXED: 原问题-告警收敛查询和创建无异常保护，数据库异常导致评估循环崩溃
+        try:
+            existing = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
+            if existing:
+                await self._alarm_repo.update_trigger_count(existing["alarm_id"], trigger_value)
+                logger.debug("告警收敛: %s 已有firing告警，更新触发次数", rule_id)
+                return
 
-        # 创建新告警
-        alarm = await self._alarm_repo.create(
-            {
-                "rule_id": rule_id,
-                "device_id": device_id,
-                "severity": severity,
-                "trigger_value": trigger_value,
-            }
-        )
+            alarm = await self._alarm_repo.create(
+                {
+                    "rule_id": rule_id,
+                    "device_id": device_id,
+                    "severity": severity,
+                    "trigger_value": trigger_value,
+                }
+            )
+        except Exception as e:
+            logger.error("告警创建/更新失败 %s/%s: %s", rule_id, device_id, e)
+            return
 
         # 发布告警事件
         alarm_event = AlarmEvent(
@@ -356,7 +369,12 @@ class RuleEvaluator:
 
     async def _recover_alarm(self, alarm_id: str, rule: dict) -> None:
         """恢复告警"""
-        alarm = await self._alarm_repo.recover(alarm_id)
+        # FIXED: 原问题-告警恢复数据库操作无异常保护
+        try:
+            alarm = await self._alarm_repo.recover(alarm_id)
+        except Exception as e:
+            logger.error("告警恢复失败 %s: %s", alarm_id, e)
+            return
         if alarm:
             alarm_event = AlarmEvent(
                 alarm_id=alarm_id,

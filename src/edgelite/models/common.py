@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from edgelite.constants import _DEFAULT_PAGE_SIZE, _MAX_QUERY_SIZE
 
 T = TypeVar("T")
 
@@ -25,7 +27,7 @@ class PagedResponse(BaseModel, Generic[T]):
     data: list[T] = []
     total: int = 0
     page: int = 1
-    size: int = 20
+    size: int = _DEFAULT_PAGE_SIZE
 
 
 class ErrorResponse(BaseModel):
@@ -39,5 +41,5 @@ class ErrorResponse(BaseModel):
 class PaginationParams(BaseModel):
     """分页请求参数"""
 
-    page: int = 1
-    size: int = 20
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_QUERY_SIZE)

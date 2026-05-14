@@ -14,7 +14,7 @@ from edgelite.services.platform_service import PlatformService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/platforms", tags=["平台配置"])
+router = APIRouter(prefix="/api/v1/platforms", tags=["Platforms"])
 
 
 class PlatformConnectRequest(BaseModel):

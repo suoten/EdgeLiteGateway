@@ -10,6 +10,7 @@ import time
 from typing import Any
 
 from edgelite.config import get_config
+from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class MqttForwarder:
             return
 
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=10000)
+        self._pub_queue = asyncio.Queue(maxsize=_EVENT_BUS_MAX_QUEUE)  # FIXED: 原问题-硬编码队列大小
 
         if event_bus:
             event_bus.register_handler("PointUpdateEvent", self._on_point_update)
@@ -112,7 +113,7 @@ class MqttForwarder:
                     port=config.mqtt.port,
                     username=config.mqtt.username or None,
                     password=config.mqtt.password or None,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                 ) as client:
                     self._connected = True
                     logger.info("MQTT转发器连接成功: %s:%d", config.mqtt.broker, config.mqtt.port)

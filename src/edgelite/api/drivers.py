@@ -18,7 +18,7 @@ from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/drivers", tags=["驱动配置"])
+router = APIRouter(prefix="/api/v1/drivers", tags=["Drivers"])
 
 
 class DriverInfo(BaseModel):

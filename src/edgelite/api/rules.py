@@ -4,31 +4,30 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
-from edgelite.api.deps import CurrentUser, RuleServiceDep, require_permission
+from edgelite.api.deps import CurrentUser, PaginationDep, RuleServiceDep, require_permission
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.rule import RuleCreate, RuleResponse, RuleTestRequest, RuleUpdate
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/rules", tags=["规则管理"])
+router = APIRouter(prefix="/api/v1/rules", tags=["Rules"])
 
 
 @router.get("", response_model=PagedResponse[RuleResponse])
 async def list_rules(
     svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_READ),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=1000),
+    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
     device_id: str | None = None,
     search: str | None = None,
     severity: str | None = None,
 ):
     try:
-        rules, total = await svc.list_rules(page, size, device_id, search, severity)
-        return PagedResponse(data=rules, total=total, page=page, size=size)
+        rules, total = await svc.list_rules(pagination.page, pagination.size, device_id, search, severity)
+        return PagedResponse(data=rules, total=total, page=pagination.page, size=pagination.size)
     except HTTPException:
         raise
     except Exception as e:

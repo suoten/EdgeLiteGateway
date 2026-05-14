@@ -7,21 +7,20 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
-from edgelite.api.deps import AuditServiceDep, CurrentUser, require_permission
+from edgelite.api.deps import AuditServiceDep, CurrentUser, PaginationDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/audit", tags=["审计日志"])
+router = APIRouter(prefix="/api/v1/audit", tags=["Audit"])
 
 
 @router.get("/logs", response_model=ApiResponse)
 async def query_audit_logs(
     svc: AuditServiceDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=1000),
+    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
     user_id: str | None = None,
     action: str | None = None,
     resource_type: str | None = None,
@@ -49,7 +48,6 @@ async def query_audit_logs(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
 
-    # FIXED: 数据库查询无异常保护
     try:
         logs, total = await svc.query(
             user_id=user_id,
@@ -57,8 +55,8 @@ async def query_audit_logs(
             resource_type=resource_type,
             start_time=st,
             end_time=et,
-            page=page,
-            size=size,
+            page=pagination.page,
+            size=pagination.size,
         )
         return ApiResponse(data={"logs": logs, "total": total})
     except Exception as e:

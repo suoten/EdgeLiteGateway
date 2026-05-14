@@ -9,6 +9,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
+from edgelite.api.error_codes import AuthErrors, CommonErrors
+from edgelite.models.common import PaginationParams
 from edgelite.security.jwt import verify_token
 from edgelite.security.rbac import Permission, check_permission
 
@@ -30,7 +32,7 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token无效或已过期",
+            detail=AuthErrors.TOKEN_INVALID,
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
@@ -41,7 +43,7 @@ async def get_current_user(
         if is_token_revoked(jti):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token已撤销",
+                detail=AuthErrors.TOKEN_REVOKED,
                 headers={"WWW-Authenticate": "Bearer"},
             )
     else:
@@ -49,16 +51,21 @@ async def get_current_user(
 
     username = payload.get("username", "")
     container = _get_container(request)
-    from edgelite.storage.sqlite_repo import UserRepo
+    # FIXED: 原问题-get_current_user中数据库查询无try-except保护，数据库不可用时返回500而非503
+    try:
+        from edgelite.storage.sqlite_repo import UserRepo
 
-    async with container.database.get_session() as session:
-        repo = UserRepo(session, container.database.write_lock)
-        user = await repo.get_by_username(username)
+        async with container.database.get_session() as session:
+            repo = UserRepo(session, container.database.write_lock)
+            user = await repo.get_by_username(username)
+    except Exception as e:
+        logger.error("认证查询用户失败: %s", e)
+        raise HTTPException(503, CommonErrors.DB_NOT_READY) from None
 
     if user is None or not user["enabled"]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在或已禁用",
+            detail=AuthErrors.USER_NOT_FOUND,
         )
 
     return {
@@ -82,107 +89,143 @@ def require_permission(permission: Permission):
 async def get_device_service(request: Request):
     svc = _get_container(request).device_service
     if svc is None:
-        raise HTTPException(503, "设备服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_rule_service(request: Request):
     svc = _get_container(request).rule_service
     if svc is None:
-        raise HTTPException(503, "规则服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_alarm_service(request: Request):
     svc = _get_container(request).alarm_service
     if svc is None:
-        raise HTTPException(503, "告警服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_data_service(request: Request):
     svc = _get_container(request).data_service
     if svc is None:
-        raise HTTPException(503, "数据服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_system_service(request: Request):
     svc = _get_container(request).system_service
     if svc is None:
-        raise HTTPException(503, "系统服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_video_service(request: Request):
     svc = _get_container(request).video_service
     if svc is None:
-        raise HTTPException(503, "视频服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_audit_service(request: Request):
     svc = _get_container(request).audit_service
     if svc is None:
-        raise HTTPException(503, "审计服务未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_driver_registry(request: Request):
     reg = _get_container(request).driver_registry
     if reg is None:
-        raise HTTPException(503, "驱动注册表未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return reg
 
 
 async def get_database(request: Request):
     db = _get_container(request).database
     if db is None:
-        raise HTTPException(503, "数据库未就绪")
+        raise HTTPException(503, CommonErrors.DB_NOT_READY)
     return db
 
 
 async def get_config(request: Request):
-    return _get_container(request).config
+    config = _get_container(request).config
+    # FIXED: 原问题-config可能为None时直接返回，调用方访问属性崩溃
+    if config is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return config
 
 
 async def get_platform_handlers(request: Request):
-    return _get_container(request).platform_handlers
+    handlers = _get_container(request).platform_handlers
+    # FIXED: 原问题-platform_handlers可能为None时直接返回
+    if handlers is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return handlers
 
 
 async def get_integration_endpoint(request: Request):
     ep = _get_container(request).integration_endpoint
     if ep is None:
-        raise HTTPException(503, "集成端点未就绪")
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return ep
 
 
 async def get_mqtt_server(request: Request):
-    return _get_container(request).mqtt_server
+    svc = _get_container(request).mqtt_server
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 async def get_modbus_slave(request: Request):
-    return _get_container(request).modbus_slave
+    svc = _get_container(request).modbus_slave
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 async def get_serial_bridge(request: Request):
-    return _get_container(request).serial_bridge
+    svc = _get_container(request).serial_bridge
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 async def get_preprocessor(request: Request):
-    return _get_container(request).preprocessor
+    svc = _get_container(request).preprocessor
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 async def get_ota_manager(request: Request):
-    return _get_container(request).ota_manager
+    svc = _get_container(request).ota_manager
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 async def get_plugin_manager(request: Request):
-    return _get_container(request).plugin_manager
+    svc = _get_container(request).plugin_manager
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 async def get_event_bus(request: Request):
-    return _get_container(request).event_bus
+    svc = _get_container(request).event_bus
+    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
 
 
 DeviceServiceDep = Annotated[any, Depends(get_device_service)]
@@ -204,3 +247,4 @@ PreprocessorDep = Annotated[any, Depends(get_preprocessor)]
 OtaManagerDep = Annotated[any, Depends(get_ota_manager)]
 PluginManagerDep = Annotated[any, Depends(get_plugin_manager)]
 EventBusDep = Annotated[any, Depends(get_event_bus)]
+PaginationDep = Annotated[PaginationParams, Depends()]

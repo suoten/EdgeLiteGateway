@@ -1,15 +1,14 @@
 <template>
-  <n-spin :show="pageLoading" description="加载中...">
+  <n-spin :show="pageLoading" :description="t('dashboard.loading')">
   <n-space vertical :size="20">
-    <!-- 快速开始引导（设备数为0时显示） -->
-    <n-card v-if="showQuickStart" title="快速开始" :bordered="false" class="quick-start-card">
+    <n-card v-if="showQuickStart" :title="t('dashboard.quickStart')" :bordered="false" class="quick-start-card">
       <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
         <n-gi>
           <n-card hoverable class="qs-item" @click="router.push('/devices')">
             <n-space vertical align="center">
               <n-icon size="40" :component="HardwareChip" color="#667eea" />
-              <n-text strong>创建设备</n-text>
-              <n-text depth="3">接入第一个设备开始采集数据</n-text>
+              <n-text strong>{{ t('dashboard.createDevice') }}</n-text>
+              <n-text depth="3">{{ t('dashboard.createDeviceDesc') }}</n-text>
             </n-space>
           </n-card>
         </n-gi>
@@ -17,8 +16,8 @@
           <n-card hoverable class="qs-item" @click="router.push('/rules')">
             <n-space vertical align="center">
               <n-icon size="40" :component="SettingsOutline" color="#11998e" />
-              <n-text strong>配置告警</n-text>
-              <n-text depth="3">设置告警规则监控异常</n-text>
+              <n-text strong>{{ t('dashboard.configAlarm') }}</n-text>
+              <n-text depth="3">{{ t('dashboard.configAlarmDesc') }}</n-text>
             </n-space>
           </n-card>
         </n-gi>
@@ -26,8 +25,8 @@
           <n-card hoverable class="qs-item" @click="router.push('/system/drivers')">
             <n-space vertical align="center">
               <n-icon size="40" :component="PulseOutline" color="#f093fb" />
-              <n-text strong>驱动配置</n-text>
-              <n-text depth="3">管理协议驱动和参数</n-text>
+              <n-text strong>{{ t('dashboard.driverConfig') }}</n-text>
+              <n-text depth="3">{{ t('dashboard.driverConfigDesc') }}</n-text>
             </n-space>
           </n-card>
         </n-gi>
@@ -35,95 +34,92 @@
           <n-card hoverable class="qs-item" @click="router.push('/system/platforms')">
             <n-space vertical align="center">
               <n-icon size="40" :component="AlertCircleOutline" color="#4facfe" />
-              <n-text strong>平台对接</n-text>
-              <n-text depth="3">连接北向云平台</n-text>
+              <n-text strong>{{ t('dashboard.platformIntegration') }}</n-text>
+              <n-text depth="3">{{ t('dashboard.platformIntegrationDesc') }}</n-text>
             </n-space>
           </n-card>
         </n-gi>
       </n-grid>
     </n-card>
 
-    <!-- 顶部统计卡片 -->
     <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
       <n-gi>
         <n-card class="stat-card stat-card-primary" :bordered="false">
-          <n-statistic label="设备总数" :value="status?.device_total ?? 0">
+          <n-statistic :label="t('dashboard.deviceTotal')" :value="status?.device_total ?? 0">
             <template #prefix><n-icon :component="HardwareChip" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <span>在线 {{ status?.device_online ?? 0 }} 台</span>
+            <span>{{ t('dashboard.onlineCount', { count: status?.device_online ?? 0 }) }}</span>
           </div>
         </n-card>
       </n-gi>
       <n-gi>
         <n-card class="stat-card stat-card-success" :bordered="false">
-          <n-statistic label="规则总数" :value="status?.rule_total ?? 0">
+          <n-statistic :label="t('dashboard.ruleTotal')" :value="status?.rule_total ?? 0">
             <template #prefix><n-icon :component="SettingsOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <span>已启用 {{ status?.rule_enabled ?? 0 }} 条</span>
+            <span>{{ t('dashboard.enabledCount', { count: status?.rule_enabled ?? 0 }) }}</span>
           </div>
         </n-card>
       </n-gi>
       <n-gi>
         <n-card class="stat-card stat-card-warning" :bordered="false">
-          <n-statistic label="活跃告警" :value="status?.alarm_firing ?? 0">
+          <n-statistic :label="t('dashboard.activeAlarm')" :value="status?.alarm_firing ?? 0">
             <template #prefix><n-icon :component="AlertCircleOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <span v-if="status?.alarm_firing" class="stat-footer-warning">需要处理</span>
-            <span v-else>系统正常</span>
+            <span v-if="status?.alarm_firing" class="stat-footer-warning">{{ t('dashboard.needHandle') }}</span>
+            <span v-else>{{ t('dashboard.systemNormal') }}</span>
           </div>
         </n-card>
       </n-gi>
       <n-gi>
         <n-card class="stat-card stat-card-info" :bordered="false">
-          <n-statistic label="采集任务" :value="status?.collect_task_count ?? 0">
+          <n-statistic :label="t('dashboard.collectTask')" :value="status?.collect_task_count ?? 0">
             <template #prefix><n-icon :component="PulseOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
-            <span>运行中</span>
+            <span>{{ t('dashboard.running') }}</span>
           </div>
         </n-card>
       </n-gi>
     </n-grid>
 
-    <!-- ECharts 图表区域 -->
     <n-grid :cols="2" :x-gap="16" :y-gap="16">
       <n-gi>
-        <n-card title="设备状态分布" :bordered="false">
+        <n-card :title="t('dashboard.deviceStatus')" :bordered="false">
           <v-chart :option="deviceStatusOption" autoresize style="height: 280px" />
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card title="协议接入分布" :bordered="false">
+        <n-card :title="t('dashboard.protocolDist')" :bordered="false">
           <v-chart :option="protocolOption" autoresize style="height: 280px" />
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card title="告警趋势（近24小时）" :bordered="false">
+        <n-card :title="t('dashboard.alarmTrend')" :bordered="false">
           <v-chart :option="alarmTrendOption" autoresize style="height: 280px" />
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card title="资源使用趋势" :bordered="false">
+        <n-card :title="t('dashboard.resourceTrend')" :bordered="false">
           <v-chart :option="resourceTrendOption" autoresize style="height: 280px" />
         </n-card>
       </n-gi>
     </n-grid>
 
-    <!-- 系统资源监控 -->
     <n-grid :cols="3" :x-gap="16" :y-gap="16">
       <n-gi>
-        <n-card title="CPU 使用率" :bordered="false" class="resource-card">
+        <n-card :title="t('dashboard.cpuUsage')" :bordered="false" class="resource-card">
           <n-progress type="circle" :percentage="status?.cpu_percent ?? 0" :stroke-width="12" :color="cpuColor" />
           <div class="resource-info">
-            <n-text depth="3">当前负载</n-text>
+            <n-text depth="3">{{ t('dashboard.currentLoad') }}</n-text>
           </div>
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card title="内存使用" :bordered="false" class="resource-card">
+        <n-card :title="t('dashboard.memoryUsage')" :bordered="false" class="resource-card">
           <n-progress type="circle" :percentage="status?.memory_percent ?? 0" :stroke-width="12" :color="memColor" />
           <div class="resource-info">
             <n-text depth="3">{{ formatBytes(status?.memory_used) }} / {{ formatBytes(status?.memory_total) }}</n-text>
@@ -131,7 +127,7 @@
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card title="磁盘使用" :bordered="false" class="resource-card">
+        <n-card :title="t('dashboard.diskUsage')" :bordered="false" class="resource-card">
           <n-progress type="circle" :percentage="status?.disk_percent ?? 0" :stroke-width="12" :color="diskColor" />
           <div class="resource-info">
             <n-text depth="3">{{ formatBytes(status?.disk_used) }} / {{ formatBytes(status?.disk_total) }}</n-text>
@@ -140,24 +136,23 @@
       </n-gi>
     </n-grid>
 
-    <!-- 系统信息 -->
-    <n-card title="系统信息" :bordered="false">
+    <n-card :title="t('dashboard.systemInfo')" :bordered="false">
       <n-grid :cols="2" :x-gap="24" :y-gap="16">
         <n-gi>
           <n-descriptions label-placement="left" :column="1" bordered>
-            <n-descriptions-item label="版本">
+            <n-descriptions-item :label="t('dashboard.version')">
               <n-tag type="success" size="small">v{{ status?.version ?? '-' }} Community</n-tag>
             </n-descriptions-item>
-            <n-descriptions-item label="运行时长">
+            <n-descriptions-item :label="t('dashboard.uptime')">
               <n-time :time="Date.now() - uptime * 1000" type="relative" />
             </n-descriptions-item>
-            <n-descriptions-item label="设备">{{ status?.device_total ?? 0 }} 台（在线 {{ status?.device_online ?? 0 }}）</n-descriptions-item>
-            <n-descriptions-item label="规则">{{ status?.rule_total ?? 0 }} 条（启用 {{ status?.rule_enabled ?? 0 }}）</n-descriptions-item>
+            <n-descriptions-item :label="t('device.title')">{{ t('dashboard.deviceCount', { total: status?.device_total ?? 0, online: status?.device_online ?? 0 }) }}</n-descriptions-item>
+            <n-descriptions-item :label="t('rule.title')">{{ t('dashboard.ruleCount', { total: status?.rule_total ?? 0, enabled: status?.rule_enabled ?? 0 }) }}</n-descriptions-item>
           </n-descriptions>
         </n-gi>
         <n-gi>
           <div class="protocol-section">
-            <n-text depth="3" style="font-size: 13px; margin-bottom: 8px; display: block;">协议支持（{{ supportedProtocols.length }} 种）</n-text>
+            <n-text depth="3" style="font-size: 13px; margin-bottom: 8px; display: block;">{{ t('dashboard.protocolSupport', { count: supportedProtocols.length }) }}</n-text>
             <n-space :size="[6, 4]" wrap>
               <n-tag v-for="p in supportedProtocols" :key="p" size="small" :bordered="false" type="info">{{ getProtocolLabel(p) || p }}</n-tag>
             </n-space>
@@ -173,6 +168,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
+// FIXED: 原问题-添加i18n支持，使用项目统一的i18n导入
+import { t } from '@/i18n'
 import { HardwareChip, SettingsOutline, AlertCircleOutline, PulseOutline } from '@vicons/ionicons5'
 import { use } from 'echarts/core'
 import { PieChart, LineChart, BarChart } from 'echarts/charts'
@@ -228,8 +225,9 @@ const deviceStatusOption = computed(() => {
       type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
       label: { show: true, formatter: '{b}\n{c}', fontSize: 12 },
       data: [
-        { value: online, name: '在线', itemStyle: { color: '#67c23a' } },
-        { value: offline, name: '离线', itemStyle: { color: '#909399' } },
+        // FIXED: 原问题-ECharts数据name中文硬编码，改为i18n
+        { value: online, name: t('dashboard.online'), itemStyle: { color: '#67c23a' } },
+        { value: offline, name: t('dashboard.offline'), itemStyle: { color: '#909399' } },
       ],
     }],
   }
@@ -283,9 +281,9 @@ const alarmTrendOption = computed(() => {
     xAxis: { type: 'category', data: hours, axisLabel: { fontSize: 10, interval: 3 } },
     yAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 10 } },
     series: [
-      { name: '严重', type: 'line', data: hours.map(h => counts[h].critical), smooth: true, itemStyle: { color: '#f56c6c' }, areaStyle: { color: 'rgba(245,108,108,0.1)' } },
-      { name: '警告', type: 'line', data: hours.map(h => counts[h].warning), smooth: true, itemStyle: { color: '#e6a23c' }, areaStyle: { color: 'rgba(230,162,60,0.1)' } },
-      { name: '信息', type: 'line', data: hours.map(h => counts[h].info), smooth: true, itemStyle: { color: '#909399' }, areaStyle: { color: 'rgba(144,147,153,0.1)' } },
+      { name: t('alarm.critical'), type: 'line', data: hours.map(h => counts[h].critical), smooth: true, itemStyle: { color: '#f56c6c' }, areaStyle: { color: 'rgba(245,108,108,0.1)' } },
+      { name: t('alarm.warning'), type: 'line', data: hours.map(h => counts[h].warning), smooth: true, itemStyle: { color: '#e6a23c' }, areaStyle: { color: 'rgba(230,162,60,0.1)' } },
+      { name: t('alarm.info'), type: 'line', data: hours.map(h => counts[h].info), smooth: true, itemStyle: { color: '#909399' }, areaStyle: { color: 'rgba(144,147,153,0.1)' } },
     ],
   }
 })
@@ -308,7 +306,7 @@ const resourceTrendOption = computed(() => {
     yAxis: { type: 'value', max: 100, axisLabel: { fontSize: 10, formatter: '{value}%' } },
     series: [
       { name: 'CPU', type: 'line', data: cpuData, smooth: true, itemStyle: { color: '#667eea' }, areaStyle: { color: 'rgba(102,126,234,0.15)' } },
-      { name: '内存', type: 'line', data: memData, smooth: true, itemStyle: { color: '#11998e' }, areaStyle: { color: 'rgba(17,153,142,0.15)' } },
+      { name: t('dashboard.memoryUsage'), type: 'line', data: memData, smooth: true, itemStyle: { color: '#11998e' }, areaStyle: { color: 'rgba(17,153,142,0.15)' } },
     ],
   }
 })
@@ -318,7 +316,8 @@ async function fetchStatus() {
     status.value = await systemApi.getStatus()
     uptime.value = status.value?.uptime ?? 0
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || '获取系统状态失败')
+    // FIXED: 原问题-硬编码中文消息，改为i18n
+    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchStatusFailed'))
   }
 }
 
@@ -332,7 +331,7 @@ async function fetchProtocols() {
       supportedProtocols.value = protoData?.protocols || []
     }
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || '获取协议列表失败')
+    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchProtocolsFailed'))
     supportedProtocols.value = []
   }
 }
@@ -342,7 +341,7 @@ async function fetchDevices() {
     const data = await deviceApi.list({ page: 1, size: 500 })
     devices.value = data?.data ?? []
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || '获取设备列表失败')
+    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchDevicesFailed'))
     devices.value = []
   }
 }
@@ -352,7 +351,7 @@ async function fetchAlarms() {
     const data = await alarmApi.list({ page: 1, size: 500 })
     alarms.value = data?.data ?? []
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || '获取告警列表失败')
+    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchAlarmsFailed'))
     alarms.value = []
   }
 }
@@ -374,7 +373,12 @@ function formatBytes(bytes?: number) {
 }
 
 onMounted(async () => {
-  await Promise.allSettled([fetchStatus(), fetchDevices(), fetchAlarms(), fetchProtocols()])
+  // FIXED: 原问题-Promise.allSettled吞没异常，status.value保持null导致所有统计卡片显示0
+  // 现改为逐个await并独立处理异常，确保部分成功的数据仍能展示
+  try { await fetchStatus() } catch (e) { console.error('Dashboard: fetchStatus failed', e) }
+  try { await fetchDevices() } catch (e) { console.error('Dashboard: fetchDevices failed', e) }
+  try { await fetchAlarms() } catch (e) { console.error('Dashboard: fetchAlarms failed', e) }
+  try { await fetchProtocols() } catch (e) { console.error('Dashboard: fetchProtocols failed', e) }
   pageLoading.value = false
   timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
   uptimeTimer = window.setInterval(() => { uptime.value++ }, 1000)
@@ -392,11 +396,13 @@ onUnmounted(() => {
 
 function onRealtimeMessage(data: any) {
   try {
-    if (data?.device_id && status.value) {
+    // FIXED: 原问题-status.value为null时所有实时消息被丢弃
+    // 现仅检查data有效性，不再依赖status.value
+    if (data?.device_id) {
       updateResourceHistory()
     }
   } catch (e) {
-    msg.warning('处理实时数据消息异常')
+    msg.warning(t('dashboard.realtimeMessageError'))
   }
 }
 
@@ -414,7 +420,7 @@ function onAlarmMessage(data: any) {
       }, 500)
     }
   } catch (e) {
-    msg.warning('处理告警消息异常')
+    msg.warning(t('dashboard.alarmMessageError'))
   }
 }
 
@@ -429,7 +435,7 @@ function onDeviceMessage(data: any) {
       }, 500)
     }
   } catch (e) {
-    msg.warning('处理设备消息异常')
+    msg.warning(t('dashboard.deviceMessageError'))
   }
 }
 </script>

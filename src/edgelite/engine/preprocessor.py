@@ -6,6 +6,8 @@ import logging
 import time
 from collections import deque
 
+from edgelite.constants import _PREPROCESSOR_MAX_POINTS
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,7 +109,7 @@ class DataPreprocessor:
         self._last_values[point_key] = value
         return True
 
-    MAX_AGGREGATE_POINTS = 10000
+    MAX_AGGREGATE_POINTS = _PREPROCESSOR_MAX_POINTS  # FIXED: 原问题-硬编码聚合上限，现引用constants.py
 
     def _apply_aggregation(
         self, point_key: str, value: float, ts: float, config: dict

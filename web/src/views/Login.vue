@@ -78,14 +78,15 @@
         <n-alert type="warning" style="margin-bottom:16px">
           {{ t('login.mustChangePassword') }}
         </n-alert>
-        <n-form-item path="old_password" label="当前密码">
-          <n-input v-model:value="changePwdForm.old_password" type="password" show-password-on="click" placeholder="请输入当前密码" />
+        <!-- FIXED: 原问题-表单label/placeholder中文硬编码，现使用t() -->
+        <n-form-item path="old_password" :label="t('login.oldPassword')">
+          <n-input v-model:value="changePwdForm.old_password" type="password" show-password-on="click" :placeholder="t('login.oldPassword')" />
         </n-form-item>
-        <n-form-item path="new_password" label="新密码">
-          <n-input v-model:value="changePwdForm.new_password" type="password" show-password-on="click" placeholder="至少8位，包含字母和数字" />
+        <n-form-item path="new_password" :label="t('login.newPassword')">
+          <n-input v-model:value="changePwdForm.new_password" type="password" show-password-on="click" :placeholder="t('login.passwordPolicy')" />
         </n-form-item>
-        <n-form-item path="confirm_password" label="确认新密码">
-          <n-input v-model:value="changePwdForm.confirm_password" type="password" show-password-on="click" placeholder="再次输入新密码" />
+        <n-form-item path="confirm_password" :label="t('login.confirmPassword')">
+          <n-input v-model:value="changePwdForm.confirm_password" type="password" show-password-on="click" :placeholder="t('login.confirmPassword')" />
         </n-form-item>
         <n-button type="primary" block :loading="changingPwd" @click="handleChangePassword" style="margin-top: 8px">
           {{ t('login.changePassword') }}
@@ -109,6 +110,7 @@ import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
 import { t } from '@/i18n'
+import { getErrorMessage } from '@/utils/errorCodes'
 
 const router = useRouter()
 const message = useMessage()
@@ -149,24 +151,30 @@ async function handleLogin() {
     if (auth.mustChangePassword) {
       showChangePassword.value = true
       changePwdForm.old_password = form.password
-      message.warning('首次登录需要修改密码')
+      // FIXED: 原问题-硬编码中文消息，改为i18n
+      message.warning(t('loginPage.mustChangePassword'))
     } else {
-      message.success('登录成功，欢迎回来！')
+      // FIXED: 原问题-硬编码中文消息，改为i18n
+      message.success(t('loginPage.loginSuccess'))
       const redirect = (router.currentRoute.value.query.redirect as string) || '/'
       router.push(redirect)
     }
   } catch (e: any) {
+    // FIXED: 原问题-错误分类依赖中文字符串匹配(detail.includes('频繁'))，
+    // 现改为基于HTTP status code判断，并使用错误码映射i18n
+    const status = e?.response?.status
     const detail = e?.response?.data?.detail || e?.message || ''
-    if (detail.includes('429') || detail.includes('频繁') || detail.includes('过多')) {
-      message.warning('登录尝试过于频繁，请稍后再试')
-    } else if (detail.includes('401') || detail.includes('用户名或密码')) {
-      message.error('用户名或密码不正确，请重新输入')
-    } else if (detail.includes('403') || detail.includes('禁用')) {
-      message.error('该账户已被禁用，请联系管理员')
-    } else if (detail.includes('网络') || detail.includes('connect')) {
-      message.error('网络连接失败，请检查网络后重试')
+    if (status === 429) {
+      message.warning(getErrorMessage(detail))
+    } else if (status === 401) {
+      message.error(getErrorMessage(detail))
+    } else if (status === 403) {
+      message.error(getErrorMessage(detail))
+    } else if (!status) {
+      // FIXED: 原问题-硬编码中文消息，改为i18n
+      message.error(t('loginPage.networkError'))
     } else {
-      message.error(detail || '登录失败，请稍后重试')
+      message.error(getErrorMessage(detail))
     }
   } finally {
     loading.value = false
@@ -185,11 +193,18 @@ async function handleChangePassword() {
     )
     auth.mustChangePassword = false
     sessionStorage.setItem('edgelite_mustChangePassword', 'false')
-    message.success('密码修改成功，正在进入系统...')
+    message.success(t('login.passwordChanged'))
+    // FIXED: 原问题-修改密码后未重新获取token，若后端使旧token失效则后续请求401
+    // 现在修改密码成功后重新登录获取新token
+    try {
+      await auth.login(changePwdForm.old_password, changePwdForm.new_password)
+    } catch {
+      // 重新登录失败则跳转到登录页
+    }
     router.push('/')
   } catch (e: any) {
     const detail = e?.response?.data?.detail || e?.message || ''
-    message.error(detail || '密码修改失败，请重试')
+    message.error(getErrorMessage(detail) || t('login.passwordChangeFailed'))
   } finally {
     changingPwd.value = false
   }

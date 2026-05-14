@@ -75,7 +75,8 @@ const queryForm = reactive({
 const deviceOptions = computed(() => devices.value.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id })))
 const pointOptions = computed(() => {
   const dev = devices.value.find(d => d.device_id === queryForm.device_id)
-  return dev?.points.map(p => ({ label: `${p.name} (${p.unit || '-'})`, value: p.name })) ?? []
+  // FIXED: 原问题-dev?.points.map(...)可选链后直接.map会崩溃，改为(dev?.points ?? []).map(...)
+  return (dev?.points ?? []).map(p => ({ label: `${p.name} (${p.unit || '-'})`, value: p.name }))
 })
 
 watch(() => queryForm.device_id, () => { queryForm.point_name = '' })

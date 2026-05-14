@@ -6,10 +6,12 @@ import logging
 import threading
 import time
 
+from edgelite.constants import _TOKEN_REVOCATION_MAX
+
 logger = logging.getLogger(__name__)
 
-_MAX_REVOKED_ENTRIES = 100000
-_CLEANUP_THRESHOLD = 80000
+_MAX_REVOKED_ENTRIES = _TOKEN_REVOCATION_MAX  # FIXED: 原问题-硬编码撤销上限，现引用constants.py
+_CLEANUP_THRESHOLD = _TOKEN_REVOCATION_MAX * 8 // 10
 
 
 class TokenRevocationManager:

@@ -9,9 +9,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from edgelite.constants import _EVENT_BUS_MAX_QUEUE
+
 logger = logging.getLogger(__name__)
 
-MAX_QUEUE_SIZE = 10000
+MAX_QUEUE_SIZE = _EVENT_BUS_MAX_QUEUE  # FIXED: 原问题-硬编码队列上限，现引用constants.py
 
 
 # ─── 事件定义 ───

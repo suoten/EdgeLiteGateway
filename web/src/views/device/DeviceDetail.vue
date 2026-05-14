@@ -225,7 +225,8 @@ const pointColumns = [
 
 const realtimeData = computed(() => {
   if (!pointValues.value || !device.value) return []
-  return device.value.points.map(pt => ({
+  // FIXED: 原问题-device.value.points可能为undefined，添加空值保护
+  return (device.value.points ?? []).map(pt => ({
     name: pt.name,
     value: pointValues.value?.[pt.name]?.value ?? pointValues.value?.[pt.name] ?? '-',
     quality: pointValues.value?.[pt.name]?.quality ?? '-',
@@ -244,7 +245,8 @@ const realtimeColumns = [
 
 const writablePoints = computed(() => {
   if (!device.value) return []
-  return device.value.points.filter(pt => pt.access_mode === 'w' || pt.access_mode === 'rw')
+  // FIXED: 原问题-device.value.points可能为undefined，添加空值保护
+  return (device.value.points ?? []).filter(pt => pt.access_mode === 'w' || pt.access_mode === 'rw')
 })
 
 const writeColumns = [
@@ -269,7 +271,8 @@ const writeColumns = [
   },
 ]
 
-const pointNameOptions = computed(() => device.value?.points.map(pt => ({ label: pt.name, value: pt.name })) ?? [])
+// FIXED: 原问题-device.value?.points.map(...)可选链后直接.map会崩溃，改为(device.value?.points ?? []).map(...)
+const pointNameOptions = computed(() => (device.value?.points ?? []).map(pt => ({ label: pt.name, value: pt.name })))
 const rangeOptions = [
   { label: '近1小时', value: '-1h' },
   { label: '近6小时', value: '-6h' },
@@ -323,7 +326,8 @@ async function fetchDevice() {
     device.value = await deviceApi.get(deviceId.value)
     if (!device.value) { notFound.value = true; return }
     if (device.value?.points?.length) {
-    const pointNames = device.value.points.map((p: any) => p.name)
+    // FIXED: 原问题-points可能为undefined，添加空值保护
+    const pointNames = (device.value.points ?? []).map((p: any) => p.name)
     // FIXED: points[0]可能不存在，增加安全检查
     if (!chartPoint.value || !pointNames.includes(chartPoint.value)) {
       chartPoint.value = device.value.points[0]?.name || ''

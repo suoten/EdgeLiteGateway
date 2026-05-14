@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException
 
 from edgelite.api.deps import (
     ConfigDep,
     CurrentUser,
     DeviceServiceDep,
+    PaginationDep,
     require_permission,
 )
+from edgelite.api.error_codes import DeviceErrors
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.device import (
     DeviceCreate,
@@ -25,27 +27,27 @@ from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/devices", tags=["设备管理"])
+router = APIRouter(prefix="/api/v1/devices", tags=["Devices"])
 
 
 @router.get("", response_model=PagedResponse[DeviceResponse])
 async def list_devices(
     svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_READ),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=1000),
+    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
     status: str | None = None,
     protocol: str | None = None,
     search: str | None = None,
 ):
     try:
-        devices, total = await svc.list_devices(page, size, status, protocol, search)
-        return PagedResponse(data=devices, total=total, page=page, size=size)
+        devices, total = await svc.list_devices(pagination.page, pagination.size, status, protocol, search)
+        return PagedResponse(data=devices, total=total, page=pagination.page, size=pagination.size)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取设备列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取设备列表失败") from e
+        logger.error("list_devices failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.LIST_FAILED) from e
 
 
 @router.post("", response_model=ApiResponse[DeviceResponse], status_code=201)
@@ -58,13 +60,13 @@ async def create_device(
         device = await svc.create_device(body.model_dump())
         return ApiResponse(data=device)
     except ValueError as e:
-        # FIXED: 重复设备ID返回409而非500
         raise HTTPException(status_code=409, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("创建设备失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建设备失败") from e
+        logger.error("create_device failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.CREATE_FAILED) from e
 
 
 @router.get("/{device_id}", response_model=ApiResponse[DeviceResponse])
@@ -76,13 +78,15 @@ async def get_device(
     try:
         device = await svc.get_device(device_id)
         if device is None:
-            raise HTTPException(status_code=404, detail="设备不存在")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         return ApiResponse(data=device)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取设备详情失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取设备详情失败") from e
+        logger.error("get_device failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e
 
 
 @router.put("/{device_id}", response_model=ApiResponse[DeviceResponse])
@@ -96,13 +100,15 @@ async def update_device(
         data = body.model_dump(exclude_none=True)
         device = await svc.update_device(device_id, data)
         if device is None:
-            raise HTTPException(status_code=404, detail="设备不存在")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         return ApiResponse(data=device)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("更新设备失败: %s", e)
-        raise HTTPException(status_code=500, detail="更新设备失败") from e
+        logger.error("update_device failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.UPDATE_FAILED) from e
 
 
 @router.delete("/{device_id}", response_model=ApiResponse)
@@ -114,13 +120,15 @@ async def delete_device(
     try:
         success, error = await svc.delete_device(device_id)
         if not success:
-            raise HTTPException(status_code=409, detail=error or "删除失败")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=409, detail=error or DeviceErrors.DELETE_FAILED)
         return ApiResponse()
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("删除设备失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除设备失败") from e
+        logger.error("delete_device failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.DELETE_FAILED) from e
 
 
 @router.get("/{device_id}/points", response_model=ApiResponse)
@@ -135,8 +143,9 @@ async def get_device_points(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("读取设备测点失败: %s", e)
-        raise HTTPException(status_code=500, detail="读取设备测点失败") from e
+        logger.error("get_device_points failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.POINTS_FAILED) from e
 
 
 @router.post("/{device_id}/points", response_model=ApiResponse)
@@ -149,13 +158,15 @@ async def write_device_point(
     try:
         success = await svc.write_point(device_id, body.point, body.value)
         if not success:
-            raise HTTPException(status_code=400, detail="写入失败")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=400, detail=DeviceErrors.WRITE_FAILED)
         return ApiResponse()
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("写入测点值失败: %s", e)
-        raise HTTPException(status_code=500, detail="写入测点值失败") from e
+        logger.error("write_device_point failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.WRITE_FAILED) from e
 
 
 @router.post("/simulator", response_model=ApiResponse[DeviceResponse], status_code=201)
@@ -170,8 +181,9 @@ async def create_simulator(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("创建模拟设备失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建模拟设备失败") from e
+        logger.error("create_simulator failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.SIMULATOR_FAILED) from e
 
 
 @router.post("/discover", response_model=ApiResponse)
@@ -186,8 +198,9 @@ async def discover_devices(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("设备发现失败: %s", e)
-        raise HTTPException(status_code=500, detail="设备发现失败") from e
+        logger.error("discover_devices failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.DISCOVER_FAILED) from e
 
 
 @router.post("/{device_id}/push", response_model=ApiResponse)
@@ -200,21 +213,26 @@ async def push_device_data(
     authorization: str = Header(default=""),
 ):
     if not device_id or not isinstance(device_id, str) or len(device_id) > 128:
-        raise HTTPException(status_code=400, detail="无效的设备ID")
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_INVALID_ID)
     if not isinstance(body, dict) or not body:
-        raise HTTPException(status_code=400, detail="推送数据不能为空")
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_EMPTY)
 
-    if config and hasattr(config, "webhook_auth"):
+    # FIXED: 原问题-config.webhook_auth链式属性访问无空值保护，webhook_auth为None时崩溃
+    webhook_auth = getattr(config, "webhook_auth", None) if config else None
+    if webhook_auth and webhook_auth.mode != "none":
         from edgelite.engine.webhook_auth import WebhookAuthMiddleware
 
         auth_mw = WebhookAuthMiddleware(
-            mode=config.webhook_auth.mode,
-            token=config.webhook_auth.token,
-            username=config.webhook_auth.username,
-            password=config.webhook_auth.password,
+            mode=webhook_auth.mode,
+            token=getattr(webhook_auth, "token", ""),
+            username=getattr(webhook_auth, "username", ""),
+            password=getattr(webhook_auth, "password", ""),
         )
         if not auth_mw.verify(authorization):
-            raise HTTPException(status_code=401, detail="Webhook认证失败")
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=401, detail=DeviceErrors.WEBHOOK_AUTH_FAILED)
 
     if (
         config
@@ -226,7 +244,7 @@ async def push_device_data(
         if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail="Invalid API Key")
     else:
-        if not (config and hasattr(config, "webhook_auth") and config.webhook_auth.mode != "none"):
+        if not (webhook_auth and webhook_auth.mode != "none"):
             raise HTTPException(status_code=401, detail="API Key not configured")
 
     try:
@@ -234,9 +252,11 @@ async def push_device_data(
         if driver and hasattr(driver, "receive_data"):
             await driver.receive_data(device_id, body)
             return ApiResponse()
-        raise HTTPException(status_code=400, detail="HTTP Webhook驱动未启动或设备不存在")
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_DRIVER_NOT_READY)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("推送设备数据失败: %s", e)
-        raise HTTPException(status_code=500, detail="推送设备数据失败") from e
+        logger.error("push_device_data failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail
+        raise HTTPException(status_code=500, detail=DeviceErrors.PUSH_FAILED) from e

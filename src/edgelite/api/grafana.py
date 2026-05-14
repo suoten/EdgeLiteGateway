@@ -8,12 +8,13 @@ import re
 from fastapi import APIRouter, HTTPException
 
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.error_codes import CommonErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/grafana", tags=["Grafana集成"])
+router = APIRouter(prefix="/api/v1/grafana", tags=["Grafana"])
 
 
 def _get_grafana_config():
@@ -38,7 +39,7 @@ async def get_grafana_config(
         info = mgr.get_service_info("grafana")
         # FIXED: get_service_info()可能返回None导致500
         if info is None:
-            raise HTTPException(status_code=404, detail="Grafana服务未注册")
+            raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
 
         grafana_config = _get_grafana_config()
         return ApiResponse(
@@ -61,7 +62,7 @@ async def get_grafana_config(
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        raise HTTPException(status_code=500, detail=CommonErrors.INTERNAL_ERROR) from e
 
 
 @router.get("/dashboards", response_model=ApiResponse)
@@ -70,7 +71,7 @@ async def list_grafana_dashboards(
 ):
     grafana_config = _get_grafana_config()
     if not grafana_config or not getattr(grafana_config, "enabled", False):
-        raise HTTPException(status_code=503, detail="Grafana集成未启用")
+        raise HTTPException(status_code=503, detail="ERR_GRAFANA_NOT_ENABLED")
 
     grafana_url = getattr(grafana_config, "url", "http://localhost:3001")
     api_key = getattr(grafana_config, "api_key", "")
@@ -86,11 +87,11 @@ async def list_grafana_dashboards(
             if resp.status_code == 200:
                 dashboards = resp.json()
                 return ApiResponse(data={"dashboards": dashboards})
-            raise HTTPException(status_code=502, detail=f"Grafana返回状态码: {resp.status_code}")
+            raise HTTPException(status_code=502, detail=f"ERR_GRAFANA_BAD_STATUS:{resp.status_code}")
     except ImportError:
-        raise HTTPException(status_code=503, detail="httpx未安装，无法连接Grafana") from None
+        raise HTTPException(status_code=503, detail="ERR_GRAFANA_DEPS_MISSING") from None
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Grafana连接失败: {str(e)}") from e
+        raise HTTPException(status_code=502, detail=f"ERR_GRAFANA_CONNECTION_FAILED:{str(e)}") from e
 
 
 @router.get("/embed-url", response_model=ApiResponse)
@@ -101,12 +102,12 @@ async def get_grafana_embed_url(
     grafana_config = _get_grafana_config()
     try:
         if not grafana_config or not getattr(grafana_config, "enabled", False):
-            raise HTTPException(status_code=503, detail="Grafana集成未启用")
+            raise HTTPException(status_code=503, detail="ERR_GRAFANA_NOT_ENABLED")
 
         grafana_url = getattr(grafana_config, "url", "http://localhost:3001")
         if dashboard_uid:
             if not re.match(r"^[a-zA-Z0-9_-]+$", dashboard_uid):
-                raise HTTPException(status_code=400, detail="dashboard_uid 包含非法字符")
+                raise HTTPException(status_code=400, detail="ERR_GRAFANA_INVALID_UID")
             embed_url = f"{grafana_url}/d/{dashboard_uid}?kiosk&theme=light"
         else:
             embed_url = f"{grafana_url}/?kiosk&theme=light"
@@ -115,4 +116,4 @@ async def get_grafana_embed_url(
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        raise HTTPException(status_code=500, detail=CommonErrors.INTERNAL_ERROR) from e

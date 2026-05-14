@@ -30,7 +30,7 @@ from edgelite.services.mcp_service import MCPAuthManager, MCPToolService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/mcp", tags=["MCP协议"])
+router = APIRouter(prefix="/api/v1/mcp", tags=["MCP"])
 
 _mcp_tools = MCPToolService()
 _mcp_auth = MCPAuthManager()
@@ -49,7 +49,7 @@ async def list_tools(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_LIST_FAILED") from e
 
 
 @router.post("/call", response_model=ApiResponse)
@@ -78,7 +78,7 @@ async def call_tool(
         raise
     except Exception as e:
         logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_CALL_FAILED") from e
 
 
 @router.get("/resources", response_model=ApiResponse)
@@ -89,7 +89,7 @@ async def list_resources(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_LIST_FAILED") from e
 
 
 @router.get("/prompts", response_model=ApiResponse)
@@ -100,7 +100,7 @@ async def list_prompts(_user=Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_LIST_FAILED") from e
 
 
 @router.get("/auth-keys", response_model=ApiResponse)
@@ -111,7 +111,7 @@ async def list_auth_keys(user: CurrentUser = require_permission(Permission.SYSTE
         raise
     except Exception as e:
         logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_LIST_FAILED") from e
 
 
 class CreateKeyRequest(BaseModel):
@@ -130,7 +130,7 @@ async def create_auth_key(
         raise
     except Exception as e:
         logger.error("创建失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_CREATE_KEY_FAILED") from e
 
 
 @router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
@@ -139,7 +139,7 @@ async def delete_auth_key(
 ):
     if _mcp_auth.delete_key(key_id):
         return ApiResponse(data={"deleted": True, "key_id": key_id})
-    raise HTTPException(status_code=404, detail=f"密钥 {key_id} 不存在")
+    raise HTTPException(status_code=404, detail="ERR_MCP_KEY_NOT_FOUND")
 
 
 @router.get("/sse")
@@ -231,4 +231,4 @@ async def mcp_sse(
         raise
     except Exception as e:
         logger.error("SSE连接失败: %s", e)
-        raise HTTPException(status_code=500, detail="SSE连接失败") from e
+        raise HTTPException(status_code=500, detail="ERR_MCP_SSE_FAILED") from e

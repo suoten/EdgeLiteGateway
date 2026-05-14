@@ -316,7 +316,8 @@ function handleUserSelect(key: string) {
 async function fetchAlarmCount() {
   try {
     const data = await alarmApi.list({ page: 1, size: 1, status: 'firing' })
-    alarmCount.value = data.total
+    // FIXED: 原问题-data.total可能为undefined，添加空值保护
+    alarmCount.value = data?.total ?? 0
   } catch (e) { console.warn('获取告警计数失败:', e) }
 }
 

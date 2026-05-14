@@ -11,6 +11,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from jose import JWTError
 
 from edgelite.api.deps import CurrentUser, DatabaseDep, get_current_user
+from edgelite.api.error_codes import AuthErrors
+from edgelite.constants import _AUTH_ATTEMPTS_LIMIT, _AUTH_MAX_ATTEMPTS, _AUTH_PASSWORD_MAX_LENGTH
 from edgelite.models.common import ApiResponse
 from edgelite.models.user import LoginRequest, TokenResponse, UserInfoResponse
 from edgelite.security.jwt import create_access_token, create_refresh_token, verify_token
@@ -19,16 +21,16 @@ from edgelite.storage.sqlite_repo import UserRepo
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
+router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 _login_attempts: dict[str, list[float]] = defaultdict(list)
-# FIXED: 原问题-魔法数字散布在代码中，现提取为命名常量
-_MAX_LOGIN_ATTEMPTS = 5
+# FIXED: 原问题-魔法数字散布在代码中，现引用constants.py统一常量
+_MAX_LOGIN_ATTEMPTS = _AUTH_MAX_ATTEMPTS
 _LOGIN_WINDOW_SECONDS = 300
-_LOGIN_ATTEMPTS_MAX_ENTRIES = 10000
-_LOGIN_ATTEMPTS_TRIM_TARGET = 8000
+_LOGIN_ATTEMPTS_MAX_ENTRIES = _AUTH_ATTEMPTS_LIMIT
+_LOGIN_ATTEMPTS_TRIM_TARGET = _AUTH_ATTEMPTS_LIMIT * 8 // 10
 _MIN_PASSWORD_LENGTH = 8
-_MAX_PASSWORD_LENGTH = 128
+_MAX_PASSWORD_LENGTH = _AUTH_PASSWORD_MAX_LENGTH
 
 
 def _check_login_rate(ip: str) -> None:
@@ -45,7 +47,7 @@ def _check_login_rate(ip: str) -> None:
     if len(_login_attempts[ip]) >= _MAX_LOGIN_ATTEMPTS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"登录尝试过多，请{_LOGIN_WINDOW_SECONDS // 60}分钟后再试",
+            detail=AuthErrors.RATE_LIMITED,
         )
 
 
@@ -84,10 +86,10 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep):
 
         if user is None or not verify_password(req.password, user["password"]):
             _record_login_attempt(client_ip)
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.INVALID_CREDENTIALS)
 
         if not user["enabled"]:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户已禁用")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AuthErrors.USER_DISABLED)
 
         access_token = create_access_token(
             data={"sub": user["user_id"], "username": user["username"], "role": user["role"]}
@@ -111,7 +113,7 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep):
         raise
     except Exception as e:
         logger.error("登录失败: %s", e)
-        raise HTTPException(status_code=500, detail="登录失败") from e
+        raise HTTPException(status_code=500, detail=AuthErrors.LOGIN_FAILED) from e
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
@@ -120,7 +122,7 @@ async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
         payload = verify_token(refresh, token_type="refresh")
     except (JWTError, ValueError):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh Token无效"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID
         ) from None
 
     # FIXED: 数据库操作和token创建无异常保护
@@ -129,7 +131,7 @@ async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
             repo = UserRepo(session, db.write_lock)
             user = await repo.get_by_username(payload.get("username", ""))
         if user is None or not user["enabled"]:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.USER_NOT_FOUND)
 
         current_role = user["role"]
 
@@ -155,7 +157,7 @@ async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
         raise
     except Exception as e:
         logger.error("Token刷新失败: %s", e)
-        raise HTTPException(status_code=500, detail="Token刷新失败") from e
+        raise HTTPException(status_code=500, detail=AuthErrors.LOGIN_FAILED) from e
 
 
 @router.get("/me", response_model=ApiResponse[UserInfoResponse])
@@ -181,7 +183,7 @@ async def get_current_user_info(user: CurrentUser, db: DatabaseDep):
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        raise HTTPException(status_code=500, detail=AuthErrors.LOGIN_FAILED) from e
 
 
 @router.post("/change-password", response_model=ApiResponse)
@@ -196,26 +198,26 @@ async def change_password(
             repo = UserRepo(session, db.write_lock)
             db_user = await repo.get_by_username_with_password(user["username"])
         if db_user is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=AuthErrors.USER_NOT_FOUND)
         if not verify_password(old_password, db_user["password"]):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.OLD_PASSWORD_WRONG)
         if len(new_password) < _MIN_PASSWORD_LENGTH:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少8位，需包含字母和数字"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_POLICY
             )
         if len(new_password) > _MAX_PASSWORD_LENGTH:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="密码长度不能超过128位"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_TOO_LONG
             )
         if old_password == new_password:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="新密码不能与原密码相同"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_SAME_AS_OLD
             )
         has_letter = any(c.isalpha() for c in new_password)
         has_digit = any(c.isdigit() for c in new_password)
         if not (has_letter and has_digit):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="新密码需同时包含字母和数字"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_LETTER_AND_DIGIT
             )
 
         from edgelite.security.password import hash_password
@@ -225,12 +227,12 @@ async def change_password(
             repo = UserRepo(session, db.write_lock)
             await repo.update_password(user["username"], hashed)
             await repo.update_user(user["username"], {"must_change_password": False})
-        return ApiResponse(data={"message": "密码修改成功"})
+        return ApiResponse(data={"message": "password_changed"})
     except HTTPException:
         raise
     except Exception as e:
         logger.error("修改失败: %s", e)
-        raise HTTPException(status_code=500, detail="修改失败") from e
+        raise HTTPException(status_code=500, detail=AuthErrors.PASSWORD_CHANGE_FAILED) from e
 
 
 @router.post("/logout", response_model=ApiResponse)
@@ -287,4 +289,4 @@ async def logout(request: Request, user: CurrentUser = None):
         raise
     except Exception as e:
         logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败") from e
+        raise HTTPException(status_code=500, detail=AuthErrors.LOGOUT_FAILED) from e

@@ -78,28 +78,43 @@ class AbbRobotDriver(DriverPlugin):
         """获取RAPID数据变量值
         API: GET /rw/rapid/symbol/data?task=T_ROB1&module=MainModule&symbol=x
         """
-        params = {"task": task, "module": module, "symbol": symbol}
-        resp = await self._client.get(f"{self._base_url}/rapid/symbol/data", params=params)
-        resp.raise_for_status()
-        data = resp.json()
-        return self._extract_rapid_value(data, symbol)
+        # FIXED: 原问题-httpx请求+状态码检查+JSON解析三重风险无保护
+        try:
+            params = {"task": task, "module": module, "symbol": symbol}
+            resp = await self._client.get(f"{self._base_url}/rapid/symbol/data", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            return self._extract_rapid_value(data, symbol)
+        except Exception as e:
+            logger.error("ABB _get_rapid_data failed: %s", e)
+            return None
 
     async def _get_joint_values(self) -> list[float]:
         """获取关节角度值
         API: GET /rw/motion/system/joint
         """
-        resp = await self._client.get(f"{self._base_url}/motion/system/joint")
-        resp.raise_for_status()
-        data = resp.json()
-        return self._extract_joint_values(data)
+        # FIXED: 原问题-httpx请求+状态码检查+JSON解析三重风险无保护
+        try:
+            resp = await self._client.get(f"{self._base_url}/motion/system/joint")
+            resp.raise_for_status()
+            data = resp.json()
+            return self._extract_joint_values(data)
+        except Exception as e:
+            logger.error("ABB _get_joint_values failed: %s", e)
+            return []
 
     async def _get_motion_data(self) -> dict[str, Any]:
         """获取运动数据 (TCP位置/速度等)
         API: GET /rw/motion/system/measurement
         """
-        resp = await self._client.get(f"{self._base_url}/motion/system/measurement")
-        resp.raise_for_status()
-        return resp.json()
+        # FIXED: 原问题-httpx请求+状态码检查+JSON解析三重风险无保护
+        try:
+            resp = await self._client.get(f"{self._base_url}/motion/system/measurement")
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.error("ABB _get_motion_data failed: %s", e)
+            return {}
 
     @staticmethod
     def _extract_rapid_value(data: dict, symbol: str) -> Any:

@@ -53,7 +53,7 @@
       <n-form ref="configFormRef" :model="configForm" :rules="configRules" label-placement="left" label-width="120">
         <n-grid :cols="2" :x-gap="16">
           <n-form-item-gi label="Grafana地址" path="url">
-            <n-input v-model:value="configForm.url" placeholder="http://localhost:3000" />
+            <n-input v-model:value="configForm.url" placeholder="http://localhost:3001" />
           </n-form-item-gi>
           <n-form-item-gi label="API Key" path="api_key">
             <n-input v-model:value="configForm.api_key" type="password" show-password-on="click" placeholder="Grafana API Key" />
@@ -115,7 +115,7 @@ const dashboards = ref<any[]>([])
 const embedUrl = ref('')
 
 const configForm = reactive({
-  url: 'http://localhost:3000',
+  url: 'http://localhost:3001',
   api_key: '',
   datasource: 'InfluxDB',
 })
@@ -161,11 +161,12 @@ async function fetchConfig() {
   loading.value = true
   try {
     const data = await serviceApi.status('grafana')
-    enabled.value = data.state !== 'disabled'
+    // FIXED: 原问题-data.state可能为undefined，undefined !== 'disabled'永远为true导致状态误判
+    enabled.value = data?.state === 'running'
     state.value = data.state
     dependencies.value = data.dependencies || []
     Object.assign(grafanaConfig, data.current_config || {})
-    configForm.url = data.current_config?.url || 'http://localhost:3000'
+    configForm.url = data.current_config?.url || 'http://localhost:3001'
     configForm.api_key = data.current_config?.api_key || ''
     configForm.datasource = data.current_config?.datasource || 'InfluxDB'
     if (enabled.value) {
@@ -190,7 +191,8 @@ async function fetchDashboards() {
 async function handleOpen(uid?: string) {
   try {
     const data = await grafanaApi.embedUrl(uid)
-    embedUrl.value = data.url
+    // FIXED: 原问题-data.url可能为undefined，添加空值保护
+    embedUrl.value = data?.url ?? ''
   } catch (e: any) {
     message.error(e?.response?.data?.detail || '获取嵌入URL失败')
   }

@@ -17,11 +17,11 @@ import asyncio
 import contextlib
 import json
 import logging
-import time
 import uuid
 from collections.abc import Callable
 from typing import Any
 
+from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY
 from edgelite.platform.base import PlatformHandler
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ class ThingsPanelHandler(PlatformHandler):
         if not self._pub_queue:
             return
         payload = {
-            "ts": int(time.time() * 1000),
+            "ts": timestamp_ms(),  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
             "values": data,
         }
         await self._pub_queue.put(
@@ -140,7 +140,7 @@ class ThingsPanelHandler(PlatformHandler):
                     port=port,
                     username=username or None,
                     password=password or None,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                     identifier=f"edgelite-thingspanel-{uuid.uuid4().hex[:8]}",
                 ) as client:
                     self._client = client

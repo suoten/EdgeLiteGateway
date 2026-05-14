@@ -14,7 +14,7 @@ from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/video", tags=["视频接入"])
+router = APIRouter(prefix="/api/v1/video", tags=["Video"])
 
 _PTZ_ACTIONS = Literal[
     "up",

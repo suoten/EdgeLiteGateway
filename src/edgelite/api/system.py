@@ -14,7 +14,7 @@ from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/system", tags=["系统管理"])
+router = APIRouter(prefix="/api/v1/system", tags=["System"])
 
 
 @router.get("/status", response_model=ApiResponse[SystemStatusResponse])

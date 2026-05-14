@@ -1,28 +1,28 @@
 <template>
-  <n-spin :show="pageLoading" description="加载预处理配置...">
+  <n-spin :show="pageLoading" :description="t('preprocess.loading')">
   <n-space vertical :size="16">
-    <n-card title="全局配置" :bordered="false">
+    <n-card :title="t('preprocess.globalConfig')" :bordered="false">
       <n-form :model="globalForm" label-placement="left" label-width="140">
-        <n-form-item label="启用预处理">
+        <n-form-item :label="t('preprocess.enablePreprocess')">
           <n-switch v-model:value="globalForm.enabled" />
         </n-form-item>
-        <n-form-item label="默认死区值">
+        <n-form-item :label="t('preprocess.defaultDeadband')">
           <n-input-number v-model:value="globalForm.default_deadband" :min="0" :step="0.1" style="width: 200px" />
         </n-form-item>
-        <n-form-item label="默认滤波窗口">
+        <n-form-item :label="t('preprocess.defaultFilterWindow')">
           <n-input-number v-model:value="globalForm.default_filter_window" :min="1" :max="21" style="width: 200px" />
         </n-form-item>
-        <n-form-item label="默认聚合窗口(秒)">
+        <n-form-item :label="t('preprocess.defaultAggWindow')">
           <n-input-number v-model:value="globalForm.default_aggregate_window_sec" :min="0" style="width: 200px" />
         </n-form-item>
       </n-form>
     </n-card>
 
-    <n-card title="测点预处理配置" :bordered="false">
+    <n-card :title="t('preprocess.pointConfig')" :bordered="false">
       <template #header-extra>
         <n-button type="primary" size="small" @click="showAddModal = true">
           <template #icon><n-icon :component="AddOutline" /></template>
-          添加测点
+          {{ t('preprocess.addPoint') }}
         </n-button>
       </template>
       <n-data-table
@@ -34,37 +34,37 @@
     </n-card>
 
     <n-space>
-      <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
-      <n-button @click="fetchConfig">刷新</n-button>
+      <n-button type="primary" :loading="saving" @click="handleSave">{{ t('preprocess.saveConfig') }}</n-button>
+      <n-button @click="fetchConfig">{{ t('preprocess.refresh') }}</n-button>
     </n-space>
 
-    <n-modal v-model:show="showAddModal" title="添加测点配置" preset="card" style="width: 500px">
+    <n-modal v-model:show="showAddModal" :title="t('preprocess.addPointTitle')" preset="card" style="width: 500px">
       <n-form :model="addForm" :rules="addRules" ref="addFormRef" label-placement="left" label-width="120">
-        <n-form-item label="测点标识" path="point_key">
-          <n-input v-model:value="addForm.point_key" placeholder="如: device1.point1" />
+        <n-form-item :label="t('preprocess.pointId')" path="point_key">
+          <n-input v-model:value="addForm.point_key" :placeholder="t('preprocess.pointIdPlaceholder')" />
         </n-form-item>
-        <n-form-item label="死区值">
+        <n-form-item :label="t('preprocess.deadbandValue')">
           <n-input-number v-model:value="addForm.deadband" :min="0" :step="0.1" style="width: 200px" />
         </n-form-item>
-        <n-form-item label="死区百分比">
+        <n-form-item :label="t('preprocess.deadbandPercent')">
           <n-input-number v-model:value="addForm.deadband_percent" :min="0" :step="0.1" style="width: 200px" />
         </n-form-item>
-        <n-form-item label="滤波类型">
+        <n-form-item :label="t('preprocess.filterType')">
           <n-select v-model:value="addForm.filter" :options="filterOptions" clearable style="width: 200px" />
         </n-form-item>
-        <n-form-item label="滤波窗口">
+        <n-form-item :label="t('preprocess.filterWindow')">
           <n-input-number v-model:value="addForm.filter_window" :min="1" :max="21" style="width: 200px" />
         </n-form-item>
-        <n-form-item label="聚合类型">
+        <n-form-item :label="t('preprocess.aggType')">
           <n-select v-model:value="addForm.aggregate" :options="aggregateOptions" clearable style="width: 200px" />
         </n-form-item>
-        <n-form-item label="聚合窗口(秒)">
+        <n-form-item :label="t('preprocess.aggWindow')">
           <n-input-number v-model:value="addForm.aggregate_window_sec" :min="1" style="width: 200px" />
         </n-form-item>
       </n-form>
       <template #action>
-        <n-button @click="showAddModal = false">取消</n-button>
-        <n-button type="primary" @click="handleAdd">确定</n-button>
+        <n-button @click="showAddModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" @click="handleAdd">{{ t('common.confirm') }}</n-button>
       </template>
     </n-modal>
   </n-space>
@@ -77,6 +77,8 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { NButton, NSpace, NTag, NSpin, useMessage, useDialog } from 'naive-ui'
 import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { preprocessApi } from '@/api'
+// FIXED: 原问题-添加i18n支持
+import { t } from '@/i18n'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -107,36 +109,37 @@ const addForm = reactive({
 })
 
 const addRules = {
-  point_key: { required: true, message: '请输入测点标识', trigger: 'blur' },
+  point_key: { required: true, message: t('preprocess.pointIdRequired'), trigger: 'blur' },
 }
 
 const filterOptions = [
-  { label: '中值滤波-3', value: 'median_3' },
-  { label: '中值滤波-5', value: 'median_5' },
-  { label: '中值滤波-7', value: 'median_7' },
+  { label: 'Median-3', value: 'median_3' },
+  { label: 'Median-5', value: 'median_5' },
+  { label: 'Median-7', value: 'median_7' },
 ]
 
 const aggregateOptions = [
-  { label: '平均值', value: 'avg' },
-  { label: '最大值', value: 'max' },
-  { label: '最小值', value: 'min' },
-  { label: '求和', value: 'sum' },
-  { label: '最后值', value: 'last' },
+  { label: 'AVG', value: 'avg' },
+  { label: 'MAX', value: 'max' },
+  { label: 'MIN', value: 'min' },
+  { label: 'SUM', value: 'sum' },
+  { label: 'LAST', value: 'last' },
 ]
 
+// FIXED: 原问题-表格列标题中文硬编码，改为i18n
 const columns = [
-  { title: '测点标识', key: 'point_key', width: 200 },
-  { title: '死区值', key: 'deadband', width: 100 },
-  { title: '死区%', key: 'deadband_percent', width: 100 },
-  { title: '滤波', key: 'filter', width: 120 },
-  { title: '滤波窗口', key: 'filter_window', width: 100 },
-  { title: '聚合', key: 'aggregate', width: 100 },
-  { title: '聚合窗口(秒)', key: 'aggregate_window_sec', width: 120 },
+  { title: t('preprocess.pointId'), key: 'point_key', width: 200 },
+  { title: t('preprocess.deadbandValue'), key: 'deadband', width: 100 },
+  { title: t('preprocess.deadbandPercent'), key: 'deadband_percent', width: 100 },
+  { title: t('preprocess.filterType'), key: 'filter', width: 120 },
+  { title: t('preprocess.filterWindow'), key: 'filter_window', width: 100 },
+  { title: t('preprocess.aggType'), key: 'aggregate', width: 100 },
+  { title: t('preprocess.aggWindow'), key: 'aggregate_window_sec', width: 120 },
   {
-    title: '操作', key: 'actions', width: 80,
+    title: t('alarmList.actions'), key: 'actions', width: 80,
     render: (row: any) =>
       h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row.point_key) }, {
-        icon: () => h(NTag, { type: 'error' }, { default: () => '删除' }),
+        default: () => t('common.delete'),
       }),
   },
 ]
@@ -158,7 +161,7 @@ async function fetchConfig() {
     pointConfigs.value = data.point_configs ?? {}
     updatePointList()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '获取配置失败')
+    message.error(e?.response?.data?.detail || e?.message || t('http.requestFailed'))
   } finally {
     pageLoading.value = false
   }
@@ -171,10 +174,10 @@ async function handleSave() {
       global: { ...globalForm },
       points: pointConfigs.value,
     })
-    message.success('配置已保存')
+    message.success(t('common.success'))
     dirty.value = false
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '保存失败')
+    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
   } finally {
     saving.value = false
   }
@@ -202,9 +205,9 @@ async function handleAdd() {
       points: { [addForm.point_key]: config },
     })
     dirty.value = false
-    message.success('测点已添加并保存')
+    message.success(t('common.success'))
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '保存失败')
+    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
   }
 
   addForm.point_key = ''
@@ -219,10 +222,10 @@ async function handleAdd() {
 
 function handleDelete(pointKey: string) {
   dialog.warning({
-    title: '确认删除',
-    content: `确定要删除测点「${pointKey}」的预处理配置吗？`,
-    positiveText: '确认删除',
-    negativeText: '取消',
+    title: t('common.confirm'),
+    content: t('deviceList.deleteConfirm', { name: pointKey }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       delete pointConfigs.value[pointKey]
       updatePointList()
@@ -234,9 +237,9 @@ function handleDelete(pointKey: string) {
           points: pointConfigs.value,
         })
         dirty.value = false
-        message.success('测点已删除并保存')
+        message.success(t('common.success'))
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || '保存失败')
+        message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
       }
     },
   })
@@ -249,10 +252,10 @@ watch([() => ({ ...globalForm }), pointConfigs], () => { dirty.value = true }, {
 onBeforeRouteLeave((_to, _from, next) => {
   if (dirty.value) {
     dialog.warning({
-      title: '未保存的更改',
-      content: '预处理配置有未保存的更改，确定要离开吗？',
-      positiveText: '离开',
-      negativeText: '留下',
+      title: t('common.confirm'),
+      content: t('common.required'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
       onPositiveClick: () => next(),
       onNegativeClick: () => next(false),
     })

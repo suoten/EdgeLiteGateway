@@ -36,6 +36,8 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+const REFRESH_TIMEOUT_MS = 10000
+
 let isRefreshing = false
 let refreshSubscribers: ((token: string | null) => void)[] = []
 
@@ -46,16 +48,29 @@ function onTokenRefreshed(token: string | null) {
 
 function addRefreshSubscriber(cb: (token: string | null) => void) {
   refreshSubscribers.push(cb)
+  // FIXED: 原问题-排队请求无超时机制，刷新挂起时页面永久卡死，现添加超时自动拒绝
+  setTimeout(() => {
+    const idx = refreshSubscribers.indexOf(cb)
+    if (idx !== -1) {
+      refreshSubscribers.splice(idx, 1)
+      cb(null)
+    }
+  }, REFRESH_TIMEOUT_MS)
 }
 
 async function refreshAuthToken(refreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
-  // FIXED: 原问题-Token刷新响应解析逻辑脆弱，现统一从ApiResponse.data提取
+  // FIXED: 原问题-Token刷新响应解析逻辑脆弱(body.data ?? body as any)，
+  // 现严格校验data字段存在且包含access_token
   const resp = await http.post<ApiResponse<{ access_token: string; refresh_token: string }>>(
     '/auth/refresh',
     { refresh: refreshToken }
   )
   const body = resp.data
-  return body.data ?? body as any
+  const tokenData = body?.data
+  if (!tokenData || !tokenData.access_token) {
+    throw new Error('Token refresh response missing access_token')
+  }
+  return tokenData
 }
 
 http.interceptors.response.use(
@@ -85,8 +100,12 @@ http.interceptors.response.use(
       }
 
       if (originalRequest._retry) {
-        auth.logout()
-        window.location.href = '/login'
+        // FIXED: 原问题-刷新后重试仍401直接强制登出，可能因权限不足等非认证原因
+        // 现仅当确实无法恢复认证时才登出，否则仅拒绝当前请求
+        if (!auth.username) {
+          auth.logout()
+          window.location.href = '/login'
+        }
         return Promise.reject(error)
       }
 

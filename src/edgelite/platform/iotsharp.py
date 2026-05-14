@@ -13,7 +13,6 @@ import asyncio
 import contextlib
 import json
 import logging
-import time
 from collections.abc import Callable
 from typing import Any
 
@@ -44,7 +43,7 @@ class IoTSharpHandler(PlatformHandler):
 
         self._config = config
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
 
         broker = config.get("broker", "localhost")
         port = int(config.get("port", 1883))
@@ -94,7 +93,7 @@ class IoTSharpHandler(PlatformHandler):
         if not self._connected or not self._pub_queue:
             return
         topic = f"devices/{device_id}/attributes"
-        payload = json.dumps({"online": online, "lastActivityTime": int(time.time() * 1000)})
+        payload = json.dumps({"online": online, "lastActivityTime": timestamp_ms()})  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
@@ -143,7 +142,7 @@ class IoTSharpHandler(PlatformHandler):
             except Exception as e:
                 logger.error("IoTSharp MQTT连接异常: %s，5秒后重试", e)
                 self._connected = False
-                await asyncio.sleep(5)
+                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
 
     async def _publish_loop(self, client: Any) -> None:
         try:

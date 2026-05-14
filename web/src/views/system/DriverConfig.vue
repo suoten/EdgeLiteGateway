@@ -100,7 +100,8 @@ const typeMap: Record<string, string> = {
 const columns = [
   { title: '驱动名称', key: 'name', width: 160 },
   { title: '版本', key: 'version', width: 80 },
-  { title: '支持协议', key: 'protocols', render: (row: any) => h(NSpace, { size: 4 }, () => row.protocols.map((p: string) => h(NTag, { size: 'small', type: 'info' }, () => p))) },
+  // FIXED: 原问题-row.protocols可能为undefined，添加空值保护
+  { title: '支持协议', key: 'protocols', render: (row: any) => h(NSpace, { size: 4 }, () => (row.protocols ?? []).map((p: string) => h(NTag, { size: 'small', type: 'info' }, () => p))) },
   { title: '操作', key: 'actions', width: 200, render: (row: any) => h(NSpace, {}, () => [
     h(NButton, { size: 'small', onClick: () => viewSchema(row.name) }, () => '配置模板'),
     h(NButton, { size: 'small', type: 'primary', onClick: () => startDiscover(row.name) }, () => '发现设备'),

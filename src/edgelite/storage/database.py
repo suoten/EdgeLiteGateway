@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from edgelite.config import get_config
 from edgelite.models.db import Base
+from edgelite.api.error_codes import DatabaseErrors
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,8 @@ def _build_database_url(config: Any = None) -> str:
         return f"mssql+{driver}:///?odbc_connect={odbc_connect}"
 
     else:
-        raise ValueError(f"不支持的数据库后端: {backend}，支持: {list(_BACKEND_DRIVERS.keys())}")
+        # FIXED: 原问题-错误消息中文硬编码，改为error_code
+        raise ValueError(f"{DatabaseErrors.UNSUPPORTED_BACKEND}:{backend}")
 
 
 def _check_driver(backend: str) -> None:
@@ -89,10 +91,8 @@ def _check_driver(backend: str) -> None:
     try:
         __import__(driver_name)
     except ImportError:
-        raise ImportError(
-            f"数据库后端 '{backend}' 需要安装驱动 '{driver_name}'，"
-            f"请运行: pip install {driver_name}"
-        ) from None
+        # FIXED: 原问题-错误消息中文硬编码，改为error_code
+        raise ImportError(f"{DatabaseErrors.DRIVER_REQUIRED}:{backend}:{driver_name}") from None
 
 
 class Database:
@@ -126,7 +126,7 @@ class Database:
     @property
     def engine(self) -> AsyncEngine:
         if self._engine is None:
-            raise RuntimeError("数据库未连接，请先调用 connect()")
+            raise RuntimeError(DatabaseErrors.NOT_CONNECTED)
         return self._engine
 
     @property
@@ -196,9 +196,9 @@ class Database:
     async def init_tables(self) -> None:
         """初始化所有表（仅用于开发/首次部署，生产环境请使用 Alembic）"""
         if self._engine is None:
-            raise RuntimeError("数据库未连接")
+            raise RuntimeError(DatabaseErrors.NOT_CONNECTED)
         if self._session_factory is None:
-            raise RuntimeError("数据库会话工厂未初始化")
+            raise RuntimeError(DatabaseErrors.SESSION_NOT_INIT)
 
         async with self._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -210,8 +210,15 @@ class Database:
 
             from edgelite.models.db import UserORM
 
-            result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
-            if result.scalar_one_or_none() is None:
+            # FIXED: 原问题-init_tables中admin用户查询无try-except保护，数据库连接异常导致初始化失败
+            try:
+                result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
+                admin_exists = result.scalar_one_or_none() is not None
+            except Exception as e:
+                logger.error("Database.init_tables admin check failed: %s", e)
+                admin_exists = False
+
+            if not admin_exists:
                 try:
                     from edgelite.security.password import hash_password
 
@@ -229,12 +236,29 @@ class Database:
                     )
                     session.add(admin)
                     await session.commit()
-                    logger.warning(
-                        "已创建默认管理员用户 (admin)，临时密码: %s  请立即登录修改！",
-                        temp_password,
-                    )
+                    # FIXED: 原问题-临时密码通过logger.info明文输出到日志存在泄露风险
+                    # 现将临时密码写入仅owner可读的文件，不输出到日志
+                    try:
+                        cred_path = Path("data/.admin_credential")
+                        cred_path.parent.mkdir(parents=True, exist_ok=True)
+                        cred_path.write_text(
+                            f"admin:{temp_password}\n",
+                            encoding="utf-8",
+                        )
+                        cred_path.chmod(0o600)
+                        logger.warning(
+                            "已创建默认管理员用户 (admin)，临时密码已保存到 %s  请立即登录修改！",
+                            cred_path,
+                        )
+                    except OSError:
+                        logger.warning(
+                            "已创建默认管理员用户 (admin)，临时密码无法保存到文件，请查看容器日志获取。"
+                        )
                 except ImportError:
                     pass
+                except Exception as e:
+                    # FIXED: 原问题-admin创建仅捕获ImportError，数据库写入异常（如磁盘满）未被处理
+                    logger.error("Database.init_tables admin creation failed: %s", e)
 
     async def _migrate_sqlite(self, conn: Any) -> None:
         """SQLite 自动迁移：为已有表添加缺失的列"""
@@ -260,7 +284,7 @@ class Database:
     def get_session(self) -> AsyncSession:
         """获取新的数据库会话"""
         if self._session_factory is None:
-            raise RuntimeError("数据库未连接")
+            raise RuntimeError(DatabaseErrors.NOT_CONNECTED)
         return self._session_factory()
 
     async def close(self) -> None:

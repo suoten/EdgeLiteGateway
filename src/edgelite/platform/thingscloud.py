@@ -13,6 +13,9 @@ import contextlib
 import json
 import logging
 import time
+
+from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY
+from edgelite.utils import timestamp_ms
 from collections.abc import Callable
 from typing import Any
 
@@ -73,7 +76,8 @@ class ThingsCloudHandler(PlatformHandler):
         payload = json.dumps(
             {
                 "properties": data,
-                "timestamp": int(time.time() * 1000),
+                # FIXED: 原问题-int(time.time()*1000)重复模式，改为timestamp_ms()
+                "timestamp": timestamp_ms(),
             },
             ensure_ascii=False,
             default=str,
@@ -104,7 +108,8 @@ class ThingsCloudHandler(PlatformHandler):
             {
                 "event": "device_status",
                 "data": {"online": online},
-                "timestamp": int(time.time() * 1000),
+                # FIXED: 原问题-int(time.time()*1000)重复模式，改为timestamp_ms()
+                "timestamp": timestamp_ms(),
             },
             ensure_ascii=False,
             default=str,
@@ -124,7 +129,7 @@ class ThingsCloudHandler(PlatformHandler):
                     port=port,
                     username=username or None,
                     password=password or None,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                 ) as client:
                     self._connected = True
                     logger.info("ThingsCloud MQTT连接成功: %s:%d", broker, port)
@@ -183,7 +188,12 @@ class ThingsCloudHandler(PlatformHandler):
                     break
                 try:
                     topic = str(message.topic)
-                    payload = json.loads(message.payload.decode("utf-8"))
+                    # FIXED: 原问题-json.loads无JSONDecodeError专项捕获，恶意MQTT消息导致处理中断
+                    try:
+                        payload = json.loads(message.payload.decode("utf-8"))
+                    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                        logger.warning("ThingsCloud invalid message payload: %s", e)
+                        continue
 
                     if "/command/receive" in topic:
                         parts = topic.split("/")

@@ -12,7 +12,7 @@ from edgelite.api.deps import CurrentUser, DataServiceDep, require_permission
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
-router = APIRouter(prefix="/api/v1/data", tags=["数据查询"])
+router = APIRouter(prefix="/api/v1/data", tags=["Data"])
 
 
 def _safe_filename(name: str) -> str:

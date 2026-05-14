@@ -72,11 +72,16 @@ class SystemService:
         from edgelite.app import _app_state
         from edgelite.models.db import RuleORM
 
-        async with _app_state.database.get_session() as session:
-            result = await session.execute(
-                select(sa_func.count()).select_from(RuleORM).where(RuleORM.enabled.is_(True))
-            )
-            rule_enabled = result.scalar() or 0
+        # FIXED: 原问题-规则统计直接使用session.execute无try-except保护
+        try:
+            async with _app_state.database.get_session() as session:
+                result = await session.execute(
+                    select(sa_func.count()).select_from(RuleORM).where(RuleORM.enabled.is_(True))
+                )
+                rule_enabled = result.scalar() or 0
+        except Exception as e:
+            logger.error("SystemService.get_status rule count failed: %s", e)
+            rule_enabled = 0
 
         # 告警统计
         _, firing_count = await self._alarm_repo.list_all(page=1, size=1, status="firing")

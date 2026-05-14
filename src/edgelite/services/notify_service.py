@@ -10,7 +10,6 @@ import html
 import json
 import logging
 import smtplib
-import time
 import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -91,7 +90,7 @@ class NotifyService:
         url = dt.webhook_url
         # 加签模式
         if dt.secret:
-            timestamp = str(int(time.time() * 1000))
+            timestamp = str(timestamp_ms())  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
             string_to_sign = f"{timestamp}\n{dt.secret}"
             hmac_code = hmac.new(
                 dt.secret.encode("utf-8"),

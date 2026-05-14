@@ -2,18 +2,18 @@
   <n-space vertical :size="16">
     <n-space justify="space-between">
       <n-space>
-        <n-input v-model:value="searchText" placeholder="搜索设备名称/ID" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
-        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="状态筛选" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
-        <n-select v-model:value="filterProtocol" :options="protocolOptions" placeholder="协议筛选" clearable style="width: 140px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
+        <n-input v-model:value="searchText" :placeholder="t('deviceList.searchPlaceholder')" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
+        <n-select v-model:value="filterStatus" :options="statusOptions" :placeholder="t('deviceList.statusFilter')" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
+        <n-select v-model:value="filterProtocol" :options="protocolOptions" :placeholder="t('deviceList.protocolFilter')" clearable style="width: 140px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
       </n-space>
       <n-space>
-        <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">批量删除 ({{ checkedKeys.length }})</n-button>
-        <n-button type="primary" @click="showCreateModal = true">创建设备</n-button>
-        <n-button @click="showSimModal = true">创建模拟器</n-button>
-        <n-input v-model:value="discoverHost" placeholder="IP或网段(如192.168.1.*)" size="small" style="width: 170px" />
+        <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">{{ t('deviceList.batchDelete') }} ({{ checkedKeys.length }})</n-button>
+        <n-button type="primary" @click="showCreateModal = true">{{ t('deviceList.createDevice') }}</n-button>
+        <n-button @click="showSimModal = true">{{ t('deviceList.createSimulator') }}</n-button>
+        <n-input v-model:value="discoverHost" :placeholder="t('deviceList.ipPlaceholder')" size="small" style="width: 170px" />
         <n-input-number v-model:value="discoverPort" :min="1" :max="65535" size="small" style="width: 90px" />
         <n-select v-model:value="discoverProtocol" :options="discoverProtocolOptions" size="small" style="width: 130px" />
-        <n-button @click="handleDiscover" :loading="discovering">设备发现</n-button>
+        <n-button @click="handleDiscover" :loading="discovering">{{ t('deviceList.deviceDiscover') }}</n-button>
       </n-space>
     </n-space>
 
@@ -22,42 +22,39 @@
       :pagination="pagination" :row-key="(r: Device) => r.device_id"
       v-model:checked-row-keys="checkedKeys"
     />
-    <n-empty v-if="!loading && devices.length === 0" description="暂无设备，点击「创建设备」开始接入" style="padding: 40px 0" />
+    <n-empty v-if="!loading && devices.length === 0" :description="t('deviceList.emptyDesc')" style="padding: 40px 0" />
 
-    <!-- 创建设备弹窗 -->
-    <n-modal v-model:show="showCreateModal" title="创建设备" preset="card" style="width: 720px">
+    <n-modal v-model:show="showCreateModal" :title="t('deviceList.createDevice')" preset="card" style="width: 720px">
       <n-form :model="createForm" label-placement="left" label-width="90" :rules="createRules" ref="createFormRef">
         <n-grid :cols="2" :x-gap="16">
           <n-gi>
-            <n-form-item label="设备ID" path="device_id"><n-input v-model:value="createForm.device_id" placeholder="唯一标识，如 modbus-plc-01" /></n-form-item>
+            <n-form-item :label="t('deviceList.deviceId')" path="device_id"><n-input v-model:value="createForm.device_id" :placeholder="t('deviceList.deviceIdPlaceholder')" /></n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="名称" path="name"><n-input v-model:value="createForm.name" placeholder="设备显示名称" /></n-form-item>
+            <n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="createForm.name" :placeholder="t('deviceList.namePlaceholder')" /></n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="协议" path="protocol">
+            <n-form-item :label="t('deviceList.protocol')" path="protocol">
               <n-select v-model:value="createForm.protocol" :options="protocolOptions.filter(o => o.value !== 'simulator')" @update:value="onProtocolChange" />
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="采集间隔" path="collect_interval">
+            <n-form-item :label="t('deviceList.collectInterval')" path="collect_interval">
               <n-space align="center">
                 <n-input-number v-model:value="createForm.collect_interval" :min="1" :max="3600" />
-                <n-text>秒</n-text>
+                <n-text>{{ t('deviceList.seconds') }}</n-text>
                 <n-tooltip trigger="hover">
                   <template #trigger><n-text depth="3" style="cursor: help">ⓘ</n-text></template>
-                  每隔多少秒向设备采集一次数据
+                  {{ t('deviceList.collectIntervalHint') }}
                 </n-tooltip>
               </n-space>
             </n-form-item>
           </n-gi>
         </n-grid>
 
-        <!-- 协议说明 -->
         <n-alert v-if="currentProtocolDesc" type="info" :bordered="false" style="margin-bottom: 12px">{{ currentProtocolDesc }}</n-alert>
 
-        <!-- 协议专业配置 -->
-        <n-divider>连接配置</n-divider>
+        <n-divider>{{ t('deviceList.connectionConfig') }}</n-divider>
         <n-grid :cols="2" :x-gap="16">
           <template v-for="field in currentProtocolFields" :key="field.name">
             <n-gi>
@@ -89,63 +86,60 @@
             </n-gi>
           </template>
           <n-gi v-if="currentProtocolFields.length === 0">
-            <n-text depth="3">该协议无需额外连接配置</n-text>
+            <n-text depth="3">{{ t('deviceList.noConfigNeeded') }}</n-text>
           </n-gi>
         </n-grid>
 
-        <!-- 测点定义 -->
-        <n-divider>测点定义</n-divider>
+        <n-divider>{{ t('deviceList.pointDefinition') }}</n-divider>
         <n-space vertical>
           <n-space v-for="(pt, i) in createForm.points" :key="i" align="center">
-            <n-input v-model:value="pt.name" placeholder="名称" style="width: 100px" />
-            <n-select v-model:value="pt.data_type" :options="dataTypeOptions" placeholder="类型" style="width: 100px" />
-            <n-input v-model:value="pt.address" placeholder="地址" style="width: 80px" />
-            <n-input v-model:value="pt.unit" placeholder="单位" style="width: 60px" />
+            <n-input v-model:value="pt.name" :placeholder="t('deviceList.name')" style="width: 100px" />
+            <n-select v-model:value="pt.data_type" :options="dataTypeOptions" style="width: 100px" />
+            <n-input v-model:value="pt.address" placeholder="Address" style="width: 80px" />
+            <n-input v-model:value="pt.unit" placeholder="Unit" style="width: 60px" />
             <n-select v-model:value="pt.access_mode" :options="accessModeOptions" style="width: 80px" />
-            <n-button text type="error" @click="createForm.points.splice(i, 1)">删除</n-button>
+            <n-button text type="error" @click="createForm.points.splice(i, 1)">{{ t('common.delete') }}</n-button>
           </n-space>
-          <n-button dashed @click="createForm.points.push({ name: '', data_type: 'float32', unit: '', address: '0', access_mode: 'r' })">添加测点</n-button>
+          <n-button dashed @click="createForm.points.push({ name: '', data_type: 'float32', unit: '', address: '0', access_mode: 'r' })">{{ t('deviceList.addPoint') }}</n-button>
         </n-space>
       </n-form>
       <template #action>
-        <n-button @click="showCreateModal = false">取消</n-button>
-        <n-button type="primary" :loading="creating" @click="handleCreate">创建</n-button>
+        <n-button @click="showCreateModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="creating" @click="handleCreate">{{ t('deviceList.create') }}</n-button>
       </template>
     </n-modal>
 
-    <!-- 创建模拟器弹窗 -->
-    <n-modal v-model:show="showSimModal" title="创建模拟设备" preset="card" style="width: 600px">
+    <n-modal v-model:show="showSimModal" :title="t('deviceList.simulatorTitle')" preset="card" style="width: 600px">
       <n-form :model="simForm" :rules="simFormRules" ref="simFormRef" label-placement="left" label-width="90">
-        <n-form-item label="设备ID" path="device_id"><n-input v-model:value="simForm.device_id" placeholder="sim-device-01" /></n-form-item>
-        <n-form-item label="名称" path="name"><n-input v-model:value="simForm.name" placeholder="模拟设备" /></n-form-item>
-        <n-form-item label="采集间隔"><n-input-number v-model:value="simForm.collect_interval" :min="1" /> 秒</n-form-item>
-        <n-divider>测点定义</n-divider>
+        <n-form-item :label="t('deviceList.deviceId')" path="device_id"><n-input v-model:value="simForm.device_id" placeholder="sim-device-01" /></n-form-item>
+        <n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="simForm.name" placeholder="sim-device" /></n-form-item>
+        <n-form-item :label="t('deviceList.collectInterval')"><n-input-number v-model:value="simForm.collect_interval" :min="1" /> {{ t('deviceList.seconds') }}</n-form-item>
+        <n-divider>{{ t('deviceList.pointDefinition') }}</n-divider>
         <n-space vertical>
           <n-space v-for="(pt, i) in simForm.points" :key="i" align="center">
-            <n-input v-model:value="pt.name" placeholder="名称" style="width: 100px" />
+            <n-input v-model:value="pt.name" :placeholder="t('deviceList.name')" style="width: 100px" />
             <n-select v-model:value="pt.data_type" :options="dataTypeOptions" style="width: 100px" />
-            <n-input v-model:value="pt.unit" placeholder="单位" style="width: 60px" />
-            <n-input-number v-model:value="pt.min" placeholder="最小" style="width: 80px" />
-            <n-input-number v-model:value="pt.max" placeholder="最大" style="width: 80px" />
+            <n-input v-model:value="pt.unit" placeholder="Unit" style="width: 60px" />
+            <n-input-number v-model:value="pt.min" placeholder="Min" style="width: 80px" />
+            <n-input-number v-model:value="pt.max" placeholder="Max" style="width: 80px" />
             <n-select v-model:value="pt.mode" :options="simModeOptions" style="width: 110px" />
-            <n-button text type="error" @click="simForm.points.splice(i, 1)">删除</n-button>
+            <n-button text type="error" @click="simForm.points.splice(i, 1)">{{ t('common.delete') }}</n-button>
           </n-space>
-          <n-button dashed @click="simForm.points.push({ name: '', data_type: 'float32', unit: '', address: '0', access_mode: 'r', min: 0, max: 100, mode: 'sine' })">添加测点</n-button>
+          <n-button dashed @click="simForm.points.push({ name: '', data_type: 'float32', unit: '', address: '0', access_mode: 'r', min: 0, max: 100, mode: 'sine' })">{{ t('deviceList.addPoint') }}</n-button>
         </n-space>
       </n-form>
       <template #action>
-        <n-button @click="showSimModal = false">取消</n-button>
-        <n-button type="primary" :loading="creating" @click="handleCreateSim">创建</n-button>
+        <n-button @click="showSimModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="creating" @click="handleCreateSim">{{ t('deviceList.create') }}</n-button>
       </template>
     </n-modal>
 
-    <!-- 发现结果弹窗 -->
-    <n-modal v-model:show="showDiscoverModal" title="发现设备" preset="card" style="width: 600px">
-      <n-empty v-if="discoverResults.length === 0" description="未发现设备" />
+    <n-modal v-model:show="showDiscoverModal" :title="t('deviceList.discoverTitle')" preset="card" style="width: 600px">
+      <n-empty v-if="discoverResults.length === 0" :description="t('deviceList.noDeviceFound')" />
       <n-data-table v-else :columns="discoverColumns" :data="discoverResults" :max-height="400" :row-key="(r: any) => r.name" v-model:checked-row-keys="selectedDiscoverKeys" />
       <template #action>
-        <n-button @click="showDiscoverModal = false">关闭</n-button>
-        <n-button type="primary" :disabled="selectedDiscoverKeys.length === 0" :loading="addingDevices" @click="handleAddDiscovered">添加选中 ({{ selectedDiscoverKeys.length }})</n-button>
+        <n-button @click="showDiscoverModal = false">{{ t('deviceList.close') }}</n-button>
+        <n-button type="primary" :disabled="selectedDiscoverKeys.length === 0" :loading="addingDevices" @click="handleAddDiscovered">{{ t('deviceList.addSelected') }} ({{ selectedDiscoverKeys.length }})</n-button>
       </template>
     </n-modal>
   </n-space>
@@ -155,6 +149,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
+// FIXED: 原问题-添加i18n支持，使用项目统一的i18n导入
+import { t } from '@/i18n'
 import { deviceApi, driverApi, type Device } from '@/api'
 import { deviceStatusLabel, deviceStatusColor, protocolLabel } from '@/utils/enumLabels'
 import { PROTOCOL_CONFIGS, getProtocolConfig } from '@/constants/protocolConfig'
@@ -182,7 +178,8 @@ async function fetchDevices() {
     pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     devices.value = []
-    message.error(e?.response?.data?.detail || e?.message || '获取设备列表失败')
+    // FIXED: 原问题-硬编码中文消息，改为i18n
+    message.error(e?.response?.data?.detail || e?.message || t('deviceList.fetchFailed'))
   } finally {
     loading.value = false
   }
@@ -222,19 +219,19 @@ const discoverProtocolOptions = computed(() =>
 
 const discoverColumns = [
   { type: 'selection' as const },
-  { title: '名称', key: 'name', width: 180 },
-  { title: '协议', key: 'protocol', width: 120 },
-  { title: '主机', key: 'host', width: 140 },
-  { title: '端口', key: 'port', width: 80 },
-  { title: '从站ID', key: 'slave_id', width: 80 },
+  { title: t('deviceList.name'), key: 'name', width: 180 },
+  { title: t('deviceList.protocol'), key: 'protocol', width: 120 },
+  { title: t('deviceList.host'), key: 'host', width: 140 },
+  { title: t('deviceList.port'), key: 'port', width: 80 },
+  { title: t('deviceList.slaveId'), key: 'slave_id', width: 80 },
 ]
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchDevices() } })
 
 const statusOptions = [
-  { label: '在线', value: 'online' },
-  { label: '离线', value: 'offline' },
-  { label: '未知', value: 'unknown' },
+  { label: t('dashboard.online'), value: 'online' },
+  { label: t('dashboard.offline'), value: 'offline' },
+  { label: t('common.unknown'), value: 'unknown' },
 ]
 
 const protocolOptions = ref<{ label: string; value: string }[]>([])
@@ -255,25 +252,25 @@ async function loadProtocols() {
       { label: 'OPC-UA', value: 'opcua' },
       { label: 'MQTT Client', value: 'mqtt' },
       { label: 'HTTP Webhook', value: 'http' },
-      { label: '西门子 S7', value: 's7' },
-      { label: '三菱 MC', value: 'mc' },
-      { label: '欧姆龙 FINS', value: 'fins' },
+      { label: protocolLabel['siemens_s7'] || 'Siemens S7', value: 's7' },
+      { label: protocolLabel['mitsubishi_mc'] || 'Mitsubishi MC', value: 'mc' },
+      { label: protocolLabel['omron_fins'] || 'Omron FINS', value: 'fins' },
       { label: 'Allen Bradley', value: 'allen_bradley' },
       { label: 'OPC DA', value: 'opc_da' },
       { label: 'FANUC CNC', value: 'fanuc' },
       { label: 'MTConnect', value: 'mtconnect' },
-      { label: '托利多', value: 'toledo' },
-      { label: '串口设备', value: 'serial_port' },
-      { label: '数据库接入', value: 'database_source' },
-      { label: '扫码枪', value: 'barcode_scanner' },
-      { label: '模拟器', value: 'simulator' },
-      { label: '视频', value: 'video' },
+      { label: 'Toledo', value: 'toledo' },
+      { label: protocolLabel['serial_port'] || 'Serial', value: 'serial_port' },
+      { label: protocolLabel['database_source'] || 'Database', value: 'database_source' },
+      { label: protocolLabel['barcode_scanner'] || 'Scanner', value: 'barcode_scanner' },
+      { label: protocolLabel['simulator'] || 'Simulator', value: 'simulator' },
+      { label: protocolLabel['video'] || 'Video', value: 'video' },
       { label: 'MQTT Sparkplug B', value: 'sparkplug_b' },
-      { label: 'DL/T 645 电表', value: 'dlt645' },
-      { label: 'IEC 104 远动', value: 'iec104' },
-      { label: 'KUKA 机器人', value: 'kuka' },
-      { label: 'ABB 机器人', value: 'abb_robot' },
-      { label: 'ONVIF 视频', value: 'onvif' },
+      { label: 'DL/T 645', value: 'dlt645' },
+      { label: 'IEC 104', value: 'iec104' },
+      { label: 'KUKA', value: 'kuka' },
+      { label: 'ABB', value: 'abb_robot' },
+      { label: 'ONVIF', value: 'onvif' },
     ]
   }
 }
@@ -288,43 +285,43 @@ const dataTypeOptions = [
 ]
 
 const simModeOptions = [
-  { label: '正弦波', value: 'sine' },
-  { label: '随机游走', value: 'random_walk' },
-  { label: '均匀随机', value: 'random' },
-  { label: '固定值', value: 'fixed' },
+  { label: t('common.sineWave'), value: 'sine' },
+  { label: t('common.randomWalk'), value: 'random_walk' },
+  { label: t('common.uniformRandom'), value: 'random' },
+  { label: t('common.fixedValue'), value: 'fixed' },
 ]
 
 const accessModeOptions = [
-  { label: '只读', value: 'r' },
-  { label: '只写', value: 'w' },
-  { label: '读写', value: 'rw' },
+  { label: t('common.readOnly'), value: 'r' },
+  { label: t('common.writeOnly'), value: 'w' },
+  { label: t('common.readWrite'), value: 'rw' },
 ]
 
 const columns = [
   { type: 'selection' as const },
-  { title: '设备ID', key: 'device_id', width: 180 },
-  { title: '名称', key: 'name', width: 150, sorter: true },
+  { title: t('deviceList.deviceId'), key: 'device_id', width: 180 },
+  { title: t('deviceList.name'), key: 'name', width: 150, sorter: true },
   {
-    title: '协议', key: 'protocol', width: 120,
+    title: t('deviceList.protocol'), key: 'protocol', width: 120,
     render: (row: Device) => h(NTag, { size: 'small', bordered: false, type: 'info' }, { default: () => protocolLabel[row.protocol] || row.protocol }),
   },
   {
-    title: '状态', key: 'status', width: 80,
+    title: t('deviceList.status'), key: 'status', width: 80,
     render: (row: Device) => h(NTag, { type: deviceStatusColor[row.status] || 'default', size: 'small' }, { default: () => deviceStatusLabel[row.status] || row.status }),
   },
-  { title: '测点数', key: 'points', width: 80, render: (row: Device) => row.points?.length ?? 0 },
-  { title: '采集间隔', key: 'collect_interval', width: 90, render: (row: Device) => `${row.collect_interval}s` },
-  { title: '创建时间', key: 'created_at', width: 180 },
+  { title: t('deviceList.pointCount'), key: 'points', width: 80, render: (row: Device) => row.points?.length ?? 0 },
+  { title: t('deviceList.collectInterval'), key: 'collect_interval', width: 90, render: (row: Device) => `${row.collect_interval}s` },
+  { title: t('deviceList.createTime'), key: 'created_at', width: 180 },
   {
-    title: '操作', key: 'actions', width: 200,
+    title: t('deviceList.actions'), key: 'actions', width: 200,
     render: (row: Device) =>
       h(NSpace, null, {
         default: () => [
-          h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/devices/${row.device_id}`) }, { default: () => '详情' }),
-          h(NButton, { text: true, type: 'info', onClick: () => handleWritePoint(row) }, { default: () => '下发' }),
+          h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/devices/${row.device_id}`) }, { default: () => t('deviceList.detail') }),
+          h(NButton, { text: true, type: 'info', onClick: () => handleWritePoint(row) }, { default: () => t('deviceList.push') }),
           h(NPopconfirm as any, { onPositiveClick: () => doDelete(row) }, {
-            trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => '删除' }),
-            default: () => `确定删除设备 "${row.name}"？`,
+            trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => t('common.delete') }),
+            default: () => t('deviceList.deleteConfirm', { name: row.name }),
           }),
         ],
       }),
@@ -332,9 +329,9 @@ const columns = [
 ]
 
 const createRules = {
-  device_id: { required: true, message: '请输入设备ID', trigger: 'blur' },
-  name: { required: true, message: '请输入设备名称', trigger: 'blur' },
-  protocol: { required: true, message: '请选择协议', trigger: 'change' },
+  device_id: { required: true, message: t('deviceList.deviceIdRequired'), trigger: 'blur' },
+  name: { required: true, message: t('deviceList.deviceNameRequired'), trigger: 'blur' },
+  protocol: { required: true, message: t('deviceList.protocolRequired'), trigger: 'change' },
 }
 
 const PROTOCOL_KEY_MAP: Record<string, string> = {
@@ -440,8 +437,8 @@ const simForm = reactive({
 })
 const simFormRef = ref<any>(null)
 const simFormRules = {
-  device_id: { required: true, message: '请输入设备ID', trigger: 'blur' },
-  name: { required: true, message: '请输入设备名称', trigger: 'blur' },
+  device_id: { required: true, message: t('deviceList.deviceIdRequired'), trigger: 'blur' },
+  name: { required: true, message: t('deviceList.deviceNameRequired'), trigger: 'blur' },
 }
 
 async function handleCreate() {
@@ -450,13 +447,13 @@ async function handleCreate() {
   } catch { return }
   const hasEmptyPoint = createForm.points.some((pt: any) => !pt.name || !pt.address)
   if (hasEmptyPoint) {
-    message.error('测点名称和地址不能为空')
+    message.error(t('deviceList.pointNameAddrRequired'))
     return
   }
   creating.value = true
   try {
     await deviceApi.create(createForm as any)
-    message.success('设备创建成功')
+    message.success(t('deviceList.createSuccess'))
     showCreateModal.value = false
     createForm.device_id = ''
     createForm.name = ''
@@ -466,7 +463,7 @@ async function handleCreate() {
     createForm.points = buildPointsFromTemplate('modbus_tcp')
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '创建失败')
+    message.error(e?.response?.data?.detail || e?.message || t('deviceList.createFailed'))
   } finally {
     creating.value = false
   }
@@ -478,13 +475,13 @@ async function handleCreateSim() {
   } catch { return }
   const hasEmptyPoint = simForm.points.some((pt: any) => !pt.name)
   if (hasEmptyPoint) {
-    message.error('测点名称不能为空')
+    message.error(t('deviceList.simPointNameRequired'))
     return
   }
   creating.value = true
   try {
     await deviceApi.createSimulator(simForm as any)
-    message.success('模拟设备创建成功')
+    message.success(t('deviceList.simCreateSuccess'))
     showSimModal.value = false
     simForm.device_id = ''
     simForm.name = ''
@@ -492,7 +489,7 @@ async function handleCreateSim() {
     simForm.points = [{ name: 'temperature', data_type: 'float32', unit: '°C', address: '0', access_mode: 'r', min: 15, max: 35, mode: 'sine' }]
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '创建失败')
+    message.error(e?.response?.data?.detail || e?.message || t('deviceList.createFailed'))
   } finally {
     creating.value = false
   }
@@ -506,7 +503,7 @@ async function handleDiscover() {
     selectedDiscoverKeys.value = []
     showDiscoverModal.value = true
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '设备发现失败')
+    message.error(e?.response?.data?.detail || e?.message || t('deviceList.discoverFailed'))
   } finally {
     discovering.value = false
   }
@@ -533,9 +530,9 @@ async function handleAddDiscovered() {
     }
   }
   if (failed > 0) {
-    message.warning(`成功添加 ${succeeded} 个设备，${failed} 个添加失败`)
+    message.warning(t('deviceList.addResult', { success: succeeded, failed }))
   } else {
-    message.success(`成功添加 ${succeeded} 个设备`)
+    message.success(t('deviceList.addResultAll', { success: succeeded }))
   }
   showDiscoverModal.value = false
   fetchDevices()
@@ -549,20 +546,20 @@ function handleWritePoint(row: Device) {
 async function doDelete(row: Device) {
   try {
     await deviceApi.delete(row.device_id)
-    message.success('删除成功')
+    message.success(t('deviceList.deleteSuccess'))
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '删除失败')
+    message.error(e?.response?.data?.detail || t('deviceList.deleteFailed'))
   }
 }
 
 async function handleBatchDelete() {
   if (!checkedKeys.value.length) return
   dialog.warning({
-    title: '确认批量删除',
-    content: `确定删除选中的 ${checkedKeys.value.length} 个设备？此操作不可撤销。`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: t('deviceList.batchDeleteTitle'),
+    content: t('deviceList.batchDeleteConfirm', { count: checkedKeys.value.length }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       const results = await Promise.allSettled(checkedKeys.value.map(id => deviceApi.delete(id)))
       const succeeded = results.filter(r => r.status === 'fulfilled').length

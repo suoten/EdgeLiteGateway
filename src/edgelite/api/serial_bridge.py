@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.api.deps import CurrentUser, SerialBridgeDep, require_permission
+from edgelite.api.error_codes import DriverErrors, ServiceErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_SERIAL_PORT = "COM1" if platform.system() == "Windows" else "/dev/ttyUSB0"
 
-router = APIRouter(prefix="/api/v1/serial-bridge", tags=["串口透传"])
+router = APIRouter(prefix="/api/v1/serial-bridge", tags=["Serial Bridge"])
 
 
 class DependencyInfo(BaseModel):
@@ -54,8 +55,10 @@ async def get_serial_bridge_status(
         info = mgr.get_service_info("serial_bridge")
         # FIXED: get_service_info()可能返回None导致500
         if info is None:
-            raise HTTPException(status_code=404, detail="串口桥接服务未注册")
+            raise HTTPException(status_code=404, detail=ServiceErrors.NOT_REGISTERED)
 
+        # FIXED: 原问题-info.current_config可能为None时直接调用.get()崩溃
+        _cfg = info.current_config or {}
         if bridge and hasattr(bridge, "get_status"):
             stats = bridge.get_status()
             return ApiResponse(
@@ -63,9 +66,9 @@ async def get_serial_bridge_status(
                     "enabled": info.state.value != "disabled",
                     "running": stats.running,
                     "state": info.state.value if not stats.running else "running",
-                    "serial_port": info.current_config.get("serial_port", "/dev/ttyUSB0"),
-                    "baud_rate": info.current_config.get("baud_rate", 9600),
-                    "tcp_port": info.current_config.get("tcp_port", 9000),
+                    "serial_port": _cfg.get("serial_port", "/dev/ttyUSB0"),
+                    "baud_rate": _cfg.get("baud_rate", 9600),
+                    "tcp_port": _cfg.get("tcp_port", 9000),
                     "serial_rx_bytes": stats.serial_rx_bytes,
                     "serial_tx_bytes": stats.serial_tx_bytes,
                     "tcp_rx_bytes": stats.tcp_rx_bytes,
@@ -85,9 +88,9 @@ async def get_serial_bridge_status(
                 "enabled": info.state.value != "disabled",
                 "running": False,
                 "state": info.state.value,
-                "serial_port": info.current_config.get("serial_port", "/dev/ttyUSB0"),
-                "baud_rate": info.current_config.get("baud_rate", 9600),
-                "tcp_port": info.current_config.get("tcp_port", 9000),
+                "serial_port": _cfg.get("serial_port", "/dev/ttyUSB0"),
+                "baud_rate": _cfg.get("baud_rate", 9600),
+                "tcp_port": _cfg.get("tcp_port", 9000),
                 "dependencies": [
                     {"package": d.package, "installed": d.installed, "version": d.version}
                     for d in info.dependencies
@@ -98,7 +101,7 @@ async def get_serial_bridge_status(
         raise
     except Exception as e:
         logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        raise HTTPException(status_code=500, detail=ServiceErrors.STATUS_FAILED) from e
 
 
 @router.post("/start", response_model=ApiResponse)
@@ -111,7 +114,8 @@ async def start_serial_bridge(
         mgr = get_service_manager()
         result = await mgr.start_service("serial_bridge")
         if not result.get("success"):
-            error_msg = result.get("error", "启动失败")
+            # FIXED: 原问题-硬编码中文"启动失败"，改为error_code
+            error_msg = result.get("error", DriverErrors.START_FAILED)
             if "error_type" in result and result["error_type"] == "runtime":
                 raise HTTPException(status_code=409, detail=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
@@ -124,10 +128,10 @@ async def start_serial_bridge(
         if "could not open port" in error_msg or "No such file" in error_msg:
             raise HTTPException(
                 status_code=409,
-                detail="串口设备不存在或无法访问，请检查串口配置和设备连接",
+                detail=ServiceErrors.SERIAL_PORT_UNAVAILABLE,
             ) from e
         logger.error("启动失败: %s", e)
-        raise HTTPException(status_code=500, detail="启动失败") from e
+        raise HTTPException(status_code=500, detail=ServiceErrors.START_FAILED) from e
 
 
 @router.post("/stop", response_model=ApiResponse)
@@ -140,10 +144,11 @@ async def stop_serial_bridge(
         mgr = get_service_manager()
         result = await mgr.stop_service("serial_bridge")
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "停止失败"))
+            # FIXED: 原问题-中文硬编码detail
+            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.STOP_FAILED))
         return ApiResponse(data=result)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("停止失败: %s", e)
-        raise HTTPException(status_code=500, detail="停止失败") from e
+        logger.error("stop_serial_bridge failed: %s", e)
+        raise HTTPException(status_code=500, detail=ServiceErrors.STOP_FAILED) from e

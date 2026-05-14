@@ -5,12 +5,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import time
 from collections.abc import Callable
 from typing import Any
 
 from edgelite.config import get_config
 from edgelite.drivers.base import DriverPlugin
+from edgelite.utils import timestamp_ms
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ class SparkplugBDriver(DriverPlugin):
 
         try:
             payload = _pb2.Payload()
-            payload.timestamp = int(time.time() * 1000)
+            payload.timestamp = timestamp_ms()  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
             if seq is not None:
                 payload.seq = seq
 
@@ -322,7 +322,7 @@ class SparkplugBDriver(DriverPlugin):
                     port=port,
                     username=username,
                     password=password,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                     will=will,
                 ) as client:
                     self._client = client

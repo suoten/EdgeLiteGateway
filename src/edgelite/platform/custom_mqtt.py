@@ -14,6 +14,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY
 from edgelite.platform.base import PlatformHandler
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class CustomMqttHandler(PlatformHandler):
 
         self._config = config
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
         self._topic_prefix = config.get("topic_prefix", "edgelite")
 
         broker = config.get("broker", "localhost")
@@ -111,7 +112,7 @@ class CustomMqttHandler(PlatformHandler):
                     port=port,
                     username=username or None,
                     password=password or None,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,
                 ) as client:
                     self._connected = True
                     logger.info("自定义MQTT连接成功: %s:%d", broker, port)
@@ -146,7 +147,7 @@ class CustomMqttHandler(PlatformHandler):
             except Exception as e:
                 logger.error("自定义MQTT连接异常: %s，5秒后重试", e)
                 self._connected = False
-                await asyncio.sleep(5)
+                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
 
     async def _publish_loop(self, client: Any) -> None:
         try:
@@ -175,7 +176,12 @@ class CustomMqttHandler(PlatformHandler):
                     parts = topic.split("/")
                     if len(parts) >= 4 and parts[-1] == "request":
                         device_id = parts[-3] if len(parts) >= 4 else "unknown"
-                        payload = json.loads(message.payload.decode("utf-8"))
+                        # FIXED: 原问题-json.loads无JSONDecodeError专项捕获，恶意MQTT消息导致RPC监听循环中断
+                        try:
+                            payload = json.loads(message.payload.decode("utf-8"))
+                        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                            logger.warning("CustomMQTT invalid RPC payload: %s", e)
+                            continue
                         method = payload.get("method", "")
                         params = payload.get("params", {})
 

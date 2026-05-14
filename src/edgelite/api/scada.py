@@ -17,7 +17,7 @@ from edgelite.models.common import ApiResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/scada", tags=["组态管理"])
+router = APIRouter(prefix="/api/v1/scada", tags=["SCADA"])
 
 _STORE_DIR = Path("data/scada")
 _STORE_DIR.mkdir(parents=True, exist_ok=True)
