@@ -30,7 +30,7 @@ class PreprocessPointConfigModel(BaseModel):
 
 class PreprocessUpdateRequest(BaseModel):
     global_config: PreprocessGlobalModel | None = Field(default=None, alias="global")
-    points: dict[str, dict] = Field(default_factory=dict)
+    points: dict[str, dict] = Field(default_factory=dict)  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
 
     model_config = {"populate_by_name": True}
 

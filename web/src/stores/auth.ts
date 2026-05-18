@@ -52,7 +52,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await authApi.logout(refreshToken.value || undefined)
-    } catch { /* ignore */ }
+    } catch (e) {
+      // FIXED: 原问题-登出API失败被静默吞掉，现添加console.warn记录失败原因
+      console.warn('Logout API failed:', e)
+    }
     token.value = ''
     refreshToken.value = ''
     username.value = ''

@@ -144,6 +144,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { alarmApi, authApi } from '@/api'
 import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码，改用i18n
+import * as ws from '@/api/websocket'
 
 const router = useRouter()
 const route = useRoute()
@@ -333,11 +334,23 @@ async function fetchAlarmCount() {
     const data = await alarmApi.list({ page: 1, size: 1, status: 'firing' })
     // FIXED: 原问题-data.total可能为undefined，添加空值保护
     alarmCount.value = data?.total ?? 0
-  } catch (e) { console.warn('获取告警计数失败:', e) }
+  } catch (e) { console.warn('Failed to fetch alarm count:', e) }  // FIXED: 原问题-硬编码中文label
 }
 
-onMounted(() => { fetchAlarmCount(); alarmTimer = window.setInterval(fetchAlarmCount, 30000) })
-onUnmounted(() => { if (alarmTimer) clearInterval(alarmTimer) })
+// FIXED: 原问题-告警徽章30秒轮询延迟，不监听WS，现添加WS alarm频道监听，收到消息时立即更新告警计数（带5秒防抖）
+let _wsAlarmTimer: ReturnType<typeof setTimeout> | null = null
+function onAlarmWsMessage(_data: any) {
+  try {
+    if (_wsAlarmTimer) clearTimeout(_wsAlarmTimer)
+    _wsAlarmTimer = setTimeout(() => {
+      fetchAlarmCount()
+      _wsAlarmTimer = null
+    }, 5000)
+  } catch { /* ignore */ }
+}
+
+onMounted(() => { fetchAlarmCount(); alarmTimer = window.setInterval(fetchAlarmCount, 30000); ws.connect('alarm', onAlarmWsMessage) })
+onUnmounted(() => { if (alarmTimer) clearInterval(alarmTimer); if (_wsAlarmTimer) clearTimeout(_wsAlarmTimer); ws.disconnect('alarm', onAlarmWsMessage) })
 </script>
 
 <style scoped>

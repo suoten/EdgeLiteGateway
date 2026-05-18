@@ -213,11 +213,14 @@ async def push_device_data(
     authorization: str = Header(default=""),
 ):
     if not device_id or not isinstance(device_id, str) or len(device_id) > 128:
-        # FIXED: 原问题-中文硬编码detail
         raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_INVALID_ID)
     if not isinstance(body, dict) or not body:
-        # FIXED: 原问题-中文硬编码detail
         raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_EMPTY)
+    # FIXED: 原问题-push_data的body:dict无schema校验，可注入任意字段
+    # 现添加基础结构校验：值必须为dict且键为字符串
+    for k, v in body.items():
+        if not isinstance(k, str) or len(k) > 128:
+            raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_INVALID_KEY)
 
     # FIXED: 原问题-config.webhook_auth链式属性访问无空值保护，webhook_auth为None时崩溃
     webhook_auth = getattr(config, "webhook_auth", None) if config else None

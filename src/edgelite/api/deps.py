@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any  # FIXED: 原问题-缺少Any导入，依赖注入使用小写any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -285,23 +285,23 @@ async def get_event_bus(request: Request):
     return svc
 
 
-DeviceServiceDep = Annotated[any, Depends(get_device_service)]
-RuleServiceDep = Annotated[any, Depends(get_rule_service)]
-AlarmServiceDep = Annotated[any, Depends(get_alarm_service)]
-DataServiceDep = Annotated[any, Depends(get_data_service)]
-SystemServiceDep = Annotated[any, Depends(get_system_service)]
-VideoServiceDep = Annotated[any, Depends(get_video_service)]
-AuditServiceDep = Annotated[any, Depends(get_audit_service)]
-DriverRegistryDep = Annotated[any, Depends(get_driver_registry)]
-DatabaseDep = Annotated[any, Depends(get_database)]
-ConfigDep = Annotated[any, Depends(get_config)]
+DeviceServiceDep = Annotated[Any, Depends(get_device_service)]  # FIXED: 原问题-小写any导致类型信息丢失
+RuleServiceDep = Annotated[Any, Depends(get_rule_service)]
+AlarmServiceDep = Annotated[Any, Depends(get_alarm_service)]
+DataServiceDep = Annotated[Any, Depends(get_data_service)]
+SystemServiceDep = Annotated[Any, Depends(get_system_service)]
+VideoServiceDep = Annotated[Any, Depends(get_video_service)]
+AuditServiceDep = Annotated[Any, Depends(get_audit_service)]
+DriverRegistryDep = Annotated[Any, Depends(get_driver_registry)]
+DatabaseDep = Annotated[Any, Depends(get_database)]
+ConfigDep = Annotated[Any, Depends(get_config)]
 PlatformHandlersDep = Annotated[dict, Depends(get_platform_handlers)]
-IntegrationEndpointDep = Annotated[any, Depends(get_integration_endpoint)]
-MqttServerDep = Annotated[any, Depends(get_mqtt_server)]
-ModbusSlaveDep = Annotated[any, Depends(get_modbus_slave)]
-SerialBridgeDep = Annotated[any, Depends(get_serial_bridge)]
-PreprocessorDep = Annotated[any, Depends(get_preprocessor)]
-OtaManagerDep = Annotated[any, Depends(get_ota_manager)]
-PluginManagerDep = Annotated[any, Depends(get_plugin_manager)]
-EventBusDep = Annotated[any, Depends(get_event_bus)]
+IntegrationEndpointDep = Annotated[Any, Depends(get_integration_endpoint)]
+MqttServerDep = Annotated[Any, Depends(get_mqtt_server)]
+ModbusSlaveDep = Annotated[Any, Depends(get_modbus_slave)]
+SerialBridgeDep = Annotated[Any, Depends(get_serial_bridge)]
+PreprocessorDep = Annotated[Any, Depends(get_preprocessor)]
+OtaManagerDep = Annotated[Any, Depends(get_ota_manager)]
+PluginManagerDep = Annotated[Any, Depends(get_plugin_manager)]
+EventBusDep = Annotated[Any, Depends(get_event_bus)]
 PaginationDep = Annotated[PaginationParams, Depends()]

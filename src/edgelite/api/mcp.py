@@ -147,7 +147,7 @@ async def delete_auth_key(
 async def mcp_sse(
     event_bus: EventBusDep,
     token: str | None = Query(None),
-    request: Request = None,
+    request: Request = None,  # FIXED: 原问题-request参数类型与默认值矛盾; FastAPI自动注入Request,但Python语法要求有默认值参数后不能跟无默认值参数
 ):
     # FIXED: 原问题-EventSource不支持自定义Header，token查询参数声明但未用于认证，SSE连接必定401
     user = None

@@ -14,9 +14,12 @@ class RuleService:
 
     async def create_rule(self, data: dict) -> dict:
         # 验证设备存在
-        device = await self._device_repo.get(data["device_id"])
+        device_id = data.get("device_id")  # FIXED: 原问题-data["device_id"]硬索引
+        if device_id is None:
+            raise ValueError("Missing required field: device_id")
+        device = await self._device_repo.get(device_id)
         if device is None:
-            raise ValueError(f"Device not found: {data.get('device_id', '')}")  # FIXED: 原问题-中文硬编码错误消息
+            raise ValueError(f"Device not found: {device_id}")  # FIXED: 原问题-中文硬编码错误消息
         result = await self._repo.create(data)
         # FIXED: _app_state.evaluator可能为None
         try:
@@ -98,9 +101,12 @@ class RuleService:
 
         results = []
         for cond in conditions:
-            point = cond["point"]
-            operator = cond["operator"]
-            threshold = cond["threshold"]
+            point = cond.get("point")  # FIXED: 原问题-cond["point"]硬索引
+            operator = cond.get("operator")  # FIXED: 原问题-cond["operator"]硬索引
+            threshold = cond.get("threshold")  # FIXED: 原问题-cond["threshold"]硬索引
+            if point is None or operator is None or threshold is None:
+                results.append({"condition": cond, "matched": False, "actual_value": None})
+                continue
             value = point_values.get(point)
 
             if value is None:

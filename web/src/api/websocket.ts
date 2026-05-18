@@ -31,6 +31,8 @@ type ChannelName = keyof typeof CHANNELS
 const MAX_RECONNECT_DELAY = 30000
 const BASE_RECONNECT_DELAY = 1000
 const WS_AUTH_CLOSE_CODE = 4001
+// FIXED: 原问题-重连无上限，添加最大重连次数常量
+const MAX_RECONNECT_ATTEMPTS = 10
 
 function getToken(): string {
   try {
@@ -99,9 +101,13 @@ function connectChannel(channel: ChannelName): void {
 
     ws.onclose = (event) => {
       conn.ws = null
-      // FIXED: 原问题-onclose无条件重连，Token无效时(4001)仍指数退避重连浪费资源
-      // 现区分关闭原因：认证失败不自动重连，其他原因正常重连
+      // FIXED: 原问题-认证失败后静默断开，收到4001关闭码后不再重连也不通知用户
+      // 现添加console.warn提示并触发全局事件通知
       if (event.code === WS_AUTH_CLOSE_CODE) {
+        console.warn(`[WS] Authentication failed on channel "${channel}" (code: ${event.code}). Token may be invalid or expired. No auto-reconnect.`)
+        try {
+          window.dispatchEvent(new CustomEvent('ws:auth-failed', { detail: { channel, code: event.code } }))
+        } catch (e) { console.error('[WS] Failed to dispatch auth-failed event:', e) }
         notifyStatus(conn, 'error', 'Authentication failed')
         return
       }
@@ -128,6 +134,13 @@ function connectChannel(channel: ChannelName): void {
 function scheduleReconnect(channel: ChannelName): void {
   const conn = connections.get(channel)
   if (!conn) return
+
+  // FIXED: 原问题-重连无上限，超过最大重连次数后停止重连并console.warn
+  if (conn.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+    console.warn(`[WS] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached for channel "${channel}". Stopping reconnect.`)
+    notifyStatus(conn, 'error', `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`)
+    return
+  }
 
   if (conn.reconnectTimer) clearTimeout(conn.reconnectTimer)
 

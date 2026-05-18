@@ -279,17 +279,27 @@ class ModbusTcpDriver(DriverPlugin):
 
         # 数据类型转换
         if data_type == "bool":
+            if len(registers) < 1:  # FIXED: 原问题-registers[0]直接索引无长度检查
+                raise ModbusException("Insufficient registers for bool")
             return bool(registers[0])
         elif data_type == "int16":
+            if len(registers) < 1:  # FIXED: 原问题-registers[0]直接索引无长度检查
+                raise ModbusException("Insufficient registers for int16")
             val = registers[0]
             return val if val < 32768 else val - 65536
         elif data_type == "uint16":
+            if len(registers) < 1:  # FIXED: 原问题-registers[0]直接索引无长度检查
+                raise ModbusException("Insufficient registers for uint16")
             return registers[0]
         elif data_type == "float32":
             # 两个寄存器组合为IEEE 754浮点
+            if len(registers) < 2:  # FIXED: 原问题-registers[0],registers[1]直接索引无长度检查
+                raise ModbusException("Insufficient registers for float32")
             raw = struct.pack(">HH", registers[0], registers[1])
             return struct.unpack(">f", raw)[0]
         else:
+            if len(registers) < 1:  # FIXED: 原问题-registers[0]直接索引无长度检查
+                raise ModbusException("Insufficient registers")
             return registers[0]
 
     async def _try_reconnect(self, device_id: str) -> None:

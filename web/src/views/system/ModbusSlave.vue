@@ -16,9 +16,9 @@ const statusData = ref<any>({})
 
 const runningFields = computed(() => [
   { label: t('system.listenAddress'), value: statusData.value.current_config?.host || '0.0.0.0' },  // FIXED: 原问题-中文硬编码，改用i18n
-  { label: '端口', value: statusData.value.current_config?.port || 502 },
-  { label: '保持寄存器', value: statusData.value.current_config?.holding_size || 1000 },
-  { label: '输入寄存器', value: statusData.value.current_config?.input_size || 1000 },
+  { label: t('modbusSlave.port'), value: statusData.value.current_config?.port || 502 },  // FIXED: 原问题-硬编码中文label
+  { label: t('modbusSlave.holdingRegisters'), value: statusData.value.current_config?.holding_size || 1000 },  // FIXED: 原问题-硬编码中文label
+  { label: t('modbusSlave.inputRegisters'), value: statusData.value.current_config?.input_size || 1000 },  // FIXED: 原问题-硬编码中文label
 ])
 
 function onStatusLoaded(data: any) {

@@ -51,11 +51,14 @@ class S7Driver(DriverPlugin):
 
         self._config = config
         ip = config.get("ip", "")
-        rack = int(config.get("rack", 0))
-        slot = int(config.get("slot", 1))
+        try:  # FIXED: 原问题-int(config.get())无保护，非数字字符串时ValueError
+            rack = int(config.get("rack", 0))
+            slot = int(config.get("slot", 1))
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid S7 rack/slot config value: {e}") from e
 
         if not ip:
-            raise ValueError("S7驱动配置缺少ip参数")
+            raise ValueError("S7 driver config missing 'ip' parameter")  # FIXED: 原问题-中文错误消息
 
         try:
             self._client = snap7.client.Client()
@@ -123,12 +126,20 @@ class S7Driver(DriverPlugin):
     def _read_point(self, address: str) -> Any:
         """同步读取单个测点（在线程池中执行）"""
         parts = address.split(".")
-        if len(parts) < 3 or not parts[0].startswith("DB"):
-            raise ValueError(f"无效的S7地址格式: {address}，应为DBN.TB")
+        if len(parts) < 2 or not parts[0].startswith("DB"):
+            raise ValueError(f"Invalid S7 address format: {address}, expected DBN.TB")
 
-        db_number = int(parts[0][2:])
+        try:  # FIXED: 原问题-parts[0][2:]/parts[1]硬索引，格式错误时IndexError/ValueError
+            db_number = int(parts[0][2:])
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Invalid S7 DB number in address: {address}") from e
+        if len(parts) < 2 or not parts[1]:
+            raise ValueError(f"Invalid S7 type/offset in address: {address}")
         type_char = parts[1][0].upper()
-        byte_offset = int(parts[1][1:])
+        try:
+            byte_offset = int(parts[1][1:])
+        except ValueError as e:
+            raise ValueError(f"Invalid S7 byte offset in address: {address}") from e
         bit_offset = int(parts[2]) if len(parts) > 2 else 0
 
         if type_char == "X":
@@ -172,9 +183,17 @@ class S7Driver(DriverPlugin):
     def _write_point(self, address: str, value: Any) -> None:
         """同步写入单个测点"""
         parts = address.split(".")
-        db_number = int(parts[0][2:])
+        try:  # FIXED: 原问题-_write_point同样存在硬索引问题
+            db_number = int(parts[0][2:])
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Invalid S7 DB number in address: {address}") from e
+        if len(parts) < 2 or not parts[1]:
+            raise ValueError(f"Invalid S7 type/offset in address: {address}")
         type_char = parts[1][0].upper()
-        byte_offset = int(parts[1][1:])
+        try:
+            byte_offset = int(parts[1][1:])
+        except ValueError as e:
+            raise ValueError(f"Invalid S7 byte offset in address: {address}") from e
         bit_offset = int(parts[2]) if len(parts) > 2 else 0
 
         if type_char == "X":

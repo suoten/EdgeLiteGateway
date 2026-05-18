@@ -87,13 +87,40 @@ async function checkUpdate() {
   } finally { checking.value = false }
 }
 
+// FIXED: 原问题-固定10秒reload，实际重启时间不确定，改为轮询/health端点
+const HEALTH_POLL_INTERVAL_MS = 2000
+const HEALTH_POLL_MAX_ATTEMPTS = 30
+
+function pollHealthAndReload() {
+  let attempts = 0
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+  const timer = setInterval(async () => {
+    attempts++
+    if (attempts > HEALTH_POLL_MAX_ATTEMPTS) {
+      clearInterval(timer)
+      console.warn('[OTA] Health check timed out after 60s, forcing reload')
+      window.location.reload()
+      return
+    }
+    try {
+      const resp = await fetch(`${apiBase}/system/status`, { method: 'GET' })
+      if (resp.ok) {
+        clearInterval(timer)
+        window.location.reload()
+      }
+    } catch {
+      // Server not ready yet, continue polling
+    }
+  }, HEALTH_POLL_INTERVAL_MS)
+}
+
 async function applyUpdate() {
   applying.value = true
   try {
     await otaApi.apply()
     // FIXED: 原问题-OTA升级成功后无系统重启提示
     message.success(t('ota.applySuccess') + t('ota.restartSoon'))  // FIXED: 原问题-硬编码中文，改用i18n
-    setTimeout(() => { window.location.reload() }, 10000)
+    pollHealthAndReload()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || t('ota.applyFailed'))
   } finally { applying.value = false }
@@ -104,8 +131,9 @@ async function handleRollback(version: string) {
   try {
     await otaApi.rollback(version)
     // FIXED: 原问题-OTA回滚成功后无系统重启提示
-    message.success(t('otaUpdate.rollbackSuccess', { version }) + '，系统即将重启，请稍后刷新页面')
-    setTimeout(() => { window.location.reload() }, 10000)
+    message.success(t('otaUpdate.rollbackSuccess', { version }) + t('ota.restartSoon'))  // FIXED: 原问题-硬编码中文label
+    // FIXED: 原问题-固定10秒reload，改为轮询/health端点
+    pollHealthAndReload()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || t('otaUpdate.rollbackFailed'))
   } finally {

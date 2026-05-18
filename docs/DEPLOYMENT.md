@@ -48,11 +48,11 @@ cd docker && docker compose build edgelite && docker compose up -d
 
 ```env
 # InfluxDB 配置
-INFLUXDB_TOKEN=edgelite-dev-token-change-in-production
-INFLUXDB_PASSWORD=edgelite-admin-2024
+INFLUXDB_TOKEN=K7mX2pR9vW4yH1jM6cF0gL3pS8tV2wZ5bD9mJ4qR7uX0yA3cE6hK9lN2pR5tV8wB1dG4jM7qS0u
+INFLUXDB_PASSWORD=gH4jK8lP2qR7vX1yA5cE9hJ3lO6pT0wB4dG8jM2qS6u
 
 # EdgeLiteGateway 安全配置
-SECRET_KEY=edgelite-dev-secret-key-change-in-production
+SECRET_KEY=c8nSH3RdgLhrlVIMi0SQOo-9C64wFnDlpE9AxZaf8oI
 ```
 
 > ⚠️ **生产环境必须替换为安全随机值！**

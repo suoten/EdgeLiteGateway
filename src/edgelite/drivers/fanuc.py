@@ -29,7 +29,7 @@ class FanucCncDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["fanuc", "focas"]
     config_schema = {
-        "description": "FANUC CNC数控系统FOCAS协议，支持读取机床状态和坐标",
+        "description": "FANUC CNC FOCAS protocol, supports reading machine status and coordinates",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "host", "type": "string", "label": "IP Address", "description": "CNC controller IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "port", "type": "integer", "label": "Port", "description": "FOCAS port, default 8193", "default": 8193},  # FIXED: 原问题-中文硬编码label/description

@@ -26,8 +26,8 @@ const statusData = ref<any>({})
 
 const runningFields = computed(() => [
   { label: t('system.listenAddress'), value: statusData.value.current_config?.host || '0.0.0.0' },  // FIXED: 原问题-中文硬编码，改用i18n
-  { label: 'TCP端口', value: statusData.value.current_config?.port || 1883 },
-  { label: 'WebSocket端口', value: statusData.value.current_config?.ws_port || 8083 },
+  { label: t('mqttServer.tcpPort'), value: statusData.value.current_config?.port || 1883 },  // FIXED: 原问题-硬编码中文label
+  { label: t('mqttServer.wsPort'), value: statusData.value.current_config?.ws_port || 8083 },  // FIXED: 原问题-硬编码中文label
 ])
 
 function onStatusLoaded(data: any) {

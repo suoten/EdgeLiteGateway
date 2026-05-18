@@ -93,11 +93,23 @@ class SerialPortDriver(DriverPlugin):
 
         self._config = config
         port = config.get("port", "COM1")
-        baudrate = int(config.get("baudrate", 9600))
-        bytesize = int(config.get("bytesize", 8))
+        try:  # FIXED: 原问题-int()转换无ValueError保护
+            baudrate = int(config.get("baudrate", 9600))
+        except (ValueError, TypeError):
+            baudrate = 9600
+        try:  # FIXED: 原问题-int()转换无ValueError保护
+            bytesize = int(config.get("bytesize", 8))
+        except (ValueError, TypeError):
+            bytesize = 8
         parity = config.get("parity", "N")
-        stopbits = float(config.get("stopbits", 1))
-        timeout = float(config.get("timeout", 1.0))
+        try:  # FIXED: 原问题-float()转换无ValueError保护
+            stopbits = float(config.get("stopbits", 1))
+        except (ValueError, TypeError):
+            stopbits = 1.0
+        try:  # FIXED: 原问题-float()转换无ValueError保护
+            timeout = float(config.get("timeout", 1.0))
+        except (ValueError, TypeError):
+            timeout = 1.0
 
         parity_map = {
             "N": serial.PARITY_NONE,

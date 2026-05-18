@@ -29,7 +29,7 @@ class AbbRobotDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["abb_rws"]
     config_schema = {
-        "description": "ABB机器人Robot Web Services协议，通过REST API读写机器人数据",
+        "description": "ABB robot Robot Web Services protocol, read/write robot data via REST API",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "ip", "type": "string", "label": "IP Address", "description": "ABB controller IP address", "default": "192.168.1.100", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "port", "type": "integer", "label": "Port", "description": "RWS port, default 80", "default": 80},  # FIXED: 原问题-中文硬编码label/description

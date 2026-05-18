@@ -158,6 +158,7 @@ import {
 } from '@vicons/ionicons5'
 import { serviceApi } from '@/api'
 import type { ServiceInfo } from '@/api'
+import { getErrorMessage } from '@/utils/errorCodes'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
 
@@ -288,8 +289,23 @@ async function handleToggle(name: string, val: boolean) {
           },
         })
       } else {
-        message.error(typeof detail === 'string' ? detail : (e?.message || t('serviceOverview.operationFailed')))
+        let errMsg = t('serviceOverview.operationFailed')
+        let hint = ''
+        if (typeof detail === 'object' && detail !== null) {
+          errMsg = getErrorMessage(detail.message || '')
+          hint = detail.hint || ''
+        } else if (typeof detail === 'string') {
+          errMsg = getErrorMessage(detail)
+        } else {
+          errMsg = e?.message || t('serviceOverview.operationFailed')
+        }
+        if (hint) {
+          dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
+        } else {
+          message.error(errMsg)
+        }
       }
+      await fetchServices()
     } finally {
       toggleLoadingMap[name] = false
     }

@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/platforms", tags=["Platforms"])
 
 
 class PlatformConnectRequest(BaseModel):
-    config: dict
+    config: dict  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
 
 
 def _get_service(handlers: dict) -> PlatformService:

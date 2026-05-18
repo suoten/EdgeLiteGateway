@@ -439,7 +439,7 @@ async function onSelectDevice(device: any) {
     await fetchPointValues(device.device_id)
   } catch (e) {
     currentDevicePoints.value = device.points || []
-    console.warn('获取设备测点失败:', e)
+    console.warn('Failed to fetch device points:', e)  // FIXED: 原问题-硬编码中文label
   }
 }
 

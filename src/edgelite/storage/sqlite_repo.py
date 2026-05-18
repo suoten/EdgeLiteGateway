@@ -373,7 +373,7 @@ class RuleRepo(BaseRepo):
                 )
                 rows = result.scalars().all()
                 rules = [_orm_to_rule(r) for r in rows]
-                return [r for r in rules if any(c["point"] == point_name for c in r["conditions"])]
+                return [r for r in rules if any(c.get("point") == point_name for c in r.get("conditions", []))]  # FIXED: 原问题-c["point"]硬索引
         except Exception as e:
             logger.error("RuleRepo.list_enabled_by_point failed: %s", e)
             return []

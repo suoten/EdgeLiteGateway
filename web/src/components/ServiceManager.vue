@@ -77,9 +77,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { serviceApi } from '@/api'
-// FIXED: 原问题-添加i18n支持
+import { getErrorMessage } from '@/utils/errorCodes'
 import { t } from '@/i18n'
 
 const props = defineProps<{
@@ -93,6 +93,7 @@ const emit = defineEmits<{
 }>()
 
 const msg = useMessage()
+const dialog = useDialog()
 const loading = ref(true)
 const toggleLoading = ref(false)
 const installing = ref(false)
@@ -138,11 +139,24 @@ async function handleEnable() {
     }
     await fetchStatus()
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || ''
-    if (typeof detail === 'string' && (detail.includes('depend') || detail.includes('424') || detail.includes('ERR_'))) {
+    const detail = e?.response?.data?.detail
+    if (typeof detail === 'object' && detail?.missing_dependencies) {
       msg.warning(t('serviceManager.depMissing'))
+    } else if (typeof detail === 'object' && detail !== null) {
+      const errMsg = getErrorMessage(detail.message || '')
+      const hint = detail.hint || ''
+      if (hint) {
+        dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
+      } else {
+        msg.error(errMsg)
+      }
     } else {
-      msg.error(t('serviceManager.enableFailed') + (typeof detail === 'string' ? ': ' + detail : ''))
+      const errStr = typeof detail === 'string' ? detail : (e?.message || '')
+      if (errStr.includes('depend') || errStr.includes('424') || errStr.includes('ERR_')) {
+        msg.warning(t('serviceManager.depMissing'))
+      } else {
+        msg.error(t('serviceManager.enableFailed') + (errStr ? ': ' + errStr : ''))
+      }
     }
   } finally {
     toggleLoading.value = false
@@ -169,8 +183,19 @@ async function handleStart() {
     msg.success(t('serviceManager.startSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || t('serviceManager.unknownError')
-    msg.error(t('serviceManager.startFailed') + (typeof detail === 'string' ? ': ' + detail : ''))
+    const detail = e?.response?.data?.detail
+    if (typeof detail === 'object' && detail !== null) {
+      const errMsg = getErrorMessage(detail.message || '')
+      const hint = detail.hint || ''
+      if (hint) {
+        dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
+      } else {
+        msg.error(errMsg)
+      }
+    } else {
+      const errStr = typeof detail === 'string' ? detail : (e?.message || t('serviceManager.unknownError'))
+      msg.error(t('serviceManager.startFailed') + (errStr ? ': ' + errStr : ''))
+    }
   } finally {
     toggleLoading.value = false
   }

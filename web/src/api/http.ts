@@ -84,7 +84,12 @@ http.interceptors.response.use(
     // FIXED: 原问题-拦截器code校验可能与后端不一致，现统一判断逻辑
     // 后端约定 code=0 表示成功，非0表示业务错误；无code字段视为非标准响应直接放行
     if (data && typeof data === 'object' && 'code' in data && data.code !== 0) {
-      return Promise.reject(new Error(data.message || t('http.requestFailed')))
+      // FIXED: 原问题-业务错误reject的Error无response对象，调用方e?.response?.status为undefined
+      const bizError: any = new Error(data.message || t('http.requestFailed'))
+      bizError.isBusinessError = true
+      bizError.code = data.code
+      bizError.data = data
+      return Promise.reject(bizError)
     }
     return response
   },
@@ -92,7 +97,7 @@ http.interceptors.response.use(
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
     const status = error.response?.status
 
-    if (status === 401 && originalRequest.url !== '/auth/refresh') {
+    if (status === 401 && originalRequest.url !== '/auth/refresh' && originalRequest.url !== '/auth/login') {
       const auth = useAuthStore()
 
       if (!auth.username) {
@@ -102,12 +107,10 @@ http.interceptors.response.use(
       }
 
       if (originalRequest._retry) {
-        // FIXED: 原问题-刷新后重试仍401直接强制登出，可能因权限不足等非认证原因
-        // 现仅当确实无法恢复认证时才登出，否则仅拒绝当前请求
-        if (!auth.username) {
-          auth.logout()
-          window.location.href = '/login'
-        }
+        // FIXED: 原问题-刷新后重试仍401时仅检查username可能不登出导致死循环
+        // 现无论username是否存在，二次401均强制登出
+        auth.logout()
+        window.location.href = '/login'
         return Promise.reject(error)
       }
 
@@ -151,6 +154,9 @@ http.interceptors.response.use(
     }
 
     if (status === 403) {
+      if (originalRequest.url === '/auth/login') {
+        return Promise.reject(error)
+      }
       const auth = useAuthStore()
       if (!auth.username) {
         auth.logout()

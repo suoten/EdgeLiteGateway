@@ -49,7 +49,9 @@ class DeviceService:
             return await self._create_device_unlocked(data)
 
     async def _create_device_unlocked(self, data: dict) -> dict:
-        protocol = data["protocol"]
+        protocol = data.get("protocol")  # FIXED: 原问题-data["protocol"]硬索引
+        if protocol is None:
+            raise ValueError("Missing required field: protocol")
         driver_class = self._registry.get_driver_class(protocol)
         if driver_class is None and protocol != "simulator":
             raise ValueError(f"Unsupported protocol: {protocol}")  # FIXED: 原问题-中文硬编码错误消息
@@ -161,7 +163,7 @@ class DeviceService:
 
         # FIXED: points可能为None，device.get("points", [])不防None
         points = device.get("points") or []
-        point_names = [p["name"] for p in points]
+        point_names = [p.get("name") for p in points if p.get("name") is not None]  # FIXED: 原问题-p["name"]硬索引
         return await driver.read_points(device_id, point_names)
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
@@ -226,7 +228,9 @@ class DeviceService:
             devices, total = await self._repo.list_all(page=page, size=size)
             for device in devices:
                 try:
-                    protocol = device["protocol"]
+                    protocol = device.get("protocol")  # FIXED: 原问题-device["protocol"]硬索引
+                    if protocol is None:
+                        continue
                     driver_class = self._registry.get_driver_class(protocol)
                     if driver_class is None:
                         continue

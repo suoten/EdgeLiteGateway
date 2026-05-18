@@ -159,7 +159,7 @@ import VChart from 'vue-echarts'
 import { deviceApi, dataApi, videoApi, type Device } from '@/api'
 import { t } from '@/i18n'  // FIXED: 原问题-缺少t()导入导致运行时ReferenceError
 import { deviceStatusLabel, deviceStatusColor, qualityLabel, protocolLabel } from '@/utils/enumLabels'
-import { connect as wsConnect, disconnect as wsDisconnect } from '@/api/websocket'
+import { connect as wsConnect, disconnect as wsDisconnect, onStatus as wsOnStatus } from '@/api/websocket'
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
 
@@ -210,6 +210,9 @@ const editRules = {
 }
 let wsHandler: ((data: any) => void) | null = null
 const writeValues = ref<Record<string, any>>({})
+
+// FIXED: 原问题-快速切换设备竞态，watch中未取消上一次未完成的请求，添加递增requestId标志位
+let fetchRequestId = 0
 
 const deviceId = computed(() => route.params.id as string)
 
@@ -321,10 +324,14 @@ async function handleSave() {
 }
 
 async function fetchDevice() {
+  // FIXED: 原问题-快速切换设备竞态，记录当前请求ID，异步响应后校验
+  const currentRequestId = ++fetchRequestId
   notFound.value = false
   pageLoading.value = true
   try {
-    device.value = await deviceApi.get(deviceId.value)
+    const result = await deviceApi.get(deviceId.value)
+    if (currentRequestId !== fetchRequestId) return
+    device.value = result
     if (!device.value) { notFound.value = true; return }
     if (device.value?.points?.length) {
     // FIXED: 原问题-points可能为undefined，添加空值保护
@@ -336,24 +343,30 @@ async function fetchDevice() {
   }
     if (route.query.tab) activeTab.value = route.query.tab as string
   } catch (e: any) {
+    if (currentRequestId !== fetchRequestId) return
     if (e?.response?.status === 404) {
       notFound.value = true
     } else {
       message.error(e?.response?.data?.detail || e?.message || t('deviceDetail.loadFailed'))  // FIXED: 原问题-中文硬编码
     }
   } finally {
-    pageLoading.value = false
+    if (currentRequestId === fetchRequestId) pageLoading.value = false
   }
 }
 
 async function fetchPoints() {
+  // FIXED: 原问题-快速切换设备竞态，记录当前请求ID，异步响应后校验
+  const currentRequestId = ++fetchRequestId
   pointsLoading.value = true
   try {
-    pointValues.value = await deviceApi.getPoints(deviceId.value)
+    const result = await deviceApi.getPoints(deviceId.value)
+    if (currentRequestId !== fetchRequestId) return
+    pointValues.value = result
   } catch (e: any) {
+    if (currentRequestId !== fetchRequestId) return
     message.error(e?.response?.data?.detail || e?.message || t('deviceDetail.realtimeFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
-    pointsLoading.value = false
+    if (currentRequestId === fetchRequestId) pointsLoading.value = false
   }
 }
 
@@ -411,10 +424,16 @@ function toggleWS(val: boolean) {
         pointValues.value[data.point_name] = { value: data.value, quality: data.quality || 'good' }
       }
     }
+    // FIXED: 原问题-WS连接异步但wsConnected立即设true，改为在onStatus回调中确认连接成功后才设true
+    wsOnStatus('realtime', (status: string) => {
+      if (status === 'connected') {
+        wsConnected.value = true
+        message.success(t('device.wsConnected'))
+      } else if (status === 'disconnected' || status === 'error') {
+        wsConnected.value = false
+      }
+    })
     wsConnect('realtime', wsHandler)
-    // FIXED: 原问题-WS连接异步但wsConnected立即设true，改为延迟确认
-    wsConnected.value = true
-    message.success(t('device.wsConnected'))
   } else {
     if (wsHandler) {
       wsDisconnect('realtime', wsHandler)

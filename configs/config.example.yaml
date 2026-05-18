@@ -33,7 +33,7 @@ database:
 # ── InfluxDB 时序数据库 ──────────────────────────────────
 influxdb:
   url: "http://localhost:8086"     # InfluxDB 服务地址
-  token: "edgelite-dev-token-change-in-production"  # API Token（建议通过 EDGELITE_INFLUXDB_TOKEN 环境变量设置）
+  token: "K7mX2pR9vW4yH1jM6cF0gL3pS8tV2wZ5bD9mJ4qR7uX0yA3cE6hK9lN2pR5tV8wB1dG4jM7qS0u"  # API Token
   org: "edgelite"                  # 组织名（需与 InfluxDB 初始化时一致）
   bucket: "edgelite"               # Bucket 名（需与 InfluxDB 初始化时一致）
   batch_size: 1000                 # 批量写入数据点数，增大可提高吞吐量（范围：100-10000）
@@ -73,7 +73,7 @@ video:
 
 # ── 安全配置 ─────────────────────────────────────────────
 security:
-  secret_key: "edgelite-dev-secret-key-change-in-production"  # JWT签名密钥
+  secret_key: "c8nSH3RdgLhrlVIMi0SQOo-9C64wFnDlpE9AxZaf8oI"  # JWT签名密钥
   access_token_expire_minutes: 30  # access_token 过期时间（分钟）
   refresh_token_expire_days: 7     # refresh_token 过期时间（天）
   algorithm: "HS256"               # JWT 签名算法，可选：HS256 / HS384 / HS512

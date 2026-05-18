@@ -111,6 +111,9 @@ async def delete_user(
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
             target = await repo.get(user_id)
+            # FIXED: 原问题-admin用户删除保护仅前端，后端无保护，现添加admin用户名403检查
+            if target and target.get("username") == "admin":
+                raise HTTPException(status_code=403, detail=UserErrors.CANNOT_DELETE_ADMIN)
             if target and target["role"] == "admin":
                 admin_count = await repo.count_by_role("admin")
                 if admin_count <= 1:

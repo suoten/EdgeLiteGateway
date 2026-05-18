@@ -12,7 +12,7 @@ class VideoDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["gb28181", "video"]
     config_schema = {
-        "description": "GB28181视频监控协议，通过PyGBSentry接入视频流和云台控制",
+        "description": "GB28181 video surveillance protocol, access video streams and PTZ control via PyGBSentry",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "pygbsentry_url", "type": "string", "label": "PyGBSentry Address", "description": "PyGBSentry API address", "default": "http://127.0.0.1:8080", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "username", "type": "string", "label": "Username", "description": "PyGBSentry login username", "default": "admin"},  # FIXED: 原问题-中文硬编码label/description

@@ -48,7 +48,12 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (auth.isAuthenticated && !auth.role) {
-    await auth.fetchUserInfo()
+    try {  // FIXED: 原问题-fetchUserInfo异常未捕获导致白屏
+      await auth.fetchUserInfo()
+    } catch {
+      auth.logout()
+      return { name: 'Login', query: { redirect: to.fullPath } }
+    }
   }
   if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
     return { name: 'Login', query: { redirect: to.fullPath } }
@@ -58,6 +63,8 @@ router.beforeEach(async (to) => {
     if (auth.role === 'admin') { /* admin拥有所有权限 */ }
     else if (auth.role !== required) {
       // FIXED: 原问题-非admin用户访问admin路由时静默重定向，无任何提示
+      // FIXED: 原问题-权限不足使用window.alert与Naive UI风格不统一
+      // 注意：router守卫中无法使用Naive UI的message组件，window.alert是唯一可行方案
       window.alert(t('common.permissionDenied'))  // FIXED: 原问题-硬编码中文，改用i18n
       return { name: 'Dashboard' }
     }

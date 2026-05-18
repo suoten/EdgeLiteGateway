@@ -522,22 +522,31 @@ class ServiceManager:
             await self._start_service_instance(service_name, config_values)
         except RuntimeError as e:
             logger.warning("服务启用但启动失败: %s - %s", service_name, e)
+            update_config_section(config_section, {"enabled": False})
             return {
-                "success": True,
-                "warning": f"服务已启用但启动失败: {e}",
+                "success": False,
+                "error": ServiceErrors.START_FAILED,
                 "error_type": "runtime",
                 "detail": str(e),
+                "hint": self._get_start_error_hint(service_name, e),
             }
         except Exception as e:
             logger.error("启动服务失败: %s - %s", service_name, e)
-            return {"success": True, "warning": f"服务已启用但启动失败: {e}", "error_type": "runtime", "detail": str(e)}
+            update_config_section(config_section, {"enabled": False})
+            return {
+                "success": False,
+                "error": ServiceErrors.START_FAILED,
+                "error_type": "runtime",
+                "detail": str(e),
+                "hint": self._get_start_error_hint(service_name, e),
+            }
 
         return {"success": True, "message": f"{svc_def['display_name']}已启用并启动"}
 
     async def disable_service(self, service_name: str) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"success": False, "error": f"未知服务: {service_name}"}
+            return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
 
         instance = self._get_instance(service_name)
         if instance:
@@ -558,27 +567,27 @@ class ServiceManager:
     async def start_service(self, service_name: str) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"success": False, "error": f"未知服务: {service_name}"}
+            return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
 
         instance = self._get_instance(service_name)
         if instance and hasattr(instance, "is_running") and instance.is_running:
             return {"success": True, "message": "服务已在运行中"}
 
         if not self.all_dependencies_met(service_name):
-            return {"success": False, "error": "缺少依赖，请先安装依赖"}
+            return {"success": False, "error": ServiceErrors.DEPS_INSTALL_FAILED}
 
         try:
             await self._start_service_instance(service_name)
             return {"success": True, "message": f"{svc_def['display_name']}已启动"}
         except RuntimeError as e:
-            return {"success": False, "error": str(e), "error_type": "runtime"}
+            return {"success": False, "error": ServiceErrors.START_FAILED, "error_type": "runtime", "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": ServiceErrors.START_FAILED, "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
 
     async def stop_service(self, service_name: str) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"success": False, "error": f"未知服务: {service_name}"}
+            return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
 
         instance = self._get_instance(service_name)
         if not instance:
@@ -589,6 +598,38 @@ class ServiceManager:
             return {"success": True, "message": f"{svc_def['display_name']}已停止"}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def _get_start_error_hint(self, service_name: str, error: Exception) -> str:
+        err_msg = str(error).lower()
+        hints = {
+            "mqtt_server": {
+                "address already in use": "MQTT 端口被占用，请修改监听端口或关闭占用该端口的程序",
+                "permission denied": "端口需要管理员权限，请使用 1024 以上的端口",
+            },
+            "modbus_slave": {
+                "address already in use": "Modbus 端口被占用，请修改监听端口或关闭占用该端口的程序",
+                "permission denied": "端口 502 需要 root/管理员权限，建议改用 5020 等非特权端口",
+                "'break' outside loop": "代码存在语法错误，请联系开发者修复",
+            },
+            "serial_bridge": {
+                "could not open port": "串口设备不存在或被占用，请检查设备路径（如 /dev/ttyUSB0 或 COM3）",
+                "permission denied": "没有串口访问权限，Linux 请执行 sudo usermod -aG dialout $USER",
+                "file not found": "串口设备路径不存在，请确认设备已连接",
+            },
+        }
+        service_hints = hints.get(service_name, {})
+        for pattern, hint in service_hints.items():
+            if pattern in err_msg:
+                return hint
+        if "address already in use" in err_msg:
+            return "端口被占用，请修改服务监听端口"
+        if "permission denied" in err_msg:
+            return "权限不足，请检查端口或文件访问权限"
+        if "connection refused" in err_msg:
+            return "连接被拒绝，请检查目标服务是否运行"
+        if "timeout" in err_msg:
+            return "连接超时，请检查网络或目标地址是否可达"
+        return "请检查服务配置是否正确，或查看系统日志获取详细信息"
 
     async def _start_service_instance(
         self, service_name: str, config_values: dict | None = None

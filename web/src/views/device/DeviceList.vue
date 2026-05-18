@@ -364,7 +364,12 @@ const currentProtocolDesc = computed(() => {
 
 async function loadDriverSchemas() {
   try {
-    const protocols = ['modbus_tcp', 'opcua', 's7', 'serial_port', 'database_source', 'barcode_scanner', 'mqtt', 'http']
+    // FIXED: 原问题-设备发现硬编码协议列表，改为从driverApi.protocols()动态获取
+    let protocols: string[] = []
+    try {
+      const res = await driverApi.protocols()
+      protocols = res?.protocols || []
+    } catch { /* fallback to empty */ }
     for (const p of protocols) {
       try {
         const data = await driverApi.configSchema(p)

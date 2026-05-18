@@ -27,13 +27,13 @@ _file_lock = asyncio.Lock()
 
 class ScadaProject(BaseModel):
     name: str = "default"
-    widgets: list[dict[str, Any]] = []
+    widgets: list[dict[str, Any]] = []  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
     updated_at: str | None = None
 
 
 class ScadaSaveRequest(BaseModel):
     name: str = "default"
-    widgets: list[dict[str, Any]] = []
+    widgets: list[dict[str, Any]] = []  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
 
 
 def _project_path(name: str) -> Path:

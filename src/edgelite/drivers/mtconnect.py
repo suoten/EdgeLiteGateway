@@ -41,7 +41,7 @@ class MTConnectDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["mtconnect"]
     config_schema = {
-        "description": "MTConnect数控设备标准协议，通过HTTP获取CNC运行数据",
+        "description": "MTConnect standard protocol for CNC equipment, retrieve CNC runtime data via HTTP",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "host", "type": "string", "label": "IP Address", "description": "MTConnect agent address", "default": "127.0.0.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "port", "type": "integer", "label": "Port", "description": "HTTP port, default 5000", "default": 5000},  # FIXED: 原问题-中文硬编码label/description

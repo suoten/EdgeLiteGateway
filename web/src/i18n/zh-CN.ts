@@ -27,6 +27,7 @@ const zhCN: LocaleMessages = {
     readOnly: '只读',
     writeOnly: '只写',
     readWrite: '读写',
+    permissionDenied: '权限不足，无法访问该页面',
   },
   login: {
     title: '轻量级边缘计算物联网网关',
@@ -311,6 +312,20 @@ const zhCN: LocaleMessages = {
     hours: '时',
     minutes: '分',
     seconds: '秒',
+  },
+  serialBridge: {  // FIXED: 原问题-硬编码中文label
+    serialDevice: '串口设备',
+    baudRate: '波特率',
+    tcpPort: 'TCP端口',
+  },
+  mqttServer: {  // FIXED: 原问题-硬编码中文label
+    tcpPort: 'TCP端口',
+    wsPort: 'WebSocket端口',
+  },
+  modbusSlave: {  // FIXED: 原问题-硬编码中文label
+    port: '端口',
+    holdingRegisters: '保持寄存器',
+    inputRegisters: '输入寄存器',
   },
   grafana: {
     title: 'Grafana监控',
@@ -637,6 +652,9 @@ const zhCN: LocaleMessages = {
     deleteFailed: '删除失败',
     batchDeleteConfirm: '确定删除选中的{count}个设备？此操作不可撤销。',
     batchDeleteTitle: '确认批量删除',
+    fetchFailed: '获取设备列表失败',
+    batchDeletePartial: '批量删除完成，成功 {succeeded} 个，{failed} 个失败',
+    batchDeleteSuccess: '批量删除成功，共删除 {succeeded} 个设备',
   },
   ruleList: {
     searchPlaceholder: '搜索规则名称/设备ID',
@@ -699,6 +717,11 @@ const zhCN: LocaleMessages = {
     testInputRequired: '请至少输入一个测点的模拟值',
     testComplete: '规则测试完成',
     testFailed: '测试失败',
+    name: '名称',
+    deviceId: '设备ID',
+    deleteConfirm: '确定删除规则"{name}"？',
+    enabled: '已启用',
+    disabled: '已禁用',
   },
   alarmList: {
     searchPlaceholder: '搜索设备ID',
@@ -877,6 +900,7 @@ const zhCN: LocaleMessages = {
   loginPage: {
     mustChangePassword: '首次登录需要修改密码',
     loginSuccess: '登录成功，欢迎回来！',
+    loginFailed: '登录失败，请重试',
     networkError: '网络连接失败，请检查网络后重试',
   },
   qualityLabel: {

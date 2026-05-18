@@ -50,7 +50,7 @@ class Dlt645Driver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["dlt645", "dlt645_2007"]
     config_schema = {
-        "description": "DL/T 645-2007 多功能电能表通信协议，通过RS485串口采集电表数据",
+        "description": "DL/T 645-2007 multi-function energy meter communication protocol, collect meter data via RS485 serial",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "port", "type": "string", "label": "Serial Port", "description": "RS485 serial device path", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "baud_rate", "type": "integer", "label": "Baud Rate", "description": "Meter communication baud rate, default 2400", "default": 2400},  # FIXED: 原问题-中文硬编码label/description

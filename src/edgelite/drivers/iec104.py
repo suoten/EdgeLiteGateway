@@ -83,7 +83,7 @@ class Iec104Driver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["iec104"]
     config_schema = {
-        "description": "IEC 60870-5-104 电力远动规约，用于与电力SCADA系统通信",
+        "description": "IEC 60870-5-104 telecontrol protocol for communication with power SCADA systems",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "host", "type": "string", "label": "IP Address", "description": "SCADA or protection device IP address", "default": "127.0.0.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "port", "type": "integer", "label": "Port", "description": "IEC 104 default port 2404", "default": 2404},  # FIXED: 原问题-中文硬编码label/description

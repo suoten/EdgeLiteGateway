@@ -171,8 +171,13 @@ async function handleLogin() {
     } else if (status === 403) {
       message.error(getErrorMessage(detail))
     } else if (!status) {
-      // FIXED: 原问题-硬编码中文消息，改为i18n
-      message.error(t('loginPage.networkError'))
+      // FIXED: 原问题-非Axios错误(如fetchUserInfo抛Error)走入此分支显示"网络错误"，
+      // 现区分isBusinessError和纯网络错误
+      if (e?.isBusinessError) {
+        message.error(e?.message || t('loginPage.loginFailed'))
+      } else {
+        message.error(t('loginPage.networkError'))
+      }
     } else {
       message.error(getErrorMessage(detail))
     }

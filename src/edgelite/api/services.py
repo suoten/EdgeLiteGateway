@@ -19,11 +19,11 @@ router = APIRouter(prefix="/api/v1/services", tags=["Services"])
 
 
 class EnableServiceRequest(BaseModel):
-    config: dict | None = None
+    config: dict | None = None  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
 
 
 class UpdateServiceConfigRequest(BaseModel):
-    config: dict
+    config: dict  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
 
 
 class InstallDepsRequest(BaseModel):

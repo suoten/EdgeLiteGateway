@@ -45,6 +45,8 @@ const filterStatus = ref<string | null>(null)
 const filterSeverity = ref<string | null>(null)
 const checkedKeys = ref<string[]>([])
 
+// FIXED: 原问题-告警确认无防重复提交，添加ackLoading状态
+const ackLoading = ref(false)
 const firingAlarms = computed(() => alarms.value.filter(a => a.status === 'firing'))
 
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchAlarms() } })
@@ -119,21 +121,28 @@ async function fetchAlarms() {
 }
 
 async function doAck(alarmId: string) {
+  // FIXED: 原问题-告警确认无防重复提交，添加ackLoading防重复点击
+  if (ackLoading.value) return
+  ackLoading.value = true
   try {
     await alarmApi.ack(alarmId)
     message.success(t('alarmList.ackSuccess'))
     fetchAlarms()
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || t('alarmList.ackFailed'))
+  } finally {
+    ackLoading.value = false
   }
 }
 
 async function handleBatchAck() {
+  // FIXED: 原问题-批量确认竞态，firingAlarms是响应式计算属性，WS推送可能在点击确认后更新列表
+  // 在handleBatchAck开头快照firingAlarmIds，使用快照的ID列表而非响应式计算属性
+  const snapshotIds = firingAlarms.value.map(a => a.alarm_id || a.id).filter(Boolean)
+  if (snapshotIds.length === 0) return
   batchAcking.value = true
   try {
-    // FIXED: 原问题-a.alarm_id可能字段名不一致，加空值保护
-    const ids = firingAlarms.value.map(a => a.alarm_id || a.id).filter(Boolean)
-    const results = await Promise.allSettled(ids.map(id => alarmApi.ack(id)))
+    const results = await Promise.allSettled(snapshotIds.map(id => alarmApi.ack(id)))
     const succeeded = results.filter(r => r.status === 'fulfilled').length
     const failed = results.filter(r => r.status === 'rejected').length
     if (failed > 0) {
@@ -159,9 +168,19 @@ onMounted(() => {
 })
 onUnmounted(() => {
   ws.disconnect('alarm', onAlarmPush)
+  // FIXED: 原问题-告警WS推送无防抖，组件卸载时清理防抖定时器
+  if (alarmDebounceTimer) { clearTimeout(alarmDebounceTimer); alarmDebounceTimer = null }
 })
 
+// FIXED: 原问题-告警WS推送无防抖，每条消息都触发fetchAlarms，添加500ms防抖
+let alarmDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
 function onAlarmPush(data: any) {
-  if (data) fetchAlarms()
+  if (!data) return
+  if (alarmDebounceTimer) clearTimeout(alarmDebounceTimer)
+  alarmDebounceTimer = setTimeout(() => {
+    fetchAlarms()
+    alarmDebounceTimer = null
+  }, 500)
 }
 </script>

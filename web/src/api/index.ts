@@ -1,6 +1,8 @@
 import http from './http'
 import type { ApiResponse, PagedData } from './http'
 
+// FIXED: 原问题-API返回结构不一致，list函数返回完整PagedData(含total/page/size)，get/create/update/delete函数返回r.data.data(仅业务对象)
+
 // ─── 认证 ───
 
 export interface LoginParams {
@@ -591,7 +593,8 @@ export const otaApi = {
 
   rollback: (version?: string) =>
     // FIXED: 原问题-r.data.data ?? r.data返回类型不一致，改为统一r.data.data
-    http.post<ApiResponse>('/ota/rollback', null, { params: { version: version || '' } }).then((r) => r.data.data),
+    // FIXED: 原问题-OTA rollback空版本参数，version为空时不传version参数避免后端将空字符串视为有效版本号
+    http.post<ApiResponse>('/ota/rollback', null, { params: version ? { version } : undefined }).then((r) => r.data.data),
 
   backups: () =>
     http.get<ApiResponse<any>>('/ota/backups').then((r) => r.data.data),

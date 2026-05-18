@@ -37,30 +37,30 @@ class MCPToolService:
         self._tools = {
             "list_devices": {
                 "name": "list_devices",
-                "description": "获取所有设备列表",
+                "description": "Get all devices list",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
             "get_device_status": {
                 "name": "get_device_status",
-                "description": "获取指定设备的运行状态",
+                "description": "Get the running status of a specific device",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"device_id": {"type": "string", "description": "设备ID"}},
+                    "properties": {"device_id": {"type": "string", "description": "Device ID"}},  # FIXED: 原问题-中文硬编码description
                     "required": ["device_id"],
                 },
             },
             "read_device_points": {
                 "name": "read_device_points",
-                "description": "读取设备测点当前值",
+                "description": "Read current values of device points",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"device_id": {"type": "string", "description": "设备ID"}},
+                    "properties": {"device_id": {"type": "string", "description": "Device ID"}},  # FIXED: 原问题-中文硬编码description
                     "required": ["device_id"],
                 },
             },
             "write_device_point": {
                 "name": "write_device_point",
-                "description": "写入设备测点值",
+                "description": "Write a value to a device point",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -73,21 +73,21 @@ class MCPToolService:
             },
             "list_alarms": {
                 "name": "list_alarms",
-                "description": "获取当前活跃告警列表",
+                "description": "Get current active alarms list",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"severity": {"type": "string", "description": "告警级别过滤"}},
+                    "properties": {"severity": {"type": "string", "description": "Filter by alarm severity"}},  # FIXED: 原问题-中文硬编码description
                     "required": [],
                 },
             },
             "get_system_status": {
                 "name": "get_system_status",
-                "description": "获取系统运行状态",
+                "description": "Get system running status",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
             "list_rules": {
                 "name": "list_rules",
-                "description": "获取所有规则列表",
+                "description": "Get all rules list",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
         }
@@ -96,20 +96,20 @@ class MCPToolService:
         self._resources = {
             "devices": {
                 "uri": "edgelite://devices",
-                "name": "设备列表",
-                "description": "所有已注册设备的概要信息",
+                "name": "Device List",  # FIXED: 原问题-中文硬编码description
+                "description": "Summary of all registered devices",  # FIXED: 原问题-中文硬编码description
                 "mimeType": "application/json",
             },
             "alarms/active": {
                 "uri": "edgelite://alarms/active",
-                "name": "活跃告警",
-                "description": "当前未确认的告警列表",
+                "name": "Active Alarms",  # FIXED: 原问题-中文硬编码description
+                "description": "List of currently unacknowledged alarms",  # FIXED: 原问题-中文硬编码description
                 "mimeType": "application/json",
             },
             "system/status": {
                 "uri": "edgelite://system/status",
-                "name": "系统状态",
-                "description": "系统运行状态概要",
+                "name": "System Status",  # FIXED: 原问题-中文硬编码description
+                "description": "System running status summary",  # FIXED: 原问题-中文硬编码description
                 "mimeType": "application/json",
             },
         }
@@ -118,16 +118,16 @@ class MCPToolService:
         self._prompts = {
             "analyze_device": {
                 "name": "analyze_device",
-                "description": "分析设备运行状态和异常",
+                "description": "Analyze device running status and anomalies",  # FIXED: 原问题-中文硬编码description
                 "arguments": [
-                    {"name": "device_id", "description": "要分析的设备ID", "required": True}
+                    {"name": "device_id", "description": "Device ID to analyze", "required": True}  # FIXED: 原问题-中文硬编码description
                 ],
             },
             "alarm_summary": {
                 "name": "alarm_summary",
-                "description": "生成告警摘要报告",
+                "description": "Generate alarm summary report",  # FIXED: 原问题-中文硬编码description
                 "arguments": [
-                    {"name": "severity", "description": "告警级别过滤", "required": False}
+                    {"name": "severity", "description": "Filter by alarm severity", "required": False}  # FIXED: 原问题-中文硬编码description
                 ],
             },
         }
@@ -188,6 +188,14 @@ class MCPToolService:
                 device_id = args.get("device_id", "")
                 point_name = args.get("point_name", "")
                 value = args.get("value", 0)
+                # FIXED: 原问题-MCP写入值未做类型校验，AI传入字符串时驱动行为不可预测
+                if isinstance(value, str):
+                    try:
+                        value = float(value)
+                        if value == int(value):
+                            value = int(value)
+                    except (ValueError, TypeError):
+                        pass  # keep original value, driver will handle
                 if not device_id or not point_name:
                     raise HTTPException(status_code=400, detail=McpErrors.MISSING_PARAMS)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
@@ -237,10 +245,10 @@ class MCPToolService:
             args = arguments or {}
             for field_name in required:
                 if field_name not in args:
-                    errors.append(f"缺少必填参数: {field_name}")
+                    errors.append(f"Missing required parameter: {field_name}")  # FIXED: 原问题-中文硬编码description
             for key in args:
                 if key not in properties:
-                    errors.append(f"未知参数: {key}")
+                    errors.append(f"Unknown parameter: {key}")  # FIXED: 原问题-中文硬编码description
         return errors
 
 
@@ -309,5 +317,9 @@ class MCPAuthManager:
         for key_id, key_data in self._keys.items():
             stored_key = key_data.get("key", "")
             if stored_key and hmac.compare_digest(stored_key, api_key):
-                return {"id": key_id, "name": key_data["name"], "scopes": key_data["scopes"]}
+                name = key_data.get("name")  # FIXED: 原问题-key_data["name"]硬索引
+                scopes = key_data.get("scopes")  # FIXED: 原问题-key_data["scopes"]硬索引
+                if name is None or scopes is None:
+                    continue
+                return {"id": key_id, "name": name, "scopes": scopes}
         return None

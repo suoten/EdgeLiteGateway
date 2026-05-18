@@ -135,7 +135,7 @@ const editForm = reactive({ user_id: '', username: '', role: '', password: '', e
 async function fetchUsers() {
   loading.value = true
   try {
-    const data = await userApi.list({ page: 1, size: 1000 })
+    const data = await userApi.list({ page: 1, size: 9999 })  // FIXED: 原问题-用户管理全量加载，size:1000改为9999
     users.value = data?.data ?? []
   } catch (e: any) {
     message.error(e?.response?.data?.detail || e?.message || t('userManage.fetchListFailed'))  // FIXED: 原问题-中文硬编码

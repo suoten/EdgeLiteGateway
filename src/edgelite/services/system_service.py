@@ -183,9 +183,12 @@ class SystemService:
             devices_data = backup_data.get("devices", [])
             if devices_data:
                 for dev in devices_data:
-                    existing = await self._device_repo.get_by_id(dev.get("device_id", ""))
+                    dev_id = dev.get("device_id")  # FIXED: 原问题-dev["device_id"]硬索引
+                    if dev_id is None:
+                        continue
+                    existing = await self._device_repo.get_by_id(dev_id)
                     if existing:
-                        await self._device_repo.update(dev["device_id"], dev)
+                        await self._device_repo.update(dev_id, dev)
                     else:
                         await self._device_repo.create(dev)
                 restored_counts["devices"] = len(devices_data)
@@ -193,9 +196,12 @@ class SystemService:
             rules_data = backup_data.get("rules", [])
             if rules_data:
                 for rule in rules_data:
-                    existing = await self._rule_repo.get_by_id(rule.get("rule_id", ""))
+                    rule_id = rule.get("rule_id")  # FIXED: 原问题-rule["rule_id"]硬索引
+                    if rule_id is None:
+                        continue
+                    existing = await self._rule_repo.get_by_id(rule_id)
                     if existing:
-                        await self._rule_repo.update(rule["rule_id"], rule)
+                        await self._rule_repo.update(rule_id, rule)
                     else:
                         await self._rule_repo.create(rule)
                 restored_counts["rules"] = len(rules_data)
@@ -203,9 +209,12 @@ class SystemService:
             users_data = backup_data.get("users", [])
             if users_data:
                 for user in users_data:
-                    existing = await self._user_repo.get_by_id(user.get("user_id", ""))
+                    user_id = user.get("user_id")  # FIXED: 原问题-user["user_id"]硬索引
+                    if user_id is None:
+                        continue
+                    existing = await self._user_repo.get_by_id(user_id)
                     if existing:
-                        await self._user_repo.update(user["user_id"], user)
+                        await self._user_repo.update(user_id, user)
                     else:
                         await self._user_repo.create(user)
                 restored_counts["users"] = len(users_data)

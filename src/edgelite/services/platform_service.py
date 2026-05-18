@@ -173,7 +173,11 @@ class PlatformService:
         module = importlib.import_module(entry["module"])
         handler_cls = getattr(module, entry["class"])
         handler = handler_cls()
-        await handler.connect(config)
+        try:  # FIXED: 原问题-handler.connect(config)无try-except保护
+            await handler.connect(config)
+        except Exception as e:
+            logger.error("Platform connect failed: %s - %s", platform_name, e)
+            raise RuntimeError(f"Platform connect failed: {platform_name} - {e}") from e
         self._handlers[platform_name] = handler
         return {"status": "connected"}
 
@@ -181,7 +185,10 @@ class PlatformService:
         handler = self._handlers.get(platform_name)
         if not handler:
             raise KeyError(f"Platform {platform_name} not connected")  # FIXED: 原问题-中文硬编码错误消息
-        await handler.disconnect()
+        try:  # FIXED: 原问题-handler.disconnect()无try-except保护
+            await handler.disconnect()
+        except Exception as e:
+            logger.error("Platform disconnect failed: %s - %s", platform_name, e)
         self._handlers.pop(platform_name, None)
         return {"status": "disconnected"}
 

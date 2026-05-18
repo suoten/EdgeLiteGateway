@@ -37,9 +37,9 @@ const bridgeStats = reactive({
 })
 
 const runningFields = computed(() => [
-  { label: '串口设备', value: statusData.value.current_config?.serial_port || '/dev/ttyUSB0' },
-  { label: '波特率', value: statusData.value.current_config?.baud_rate || 9600 },
-  { label: 'TCP端口', value: statusData.value.current_config?.tcp_port || 9000 },
+  { label: t('serialBridge.serialDevice'), value: statusData.value.current_config?.serial_port || '/dev/ttyUSB0' },  // FIXED: 原问题-硬编码中文label
+  { label: t('serialBridge.baudRate'), value: statusData.value.current_config?.baud_rate || 9600 },  // FIXED: 原问题-硬编码中文label
+  { label: t('serialBridge.tcpPort'), value: statusData.value.current_config?.tcp_port || 9000 },  // FIXED: 原问题-硬编码中文label
 ])
 
 function onStatusLoaded(data: any) {
