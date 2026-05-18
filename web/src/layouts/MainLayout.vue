@@ -110,19 +110,19 @@
         <router-view />
       </n-layout-content>
     </n-layout>
-    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" title="🔒 修改密码" preset="card" style="width: 440px">
+    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" :title="'🔒 ' + t('login.changePassword')" preset="card" style="width: 440px">  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
       <n-alert v-if="auth.mustChangePassword" type="info" style="margin-bottom: 16px">
-        为保障您的账户安全，建议修改默认密码后再使用系统
+        {{ t('login.changePasswordSecurityHint') }}  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
       </n-alert>
       <n-form :model="pwdForm" :rules="pwdRules" ref="pwdFormRef" label-placement="left" label-width="90">
-        <n-form-item label="当前密码" path="oldPassword"><n-input v-model:value="pwdForm.oldPassword" type="password" show-password-on="click" placeholder="请输入当前使用的密码" /></n-form-item>
-        <n-form-item label="新密码" path="newPassword"><n-input v-model:value="pwdForm.newPassword" type="password" show-password-on="click" placeholder="至少6位，建议包含字母和数字" /></n-form-item>
-        <n-form-item label="确认新密码" path="confirmPassword"><n-input v-model:value="pwdForm.confirmPassword" type="password" show-password-on="click" placeholder="请再次输入新密码" /></n-form-item>
+        <n-form-item :label="t('login.oldPassword')" path="oldPassword"><n-input v-model:value="pwdForm.oldPassword" type="password" show-password-on="click" :placeholder="t('login.oldPasswordPlaceholder')" /></n-form-item>  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
+        <n-form-item :label="t('login.newPassword')" path="newPassword"><n-input v-model:value="pwdForm.newPassword" type="password" show-password-on="click" :placeholder="t('login.newPasswordPlaceholder')" /></n-form-item>  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
+        <n-form-item :label="t('login.confirmPassword')" path="confirmPassword"><n-input v-model:value="pwdForm.confirmPassword" type="password" show-password-on="click" :placeholder="t('login.confirmPasswordPlaceholder')" /></n-form-item>  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
       </n-form>
       <template #action>
         <n-space justify="end">
-          <n-button @click="showChangePwd = false">稍后再说</n-button>
-          <n-button type="primary" :loading="changingPwd" @click="handleChangePassword">保存修改</n-button>
+          <n-button @click="showChangePwd = false">{{ t('common.cancel') }}</n-button>  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
+          <n-button type="primary" :loading="changingPwd" @click="handleChangePassword">{{ t('login.saveChanges') }}</n-button>  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
         </n-space>
       </template>
     </n-modal>
@@ -143,6 +143,7 @@ import {
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { alarmApi, authApi } from '@/api'
+import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码，改用i18n
 
 const router = useRouter()
 const route = useRoute()
@@ -158,14 +159,14 @@ const changingPwd = ref(false)
 const pwdFormRef = ref<any>(null)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 const pwdRules = {
-  oldPassword: { required: true, message: '请输入当前密码', trigger: 'blur' },
+  oldPassword: { required: true, message: t('login.oldPasswordRequired'), trigger: 'blur' },  // FIXED: 原问题-中文硬编码，改用i18n
   newPassword: {
     required: true,
     trigger: 'blur',
     validator: (_rule: any, value: string) => {
-      if (!value) return new Error('请输入新密码')
-      if (value.length < 8) return new Error('新密码至少8位，需包含字母和数字')
-      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error('新密码需同时包含字母和数字')
+      if (!value) return new Error(t('login.newPasswordRequired'))  // FIXED: 原问题-中文硬编码，改用i18n
+      if (value.length < 8) return new Error(t('login.passwordPolicy'))  // FIXED: 原问题-中文硬编码，改用i18n
+      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error(t('login.passwordLetterAndDigit'))  // FIXED: 原问题-中文硬编码，改用i18n
       return true
     },
   },
@@ -173,7 +174,7 @@ const pwdRules = {
     required: true,
     trigger: 'blur',
     validator: (_rule: any, value: string) => {
-      if (value !== pwdForm.value.newPassword) return new Error('两次输入的密码不一致，请重新输入')
+      if (value !== pwdForm.value.newPassword) return new Error(t('login.passwordMismatch'))  // FIXED: 原问题-中文硬编码，改用i18n
       return true
     },
   },
@@ -188,13 +189,23 @@ async function handleChangePassword() {
   changingPwd.value = true
   try {
     await authApi.changePassword(pwdForm.value.oldPassword, pwdForm.value.newPassword)
-    message.success('密码修改成功')
+    message.success(t('login.passwordChanged'))  // FIXED: 原问题-中文硬编码，改用i18n
     auth.mustChangePassword = false
     sessionStorage.setItem('edgelite_mustChangePassword', 'false')
     showChangePwd.value = false
+    // FIXED: 原问题-修改密码成功后未重新登录获取新token，若后端使旧token失效则后续请求401
+    const newPassword = pwdForm.value.newPassword
     pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+    try {
+      await auth.login(auth.username, newPassword)
+    } catch {
+      // FIXED: 原问题-重新登录失败时静默登出无提示，用户不知道为何被踢出
+      message.error(t('login.passwordChangeFailed'))
+      await auth.logout()
+      router.push('/login')
+    }
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '修改失败')
+    message.error(e?.response?.data?.detail || e?.message || t('login.passwordChangeFailed'))  // FIXED: 原问题-中文硬编码，改用i18n
   } finally {
     changingPwd.value = false
   }
@@ -209,79 +220,83 @@ const currentRoute = computed(() => {
   if (name === 'DeviceDetail') return 'Devices'
   return name
 })
-const currentTitle = computed(() => {
-  const titles: Record<string, string> = {
-    Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
-    Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
-    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态',
-    DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
-    PreprocessConfig: '数据预处理',
-    System: '系统管理', Users: '用户管理',
-    AuditLog: '审计日志',
-    OtaUpdate: 'OTA升级', GrafanaDashboard: 'Grafana监控', McpServer: 'MCP Server',
-    MqttServer: 'MQTT Server', ModbusSlave: 'Modbus Slave', SerialBridge: '串口透传',
-    ServiceOverview: '服务总览',
+const currentTitle = computed(() => {  // FIXED: 原问题-中文硬编码，改用i18n
+  const titleKeys: Record<string, string> = {
+    Dashboard: 'nav.dashboard', Devices: 'nav.devices', DeviceDetail: 'nav.deviceDetail',
+    Rules: 'nav.rules', Alarms: 'nav.alarms', DataQuery: 'nav.dataQuery',
+    DigitalTwin: 'nav.digitalTwin', ScadaEditor: 'nav.scadaEditor',
+    DriverConfig: 'nav.driverConfig', PlatformConfig: 'nav.platformConfig', ExpressionConfig: 'nav.expressionConfig',
+    PreprocessConfig: 'nav.preprocessConfig',
+    System: 'nav.system', Users: 'nav.users',
+    AuditLog: 'nav.auditLog',
+    OtaUpdate: 'nav.otaUpdate', GrafanaDashboard: 'nav.grafanaDashboard', McpServer: 'nav.mcpServer',
+    MqttServer: 'nav.mqttServer', ModbusSlave: 'nav.modbusSlave', SerialBridge: 'nav.serialBridge',
+    ServiceOverview: 'nav.serviceOverview',
   }
-  return titles[route.name as string] || 'EdgeLiteGateway'
+  const key = titleKeys[route.name as string]
+  return key ? t(key) : 'EdgeLiteGateway'
 })
 
-const breadcrumbItems = computed(() => {
-  const titleMap: Record<string, string> = {
-    Dashboard: '仪表盘', Devices: '设备管理', DeviceDetail: '设备详情',
-    Rules: '规则管理', Alarms: '告警中心', DataQuery: '数据查询',
-    DigitalTwin: '3D数字孪生', ScadaEditor: 'Web组态',
-    DriverConfig: '驱动配置', PlatformConfig: '平台对接', ExpressionConfig: '计算表达式',
-    PreprocessConfig: '数据预处理',
-    System: '系统管理', Users: '用户管理', AuditLog: '审计日志',
-    OtaUpdate: 'OTA升级', GrafanaDashboard: 'Grafana监控', McpServer: 'MCP Server',
-    MqttServer: 'MQTT Server', ModbusSlave: 'Modbus Slave', SerialBridge: '串口透传',
-    ServiceOverview: '服务总览',
+const breadcrumbItems = computed(() => {  // FIXED: 原问题-中文硬编码，改用i18n
+  const titleKeys: Record<string, string> = {
+    Dashboard: 'nav.dashboard', Devices: 'nav.devices', DeviceDetail: 'nav.deviceDetail',
+    Rules: 'nav.rules', Alarms: 'nav.alarms', DataQuery: 'nav.dataQuery',
+    DigitalTwin: 'nav.digitalTwin', ScadaEditor: 'nav.scadaEditor',
+    DriverConfig: 'nav.driverConfig', PlatformConfig: 'nav.platformConfig', ExpressionConfig: 'nav.expressionConfig',
+    PreprocessConfig: 'nav.preprocessConfig',
+    System: 'nav.system', Users: 'nav.users', AuditLog: 'nav.auditLog',
+    OtaUpdate: 'nav.otaUpdate', GrafanaDashboard: 'nav.grafanaDashboard', McpServer: 'nav.mcpServer',
+    MqttServer: 'nav.mqttServer', ModbusSlave: 'nav.modbusSlave', SerialBridge: 'nav.serialBridge',
+    ServiceOverview: 'nav.serviceOverview',
   }
   return route.matched
     .filter(r => r.name)
-    .map(r => ({ path: r.path, title: titleMap[r.name as string] || (r.name as string) }))
+    .map(r => {
+      const key = titleKeys[r.name as string]
+      return { path: r.path, title: key ? t(key) : (r.name as string) }
+    })
 })
 
-const roleLabel = computed(() => ({ admin: '管理员', operator: '操作员', viewer: '观察者' }[auth.role] || auth.role))
+const roleLabel = computed(() => ({ admin: t('role.admin'), operator: t('role.operator'), viewer: t('role.viewer') }[auth.role] || auth.role))  // FIXED: 原问题-中文硬编码，改用i18n
 const roleType = computed(() => ({ admin: 'error', operator: 'warning', viewer: 'info' }[auth.role] || 'default') as any)
 
 const renderIcon = (icon: any) => () => h(NIcon, { component: icon, size: 18 })
 
-const allMenuOptions = [
-  { label: '仪表盘', key: 'Dashboard', icon: renderIcon(SpeedometerOutline) },
-  { label: '设备管理', key: 'Devices', icon: renderIcon(HardwareChip) },
-  { label: '规则管理', key: 'Rules', icon: renderIcon(SettingsOutline) },
-  { label: '告警中心', key: 'Alarms', icon: renderIcon(AlertCircleOutline) },
-  { label: '数据查询', key: 'DataQuery', icon: renderIcon(StatsChartOutline) },
+const allMenuOptions = [  // FIXED: 原问题-中文硬编码，改用i18n
+  { label: t('nav.dashboard'), key: 'Dashboard', icon: renderIcon(SpeedometerOutline) },
+  { label: t('nav.devices'), key: 'Devices', icon: renderIcon(HardwareChip) },
+  { label: t('nav.rules'), key: 'Rules', icon: renderIcon(SettingsOutline) },
+  { label: t('nav.alarms'), key: 'Alarms', icon: renderIcon(AlertCircleOutline) },
+  { label: t('nav.dataQuery'), key: 'DataQuery', icon: renderIcon(StatsChartOutline) },
   {
-    label: '可视化', key: 'visual-group', icon: renderIcon(CubeOutline),
+    label: t('nav.visualGroup'), key: 'visual-group', icon: renderIcon(CubeOutline),
     children: [
-      { label: '数字孪生', key: 'DigitalTwin', icon: renderIcon(CubeOutline) },
-      { label: '组态编辑', key: 'ScadaEditor', icon: renderIcon(BuildOutline) },
+      { label: t('nav.digitalTwinMenu'), key: 'DigitalTwin', icon: renderIcon(CubeOutline) },
+      { label: t('nav.scadaEditorMenu'), key: 'ScadaEditor', icon: renderIcon(BuildOutline) },
     ],
   },
   {
-    label: '服务管理', key: 'service-group', icon: renderIcon(RadioOutline), adminOnly: true,
+    label: t('nav.serviceGroup'), key: 'service-group', icon: renderIcon(RadioOutline), adminOnly: true,
     children: [
-      { label: '服务总览', key: 'ServiceOverview', icon: renderIcon(RadioOutline) },
-      { label: 'MQTT Server', key: 'MqttServer', icon: renderIcon(RadioOutline) },
-      { label: 'Modbus Slave', key: 'ModbusSlave', icon: renderIcon(PowerOutline) },
-      { label: '串口透传', key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
-      { label: 'Grafana监控', key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
-      { label: 'MCP Server', key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
+      { label: t('nav.serviceOverview'), key: 'ServiceOverview', icon: renderIcon(RadioOutline) },
+      { label: t('nav.mqttServer'), key: 'MqttServer', icon: renderIcon(RadioOutline) },
+      { label: t('nav.modbusSlave'), key: 'ModbusSlave', icon: renderIcon(PowerOutline) },
+      { label: t('nav.serialBridge'), key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
+      { label: t('nav.grafanaDashboard'), key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
+      { label: t('nav.mcpServer'), key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
     ],
   },
   {
-    label: '系统配置', key: 'system-group', icon: renderIcon(ServerOutline), adminOnly: true,
+    label: t('nav.systemGroup'), key: 'system-group', icon: renderIcon(ServerOutline), adminOnly: true,
     children: [
-      { label: '系统管理', key: 'System', icon: renderIcon(ServerOutline) },
-      { label: '驱动配置', key: 'DriverConfig', icon: renderIcon(PulseOutline) },
-      { label: '平台对接', key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
-      { label: '计算表达式', key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
-      { label: '数据预处理', key: 'PreprocessConfig', icon: renderIcon(PulseOutline) },
-      { label: '审计日志', key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
-      { label: '用户管理', key: 'Users', icon: renderIcon(PeopleOutline) },
-      { label: 'OTA升级', key: 'OtaUpdate', icon: renderIcon(RocketOutline) },
+      { label: t('nav.system'), key: 'System', icon: renderIcon(ServerOutline) },
+      { label: t('nav.driverConfig'), key: 'DriverConfig', icon: renderIcon(PulseOutline) },
+      { label: t('nav.platformConfig'), key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
+      { label: t('nav.expressionConfig'), key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
+      { label: t('nav.preprocessConfig'), key: 'PreprocessConfig', icon: renderIcon(PulseOutline) },
+      { label: t('nav.auditLog'), key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
+      { label: t('nav.users'), key: 'Users', icon: renderIcon(PeopleOutline) },
+      { label: t('nav.otaUpdate'), key: 'OtaUpdate', icon: renderIcon(RocketOutline) },
     ],
   },
 ]
@@ -291,9 +306,9 @@ const menuOptions = computed(() => {
   return allMenuOptions.filter(item => !(item as any).adminOnly)
 })
 
-const userOptions = [
-  { label: '修改密码', key: 'changePassword', icon: renderIcon(DocumentTextOutline) },
-  { label: '退出登录', key: 'logout', icon: renderIcon(LogOutOutline) },
+const userOptions = [  // FIXED: 原问题-中文硬编码，改用i18n
+  { label: t('nav.changePassword'), key: 'changePassword', icon: renderIcon(DocumentTextOutline) },
+  { label: t('nav.logout'), key: 'logout', icon: renderIcon(LogOutOutline) },
 ]
 
 function handleMenuClick(key: string) { router.push({ name: key }) }
@@ -303,11 +318,11 @@ function handleUserSelect(key: string) {
     pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     showChangePwd.value = true
   } else if (key === 'logout') {
-    dialog.warning({
-      title: '确认退出',
-      content: '确定要退出登录吗？',
-      positiveText: '退出',
-      negativeText: '取消',
+    dialog.warning({  // FIXED: 原问题-中文硬编码，改用i18n
+      title: t('nav.logoutConfirmTitle'),
+      content: t('nav.logoutConfirmContent'),
+      positiveText: t('nav.logoutConfirmBtn'),
+      negativeText: t('common.cancel'),
       onPositiveClick: async () => { await auth.logout(); router.push('/login') },
     })
   }

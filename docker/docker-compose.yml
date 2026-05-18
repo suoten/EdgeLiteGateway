@@ -12,11 +12,12 @@ services:
       - ../logs:/app/logs
     environment:
       - EDGELITE_INFLUXDB__URL=http://influxdb:8086
-      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:?请在.env中设置INFLUXDB_TOKEN}
+      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-edgelite-dev-token-change-in-production}
       - EDGELITE_MQTT__BROKER=mosquitto
-      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:-}
+      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:-edgelite-dev-secret-key-change-in-production}
       - EDGELITE_SERVER__HOST=0.0.0.0
       - EDGELITE_SERVER__PORT=8080
+      - EDGELITE_SERVER__CORS_ORIGINS=http://localhost:8080;http://localhost:3000
     depends_on:
       influxdb:
         condition: service_healthy
@@ -35,6 +36,8 @@ services:
   frontend:
     image: nginx:alpine
     container_name: edgelite-frontend
+    profiles:
+      - nginx
     ports:
       - "3000:80"
     volumes:
@@ -62,10 +65,10 @@ services:
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:?请在.env中设置INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-edgelite-admin-2024}
       - DOCKER_INFLUXDB_INIT_ORG=edgelite
       - DOCKER_INFLUXDB_INIT_BUCKET=edgelite
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:?请在.env中设置INFLUXDB_TOKEN}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-edgelite-dev-token-change-in-production}
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 10s

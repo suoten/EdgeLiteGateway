@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -9,6 +10,8 @@ from typing import Any, Literal
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class ServerConfig(BaseModel):
@@ -295,10 +298,10 @@ def _load_env_overrides() -> dict[str, Any]:
     """从环境变量加载配置覆盖（EDGELITE_前缀，双下划线分隔层级）
 
     格式：EDGELITE_<SECTION>__<KEY>  或  EDGELITE_<SECTION>__<SUB>__<KEY>
+    分号分隔的值会自动转为列表（如 CORS_ORIGINS=http://a;http://b -> ["http://a","http://b"]）
     示例：EDGELITE_SERVER__HOST -> server.host
-          EDGELITE_MQTT_SERVER__PORT -> mqtt_server.port
+          EDGELITE_SERVER__CORS_ORIGINS=http://a;http://b -> server.cors_origins = ["http://a","http://b"]
           EDGELITE_VIDEO__PYGBSENTRY__ENDPOINT -> video.pygbsentry.endpoint
-          EDGELITE_NOTIFY__DINGTALK__WEBHOOK_URL -> notify.dingtalk.webhook_url
     """
     overrides: dict[str, Any] = {}
     prefix = "EDGELITE_"
@@ -306,6 +309,8 @@ def _load_env_overrides() -> dict[str, Any]:
         if not key.startswith(prefix):
             continue
         raw = key[len(prefix) :]
+        if ";" in value:
+            value = [v.strip() for v in value.split(";") if v.strip()]
         if "__" in raw:
             parts = raw.lower().split("__")
             d = overrides

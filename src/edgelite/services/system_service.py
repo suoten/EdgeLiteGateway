@@ -16,6 +16,7 @@ except ImportError:
     psutil = None
 
 from edgelite.config import get_config
+from edgelite.constants import _DEFAULT_PAGE_SIZE, _EXPORT_QUERY_SIZE
 from edgelite.engine.scheduler import CollectScheduler
 from edgelite.storage.database import Database
 from edgelite.storage.sqlite_repo import AlarmRepo, DeviceRepo, RuleRepo, UserRepo
@@ -120,7 +121,7 @@ class SystemService:
             await self._database.backup(str(backup_file))
         except Exception as e:
             logger.error("数据库备份失败: %s", e)
-            raise RuntimeError(f"数据库备份失败: {e}") from e
+            raise RuntimeError(f"Database backup failed: {e}") from e  # FIXED: 原问题-中文硬编码错误消息
 
         json_file = backup_dir / f"backup_{timestamp}.json"
         try:
@@ -129,7 +130,7 @@ class SystemService:
                 json.dump(backup_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error("配置导出失败: %s", e)
-            raise RuntimeError(f"配置导出失败: {e}") from e
+            raise RuntimeError(f"Config export failed: {e}") from e  # FIXED: 原问题-中文硬编码错误消息
 
         return {
             "backup_id": timestamp,
@@ -159,10 +160,10 @@ class SystemService:
                     "size": size,
                 }
             )
-        return backups[:20]  # 最多返回20个
+        return backups[:_DEFAULT_PAGE_SIZE]  # FIXED: 原问题-backups[:20]魔法数字
 
     async def restore_backup(self, backup_id: str) -> bool:
-        """从备份恢复配置"""
+        """从备份恢复配置"""  # FIXED: 原问题-恢复功能为空壳，仅验证文件可读但无实际恢复逻辑
         config = get_config()
         backup_dir = Path(config.database.backup_dir)
         json_file = backup_dir / f"backup_{backup_id}.json"
@@ -170,22 +171,56 @@ class SystemService:
         if not json_file.exists():
             return False
 
-        # FIXED: 文件读取无异常保护
         try:
             with open(json_file, encoding="utf-8") as f:
-                json.load(f)
+                backup_data = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
-            logger.error("备份文件读取失败: %s", e)
-            raise RuntimeError(f"备份文件损坏或无法读取: {e}") from e
+            logger.error("Backup file read failed: %s", e)
+            raise RuntimeError(f"Backup file corrupted or unreadable: {e}") from e
 
-        logger.info("配置恢复请求: %s (需重启生效)", backup_id)
+        restored_counts = {}
+        try:
+            devices_data = backup_data.get("devices", [])
+            if devices_data:
+                for dev in devices_data:
+                    existing = await self._device_repo.get_by_id(dev.get("device_id", ""))
+                    if existing:
+                        await self._device_repo.update(dev["device_id"], dev)
+                    else:
+                        await self._device_repo.create(dev)
+                restored_counts["devices"] = len(devices_data)
+
+            rules_data = backup_data.get("rules", [])
+            if rules_data:
+                for rule in rules_data:
+                    existing = await self._rule_repo.get_by_id(rule.get("rule_id", ""))
+                    if existing:
+                        await self._rule_repo.update(rule["rule_id"], rule)
+                    else:
+                        await self._rule_repo.create(rule)
+                restored_counts["rules"] = len(rules_data)
+
+            users_data = backup_data.get("users", [])
+            if users_data:
+                for user in users_data:
+                    existing = await self._user_repo.get_by_id(user.get("user_id", ""))
+                    if existing:
+                        await self._user_repo.update(user["user_id"], user)
+                    else:
+                        await self._user_repo.create(user)
+                restored_counts["users"] = len(users_data)
+        except Exception as e:
+            logger.error("Restore backup data failed: %s", e)
+            raise RuntimeError(f"Restore failed: {e}") from e
+
+        logger.info("Config restored from backup %s: %s (restart recommended)", backup_id, restored_counts)
         return True
 
     async def _export_all_config(self) -> dict:
         """导出全量配置为JSON"""
-        devices, _ = await self._device_repo.list_all(page=1, size=10000)
-        rules, _ = await self._rule_repo.list_all(page=1, size=10000)
-        users, _ = await self._user_repo.list_all(page=1, size=10000)
+        devices, _ = await self._device_repo.list_all(page=1, size=_EXPORT_QUERY_SIZE)  # FIXED: 原问题-size=10000魔法数字
+        rules, _ = await self._rule_repo.list_all(page=1, size=_EXPORT_QUERY_SIZE)
+        users, _ = await self._user_repo.list_all(page=1, size=_EXPORT_QUERY_SIZE)
 
         return {
             "version": "1.0.0",

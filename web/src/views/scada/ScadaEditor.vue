@@ -1,37 +1,37 @@
 <template>
-  <n-spin :show="pageLoading" description="加载组态项目...">
+  <n-spin :show="pageLoading" :description="t('scada.loading')">
   <div class="scada-page">
     <div class="scada-header">
       <div class="header-left">
-        <span class="header-title">Web 组态 (SCADA)</span>
-        <n-tag v-if="previewMode" type="warning" size="small" round>预览模式</n-tag>
+        <span class="header-title">{{ t('scada.title') }}</span>
+        <n-tag v-if="previewMode" type="warning" size="small" round>{{ t('scada.previewMode') }}</n-tag>
       </div>
       <div class="header-actions">
-        <n-button size="small" quaternary style="color: #fff" @click="showHelp = true">使用说明</n-button>
+        <n-button size="small" quaternary style="color: #fff" @click="showHelp = true">{{ t('scada.instructions') }}</n-button>
         <n-button-group size="small">
-          <n-button quaternary style="color: #fff" @click="undo" :disabled="historyIndex <= 0">↩ 撤销</n-button>
-          <n-button quaternary style="color: #fff" @click="redo" :disabled="historyIndex >= historyStack.length - 1">↪ 重做</n-button>
+          <n-button quaternary style="color: #fff" @click="undo" :disabled="historyIndex <= 0">↩ {{ t('scada.undo') }}</n-button>
+            <n-button quaternary style="color: #fff" @click="redo" :disabled="historyIndex >= historyStack.length - 1">↪ {{ t('scada.redo') }}</n-button>
         </n-button-group>
         <n-button size="small" :type="previewMode ? 'warning' : 'default'" style="color: #fff" @click="previewMode = !previewMode">
-          {{ previewMode ? '退出预览' : '▶ 预览' }}
+          {{ previewMode ? t('scada.exitPreview') : '▶ ' + t('scada.preview') }}
         </n-button>
-        <n-button size="small" type="primary" @click="saveProject">💾 保存</n-button>
-        <n-button size="small" style="color: #fff" @click="loadProject">📂 加载</n-button>
-        <n-button size="small" quaternary style="color: #fff" @click="exportAsImage">🖼 导出图片</n-button>
+        <n-button size="small" type="primary" @click="saveProject">💾 {{ t('scada.save') }}</n-button>
+        <n-button size="small" style="color: #fff" @click="loadProject">📂 {{ t('scada.load') }}</n-button>
+        <n-button size="small" quaternary style="color: #fff" @click="exportAsImage">🖼 {{ t('scada.exportImage') }}</n-button>
       </div>
     </div>
 
     <div class="scada-body">
       <div v-if="!previewMode" class="toolbox">
-        <div class="toolbox-title">组件</div>
+        <div class="toolbox-title">{{ t('scada.components') }}</div>
         <div class="toolbox-items">
           <div v-for="comp in componentTypes" :key="comp.type" class="toolbox-item" @click="addWidgetManual(comp.type)">
             <div class="tb-icon" :style="{ background: comp.color }">{{ comp.icon }}</div>
             <div class="tb-label">{{ comp.label }}</div>
           </div>
         </div>
-        <div class="toolbox-title" style="margin-top: 16px">设备</div>
-        <n-input v-model:value="deviceSearch" placeholder="搜索设备" size="tiny" clearable style="margin-bottom: 6px" />
+        <div class="toolbox-title" style="margin-top: 16px">{{ t('scada.devices') }}</div>
+        <n-input v-model:value="deviceSearch" :placeholder="t('scada.searchDevices')" size="tiny" clearable style="margin-bottom: 6px" />
         <div class="device-tree">
           <div v-for="d in filteredDevices" :key="d.device_id" class="dt-device" @click="onSelectDevice(d)">
             <div :class="['dt-device-header', { active: expandedDevice === d.device_id }]">
@@ -43,7 +43,7 @@
                 <span>{{ pt.name }}</span>
                 <n-button size="tiny" type="primary" quaternary>+</n-button>
               </div>
-              <div v-if="!currentDevicePoints.length" class="dt-empty">无数据点</div>
+              <div v-if="!currentDevicePoints.length" class="dt-empty">{{ t('scada.noPoints') }}</div>
             </div>
           </div>
         </div>
@@ -52,9 +52,9 @@
       <div class="canvas-area" ref="canvasAreaRef">
         <div v-if="!previewMode" class="canvas-toolbar">
           <n-button-group size="tiny">
-            <n-button style="color: #fff" @click="zoom = Math.min(zoom + 0.1, 2)">放大</n-button>
+            <n-button style="color: #fff" @click="zoom = Math.min(zoom + 0.1, 2)">{{ t('scada.zoomIn') }}</n-button>
             <n-button style="color: #fff; cursor: default; background: transparent; border-color: #1a2a3a;">{{ Math.round(zoom * 100) }}%</n-button>
-            <n-button style="color: #fff" @click="zoom = Math.max(zoom - 0.1, 0.3)">缩小</n-button>
+            <n-button style="color: #fff" @click="zoom = Math.max(zoom - 0.1, 0.3)">{{ t('scada.zoomOut') }}</n-button>
           </n-button-group>
         </div>
         <div
@@ -66,7 +66,7 @@
         >
           <div v-if="widgets.length === 0" class="empty-hint">
             <div class="empty-icon">📊</div>
-            <div class="empty-text">从左侧选择设备数据点，或点击组件添加</div>
+            <div class="empty-text">{{ t('scada.selectHint') }}</div>
           </div>
           <div
             v-for="widget in widgets" :key="widget.id"
@@ -99,7 +99,7 @@
             <div v-else-if="widget.type === 'switch'" class="w-switch">
               <div class="sw-label">{{ widget.label }}</div>
               <n-switch v-model:value="widget.value" @update:value="v => onSwitchChange(widget, v)" :disabled="!previewMode" />
-              <div :class="['sw-status', { on: widget.value }]">{{ widget.value ? '已开启' : '已关闭' }}</div>
+              <div :class="['sw-status', { on: widget.value }]">{{ widget.value ? t('scada.on') : t('scada.off') }}</div>
             </div>
             <div v-else-if="widget.type === 'tank'" class="w-tank">
               <div class="tank-body">
@@ -121,45 +121,45 @@
       </div>
 
       <div v-if="!previewMode && selectedWidgetId" class="props-panel">
-        <div class="props-title">属性</div>
+        <div class="props-title">{{ t('scada.properties') }}</div>
         <div class="props-body">
-          <div class="prop-row"><span class="prop-label">类型</span><span class="prop-val">{{ componentTypes.find(c => c.type === editForm.type)?.label }}</span></div>
-          <div class="prop-row"><span class="prop-label">标签</span><n-input v-model:value="editForm.label" size="tiny" @update:value="applyProp" /></div>
-          <div class="prop-row"><span class="prop-label">设备</span><n-select v-model:value="editForm.deviceId" :options="deviceOptions" size="tiny" placeholder="选择设备" clearable @update:value="onEditDeviceChange" /></div>
-          <div class="prop-row"><span class="prop-label">数据点</span><n-select v-model:value="editForm.pointName" :options="editPointOptions" size="tiny" placeholder="选择数据点" clearable @update:value="applyProp" /></div>
+          <div class="prop-row"><span class="prop-label">{{ t('scada.type') }}</span><span class="prop-val">{{ componentTypes.find(c => c.type === editForm.type)?.label }}</span></div>
+          <div class="prop-row"><span class="prop-label">{{ t('scada.label') }}</span><n-input v-model:value="editForm.label" size="tiny" @update:value="applyProp" /></div>
+            <div class="prop-row"><span class="prop-label">{{ t('scada.device') }}</span><n-select v-model:value="editForm.deviceId" :options="deviceOptions" size="tiny" :placeholder="t('scada.selectDevice')" clearable @update:value="onEditDeviceChange" /></div>
+            <div class="prop-row"><span class="prop-label">{{ t('scada.point') }}</span><n-select v-model:value="editForm.pointName" :options="editPointOptions" size="tiny" :placeholder="t('scada.selectPoint')" clearable @update:value="applyProp" /></div>
           <template v-if="editForm.type === 'gauge' || editForm.type === 'tank'">
-            <div class="prop-row"><span class="prop-label">最小值</span><n-input-number v-model:value="editForm.min" size="tiny" @update:value="applyProp" /></div>
-            <div class="prop-row"><span class="prop-label">最大值</span><n-input-number v-model:value="editForm.max" size="tiny" @update:value="applyProp" /></div>
-            <div class="prop-row"><span class="prop-label">单位</span><n-input v-model:value="editForm.unit" size="tiny" placeholder="℃ MPa %" @update:value="applyProp" /></div>
+            <div class="prop-row"><span class="prop-label">{{ t('scada.minValue') }}</span><n-input-number v-model:value="editForm.min" size="tiny" @update:value="applyProp" /></div>
+              <div class="prop-row"><span class="prop-label">{{ t('scada.maxValue') }}</span><n-input-number v-model:value="editForm.max" size="tiny" @update:value="applyProp" /></div>
+            <div class="prop-row"><span class="prop-label">{{ t('scada.unit') }}</span><n-input v-model:value="editForm.unit" size="tiny" placeholder="℃ MPa %" @update:value="applyProp" /></div>
           </template>
-          <div class="prop-row"><span class="prop-label">宽度</span><n-input-number v-model:value="editForm.w" size="tiny" :min="60" :step="10" @update:value="applyProp" /></div>
-          <div class="prop-row"><span class="prop-label">高度</span><n-input-number v-model:value="editForm.h" size="tiny" :min="40" :step="10" @update:value="applyProp" /></div>
+          <div class="prop-row"><span class="prop-label">{{ t('scada.width') }}</span><n-input-number v-model:value="editForm.w" size="tiny" :min="60" :step="10" @update:value="applyProp" /></div>
+            <div class="prop-row"><span class="prop-label">{{ t('scada.height') }}</span><n-input-number v-model:value="editForm.h" size="tiny" :min="60" :step="10" @update:value="applyProp" /></div>
         </div>
       </div>
     </div>
 
-    <n-modal v-model:show="showHelp" preset="card" title="Web 组态使用说明" style="width: 520px">
+    <n-modal v-model:show="showHelp" preset="card" :title="t('scada.helpTitle')" style="width: 520px">  <!-- FIXED: 原问题-中文硬编码 -->
       <n-space vertical>
-        <n-alert type="info" title="什么是 Web 组态？">Web 组态（SCADA）是一种可视化监控界面，将设备实时数据以仪表盘、指示灯、趋势图等形式展示。</n-alert>
+        <n-alert type="info" :title="t('scada.whatIsScada')">{{ t('scada.whatIsScadaDesc') }}</n-alert>  <!-- FIXED: 原问题-中文硬编码 -->
         <div style="font-size: 14px; line-height: 1.8">
-          <strong>使用步骤：</strong>
+          <strong>{{ t('scada.stepsTitle') }}</strong>  <!-- FIXED: 原问题-中文硬编码 -->
           <ol style="padding-left: 20px; margin: 8px 0">
-            <li>在左侧设备列表中展开设备，点击数据点的「+」按钮</li>
-            <li>或点击组件图标手动添加组件</li>
-            <li>拖拽组件到合适位置，拖拽右下角调整大小</li>
-            <li>选中组件后在右侧属性面板修改配置</li>
-            <li>点击「预览」查看实时数据效果</li>
-            <li>点击「保存」将组态保存到本地</li>
+            <li>{{ t('scada.step1') }}</li>  <!-- FIXED: 原问题-中文硬编码 -->
+            <li>{{ t('scada.step2') }}</li>  <!-- FIXED: 原问题-中文硬编码 -->
+            <li>{{ t('scada.step3') }}</li>  <!-- FIXED: 原问题-中文硬编码 -->
+            <li>{{ t('scada.step4') }}</li>  <!-- FIXED: 原问题-中文硬编码 -->
+            <li>{{ t('scada.step5') }}</li>  <!-- FIXED: 原问题-中文硬编码 -->
+            <li>{{ t('scada.step6') }}</li>  <!-- FIXED: 原问题-中文硬编码 -->
           </ol>
-          <strong>快捷键：</strong>
+          <strong>{{ t('scada.shortcutsTitle') }}</strong>  <!-- FIXED: 原问题-中文硬编码 -->
           <table style="width: 100%; margin-top: 4px; font-size: 13px">
-            <tr><td style="color: #4fc3f7; width: 140px">Ctrl + Z</td><td>撤销</td></tr>
-            <tr><td style="color: #4fc3f7">Ctrl + Y</td><td>重做</td></tr>
-            <tr><td style="color: #4fc3f7">Ctrl + C</td><td>复制组件</td></tr>
-            <tr><td style="color: #4fc3f7">Ctrl + V</td><td>粘贴组件</td></tr>
-            <tr><td style="color: #4fc3f7">Ctrl + D</td><td>复制并偏移</td></tr>
-            <tr><td style="color: #4fc3f7">Ctrl + S</td><td>保存项目</td></tr>
-            <tr><td style="color: #4fc3f7">Delete</td><td>删除选中组件</td></tr>
+            <tr><td style="color: #4fc3f7; width: 140px">Ctrl + Z</td><td>{{ t('scada.undo') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
+            <tr><td style="color: #4fc3f7">Ctrl + Y</td><td>{{ t('scada.redo') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
+            <tr><td style="color: #4fc3f7">Ctrl + C</td><td>{{ t('scada.copyComponent') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
+            <tr><td style="color: #4fc3f7">Ctrl + V</td><td>{{ t('scada.pasteComponent') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
+            <tr><td style="color: #4fc3f7">Ctrl + D</td><td>{{ t('scada.duplicateComponent') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
+            <tr><td style="color: #4fc3f7">Ctrl + S</td><td>{{ t('scada.saveProject') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
+            <tr><td style="color: #4fc3f7">Delete</td><td>{{ t('scada.deleteSelected') }}</td></tr>  <!-- FIXED: 原问题-中文硬编码 -->
           </table>
         </div>
       </n-space>
@@ -183,6 +183,9 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, scadaApi } from '@/api'
 import { protocolLabel } from '@/utils/enumLabels'
+import { t } from '@/i18n'  // FIXED: 原问题-#注释导致编译失败，改为//注释
+
+// FIXED: 原问题-ScadaEditor.vue全部中文硬编码，改为i18n
 
 use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -241,7 +244,7 @@ function redo() {
 function copyWidget() {
   if (!selectedWidgetId.value) return
   const w = widgets.value.find(w => w.id === selectedWidgetId.value)
-  if (w) { clipboard = { ...w }; message.success('已复制组件') }
+  if (w) { clipboard = { ...w }; message.success(t('scada.copied')) }  // FIXED: 原问题-中文硬编码
 }
 
 function pasteWidget() {
@@ -251,7 +254,7 @@ function pasteWidget() {
   widgets.value.push(newWidget)
   selectedWidgetId.value = widgetIdCounter
   pushHistory()
-  message.success('已粘贴组件')
+  message.success(t('scada.pasted'))  // FIXED: 原问题-中文硬编码
 }
 
 function duplicateWidget() {
@@ -326,13 +329,13 @@ function onKeyDown(e: KeyboardEvent) {
   else if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveProject() }
 }
 
-const componentTypes = [
-  { type: 'gauge', label: '仪表盘', icon: '📊', color: '#18a058' },
-  { type: 'indicator', label: '指示灯', icon: '💡', color: '#f0c040' },
-  { type: 'chart', label: '趋势图', icon: '📈', color: '#667eea' },
-  { type: 'switch', label: '控制开关', icon: '🔌', color: '#e8804c' },
-  { type: 'tank', label: '液位罐', icon: '🛢️', color: '#4fc3f7' },
-  { type: 'label', label: '文本标签', icon: '🏷️', color: '#90a4ae' },
+const componentTypes = [  // FIXED: 原问题-中文硬编码
+  { type: 'gauge', label: t('scada.gauge'), icon: '📊', color: '#18a058' },
+  { type: 'indicator', label: t('scada.indicator'), icon: '💡', color: '#f0c040' },
+  { type: 'chart', label: t('scada.chart'), icon: '📈', color: '#667eea' },
+  { type: 'switch', label: t('scada.switchCtrl'), icon: '🔌', color: '#e8804c' },
+  { type: 'tank', label: t('scada.tank'), icon: '🛢️', color: '#4fc3f7' },
+  { type: 'label', label: t('scada.textLabel'), icon: '🏷️', color: '#90a4ae' },
 ]
 
 const filteredDevices = computed(() => {
@@ -421,7 +424,7 @@ async function fetchDevices() {
     const data = await deviceApi.list({ page: 1, size: 200 })
     devices.value = data?.data ?? []
   } catch {
-    message.warning('获取设备列表失败')
+    message.warning(t('scada.fetchDevicesFailed'))  // FIXED: 原问题-中文硬编码
   }
 }
 
@@ -489,7 +492,7 @@ function addWidgetFromPoint(pt: any) {
     value: pointValues.value[device.device_id]?.[pt.name]?.value ?? (isBool ? false : 0),
   })
   pushHistory()
-  message.success(`已添加「${pt.name}」`)
+  message.success(t('scada.addedPoint', { name: pt.name }))  // FIXED: 原问题-中文硬编码
 }
 
 function addWidgetManual(type: string) {
@@ -508,11 +511,11 @@ function addWidgetManual(type: string) {
 
 function removeWidget(id: number) {
   const widget = widgets.value.find(w => w.id === id)
-  dialog.warning({
-    title: '确认删除',
-    content: `确定要删除组件「${widget?.label || id}」吗？`,
-    positiveText: '确认删除',
-    negativeText: '取消',
+  dialog.warning({  // FIXED: 原问题-中文硬编码
+    title: t('scada.confirmDelete'),
+    content: t('scada.confirmDeleteContent', { name: widget?.label || String(id) }),
+    positiveText: t('scada.confirmDelete'),
+    negativeText: t('scada.cancel'),
     onPositiveClick: () => {
       widgets.value = widgets.value.filter(w => w.id !== id)
       chartData.value.delete(id)
@@ -539,12 +542,12 @@ function editWidget(widget: any) {
 
 async function onSwitchChange(widget: any, value: boolean) {
   if (widget.deviceId && widget.pointName) {
-    dialog.warning({
-      title: '确认操作', content: `即将向设备「${widget.deviceName || widget.deviceId}」的「${widget.label}」写入 ${value ? '开启' : '关闭'}，此操作将直接影响物理设备，是否继续？`,
-      positiveText: '确认', negativeText: '取消',
+    dialog.warning({  // FIXED: 原问题-中文硬编码
+      title: t('scada.confirmOperation'), content: t('scada.writeConfirmContent', { device: widget.deviceName || widget.deviceId, label: widget.label, action: value ? t('scada.actionOn') : t('scada.actionOff') }),
+      positiveText: t('scada.confirm'), negativeText: t('scada.cancel'),
       onPositiveClick: async () => {
-        try { await deviceApi.writePoint(widget.deviceId, widget.pointName, value); message.success(`已${value ? '开启' : '关闭'} ${widget.label}`) }
-        catch { message.error('操作失败'); widget.value = !value }
+        try { await deviceApi.writePoint(widget.deviceId, widget.pointName, value); message.success(t('scada.operationSuccess', { action: value ? t('scada.actionOn') : t('scada.actionOff'), label: widget.label })) }  // FIXED: 原问题-中文硬编码
+        catch { message.error(t('scada.operationFailed')); widget.value = !value }  // FIXED: 原问题-中文硬编码
       },
       onNegativeClick: () => { widget.value = !value },
     })
@@ -596,11 +599,11 @@ async function saveProject() {
     await scadaApi.saveProject({ name: 'default', widgets: widgets.value })
     localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
     dirty.value = false
-    message.success('项目已保存到服务器')
+    message.success(t('scada.savedToServer'))  // FIXED: 原问题-中文硬编码
   } catch {
     localStorage.setItem('scada-project', JSON.stringify({ widgets: widgets.value }))
     dirty.value = false
-    message.warning('服务器保存失败，已保存到本地')
+    message.warning(t('scada.saveFailedLocal'))  // FIXED: 原问题-中文硬编码
   } finally {
     saving.value = false
   }
@@ -616,8 +619,8 @@ function onFileLoad(e: Event) {
     try {
       const data = JSON.parse(ev.target?.result as string)
       // FIXED: 原问题-data.widgets可能不是数组，添加Array.isArray检查
-      if (Array.isArray(data.widgets) && data.widgets.length) { widgets.value = data.widgets; widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0); message.success(`已加载 ${data.widgets.length} 个组件`) }
-    } catch { message.error('文件格式错误') }
+      if (Array.isArray(data.widgets) && data.widgets.length) { widgets.value = data.widgets; widgetIdCounter = Math.max(...data.widgets.map((w: any) => w.id), 0); message.success(t('scada.loadedComponents', { count: data.widgets.length })) }  // FIXED: 原问题-中文硬编码
+    } catch { message.error(t('scada.fileFormatError')) }  // FIXED: 原问题-中文硬编码
   }
   reader.readAsText(file)
   ;(e.target as HTMLInputElement).value = ''
@@ -665,11 +668,11 @@ watch(widgets, () => { dirty.value = true }, { deep: true })
 
 onBeforeRouteLeave((_to, _from, next) => {
   if (dirty.value) {
-    dialog.warning({
-      title: '未保存的更改',
-      content: '组态项目有未保存的更改，确定要离开吗？',
-      positiveText: '离开',
-      negativeText: '留下',
+    dialog.warning({  // FIXED: 原问题-中文硬编码
+      title: t('scada.unsavedChanges'),
+      content: t('scada.unsavedChangesContent'),
+      positiveText: t('scada.leave'),
+      negativeText: t('scada.stay'),
       onPositiveClick: () => next(),
       onNegativeClick: () => next(false),
     })

@@ -1,47 +1,47 @@
 <template>
   <n-space vertical :size="16">
-    <n-card title="时序数据查询" :bordered="false">
+    <n-card :title="t('dataQuery.title')" :bordered="false">
       <n-space vertical :size="12">
         <n-form inline :model="queryForm" label-placement="left" label-width="80">
-          <n-form-item label="设备">
-            <n-select v-model:value="queryForm.device_id" :options="deviceOptions" placeholder="选择设备" style="width: 200px" filterable />
+          <n-form-item :label="t('dataQuery.device')">
+            <n-select v-model:value="queryForm.device_id" :options="deviceOptions" :placeholder="t('dataQuery.selectDevice')" style="width: 200px" filterable />
           </n-form-item>
-          <n-form-item label="测点">
-            <n-select v-model:value="queryForm.point_name" :options="pointOptions" placeholder="选择测点" style="width: 160px" />
+          <n-form-item :label="t('dataQuery.point')">
+            <n-select v-model:value="queryForm.point_name" :options="pointOptions" :placeholder="t('dataQuery.selectPoint')" style="width: 160px" />
           </n-form-item>
-          <n-form-item label="时间范围">
+          <n-form-item :label="t('dataQuery.timeRange')">
             <n-select v-model:value="queryForm.range" :options="rangeOptions" style="width: 120px" />
           </n-form-item>
-          <n-form-item label="聚合">
-            <n-select v-model:value="queryForm.aggregate" :options="aggregateOptions" placeholder="无" clearable style="width: 120px" />
+          <n-form-item :label="t('dataQuery.aggregate')">
+            <n-select v-model:value="queryForm.aggregate" :options="aggregateOptions" :placeholder="t('dataQuery.none')" clearable style="width: 120px" />
           </n-form-item>
-          <n-button type="primary" @click="handleQuery" :loading="loading">查询</n-button>
-          <n-button @click="handleExport" :loading="exporting">导出 CSV</n-button>
+          <n-button type="primary" @click="handleQuery" :loading="loading">{{ t('dataQuery.query') }}</n-button>
+          <n-button @click="handleExport" :loading="exporting">{{ t('dataQuery.exportCsv') }}</n-button>
         </n-form>
       </n-space>
     </n-card>
 
     <n-grid :cols="2" :x-gap="16">
       <n-gi>
-        <n-card title="数据图表" :bordered="false">
+        <n-card :title="t('dataQuery.chart')" :bordered="false">
           <v-chart :option="chartOption" autoresize style="height: 360px" />
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card title="统计信息" :bordered="false">
+        <n-card :title="t('dataQuery.stats')" :bordered="false">
           <n-descriptions label-placement="left" :column="1" bordered v-if="stats">
-            <n-descriptions-item label="数据点数">{{ stats.count }}</n-descriptions-item>
-            <n-descriptions-item label="最大值">{{ stats.max?.toFixed(4) }}</n-descriptions-item>
-            <n-descriptions-item label="最小值">{{ stats.min?.toFixed(4) }}</n-descriptions-item>
-            <n-descriptions-item label="平均值">{{ stats.avg?.toFixed(4) }}</n-descriptions-item>
-            <n-descriptions-item label="最新值">{{ stats.last?.toFixed(4) }}</n-descriptions-item>
+            <n-descriptions-item :label="t('dataQuery.dataPointCount')">{{ stats.count }}</n-descriptions-item>
+            <n-descriptions-item :label="t('dataQuery.maxValue')">{{ stats.max?.toFixed(4) }}</n-descriptions-item>
+            <n-descriptions-item :label="t('dataQuery.minValue')">{{ stats.min?.toFixed(4) }}</n-descriptions-item>
+            <n-descriptions-item :label="t('dataQuery.avgValue')">{{ stats.avg?.toFixed(4) }}</n-descriptions-item>
+            <n-descriptions-item :label="t('dataQuery.lastValue')">{{ stats.last?.toFixed(4) }}</n-descriptions-item>
           </n-descriptions>
-          <n-empty v-else description="请查询数据" />
+          <n-empty v-else :description="t('dataQuery.pleaseQuery')" />
         </n-card>
       </n-gi>
     </n-grid>
 
-    <n-card title="原始数据" :bordered="false">
+    <n-card :title="t('dataQuery.rawData')" :bordered="false">
       <n-data-table :columns="dataColumns" :data="tableData" :bordered="false" size="small" :pagination="{ pageSize: 50 }" />
     </n-card>
   </n-space>
@@ -56,6 +56,7 @@ import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } fr
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, dataApi, type Device } from '@/api'
+import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
 
@@ -82,23 +83,23 @@ const pointOptions = computed(() => {
 watch(() => queryForm.device_id, () => { queryForm.point_name = '' })
 
 const rangeOptions = [
-  { label: '近1小时', value: '-1h' },
-  { label: '近6小时', value: '-6h' },
-  { label: '近24小时', value: '-24h' },
-  { label: '近7天', value: '-7d' },
-  { label: '近30天', value: '-30d' },
+  { label: t('dataQuery.range1h'), value: '-1h' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.range6h'), value: '-6h' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.range24h'), value: '-24h' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.range7d'), value: '-7d' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.range30d'), value: '-30d' },  // FIXED: 原问题-中文硬编码
 ]
 
 const aggregateOptions = [
-  { label: '均值', value: 'mean' },
-  { label: '最大值', value: 'max' },
-  { label: '最小值', value: 'min' },
-  { label: '最新值', value: 'last' },
-  { label: '最早值', value: 'first' },
-  { label: '求和', value: 'sum' },
-  { label: '计数', value: 'count' },
-  { label: '中位数', value: 'median' },
-  { label: '标准差', value: 'stddev' },
+  { label: t('dataQuery.aggMean'), value: 'mean' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggMax'), value: 'max' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggMin'), value: 'min' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggLast'), value: 'last' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggFirst'), value: 'first' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggSum'), value: 'sum' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggCount'), value: 'count' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggMedian'), value: 'median' },  // FIXED: 原问题-中文硬编码
+  { label: t('dataQuery.aggStddev'), value: 'stddev' },  // FIXED: 原问题-中文硬编码
 ]
 
 const stats = computed(() => {
@@ -131,12 +132,12 @@ const chartOption = computed(() => {
 })
 
 const dataColumns = [
-  { title: '时间', key: 'time', width: 200, render: (r: any) => r.time || r._time || '-' },
-  { title: '值', key: 'value', render: (r: any) => {
+  { title: t('dataQuery.colTime'), key: 'time', width: 200, render: (r: any) => r.time || r._time || '-' },  // FIXED: 原问题-中文硬编码
+  { title: t('dataQuery.colValue'), key: 'value', render: (r: any) => {  // FIXED: 原问题-中文硬编码
     const v = r.value ?? r._value
     return v != null ? (typeof v === 'number' ? v.toFixed(4) : v) : '-'
   }},
-  { title: '质量', key: 'quality', width: 80, render: (r: any) => r.quality || '-' },
+  { title: t('dataQuery.colQuality'), key: 'quality', width: 80, render: (r: any) => r.quality || '-' },  // FIXED: 原问题-中文硬编码
 ]
 
 const tableData = computed(() => [...queryResult.value].reverse())
@@ -146,14 +147,14 @@ async function fetchDevices() {
     const data = await deviceApi.list({ page: 1, size: 100 })
     devices.value = data?.data ?? []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '加载设备列表失败')
+    message.error(e?.response?.data?.detail || t('dataQuery.loadDevicesFailed'))  // FIXED: 原问题-中文硬编码
     devices.value = []
   }
 }
 
 async function handleQuery() {
   if (!queryForm.device_id || !queryForm.point_name) {
-    message.warning('请选择设备和测点')
+    message.warning(t('dataQuery.selectDeviceAndPoint'))  // FIXED: 原问题-中文硬编码
     return
   }
   loading.value = true
@@ -164,10 +165,15 @@ async function handleQuery() {
       start: queryForm.range,
       aggregate: queryForm.aggregate || undefined,
     })
-    queryResult.value = result || []
-    if (!queryResult.value.length) message.info('无数据')
+    // FIXED: 原问题-查询成功但返回空数据时未清空旧数据
+    if (!result || (Array.isArray(result) && result.length === 0)) {
+      queryResult.value = []
+      message.info(t('dataQuery.noData'))
+    } else {
+      queryResult.value = result
+    }
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '查询失败')
+    message.error(e?.response?.data?.detail || e?.message || t('dataQuery.queryFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     loading.value = false
   }
@@ -175,7 +181,7 @@ async function handleQuery() {
 
 async function handleExport() {
   if (!queryForm.device_id || !queryForm.point_name) {
-    message.warning('请先查询数据')
+    message.warning(t('dataQuery.queryFirst'))  // FIXED: 原问题-中文硬编码
     return
   }
   exporting.value = true
@@ -194,7 +200,7 @@ async function handleExport() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '导出失败')
+    message.error(e?.response?.data?.detail || e?.message || t('dataQuery.exportFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     exporting.value = false
   }

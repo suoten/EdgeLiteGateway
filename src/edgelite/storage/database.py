@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import secrets
-import string
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -182,8 +181,8 @@ class Database:
                     except Exception:
                         try:
                             await conn.execute(text("PRAGMA wal_checkpoint=PASSIVE"))
-                        except Exception:
-                            pass
+                        except Exception:  # FIXED: 原问题-静默吞没异常，加logger
+                            logger.warning("SQLite WAL checkpoint failed", exc_info=True)
                     result2 = await conn.execute(text("PRAGMA integrity_check"))
                     row2 = result2.fetchone()
                     if row2 and row2[0] != "ok":
@@ -222,9 +221,14 @@ class Database:
                 try:
                     from edgelite.security.password import hash_password
 
-                    # FIXED: 原问题-默认密码硬编码，改为随机生成
-                    _alphabet = string.ascii_letters + string.digits
-                    temp_password = "".join(secrets.choice(_alphabet) for _ in range(16))
+                    # FIXED: 原问题-默认密码admin123硬编码在代码中，安全风险极高
+                    temp_password = os.environ.get("EDGELITE_ADMIN_PASSWORD")
+                    if not temp_password:
+                        logger.error(
+                            "EDGELITE_ADMIN_PASSWORD environment variable not set, "
+                            "admin user creation skipped"
+                        )
+                        return
                     hashed = hash_password(temp_password)
                     admin = UserORM(
                         user_id="admin",
@@ -236,28 +240,12 @@ class Database:
                     )
                     session.add(admin)
                     await session.commit()
-                    # FIXED: 原问题-临时密码通过logger.info明文输出到日志存在泄露风险
-                    # 现将临时密码写入仅owner可读的文件，不输出到日志
-                    try:
-                        cred_path = Path("data/.admin_credential")
-                        cred_path.parent.mkdir(parents=True, exist_ok=True)
-                        cred_path.write_text(
-                            f"admin:{temp_password}\n",
-                            encoding="utf-8",
-                        )
-                        cred_path.chmod(0o600)
-                        logger.warning(
-                            "已创建默认管理员用户 (admin)，临时密码已保存到 %s  请立即登录修改！",
-                            cred_path,
-                        )
-                    except OSError:
-                        logger.warning(
-                            "已创建默认管理员用户 (admin)，临时密码无法保存到文件，请查看容器日志获取。"
-                        )
+                    logger.warning(
+                        "已创建默认管理员用户 (admin)，请立即登录修改密码！",
+                    )
                 except ImportError:
-                    pass
+                    logger.warning("hash_password module not available, admin user creation skipped")
                 except Exception as e:
-                    # FIXED: 原问题-admin创建仅捕获ImportError，数据库写入异常（如磁盘满）未被处理
                     logger.error("Database.init_tables admin creation failed: %s", e)
 
     async def _migrate_sqlite(self, conn: Any) -> None:

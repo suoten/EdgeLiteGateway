@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 
 from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.api.error_codes import CommonErrors
+from edgelite.constants import _HTTP_TIMEOUT  # FIXED: 原问题-魔法数字timeout=10.0
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -76,13 +77,18 @@ async def list_grafana_dashboards(
     grafana_url = getattr(grafana_config, "url", "http://localhost:3001")
     api_key = getattr(grafana_config, "api_key", "")
 
+    # FIXED: 原问题-api_key为空时仍发出无认证请求导致必然失败，现提前拦截
+    if not api_key:
+        logger.warning("Grafana api_key 为空，无法认证，请在配置中设置 grafana.api_key")
+        raise HTTPException(status_code=403, detail="ERR_GRAFANA_API_KEY_MISSING")
+
     try:
         import httpx
 
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:  # FIXED: 原问题-魔法数字timeout=10.0
             resp = await client.get(f"{grafana_url}/api/search", headers=headers)
             if resp.status_code == 200:
                 dashboards = resp.json()

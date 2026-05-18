@@ -16,6 +16,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from edgelite.constants import _MQTT_KEEPALIVE
 from edgelite.platform.base import PlatformHandler
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ class IoTSharpHandler(PlatformHandler):
                     port=port,
                     username=username or None,
                     password=password or None,
-                    keepalive=60,
+                    keepalive=_MQTT_KEEPALIVE,  # FIXED: 原问题-keepalive=60魔法数字
                 ) as client:
                     self._connected = True
                     logger.info("IoTSharp MQTT连接成功: %s:%d", broker, port)

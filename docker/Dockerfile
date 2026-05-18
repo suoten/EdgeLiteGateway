@@ -14,7 +14,7 @@ WORKDIR /app
 
 COPY pyproject.toml setup.py ./
 COPY src/edgelite/ src/edgelite/
-RUN pip install --no-cache-dir --prefix=/install .
+RUN pip install --no-cache-dir --prefix=/install -i https://pypi.tuna.tsinghua.edu.cn/simple .
 
 FROM python:3.11-slim
 
@@ -29,6 +29,9 @@ COPY scripts/init_db.py scripts/
 
 RUN mkdir -p data/backups logs
 
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && chown -R appuser:appuser /app
 USER appuser
@@ -37,6 +40,8 @@ ENV PYTHONPATH=/app
 ENV EDGELITE_CONFIG=configs/config.yaml
 
 EXPOSE 8080
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=30s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1

@@ -61,7 +61,11 @@ class MqttTlsHelper:
         if not p.is_file():
             logger.error("证书文件不存在: %s", path)
             return False
-        if p.stat().st_size == 0:
-            logger.error("证书文件为空: %s", path)
+        try:  # FIXED: 原问题-p.stat()存在TOCTOU竞态，文件可能在is_file()和stat()之间被删除
+            if p.stat().st_size == 0:
+                logger.error("证书文件为空: %s", path)
+                return False
+        except FileNotFoundError:
+            logger.error("证书文件不存在: %s", path)
             return False
         return True

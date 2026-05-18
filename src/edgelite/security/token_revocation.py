@@ -24,7 +24,7 @@ class TokenRevocationManager:
     def revoke_token(self, jti: str, exp: float | None = None) -> None:
         """撤销指定jti的令牌，exp为过期时间戳(Unix)"""
         with self._lock:
-            self._revoked_tokens[jti] = exp or (time.time() + 86400)
+            self._revoked_tokens[jti] = exp or (time.time() + _TOKEN_REVOCATION_DEFAULT_TTL)  # FIXED: 原问题-魔法数字，提取为命名常量
             if len(self._revoked_tokens) > _MAX_REVOKED_ENTRIES:
                 self._cleanup_expired()
 

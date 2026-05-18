@@ -31,8 +31,8 @@ class AbbRobotDriver(DriverPlugin):
     config_schema = {
         "description": "ABB机器人Robot Web Services协议，通过REST API读写机器人数据",
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP地址", "description": "ABB控制器IP地址", "default": "192.168.1.100", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "RWS端口，默认80", "default": 80},
+            {"name": "ip", "type": "string", "label": "IP Address", "description": "ABB controller IP address", "default": "192.168.1.100", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "RWS port, default 80", "default": 80},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

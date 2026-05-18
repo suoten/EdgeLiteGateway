@@ -34,7 +34,7 @@ const router = createRouter({
         { path: 'system/mqtt-server', name: 'MqttServer', component: () => import('@/views/system/MqttServer.vue'), meta: { requiredRole: 'admin' } },
         { path: 'system/modbus-slave', name: 'ModbusSlave', component: () => import('@/views/system/ModbusSlave.vue'), meta: { requiredRole: 'admin' } },
         { path: 'system/ota', name: 'OtaUpdate', component: () => import('@/views/system/OtaUpdate.vue'), meta: { requiredRole: 'admin' } },
-        { path: 'system/grafana', name: 'GrafanaDashboard', component: () => import('@/views/system/GrafanaDashboard.vue') },
+        { path: 'system/grafana', name: 'GrafanaDashboard', component: () => import('@/views/system/GrafanaDashboard.vue'), meta: { requiredRole: 'admin' } },
         { path: 'system/mcp', name: 'McpServer', component: () => import('@/views/system/McpServer.vue'), meta: { requiredRole: 'admin' } },
         { path: 'users', name: 'Users', component: () => import('@/views/system/UserManage.vue'), meta: { requiredRole: 'admin' } },
         { path: 'digital-twin', name: 'DigitalTwin', component: () => import('@/views/digital-twin/DigitalTwin.vue') },
@@ -57,6 +57,8 @@ router.beforeEach(async (to) => {
     const required = to.meta.requiredRole as string
     if (auth.role === 'admin') { /* admin拥有所有权限 */ }
     else if (auth.role !== required) {
+      // FIXED: 原问题-非admin用户访问admin路由时静默重定向，无任何提示
+      window.alert(t('common.permissionDenied'))  // FIXED: 原问题-硬编码中文，改用i18n
       return { name: 'Dashboard' }
     }
   }

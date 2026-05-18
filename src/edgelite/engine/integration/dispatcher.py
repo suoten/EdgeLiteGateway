@@ -86,15 +86,24 @@ class MessageDispatcher:
                 if scheduler:
                     device = await device_service.get_device(device_id)
                     if device:
+                        driver_instances = getattr(device_service, "_driver_instances", None)
+                        if not driver_instances:
+                            logger.warning("device_service._driver_instances is missing or None")  # FIXED: 原直接访问私有属性无空值检查
+                            return {"ok": False, "error": "Driver instances not available"}
+                        driver = driver_instances.get(device_id)
                         await scheduler.start_collect(
                             device_id,
-                            device_service._driver_instances.get(device_id),
+                            driver,
                             device.get("points", []),
                             device.get("collect_interval", 5),
                         )
                         if hasattr(device_service, "_lifecycle") and device_service._lifecycle:
                             await device_service._lifecycle.on_device_online(device_id)
-                        await device_service._repo.update_status(device_id, "online")
+                        repo = getattr(device_service, "_repo", None)
+                        if not repo:
+                            logger.warning("device_service._repo is missing or None")  # FIXED: 原直接访问私有属性无空值检查
+                            return {"ok": False, "error": "Repository not available"}
+                        await repo.update_status(device_id, "online")
                     else:
                         return {"ok": False, "error": f"Device {device_id} not found"}
                 else:
@@ -104,7 +113,11 @@ class MessageDispatcher:
                     await scheduler.stop_collect(device_id)
                     if hasattr(device_service, "_lifecycle") and device_service._lifecycle:
                         await device_service._lifecycle.on_device_offline(device_id)
-                    await device_service._repo.update_status(device_id, "offline")
+                    repo = getattr(device_service, "_repo", None)
+                    if not repo:
+                        logger.warning("device_service._repo is missing or None")  # FIXED: 原直接访问私有属性无空值检查
+                        return {"ok": False, "error": "Repository not available"}
+                    await repo.update_status(device_id, "offline")
                 else:
                     return {"ok": False, "error": "Scheduler not available"}
             else:

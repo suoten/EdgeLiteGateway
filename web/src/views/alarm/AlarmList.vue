@@ -131,7 +131,8 @@ async function doAck(alarmId: string) {
 async function handleBatchAck() {
   batchAcking.value = true
   try {
-    const ids = firingAlarms.value.map(a => a.alarm_id)
+    // FIXED: 原问题-a.alarm_id可能字段名不一致，加空值保护
+    const ids = firingAlarms.value.map(a => a.alarm_id || a.id).filter(Boolean)
     const results = await Promise.allSettled(ids.map(id => alarmApi.ack(id)))
     const succeeded = results.filter(r => r.status === 'fulfilled').length
     const failed = results.filter(r => r.status === 'rejected').length
@@ -149,6 +150,12 @@ async function handleBatchAck() {
 onMounted(() => {
   fetchAlarms()
   ws.connect('alarm', onAlarmPush)
+  // FIXED: 原问题-WebSocket断连后界面无反馈，注册onStatus处理器
+  ws.onStatus('alarm', (connected: boolean) => {
+    if (!connected) {
+      message.warning(t('alarmList.wsDisconnected'))
+    }
+  })
 })
 onUnmounted(() => {
   ws.disconnect('alarm', onAlarmPush)

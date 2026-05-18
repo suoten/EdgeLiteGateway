@@ -87,70 +87,100 @@ def require_permission(permission: Permission):
 
 
 async def get_device_service(request: Request):
-    svc = _get_container(request).device_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).device_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_rule_service(request: Request):
-    svc = _get_container(request).rule_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).rule_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_alarm_service(request: Request):
-    svc = _get_container(request).alarm_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).alarm_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_data_service(request: Request):
-    svc = _get_container(request).data_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).data_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_system_service(request: Request):
-    svc = _get_container(request).system_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).system_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_video_service(request: Request):
-    svc = _get_container(request).video_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).video_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_audit_service(request: Request):
-    svc = _get_container(request).audit_service
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).audit_service
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
 
 
 async def get_driver_registry(request: Request):
-    reg = _get_container(request).driver_registry
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        reg = _get_container(request).driver_registry
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if reg is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return reg
 
 
 async def get_database(request: Request):
-    db = _get_container(request).database
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        db = _get_container(request).database
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.DB_NOT_READY) from None
     if db is None:
         raise HTTPException(503, CommonErrors.DB_NOT_READY)
     return db
 
 
 async def get_config(request: Request):
-    config = _get_container(request).config
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        config = _get_container(request).config
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-config可能为None时直接返回，调用方访问属性崩溃
     if config is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -158,7 +188,10 @@ async def get_config(request: Request):
 
 
 async def get_platform_handlers(request: Request):
-    handlers = _get_container(request).platform_handlers
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        handlers = _get_container(request).platform_handlers
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-platform_handlers可能为None时直接返回
     if handlers is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -166,14 +199,20 @@ async def get_platform_handlers(request: Request):
 
 
 async def get_integration_endpoint(request: Request):
-    ep = _get_container(request).integration_endpoint
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        ep = _get_container(request).integration_endpoint
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if ep is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return ep
 
 
 async def get_mqtt_server(request: Request):
-    svc = _get_container(request).mqtt_server
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).mqtt_server
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -181,7 +220,10 @@ async def get_mqtt_server(request: Request):
 
 
 async def get_modbus_slave(request: Request):
-    svc = _get_container(request).modbus_slave
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).modbus_slave
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -189,7 +231,10 @@ async def get_modbus_slave(request: Request):
 
 
 async def get_serial_bridge(request: Request):
-    svc = _get_container(request).serial_bridge
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).serial_bridge
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -197,7 +242,10 @@ async def get_serial_bridge(request: Request):
 
 
 async def get_preprocessor(request: Request):
-    svc = _get_container(request).preprocessor
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).preprocessor
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -205,7 +253,10 @@ async def get_preprocessor(request: Request):
 
 
 async def get_ota_manager(request: Request):
-    svc = _get_container(request).ota_manager
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).ota_manager
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -213,7 +264,10 @@ async def get_ota_manager(request: Request):
 
 
 async def get_plugin_manager(request: Request):
-    svc = _get_container(request).plugin_manager
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).plugin_manager
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
@@ -221,7 +275,10 @@ async def get_plugin_manager(request: Request):
 
 
 async def get_event_bus(request: Request):
-    svc = _get_container(request).event_bus
+    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+        svc = _get_container(request).event_bus
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)

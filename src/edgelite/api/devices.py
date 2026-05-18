@@ -242,10 +242,10 @@ async def push_device_data(
         import hmac
 
         if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
-            raise HTTPException(status_code=401, detail="Invalid API Key")
+            raise HTTPException(status_code=401, detail=DeviceErrors.API_KEY_INVALID)
     else:
         if not (webhook_auth and webhook_auth.mode != "none"):
-            raise HTTPException(status_code=401, detail="API Key not configured")
+            raise HTTPException(status_code=401, detail=DeviceErrors.API_KEY_NOT_CONFIGURED)
 
     try:
         driver = svc._driver_instances.get(device_id) if svc else None

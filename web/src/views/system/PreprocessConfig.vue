@@ -136,7 +136,7 @@ const columns = [
   { title: t('preprocess.aggType'), key: 'aggregate', width: 100 },
   { title: t('preprocess.aggWindow'), key: 'aggregate_window_sec', width: 120 },
   {
-    title: t('alarmList.actions'), key: 'actions', width: 80,
+    title: t('common.actions'), key: 'actions', width: 80,  // FIXED: 原问题-跨域误用alarmList.actions
     render: (row: any) =>
       h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row.point_key) }, {
         default: () => t('common.delete'),

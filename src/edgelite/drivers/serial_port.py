@@ -65,14 +65,14 @@ class SerialPortDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["serial", "serial_modbus_rtu", "serial_raw"]
     config_schema = {
-        "description": "串口通信（RS232/RS485），支持Modbus RTU等协议",
+        "description": "Serial communication (RS232/RS485), supports Modbus RTU and other protocols",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "port", "type": "string", "label": "串口设备", "description": "串口设备路径，Windows如 COM1/COM2，Linux如 /dev/ttyUSB0", "default": "COM1", "required": True},
-            {"name": "baudrate", "type": "integer", "label": "波特率", "description": "串口通信速率，需与设备一致", "default": 9600, "options": [9600, 19200, 38400, 57600, 115200]},
-            {"name": "bytesize", "type": "integer", "label": "数据位", "description": "每个字节的数据位数", "default": 8, "options": [5, 6, 7, 8]},
-            {"name": "parity", "type": "string", "label": "校验位", "description": "N=无校验，E=偶校验，O=奇校验", "default": "N", "options": ["N", "E", "O"]},
-            {"name": "stopbits", "type": "number", "label": "停止位", "description": "停止位数量", "default": 1, "options": [1, 1.5, 2]},
-            {"name": "protocol", "type": "string", "label": "上层协议", "description": "raw=原始数据透传，modbus_rtu=Modbus RTU协议", "default": "raw", "options": ["raw", "modbus_rtu"]},
+            {"name": "port", "type": "string", "label": "Serial Port", "description": "Serial device path, e.g. COM1 on Windows, /dev/ttyUSB0 on Linux", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "baudrate", "type": "integer", "label": "Baud Rate", "description": "Serial communication speed, must match device", "default": 9600, "options": [9600, 19200, 38400, 57600, 115200]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "bytesize", "type": "integer", "label": "Data Bits", "description": "Number of data bits per byte", "default": 8, "options": [5, 6, 7, 8]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "parity", "type": "string", "label": "Parity", "description": "N=None, E=Even, O=Odd", "default": "N", "options": ["N", "E", "O"]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "stopbits", "type": "number", "label": "Stop Bits", "description": "Number of stop bits", "default": 1, "options": [1, 1.5, 2]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "protocol", "type": "string", "label": "Protocol", "description": "raw=raw passthrough, modbus_rtu=Modbus RTU", "default": "raw", "options": ["raw", "modbus_rtu"]},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

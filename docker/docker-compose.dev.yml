@@ -30,7 +30,7 @@ services:
     image: influxdb:2.7-alpine
     container_name: edgelite-influxdb-dev
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     volumes:
       - influxdb-data:/var/lib/influxdb2
     environment:

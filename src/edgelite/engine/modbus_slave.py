@@ -200,12 +200,16 @@ class ModbusSlaveServer:
                     points, holding_list, input_list, coils_list, base_address
                 )
 
-                for i, v in enumerate(holding_list[base_address:next_addr]):
-                    self._context[0].setValues(3, base_address + i, [v])
-                for i, v in enumerate(input_list):
-                    self._context[0].setValues(4, i, [v])
-                for i, v in enumerate(coils_list):
-                    self._context[0].setValues(1, i, [v])
+                try:  # FIXED: 原问题-3处setValues调用无异常保护
+                    for i, v in enumerate(holding_list[base_address:next_addr]):
+                        self._context[0].setValues(3, base_address + i, [v])
+                    for i, v in enumerate(input_list):
+                        self._context[0].setValues(4, i, [v])
+                    for i, v in enumerate(coils_list):
+                        self._context[0].setValues(1, i, [v])
+                except Exception as e:
+                    logger.error("Modbus Slave setValues失败: %s", e)
+                    break
                 return
 
             offset = base_address

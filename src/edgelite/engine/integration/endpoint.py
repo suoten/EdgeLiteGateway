@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any
 
-from edgelite.constants import _INTEGRATION_SESSION_TTL
+from edgelite.constants import _INTEGRATION_SESSION_TTL, _INTEGRATION_MAX_SESSIONS
 from edgelite.engine.integration.dispatcher import MessageDispatcher
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class IntegrationEndpoint:
         self._dispatcher = dispatcher or MessageDispatcher()
         self._sessions: dict[str, dict[str, Any]] = {}
         self._connections: dict[str, Any] = {}
-        self._max_sessions = 10
+        self._max_sessions = _INTEGRATION_MAX_SESSIONS  # FIXED: 原问题-魔法数字，提取为命名常量
 
     @property
     def dispatcher(self) -> MessageDispatcher:

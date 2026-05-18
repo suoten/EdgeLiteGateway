@@ -1,14 +1,14 @@
 <template>
   <div class="platform-config-page">
-    <n-card title="平台对接配置">
+    <n-card :title="t('platformConfig.title')"> <!-- FIXED: 原问题-中文硬编码 -->
       <template #header-extra>
-        <n-button type="primary" @click="openAddModal">添加平台</n-button>
+        <n-button type="primary" @click="openAddModal">{{ t('platformConfig.addPlatform') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
       </template>
 
       <template v-if="platforms.length === 0 && !loading">
-        <n-empty description="暂无已连接的平台，点击右上角「添加平台」开始对接" style="padding: 48px 0">
+        <n-empty :description="t('platformConfig.noPlatformDesc')" style="padding: 48px 0"> <!-- FIXED: 原问题-中文硬编码 -->
           <template #extra>
-            <n-button type="primary" @click="openAddModal">添加平台</n-button>
+            <n-button type="primary" @click="openAddModal">{{ t('platformConfig.addPlatform') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
           </template>
         </n-empty>
       </template>
@@ -19,8 +19,8 @@
 
     <n-modal v-model:show="showAddModal" preset="card" :title="modalTitle" style="width: 640px" :mask-closable="false">
       <n-steps :current="currentStep" size="small" style="margin-bottom: 20px">
-        <n-step title="选择平台" />
-        <n-step title="填写配置" />
+        <n-step :title="t('platformConfig.selectPlatform')" /> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-step :title="t('platformConfig.fillConfig')" /> <!-- FIXED: 原问题-中文硬编码 -->
       </n-steps>
 
       <div v-if="currentStep === 1">
@@ -34,7 +34,7 @@
             >
               <div class="platform-card__header">
                 <span class="platform-card__name">{{ p.label }}</span>
-                <n-tag v-if="isPlatformConnected(p.name)" size="small" type="success">已连接</n-tag>
+                <n-tag v-if="isPlatformConnected(p.name)" size="small" type="success">{{ t('platformConfig.connected') }}</n-tag> <!-- FIXED: 原问题-中文硬编码 -->
               </div>
               <div class="platform-card__desc">{{ p.description }}</div>
             </n-card>
@@ -47,17 +47,17 @@
           :disabled="!formData.platform_name"
           @click="goToStep2"
         >
-          下一步：填写配置
+          {{ t('platformConfig.nextStepFillConfig') }} <!-- FIXED: 原问题-中文硬编码 -->
         </n-button>
       </div>
 
       <div v-if="currentStep === 2">
         <n-button text style="margin-bottom: 12px" @click="currentStep = 1">
-          ← 返回选择平台
+          {{ t('platformConfig.backToSelect') }} <!-- FIXED: 原问题-中文硬编码 -->
         </n-button>
 
         <n-alert v-if="selectedPlatformInfo" type="info" style="margin-bottom: 16px">
-          正在配置 <strong>{{ selectedPlatformInfo.label }}</strong> — {{ selectedPlatformInfo.description }}
+          {{ t('platformConfig.configuring') }} <strong>{{ selectedPlatformInfo.label }}</strong> — {{ selectedPlatformInfo.description }} <!-- FIXED: 原问题-中文硬编码 -->
         </n-alert>
 
         <n-spin :show="schemaLoading">
@@ -78,7 +78,7 @@
                 v-if="field.type === 'string'"
                 v-model:value="formData.config[field.name]"
                 :type="field.secret ? 'password' : 'text'"
-                :placeholder="field.required ? '必填' : '可选'"
+                :placeholder="field.required ? t('platformConfig.required') : t('platformConfig.optional')"
                 show-password-on="click"
               />
               <n-input-number
@@ -92,8 +92,8 @@
         </n-spin>
 
         <n-space justify="end" style="margin-top: 8px">
-          <n-button @click="currentStep = 1">上一步</n-button>
-          <n-button type="primary" :loading="connecting" @click="connectPlatform">连接</n-button>
+          <n-button @click="currentStep = 1">{{ t('platformConfig.prevStep') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
+          <n-button type="primary" :loading="connecting" @click="connectPlatform">{{ t('platformConfig.connect') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
         </n-space>
       </div>
     </n-modal>
@@ -108,6 +108,7 @@ import {
   useMessage, useDialog,
 } from 'naive-ui'
 import { platformApi } from '@/api'
+import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
 
 const message = useMessage()
 const dialog = useDialog()
@@ -126,8 +127,8 @@ const formData = ref<{ platform_name: string; config: Record<string, any> }>({
 const formRef = ref<any>(null)
 
 const modalTitle = computed(() => {
-  if (currentStep.value === 1) return '添加平台对接 — 选择平台'
-  return '添加平台对接 — 填写配置'
+  if (currentStep.value === 1) return t('platformConfig.addPlatformSelect')  // FIXED: 原问题-中文硬编码
+  return t('platformConfig.addPlatformConfig')  // FIXED: 原问题-中文硬编码
 })
 
 const selectedPlatformInfo = computed(() => {
@@ -142,13 +143,13 @@ const dynamicFormRules = computed(() => {
         rules['config.' + field.name] = {
           type: 'number',
           required: true,
-          message: `${field.label || field.name}不能为空`,
+          message: t('platformConfig.fieldRequired', { field: field.label || field.name }),  // FIXED: 原问题-中文硬编码
           trigger: ['blur', 'change'],
         }
       } else {
         rules['config.' + field.name] = {
           required: true,
-          message: `${field.label || field.name}不能为空`,
+          message: t('platformConfig.fieldRequired', { field: field.label || field.name }),  // FIXED: 原问题-中文硬编码
           trigger: ['blur', 'change'],
         }
       }
@@ -162,23 +163,23 @@ function isPlatformConnected(name: string) {
 }
 
 const columns = [
-  { title: '平台', key: 'name', width: 150 },
-  { title: '版本', key: 'version', width: 80 },
+  { title: t('platformConfig.platform'), key: 'name', width: 150 },  // FIXED: 原问题-中文硬编码
+  { title: t('platformConfig.version'), key: 'version', width: 80 },  // FIXED: 原问题-中文硬编码
   {
-    title: '状态',
+    title: t('platformConfig.status'),  // FIXED: 原问题-中文硬编码
     key: 'connected',
     width: 100,
     render: (row: any) =>
       h(NTag, { type: row.connected ? 'success' : 'error', size: 'small' }, () =>
-        row.connected ? '已连接' : '未连接'
+        row.connected ? t('platformConfig.connected') : t('platformConfig.notConnected')  // FIXED: 原问题-中文硬编码
       ),
   },
   {
-    title: '操作',
+    title: t('platformConfig.actions'),  // FIXED: 原问题-中文硬编码
     key: 'actions',
     width: 120,
     render: (row: any) =>
-      h(NButton, { size: 'small', type: 'error', onClick: () => disconnectPlatform(row.name) }, () => '断开'),
+      h(NButton, { size: 'small', type: 'error', onClick: () => disconnectPlatform(row.name) }, () => t('platformConfig.disconnect')),  // FIXED: 原问题-中文硬编码
   },
 ]
 
@@ -189,7 +190,7 @@ async function loadPlatforms() {
     platforms.value = data?.platforms || []
     supportedPlatforms.value = data?.supported || []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '加载平台列表失败')
+    message.error(e?.response?.data?.detail || e?.message || t('platformConfig.loadListFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     loading.value = false
   }
@@ -204,7 +205,7 @@ function openAddModal() {
 
 async function onSelectPlatform(p: any) {
   if (isPlatformConnected(p.name)) {
-    message.warning(`${p.label} 已连接，如需重新配置请先断开`)
+    message.warning(t('platformConfig.alreadyConnected', { label: p.label }))  // FIXED: 原问题-中文硬编码
     return
   }
   formData.value.platform_name = p.name
@@ -214,7 +215,7 @@ async function onSelectPlatform(p: any) {
 
 async function goToStep2() {
   if (!formData.value.platform_name) {
-    message.warning('请先选择一个平台')
+    message.warning(t('platformConfig.selectPlatformFirst'))  // FIXED: 原问题-中文硬编码
     return
   }
   currentStep.value = 2
@@ -239,7 +240,7 @@ async function loadConfigSchema() {
       formData.value.config = newConfig
     }
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '获取配置模板失败')
+    message.error(e?.response?.data?.detail || e?.message || t('platformConfig.fetchSchemaFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     schemaLoading.value = false
   }
@@ -249,7 +250,7 @@ async function connectPlatform() {
   try {
     await formRef.value?.validate()
   } catch {
-    message.warning('请填写所有必填配置项')
+    message.warning(t('platformConfig.fillRequired'))  // FIXED: 原问题-中文硬编码
     return
   }
 
@@ -258,9 +259,9 @@ async function connectPlatform() {
     await platformApi.connect(formData.value.platform_name, formData.value.config)
     showAddModal.value = false
     await loadPlatforms()
-    message.success('平台连接成功')
+    message.success(t('platformConfig.connectSuccess'))  // FIXED: 原问题-中文硬编码
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || '连接失败'
+    const detail = e?.response?.data?.detail || e?.message || t('platformConfig.connectFailed')  // FIXED: 原问题-中文硬编码
     message.error(detail)
   } finally {
     connecting.value = false
@@ -269,17 +270,17 @@ async function connectPlatform() {
 
 async function disconnectPlatform(name: string) {
   dialog.warning({
-    title: '确认断开',
-    content: `确定断开平台 "${name}" 的连接？断开后数据上报将中断。`,
-    positiveText: '断开',
-    negativeText: '取消',
+    title: t('platformConfig.confirmDisconnect'),  // FIXED: 原问题-中文硬编码
+    content: t('platformConfig.confirmDisconnectContent', { name }),  // FIXED: 原问题-中文硬编码
+    positiveText: t('platformConfig.disconnect'),  // FIXED: 原问题-中文硬编码
+    negativeText: t('common.cancel'),  // FIXED: 原问题-中文硬编码
     onPositiveClick: async () => {
       try {
         await platformApi.disconnect(name)
         await loadPlatforms()
-        message.success('已断开')
+        message.success(t('platformConfig.disconnected'))  // FIXED: 原问题-中文硬编码
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || '断开失败')
+        message.error(e?.response?.data?.detail || e?.message || t('platformConfig.disconnectFailed'))  // FIXED: 原问题-中文硬编码
       }
     },
   })

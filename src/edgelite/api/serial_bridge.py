@@ -6,7 +6,7 @@ import logging
 import platform
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from edgelite.api.deps import CurrentUser, SerialBridgeDep, require_permission
 from edgelite.api.error_codes import DriverErrors, ServiceErrors
@@ -24,6 +24,14 @@ class DependencyInfo(BaseModel):
     package: str
     installed: bool
     version: str = ""
+
+
+class SerialBridgeConfigModel(BaseModel):
+    serial_port: str = _DEFAULT_SERIAL_PORT
+    baud_rate: int = Field(default=9600, ge=300, le=115200)
+    tcp_port: int = Field(default=9000, ge=1, le=65535)
+    ip_whitelist: list[str] = []
+    max_clients: int = Field(default=5, ge=1, le=50)
 
 
 class SerialBridgeStatusResponse(BaseModel):
@@ -152,3 +160,24 @@ async def stop_serial_bridge(
     except Exception as e:
         logger.error("stop_serial_bridge failed: %s", e)
         raise HTTPException(status_code=500, detail=ServiceErrors.STOP_FAILED) from e
+
+
+# FIXED: 原问题-前端调用PUT /serial-bridge/config返回405，后端缺少此路由
+@router.put("/config", response_model=ApiResponse)
+async def update_serial_bridge_config(
+    config: SerialBridgeConfigModel,
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
+    from edgelite.services.service_manager import get_service_manager
+
+    try:
+        mgr = get_service_manager()
+        result = await mgr.update_service_config("serial_bridge", config.model_dump())
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.CONFIG_UPDATE_FAILED))
+        return ApiResponse(data=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("update_serial_bridge_config failed: %s", e)
+        raise HTTPException(status_code=500, detail=ServiceErrors.CONFIG_UPDATE_FAILED) from e

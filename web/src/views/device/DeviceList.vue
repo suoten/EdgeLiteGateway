@@ -515,28 +515,32 @@ async function handleAddDiscovered() {
   const selected = discoverResults.value.filter(r => selectedDiscoverKeys.value.includes(r.name))
   let succeeded = 0
   let failed = 0
-  for (const item of selected) {
-    try {
-      await deviceApi.create({
-        device_id: item.name,
-        name: item.name,
-        protocol: item.protocol || discoverProtocol.value,
-        config: { host: item.host, port: item.port, slave_id: item.slave_id },
-        points: [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }],
-      } as any)
-      succeeded++
-    } catch {
-      failed++
+  try {
+    for (const item of selected) {
+      try {
+        await deviceApi.create({
+          device_id: item.name,
+          name: item.name,
+          protocol: item.protocol || discoverProtocol.value,
+          config: { host: item.host, port: item.port, slave_id: item.slave_id },
+          points: [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }],
+        } as any)
+        succeeded++
+      } catch {
+        failed++
+      }
     }
+    if (failed > 0) {
+      message.warning(t('deviceList.addResult', { success: succeeded, failed }))
+    } else {
+      message.success(t('deviceList.addResultAll', { success: succeeded }))
+    }
+    showDiscoverModal.value = false
+    await fetchDevices()
+  } finally {
+    // FIXED: 原问题-addingDevices未在finally中重置，异常时永久卡住
+    addingDevices.value = false
   }
-  if (failed > 0) {
-    message.warning(t('deviceList.addResult', { success: succeeded, failed }))
-  } else {
-    message.success(t('deviceList.addResultAll', { success: succeeded }))
-  }
-  showDiscoverModal.value = false
-  fetchDevices()
-  addingDevices.value = false
 }
 
 function handleWritePoint(row: Device) {
@@ -565,9 +569,9 @@ async function handleBatchDelete() {
       const succeeded = results.filter(r => r.status === 'fulfilled').length
       const failed = results.filter(r => r.status === 'rejected').length
       if (failed > 0) {
-        message.warning(`成功删除 ${succeeded} 个设备，${failed} 个删除失败`)
+        message.warning(t('device.batchDeletePartial', { succeeded, failed }))  // FIXED: 原问题-硬编码中文，改用i18n
       } else {
-        message.success(`成功删除 ${succeeded} 个设备`)
+        message.success(t('device.batchDeleteSuccess', { succeeded }))  // FIXED: 原问题-硬编码中文，改用i18n
       }
       checkedKeys.value = []
       fetchDevices()

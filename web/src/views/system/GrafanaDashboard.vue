@@ -3,7 +3,7 @@
     <n-card :bordered="false">
       <template #header>
         <n-space align="center" :size="12">
-          <span style="font-size: 16px; font-weight: 600">Grafana监控</span>
+          <span style="font-size: 16px; font-weight: 600">{{ t('grafana.title') }}</span>
           <n-tag :type="stateTagType" size="small">{{ stateLabel }}</n-tag>
         </n-space>
       </template>
@@ -14,10 +14,10 @@
             :loading="toggleLoading"
             @update:value="handleToggle"
           >
-            <template #checked>已启用</template>
-            <template #unchecked>已停用</template>
+            <template #checked>{{ t('grafana.enabled') }}</template>
+            <template #unchecked>{{ t('grafana.disabled') }}</template>
           </n-switch>
-          <n-button size="small" @click="fetchConfig" :loading="loading">刷新</n-button>
+          <n-button size="small" @click="fetchConfig" :loading="loading">{{ t('grafana.refresh') }}</n-button>
         </n-space>
       </template>
 
@@ -27,65 +27,65 @@
         :bordered="false"
         style="margin-bottom: 12px"
       >
-        <template #header>缺少依赖组件</template>
-        以下依赖未安装：{{ missingDeps.map(d => d.package).join(', ') }}
+        <template #header>{{ t('grafana.missingDeps') }}</template>
+        {{ t('grafana.depsNotInstalled') }}{{ missingDeps.map(d => d.package).join(', ') }}
         <n-button
           type="primary"
           size="small"
           style="margin-left: 12px"
           @click="handleInstallDeps"
           :loading="installing"
-        >一键安装</n-button>
+        >{{ t('grafana.oneClickInstall') }}</n-button>
       </n-alert>
 
       <n-descriptions v-if="enabled" label-placement="left" :column="2" bordered>
-        <n-descriptions-item label="Grafana地址">{{ grafanaConfig.url }}</n-descriptions-item>
-        <n-descriptions-item label="数据源">{{ grafanaConfig.datasource }}</n-descriptions-item>
+        <n-descriptions-item :label="t('grafana.address')">{{ grafanaConfig.url }}</n-descriptions-item>
+        <n-descriptions-item :label="t('grafana.datasource')">{{ grafanaConfig.datasource }}</n-descriptions-item>
       </n-descriptions>
 
-      <n-empty v-else description="Grafana集成未启用，请开启开关启用服务" />
+      <n-empty v-else :description="t('grafana.notEnabled')" />
     </n-card>
 
-    <n-card v-if="enabled" title="Grafana配置" :bordered="false">
+    <n-card v-if="enabled" :title="t('grafana.config')" :bordered="false">
       <template #header-extra>
-        <n-button type="primary" size="small" @click="handleSaveConfig" :loading="savingConfig">保存配置</n-button>
+        <n-button type="primary" size="small" @click="handleSaveConfig" :loading="savingConfig">{{ t('grafana.saveConfig') }}</n-button>
       </template>
       <n-form ref="configFormRef" :model="configForm" :rules="configRules" label-placement="left" label-width="120">
         <n-grid :cols="2" :x-gap="16">
-          <n-form-item-gi label="Grafana地址" path="url">
+          <n-form-item-gi :label="t('grafana.address')" path="url">
             <n-input v-model:value="configForm.url" placeholder="http://localhost:3001" />
           </n-form-item-gi>
           <n-form-item-gi label="API Key" path="api_key">
             <n-input v-model:value="configForm.api_key" type="password" show-password-on="click" placeholder="Grafana API Key" />
           </n-form-item-gi>
-          <n-form-item-gi label="数据源名称" path="datasource">
+          <n-form-item-gi :label="t('grafana.datasourceName')" path="datasource">
             <n-input v-model:value="configForm.datasource" placeholder="InfluxDB" />
           </n-form-item-gi>
         </n-grid>
       </n-form>
     </n-card>
 
-    <n-card v-if="enabled" title="仪表板" :bordered="false">
+    <n-card v-if="enabled" :title="t('grafana.dashboards')" :bordered="false">
       <template #header-extra>
-        <n-button @click="fetchDashboards" size="small">刷新</n-button>
+        <n-button @click="fetchDashboards" size="small">{{ t('grafana.refresh') }}</n-button>
       </template>
       <n-data-table :columns="dashboardColumns" :data="dashboards" :bordered="false" size="small" />
-      <n-empty v-if="!dashboards.length" description="暂无仪表板" />
+      <n-empty v-if="!dashboards.length" :description="t('grafana.noDashboards')" />
     </n-card>
 
-    <n-card v-if="enabled && embedUrl" title="Grafana面板" :bordered="false">
+    <n-card v-if="enabled && embedUrl" :title="t('grafana.panel')" :bordered="false">
       <iframe :src="embedUrl" sandbox="allow-scripts allow-same-origin allow-popups" style="width: 100%; height: 600px; border: none; border-radius: 8px;" />
     </n-card>
 
-    <n-modal v-model:show="showInstallProgress" title="安装依赖" preset="card" style="width: 480px" :closable="false">
+    <n-modal v-model:show="showInstallProgress" :title="t('grafana.installDeps')" preset="card" style="width: 480px" :closable="false">
       <n-spin :description="installProgress">
         <n-space vertical>
-          <p>正在安装缺失的依赖组件，请稍候...</p>
+          <p>{{ t('grafana.installing') }}</p>
           <p v-if="installResult">{{ installResult }}</p>
         </n-space>
       </n-spin>
       <template #action>
-        <n-button @click="showInstallProgress = false" :disabled="installing">关闭</n-button>
+        <n-button @click="showInstallProgress = false" :disabled="installing">{{ t('common.close') }}</n-button>
       </template>
     </n-modal>
   </n-space>
@@ -94,9 +94,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { NButton, useMessage, useDialog } from 'naive-ui'
+import { t } from '@/i18n'  // FIXED: 原问题-#注释导致编译失败，改为//注释
 import { serviceApi, grafanaApi } from '@/api'
 import type { ServiceDependency } from '@/api'
 
+// FIXED: 原问题-GrafanaDashboard.vue全部中文硬编码，改为i18n
 const message = useMessage()
 const dialog = useDialog()
 const loading = ref(false)
@@ -121,8 +123,8 @@ const configForm = reactive({
 })
 
 const configRules = {
-  url: [{ required: true, message: '请输入Grafana地址', trigger: 'blur' }],
-  datasource: [{ required: true, message: '请输入数据源名称', trigger: 'blur' }],
+  url: [{ required: true, message: () => t('grafana.addressRequired'), trigger: 'blur' }],
+  datasource: [{ required: true, message: () => t('grafana.datasourceRequired'), trigger: 'blur' }],
 }
 
 const missingDeps = computed(() => dependencies.value.filter(d => !d.installed))
@@ -138,30 +140,29 @@ const stateTagType = computed(() => {
 
 const stateLabel = computed(() => {
   switch (state.value) {
-    case 'running': return '运行中'
-    case 'enabled': return '已启用'
-    case 'error': return '异常'
-    case 'disabled': return '未启用'
+    case 'running': return t('grafana.stateRunning')
+    case 'enabled': return t('grafana.stateEnabled')
+    case 'error': return t('grafana.stateError')
+    case 'disabled': return t('grafana.stateDisabled')
     default: return state.value
   }
 })
 
-const dashboardColumns = [
-  { title: '标题', key: 'title', width: 200 },
-  { title: '类型', key: 'type', width: 100 },
+const dashboardColumns = computed(() => [
+  { title: t('grafana.colTitle'), key: 'title', width: 200 },
+  { title: t('grafana.colType'), key: 'type', width: 100 },
   { title: 'URI', key: 'uri', width: 200 },
   {
-    title: '操作', key: 'actions', width: 100,
+    title: t('grafana.colActions'), key: 'actions', width: 100,
     render: (row: any) =>
-      h(NButton, { text: true, type: 'primary', onClick: () => handleOpen(row.uid) }, { default: () => '打开' }),
+      h(NButton, { text: true, type: 'primary', onClick: () => handleOpen(row.uid) }, { default: () => t('grafana.open') }),
   },
-]
+])
 
 async function fetchConfig() {
   loading.value = true
   try {
     const data = await serviceApi.status('grafana')
-    // FIXED: 原问题-data.state可能为undefined，undefined !== 'disabled'永远为true导致状态误判
     enabled.value = data?.state === 'running'
     state.value = data.state
     dependencies.value = data.dependencies || []
@@ -173,7 +174,7 @@ async function fetchConfig() {
       await fetchDashboards()
     }
   } catch (e: any) {
-    if (e?.response?.status !== 404) message.error(e?.response?.data?.detail || e?.message || '获取Grafana配置失败')
+    if (e?.response?.status !== 404) message.error(e?.response?.data?.detail || e?.message || t('grafana.fetchConfigFailed'))
   } finally {
     loading.value = false
   }
@@ -184,27 +185,26 @@ async function fetchDashboards() {
     const data = await grafanaApi.dashboards()
     dashboards.value = data?.dashboards || []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '获取仪表板失败')
+    message.error(e?.response?.data?.detail || e?.message || t('grafana.fetchDashboardsFailed'))
   }
 }
 
 async function handleOpen(uid?: string) {
   try {
     const data = await grafanaApi.embedUrl(uid)
-    // FIXED: 原问题-data.url可能为undefined，添加空值保护
     embedUrl.value = data?.url ?? ''
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '获取嵌入URL失败')
+    message.error(e?.response?.data?.detail || t('grafana.fetchEmbedFailed'))
   }
 }
 
 async function handleToggle(val: boolean) {
   if (!val) {
     dialog.warning({
-      title: '确认停用',
-      content: '停用Grafana将断开所有监控面板连接，确定要停用吗？',
-      positiveText: '确认停用',
-      negativeText: '取消',
+      title: t('grafana.disableConfirmTitle'),
+      content: t('grafana.disableConfirmContent'),
+      positiveText: t('grafana.disableConfirmBtn'),
+      negativeText: t('common.cancel'),
       onPositiveClick: () => doToggle(false),
     })
     return
@@ -217,18 +217,18 @@ async function doToggle(val: boolean) {
   try {
     if (val) {
       await serviceApi.enable('grafana')
-      message.success('Grafana监控已启用')
+      message.success(t('grafana.enabledSuccess'))
     } else {
       await serviceApi.disable('grafana')
-      message.success('Grafana监控已停用')
+      message.success(t('grafana.disabledSuccess'))
     }
     await fetchConfig()
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     if (typeof detail === 'object' && detail?.missing_dependencies) {
-      message.warning(detail.message || '缺少依赖，请先安装')
+      message.warning(detail.message || t('grafana.missingDepsWarning'))
     } else {
-      message.error(typeof detail === 'string' ? detail : (e?.message || '操作失败'))
+      message.error(typeof detail === 'string' ? detail : (e?.message || t('grafana.operationFailed')))
     }
   } finally {
     toggleLoading.value = false
@@ -238,16 +238,16 @@ async function doToggle(val: boolean) {
 async function handleInstallDeps() {
   installing.value = true
   showInstallProgress.value = true
-  installProgress.value = '正在安装依赖...'
+  installProgress.value = t('grafana.installing')
   installResult.value = ''
   try {
     await serviceApi.installDeps('grafana')
-    installResult.value = '依赖安装成功！'
-    message.success('依赖安装成功')
+    installResult.value = t('grafana.installSuccess')
+    message.success(t('grafana.installSuccess'))
     await fetchConfig()
   } catch (e: any) {
-    installResult.value = `安装失败: ${e?.response?.data?.detail || e?.message}`
-    message.error('依赖安装失败')
+    installResult.value = `${t('grafana.installFailed')}: ${e?.response?.data?.detail || e?.message}`
+    message.error(t('grafana.installFailed'))
   } finally {
     installing.value = false
     installProgress.value = ''
@@ -258,10 +258,10 @@ async function handleSaveConfig() {
   savingConfig.value = true
   try {
     await serviceApi.updateConfig('grafana', { ...configForm })
-    message.success('配置已保存')
+    message.success(t('grafana.configSaved'))
     await fetchConfig()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || '保存配置失败')
+    message.error(e?.response?.data?.detail || t('grafana.saveConfigFailed'))
   } finally {
     savingConfig.value = false
   }

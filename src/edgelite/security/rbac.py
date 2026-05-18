@@ -7,6 +7,8 @@ from functools import wraps
 
 from fastapi import HTTPException, status
 
+from edgelite.api.error_codes import AuthzErrors
+
 
 class Role(StrEnum):
     ADMIN = "admin"
@@ -89,9 +91,9 @@ def require_permission(permission: Permission):
         @wraps(func)
         async def wrapper(*args, current_user=None, **kwargs):
             if current_user is None:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未认证")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthzErrors.NOT_AUTHENTICATED)  # FIXED: 原问题-中文硬编码detail，改为error_code
             if not has_permission(current_user.role, permission):
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AuthzErrors.PERMISSION_DENIED)  # FIXED: 原问题-中文硬编码detail，改为error_code
             return await func(*args, current_user=current_user, **kwargs)
 
         return wrapper
@@ -100,9 +102,8 @@ def require_permission(permission: Permission):
 
 
 def check_permission(role: str, permission: Permission) -> None:
-    """权限校验函数（用于API依赖注入）"""
     if not has_permission(role, permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"权限不足: 需要 {permission.value}",
+            detail=AuthzErrors.PERMISSION_DENIED,  # FIXED: 原问题-中文硬编码detail，改为error_code
         )

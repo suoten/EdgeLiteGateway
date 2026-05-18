@@ -10,6 +10,7 @@ from typing import Any
 
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent
 from edgelite.engine.preprocessor import DataPreprocessor
+from edgelite.constants import _CACHE_BATCH_LIMIT, _SCHEDULER_INTERVAL  # FIXED: 原问题-魔法数字limit=500
 from edgelite.storage.cache import CacheManager
 from edgelite.storage.influx_storage import InfluxDBStorage
 
@@ -102,7 +103,7 @@ class CollectScheduler:
         collect_interval: int,
     ) -> None:
         """采集循环协程"""
-        point_names = [p["name"] for p in points]
+        point_names = [p.get("name") for p in points if p.get("name")]  # FIXED: 原问题-p["name"]硬访问可能KeyError
         timeout = DEFAULT_TIMEOUT
 
         while True:
@@ -156,14 +157,18 @@ class CollectScheduler:
                     # InfluxDB不可用时逐条缓存
                     if not success and self._cache:
                         for rec in records:
+                            dev_id = rec.get("device_id")
+                            pt_name = rec.get("point_name")
+                            if not dev_id or not pt_name:
+                                continue  # FIXED: 原问题-rec["key"]硬访问可能KeyError
                             await self._cache.add_to_cache(
                                 measurement="device_points",
                                 tags={
-                                    "device_id": rec["device_id"],
-                                    "point_name": rec["point_name"],
-                                    "quality": rec["quality"],
+                                    "device_id": dev_id,
+                                    "point_name": pt_name,
+                                    "quality": rec.get("quality", "unknown"),
                                 },
-                                fields={"value": rec["value"]},
+                                fields={"value": rec.get("value", 0)},
                                 timestamp=now.isoformat(),
                             )
 
@@ -191,12 +196,12 @@ class CollectScheduler:
         """定期检查InfluxDB可用性并回写缓存数据"""
         while True:
             try:
-                await asyncio.sleep(30)
+                await asyncio.sleep(_SCHEDULER_INTERVAL)  # FIXED: 原问题-魔法数字，提取为命名常量
                 if not self._cache or not self._influx:
                     continue
                 if not await self._influx.check_health():
                     continue
-                records = await self._cache.get_cached_records(limit=500)
+                records = await self._cache.get_cached_records(limit=_CACHE_BATCH_LIMIT)  # FIXED: 原问题-魔法数字limit=500
                 if not records:
                     continue
                 success_count = 0
@@ -218,7 +223,10 @@ class CollectScheduler:
                             timestamp=timestamp,
                         )
                         if ok:
-                            await self._cache.delete_cached(rec["id"])
+                            rec_id = rec.get("id")  # FIXED: 原问题-硬访问id可能KeyError
+                            if rec_id is None:
+                                continue
+                            await self._cache.delete_cached(rec_id)
                             success_count += 1
                     except Exception:
                         break

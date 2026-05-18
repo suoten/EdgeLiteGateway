@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.error_codes import ExpressionErrors
 from edgelite.constants import _EXPRESSION_BATCH_LIMIT, _EXPRESSION_MAX_LENGTH
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
@@ -51,7 +52,8 @@ async def evaluate_expression(
     try:
         result = engine.evaluate(req.expression, req.variables or {})
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"表达式求值失败: {e}") from e
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=400, detail=ExpressionErrors.EVALUATE_FAILED) from e
     return ApiResponse(data={"expression": req.expression, "result": result})
 
 
@@ -64,7 +66,8 @@ async def evaluate_batch(
     try:
         results = engine.evaluate_batch(req.expressions, req.variables or {})
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"批量表达式求值失败: {e}") from e
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=400, detail=ExpressionErrors.BATCH_EVALUATE_FAILED) from e
     return ApiResponse(data={"results": results})
 
 
@@ -131,5 +134,6 @@ async def list_available_functions(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        logger.error("list_available_functions failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=500, detail=ExpressionErrors.EVALUATE_FAILED) from e

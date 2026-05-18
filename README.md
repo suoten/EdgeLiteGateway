@@ -21,114 +21,41 @@
 
 ## 🚀 快速开始
 
-> **✅ 本项目同时支持 Windows / Linux / macOS —— 选你正在用的系统，照做即可，不需要任何修改。**
+> **只需安装 [Docker](https://docs.docker.com/get-docker/)，无需 Node.js / Python**
 
----
-
-**不管你用哪个系统，三步搞定：① 装好 Docker → ② 复制命令 → ③ 验证结果。下面按你的系统选一个看就行。**
-
----
-
-### 🪟 Windows（Windows 10/11）
-
-<details open>
-<summary><b>点击展开 Windows 部署步骤</b></summary>
-
-**前提**：确认 Docker Desktop 已安装并启动（任务栏右下角鲸鱼图标稳定，右键菜单显示 "Docker Desktop is running"）。
-
-打开 **PowerShell**（⚠️ 不是 CMD！右键开始菜单 → Windows PowerShell），逐条执行：
-
-```powershell
-# ===== 第 1 步：克隆仓库 =====
-git clone https://gitee.com/suoten/EdgeLiteGateway.git
-cd EdgeLiteGateway
-
-# ===== 第 2 步：构建前端（约 2 分钟）=====
-cd web
-npm install
-npm run build
-cd ..
-
-# ===== 第 3 步：准备配置文件 =====
-Copy-Item docker\.env.example docker\.env
-
-# ===== 第 4 步：启动全部服务 =====
-cd docker
-docker compose up -d
-
-# ===== 第 5 步：等待启动（首次约 2 分钟）=====
-# 观察日志，看到 "Uvicorn running on http://127.0.0.1:8080" 即为成功
-docker compose logs -f edgelite
-```
-> 看到启动日志后 `Ctrl+C` 退出日志，**千万不要关掉 PowerShell 窗口**（容器在后台运行）。
-
-**[跳到 → 验证部署是否成功](#-验证部署是否成功)**
-
-</details>
-
----
-
-### 🐧 Linux / 🍎 macOS
-
-<details open>
-<summary><b>点击展开 Linux / macOS 部署步骤</b></summary>
-
-**前提**：Linux 用户确保已安装 `docker-ce` 和 `docker-compose-plugin`（或 `docker-compose`），macOS 用户确保 Docker Desktop 已启动。
-
-打开终端，逐条执行：
+> ⚠️ **Windows 用户**：请使用 **PowerShell**（不要用 CMD），右键开始菜单 → Windows PowerShell
 
 ```bash
-# ===== 第 1 步：克隆仓库（国内用 Gitee，海外用 GitHub）=====
-git clone https://gitee.com/suoten/EdgeLiteGateway.git
-cd EdgeLiteGateway
+# 1. 克隆仓库
+git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
 
-# ===== 第 2 步：构建前端（约 2 分钟）=====
-cd web && npm install && npm run build && cd ..
-
-# ===== 第 3 步：准备配置文件 =====
+# 2. 生成配置文件（Windows PowerShell 用 Copy-Item 替代 cp）
 cp docker/.env.example docker/.env
 
-# ===== 第 4 步：启动全部服务 =====
-cd docker && docker compose up -d
+# 3. 构建并启动（首次约 3-5 分钟，之后秒启）
+#    中国大陆用户如构建卡住/超时，请在 Docker Desktop 设置中配置镜像加速器
+#    Settings → Docker Engine → 添加 "registry-mirrors": ["https://docker.1ms.run"]
+cd docker && docker compose build edgelite && docker compose up -d
 
-# ===== 第 5 步：等待启动（首次约 2 分钟）=====
-# 观察日志，看到 "Uvicorn running on http://127.0.0.1:8080" 即为成功
-docker compose logs -f edgelite
+# 4. 查看启动日志
+docker compose logs -f edgelite        # 看到 "Uvicorn running" 即成功，Ctrl+C 退出
 ```
-> 看到启动日志后 `Ctrl+C` 退出日志，容器在后台继续运行。
 
-**[跳到 → 验证部署是否成功](#-验证部署是否成功)**
+打开浏览器访问 http://localhost:8080 ，账号 `admin` / 密码 `admin123`（首次登录需修改密码）。
 
-</details>
+<details>
+<summary>🖥️ 已安装 Node.js？用混合模式（本地构建前端 + Docker 跑后端）</summary>
 
----
-
-### ✅ 验证部署是否成功
-
-**请务必执行这一步，确保一切正常后再去用浏览器：**
+如果你本地有 Node.js 18+，可以先构建前端再用 Docker 启动，这样访问 http://localhost:3000 （Nginx 提供前端，速度更快）：
 
 ```bash
-# 测试 1：后端健康检查（应返回 {"status":"ok"}）
-curl http://localhost:8080/health
-
-# 测试 2：后端能正常响应登录（应返回 JSON，含 code 和 message）
-curl -s -X POST http://localhost:8080/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"<启动日志中的临时密码>"}'
-
-# 测试 3：前端页面能访问（应返回 HTML 内容）
-curl -s http://localhost:3000/ | head -20
+git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
+cd web && npm install && npm run build && cd ..
+cp docker/.env.example docker/.env
+cd docker && docker compose --profile nginx up -d
 ```
 
-| 测试 | 正常结果 | 如果失败 → |
-|------|---------|-----------|
-| `curl :8080/health` | `{"status":"ok"}` | [后端没启动 → 排查](#-常见问题速查撞墙自救指南) |
-| `curl :8080/api/v1/auth/login` | `{"code":0,...}` | 后端 API 路由有问题 |
-| `curl :3000/` | 一大段 HTML | **页面显示不了 → [看这里](#-页面打不开怎么办逐步诊断)** |
-
-> **💡 Windows 用户如果没有 `curl`**：在 PowerShell 输入 `curl.exe`（不是 `curl`），或者直接用浏览器打开 `http://localhost:3000`，看到登录页面即为成功。
-
-**全部 3 项通过后**，浏览器打开 `http://localhost:3000`，用 `admin` / 启动日志中输出的临时密码登录（首次登录需修改密码）。
+</details>
 
 ---
 
@@ -137,10 +64,10 @@ curl -s http://localhost:3000/ | head -20
 
 | 步骤 | 操作 | 耗时 | 说明 |
 |------|------|------|------|
-| 1 | 安装前端依赖 | 1-2 分钟 | `npm install` 安装 Vue 项目依赖 |
-| 2 | 构建前端页面 | 1-2 分钟 | `npm run build` 编译生产版静态文件 |
-| 3 | 生成 `.env` 配置 | 瞬间 | 从模板创建 Docker 环境变量文件 |
-| 4 | 启动 4 个容器 | 1-2 分钟 | `docker compose up -d` 后台启动网关/前端/InfluxDB/MQTT |
+| 1 | 克隆代码 | 几秒 | `git clone` 下载项目 |
+| 2 | 生成配置 | 瞬间 | `cp .env.example .env` 创建环境变量 |
+| 3 | 构建镜像 | 3-5 分钟 | Docker 内自动安装依赖、构建前后端 |
+| 4 | 启动容器 | 30 秒 | `docker compose up -d` 后台启动网关/InfluxDB/MQTT |
 
 </details>
 
@@ -153,11 +80,11 @@ curl -s http://localhost:3000/ | head -20
 | 软件                        | 最低版本   | 检查命令               | 安装方法                                                                                                      |
 | ------------------------- | ------ | ------------------ | --------------------------------------------------------------------------------------------------------- |
 | **Docker**                | 20.10+ | `docker --version` | Windows/Mac: [Docker Desktop](https://docs.docker.com/get-docker/)；Linux: `curl -fsSL https://get.docker.com \| sudo sh` |
-| **Node.js**               | 18+    | `node --version`   | [Node.js 官网](https://nodejs.org/zh-cn/download/) 下载 LTS 版本                                                 |
 | **Git**                   | 2.30+  | `git --version`    | [Git 下载](https://git-scm.com/downloads)                                                                    |
+| **Node.js** (仅混合模式需要)     | 18+    | `node --version`   | [Node.js 官网](https://nodejs.org/zh-cn/download/) 下载 LTS 版本                                                 |
 | **Python** (仅开发模式需要)       | 3.11+  | `python --version` | [Python 官网](https://www.python.org/downloads/) 下载 3.11 或 3.12                                             |
 
-> **💡 Windows 用户特别注意**：Windows 自带 CMD 不支持 `&&` 连接命令，请使用 **PowerShell**（右键开始菜单 -> Windows PowerShell）或安装 [Git Bash](https://git-scm.com/downloads)。
+> **💡 Windows 用户特别注意**：Windows 自带 CMD 不支持 `&&` 连接命令，请使用 **PowerShell**（右键开始菜单 -> Windows PowerShell）或安装 [Git Bash](https://git-scm.com/downloads)。`cp` 命令在 PowerShell 中可用，等同于 `Copy-Item`。
 
 ***
 
@@ -170,7 +97,7 @@ curl -s http://localhost:3000/ | head -20
 | `docker: command not found`     | 没装 Docker     | 去 Docker 官网下载安装                                                                                |
 | `Docker Desktop is not running` | Docker 没启动    | 双击桌面 Docker 图标启动，等鲸鱼图标稳定后再执行命令                                                                 |
 | `INFLUXDB_TOKEN is not set`     | 没复制 `.env` 文件 | 执行 `cp docker/.env.example docker/.env`                                                        |
-| `node: command not found`       | 没装 Node.js    | 去 Node.js 官网下载安装                                                                               |
+| `node: command not found`       | 没装 Node.js（混合模式才需要） | 改用默认的纯容器模式，无需 Node.js                                                                     |
 | `npm ERR! code EACCES`          | 没权限           | Windows 用管理员运行 PowerShell，Linux 加 `sudo`                                                       |
 | `port 3000 is already in use`   | 端口被占用         | 关闭占用端口的程序，或修改 `docker/docker-compose.yml` 中的端口                                                 |
 | `port 8080 is already in use`   | 后端端口被占用       | 同上，Tomcat/Jenkins 通常占用 8080                                                                    |
@@ -187,46 +114,51 @@ curl -s http://localhost:3000/ | head -20
 
 这是最常见的求助问题。**不要慌，按下面顺序一条条跑，每一步都会告诉你问题出在哪里。**
 
-> **💡 Windows PowerShell 用户注意**：下面命令中的 `ls` 换成 `dir`，`curl` 换成 `curl.exe`，其他不变。
+> **💡 Windows PowerShell 用户注意**：下面命令中的 `ls` 换成 `dir`，`curl` 换成 `curl.exe`，其他不变。以下命令均从**项目根目录**执行。
 
 ```bash
 # 诊断 1：Docker 容器在不在？
-docker compose -f docker/docker-compose.yml ps
+cd docker && docker compose ps
 ```
-> ✅ 正常：4 个容器状态全是 `Up` 或 `healthy`  
-> ❌ 异常有容器 `Exited` → 执行 `docker compose -f docker/docker-compose.yml logs <容器名>` 看错误日志
+> ✅ 正常：3 个容器（edgelite / influxdb / mosquitto）状态全是 `Up` 或 `healthy`
+> ❌ 异常有容器 `Exited` → 执行 `docker compose logs <容器名>` 看错误日志
 
 ```bash
-# 诊断 2：前端文件是否存在？
-ls -la web/dist/index.html
-```
-> ✅ 正常：能看到文件大小（约 500 字节）  
-> ❌ 文件不存在 → **前端没构建！** 执行：`cd web && npm install && npm run build && cd .. && cd docker && docker compose restart frontend`
-
-```bash
-# 诊断 3：后端是否在运行？
+# 诊断 2：后端是否在运行？
 curl http://localhost:8080/health
 ```
-> ✅ 正常：返回 `{"status":"ok"}`  
-> ❌ 无响应 → 后端容器挂了，执行：`docker compose -f docker/docker-compose.yml logs edgelite | tail -30` 看崩溃原因
+> ✅ 正常：返回 `{"status":"ok"}`
+> ❌ 无响应 → 后端容器挂了，执行 `docker compose logs edgelite --tail 30` 看崩溃原因
 
 ```bash
-# 诊断 4：Nginx 是否在运行？
-curl http://localhost:3000/ -o /dev/null -s -w "%{http_code}"
-```
-> ✅ 正常：返回 `200`  
-> ❌ 返回 `000` 或 `502` → Nginx 前端容器异常，执行：`docker compose -f docker/docker-compose.yml restart frontend && sleep 3 && docker compose -f docker/docker-compose.yml logs frontend --tail 20`
-
-```bash
-# 诊断 5：InfluxDB 是否健康？
+# 诊断 3：InfluxDB 是否健康？
 curl http://localhost:8086/health
 ```
-> ✅ 正常：返回 `{"status":"pass"}`  
-> ❌ → 等 30 秒再试，或 `docker compose -f docker/docker-compose.yml restart influxdb`
+> ✅ 正常：返回 `{"status":"pass"}`
+> ❌ → 等 30 秒再试，或 `docker compose restart influxdb`
 
-**以上 5 步全部通过后**，浏览器打开 `http://localhost:3000`，用 `admin` / 启动日志中输出的临时密码登录。
+**以上 3 步全部通过后**，浏览器打开 `http://localhost:8080`，用 `admin` / `admin123` 登录。
 
-> 💡 **还不行？** 终极重装法：`docker compose -f docker/docker-compose.yml down -v && rm -rf data/ && cd web && npm install && npm run build && cd .. && cp docker/.env.example docker/.env && cd docker && docker compose up -d`（注意这会**清空所有数据**）
+> 💡 **还不行？** 终极重装法（注意这会**清空所有数据**）：
+>
+> **Linux / Mac：**
+> ```bash
+> cd docker && docker compose down -v && rm -rf ../data/ && cp .env.example .env && docker compose build edgelite && docker compose up -d
+> ```
+> **Windows PowerShell：**
+> ```powershell
+> cd docker; docker compose down -v; Remove-Item -Recurse -Force ../data/; Copy-Item .env.example .env; docker compose build edgelite; docker compose up -d
+> ```
+
+***
+
+## 🎯 什么时候需要 EdgeLite？
+
+> **工厂设备采集**：你的车间里跑着西门子、三菱、Modbus 等各种协议的设备，你希望一个网关统一采集、阈值超限自动告警、数据直接上报 MES，而不是每个协议写一套采集程序。
+
+> **园区能源 + 视频联动**：你需要把电表水表数据和 GB28181 摄像头画面接到同一个平台，在 3D 可视化大屏上实时看能耗和监控，而不是能源系统和视频系统各搞一套。
+
+> **远程串口运维**：你需要远程调试现场的串口设备（PLC、仪表），但不想给每个现场部署 VPN，通过 EdgeLite 的串口透传功能就能直接访问。
 
 ***
 
@@ -234,24 +166,24 @@ curl http://localhost:8086/health
 
 ### 设备接入 / 协议适配
 
-| 类别          | 协议                                    | 说明                        |
-| ----------- | ------------------------------------- | ------------------------- |
-| **通用工业**    | Modbus TCP/RTU                        | 最广泛使用的工业协议，几乎兼容所有 PLC/传感器 |
-| <br />      | Siemens S7 (S7-200/300/400/1200/1500) | 西门子 PLC 全系列               |
-| <br />      | Mitsubishi MC (iQ-R/Q/L/FX)           | 三菱 PLC 全系列                |
-| <br />      | Omron FINS (CJ/CP/NJ)                 | 欧姆龙 PLC                   |
-| <br />      | Allen-Bradley CIP/PCCC                | 罗克韦尔 AB PLC               |
-| <br />      | OPC-UA Client                         | 跨平台工业互操作标准                |
-| <br />      | OPC-DA Client                         | 传统 Windows OPC 兼容         |
-| <br />      | MQTT Client (Sparkplug B)             | 工业物联网 MQTT 标准             |
-| **电力/能源**   | IEC 60870-5-104                       | 电力远动规约，变电站/配电自动化          |
-| <br />      | DL/T 645-2007                         | 国家电能表通信规约                 |
-| **机器人/CNC** | ABB RWS (Web Services)                | ABB 机器人 REST API          |
-| <br />      | FANUC FOCAS                           | 发那科 CNC 数控系统              |
-| <br />      | KUKA Ethernet KRL                     | 库卡机器人 XML                 |
-| **称重/仪表**   | Toledo MT-SICS                        | 梅特勒-托利多称重仪表               |
-| **视频**      | ONVIF / PyGBSentry / HTTP             | IP 摄像头 / 视频边缘分析（企业版支持）    |
-| **扩展**      | HTTP Webhook / Serial / Simulator     | 自定义拉取、串口原始数据、虚拟设备调试       |
+| 类别 | 协议 | 说明 |
+|------|------|------|
+| **通用工业** | Modbus TCP/RTU | 最广泛使用的工业协议，几乎兼容所有 PLC/传感器 |
+| **通用工业** | Siemens S7 (S7-200/300/400/1200/1500) | 西门子 PLC 全系列 |
+| **通用工业** | Mitsubishi MC (iQ-R/Q/L/FX) | 三菱 PLC 全系列 |
+| **通用工业** | Omron FINS (CJ/CP/NJ) | 欧姆龙 PLC |
+| **通用工业** | Allen-Bradley CIP/PCCC | 罗克韦尔 AB PLC |
+| **通用工业** | OPC-UA Client | 跨平台工业互操作标准 |
+| **通用工业** | OPC-DA Client | 传统 Windows OPC 兼容 |
+| **通用工业** | MQTT Client (Sparkplug B) | 工业物联网 MQTT 标准 |
+| **电力/能源** | IEC 60870-5-104 | 电力远动规约，变电站/配电自动化 |
+| **电力/能源** | DL/T 645-2007 | 国家电能表通信规约 |
+| **机器人/CNC** | ABB RWS (Web Services) | ABB 机器人 REST API |
+| **机器人/CNC** | FANUC FOCAS | 发那科 CNC 数控系统 |
+| **机器人/CNC** | KUKA Ethernet KRL | 库卡机器人 XML |
+| **称重/仪表** | Toledo MT-SICS | 梅特勒-托利多称重仪表 |
+| **视频** | ONVIF / PyGBSentry / HTTP | IP 摄像头 / 视频边缘分析（企业版支持） |
+| **扩展** | HTTP Webhook / Serial / Simulator | 自定义拉取、串口原始数据、虚拟设备调试 |
 
 <details>
 <summary>📡 查看完整通信架构图</summary>
@@ -322,43 +254,53 @@ flowchart LR
 - **数据查询**：多维度图表 / 自定义时间范围（P1）
 - **PWA 离线**：Service Worker 离线可用 / 推送通知（P2）
 
+### 📸 界面预览
+
+| 仪表盘 | 规则管理 |
+| --- | --- |
+| ![](docs/images/1.png) | ![](docs/images/3.png) |
+
+| 组态编辑器 | 服务管理 |
+| --- | --- |
+| ![](docs/images/7.png) | ![](docs/images/8.png) |
+
+> 截图来自社区版 v1.0.0
+
 ***
 
 ## 📦 安装部署
 
-四种部署方式分别适合不同场景，**对号入座**：
+三种部署方式分别适合不同场景，**对号入座**：
 
 | 方式                                           | 适合谁                     | 一句话说明                           |
 | -------------------------------------------- | ----------------------- | ------------------------------- |
-| [Docker 一键](#-快速开始)                          | 🟢 **新手推荐**             | 克隆 → 一键命令 → 浏览器打开               |
-| [Docker Compose 手动](#方式一docker-compose-手动控制) | 🟡 想看清每步做了什么            | 分步骤操作，可自定义参数                    |
+| [Docker 纯容器（推荐）](#-快速开始)                     | 🟢 **新手推荐**             | 只需 Docker，克隆 → 构建镜像 → 浏览器打开    |
+| [Docker + 本地前端](#方式一docker-compose-本地前端)     | 🟡 有 Node.js，想要 Nginx 加速 | 本地构建前端，Docker 跑后端               |
 | [Python 本地部署](#方式二python-本地部署开发模式)           | 🔵 开发者/二次开发             | 需要 Python 3.11 + Node.js，启动开发服务 |
-| [Docker 纯容器](#方式三docker-纯容器模式无前端构建)          | 🟠 只有 Docker，没有 Node.js | Docker 全自动构建前后端，无需本地 Node.js    |
 
 ***
 
-### 方式一：Docker Compose（手动控制）
+### 方式一：Docker Compose + 本地前端
 
-适用于需要自定义端口、查看每步日志的场景。
+适用于本地有 Node.js、想要 Nginx 提供前端（访问 http://localhost:3000）的场景。
 
 ```bash
 # 1. 克隆仓库
 git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
 
-# 2. 构建前端页面（必须！web/dist 会被 nginx 挂载）
+# 2. 构建前端页面（需要 Node.js 18+）
 cd web && npm install && npm run build && cd ..
 
 # 3. 配置环境变量
 cp docker/.env.example docker/.env
 
-# 4. 启动全部服务（-d = 后台运行）
-cd docker && docker compose up -d
+# 4. 启动全部服务（-d = 后台运行，--profile nginx 启用 Nginx 前端）
+cd docker && docker compose --profile nginx up -d
 
 # 5. 查看日志（确认启动成功）
 docker compose logs -f edgelite    # 后端日志
-docker compose logs -f frontend    # 前端日志
 
-# 6. 浏览器打开 http://localhost:3000，账号 admin，密码见启动日志
+# 6. 浏览器打开 http://localhost:3000，账号 admin，密码 admin123（首次登录需修改密码）
 ```
 
 | 端口     | 服务             | 说明                   |
@@ -406,7 +348,7 @@ npm install
 npm run dev                    # Vite dev server, 默认 http://localhost:5173
 
 # 8. 浏览器打开 http://localhost:5173
-#    首次登录：admin / 启动日志中的临时密码
+#    首次登录：admin / admin123
 ```
 
 > **💡 为什么需要虚拟环境？** 隔离项目依赖，避免和系统Python其他项目冲突。如果你已激活虚拟环境，终端前面会显示 `(.venv)`。
@@ -431,43 +373,23 @@ docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:2
 
 ***
 
-### 方式三：Docker 纯容器模式（无前端构建）
-
-适用于只有 Docker、没有 Node.js 的场景。Dockerfile 内置了前端构建步骤。
-
-```bash
-# 1. 克隆仓库
-git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
-
-# 2. 配置环境变量
-cp docker/.env.example docker/.env
-
-# 3. 构建并启动
-cd docker && docker compose build edgelite && docker compose up -d
-
-# 4. 前端由 edgelite 容器内置服务提供
-#    浏览器打开 http://localhost:8080
-```
-
-> **注意**：这种方式下 Nginx 前端服务不启动（因为没有 `web/dist`），前端由 edgelite 后端直接提供。
-
-***
-
 ### 服务管理命令（备忘）
+
+以下命令在 `docker/` 目录下执行：
 
 ```bash
 # 查看容器状态
-docker compose -f docker/docker-compose.yml ps
+docker compose ps
 
 # 查看所有日志
-docker compose -f docker/docker-compose.yml logs -f
+docker compose logs -f
 
 # 重启网关
-docker compose -f docker/docker-compose.yml restart edgelite
+docker compose restart edgelite
 
 # 删除所有数据（慎用！不可恢复）
-docker compose -f docker/docker-compose.yml down -v
-rm -rf data/ logs/
+docker compose down -v
+rm -rf ../data/ ../logs/
 ```
 
 ***
@@ -506,6 +428,27 @@ rm -rf data/ logs/
 └──────────────────────────────────────────────────────────┘
 
 ```
+
+***
+
+## 🤔 为什么选择 EdgeLite？
+
+EdgeLite 定位为**全栈边缘计算网关**——不仅完成工业协议采集，更将规则引擎、告警通知、视频接入、Web 组态、3D 数字孪生融为一体，让边缘侧从"数据搬运工"升级为"智能决策节点"。
+
+| 维度 | EdgeLite Gateway | IoTGateway |
+|------|:---:|:---:|
+| **核心语言** | Python 3.11+ | .NET 8 (C#) |
+| **工业协议数量** | 22 种 | 30+ 种 |
+| **规则引擎** | ✅ 阈值告警 / 条件组合 / 持续时间 / 变化检测 | ❌ 无内置 |
+| **告警通知** | ✅ 钉钉 / 企微 / 邮件 / Webhook | ❌ 无内置 |
+| **视频接入 (GB28181)** | ✅ ONVIF + GB28181 + 视频分析 | ❌ 不支持 |
+| **Web 组态 / 3D 数字孪生** | ✅ 拖拽组态 + Three.js 3D | ❌ 不支持 |
+| **时序数据存储** | ✅ InfluxDB 2.x + 离线缓存续传 | ⚠️ 需自行对接 |
+| **内置 MQTT Server** | ✅ aMQTT 内置 Broker | ❌ 需外部部署 |
+| **内存占用** | ⚠️ ~80-150 MB | ✅ ~30-60 MB |
+| **二次开发语言门槛** | Python（低门槛，生态丰富） | C# / .NET（中等门槛） |
+
+> 💡 **IoTGateway** 是优秀的工业采集网关，在 .NET 生态下协议覆盖广、性能出色。EdgeLite 在其基础上增加了规则引擎、告警、视频、组态等企业级功能，适合需要"采集 + 计算 + 展示"一体化方案的场景。
 
 ***
 

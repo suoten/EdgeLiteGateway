@@ -1,42 +1,42 @@
 <template>
   <n-space vertical :size="16">
     <n-space justify="space-between">
-      <n-input v-model:value="searchText" placeholder="搜索用户名" clearable style="width: 200px" @update:value="filterUsers" />
-      <n-button type="primary" @click="showCreateModal = true">创建用户</n-button>
+      <n-input v-model:value="searchText" :placeholder="t('userManage.searchUsername')" clearable style="width: 200px" /> <!-- FIXED: 原问题-空函数filterUsers无实际作用，v-model已自动触发computed重算 -->
+      <n-button type="primary" @click="showCreateModal = true">{{ t('userManage.createUser') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
     </n-space>
 
     <n-data-table :columns="columns" :data="filteredUsers" :loading="loading" :row-key="(r: User) => r.user_id" />
 
-    <n-empty v-if="!loading && filteredUsers.length === 0" description="暂无用户数据" style="margin-top: 24px" />
+    <n-empty v-if="!loading && filteredUsers.length === 0" :description="t('userManage.noUserData')" style="margin-top: 24px" /> <!-- FIXED: 原问题-中文硬编码 -->
 
-    <n-modal v-model:show="showCreateModal" title="创建用户" preset="card" style="width: 500px">
+    <n-modal v-model:show="showCreateModal" :title="t('userManage.createUser')" preset="card" style="width: 500px"> <!-- FIXED: 原问题-中文硬编码 -->
       <n-form :model="createForm" label-placement="left" label-width="80" :rules="createRules" ref="createFormRef">
-        <n-form-item label="用户名" path="username"><n-input v-model:value="createForm.username" placeholder="请输入用户名" /></n-form-item>
-        <n-form-item label="密码" path="password"><n-input v-model:value="createForm.password" type="password" show-password-on="click" placeholder="请输入密码（至少8位，含字母和数字）" /></n-form-item>
-        <n-form-item label="角色" path="role">
-          <n-select v-model:value="createForm.role" :options="roleOptions" placeholder="选择角色" />
+        <n-form-item :label="t('userManage.username')" path="username"><n-input v-model:value="createForm.username" :placeholder="t('userManage.enterUsername')" /></n-form-item> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-form-item :label="t('userManage.password')" path="password"><n-input v-model:value="createForm.password" type="password" show-password-on="click" :placeholder="t('userManage.passwordPlaceholder')" /></n-form-item> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-form-item :label="t('userManage.role')" path="role"> <!-- FIXED: 原问题-中文硬编码 -->
+          <n-select v-model:value="createForm.role" :options="roleOptions" :placeholder="t('userManage.selectRole')" /> <!-- FIXED: 原问题-中文硬编码 -->
         </n-form-item>
       </n-form>
       <template #action>
-        <n-button @click="showCreateModal = false">取消</n-button>
-        <n-button type="primary" :loading="creating" @click="handleCreate">创建</n-button>
+        <n-button @click="showCreateModal = false">{{ t('common.cancel') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-button type="primary" :loading="creating" @click="handleCreate">{{ t('common.create') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showEditModal" title="编辑用户" preset="card" style="width: 500px">
+    <n-modal v-model:show="showEditModal" :title="t('userManage.editUser')" preset="card" style="width: 500px"> <!-- FIXED: 原问题-中文硬编码 -->
       <n-form :model="editForm" label-placement="left" label-width="80" :rules="editRules" ref="editFormRef">
-        <n-form-item label="用户名" path="username"><n-input v-model:value="editForm.username" disabled /></n-form-item>
-        <n-form-item label="角色" path="role">
+        <n-form-item :label="t('userManage.username')" path="username"><n-input v-model:value="editForm.username" disabled /></n-form-item> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-form-item :label="t('userManage.role')" path="role"> <!-- FIXED: 原问题-中文硬编码 -->
           <n-select v-model:value="editForm.role" :options="roleOptions" />
         </n-form-item>
-        <n-form-item label="新密码"><n-input v-model:value="editForm.password" type="password" show-password-on="click" placeholder="留空则不修改" /></n-form-item>
-        <n-form-item label="启用状态">
+        <n-form-item :label="t('userManage.newPassword')"><n-input v-model:value="editForm.password" type="password" show-password-on="click" :placeholder="t('userManage.leaveEmptyNoChange')" /></n-form-item> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-form-item :label="t('userManage.enabledStatus')"> <!-- FIXED: 原问题-中文硬编码 -->
           <n-switch v-model:value="editForm.enabled" />
         </n-form-item>
       </n-form>
       <template #action>
-        <n-button @click="showEditModal = false">取消</n-button>
-        <n-button type="primary" :loading="editing" @click="handleEdit">保存</n-button>
+        <n-button @click="showEditModal = false">{{ t('common.cancel') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
+        <n-button type="primary" :loading="editing" @click="handleEdit">{{ t('common.save') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
       </template>
     </n-modal>
   </n-space>
@@ -46,6 +46,7 @@
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, NSwitch, useMessage, useDialog } from 'naive-ui'
 import { userApi, type User } from '@/api'
+import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
 
 const message = useMessage()
 const dialog = useDialog()
@@ -60,13 +61,13 @@ const createFormRef = ref<any>(null)
 const editFormRef = ref<any>(null)
 
 const editRules = {
-  role: { required: true, message: '请选择角色', trigger: 'change' },
+  role: { required: true, message: t('userManage.selectRole'), trigger: 'change' },  // FIXED: 原问题-中文硬编码
   password: {
     trigger: 'blur',
     validator: (_rule: any, value: string) => {
       if (!value) return true
-      if (value.length < 8) return new Error('密码至少8位，需包含字母和数字')
-      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error('密码需同时包含字母和数字')
+      if (value.length < 8) return new Error(t('userManage.passwordMinLength'))  // FIXED: 原问题-中文硬编码
+      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error(t('userManage.passwordLetterAndDigit'))  // FIXED: 原问题-中文硬编码
       return true
     },
   },
@@ -79,49 +80,49 @@ const filteredUsers = computed(() => {
 })
 
 const roleOptions = [
-  { label: '管理员 (admin)', value: 'admin' },
-  { label: '操作员 (operator)', value: 'operator' },
-  { label: '观察者 (viewer)', value: 'viewer' },
+  { label: t('userManage.admin') + ' (admin)', value: 'admin' },  // FIXED: 原问题-中文硬编码
+  { label: t('userManage.operator') + ' (operator)', value: 'operator' },  // FIXED: 原问题-中文硬编码
+  { label: t('userManage.viewer') + ' (viewer)', value: 'viewer' },  // FIXED: 原问题-中文硬编码
 ]
 
 const roleColor: Record<string, any> = { admin: 'error', operator: 'warning', viewer: 'info' }
-const roleLabel: Record<string, string> = { admin: '管理员', operator: '操作员', viewer: '观察者' }
+const roleLabel: Record<string, string> = { admin: t('userManage.admin'), operator: t('userManage.operator'), viewer: t('userManage.viewer') }  // FIXED: 原问题-中文硬编码
 
 const createRules = {
-  username: { required: true, pattern: /^[a-zA-Z0-9_]+$/, message: '用户名仅支持字母、数字和下划线', trigger: 'blur' },
+  username: { required: true, pattern: /^[a-zA-Z0-9_]+$/, message: t('userManage.usernamePattern'), trigger: 'blur' },  // FIXED: 原问题-中文硬编码
   password: {
     required: true,
     trigger: 'blur',
     validator: (_rule: any, value: string) => {
-      if (!value) return new Error('请输入密码')
-      if (value.length < 8) return new Error('密码至少8位，需包含字母和数字')
-      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error('密码需同时包含字母和数字')
+      if (!value) return new Error(t('userManage.enterPassword'))  // FIXED: 原问题-中文硬编码
+      if (value.length < 8) return new Error(t('userManage.passwordMinLength'))  // FIXED: 原问题-中文硬编码
+      if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return new Error(t('userManage.passwordLetterAndDigit'))  // FIXED: 原问题-中文硬编码
       return true
     },
   },
-  role: { required: true, message: '请选择角色', trigger: 'change' },
+  role: { required: true, message: t('userManage.selectRole'), trigger: 'change' },  // FIXED: 原问题-中文硬编码
 }
 
 const columns = [
-  { title: '用户ID', key: 'user_id', width: 140 },
-  { title: '用户名', key: 'username', width: 150 },
-  { title: '角色', key: 'role', width: 120,
+  { title: t('userManage.userId'), key: 'user_id', width: 140 },  // FIXED: 原问题-中文硬编码
+  { title: t('userManage.username'), key: 'username', width: 150 },  // FIXED: 原问题-中文硬编码
+  { title: t('userManage.role'), key: 'role', width: 120,  // FIXED: 原问题-中文硬编码
     render: (row: User) => h(NTag, { type: roleColor[row.role] || 'default', size: 'small' }, { default: () => roleLabel[row.role] || row.role }),
   },
   {
-    title: '状态', key: 'enabled', width: 80,
-    render: (row: User) => h(NTag, { type: row.enabled !== false ? 'success' : 'default', size: 'small' }, { default: () => row.enabled !== false ? '启用' : '禁用' }),
+    title: t('userManage.status'), key: 'enabled', width: 80,  // FIXED: 原问题-中文硬编码
+    render: (row: User) => h(NTag, { type: row.enabled !== false ? 'success' : 'default', size: 'small' }, { default: () => row.enabled !== false ? t('userManage.enabled') : t('userManage.disabled') }),  // FIXED: 原问题-中文硬编码
   },
-  { title: '创建时间', key: 'created_at', width: 180 },
-  { title: '更新时间', key: 'updated_at', width: 180 },
+  { title: t('userManage.createTime'), key: 'created_at', width: 180 },  // FIXED: 原问题-中文硬编码
+  { title: t('userManage.updateTime'), key: 'updated_at', width: 180 },  // FIXED: 原问题-中文硬编码
   {
-    title: '操作', key: 'actions', width: 150,
+    title: t('userManage.actions'), key: 'actions', width: 150,  // FIXED: 原问题-中文硬编码
     render: (row: User) =>
       h(NSpace, null, {
         default: () => [
-          h(NButton, { text: true, type: 'primary', onClick: () => openEdit(row) }, { default: () => '编辑' }),
+          h(NButton, { text: true, type: 'primary', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),  // FIXED: 原问题-中文硬编码
           row.username !== 'admin'
-            ? h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' })
+            ? h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row) }, { default: () => t('common.delete') })  // FIXED: 原问题-中文硬编码
             : null,
         ],
       }),
@@ -131,15 +132,13 @@ const columns = [
 const createForm = reactive({ username: '', password: '', role: 'viewer' })
 const editForm = reactive({ user_id: '', username: '', role: '', password: '', enabled: true })
 
-function filterUsers() {}
-
 async function fetchUsers() {
   loading.value = true
   try {
     const data = await userApi.list({ page: 1, size: 1000 })
     users.value = data?.data ?? []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '获取用户列表失败')
+    message.error(e?.response?.data?.detail || e?.message || t('userManage.fetchListFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     loading.value = false
   }
@@ -152,14 +151,14 @@ async function handleCreate() {
   creating.value = true
   try {
     await userApi.create(createForm)
-    message.success('用户创建成功')
+    message.success(t('userManage.createSuccess'))  // FIXED: 原问题-中文硬编码
     showCreateModal.value = false
     createForm.username = ''
     createForm.password = ''
     createForm.role = 'viewer'
     fetchUsers()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '创建失败')
+    message.error(e?.response?.data?.detail || e?.message || t('userManage.createFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     creating.value = false
   }
@@ -183,11 +182,11 @@ async function handleEdit() {
     const data: any = { role: editForm.role, enabled: editForm.enabled }
     if (editForm.password) data.password = editForm.password
     await userApi.update(editForm.user_id, data)
-    message.success('用户更新成功')
+    message.success(t('userManage.updateSuccess'))  // FIXED: 原问题-中文硬编码
     showEditModal.value = false
     fetchUsers()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || '更新失败')
+    message.error(e?.response?.data?.detail || e?.message || t('userManage.updateFailed'))  // FIXED: 原问题-中文硬编码
   } finally {
     editing.value = false
   }
@@ -195,17 +194,17 @@ async function handleEdit() {
 
 function handleDelete(row: User) {
   dialog.warning({
-    title: '确认删除',
-    content: `确定删除用户 "${row.username}"？此操作不可撤销。`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: t('userManage.confirmDelete'),  // FIXED: 原问题-中文硬编码
+    content: t('userManage.confirmDeleteUser', { username: row.username }),  // FIXED: 原问题-中文硬编码
+    positiveText: t('common.delete'),  // FIXED: 原问题-中文硬编码
+    negativeText: t('common.cancel'),  // FIXED: 原问题-中文硬编码
     onPositiveClick: async () => {
       try {
         await userApi.delete(row.user_id)
-        message.success('删除成功')
+        message.success(t('userManage.deleteSuccess'))  // FIXED: 原问题-中文硬编码
         fetchUsers()
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || '删除失败')
+        message.error(e?.response?.data?.detail || e?.message || t('userManage.deleteFailed'))  // FIXED: 原问题-中文硬编码
       }
     },
   })

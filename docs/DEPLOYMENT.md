@@ -22,8 +22,16 @@
 ### 快速启动
 
 ```bash
-cd docker
-docker compose up -d
+# 1. 克隆仓库
+git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
+
+# 2. 生成配置文件
+cp docker/.env.example docker/.env
+
+# 3. 构建并启动
+cd docker && docker compose build edgelite && docker compose up -d
+
+# 4. 浏览器打开 http://localhost:8080
 ```
 
 ### 服务说明
@@ -40,12 +48,14 @@ docker compose up -d
 
 ```env
 # InfluxDB 配置
-INFLUXDB_TOKEN=your-secure-influxdb-token
-INFLUXDB_PASSWORD=your-influxdb-admin-password
+INFLUXDB_TOKEN=edgelite-dev-token-change-in-production
+INFLUXDB_PASSWORD=edgelite-admin-2024
 
 # EdgeLiteGateway 安全配置
-SECRET_KEY=your-jwt-secret-key-at-least-32-chars
+SECRET_KEY=edgelite-dev-secret-key-change-in-production
 ```
+
+> ⚠️ **生产环境必须替换为安全随机值！**
 
 **生成安全密钥**：
 

@@ -132,11 +132,11 @@ const changePwdRules = {
   new_password: [
     { required: true, message: t('login.newPassword'), trigger: 'blur' },
     { min: 8, message: t('login.passwordMinLength'), trigger: 'blur' },
-    { validator: (_rule: any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: 'Password must contain letters and numbers', trigger: 'blur' },
+    { validator: (_rule: Any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: t('login.passwordLetterAndDigit'), trigger: 'blur' },  // FIXED: 原问题-硬编码英文，改用i18n
   ],
   confirm_password: [
     { required: true, message: t('login.confirmPassword'), trigger: 'blur' },
-    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: 'Passwords do not match', trigger: 'blur' },
+    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: t('login.passwordMismatch'), trigger: 'blur' },  // FIXED: 原问题-硬编码英文，改用i18n
   ],
 }
 const changePwdFormRef = ref<any>(null)
@@ -198,8 +198,11 @@ async function handleChangePassword() {
     // 现在修改密码成功后重新登录获取新token
     try {
       await auth.login(changePwdForm.old_password, changePwdForm.new_password)
-    } catch {
-      // 重新登录失败则跳转到登录页
+    } catch (reLoginError: any) {
+      // FIXED: 原问题-重新登录失败时误用passwordChanged(成功语义)作为错误消息
+      message.error(t('login.passwordChangeFailed'))
+      router.push('/login')
+      return
     }
     router.push('/')
   } catch (e: any) {

@@ -21,6 +21,11 @@ class WebhookAuthMiddleware:
         self._token = self._resolve_env_var(token)
         self._username = self._resolve_env_var(username)
         self._password = self._resolve_env_var(password)
+        # FIXED: 原问题-认证凭据为空时初始化无告警，启动后才发现所有请求被拒
+        if self._mode == "bearer" and not self._token:
+            logger.warning("WebhookAuth: Bearer模式但token为空，所有webhook请求将被拒绝")
+        if self._mode == "basic" and (not self._username or not self._password):
+            logger.warning("WebhookAuth: Basic模式但username或password为空，所有webhook请求将被拒绝")
 
     @staticmethod
     def _resolve_env_var(value: str) -> str:

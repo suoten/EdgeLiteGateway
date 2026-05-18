@@ -29,10 +29,10 @@ class OpcDaDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["opc_da"]
     config_schema = {
-        "description": "OPC DA经典协议（Windows COM），读取传统OPC服务器数据",
+        "description": "OPC DA classic protocol (Windows COM), reads data from legacy OPC servers",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "prog_id", "type": "string", "label": "ProgID", "description": "OPC DA服务器的ProgID，如 Matrikon.OPC.Simulation", "required": True},
-            {"name": "host", "type": "string", "label": "主机", "description": "OPC服务器所在主机，本机留空", "default": ""},
+            {"name": "prog_id", "type": "string", "label": "ProgID", "description": "OPC DA server ProgID, e.g. Matrikon.OPC.Simulation", "required": True},
+            {"name": "host", "type": "string", "label": "Host", "description": "OPC server host, leave empty for local machine", "default": ""},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

@@ -31,9 +31,9 @@ class FanucCncDriver(DriverPlugin):
     config_schema = {
         "description": "FANUC CNC数控系统FOCAS协议，支持读取机床状态和坐标",
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "CNC控制器IP地址", "default": "192.168.1.1", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "FOCAS端口，默认8193", "default": 8193},
-            {"name": "timeout", "type": "integer", "label": "超时(秒)", "description": "连接超时时间", "default": 5},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "CNC controller IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "FOCAS port, default 8193", "default": 8193},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "timeout", "type": "integer", "label": "Timeout (s)", "description": "Connection timeout", "default": 5},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.api.deps import CurrentUser
+from edgelite.api.error_codes import ScadaErrors
 from edgelite.models.common import ApiResponse
 
 logger = logging.getLogger(__name__)
@@ -77,13 +78,13 @@ async def list_projects(_user: CurrentUser):
                     }
                 )
             else:
-                logger.warning("读取组态项目文件失败 %s", f.name)
+                logger.warning("Failed to read scada project file %s", f.name)  # FIXED: 原问题-中文硬编码日志
         return ApiResponse(data=projects)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        logger.error("Failed to list projects: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=ScadaErrors.LOAD_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/project/{name}", response_model=ApiResponse)
@@ -94,13 +95,13 @@ async def get_project(name: str, _user: CurrentUser):
             return ApiResponse(data={"name": name, "widgets": [], "updated_at": None})
         data = await asyncio.to_thread(_read_json, path)
         if data is None:
-            raise HTTPException(status_code=500, detail="读取组态项目失败")
+            raise HTTPException(status_code=500, detail=ScadaErrors.LOAD_FAILED)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=data)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        logger.error("Failed to get project: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=ScadaErrors.LOAD_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/project", response_model=ApiResponse)
@@ -119,12 +120,12 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
                     data={"saved": True, "name": req.name, "widget_count": len(req.widgets)}
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail="保存组态项目失败") from e
+                raise HTTPException(status_code=500, detail=ScadaErrors.SAVE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("保存失败: %s", e)
-        raise HTTPException(status_code=500, detail="保存失败") from e
+        logger.error("Failed to save project: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=ScadaErrors.SAVE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.delete("/project/{name}", response_model=ApiResponse)
@@ -134,9 +135,9 @@ async def delete_project(name: str, _user: CurrentUser):
         if path.exists():
             await asyncio.to_thread(path.unlink)
             return ApiResponse(data={"deleted": True, "name": name})
-        raise HTTPException(status_code=404, detail=f"项目 {name} 不存在")
+        raise HTTPException(status_code=404, detail=ScadaErrors.PROJECT_NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("删除失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除失败") from e
+        logger.error("Failed to delete project: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=ScadaErrors.DELETE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code

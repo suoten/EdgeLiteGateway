@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from edgelite.config import get_config
+from edgelite.constants import _MQTT_DRIVER_RECONNECT
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -22,13 +23,13 @@ class MqttClientDriver(DriverPlugin):
     plugin_version = "0.1.0"
     supported_protocols = ["mqtt"]
     config_schema = {
-        "description": "MQTT客户端，订阅设备数据主题，支持JSON解析",
+        "description": "MQTT client, subscribes to device data topics, supports JSON parsing",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "broker", "type": "string", "label": "Broker地址", "description": "MQTT服务器地址，如 localhost 或 broker.emqx.io", "default": "localhost", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "MQTT服务端口，默认1883（非加密）或8883（TLS）", "default": 1883},
-            {"name": "username", "type": "string", "label": "用户名", "description": "MQTT认证用户名，无认证可留空"},
-            {"name": "password", "type": "string", "label": "密码", "description": "MQTT认证密码", "secret": True},
-            {"name": "topic", "type": "string", "label": "订阅主题", "description": "要订阅的MQTT主题，支持通配符如 device/+/data", "required": True},
+            {"name": "broker", "type": "string", "label": "Broker Address", "description": "MQTT server address, e.g. localhost or broker.emqx.io", "default": "localhost", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "MQTT port, default 1883 (plain) or 8883 (TLS)", "default": 1883},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "username", "type": "string", "label": "Username", "description": "MQTT auth username, leave empty if no auth"},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "password", "type": "string", "label": "Password", "description": "MQTT auth password", "secret": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "topic", "type": "string", "label": "Subscribe Topic", "description": "MQTT topic to subscribe, supports wildcards like device/+/data", "required": True},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -149,7 +150,7 @@ class MqttClientDriver(DriverPlugin):
                 raise
             except ImportError:
                 logger.error("aiomqtt未安装，MQTT驱动不可用")
-                await asyncio.sleep(30)
+                await asyncio.sleep(_MQTT_DRIVER_RECONNECT)  # FIXED: 原问题-魔法数字，提取为命名常量
             except Exception as e:
                 logger.error("MQTT连接异常: %s，5秒后重试", e)
                 await asyncio.sleep(_MQTT_RECONNECT_DELAY)
@@ -194,9 +195,9 @@ class MqttClientDriver(DriverPlugin):
                 subscribe_topic = dev_config.get("subscribe_topic", f"edgelite/{device_id}/data")
                 if topic == subscribe_topic or topic.endswith(subscribe_topic):
                     if isinstance(data, dict):
-                        self._latest_values[device_id].update(data)
+                        self._latest_values.setdefault(device_id, {}).update(data)  # FIXED: 原问题-嵌套硬访问可能KeyError，用setdefault确保外层键存在
                     else:
-                        self._latest_values[device_id]["value"] = data
+                        self._latest_values.setdefault(device_id, {})["value"] = data  # FIXED: 原问题-嵌套硬访问可能KeyError，用setdefault确保外层键存在
 
                     if self._data_callback:
                         await self._data_callback(device_id, data)

@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from edgelite.constants import _HTTP_TIMEOUT
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ class HttpWebhookDriver(DriverPlugin):
                 resp = await client.post(
                     push_url,
                     json={"point": point, "value": value},
-                    timeout=10.0,
+                    timeout=_HTTP_TIMEOUT,  # FIXED: 原问题-timeout=10.0魔法数字
                 )
                 return resp.status_code == 200
         except Exception as e:
@@ -97,24 +98,27 @@ class HttpWebhookDriver(DriverPlugin):
 
         # 数据转换：支持多种格式
         processed = self._transform_data(device_id, data)
-        self._latest_values[device_id].update(processed)
-        self._last_receive[device_id] = time.time()
+        try:  # FIXED: 原问题-update和回调无try-catch保护
+            self._latest_values.setdefault(device_id, {}).update(processed)  # FIXED: 原问题-硬访问device_id键可能不存在
+            self._last_receive[device_id] = time.time()
 
-        # 触发数据回调
-        if self._data_callback:
-            await self._data_callback(device_id, processed)
+            # 触发数据回调
+            if self._data_callback:
+                await self._data_callback(device_id, processed)
+        except Exception as e:
+            logger.error("HTTP接收数据处理失败: %s - %s", device_id, e)
 
     def _transform_data(self, device_id: str, data: dict) -> dict[str, Any]:
         """数据格式转换"""
         points = self._device_points.get(device_id, [])
-        point_names = {p["name"] for p in points}
+        point_names = {p.get("name") for p in points if p.get("name") is not None}  # FIXED: 原问题-p["name"]硬访问
 
         # 如果数据是扁平的键值对，直接使用
         result = {}
         for key, value in data.items():
             if key in point_names or not point_names:
                 # 类型转换
-                point_def = next((p for p in points if p["name"] == key), None)
+                point_def = next((p for p in points if p.get("name") == key), None)  # FIXED: 原问题-p["name"]硬访问
                 if point_def:
                     value = self._cast_value(value, point_def.get("data_type", "float32"))
                 result[key] = value

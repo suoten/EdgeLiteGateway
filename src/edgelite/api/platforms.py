@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from edgelite.api.deps import CurrentUser, PlatformHandlersDep, require_permission
+from edgelite.api.error_codes import PlatformErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 from edgelite.services.platform_service import PlatformService
@@ -38,8 +39,8 @@ async def list_platforms(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        logger.error("Failed to list platforms: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=PlatformErrors.CONNECT_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/config-schema/{platform_name}", response_model=ApiResponse)
@@ -51,13 +52,13 @@ async def get_platform_config_schema(
         svc = PlatformService()
         schema = svc.get_config_schema(platform_name)
         if not schema:
-            raise HTTPException(status_code=404, detail=f"平台 {platform_name} 配置模板不存在")
+            raise HTTPException(status_code=404, detail=PlatformErrors.CONFIG_SCHEMA_NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data={"platform_name": platform_name, "config_schema": schema})
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        logger.error("Failed to get config schema: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=PlatformErrors.CONNECT_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/connect/{platform_name}", response_model=ApiResponse)
@@ -68,7 +69,7 @@ async def connect_platform(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if not req.config:
-        raise HTTPException(status_code=400, detail="平台配置不能为空")
+        raise HTTPException(status_code=400, detail=PlatformErrors.MISSING_CONFIG)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
     try:
         svc = _get_service(handlers)
@@ -77,7 +78,7 @@ async def connect_platform(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail="平台连接失败") from e
+        raise HTTPException(status_code=500, detail=PlatformErrors.CONNECT_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/disconnect/{platform_name}", response_model=ApiResponse)
@@ -93,7 +94,7 @@ async def disconnect_platform(
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail="断开失败") from e
+        raise HTTPException(status_code=500, detail=PlatformErrors.DISCONNECT_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/status/{platform_name}", response_model=ApiResponse)
@@ -109,5 +110,5 @@ async def get_platform_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        logger.error("Failed to get platform status: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=PlatformErrors.CONNECT_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code

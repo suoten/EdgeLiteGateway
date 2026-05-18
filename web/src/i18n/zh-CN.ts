@@ -15,6 +15,11 @@ const zhCN: LocaleMessages = {
     noData: '暂无数据',
     required: '此项为必填',
     unknown: '未知',
+    close: '关闭',  // FIXED: 原问题-缺失i18n key
+    refresh: '刷新',  // FIXED: 原问题-缺失i18n key
+    actions: '操作',  // FIXED: 原问题-缺失i18n key，替代跨域误用alarmList.actions
+    pageNotFound: '页面不存在',  // FIXED: 原问题-中文硬编码，改用i18n
+    backToHome: '返回首页',  // FIXED: 原问题-中文硬编码，改用i18n
     sineWave: '正弦波',
     randomWalk: '随机游走',
     uniformRandom: '均匀随机',
@@ -48,6 +53,14 @@ const zhCN: LocaleMessages = {
     passwordLetterAndDigit: '新密码需同时包含字母和数字',
     passwordChangeFailed: '密码修改失败，请重试',
     passwordChanged: '密码修改成功，正在进入系统...',
+    changePasswordSecurityHint: '为保障您的账户安全，建议修改默认密码后再使用系统',  // FIXED: 原问题-中文硬编码，改用i18n
+    oldPasswordPlaceholder: '请输入当前使用的密码',  // FIXED: 原问题-中文硬编码，改用i18n
+    newPasswordPlaceholder: '至少6位，建议包含字母和数字',  // FIXED: 原问题-中文硬编码，改用i18n
+    confirmPasswordPlaceholder: '请再次输入新密码',  // FIXED: 原问题-中文硬编码，改用i18n
+    saveChanges: '保存修改',  // FIXED: 原问题-中文硬编码，改用i18n
+    oldPasswordRequired: '请输入当前密码',  // FIXED: 原问题-中文硬编码，改用i18n
+    newPasswordRequired: '请输入新密码',  // FIXED: 原问题-中文硬编码，改用i18n
+    passwordMismatch: '两次输入的密码不一致，请重新输入',  // FIXED: 原问题-中文硬编码，改用i18n
   },
   alarm: {
     title: '告警管理',
@@ -81,6 +94,151 @@ const zhCN: LocaleMessages = {
     serialPortUnavailable: '串口设备不存在或无法访问',
     pushDriverNotReady: 'HTTP Webhook驱动未启动或设备不存在',
     deviceExists: '设备已存在',
+    wsConnected: 'WebSocket 已连接',
+    ptzSent: '云台控制已发送',
+    ptzFailed: '云台控制失败',
+    streamFailed: '获取视频流失败',
+    updateSuccess: '设备更新成功',
+    updateFailed: '更新失败',
+    loadFailed: '加载设备信息失败',
+    realtimeFailed: '获取实时数据失败',
+    enterWriteValue: '请输入写入值',
+    enterValidInt: '请输入有效整数',
+    enterValidNumber: '请输入有效数字',
+    writeConfirm: '确认下发',
+    writeContent: '即将向设备「{name}」的测点「{point}」写入值 {value}，此操作将直接影响物理设备，是否继续？',
+    writeConfirmBtn: '确认下发',
+    writeSuccess: '{point} 下发成功: {value}',
+    writeFailed: '下发失败',
+    chartQueryFailed: '查询时序数据失败',
+    loadingDevice: '加载设备信息...',
+    deviceNotExist: '设备不存在',
+    deviceNotExistDesc: '该设备可能已被删除或ID无效',
+    backToList: '返回设备列表',
+    overview: '概览',
+    editDevice: '编辑设备',
+    deviceInfo: '设备信息',
+    deviceId: '设备ID',
+    name: '名称',
+    protocol: '协议',
+    status: '状态',
+    collectInterval: '采集间隔',
+    createTime: '创建时间',
+    updateTime: '更新时间',
+    connectionConfig: '连接配置',
+    pointDefinition: '测点定义',
+    realtimeData: '实时数据',
+    wsConnectedLabel: 'WebSocket 已连接',
+    wsDisconnectedLabel: 'WebSocket 未连接',
+    manualRefresh: '手动刷新',
+    collectIntervalHint: '数据每 {interval}s 采集一次',
+    dataWrite: '数据下发',
+    dataWriteDesc: '向设备写入控制值。仅 access_mode 为 w 或 rw 的测点可写入。',
+    timeSeriesChart: '时序图表',
+    selectPoint: '选择测点',
+    query: '查询',
+    videoMonitor: '视频监控',
+    liveVideo: '实时视频',
+    refreshStream: '刷新流',
+    noStream: '暂无视频流',
+    ptzControl: '云台控制',
+    up: '上',
+    down: '下',
+    left: '左',
+    right: '右',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    nameRequired: '请输入设备名称',
+    collectIntervalRange: '采集间隔1-3600秒',
+    dataType: '数据类型',
+    address: '地址',
+    unit: '单位',
+    accessMode: '访问模式',
+    minValue: '最小值',
+    maxValue: '最大值',
+    mode: '模式',
+    point: '测点',
+    currentValue: '当前值',
+    quality: '质量',
+    writeValue: '写入值',
+    inputPlaceholder: '输入值',
+    send: '下发',
+  },
+  deviceDetail: {
+    loadingDevice: '加载设备信息...',
+    deviceNotExist: '设备不存在',
+    deviceNotExistDesc: '该设备可能已被删除或ID无效',
+    backToList: '返回设备列表',
+    overview: '概览',
+    editDevice: '编辑设备',
+    save: '保存',
+    cancel: '取消',
+    deviceInfo: '设备信息',
+    deviceId: '设备ID',
+    name: '名称',
+    protocol: '协议',
+    status: '状态',
+    collectInterval: '采集间隔',
+    createTime: '创建时间',
+    updateTime: '更新时间',
+    connectionConfig: '连接配置',
+    pointDefinition: '测点定义',
+    realtimeData: '实时数据',
+    wsConnected: 'WebSocket 已连接',
+    wsDisconnected: 'WebSocket 未连接',
+    manualRefresh: '手动刷新',
+    collectIntervalHint: '数据每 {interval}s 采集一次',
+    dataWrite: '数据下发',
+    dataWriteDesc: '向设备写入控制值。仅 access_mode 为 w 或 rw 的测点可写入。',
+    timeSeriesChart: '时序图表',
+    selectPoint: '选择测点',
+    query: '查询',
+    videoMonitor: '视频监控',
+    liveVideo: '实时视频',
+    refreshStream: '刷新流',
+    noStream: '暂无视频流',
+    ptzControl: '云台控制',
+    up: '上',
+    down: '下',
+    left: '左',
+    right: '右',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    streamFailed: '获取视频流失败',
+    ptzFailed: '云台控制失败',
+    nameRequired: '请输入设备名称',
+    collectIntervalRange: '采集间隔1-3600秒',
+    updateFailed: '更新失败',
+    loadFailed: '加载设备信息失败',
+    realtimeFailed: '获取实时数据失败',
+    writeFailed: '下发失败',
+    chartQueryFailed: '查询时序数据失败',
+    dataType: '数据类型',
+    address: '地址',
+    unit: '单位',
+    accessMode: '访问模式',
+    readOnly: '只读',
+    writeOnly: '只写',
+    readWrite: '读写',
+    minValue: '最小值',
+    maxValue: '最大值',
+    mode: '模式',
+    point: '测点',
+    currentValue: '当前值',
+    quality: '质量',
+    abnormal: '异常',
+    writeValue: '写入值',
+    inputPlaceholder: '输入值',
+    action: '操作',
+    send: '下发',
+    range1h: '近1小时',
+    range6h: '近6小时',
+    range24h: '近24小时',
+    range7d: '近7天',
+    writeConfirm: '确认下发',
+    writeContent: '即将向设备「{name}」的测点「{point}」写入值 {value}，此操作将直接影响物理设备，是否继续？',
+    writeConfirmBtn: '确认下发',
+    writeSuccess: '{point} 下发成功: {value}',
   },
   rule: {
     title: '规则管理',
@@ -100,9 +258,209 @@ const zhCN: LocaleMessages = {
     userManage: '用户管理',
     otaUpdate: 'OTA升级',
     mcpServer: 'MCP服务',
-    mqttServer: 'MQTT服务',
-    modbusSlave: 'Modbus Slave',
+    mqttServer: '内置 MQTT Server',  // FIXED: 原问题-中文硬编码，改用i18n
+    modbusSlave: '内置 Modbus Slave',  // FIXED: 原问题-中文硬编码，改用i18n
+    listenAddress: '监听地址',  // FIXED: 原问题-中文硬编码，改用i18n
+    connectionInfo: '连接信息',  // FIXED: 原问题-中文硬编码，改用i18n
+    connectionCount: '连接数',  // FIXED: 原问题-中文硬编码，改用i18n
+    serialBridge: {  // FIXED: 原问题-中文硬编码，改用i18n
+      title: '串口桥接',
+      transferStats: '传输统计',
+      serialRx: '串口接收',
+      serialTx: '串口发送',
+      tcpRx: 'TCP接收',
+      tcpTx: 'TCP发送',
+      clientCount: '客户端数',
+      totalConnections: '总连接数',
+      bytes: '字节',
+    },
     serviceOverview: '服务概览',
+    fetchStatusFailed: '获取系统状态失败',
+    fetchBackupFailed: '获取备份列表失败',
+    backupSuccess: '备份创建成功',
+    backupFailed: '备份失败',
+    restoreConfirm: '确定恢复备份 "{id}"？恢复后需要重启服务才能生效。',
+    restoreConfirmTitle: '确认恢复',
+    restoreSuccess: '备份恢复成功，请重启服务',
+    restoreFailed: '恢复失败',
+    loadingStatus: '加载系统状态...',
+    systemStatus: '系统状态',
+    auto: '自动',
+    manual: '手动',
+    refresh: '刷新',
+    cpuUsage: 'CPU使用率',
+    memoryUsage: '内存使用率',
+    diskUsage: '磁盘使用率',
+    uptime: '运行时长',
+    version: '版本',
+    businessStats: '业务统计',
+    deviceTotal: '设备总数',
+    onlineCount: '在线 {count}',
+    ruleTotal: '规则总数',
+    activeAlarm: '活跃告警',
+    collectTask: '采集任务',
+    dataBackup: '数据备份',
+    createBackup: '创建备份',
+    backupId: '备份ID',
+    file: '文件',
+    size: '大小',
+    time: '时间',
+    actions: '操作',
+    restore: '恢复',
+    days: '天',
+    hours: '时',
+    minutes: '分',
+    seconds: '秒',
+  },
+  grafana: {
+    title: 'Grafana监控',
+    enabled: '已启用',
+    disabled: '已停用',
+    refresh: '刷新',
+    missingDeps: '缺少依赖组件',
+    depsNotInstalled: '以下依赖未安装：',
+    oneClickInstall: '一键安装',
+    address: 'Grafana地址',
+    datasource: '数据源',
+    notEnabled: 'Grafana集成未启用，请开启开关启用服务',
+    config: 'Grafana配置',
+    saveConfig: '保存配置',
+    datasourceName: '数据源名称',
+    dashboards: '仪表板',
+    noDashboards: '暂无仪表板',
+    panel: 'Grafana面板',
+    installDeps: '安装依赖',
+    installing: '正在安装缺失的依赖组件，请稍候...',
+    addressRequired: '请输入Grafana地址',
+    datasourceRequired: '请输入数据源名称',
+    stateRunning: '运行中',
+    stateEnabled: '已启用',
+    stateError: '异常',
+    stateDisabled: '未启用',
+    colTitle: '标题',
+    colType: '类型',
+    colActions: '操作',
+    open: '打开',
+    fetchConfigFailed: '获取Grafana配置失败',
+    fetchDashboardsFailed: '获取仪表板失败',
+    fetchEmbedFailed: '获取嵌入URL失败',
+    disableConfirmTitle: '确认停用',
+    disableConfirmContent: '停用Grafana将断开所有监控面板连接，确定要停用吗？',
+    disableConfirmBtn: '确认停用',
+    enabledSuccess: 'Grafana监控已启用',
+    disabledSuccess: 'Grafana监控已停用',
+    missingDepsWarning: '缺少依赖，请先安装',
+    operationFailed: '操作失败',
+    installSuccess: '依赖安装成功！',
+    installFailed: '依赖安装失败',
+    configSaved: '配置已保存',
+    saveConfigFailed: '保存配置失败',
+  },
+  driver: {
+    title: '驱动配置',
+    refresh: '刷新',
+    noSchema: '暂无配置说明',
+    required: '必填',
+    optional: '可选',
+    sensitive: '敏感',
+    defaultValue: '默认值:',
+    deviceDiscover: '设备发现',
+    discoverHint: '点击发现按钮搜索设备',
+    startDiscover: '开始发现',
+    configTemplate: '配置模板',
+    typeText: '文本',
+    typeInteger: '整数',
+    typeNumber: '数值',
+    typeBoolean: '布尔',
+    typeArray: '数组',
+    typeObject: '对象',
+    colName: '驱动名称',
+    colVersion: '版本',
+    colProtocol: '支持协议',
+    colActions: '操作',
+    colConfig: '配置模板',
+    colDiscover: '发现设备',
+    loadListFailed: '加载驱动列表失败',
+    loadSchemaFailed: '获取配置模板失败',
+    discoverFailed: '设备发现失败',
+  },
+  scada: {
+    loading: '加载组态项目...',
+    title: 'Web 组态 (SCADA)',
+    previewMode: '预览模式',
+    instructions: '使用说明',
+    undo: '撤销',
+    redo: '重做',
+    exitPreview: '退出预览',
+    preview: '预览',
+    save: '保存',
+    load: '加载',
+    exportImage: '导出图片',
+    components: '组件',
+    devices: '设备',
+    searchDevices: '搜索设备',
+    noPoints: '无数据点',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    selectHint: '从左侧选择设备数据点，或点击组件添加',
+    on: '已开启',
+    off: '已关闭',
+    properties: '属性',
+    type: '类型',
+    label: '标签',
+    device: '设备',
+    point: '数据点',
+    selectDevice: '选择设备',
+    selectPoint: '选择数据点',
+    minValue: '最小值',
+    maxValue: '最大值',
+    unit: '单位',
+    width: '宽度',
+    height: '高度',
+    helpTitle: 'Web 组态使用说明',
+    whatIsScada: '什么是 Web 组态？',
+    whatIsScadaDesc: 'Web 组态（SCADA）是一种可视化监控界面，将设备实时数据以仪表盘、指示灯、趋势图等形式展示。',
+    stepsTitle: '使用步骤：',
+    step1: '在左侧设备列表中展开设备，点击数据点的「+」按钮',
+    step2: '或点击组件图标手动添加组件',
+    step3: '拖拽组件到合适位置，拖拽右下角调整大小',
+    step4: '选中组件后在右侧属性面板修改配置',
+    step5: '点击「预览」查看实时数据效果',
+    step6: '点击「保存」将组态保存到本地',
+    shortcutsTitle: '快捷键：',
+    copyComponent: '复制组件',  // FIXED: 原问题-中文硬编码
+    pasteComponent: '粘贴组件',  // FIXED: 原问题-中文硬编码
+    duplicateComponent: '复制并偏移',  // FIXED: 原问题-中文硬编码
+    saveProject: '保存项目',  // FIXED: 原问题-中文硬编码
+    deleteSelected: '删除选中组件',  // FIXED: 原问题-中文硬编码
+    copied: '已复制组件',
+    pasted: '已粘贴组件',
+    gauge: '仪表盘',
+    indicator: '指示灯',
+    chart: '趋势图',
+    switchCtrl: '控制开关',
+    tank: '液位罐',
+    textLabel: '文本标签',
+    fetchDevicesFailed: '获取设备列表失败',
+    addedPoint: '已添加「{name}」',
+    confirmDelete: '确认删除',
+    confirmDeleteContent: '确定要删除组件「{name}」吗？',
+    confirm: '确认',
+    cancel: '取消',
+    confirmOperation: '确认操作',
+    writeConfirmContent: '即将向设备「{device}」的「{label}」写入 {action}，此操作将直接影响物理设备，是否继续？',
+    actionOn: '开启',
+    actionOff: '关闭',
+    operationSuccess: '已{action} {label}',
+    operationFailed: '操作失败',
+    savedToServer: '项目已保存到服务器',
+    saveFailedLocal: '服务器保存失败，已保存到本地',
+    loadedComponents: '已加载 {count} 个组件',
+    fileFormatError: '文件格式错误',
+    unsavedChanges: '未保存的更改',
+    unsavedChangesContent: '组态项目有未保存的更改，确定要离开吗？',
+    leave: '离开',
+    stay: '留下',
   },
   user: {
     create: '创建用户',
@@ -126,6 +484,24 @@ const zhCN: LocaleMessages = {
     updateAvailable: '发现新版本',
     upToDate: '已是最新版本',
     systemWillRestart: '系统将重启',
+    restartSoon: '，系统即将重启，请稍后刷新页面',
+    title: 'OTA升级',
+    currentVersion: '当前版本',
+    latestVersion: '最新版本',
+    releaseNotes: '更新说明',
+    checkHint: '点击检查更新查看可用版本',
+    confirmApply: '确定应用更新？',
+    applyWarning: '更新后系统将自动重启，期间所有服务暂停。建议先确认备份版本可用。',
+    targetVersion: '目标版本',
+    backupVersions: '备份版本',
+    noBackup: '暂无备份版本',
+    version: '版本',
+    backupTime: '备份时间',
+    size: '大小',
+    rollbackConfirm: '确定回滚到 {version}？回滚后系统将重启。',
+    checkFailed: '检查更新失败',
+    applySuccess: '更新已应用，系统将重启',
+    applyFailed: '应用更新失败',
   },
   http: {
     requestFailed: '请求失败，请稍后重试',
@@ -134,6 +510,7 @@ const zhCN: LocaleMessages = {
     // FIXED: 原问题-错误消息中文硬编码，现统一到i18n
     serviceNotReady: '服务暂未就绪，请稍后重试',
     notFound: '请求的资源不存在',
+    forbidden: '权限不足，无法执行此操作',  // FIXED: 原问题-缺失i18n key
   },
   severity: {
     critical: '严重',
@@ -348,6 +725,7 @@ const zhCN: LocaleMessages = {
     ackFailed: '确认失败',
     batchAckResult: '成功确认 {success} 条告警，{failed} 条确认失败',
     batchAckResultAll: '成功确认 {success} 条告警',
+    wsDisconnected: '告警推送连接已断开',
   },
   auditLog: {
     loading: '加载审计日志...',
@@ -472,28 +850,6 @@ const zhCN: LocaleMessages = {
     rollbackFailed: '回滚失败',
     fetchBackupFailed: '获取备份失败',
   },
-  ota: {
-    title: 'OTA升级',
-    checkUpdate: '检查更新',
-    currentVersion: '当前版本',
-    latestVersion: '最新版本',
-    releaseNotes: '更新说明',
-    checkHint: '点击检查更新查看可用版本',
-    applyUpdate: '应用更新',
-    confirmApply: '确定应用更新？',
-    applyWarning: '更新后系统将自动重启，期间所有服务暂停。建议先确认备份版本可用。',
-    targetVersion: '目标版本',
-    backupVersions: '备份版本',
-    noBackup: '暂无备份版本',
-    version: '版本',
-    backupTime: '备份时间',
-    size: '大小',
-    rollback: '回滚',
-    rollbackConfirm: '确定回滚到 {version}？回滚后系统将重启。',
-    checkFailed: '检查更新失败',
-    applySuccess: '更新已应用，系统将重启',
-    applyFailed: '应用更新失败',
-  },
   serviceManager: {
     enableService: '启用服务',
     start: '启动',
@@ -579,13 +935,210 @@ const zhCN: LocaleMessages = {
     up_to_date: '已是最新',
   },
   dataQuery: {
+    title: '时序数据查询',
+    device: '设备',
+    selectDevice: '选择设备',
+    point: '测点',
+    selectPoint: '选择测点',
+    timeRange: '时间范围',
+    aggregate: '聚合',
+    none: '无',
+    query: '查询',
+    exportCsv: '导出 CSV',
+    chart: '数据图表',
+    stats: '统计信息',
+    dataPointCount: '数据点数',
+    maxValue: '最大值',
+    minValue: '最小值',
+    avgValue: '平均值',
+    lastValue: '最新值',
+    pleaseQuery: '请查询数据',
+    rawData: '原始数据',
     range1h: '近1小时',
     range6h: '近6小时',
     range24h: '近24小时',
     range7d: '近7天',
+    range30d: '近30天',
+    aggMean: '均值',
+    aggMax: '最大值',
+    aggMin: '最小值',
+    aggLast: '最新值',
+    aggFirst: '最早值',
+    aggSum: '求和',
+    aggCount: '计数',
+    aggMedian: '中位数',
+    aggStddev: '标准差',
+    colTime: '时间',
+    colValue: '值',
+    colQuality: '质量',
+    loadDevicesFailed: '加载设备列表失败',
+    selectDeviceAndPoint: '请选择设备和测点',
+    noData: '无数据',
+    queryFailed: '查询失败',
+    queryFirst: '请先查询数据',
+    exportFailed: '导出失败',
+  },
+  digitalTwin: {
+    loadingScene: '加载3D场景...',
+    autoRotate: '自动旋转',
+    labels: '标签',
+    connections: '连线',
+    screenshot: '截图',
+    refresh: '刷新',
+    online: '在线',
+    offline: '离线',
+    alarm: '告警',
+    navigation: '导航',
+    noPointData: '暂无测点数据',
+    viewDeviceDetail: '查看设备详情',
+    collapse: '收起',
+    deviceList: '设备列表',
+    searchDevice: '搜索设备',
+    sceneFactory: '工厂车间',
+    scenePark: '智慧园区',
+    sceneEnergy: '能源站',
+    sceneLoadFailed: '3D场景加载失败，请刷新页面重试',
+    fetchDevicesFailed: '获取设备列表失败',
+    fetchAlarmsFailed: '获取告警列表失败',
+    fetchDevicePointsFailed: '获取设备测点失败',
+    deviceTotal: '共 {count} 台',
+    threeUnavailable: '3D引擎加载失败，请检查网络或刷新页面重试',  // FIXED: 原问题-three模块加载失败时无降级提示文本
   },
   router: {
     preprocess: '数据预处理',
+  },
+  userManage: {
+    userId: '用户ID',  // FIXED: 原问题-中文硬编码
+    username: '用户名',  // FIXED: 原问题-中文硬编码
+    role: '角色',  // FIXED: 原问题-中文硬编码
+    status: '状态',  // FIXED: 原问题-中文硬编码
+    actions: '操作',  // FIXED: 原问题-中文硬编码
+    createUser: '创建用户',  // FIXED: 原问题-中文硬编码
+    editUser: '编辑用户',  // FIXED: 原问题-中文硬编码
+    password: '密码',  // FIXED: 原问题-中文硬编码
+    admin: '管理员',  // FIXED: 原问题-中文硬编码
+    operator: '操作员',  // FIXED: 原问题-中文硬编码
+    viewer: '观察者',  // FIXED: 原问题-中文硬编码
+    createSuccess: '用户创建成功',  // FIXED: 原问题-中文硬编码
+    createFailed: '创建失败',  // FIXED: 原问题-中文硬编码
+    updateSuccess: '用户更新成功',  // FIXED: 原问题-中文硬编码
+    updateFailed: '更新失败',  // FIXED: 原问题-中文硬编码
+    deleteSuccess: '删除成功',  // FIXED: 原问题-中文硬编码
+    deleteFailed: '删除失败',  // FIXED: 原问题-中文硬编码
+    confirmDelete: '确认删除',  // FIXED: 原问题-中文硬编码
+    irreversible: '此操作不可撤销',  // FIXED: 原问题-中文硬编码
+    fetchListFailed: '获取用户列表失败',  // FIXED: 原问题-中文硬编码
+    enabled: '启用',  // FIXED: 原问题-中文硬编码
+    disabled: '禁用',  // FIXED: 原问题-中文硬编码
+    searchUsername: '搜索用户名',  // FIXED: 原问题-中文硬编码
+    noUserData: '暂无用户数据',  // FIXED: 原问题-中文硬编码
+    enterUsername: '请输入用户名',  // FIXED: 原问题-中文硬编码
+    passwordPlaceholder: '请输入密码（至少8位，含字母和数字）',  // FIXED: 原问题-中文硬编码
+    selectRole: '选择角色',  // FIXED: 原问题-中文硬编码
+    newPassword: '新密码',  // FIXED: 原问题-中文硬编码
+    leaveEmptyNoChange: '留空则不修改',  // FIXED: 原问题-中文硬编码
+    enabledStatus: '启用状态',  // FIXED: 原问题-中文硬编码
+    passwordMinLength: '密码至少8位，需包含字母和数字',  // FIXED: 原问题-中文硬编码
+    passwordLetterAndDigit: '密码需同时包含字母和数字',  // FIXED: 原问题-中文硬编码
+    usernamePattern: '用户名仅支持字母、数字和下划线',  // FIXED: 原问题-中文硬编码
+    enterPassword: '请输入密码',  // FIXED: 原问题-中文硬编码
+    createTime: '创建时间',  // FIXED: 原问题-中文硬编码
+    updateTime: '更新时间',  // FIXED: 原问题-中文硬编码
+    confirmDeleteUser: '确定删除用户 "{username}"？此操作不可撤销。',  // FIXED: 原问题-中文硬编码
+  },
+  platformConfig: {
+    title: '平台对接配置',  // FIXED: 原问题-中文硬编码
+    addPlatform: '添加平台',  // FIXED: 原问题-中文硬编码
+    noPlatformDesc: '暂无已连接的平台，点击右上角「添加平台」开始对接',  // FIXED: 原问题-中文硬编码
+    selectPlatform: '选择平台',  // FIXED: 原问题-中文硬编码
+    fillConfig: '填写配置',  // FIXED: 原问题-中文硬编码
+    connected: '已连接',  // FIXED: 原问题-中文硬编码
+    notConnected: '未连接',  // FIXED: 原问题-中文硬编码
+    nextStepFillConfig: '下一步：填写配置',  // FIXED: 原问题-中文硬编码
+    backToSelect: '← 返回选择平台',  // FIXED: 原问题-中文硬编码
+    configuring: '正在配置',  // FIXED: 原问题-中文硬编码
+    required: '必填',  // FIXED: 原问题-中文硬编码
+    optional: '可选',  // FIXED: 原问题-中文硬编码
+    prevStep: '上一步',  // FIXED: 原问题-中文硬编码
+    connect: '连接',  // FIXED: 原问题-中文硬编码
+    disconnect: '断开',  // FIXED: 原问题-中文硬编码
+    addPlatformSelect: '添加平台对接 — 选择平台',  // FIXED: 原问题-中文硬编码
+    addPlatformConfig: '添加平台对接 — 填写配置',  // FIXED: 原问题-中文硬编码
+    fieldRequired: '{field}不能为空',  // FIXED: 原问题-中文硬编码
+    platform: '平台',  // FIXED: 原问题-中文硬编码
+    version: '版本',  // FIXED: 原问题-中文硬编码
+    status: '状态',  // FIXED: 原问题-中文硬编码
+    loadListFailed: '加载平台列表失败',  // FIXED: 原问题-中文硬编码
+    alreadyConnected: '{label} 已连接，如需重新配置请先断开',  // FIXED: 原问题-中文硬编码
+    selectPlatformFirst: '请先选择一个平台',  // FIXED: 原问题-中文硬编码
+    fetchSchemaFailed: '获取配置模板失败',  // FIXED: 原问题-中文硬编码
+    fillRequired: '请填写所有必填配置项',  // FIXED: 原问题-中文硬编码
+    connectSuccess: '平台连接成功',  // FIXED: 原问题-中文硬编码
+    connectFailed: '连接失败',  // FIXED: 原问题-中文硬编码
+    confirmDisconnect: '确认断开',  // FIXED: 原问题-中文硬编码
+    confirmDisconnectContent: '确定断开平台 "{name}" 的连接？断开后数据上报将中断。',  // FIXED: 原问题-中文硬编码
+    disconnected: '已断开',  // FIXED: 原问题-中文硬编码
+    disconnectFailed: '断开失败',  // FIXED: 原问题-中文硬编码
+  },
+  nav: {  // FIXED: 原问题-中文硬编码，改用i18n
+    dashboard: '仪表盘',
+    devices: '设备管理',
+    deviceDetail: '设备详情',
+    rules: '规则管理',
+    alarms: '告警中心',
+    dataQuery: '数据查询',
+    digitalTwin: '3D数字孪生',
+    scadaEditor: 'Web组态',
+    driverConfig: '驱动配置',
+    platformConfig: '平台对接',
+    expressionConfig: '计算表达式',
+    preprocessConfig: '数据预处理',
+    system: '系统管理',
+    users: '用户管理',
+    auditLog: '审计日志',
+    otaUpdate: 'OTA升级',
+    grafanaDashboard: 'Grafana监控',
+    mcpServer: 'MCP Server',
+    mqttServer: 'MQTT Server',
+    modbusSlave: 'Modbus Slave',
+    serialBridge: '串口透传',
+    serviceOverview: '服务总览',
+    visualGroup: '可视化',
+    serviceGroup: '服务管理',
+    systemGroup: '系统配置',
+    digitalTwinMenu: '数字孪生',
+    scadaEditorMenu: '组态编辑',
+    changePassword: '修改密码',
+    logout: '退出登录',
+    logoutConfirmTitle: '确认退出',
+    logoutConfirmContent: '确定要退出登录吗？',
+    logoutConfirmBtn: '退出',
+  },
+  expressionConfig: {
+    loading: '加载表达式配置...',  // FIXED: 原问题-中文硬编码，改用i18n
+    title: '计算表达式',  // FIXED: 原问题-中文硬编码，改用i18n
+    editor: '表达式编辑器',  // FIXED: 原问题-中文硬编码，改用i18n
+    expression: '表达式',  // FIXED: 原问题-中文硬编码，改用i18n
+    expressionPlaceholder: '例: ${sensor1.temp} * 1.8 + 32',  // FIXED: 原问题-中文硬编码，改用i18n
+    variables: '变量',  // FIXED: 原问题-中文硬编码，改用i18n
+    variableName: '变量名',  // FIXED: 原问题-中文硬编码，改用i18n
+    variableValue: '值',  // FIXED: 原问题-中文硬编码，改用i18n
+    calculate: '计算',  // FIXED: 原问题-中文硬编码，改用i18n
+    validateSyntax: '验证语法',  // FIXED: 原问题-中文硬编码，改用i18n
+    result: '结果',  // FIXED: 原问题-中文硬编码，改用i18n
+    availableFunctions: '可用函数',  // FIXED: 原问题-中文硬编码，改用i18n
+    availableOperators: '可用运算符',  // FIXED: 原问题-中文硬编码，改用i18n
+    batchTest: '批量测试',  // FIXED: 原问题-中文硬编码，改用i18n
+    batchCalculate: '批量计算',  // FIXED: 原问题-中文硬编码，改用i18n
+    colFunction: '函数',  // FIXED: 原问题-中文硬编码，改用i18n
+    colDescription: '说明',  // FIXED: 原问题-中文硬编码，改用i18n
+    colExample: '示例',  // FIXED: 原问题-中文硬编码，改用i18n
+    calculateFailed: '计算失败',  // FIXED: 原问题-中文硬编码，改用i18n
+    syntaxValid: '语法正确 ✓',  // FIXED: 原问题-中文硬编码，改用i18n
+    syntaxError: '语法错误: {error}',  // FIXED: 原问题-中文硬编码，改用i18n
+    validateFailed: '验证失败',  // FIXED: 原问题-中文硬编码，改用i18n
+    error: '错误: ',  // FIXED: 原问题-中文硬编码，改用i18n
+    loadFunctionsFailed: '加载函数列表失败',  // FIXED: 原问题-中文硬编码，改用i18n
   },
 }
 

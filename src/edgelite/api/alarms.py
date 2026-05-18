@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from edgelite.api.deps import AlarmServiceDep, CurrentUser, PaginationDep, require_permission
+from edgelite.api.error_codes import AlarmErrors
 from edgelite.models.alarm import AlarmResponse
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.security.rbac import Permission
@@ -32,8 +33,8 @@ async def list_alarms(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取告警列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取告警列表失败") from e
+        logger.error("list_alarms failed: %s", e)
+        raise HTTPException(status_code=500, detail=AlarmErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/{alarm_id}", response_model=ApiResponse[AlarmResponse])
@@ -45,13 +46,13 @@ async def get_alarm(
     try:
         alarm = await svc.get_alarm(alarm_id)
         if alarm is None:
-            raise HTTPException(status_code=404, detail="告警不存在")
+            raise HTTPException(status_code=404, detail=AlarmErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=alarm)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取告警详情失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取告警详情失败") from e
+        logger.error("get_alarm failed: %s", e)
+        raise HTTPException(status_code=500, detail=AlarmErrors.GET_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.put("/{alarm_id}/ack", response_model=ApiResponse[AlarmResponse])
@@ -63,10 +64,10 @@ async def ack_alarm(
     try:
         alarm = await svc.ack_alarm(alarm_id, user["username"])
         if alarm is None:
-            raise HTTPException(status_code=404, detail="告警不存在")
+            raise HTTPException(status_code=404, detail=AlarmErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=alarm)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("确认告警失败: %s", e)
-        raise HTTPException(status_code=500, detail="确认告警失败") from e
+        logger.error("ack_alarm failed: %s", e)
+        raise HTTPException(status_code=500, detail=AlarmErrors.ACK_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code

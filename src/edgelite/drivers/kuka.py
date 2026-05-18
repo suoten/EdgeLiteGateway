@@ -35,8 +35,8 @@ class KukaDriver(DriverPlugin):
     config_schema = {
         "description": "KUKA机器人Ethernet KRL XML协议，用于读写机器人变量",
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP地址", "description": "KUKA控制器IP地址", "default": "192.168.1.100", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "EKRL端口，默认54600", "default": 54600},
+            {"name": "ip", "type": "string", "label": "IP Address", "description": "KUKA controller IP address", "default": "192.168.1.100", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "EKRL port, default 54600", "default": 54600},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

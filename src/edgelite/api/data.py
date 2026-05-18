@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from edgelite.api.deps import CurrentUser, DataServiceDep, require_permission
+from edgelite.api.error_codes import DataErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -24,16 +25,17 @@ async def query_timeseries(
     svc: DataServiceDep,
     device_id: str = Query(...),
     point_name: str = Query(...),
-    start: str = Query(..., description="开始时间(RFC3339或相对时间如-1h)"),
+    start: str = Query(..., description="Start time (RFC3339 or relative like -1h)"),
     stop: str | None = None,
     aggregate: str | None = None,
     user: CurrentUser = require_permission(Permission.DATA_READ),
 ):
     valid_aggregates = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
     if aggregate and aggregate.lower() not in valid_aggregates:
+        # FIXED: 原问题-中文硬编码detail，改为error_code
         raise HTTPException(
             status_code=400,
-            detail=f"不支持的聚合函数: {aggregate}，可选值: {', '.join(sorted(valid_aggregates))}",
+            detail=DataErrors.UNSUPPORTED_AGGREGATE,
         )
     try:
         data = await svc.query_timeseries(device_id, point_name, start, stop, aggregate)
@@ -41,8 +43,9 @@ async def query_timeseries(
     except HTTPException:
         raise
     except Exception:
+        # FIXED: 原问题-中文硬编码detail，改为error_code
         raise HTTPException(
-            status_code=500, detail="时序数据查询失败，请检查参数或稍后重试"
+            status_code=500, detail=DataErrors.QUERY_FAILED
         ) from None
 
 
@@ -62,7 +65,8 @@ async def export_data(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="数据导出失败，请检查参数或稍后重试") from None
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=500, detail=DataErrors.EXPORT_FAILED) from None
 
     media_type = "text/csv" if _fmt == "csv" else "application/json"
     filename = f"{_safe_filename(device_id)}_{_safe_filename(point_name)}.{_fmt}"

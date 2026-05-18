@@ -1,14 +1,14 @@
 <template>
   <ServiceManager
     service-name="mqtt_server"
-    display-name="内置 MQTT Server"
+    :display-name="t('system.mqttServer')"
     :running-fields="runningFields"
     @status-loaded="onStatusLoaded"
-  >
+  ><!-- FIXED: 原问题-中文硬编码，改用i18n -->
     <template #extra>
-      <n-card v-if="isRunning" title="连接信息" :bordered="false" style="margin-top: 12px">
+      <n-card v-if="isRunning" :title="t('system.connectionInfo')" :bordered="false" style="margin-top: 12px"><!-- FIXED: 原问题-中文硬编码，改用i18n -->
         <n-descriptions label-placement="left" :column="2" bordered>
-          <n-descriptions-item label="连接数">{{ connections }}</n-descriptions-item>
+          <n-descriptions-item :label="t('system.connectionCount')">{{ connections }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码，改用i18n -->
         </n-descriptions>
       </n-card>
     </template>
@@ -17,6 +17,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码，改用i18n
 import ServiceManager from '@/components/ServiceManager.vue'
 
 const connections = ref(0)
@@ -24,7 +25,7 @@ const isRunning = ref(false)
 const statusData = ref<any>({})
 
 const runningFields = computed(() => [
-  { label: '监听地址', value: statusData.value.current_config?.host || '0.0.0.0' },
+  { label: t('system.listenAddress'), value: statusData.value.current_config?.host || '0.0.0.0' },  // FIXED: 原问题-中文硬编码，改用i18n
   { label: 'TCP端口', value: statusData.value.current_config?.port || 1883 },
   { label: 'WebSocket端口', value: statusData.value.current_config?.ws_port || 8083 },
 ])

@@ -115,9 +115,12 @@ class BackhaulManager:
 
     async def _send_or_buffer(self, message: dict[str, Any]) -> None:
         if self._endpoint and self._endpoint.has_connections:
-            sent = await self._endpoint.broadcast(message)
-            if sent > 0:
-                return
+            try:  # FIXED: 原问题-broadcast无try-catch，广播失败会中断事件处理
+                sent = await self._endpoint.broadcast(message)
+                if sent > 0:
+                    return
+            except Exception as e:
+                logger.error("广播消息失败: %s", e)
         self._buffer.append(message)
 
     async def flush_buffer(self) -> int:
@@ -126,10 +129,15 @@ class BackhaulManager:
         count = 0
         while self._buffer:
             msg = self._buffer.popleft()
-            sent = await self._endpoint.broadcast(msg)
-            if sent > 0:
-                count += 1
-            else:
+            try:  # FIXED: 原问题-broadcast无try-catch，广播失败会中断事件处理
+                sent = await self._endpoint.broadcast(msg)
+                if sent > 0:
+                    count += 1
+                else:
+                    self._buffer.appendleft(msg)
+                    break
+            except Exception as e:
+                logger.error("缓冲区广播消息失败: %s", e)
                 self._buffer.appendleft(msg)
                 break
         return count

@@ -24,11 +24,11 @@ class McDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["mc"]
     config_schema = {
-        "description": "三菱MC协议（MELSEC Communication），支持Q/L/FX系列PLC",
+        "description": "Mitsubishi MC protocol (MELSEC Communication), supports Q/L/FX series PLC",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "MC协议端口，默认5007", "default": 5007},
-            {"name": "plc_type", "type": "string", "label": "PLC型号", "description": "Q系列=Q，L系列=L，FX系列=iQ-R", "default": "Q", "options": ["Q", "L", "iQ-R"]},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "PLC IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "MC protocol port, default 5007", "default": 5007},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "plc_type", "type": "string", "label": "PLC Type", "description": "Q series=Q, L series=L, FX series=iQ-R", "default": "Q", "options": ["Q", "L", "iQ-R"]},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

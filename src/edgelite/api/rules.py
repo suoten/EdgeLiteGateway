@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from edgelite.api.deps import CurrentUser, PaginationDep, RuleServiceDep, require_permission
+from edgelite.api.error_codes import RuleErrors
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.rule import RuleCreate, RuleResponse, RuleTestRequest, RuleUpdate
 from edgelite.security.rbac import Permission
@@ -31,8 +32,8 @@ async def list_rules(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取规则列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取规则列表失败") from e
+        logger.error("list_rules failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("", response_model=ApiResponse[RuleResponse], status_code=201)
@@ -46,8 +47,8 @@ async def create_rule(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.error("创建规则失败: %s", e)
-        raise HTTPException(status_code=500, detail="创建规则失败") from e
+        logger.error("create_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.CREATE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
     return ApiResponse(data=rule)
 
 
@@ -60,13 +61,13 @@ async def get_rule(
     try:
         rule = await svc.get_rule(rule_id)
         if rule is None:
-            raise HTTPException(status_code=404, detail="规则不存在")
+            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=rule)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取规则详情失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取规则详情失败") from e
+        logger.error("get_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.GET_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.put("/{rule_id}", response_model=ApiResponse[RuleResponse])
@@ -80,13 +81,13 @@ async def update_rule(
         data = body.model_dump(exclude_none=True)
         rule = await svc.update_rule(rule_id, data)
         if rule is None:
-            raise HTTPException(status_code=404, detail="规则不存在")
+            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=rule)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("更新规则失败: %s", e)
-        raise HTTPException(status_code=500, detail="更新规则失败") from e
+        logger.error("update_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.UPDATE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.delete("/{rule_id}", response_model=ApiResponse)
@@ -98,13 +99,13 @@ async def delete_rule(
     try:
         success = await svc.delete_rule(rule_id)
         if not success:
-            raise HTTPException(status_code=404, detail="规则不存在")
+            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse()
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("删除规则失败: %s", e)
-        raise HTTPException(status_code=500, detail="删除规则失败") from e
+        logger.error("delete_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.DELETE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/{rule_id}/enable", response_model=ApiResponse[RuleResponse])
@@ -116,13 +117,13 @@ async def enable_rule(
     try:
         rule = await svc.enable_rule(rule_id)
         if rule is None:
-            raise HTTPException(status_code=404, detail="规则不存在")
+            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=rule)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("启用规则失败: %s", e)
-        raise HTTPException(status_code=500, detail="启用规则失败") from e
+        logger.error("enable_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.ENABLE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/{rule_id}/disable", response_model=ApiResponse[RuleResponse])
@@ -134,13 +135,13 @@ async def disable_rule(
     try:
         rule = await svc.disable_rule(rule_id)
         if rule is None:
-            raise HTTPException(status_code=404, detail="规则不存在")
+            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=rule)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("禁用规则失败: %s", e)
-        raise HTTPException(status_code=500, detail="禁用规则失败") from e
+        logger.error("disable_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.DISABLE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/{rule_id}/test", response_model=ApiResponse)
@@ -155,6 +156,6 @@ async def test_rule(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        logger.error("测试规则失败: %s", e)
-        raise HTTPException(status_code=500, detail="测试规则失败") from e
+        logger.error("test_rule failed: %s", e)
+        raise HTTPException(status_code=500, detail=RuleErrors.TEST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
     return ApiResponse(data=result)

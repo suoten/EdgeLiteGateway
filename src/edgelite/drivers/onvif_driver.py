@@ -6,6 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
+from edgelite.constants import _ONVIF_MULTICAST_PORT, _ONVIF_MULTICAST_TTL
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -26,12 +27,12 @@ class OnvifDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["onvif"]
     config_schema = {
-        "description": "ONVIF视频设备协议，支持设备发现/RTSP流/PTZ云台控制",
+        "description": "ONVIF video device protocol, supports device discovery/RTSP stream/PTZ control",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP地址", "description": "ONVIF设备IP地址", "default": "", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "ONVIF服务端口，默认80", "default": 80},
-            {"name": "username", "type": "string", "label": "用户名", "description": "设备认证用户名", "default": "admin"},
-            {"name": "password", "type": "string", "label": "密码", "description": "设备认证密码", "secret": True},
+            {"name": "ip", "type": "string", "label": "IP Address", "description": "ONVIF device IP address", "default": "", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "ONVIF service port, default 80", "default": 80},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "username", "type": "string", "label": "Username", "description": "Device authentication username", "default": "admin"},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "password", "type": "string", "label": "Password", "description": "Device authentication password", "secret": True},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -136,7 +137,7 @@ class OnvifDriver(DriverPlugin):
         import socket
 
         multicast_group = "239.255.255.250"
-        multicast_port = 3702
+        multicast_port = _ONVIF_MULTICAST_PORT  # FIXED: 原问题-multicast_port=3702魔法数字
 
         probe_msg = (
             '<?xml version="1.0" encoding="UTF-8"?>'
@@ -153,7 +154,7 @@ class OnvifDriver(DriverPlugin):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(5)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 4)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, _ONVIF_MULTICAST_TTL)  # FIXED: 原问题-TTL=4魔法数字
 
         devices = []
         seen = set()

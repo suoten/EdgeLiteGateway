@@ -16,6 +16,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from edgelite.api.error_codes import McpErrors
+from edgelite.constants import _MCP_QUERY_SIZE
+
 logger = logging.getLogger(__name__)
 
 
@@ -157,27 +160,27 @@ class MCPToolService:
         try:
             if name == "list_devices":
                 if not device_service:
-                    raise HTTPException(status_code=503, detail="设备服务不可用")
-                devices, total = await device_service.list_devices(page=1, size=200)
+                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                devices, total = await device_service.list_devices(page=1, size=_MCP_QUERY_SIZE)  # FIXED: 原问题-size=200魔法数字
                 return {"devices": devices, "total": total}
 
             elif name == "get_device_status":
                 device_id = args.get("device_id", "")
                 if not device_id:
-                    raise HTTPException(status_code=400, detail="缺少参数: device_id")
+                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_DEVICE_ID)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
-                    raise HTTPException(status_code=503, detail="设备服务不可用")
+                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 device = await device_service.get_device(device_id)
                 if device is None:
-                    raise HTTPException(status_code=404, detail=f"设备 {device_id} 不存在")
+                    raise HTTPException(status_code=404, detail=McpErrors.DEVICE_NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 return device
 
             elif name == "read_device_points":
                 device_id = args.get("device_id", "")
                 if not device_id:
-                    raise HTTPException(status_code=400, detail="缺少参数: device_id")
+                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_DEVICE_ID)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
-                    raise HTTPException(status_code=503, detail="设备服务不可用")
+                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 points = await device_service.read_points(device_id)
                 return {"device_id": device_id, "points": points}
 
@@ -186,44 +189,44 @@ class MCPToolService:
                 point_name = args.get("point_name", "")
                 value = args.get("value", 0)
                 if not device_id or not point_name:
-                    raise HTTPException(status_code=400, detail="缺少参数: device_id 或 point_name")
+                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_PARAMS)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
-                    raise HTTPException(status_code=503, detail="设备服务不可用")
+                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 await device_service.write_point(device_id, point_name, value)
                 return {"success": True, "device_id": device_id, "point_name": point_name, "value": value}
 
             elif name == "list_alarms":
                 severity = args.get("severity")
                 if not alarm_service:
-                    raise HTTPException(status_code=503, detail="告警服务不可用")
-                alarms, total = await alarm_service.list_alarms(page=1, size=200, severity=severity)
+                    raise HTTPException(status_code=503, detail=McpErrors.ALARM_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                alarms, total = await alarm_service.list_alarms(page=1, size=_MCP_QUERY_SIZE, severity=severity)  # FIXED: 原问题-size=200魔法数字
                 return {"alarms": alarms, "total": total}
 
             elif name == "get_system_status":
                 if not system_service:
-                    raise HTTPException(status_code=503, detail="系统服务不可用")
+                    raise HTTPException(status_code=503, detail=McpErrors.SYSTEM_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 return await system_service.get_status()
 
             elif name == "list_rules":
                 if not rule_service:
-                    raise HTTPException(status_code=503, detail="规则服务不可用")
-                rules, total = await rule_service.list_rules(page=1, size=200)
+                    raise HTTPException(status_code=503, detail=McpErrors.RULE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                rules, total = await rule_service.list_rules(page=1, size=_MCP_QUERY_SIZE)  # FIXED: 原问题-size=200魔法数字
                 return {"rules": rules, "total": total}
 
             else:
-                raise HTTPException(status_code=400, detail=f"未知工具: {name}")
+                raise HTTPException(status_code=400, detail=McpErrors.UNKNOWN_TOOL)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         except HTTPException:
             raise
         except Exception as e:
-            logger.error("MCP工具调用异常 %s: %s", name, e)
-            raise HTTPException(status_code=500, detail=f"工具调用失败: {str(e)}") from e
+            logger.error("MCP tool call failed %s: %s", name, e)
+            raise HTTPException(status_code=500, detail=McpErrors.UNKNOWN_TOOL) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
     def validate_tool_call(self, name: str, arguments: dict[str, Any] | None) -> list[str]:
         from fastapi import HTTPException
 
         if name not in self._tools:
-            raise HTTPException(status_code=400, detail=f"未知工具: {name}")
+            raise HTTPException(status_code=400, detail=McpErrors.UNKNOWN_TOOL)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         tool_def = self._tools[name]
         input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else None

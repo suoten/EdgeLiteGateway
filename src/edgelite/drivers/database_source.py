@@ -39,15 +39,15 @@ class DatabaseSourceDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["database", "mysql", "postgresql", "sqlite", "mssql"]
     config_schema = {
-        "description": "数据库接入，通过SQL查询将数据库表字段映射为测点",
+        "description": "Database integration, maps database table fields to data points via SQL queries",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "db_type", "type": "string", "label": "数据库类型", "description": "目标数据库类型", "default": "mysql", "required": True, "options": ["mysql", "postgresql", "sqlite", "mssql"]},
-            {"name": "host", "type": "string", "label": "主机地址", "description": "数据库服务器IP或域名", "default": "localhost"},
-            {"name": "port", "type": "integer", "label": "端口", "description": "数据库服务端口，MySQL默认3306，PostgreSQL默认5432", "default": 3306},
-            {"name": "database", "type": "string", "label": "数据库名", "description": "要连接的数据库名称", "required": True},
-            {"name": "username", "type": "string", "label": "用户名", "description": "数据库登录用户名"},
-            {"name": "password", "type": "string", "label": "密码", "description": "数据库登录密码", "secret": True},
-            {"name": "pool_size", "type": "integer", "label": "连接池大小", "description": "数据库连接池最大连接数", "default": 5},
+            {"name": "db_type", "type": "string", "label": "Database Type", "description": "Target database type", "default": "mysql", "required": True, "options": ["mysql", "postgresql", "sqlite", "mssql"]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "host", "type": "string", "label": "Host", "description": "Database server IP or hostname", "default": "localhost"},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "Database port, MySQL default 3306, PostgreSQL default 5432", "default": 3306},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "database", "type": "string", "label": "Database", "description": "Database name to connect to", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "username", "type": "string", "label": "Username", "description": "Database login username"},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "password", "type": "string", "label": "Password", "description": "Database login password", "secret": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "pool_size", "type": "integer", "label": "Pool Size", "description": "Maximum connection pool size", "default": 5},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

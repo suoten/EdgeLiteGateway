@@ -8,6 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 
 from edgelite.api.deps import AuditServiceDep, CurrentUser, PaginationDep, require_permission
+from edgelite.api.error_codes import AuditErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/v1/audit", tags=["Audit"])
 async def query_audit_logs(
     svc: AuditServiceDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
-    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
+    pagination: PaginationDep = None,
     user_id: str | None = None,
     action: str | None = None,
     resource_type: str | None = None,
@@ -28,7 +29,8 @@ async def query_audit_logs(
     end_time: str | None = None,
 ):
     if not svc:
-        raise HTTPException(status_code=501, detail="审计日志服务未启用")
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=501, detail=AuditErrors.NOT_ENABLED)
 
     from edgelite.services.audit_service import AuditAction
 
@@ -37,16 +39,19 @@ async def query_audit_logs(
         try:
             action_enum = AuditAction(action)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"无效的action: {action}") from None
+            # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(status_code=400, detail=AuditErrors.INVALID_ACTION) from None
 
     try:
         st = datetime.fromisoformat(start_time) if start_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}") from None
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=400, detail=AuditErrors.INVALID_TIME_FORMAT) from None
     try:
         et = datetime.fromisoformat(end_time) if end_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=400, detail=AuditErrors.INVALID_TIME_FORMAT) from None
 
     try:
         logs, total = await svc.query(
@@ -60,8 +65,8 @@ async def query_audit_logs(
         )
         return ApiResponse(data={"logs": logs, "total": total})
     except Exception as e:
-        logger.error("查询审计日志失败: %s", e)
-        raise HTTPException(status_code=500, detail="查询审计日志失败") from e
+        logger.error("query_audit_logs failed: %s", e)
+        raise HTTPException(status_code=500, detail=AuditErrors.LIST_FAILED) from e
 
 
 @router.get("/integrity", response_model=ApiResponse)
@@ -71,15 +76,16 @@ async def verify_integrity(
 ):
     try:
         if not svc:
-            raise HTTPException(status_code=501, detail="审计日志服务未启用")
+            # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(status_code=501, detail=AuditErrors.NOT_ENABLED)
 
         result = await svc.verify_integrity()
         return ApiResponse(data=result)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("验证失败: %s", e)
-        raise HTTPException(status_code=500, detail="验证失败") from e
+        logger.error("verify_integrity failed: %s", e)
+        raise HTTPException(status_code=500, detail=AuditErrors.INTEGRITY_FAILED) from e
 
 
 @router.get("/export/csv", response_model=ApiResponse)
@@ -90,24 +96,26 @@ async def export_audit_csv(
     end_time: str | None = None,
 ):
     if not svc:
-        raise HTTPException(status_code=501, detail="审计日志服务未启用")
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=501, detail=AuditErrors.NOT_ENABLED)
 
     try:
         st = datetime.fromisoformat(start_time) if start_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的start_time格式: {start_time}") from None
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=400, detail=AuditErrors.INVALID_TIME_FORMAT) from None
     try:
         et = datetime.fromisoformat(end_time) if end_time else None
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"无效的end_time格式: {end_time}") from None
+        # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=400, detail=AuditErrors.INVALID_TIME_FORMAT) from None
 
-    # FIXED: 导出操作无异常保护
     try:
         csv_content = await svc.export_csv(start_time=st, end_time=et)
         return ApiResponse(data={"content": csv_content})
     except Exception as e:
-        logger.error("导出审计日志失败: %s", e)
-        raise HTTPException(status_code=500, detail="导出审计日志失败") from e
+        logger.error("export_audit_csv failed: %s", e)
+        raise HTTPException(status_code=500, detail=AuditErrors.EXPORT_FAILED) from e
 
 
 @router.post("/cleanup", response_model=ApiResponse)
@@ -118,12 +126,13 @@ async def cleanup_audit_logs(
 ):
     try:
         if not svc:
-            raise HTTPException(status_code=501, detail="审计日志服务未启用")
+            # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(status_code=501, detail=AuditErrors.NOT_ENABLED)
 
         deleted = await svc.cleanup(retention_days=retention_days)
         return ApiResponse(data={"deleted": deleted})
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("清理失败: %s", e)
-        raise HTTPException(status_code=500, detail="清理失败") from e
+        logger.error("cleanup_audit_logs failed: %s", e)
+        raise HTTPException(status_code=500, detail=AuditErrors.CLEANUP_FAILED) from e

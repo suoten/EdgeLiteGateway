@@ -52,10 +52,10 @@ class Dlt645Driver(DriverPlugin):
     config_schema = {
         "description": "DL/T 645-2007 多功能电能表通信协议，通过RS485串口采集电表数据",
         "fields": [
-            {"name": "port", "type": "string", "label": "串口设备", "description": "RS485串口设备路径", "default": "COM1", "required": True},
-            {"name": "baud_rate", "type": "integer", "label": "波特率", "description": "电表通信波特率，默认2400", "default": 2400},
-            {"name": "parity", "type": "string", "label": "校验位", "description": "E=偶校验（默认）", "default": "E", "options": ["E", "N", "O"]},
-            {"name": "timeout", "type": "number", "label": "超时(秒)", "description": "通信超时时间", "default": 5.0},
+            {"name": "port", "type": "string", "label": "Serial Port", "description": "RS485 serial device path", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "baud_rate", "type": "integer", "label": "Baud Rate", "description": "Meter communication baud rate, default 2400", "default": 2400},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "parity", "type": "string", "label": "Parity", "description": "E=Even (default)", "default": "E", "options": ["E", "N", "O"]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "Communication timeout", "default": 5.0},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -157,97 +157,110 @@ class Dlt645Driver(DriverPlugin):
             logger.warning("设备未注册: %s", device_id)
             return {p: None for p in points}
 
-        address = device["address"]
-        di_map = device["di_map"]
+        try:  # FIXED: W-01 串口I/O异常导致采集循环崩溃
+            address = device.get("address")  # FIXED: W-04 硬字典访问无空值判断
+            if address is None:
+                logger.warning("设备 %s 缺少 address", device_id)
+                return {}
 
-        result: dict[str, Any] = {}
-        for point_name in points:
-            point_info = di_map.get(point_name)
-            if point_info is None:
-                logger.warning("未知的测点: %s", point_name)
-                result[point_name] = None
-                continue
+            di_map = device.get("di_map", {})  # FIXED: W-04 硬字典访问无空值判断
 
-            di = point_info["di"]
-            for attempt in range(1, MAX_RETRIES + 1):
-                try:
-                    async with self._lock:
-                        frame = self._build_read_frame(address, di)
-                        await asyncio.to_thread(self._serial.write, frame)
-                        await asyncio.sleep(0.05)
+            result: dict[str, Any] = {}
+            for point_name in points:
+                point_info = di_map.get(point_name)
+                if point_info is None:
+                    logger.warning("未知的测点: %s", point_name)
+                    result[point_name] = None
+                    continue
 
-                        response = await asyncio.to_thread(self._read_response)
+                di = point_info.get("di")  # FIXED: W-04 硬字典访问无空值判断
+                if di is None:
+                    logger.warning("测点 %s 缺少 di", point_name)
+                    result[point_name] = None
+                    continue
 
-                    if not response:
+                for attempt in range(1, MAX_RETRIES + 1):
+                    try:
+                        async with self._lock:
+                            frame = self._build_read_frame(address, di)
+                            await asyncio.to_thread(self._serial.write, frame)
+                            await asyncio.sleep(0.05)
+
+                            response = await asyncio.to_thread(self._read_response)
+
+                        if not response:
+                            logger.debug(
+                                "测点 %s 第%d次读取无响应",
+                                point_name,
+                                attempt,
+                            )
+                            continue
+
+                        if not self._validate_cs(response):
+                            logger.debug(
+                                "测点 %s 第%d次读取CS校验失败",
+                                point_name,
+                                attempt,
+                            )
+                            continue
+
+                        parsed = self._parse_response(response, point_name, point_info)
+                        all_data = parsed if parsed is not None else None
+
+                        if all_data is not None:
+                            seq = 1
+                            while True:
+                                more_flag = self._get_more_flag(response)
+                                if more_flag != 1:
+                                    break
+                                try:
+                                    async with self._lock:
+                                        next_frame = self._build_read_next_frame(
+                                            address,
+                                            di,
+                                            seq,
+                                        )
+                                        await asyncio.to_thread(
+                                            self._serial.write,
+                                            next_frame,
+                                        )
+                                        await asyncio.sleep(0.05)
+                                        next_resp = await asyncio.to_thread(
+                                            self._read_response,
+                                        )
+                                    if not next_resp or not self._validate_cs(next_resp):
+                                        break
+                                    next_data = self._parse_response(
+                                        next_resp,
+                                        point_name,
+                                        point_info,
+                                    )
+                                    if next_data is None:
+                                        break
+                                    all_data = all_data + next_data
+                                    seq += 1
+                                except Exception:
+                                    break
+
+                            result[point_name] = all_data
+                            break
+
+                    except Exception as e:
                         logger.debug(
-                            "测点 %s 第%d次读取无响应",
+                            "测点 %s 第%d次读取异常: %s",
                             point_name,
                             attempt,
+                            e,
                         )
-                        continue
 
-                    if not self._validate_cs(response):
-                        logger.debug(
-                            "测点 %s 第%d次读取CS校验失败",
-                            point_name,
-                            attempt,
-                        )
-                        continue
+                if point_name not in result:
+                    result[point_name] = None
+                    logger.warning("测点 %s 读取失败(重试%d次)", point_name, MAX_RETRIES)
 
-                    parsed = self._parse_response(response, point_name, point_info)
-                    all_data = parsed if parsed is not None else None
-
-                    if all_data is not None:
-                        seq = 1
-                        while True:
-                            more_flag = self._get_more_flag(response)
-                            if more_flag != 1:
-                                break
-                            try:
-                                async with self._lock:
-                                    next_frame = self._build_read_next_frame(
-                                        address,
-                                        di,
-                                        seq,
-                                    )
-                                    await asyncio.to_thread(
-                                        self._serial.write,
-                                        next_frame,
-                                    )
-                                    await asyncio.sleep(0.05)
-                                    next_resp = await asyncio.to_thread(
-                                        self._read_response,
-                                    )
-                                if not next_resp or not self._validate_cs(next_resp):
-                                    break
-                                next_data = self._parse_response(
-                                    next_resp,
-                                    point_name,
-                                    point_info,
-                                )
-                                if next_data is None:
-                                    break
-                                all_data = all_data + next_data
-                                seq += 1
-                            except Exception:
-                                break
-
-                        result[point_name] = all_data
-                        break
-
-                except Exception as e:
-                    logger.debug(
-                        "测点 %s 第%d次读取异常: %s",
-                        point_name,
-                        attempt,
-                        e,
-                    )
-
-            if point_name not in result:
-                result[point_name] = None
-                logger.warning("测点 %s 读取失败(重试%d次)", point_name, MAX_RETRIES)
-
-        return result
+            return result
+        except Exception as e:  # FIXED: W-01 串口I/O异常导致采集循环崩溃
+            logger.error("设备 %s 读取异常: %s", device_id, e)
+            return {}
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         """DL/T 645-2007 协议主要用于电能表数据抄读，写操作受限。

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 class PointDef(BaseModel):
@@ -72,7 +75,7 @@ class DeviceCreate(BaseModel):
                     supported,
                 )
         except ImportError:
-            pass
+            logger.warning("Driver module not available, protocol validation skipped for: %s", v)  # FIXED: 原问题-静默pass可能允许无效协议名
         return v
 
 

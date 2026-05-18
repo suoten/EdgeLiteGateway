@@ -8,6 +8,8 @@ import logging
 import time
 from dataclasses import dataclass
 
+from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _SERIAL_READ_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TCP_PORT = 9600
@@ -52,7 +54,7 @@ class SerialTcpBridge:
         self._tcp_server: asyncio.AbstractServer | None = None
         self._clients: dict[asyncio.StreamReader, asyncio.StreamWriter] = {}
         self._stats = BridgeStats()
-        self._serial_queue: asyncio.Queue = asyncio.Queue(maxsize=10000)
+        self._serial_queue: asyncio.Queue = asyncio.Queue(maxsize=_EVENT_BUS_MAX_QUEUE)  # FIXED: 原问题-maxsize=10000魔法数字
         self._relay_task: asyncio.Task | None = None
         self._serial_read_task: asyncio.Task | None = None
 
@@ -88,7 +90,7 @@ class SerialTcpBridge:
                 bytesize=bytesize_map.get(bytesize, serial.EIGHTBITS),
                 parity=parity_map.get(parity, serial.PARITY_NONE),
                 stopbits=stopbits_map.get(int(stopbits), serial.STOPBITS_ONE),
-                timeout=0.1,
+                timeout=_SERIAL_READ_TIMEOUT,  # FIXED: 原问题-timeout=0.1魔法数字
             )
             logger.info("串口打开成功: %s @ %d", serial_port, baudrate)
         except serial.SerialException as e:

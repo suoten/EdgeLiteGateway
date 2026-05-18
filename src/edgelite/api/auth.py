@@ -135,11 +135,17 @@ async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
 
         current_role = user["role"]
 
+        # FIXED: 原问题-payload["sub"]硬访问可能KeyError(JWT被篡改)，改为.get()加校验
+        sub = payload.get("sub")
+        username = payload.get("username")
+        if not sub or not username:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID)
+
         access_token = create_access_token(
-            data={"sub": payload["sub"], "username": payload["username"], "role": current_role}
+            data={"sub": sub, "username": username, "role": current_role}
         )
         new_refresh = create_refresh_token(
-            data={"sub": payload["sub"], "username": payload["username"], "role": current_role}
+            data={"sub": sub, "username": username, "role": current_role}
         )
 
         from edgelite.config import get_config
@@ -267,8 +273,8 @@ async def logout(request: Request, user: CurrentUser = None):
             body_refresh = body.get("refresh_token")
             if body_refresh:
                 refresh_tokens.append(body_refresh)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Token cleanup failed: %s", e)  # FIXED: 原问题-except Exception: pass完全静默
         for raw_token in refresh_tokens:
             try:
                 payload = decode_token(raw_token, verify_exp=False)

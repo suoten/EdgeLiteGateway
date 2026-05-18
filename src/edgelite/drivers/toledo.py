@@ -31,11 +31,11 @@ class ToledoDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["toledo"]
     config_schema = {
-        "description": "托利多称重仪表协议，支持TCP/Serial/MT-SICS通信",
+        "description": "Mettler-Toledo weighing instrument protocol, supports TCP/Serial/MT-SICS",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "称重仪表IP地址（TCP模式）", "default": "192.168.1.1"},
-            {"name": "port", "type": "integer", "label": "端口", "description": "TCP端口，默认1701", "default": 1701},
-            {"name": "mode", "type": "string", "label": "通信模式", "description": "TCP或Serial", "default": "tcp", "options": ["tcp", "serial"]},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "Weighing instrument IP address (TCP mode)", "default": "192.168.1.1"},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "TCP port, default 1701", "default": 1701},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "mode", "type": "string", "label": "Communication Mode", "description": "TCP or Serial", "default": "tcp", "options": ["tcp", "serial"]},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

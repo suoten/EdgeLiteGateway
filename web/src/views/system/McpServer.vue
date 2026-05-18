@@ -229,7 +229,7 @@ const toolColumns = [
   { title: t('ruleList.name'), key: 'name', width: 200 },
   { title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true } },
   {
-    title: t('alarmList.actions'), key: 'action', width: 100,
+    title: t('common.actions'), key: 'action', width: 100,  // FIXED: 原问题-跨域误用alarmList.actions
     render: (row: any) => h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openToolCall(row) }, { default: () => t('common.confirm') }),
   },
 ]
@@ -254,7 +254,7 @@ const keyColumns = [
   },
   { title: t('auditLog.time'), key: 'created_at', width: 180 },
   {
-    title: t('alarmList.actions'), key: 'action', width: 80,
+    title: t('common.actions'), key: 'action', width: 80,  // FIXED: 原问题-跨域误用alarmList.actions
     render: (row: any) => h(NButton, { text: true, type: 'error', size: 'small', onClick: () => handleDeleteKey(row) }, { default: () => t('common.delete') }),
   },
 ]

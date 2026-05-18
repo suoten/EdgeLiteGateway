@@ -29,7 +29,10 @@ class DeviceLifecycleManager:
             old_status=old_status,
             new_status="online",
         )
-        await self._event_bus.publish(event)
+        try:
+            await self._event_bus.publish(event)  # FIXED: EventBus发布异常导致设备状态更新中断
+        except Exception:
+            logger.exception("EventBus发布设备上线事件失败: %s", device_id)
         logger.info("设备上线: %s (%s -> online)", device_id, old_status)
 
     async def on_device_offline(self, device_id: str) -> None:
@@ -44,7 +47,10 @@ class DeviceLifecycleManager:
             old_status=old_status,
             new_status="offline",
         )
-        await self._event_bus.publish(event)
+        try:
+            await self._event_bus.publish(event)  # FIXED: EventBus发布异常导致设备状态更新中断
+        except Exception:
+            logger.exception("EventBus发布设备下线事件失败: %s", device_id)
         logger.info("设备下线: %s (%s -> offline)", device_id, old_status)
 
     async def on_device_unknown(self, device_id: str) -> None:
@@ -56,7 +62,10 @@ class DeviceLifecycleManager:
             old_status=old_status,
             new_status="unknown",
         )
-        await self._event_bus.publish(event)
+        try:
+            await self._event_bus.publish(event)  # FIXED: EventBus发布异常导致设备状态更新中断
+        except Exception:
+            logger.exception("EventBus发布设备状态未知事件失败: %s", device_id)
         logger.info("设备状态未知: %s (%s -> unknown)", device_id, old_status)
 
     def get_status(self, device_id: str) -> str:

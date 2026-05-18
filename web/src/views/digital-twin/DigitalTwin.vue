@@ -1,6 +1,10 @@
 <template>
-  <n-spin :show="pageLoading" description="加载3D场景...">
+  <n-spin :show="pageLoading" :description="t('digitalTwin.loadingScene')">
   <div class="twin-page">
+    <div v-if="threeUnavailable" class="three-unavailable">  <!-- FIXED: 原问题-three加载失败时无降级提示 -->
+      <div class="three-unavailable-icon">⚠️</div>
+      <div class="three-unavailable-text">{{ t('digitalTwin.threeUnavailable') }}</div>
+    </div>
     <div ref="containerRef" class="twin-canvas" @click="onCanvasClick"></div>
 
     <div class="overlay-top">
@@ -12,23 +16,23 @@
         >{{ s.icon }} {{ s.label }}</div>
       </div>
       <div class="top-actions">
-        <div :class="['action-btn', { active: autoRotate }]" @click="toggleAutoRotate" title="自动旋转">🔄</div>
-        <div :class="['action-btn', { active: showLabels }]" @click="showLabels = !showLabels" title="标签">🏷️</div>
-        <div :class="['action-btn', { active: showConnections }]" @click="showConnections = !showConnections; rebuildScene()" title="连线">🔗</div>
-        <div class="action-btn" @click="takeScreenshot" title="截图">📷</div>
-        <div class="action-btn" @click="rebuildScene" title="刷新">🔁</div>
+        <div :class="['action-btn', { active: autoRotate }]" @click="toggleAutoRotate" :title="t('digitalTwin.autoRotate')">🔄</div>
+        <div :class="['action-btn', { active: showLabels }]" @click="showLabels = !showLabels" :title="t('digitalTwin.labels')">🏷️</div>
+        <div :class="['action-btn', { active: showConnections }]" @click="showConnections = !showConnections; rebuildScene()" :title="t('digitalTwin.connections')">🔗</div>
+        <div class="action-btn" @click="takeScreenshot" :title="t('digitalTwin.screenshot')">📷</div>
+        <div class="action-btn" @click="rebuildScene" :title="t('digitalTwin.refresh')">🔁</div>
       </div>
     </div>
 
     <div class="overlay-stats">
-      <div class="stat-chip online">● {{ onlineCount }} 在线</div>
-      <div class="stat-chip offline">● {{ offlineCount }} 离线</div>
-      <div v-if="alarmCount > 0" class="stat-chip alarm">⚠ {{ alarmCount }} 告警</div>
-      <div class="stat-chip total">共 {{ deviceList.length }} 台</div>
+      <div class="stat-chip online">● {{ onlineCount }} {{ t('digitalTwin.online') }}</div>
+      <div class="stat-chip offline">● {{ offlineCount }} {{ t('digitalTwin.offline') }}</div>
+      <div v-if="alarmCount > 0" class="stat-chip alarm">⚠ {{ alarmCount }} {{ t('digitalTwin.alarm') }}</div>
+      <div class="stat-chip total">{{ t('digitalTwin.deviceTotal', { count: deviceList.length }) }}</div>
     </div>
 
     <div class="minimap-container" v-if="minimapUrl">
-      <div class="minimap-title">导航</div>
+      <div class="minimap-title">{{ t('digitalTwin.navigation') }}</div>
       <canvas ref="minimapRef" class="minimap-canvas" @click="onMinimapClick"></canvas>
     </div>
 
@@ -49,21 +53,21 @@
             <span class="point-name">{{ pt.name }}</span>
             <span :class="['point-val', { 'val-alarm': isPointAlarming(selectedDevice.device_id, pt.name) }]">{{ formatPtVal(selectedDevice.device_id, pt) }}</span>
           </div>
-          <div v-if="!(selectedDevice.points || []).length" class="no-points">暂无测点数据</div>
+          <div v-if="!(selectedDevice.points || []).length" class="no-points">{{ t('digitalTwin.noPointData') }}</div>
         </div>
         <n-button block type="primary" ghost size="small" style="margin-top: 10px" @click="goToDeviceDetail">
-          查看设备详情 →
+          {{ t('digitalTwin.viewDeviceDetail') }} →
         </n-button>
         <n-button text size="tiny" style="position: absolute; top: 8px; right: 8px" @click="selectedDevice = null">✕</n-button>
       </div>
     </Transition>
 
     <div :class="['device-list-toggle', { expanded: listExpanded }]" @click="listExpanded = !listExpanded">
-      <span>{{ listExpanded ? '收起' : '📋 设备列表' }}</span>
+      <span>{{ listExpanded ? t('digitalTwin.collapse') : '📋 ' + t('digitalTwin.deviceList') }}</span>
     </div>
     <Transition name="slide-left">
       <div v-if="listExpanded" class="device-list-panel">
-        <n-input v-model:value="deviceSearch" placeholder="搜索设备" size="small" clearable style="margin-bottom: 8px" />
+        <n-input v-model:value="deviceSearch" :placeholder="t('digitalTwin.searchDevice')" size="small" clearable style="margin-bottom: 8px" />
         <div class="device-scroll">
           <div
             v-for="d in filteredDevices" :key="d.device_id"
@@ -90,6 +94,7 @@ import { useRouter } from 'vue-router'
 import { NTag, NButton, NDivider, NInput, NSpin, useMessage } from 'naive-ui'
 import { deviceApi, alarmApi } from '@/api'
 import { deviceStatusLabel, protocolLabel } from '@/utils/enumLabels'
+import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
 
 const router = useRouter()
 const msg = useMessage()
@@ -108,11 +113,12 @@ const alarmingDevices = ref<Set<string>>(new Set())
 const alarmCount = ref(0)
 const minimapUrl = ref('')
 const pageLoading = ref(true)
+const threeUnavailable = ref(false)  // FIXED: 原问题-three模块加载失败时无标志位，组件无法降级
 
 const sceneOptions = [
-  { label: '工厂车间', value: 'factory', icon: '🏭' },
-  { label: '智慧园区', value: 'park', icon: '🏢' },
-  { label: '能源站', value: 'energy', icon: '⚡' },
+  { label: t('digitalTwin.sceneFactory'), value: 'factory', icon: '🏭' },  // FIXED: 原问题-中文硬编码
+  { label: t('digitalTwin.scenePark'), value: 'park', icon: '🏢' },  // FIXED: 原问题-中文硬编码
+  { label: t('digitalTwin.sceneEnergy'), value: 'energy', icon: '⚡' },  // FIXED: 原问题-中文硬编码
 ]
 
 const onlineCount = computed(() => deviceList.value.filter(d => d.status === 'online').length)
@@ -483,6 +489,7 @@ function takeScreenshot() {
 
 async function loadScene() {
   if (!containerRef.value) return
+  if (threeUnavailable.value) return  // FIXED: 原问题-three加载失败后loadScene仍会反复尝试import
   try {
     const THREE = await import('three')
     const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js')
@@ -598,7 +605,7 @@ async function loadScene() {
     animate()
   } catch (e) {
     console.error('3D场景加载失败:', e)
-    msg.error('3D场景加载失败，请刷新页面重试')
+    msg.error(t('digitalTwin.sceneLoadFailed'))  // FIXED: 原问题-中文硬编码
   }
 }
 
@@ -669,7 +676,7 @@ async function fetchDevices() {
     const data = await deviceApi.list({ page: 1, size: 200 })
     deviceList.value = data?.data ?? []
   } catch {
-    msg.warning('获取设备列表失败')
+    msg.warning(t('digitalTwin.fetchDevicesFailed'))  // FIXED: 原问题-中文硬编码
   }
 }
 
@@ -682,7 +689,7 @@ async function fetchAlarms() {
     alarmingDevices.value = newSet
     alarmCount.value = alarms.length
   } catch {
-    msg.warning('获取告警列表失败')
+    msg.warning(t('digitalTwin.fetchAlarmsFailed'))  // FIXED: 原问题-中文硬编码
   }
 }
 
@@ -691,7 +698,7 @@ async function fetchDevicePoints(deviceId: string) {
     const data = await deviceApi.getPoints(deviceId)
     pointValues.value = { ...pointValues.value, [deviceId]: data || {} }
   } catch {
-    msg.warning('获取设备测点失败')
+    msg.warning(t('digitalTwin.fetchDevicePointsFailed'))  // FIXED: 原问题-中文硬编码
   }
 }
 
@@ -729,7 +736,12 @@ onMounted(async () => {
   minimapUrl.value = 'active'
   refreshTimer = setInterval(refreshAllPoints, 10000)
   alarmTimer = setInterval(fetchAlarms, 15000)
-  ;(window as any).__THREE__ = await import('three')
+  try {  // FIXED: 原问题-await import('three')无try-catch，模块加载失败时整个组件挂载崩溃
+    ;(window as any).__THREE__ = await import('three')
+  } catch (err) {
+    console.error('[DigitalTwin] Failed to load three.js module:', err)
+    threeUnavailable.value = true
+  }
 })
 
 onUnmounted(() => {
@@ -872,4 +884,12 @@ onUnmounted(() => {
 .slide-left-enter-active, .slide-left-leave-active { transition: all 0.25s ease; }
 .slide-left-enter-from { transform: translateY(10px); opacity: 0; }
 .slide-left-leave-to { transform: translateY(10px); opacity: 0; }
+
+.three-unavailable {  /* FIXED: 原问题-three加载失败时无降级样式 */
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 10; background: rgba(10, 15, 26, 0.92);
+}
+.three-unavailable-icon { font-size: 48px; margin-bottom: 16px; }
+.three-unavailable-text { color: #e88080; font-size: 16px; }
 </style>

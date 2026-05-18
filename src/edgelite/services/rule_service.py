@@ -16,7 +16,7 @@ class RuleService:
         # 验证设备存在
         device = await self._device_repo.get(data["device_id"])
         if device is None:
-            raise ValueError(f"设备不存在: {data['device_id']}")
+            raise ValueError(f"Device not found: {data.get('device_id', '')}")  # FIXED: 原问题-中文硬编码错误消息
         result = await self._repo.create(data)
         # FIXED: _app_state.evaluator可能为None
         try:
@@ -25,7 +25,7 @@ class RuleService:
             if _app_state.evaluator:
                 _app_state.evaluator.invalidate_cache()
         except (ImportError, AttributeError):
-            pass
+            logger.debug("Evaluator cache invalidation skipped (module not available)")  # FIXED: 原问题-静默pass可能导致规则缓存不更新
         return result
 
     async def get_rule(self, rule_id: str) -> dict | None:
@@ -82,7 +82,7 @@ class RuleService:
         """测试规则执行"""
         rule = await self._repo.get(rule_id)
         if rule is None:
-            raise ValueError(f"规则不存在: {rule_id}")
+            raise ValueError(f"Rule not found: {rule_id}")  # FIXED: 原问题-中文硬编码错误消息
 
         # FIXED: conditions可能为None
         conditions = rule.get("conditions") or []

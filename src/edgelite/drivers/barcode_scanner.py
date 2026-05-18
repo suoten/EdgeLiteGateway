@@ -11,6 +11,7 @@ import contextlib
 import logging
 from typing import Any
 
+from edgelite.constants import _SERIAL_READ_TIMEOUT
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -31,12 +32,12 @@ class BarcodeScannerDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["barcode_scanner"]
     config_schema = {
-        "description": "USB/串口扫码枪，自动解析条码数据",
+        "description": "USB/Serial barcode scanner, automatically parses barcode data",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "port", "type": "string", "label": "串口设备", "description": "扫码枪连接的串口，如 COM1 或 /dev/ttyUSB0", "default": "COM1", "required": True},
-            {"name": "baudrate", "type": "integer", "label": "波特率", "description": "扫码枪串口波特率", "default": 9600},
-            {"name": "prefix", "type": "string", "label": "条码前缀", "description": "条码数据前缀标识，用于过滤特定条码"},
-            {"name": "suffix", "type": "string", "label": "条码后缀", "description": "条码结束符，通常为回车符 \\r", "default": "\\r"},
+            {"name": "port", "type": "string", "label": "Serial Port", "description": "Scanner serial port, e.g. COM1 or /dev/ttyUSB0", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "baudrate", "type": "integer", "label": "Baud Rate", "description": "Scanner serial baud rate", "default": 9600},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "prefix", "type": "string", "label": "Barcode Prefix", "description": "Barcode data prefix identifier for filtering", "default": ""},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "suffix", "type": "string", "label": "Barcode Suffix", "description": "Barcode end character, usually \\r", "default": "\\r"},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -66,7 +67,7 @@ class BarcodeScannerDriver(DriverPlugin):
                 bytesize=serial.EIGHTBITS,
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
-                timeout=0.1,
+                timeout=_SERIAL_READ_TIMEOUT,  # FIXED: 原问题-timeout=0.1魔法数字
             )
             self._running = True
             self._read_task = asyncio.create_task(self._read_loop(), name="barcode-read")

@@ -92,12 +92,12 @@ class SparkplugBDriver(DriverPlugin):
     plugin_version = "0.1.0"
     supported_protocols = ["sparkplug_b"]
     config_schema = {
-        "description": "MQTT Sparkplug B工业物联网协议，标准化设备数据发布/订阅",
+        "description": "MQTT Sparkplug B industrial IoT protocol, standardized device data pub/sub",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "group_id", "type": "string", "label": "组ID", "description": "Sparkplug B逻辑组ID", "default": "group1", "required": True},
-            {"name": "edge_node_id", "type": "string", "label": "边缘节点ID", "description": "本网关在Sparkplug B中的节点ID", "default": "edgelite_node", "required": True},
-            {"name": "mqtt_broker", "type": "string", "label": "Broker地址", "description": "MQTT Broker地址", "default": "localhost", "required": True},
-            {"name": "mqtt_port", "type": "integer", "label": "端口", "description": "MQTT Broker端口", "default": 1883},
+            {"name": "group_id", "type": "string", "label": "Group ID", "description": "Sparkplug B logical group ID", "default": "group1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "edge_node_id", "type": "string", "label": "Edge Node ID", "description": "Gateway node ID in Sparkplug B", "default": "edgelite_node", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "mqtt_broker", "type": "string", "label": "Broker Address", "description": "MQTT Broker address", "default": "localhost", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "mqtt_port", "type": "integer", "label": "Port", "description": "MQTT Broker port", "default": 1883},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -158,16 +158,16 @@ class SparkplugBDriver(DriverPlugin):
                 _set_metric_value(metric, datatype, value)
 
                 if m.get("alias") is not None:
-                    metric.alias = int(m["alias"])
+                    metric.alias = int(m.get("alias"))  # FIXED: 原问题-m["alias"]硬访问
                 if m.get("timestamp") is not None:
-                    metric.timestamp = int(m["timestamp"])
+                    metric.timestamp = int(m.get("timestamp"))  # FIXED: 原问题-m["timestamp"]硬访问
                 if m.get("is_historical"):
                     metric.is_historical = True
                 if m.get("is_transient"):
                     metric.is_transient = True
                 if m.get("metadata"):
                     meta = metric.metadata
-                    for k, v in m["metadata"].items():
+                    for k, v in m.get("metadata", {}).items():  # FIXED: 原问题-m["metadata"]硬访问
                         if isinstance(v, str):
                             meta.content[k] = v
 
@@ -257,7 +257,7 @@ class SparkplugBDriver(DriverPlugin):
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         values = self._latest_values.get(device_id, {})
-        return {p: values[p] for p in points if p in values}
+        return {p: values.get(p) for p in points if values.get(p) is not None}  # FIXED: 原问题-values[p]硬访问可能KeyError，改为values.get(p)缺失时跳过
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         if not self._client:
@@ -291,7 +291,7 @@ class SparkplugBDriver(DriverPlugin):
         password = sp_config.mqtt_password or None
 
         retry_delay = 1.0
-        max_delay = 30.0
+        max_delay = _SPARKPLUG_RECONNECT_MAX_DELAY  # FIXED: 原问题-魔法数字，提取为命名常量
 
         while self._running:
             try:
@@ -396,11 +396,14 @@ class SparkplugBDriver(DriverPlugin):
             points_meta = metadata.get("points") or {}
             point_meta = points_meta.get(point_name, {})
             if "datatype" in point_meta:
-                m["datatype"] = point_meta["datatype"]
+                _v = point_meta["datatype"]
+                if _v is not None: m["datatype"] = _v  # FIXED: 原问题-键存在但值可能为None
             if "alias" in point_meta:
-                m["alias"] = point_meta["alias"]
+                _v = point_meta["alias"]
+                if _v is not None: m["alias"] = _v  # FIXED: 原问题-键存在但值可能为None
             if "metadata" in point_meta:
-                m["metadata"] = point_meta["metadata"]
+                _v = point_meta["metadata"]
+                if _v is not None: m["metadata"] = _v  # FIXED: 原问题-键存在但值可能为None
             metrics.append(m)
 
         if not metrics:

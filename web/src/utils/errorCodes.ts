@@ -91,6 +91,71 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_CONFIG_LOAD_FAILED: 'http.requestFailed',
   ERR_CONFIG_SAVE_FAILED: 'http.requestFailed',
   ERR_DRIVER_START_FAILED: 'http.requestFailed',
+  ERR_DEVICE_API_KEY_INVALID: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DEVICE_API_KEY_NOT_CONFIGURED: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DRIVER_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_DRIVER_REGISTRY_NOT_INIT: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_DRIVER_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DRIVER_GET_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DRIVER_DISCOVER_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DATA_UNSUPPORTED_AGGREGATE: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DATA_QUERY_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_DATA_EXPORT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_VIDEO_PTZ_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_VIDEO_WEBHOOK_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_VIDEO_API_KEY_INVALID: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_VIDEO_API_KEY_NOT_CONFIGURED: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_INVALID_ACTION: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_INVALID_TIME_FORMAT: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_NOT_ENABLED: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_CLEANUP_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_EXPORT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_INTEGRITY_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUDIT_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_EXPR_EVALUATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_EXPR_BATCH_EVALUATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_EXPR_VALIDATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SCADA_PROJECT_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_SCADA_SAVE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SCADA_DELETE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SCADA_LOAD_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_PLATFORM_CONFIG_SCHEMA_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_PLATFORM_CONNECT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_PLATFORM_DISCONNECT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_PLATFORM_NOT_SUPPORTED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_PLATFORM_MISSING_CONFIG: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_PLATFORM_NOT_CONNECTED: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_SYS_STATUS_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SYS_BACKUP_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SYS_BACKUP_CREATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SYS_INVALID_BACKUP_ID: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_SYS_BACKUP_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_SYS_RESTORE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_CREATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_GET_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_UPDATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_DELETE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_ENABLE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_DISABLE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_RULE_TEST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_ALARM_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_ALARM_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_ALARM_GET_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_ALARM_ACK_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_INTEG_HANDSHAKE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_INTEG_STATUS_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_DEVICE_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_MISSING_DEVICE_ID: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_DEVICE_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_MISSING_PARAMS: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_ALARM_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_SYSTEM_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_RULE_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
+  ERR_MCP_UNKNOWN_TOOL: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUTHZ_NOT_AUTHENTICATED: 'http.sessionExpired',  // FIXED: 原问题-缺失错误码映射
+  ERR_AUTHZ_PERMISSION_DENIED: 'http.forbidden',  // FIXED: 原问题-缺失错误码映射
 }
 
 // FIXED: 原问题-前端依赖后端中文detail字符串匹配错误类型，现改为基于错误码映射i18n

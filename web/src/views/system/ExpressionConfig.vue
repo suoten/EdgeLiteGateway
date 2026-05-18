@@ -1,47 +1,47 @@
 <template>
-  <n-spin :show="pageLoading" description="加载表达式配置...">
+  <n-spin :show="pageLoading" :description="t('expressionConfig.loading')">  // FIXED: 原问题-中文硬编码，改用i18n
   <div class="expression-page">
-    <n-card title="计算表达式">
+    <n-card :title="t('expressionConfig.title')">  // FIXED: 原问题-中文硬编码，改用i18n
       <n-grid :cols="2" :x-gap="16">
         <n-gi>
-          <n-card title="表达式编辑器" size="small">
+          <n-card :title="t('expressionConfig.editor')" size="small">  // FIXED: 原问题-中文硬编码，改用i18n
             <n-form label-placement="left" label-width="80">
-              <n-form-item label="表达式">
-                <n-input v-model:value="expression" type="textarea" :rows="3" placeholder="例: ${sensor1.temp} * 1.8 + 32" />
+              <n-form-item :label="t('expressionConfig.expression')">  // FIXED: 原问题-中文硬编码，改用i18n
+                <n-input v-model:value="expression" type="textarea" :rows="3" :placeholder="t('expressionConfig.expressionPlaceholder')" />  // FIXED: 原问题-中文硬编码，改用i18n
               </n-form-item>
-              <n-form-item label="变量">
+              <n-form-item :label="t('expressionConfig.variables')">  // FIXED: 原问题-中文硬编码，改用i18n
                 <n-dynamic-input v-model:value="variables" :on-create="() => ({ key: '', value: '0' })">
                   <template #default="{ value: item }">
                     <n-space align="center">
-                      <n-input v-model:value="item.key" placeholder="变量名" size="small" style="width: 150px" />
+                      <n-input v-model:value="item.key" :placeholder="t('expressionConfig.variableName')" size="small" style="width: 150px" />  // FIXED: 原问题-中文硬编码，改用i18n
                       <span>=</span>
-                      <n-input v-model:value="item.value" placeholder="值" size="small" style="width: 100px" />
+                      <n-input v-model:value="item.value" :placeholder="t('expressionConfig.variableValue')" size="small" style="width: 100px" />  // FIXED: 原问题-中文硬编码，改用i18n
                     </n-space>
                   </template>
                 </n-dynamic-input>
               </n-form-item>
             </n-form>
             <n-space style="margin-top: 12px">
-              <n-button type="primary" :loading="evaluating" @click="evaluate">计算</n-button>
-              <n-button @click="validate">验证语法</n-button>
+              <n-button type="primary" :loading="evaluating" @click="evaluate">{{ t('expressionConfig.calculate') }}</n-button>  // FIXED: 原问题-中文硬编码，改用i18n
+              <n-button @click="validate">{{ t('expressionConfig.validateSyntax') }}</n-button>  // FIXED: 原问题-中文硬编码，改用i18n
             </n-space>
-            <n-card v-if="result !== null" title="结果" size="small" style="margin-top: 12px">
+            <n-card v-if="result !== null" :title="t('expressionConfig.result')" size="small" style="margin-top: 12px">  // FIXED: 原问题-中文硬编码，改用i18n
               <n-tag :type="resultValid ? 'success' : 'error'" size="large">{{ result }}</n-tag>
             </n-card>
           </n-card>
         </n-gi>
         <n-gi>
-          <n-card title="可用函数" size="small">
+          <n-card :title="t('expressionConfig.availableFunctions')" size="small">  // FIXED: 原问题-中文硬编码，改用i18n
             <n-data-table :columns="funcColumns" :data="functions" size="small" :max-height="300" />
           </n-card>
-          <n-card title="可用运算符" size="small" style="margin-top: 12px">
+          <n-card :title="t('expressionConfig.availableOperators')" size="small" style="margin-top: 12px">  // FIXED: 原问题-中文硬编码，改用i18n
             <n-space>
               <n-tag v-for="op in operators" :key="op.symbol" size="small">{{ op.symbol }} {{ op.description }}</n-tag>
             </n-space>
           </n-card>
-          <n-card title="批量测试" size="small" style="margin-top: 12px">
+          <n-card :title="t('expressionConfig.batchTest')" size="small" style="margin-top: 12px">  // FIXED: 原问题-中文硬编码，改用i18n
             <n-input v-model:value="batchExpr" type="textarea" :rows="3" placeholder='{"fahrenheit": "${sensor.temp} * 1.8 + 32", "status": "${sensor.temp} > 100"}' />
-            <n-button size="small" style="margin-top: 8px" :loading="calculating" @click="evaluateBatch">批量计算</n-button>
+            <n-button size="small" style="margin-top: 8px" :loading="calculating" @click="evaluateBatch">{{ t('expressionConfig.batchCalculate') }}</n-button>  // FIXED: 原问题-中文硬编码，改用i18n
             <n-code v-if="batchResult" :code="batchResult" language="json" style="margin-top: 8px" />
           </n-card>
         </n-gi>
@@ -55,6 +55,8 @@
 import { ref, onMounted } from 'vue'
 import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, NSpin, useMessage } from 'naive-ui'
 import { expressionApi } from '@/api'
+// FIXED: 原问题-中文硬编码，改用i18n
+import { t } from '@/i18n'
 
 const message = useMessage()
 const expression = ref('')
@@ -70,9 +72,9 @@ const calculating = ref(false)
 const pageLoading = ref(true)
 
 const funcColumns = [
-  { title: '函数', key: 'name', width: 80 },
-  { title: '说明', key: 'description' },
-  { title: '示例', key: 'example' },
+  { title: t('expressionConfig.colFunction'), key: 'name', width: 80 },  // FIXED: 原问题-中文硬编码，改用i18n
+  { title: t('expressionConfig.colDescription'), key: 'description' },  // FIXED: 原问题-中文硬编码，改用i18n
+  { title: t('expressionConfig.colExample'), key: 'example' },  // FIXED: 原问题-中文硬编码，改用i18n
 ]
 
 function buildVarMap() {
@@ -94,7 +96,7 @@ async function evaluate() {
     result.value = String(data?.result ?? 'null')
     resultValid.value = true
   } catch (e: any) {
-    result.value = e.response?.data?.detail || '计算失败'
+    result.value = e.response?.data?.detail || t('expressionConfig.calculateFailed')  // FIXED: 原问题-中文硬编码，改用i18n
     resultValid.value = false
   } finally { evaluating.value = false }
 }
@@ -103,11 +105,11 @@ async function validate() {
   try {
     const data = await expressionApi.validate(expression.value, buildVarMap())
     if (data) {
-      result.value = data.valid ? '语法正确 ✓' : `语法错误: ${data.error}`
+      result.value = data.valid ? t('expressionConfig.syntaxValid') : t('expressionConfig.syntaxError', { error: data.error })  // FIXED: 原问题-中文硬编码，改用i18n
       resultValid.value = data.valid
     }
   } catch (e: any) {
-    result.value = e.response?.data?.detail || '验证失败'
+    result.value = e.response?.data?.detail || t('expressionConfig.validateFailed')  // FIXED: 原问题-中文硬编码，改用i18n
     resultValid.value = false
   }
 }
@@ -119,7 +121,7 @@ async function evaluateBatch() {
     const data = await expressionApi.evaluateBatch(exprs, buildVarMap())
     batchResult.value = JSON.stringify(data?.results, null, 2)
   } catch (e: any) {
-    batchResult.value = '错误: ' + (e.response?.data?.detail || e.message)
+    batchResult.value = t('expressionConfig.error') + (e.response?.data?.detail || e.message)  // FIXED: 原问题-中文硬编码，改用i18n
   } finally { calculating.value = false }
 }
 
@@ -128,7 +130,7 @@ async function loadFunctions() {
     const data = await expressionApi.functions()
     functions.value = data?.functions || []
     operators.value = data?.operators || []
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || '加载函数列表失败') }
+  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('expressionConfig.loadFunctionsFailed')) }  // FIXED: 原问题-中文硬编码，改用i18n
   finally { pageLoading.value = false }
 }
 

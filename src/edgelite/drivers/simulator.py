@@ -44,7 +44,9 @@ class SimulatorDriver(DriverPlugin):
             points = []
         self._devices[device_id] = {}
         for pt in points:
-            name = pt["name"]
+            name = pt.get("name")  # FIXED: 原问题-pt["name"]硬访问
+            if name is None:
+                continue
             self._devices[device_id][name] = pt
             # 初始化随机游走状态
             mid = (pt.get("min", 0) + pt.get("max", 100)) / 2

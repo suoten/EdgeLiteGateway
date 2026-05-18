@@ -66,7 +66,9 @@ class DataPreprocessor:
             return value
 
         if filter_type.startswith("median_"):
-            window_size = config.get("filter_window", int(filter_type.split("_")[1]))
+            # FIXED: 原问题-filter_type.split("_")[1]可能IndexError，加保护
+            parts = filter_type.split("_")
+            window_size = config.get("filter_window", int(parts[1]) if len(parts) > 1 else 5)
         else:
             return value
 

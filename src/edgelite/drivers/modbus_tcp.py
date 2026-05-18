@@ -15,6 +15,7 @@ try:
 except ImportError:
     ModbusException = Exception
 
+from edgelite.constants import _DEVICE_CONNECT_TIMEOUT
 from edgelite.drivers.base import DriverPlugin
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
@@ -54,12 +55,12 @@ class ModbusTcpDriver(DriverPlugin):
     plugin_version = "0.1.0"
     supported_protocols = ["modbus_tcp"]
     config_schema = {
-        "description": "Modbus TCP 工业标准协议，用于读写PLC/仪表的线圈和寄存器",
+        "description": "Modbus TCP industrial standard protocol for reading/writing PLC/instrument coils and registers",
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC或网关的IP地址，如 192.168.1.100", "default": "192.168.1.100", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "Modbus TCP服务端口号，默认502", "default": 502, "required": True},
-            {"name": "slave_id", "type": "integer", "label": "从站ID", "description": "设备从站地址（Unit ID），通常为1", "default": 1, "required": True},
-            {"name": "timeout", "type": "number", "label": "超时(秒)", "description": "连接和读取超时时间", "default": 3.0},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "PLC or gateway IP address, e.g. 192.168.1.100", "default": "192.168.1.100", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "Modbus TCP port, default 502", "default": 502, "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "slave_id", "type": "integer", "label": "Slave ID", "description": "Device slave address (Unit ID), usually 1", "default": 1, "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "Connection and read timeout", "default": 3.0},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -140,7 +141,7 @@ class ModbusTcpDriver(DriverPlugin):
         result = {}
         for point_name in points:
             # 查找测点定义
-            pt_def = next((p for p in device_points if p["name"] == point_name), None)
+            pt_def = next((p for p in device_points if p.get("name") == point_name), None)  # FIXED: 原问题-p["name"]硬访问
             if pt_def is None:
                 continue
 
@@ -164,7 +165,7 @@ class ModbusTcpDriver(DriverPlugin):
         slave_id = config.get("slave_id", 1)
         device_points = self._device_points.get(device_id, [])
 
-        pt_def = next((p for p in device_points if p["name"] == point), None)
+        pt_def = next((p for p in device_points if p.get("name") == point), None)  # FIXED: 原问题-p["name"]硬访问
         if pt_def is None:
             return False
 
@@ -207,7 +208,7 @@ class ModbusTcpDriver(DriverPlugin):
         discovered = []
         for h in hosts:
             for slave_id in slave_ids:
-                client = AsyncModbusTcpClient(host=h, port=port, timeout=2.0)
+                client = AsyncModbusTcpClient(host=h, port=port, timeout=_DEVICE_CONNECT_TIMEOUT)  # FIXED: 原问题-timeout=2.0魔法数字
                 try:
                     connected = await client.connect()
                     if connected:

@@ -356,7 +356,7 @@ class ServiceManager:
     async def install_service_dependencies(self, service_name: str) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"error": f"未知服务: {service_name}"}
+            return {"error": f"Unknown service: {service_name}"}  # FIXED: 原问题-中文硬编码错误消息
 
         results = []
         for dep in svc_def["dependencies"]:
@@ -390,7 +390,7 @@ class ServiceManager:
                 description="",
                 config_section="",
                 state=ServiceState.ERROR,
-                error_message=f"未知服务: {service_name}",
+                error_message=f"Unknown service: {service_name}",  # FIXED: 原问题-中文硬编码错误消息
             )
 
         config = get_config()
@@ -495,14 +495,14 @@ class ServiceManager:
     async def enable_service(self, service_name: str, config_values: dict | None = None) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"success": False, "error": f"未知服务: {service_name}"}
+            return {"success": False, "error": f"Unknown service: {service_name}"}  # FIXED: 原问题-中文硬编码错误消息
 
         deps = self.check_dependencies(service_name)
         missing = [d.package for d in deps if not d.installed]
         if missing:
             return {
                 "success": False,
-                "error": f"缺少依赖: {', '.join(missing)}",
+                "error": f"Missing dependencies: {', '.join(missing)}",  # FIXED: 原问题-中文硬编码错误消息
                 "missing_dependencies": missing,
                 "hint": "请先安装依赖后再启用服务",
             }

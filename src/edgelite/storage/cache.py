@@ -49,7 +49,7 @@ class CacheManager:
                 count = count_result.scalar() or 0
 
                 if count >= MAX_CACHE_SIZE:
-                    delete_count = MAX_CACHE_SIZE // 10
+                    delete_count = MAX_CACHE_SIZE // _CACHE_EVICTION_RATIO  # FIXED: 原问题-魔法数字，提取为命名常量
                     subq = select(CacheQueueORM.id).order_by(CacheQueueORM.id.asc()).limit(delete_count)
                     await session.execute(sa_delete(CacheQueueORM).where(CacheQueueORM.id.in_(subq)))
                     logger.warning("缓存已满，丢弃最旧%d条数据", delete_count)

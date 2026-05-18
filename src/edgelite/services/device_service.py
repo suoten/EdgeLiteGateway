@@ -7,6 +7,7 @@ import contextlib
 import logging
 from typing import Any
 
+from edgelite.constants import _MAX_QUERY_SIZE
 from edgelite.drivers.registry import get_driver_registry
 from edgelite.drivers.simulator import SimulatorDriver
 from edgelite.engine.lifecycle import DeviceLifecycleManager
@@ -51,7 +52,7 @@ class DeviceService:
         protocol = data["protocol"]
         driver_class = self._registry.get_driver_class(protocol)
         if driver_class is None and protocol != "simulator":
-            raise ValueError(f"不支持的协议: {protocol}，请检查协议名称或安装对应驱动")
+            raise ValueError(f"Unsupported protocol: {protocol}")  # FIXED: 原问题-中文硬编码错误消息
 
         device = await self._repo.create(data)
 
@@ -97,7 +98,7 @@ class DeviceService:
         except Exception as e:
             logger.error("设备驱动启动失败，回滚数据库记录: %s - %s", device["device_id"], e)
             await self._repo.delete(device["device_id"])
-            raise ValueError(f"设备驱动启动失败: {e}") from e
+            raise ValueError(f"Device driver start failed: {e}") from e  # FIXED: 原问题-中文硬编码错误消息
 
         return device
 
@@ -128,7 +129,7 @@ class DeviceService:
         active_rules = [r for r in rules if r.get("enabled", False)]
         if active_rules:
             rule_names = ", ".join(r["name"] for r in active_rules[:3])
-            return False, f"设备被规则引用: {rule_names}"
+            return False, f"Device referenced by rules: {rule_names}"  # FIXED: 原问题-中文硬编码错误消息
 
         # 停止采集
         await self._scheduler.stop_collect(device_id)
@@ -220,7 +221,7 @@ class DeviceService:
     async def load_existing_devices(self) -> None:
         """启动时加载所有已有设备并恢复采集"""
         page = 1
-        size = 1000
+        size = _MAX_QUERY_SIZE  # FIXED: 原问题-size=1000魔法数字
         while True:
             devices, total = await self._repo.list_all(page=page, size=size)
             for device in devices:

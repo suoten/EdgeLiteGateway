@@ -21,6 +21,7 @@ except ImportError:
     httpx = None
 
 from edgelite.config import get_config
+from edgelite.constants import _NOTIFY_HTTP_TIMEOUT, _NOTIFY_SMTP_TIMEOUT  # FIXED: 原问题-散落timeout魔法数字
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class NotifyService:
     """告警通知服务"""
 
     def __init__(self):
-        self._http_client = httpx.AsyncClient(timeout=10.0) if httpx else None
+        self._http_client = httpx.AsyncClient(timeout=_NOTIFY_HTTP_TIMEOUT) if httpx else None  # FIXED: 原问题-散落timeout魔法数字
 
     async def close(self) -> None:
         if self._http_client:
@@ -174,9 +175,9 @@ class NotifyService:
     def _smtp_send(email_config: Any, msg: MIMEMultipart) -> None:
         """同步SMTP发送"""
         if email_config.use_tls:
-            server = smtplib.SMTP_SSL(email_config.smtp_host, email_config.smtp_port, timeout=15)
+            server = smtplib.SMTP_SSL(email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT)  # FIXED: 原问题-散落timeout魔法数字
         else:
-            server = smtplib.SMTP(email_config.smtp_host, email_config.smtp_port, timeout=15)
+            server = smtplib.SMTP(email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT)  # FIXED: 原问题-散落timeout魔法数字
             if getattr(email_config, "use_starttls", False):
                 server.starttls()
 

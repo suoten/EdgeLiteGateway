@@ -21,7 +21,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY
+from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _PLATFORM_RECONNECT_MAX_BACKOFF
 from edgelite.platform.base import PlatformHandler
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class ThingsPanelHandler(PlatformHandler):
 
         self._config = config
         self._running = True
-        self._pub_queue = asyncio.Queue(maxsize=1000)
+        self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-maxsize=1000魔法数字
 
         broker = config.get("broker", config.get("host", "localhost"))
         port = int(config.get("port", 1883))

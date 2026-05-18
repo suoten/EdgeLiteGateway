@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from edgelite.config import get_config
-from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY
+from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _MQTT_FORWARDER_RECONNECT
 
 logger = logging.getLogger(__name__)
 

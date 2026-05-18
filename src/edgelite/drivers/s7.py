@@ -25,11 +25,11 @@ class S7Driver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["s7"]
     config_schema = {
-        "description": "西门子S7系列PLC通信协议（S7-200/300/400/1200/1500）",
+        "description": "Siemens S7 PLC protocol (S7-200/300/400/1200/1500)",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
-            {"name": "rack", "type": "integer", "label": "机架号", "description": "硬件机架号，通常为0", "default": 0},
-            {"name": "slot", "type": "integer", "label": "槽号", "description": "CPU插槽号，S7-300通常为2，S7-1200/1500通常为0或1", "default": 1},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "PLC IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "rack", "type": "integer", "label": "Rack", "description": "Hardware rack number, usually 0", "default": 0},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "slot", "type": "integer", "label": "Slot", "description": "CPU slot number, S7-300 usually 2, S7-1200/1500 usually 0 or 1", "default": 1},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import ConfigDep, CurrentUser, VideoServiceDep, require_permission
+from edgelite.api.error_codes import VideoErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -49,9 +50,9 @@ def _verify_webhook_key(config=Depends(ConfigDep), x_api_key: str = Header(defau
         and getattr(config.server, "webhook_api_key", None)
     ):
         if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
-            raise HTTPException(status_code=401, detail="Invalid API Key")
+            raise HTTPException(status_code=401, detail=VideoErrors.API_KEY_INVALID)
     else:
-        raise HTTPException(status_code=401, detail="API Key not configured")
+        raise HTTPException(status_code=401, detail=VideoErrors.API_KEY_NOT_CONFIGURED)
 
 
 @router.get("/{device_id}/stream", response_model=ApiResponse)
@@ -64,13 +65,14 @@ async def get_stream_url(
     try:
         url = await svc.get_stream_url(device_id, channel_id)
         if not url:
-            raise HTTPException(status_code=503, detail="视频流地址获取失败")
+            # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(status_code=503, detail=VideoErrors.PTZ_FAILED)
         return ApiResponse(data={"url": url, "device_id": device_id, "channel_id": channel_id})
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        logger.error("get_stream_url failed: %s", e)
+        raise HTTPException(status_code=500, detail=VideoErrors.PTZ_FAILED) from e
 
 
 @router.post("/{device_id}/ptz", response_model=ApiResponse)
@@ -84,13 +86,14 @@ async def ptz_control(
     try:
         success = await svc.ptz_control(device_id, channel_id, action)
         if not success:
-            raise HTTPException(status_code=400, detail="云台控制失败")
+            # FIXED: 原问题-中文硬编码detail"云台控制失败"，改为error_code
+            raise HTTPException(status_code=400, detail=VideoErrors.PTZ_FAILED)
         return ApiResponse()
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("云台控制失败: %s", e)
-        raise HTTPException(status_code=500, detail="云台控制失败") from e
+        logger.error("ptz_control failed: %s", e)
+        raise HTTPException(status_code=500, detail=VideoErrors.PTZ_FAILED) from e
 
 
 @router.post("/webhook", response_model=ApiResponse)
@@ -105,5 +108,6 @@ async def video_webhook(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("操作失败: %s", e)
-        raise HTTPException(status_code=500, detail="操作失败") from e
+        logger.error("video_webhook failed: %s", e)
+        # FIXED: 原问题-中文硬编码detail"操作失败"，改为error_code
+        raise HTTPException(status_code=500, detail=VideoErrors.WEBHOOK_FAILED) from e

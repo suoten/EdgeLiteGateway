@@ -68,7 +68,7 @@ const backupColumns = [
   { title: t('ota.backupTime'), key: 'created_at', width: 200 },
   { title: t('ota.size'), key: 'size', width: 100 },
   {
-    title: t('alarmList.actions'), key: 'actions', width: 100,
+    title: t('common.actions'), key: 'actions', width: 100,  // FIXED: 原问题-跨域误用alarmList.actions
     render: (row: any) =>
       h(NPopconfirm as any, { onPositiveClick: () => handleRollback(row.version) }, {
         trigger: () => h(NButton, { text: true, type: 'warning', loading: rollingBack.value }, { default: () => t('ota.rollback') }),
@@ -91,7 +91,9 @@ async function applyUpdate() {
   applying.value = true
   try {
     await otaApi.apply()
-    message.success(t('ota.applySuccess'))
+    // FIXED: 原问题-OTA升级成功后无系统重启提示
+    message.success(t('ota.applySuccess') + t('ota.restartSoon'))  // FIXED: 原问题-硬编码中文，改用i18n
+    setTimeout(() => { window.location.reload() }, 10000)
   } catch (e: any) {
     message.error(e?.response?.data?.detail || t('ota.applyFailed'))
   } finally { applying.value = false }
@@ -101,8 +103,9 @@ async function handleRollback(version: string) {
   rollingBack.value = true
   try {
     await otaApi.rollback(version)
-    message.success(t('otaUpdate.rollbackSuccess', { version }))
-    await fetchBackups()
+    // FIXED: 原问题-OTA回滚成功后无系统重启提示
+    message.success(t('otaUpdate.rollbackSuccess', { version }) + '，系统即将重启，请稍后刷新页面')
+    setTimeout(() => { window.location.reload() }, 10000)
   } catch (e: any) {
     message.error(e?.response?.data?.detail || t('otaUpdate.rollbackFailed'))
   } finally {

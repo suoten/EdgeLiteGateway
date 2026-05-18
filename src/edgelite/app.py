@@ -177,6 +177,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.server.cors_origins,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-API-Key"],
@@ -207,4 +208,35 @@ def create_app() -> FastAPI:
     async def health_check():
         return {"status": "ok"}
 
+    _mount_frontend(app)
+
     return app
+
+
+def _mount_frontend(app: FastAPI) -> None:
+    from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
+
+    frontend_dist = Path("/app/frontend/dist")
+    if not frontend_dist.is_dir():
+        frontend_dist = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
+
+    if frontend_dist.is_dir():
+        assets_dir = frontend_dist / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend-assets")
+
+        from starlette.responses import FileResponse
+
+        @app.get("/{path:path}", include_in_schema=False)
+        async def serve_spa(path: str):
+            if path.startswith(("api/", "docs", "redoc", "openapi.json", "ws/")):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            file_path = frontend_dist / path
+            if file_path.is_file():
+                return FileResponse(str(file_path))
+            return FileResponse(str(frontend_dist / "index.html"))
+
+        logger.info("前端静态文件已挂载: %s", frontend_dist)

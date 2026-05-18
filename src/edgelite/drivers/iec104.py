@@ -85,10 +85,10 @@ class Iec104Driver(DriverPlugin):
     config_schema = {
         "description": "IEC 60870-5-104 电力远动规约，用于与电力SCADA系统通信",
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "SCADA或保护装置IP地址", "default": "127.0.0.1", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "IEC 104默认端口2404", "default": 2404},
-            {"name": "asdu_addr", "type": "integer", "label": "ASDU地址", "description": "ASDU公共地址", "default": 1},
-            {"name": "heartbeat_interval", "type": "number", "label": "心跳间隔(秒)", "description": "T3超时时间，心跳发送间隔", "default": 30.0},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "SCADA or protection device IP address", "default": "127.0.0.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "IEC 104 default port 2404", "default": 2404},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "asdu_addr", "type": "integer", "label": "ASDU Address", "description": "ASDU common address", "default": 1},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "heartbeat_interval", "type": "number", "label": "Heartbeat Interval (s)", "description": "T3 timeout, heartbeat send interval", "default": 30.0},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

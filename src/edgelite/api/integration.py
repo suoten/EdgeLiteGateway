@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import CurrentUser, IntegrationEndpointDep, require_permission
+from edgelite.api.error_codes import IntegrationErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -36,8 +37,8 @@ async def handshake(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("握手失败: %s", e)
-        raise HTTPException(status_code=500, detail="握手失败") from e
+        logger.error("handshake failed: %s", e)
+        raise HTTPException(status_code=500, detail=IntegrationErrors.HANDSHAKE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/status", response_model=ApiResponse)
@@ -59,5 +60,5 @@ async def get_integration_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        logger.error("get_integration_status failed: %s", e)
+        raise HTTPException(status_code=500, detail=IntegrationErrors.STATUS_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code

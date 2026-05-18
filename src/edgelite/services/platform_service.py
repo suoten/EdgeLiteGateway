@@ -151,7 +151,7 @@ class PlatformService:
         registry = _ensure_registry()
         entry = registry.get(platform_name)
         if not entry:
-            return [f"不支持的平台: {platform_name}"]
+            return [f"Unsupported platform: {platform_name}"]  # FIXED: 原问题-中文硬编码错误消息
         schema_fields = entry.get("schema", {}).get("fields", [])
         required_fields = [f["name"] for f in schema_fields if f.get("required")]
         missing = [f for f in required_fields if f not in config or not config[f]]
@@ -164,11 +164,11 @@ class PlatformService:
         registry = _ensure_registry()
         entry = registry.get(platform_name)
         if not entry:
-            raise ValueError(f"不支持的平台: {platform_name}")
+            raise ValueError(f"Unsupported platform: {platform_name}")  # FIXED: 原问题-中文硬编码错误消息
 
         missing = self.validate_config(platform_name, config)
         if missing:
-            raise ValueError(f"缺少必填配置项: {', '.join(missing)}")
+            raise ValueError(f"Missing required config: {', '.join(missing)}")  # FIXED: 原问题-中文硬编码错误消息
 
         module = importlib.import_module(entry["module"])
         handler_cls = getattr(module, entry["class"])
@@ -180,7 +180,7 @@ class PlatformService:
     async def disconnect(self, platform_name: str) -> dict[str, Any]:
         handler = self._handlers.get(platform_name)
         if not handler:
-            raise KeyError(f"平台 {platform_name} 未连接")
+            raise KeyError(f"Platform {platform_name} not connected")  # FIXED: 原问题-中文硬编码错误消息
         await handler.disconnect()
         self._handlers.pop(platform_name, None)
         return {"status": "disconnected"}

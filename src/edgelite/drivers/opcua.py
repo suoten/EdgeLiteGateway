@@ -20,12 +20,12 @@ class OpcUaDriver(DriverPlugin):
     plugin_version = "0.1.0"
     supported_protocols = ["opcua"]
     config_schema = {
-        "description": "OPC UA 工业互联协议，支持加密认证和节点浏览",
+        "description": "OPC UA industrial protocol, supports encrypted authentication and node browsing",
         "fields": [
-            {"name": "endpoint", "type": "string", "label": "OPC UA端点", "description": "OPC UA服务器端点URL", "default": "opc.tcp://localhost:4840", "required": True},
-            {"name": "username", "type": "string", "label": "用户名", "description": "匿名登录可留空"},
-            {"name": "password", "type": "string", "label": "密码", "description": "用户密码，匿名登录可留空", "secret": True},
-            {"name": "security_mode", "type": "string", "label": "安全模式", "description": "通信加密方式，None为明文，SignAndEncrypt为最高安全", "default": "None", "options": ["None", "Sign", "SignAndEncrypt"]},
+            {"name": "endpoint", "type": "string", "label": "OPC UA Endpoint", "description": "OPC UA server endpoint URL", "default": "opc.tcp://localhost:4840", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "username", "type": "string", "label": "Username", "description": "Leave empty for anonymous login"},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "password", "type": "string", "label": "Password", "description": "User password, leave empty for anonymous login", "secret": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "security_mode", "type": "string", "label": "Security Mode", "description": "Encryption mode, None=plaintext, SignAndEncrypt=highest security", "default": "None", "options": ["None", "Sign", "SignAndEncrypt"]},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -120,7 +120,7 @@ class OpcUaDriver(DriverPlugin):
 
         try:
             for point_name in points:
-                point_def = next((p for p in point_defs if p["name"] == point_name), None)
+                point_def = next((p for p in point_defs if p.get("name") == point_name), None)  # FIXED: 原问题-p["name"]硬访问
                 if not point_def:
                     continue
 
@@ -128,7 +128,7 @@ class OpcUaDriver(DriverPlugin):
                 node = client.get_node(node_id)
                 value = await node.read_value()
                 result[point_name] = value
-                self._latest_values[device_id][point_name] = value
+                self._latest_values.setdefault(device_id, {})[point_name] = value  # FIXED: 原问题-嵌套硬访问device_id键可能不存在
 
         except Exception as e:
             logger.error("OPC-UA读取失败: %s - %s", device_id, e)
@@ -142,7 +142,7 @@ class OpcUaDriver(DriverPlugin):
             return False
 
         point_defs = self._device_points.get(device_id, [])
-        point_def = next((p for p in point_defs if p["name"] == point), None)
+        point_def = next((p for p in point_defs if p.get("name") == point), None)  # FIXED: 原问题-p["name"]硬访问
         if not point_def:
             return False
 
@@ -287,8 +287,8 @@ class _SubHandler:
             try:
                 loop = asyncio.get_running_loop()
                 loop.create_task(self._data_callback(self.device_id, {node_id: val}))
-            except RuntimeError:
-                pass
+            except RuntimeError as e:
+                logger.warning("OPC-UA data callback error: %s", e)  # FIXED: 原问题-except RuntimeError: pass数据回调异常被静默
 
         # 发布PointUpdateEvent到EventBus
         try:

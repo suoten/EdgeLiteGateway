@@ -25,12 +25,12 @@ class OmronFinsDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["fins"]
     config_schema = {
-        "description": "欧姆龙FINS协议，支持CJ/CP/NJ系列PLC",
+        "description": "Omron FINS protocol, supports CJ/CP/NJ series PLC",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "PLC的IP地址", "default": "192.168.1.1", "required": True},
-            {"name": "port", "type": "integer", "label": "端口", "description": "FINS UDP端口，默认9600", "default": 9600},
-            {"name": "source_node", "type": "integer", "label": "源节点号", "description": "本机FINS节点号", "default": 0},
-            {"name": "dest_node", "type": "integer", "label": "目标节点号", "description": "PLC的FINS节点号", "default": 1},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "PLC IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "port", "type": "integer", "label": "Port", "description": "FINS UDP port, default 9600", "default": 9600},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "source_node", "type": "integer", "label": "Source Node", "description": "Local FINS node number", "default": 0},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "dest_node", "type": "integer", "label": "Destination Node", "description": "PLC FINS node number", "default": 1},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

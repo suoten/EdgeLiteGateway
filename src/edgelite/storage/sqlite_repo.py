@@ -36,7 +36,7 @@ def _safe_json_loads(value: Any, default: Any = None) -> Any:
 
 
 def _uuid() -> str:
-    return uuid.uuid4().hex[:16]
+    return uuid.uuid4().hex[:_SHORT_ID_LENGTH]  # FIXED: 原问题-魔法数字，提取为命名常量
 
 
 class BaseRepo:

@@ -18,6 +18,7 @@ from influxdb_client.client.write.point import Point
 from influxdb_client.client.write_api import WriteOptions
 
 from edgelite.config import get_config
+from edgelite.constants import _INFLUX_CONNECT_TIMEOUT_MS, _INFLUX_WRITE_TIMEOUT_S
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +45,13 @@ class InfluxDBStorage:
                 url=self._url,
                 token=self._token,
                 org=self._org,
-                timeout=5000,
+                timeout=_INFLUX_CONNECT_TIMEOUT_MS,  # FIXED: 原问题-timeout=5000魔法数字
             )
             # 验证连接（带超时保护，通过to_thread避免阻塞）
             try:
                 health = await asyncio.wait_for(
                     asyncio.to_thread(self._client.health),
-                    timeout=5.0,
+                    timeout=_INFLUX_WRITE_TIMEOUT_S,  # FIXED: 原问题-timeout=5.0魔法数字
                 )
                 self._available = health.status == "pass"
             except (TimeoutError, Exception) as e:

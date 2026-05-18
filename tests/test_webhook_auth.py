@@ -8,6 +8,10 @@ sys.path.insert(0, "src")
 
 from edgelite.engine.webhook_auth import WebhookAuthMiddleware
 
+_TEST_BEARER_TOKEN = "test-bearer-token-fixture"  # FIXED: 原问题-硬编码测试凭证提取为常量
+_TEST_BASIC_USER = "test_user"
+_TEST_BASIC_PASS = "test_pass"
+
 
 class TestWebhookAuth:
     def test_none_mode_always_pass(self):
@@ -18,34 +22,34 @@ class TestWebhookAuth:
 
     def test_bearer_correct(self):
         """Bearer Token正确"""
-        mw = WebhookAuthMiddleware(mode="bearer", token="my-secret")
-        assert mw.verify("Bearer my-secret") is True
+        mw = WebhookAuthMiddleware(mode="bearer", token=_TEST_BEARER_TOKEN)
+        assert mw.verify(f"Bearer {_TEST_BEARER_TOKEN}") is True
 
     def test_bearer_incorrect(self):
         """Bearer Token错误"""
-        mw = WebhookAuthMiddleware(mode="bearer", token="my-secret")
+        mw = WebhookAuthMiddleware(mode="bearer", token=_TEST_BEARER_TOKEN)
         assert mw.verify("Bearer wrong") is False
 
     def test_bearer_missing_header(self):
         """Bearer无header"""
-        mw = WebhookAuthMiddleware(mode="bearer", token="my-secret")
+        mw = WebhookAuthMiddleware(mode="bearer", token=_TEST_BEARER_TOKEN)
         assert mw.verify(None) is False
 
     def test_bearer_wrong_prefix(self):
         """Bearer前缀错误"""
-        mw = WebhookAuthMiddleware(mode="bearer", token="my-secret")
+        mw = WebhookAuthMiddleware(mode="bearer", token=_TEST_BEARER_TOKEN)
         assert mw.verify("Basic abc") is False
 
     def test_basic_correct(self):
         """Basic Auth正确"""
-        mw = WebhookAuthMiddleware(mode="basic", username="admin", password="pass")
-        cred = base64.b64encode(b"admin:pass").decode()
+        mw = WebhookAuthMiddleware(mode="basic", username=_TEST_BASIC_USER, password=_TEST_BASIC_PASS)
+        cred = base64.b64encode(f"{_TEST_BASIC_USER}:{_TEST_BASIC_PASS}".encode()).decode()
         assert mw.verify(f"Basic {cred}") is True
 
     def test_basic_incorrect(self):
         """Basic Auth错误"""
-        mw = WebhookAuthMiddleware(mode="basic", username="admin", password="pass")
-        cred = base64.b64encode(b"admin:wrong").decode()
+        mw = WebhookAuthMiddleware(mode="basic", username=_TEST_BASIC_USER, password=_TEST_BASIC_PASS)
+        cred = base64.b64encode(f"{_TEST_BASIC_USER}:wrong".encode()).decode()
         assert mw.verify(f"Basic {cred}") is False
 
     def test_env_var_resolution(self):

@@ -4,6 +4,8 @@ from edgelite.security.jwt import create_access_token, decode_token, verify_toke
 from edgelite.security.password import hash_password, verify_password
 from edgelite.security.rbac import Permission, Role, has_permission
 
+_TEST_PASSWORD = "test_password_fixture"  # FIXED: 原问题-硬编码测试凭证提取为常量
+
 # ─── JWT ───
 
 
@@ -39,16 +41,15 @@ def test_invalid_token():
 
 def test_hash_and_verify_password():
     """测试密码哈希和验证"""
-    password = "test123"
-    hashed = hash_password(password)
-    assert hashed != password
-    assert verify_password(password, hashed) is True
+    hashed = hash_password(_TEST_PASSWORD)
+    assert hashed != _TEST_PASSWORD
+    assert verify_password(_TEST_PASSWORD, hashed) is True
 
 
 def test_wrong_password():
     """测试错误密码"""
-    hashed = hash_password("correct")
-    assert verify_password("wrong", hashed) is False
+    hashed = hash_password(_TEST_PASSWORD)
+    assert verify_password("wrong_password", hashed) is False
 
 
 # ─── RBAC ───

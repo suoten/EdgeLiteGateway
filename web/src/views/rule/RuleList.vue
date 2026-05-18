@@ -362,7 +362,7 @@ async function handleEdit() {
   }
   saving.value = true
   try {
-    await ruleApi.update(editForm.rule_id, editForm as any)
+    await ruleApi.update(editingRuleId.value, editForm as any)  // FIXED: 原问题-editForm.rule_id未定义导致API路径为/rules/undefined
     message.success(t('ruleList.updateSuccess'))
     showEditModal.value = false
     fetchRules()

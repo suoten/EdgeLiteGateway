@@ -8,6 +8,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 
 from edgelite.api.deps import CurrentUser, OtaManagerDep, require_permission
+from edgelite.api.error_codes import OtaErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -24,13 +25,13 @@ async def check_update(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     if not mgr:
-        raise HTTPException(status_code=503, detail="ERR_OTA_NOT_ENABLED")
+        raise HTTPException(status_code=503, detail=OtaErrors.NOT_ENABLED)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
     try:
         result = await mgr.check_update()
         return ApiResponse(data=result)
     except Exception:
         logger.exception("OTA check_update failed")
-        raise HTTPException(status_code=500, detail="ERR_OTA_CHECK_FAILED") from None
+        raise HTTPException(status_code=500, detail=OtaErrors.CHECK_FAILED) from None  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.post("/apply", response_model=ApiResponse)
@@ -39,34 +40,34 @@ async def apply_update(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if _ota_lock.locked():
-        raise HTTPException(status_code=409, detail="ERR_OTA_IN_PROGRESS")
+        raise HTTPException(status_code=409, detail=OtaErrors.IN_PROGRESS)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
     try:
         async with _ota_lock:
             if not mgr:
-                raise HTTPException(status_code=503, detail="ERR_OTA_NOT_ENABLED")
+                raise HTTPException(status_code=503, detail=OtaErrors.NOT_ENABLED)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
             try:
                 update_info = await mgr.check_update()
                 if not update_info:
-                    raise HTTPException(status_code=404, detail="ERR_OTA_NO_UPDATE")
+                    raise HTTPException(status_code=404, detail=OtaErrors.NO_UPDATE)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
                 version = update_info.get("version", "")
                 download_url = update_info.get("download_url", "")
                 if not download_url:
-                    raise HTTPException(status_code=500, detail="ERR_OTA_NO_DOWNLOAD_URL")
+                    raise HTTPException(status_code=500, detail=OtaErrors.NO_DOWNLOAD_URL)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
                 update_file = await mgr.download_update(version, download_url)
                 if not update_file:
-                    raise HTTPException(status_code=500, detail="ERR_OTA_DOWNLOAD_FAILED")
+                    raise HTTPException(status_code=500, detail=OtaErrors.DOWNLOAD_FAILED)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
                 result = await mgr.apply_update(update_file)
                 return ApiResponse(data={"success": result})
             except HTTPException:
                 raise
             except Exception:
                 logger.exception("OTA apply_update failed")
-                raise HTTPException(status_code=500, detail="ERR_OTA_APPLY_FAILED") from None
+                raise HTTPException(status_code=500, detail=OtaErrors.APPLY_FAILED) from None  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
     except HTTPException:
         raise
     except Exception as e:
         logger.error("OTA apply failed: %s", e)
-        raise HTTPException(status_code=500, detail="ERR_OTA_APPLY_FAILED") from e
+        raise HTTPException(status_code=500, detail=OtaErrors.APPLY_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.post("/rollback", response_model=ApiResponse)
@@ -76,13 +77,13 @@ async def rollback_update(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if not mgr:
-        raise HTTPException(status_code=503, detail="ERR_OTA_NOT_ENABLED")
+        raise HTTPException(status_code=503, detail=OtaErrors.NOT_ENABLED)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
     try:
         result = await mgr.rollback(version if version else None)
         return ApiResponse(data=result)
     except Exception:
         logger.exception("OTA rollback failed")
-        raise HTTPException(status_code=500, detail="ERR_OTA_ROLLBACK_FAILED") from None
+        raise HTTPException(status_code=500, detail=OtaErrors.ROLLBACK_FAILED) from None  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.get("/backups", response_model=ApiResponse)
@@ -91,10 +92,10 @@ async def list_ota_backups(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     if not mgr:
-        raise HTTPException(status_code=503, detail="ERR_OTA_NOT_ENABLED")
+        raise HTTPException(status_code=503, detail=OtaErrors.NOT_ENABLED)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
     try:
         result = await asyncio.to_thread(mgr.list_backups)
         return ApiResponse(data={"backups": result})
     except Exception:
         logger.exception("OTA list_backups failed")
-        raise HTTPException(status_code=500, detail="ERR_OTA_LIST_BACKUPS_FAILED") from None
+        raise HTTPException(status_code=500, detail=OtaErrors.LIST_BACKUPS_FAILED) from None  # FIXED: 原问题-硬编码错误码字符串，改为集中管理

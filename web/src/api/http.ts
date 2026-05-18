@@ -11,6 +11,8 @@ export interface ApiResponse<T = any> {
 }
 
 export interface PagedData<T = any> {
+  code: number  // FIXED: 原问题-缺少后端PagedResponse中的code字段
+  message: string  // FIXED: 原问题-缺少后端PagedResponse中的message字段
   data: T[]
   total: number
   page: number

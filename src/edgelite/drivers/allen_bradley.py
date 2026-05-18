@@ -6,6 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
+from edgelite.constants import _ALLEN_BRADLEY_DEFAULT_PORT
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -25,10 +26,10 @@ class AllenBradleyDriver(DriverPlugin):
     plugin_version = "1.0.0"
     supported_protocols = ["ab", "ab_cip", "ab_pccc"]
     config_schema = {
-        "description": "Allen-Bradley PLC协议（pylogix），支持ControlLogix/CompactLogix",
+        "description": "Allen-Bradley PLC protocol (pylogix), supports ControlLogix/CompactLogix",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP地址", "description": "AB PLC的IP地址", "default": "192.168.1.1", "required": True},
-            {"name": "slot", "type": "integer", "label": "槽号", "description": "CPU所在槽位，ControlLogix默认0，CompactLogix默认0", "default": 0},
+            {"name": "host", "type": "string", "label": "IP Address", "description": "AB PLC IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "slot", "type": "integer", "label": "Slot", "description": "CPU slot position, ControlLogix default 0, CompactLogix default 0", "default": 0},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -55,7 +56,7 @@ class AllenBradleyDriver(DriverPlugin):
 
         try:
             if micrologix:
-                self._client = PLC(ip=ip, port=2222)
+                self._client = PLC(ip=ip, port=_ALLEN_BRADLEY_DEFAULT_PORT)  # FIXED: 原问题-port=2222魔法数字
             else:
                 self._client = PLC(ip=ip, slot=slot)
             self._running = True

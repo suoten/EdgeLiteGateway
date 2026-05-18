@@ -117,17 +117,22 @@ class RuleEvaluator:
             try:
                 await self._evaluate_rule(rule, event)
             except Exception as e:
-                logger.error("规则评估失败: %s - %s", rule["rule_id"], e)
+                logger.error("Rule eval failed: %s - %s", rule.get("rule_id", "?"), e)  # FIXED: 原问题-rule["rule_id"]硬访问
 
     async def _evaluate_rule(self, rule: dict, event: PointUpdateEvent) -> None:
         """评估单条规则"""
-        rule_id = rule["rule_id"]
-        device_id = rule["device_id"]
-        conditions = rule["conditions"]
-        logic = rule["logic"]
-        duration = rule["duration"]
+        # FIXED: 原问题-字典硬访问rule["key"]可能KeyError，改为.get()加校验
+        rule_id = rule.get("rule_id")
+        device_id = rule.get("device_id")
+        conditions = rule.get("conditions", [])
+        logic = rule.get("logic", "AND")
+        duration = rule.get("duration", 0)
         rule_type = rule.get("rule_type", "threshold")
         script = rule.get("script", "")
+
+        if not rule_id or not device_id or not conditions:
+            logger.warning("规则数据不完整，跳过: rule_id=%s, device_id=%s", rule_id, device_id)
+            return
 
         now = time.time()
 
@@ -150,7 +155,10 @@ class RuleEvaluator:
                     del self._point_value_cache[k]
 
         for cond in conditions:
-            cond_point = cond["point"]
+            # FIXED: 原问题-cond["point"]硬访问可能KeyError，改为.get()
+            cond_point = cond.get("point")
+            if not cond_point:
+                continue
             if cond_point not in point_values:
                 cond_cache_key = f"{event.device_id}:{cond_point}"
                 cached = self._point_value_cache.get(cond_cache_key)
@@ -216,7 +224,11 @@ class RuleEvaluator:
                 logger.error("查询firing告警失败 %s/%s: %s", rule_id, device_id, e)
                 firing_alarm = None
             if firing_alarm:
-                await self._recover_alarm(firing_alarm["alarm_id"], rule)
+                alarm_id = firing_alarm.get("alarm_id")  # FIXED: 原问题-硬访问alarm_id可能KeyError
+                if alarm_id is None:
+                    logger.warning("firing告警缺少alarm_id，跳过恢复: %s", firing_alarm)
+                    return
+                await self._recover_alarm(alarm_id, rule)
 
     def _check_conditions(
         self, conditions: list[dict], point_values: dict[str, float], logic: str
@@ -226,16 +238,17 @@ class RuleEvaluator:
             fast_conds = []
             all_available = True
             for cond in conditions:
-                point = cond["point"]
+                # FIXED: 原问题-cond硬访问可能KeyError，改为.get()
+                point = cond.get("point")
                 value = point_values.get(point)
-                if value is None:
+                if value is None or not point:
                     all_available = False
                     break
-                fast_conds.append({"operator": cond["operator"], "threshold": cond["threshold"]})
+                fast_conds.append({"operator": cond.get("operator", ">"), "threshold": cond.get("threshold", 0)})
             if all_available and fast_conds:
-                values = [point_values[c["point"]] for c in conditions]
+                values = [point_values[c.get("point", "")] for c in conditions if c.get("point")]
                 for actual, fc in zip(values, fast_conds, strict=False):
-                    if not check_condition_fast(actual, fc["operator"], fc["threshold"]):
+                    if not check_condition_fast(actual, fc.get("operator", ">"), fc.get("threshold", 0)):
                         if logic == "AND":
                             return False
                     else:
@@ -245,12 +258,13 @@ class RuleEvaluator:
 
         results = []
         for cond in conditions:
-            point = cond["point"]
-            operator = cond["operator"]
-            threshold = cond["threshold"]
+            # FIXED: 原问题-cond硬访问可能KeyError，改为.get()
+            point = cond.get("point")
+            operator = cond.get("operator", ">")
+            threshold = cond.get("threshold", 0)
 
             value = point_values.get(point)
-            if value is None:
+            if value is None or not point:
                 results.append(False)
                 continue
 
@@ -325,16 +339,24 @@ class RuleEvaluator:
 
     async def _fire_alarm(self, rule: dict, trigger_value: dict) -> None:
         """触发告警"""
-        rule_id = rule["rule_id"]
-        device_id = rule["device_id"]
-        severity = rule["severity"]
+        # FIXED: 原问题-字典硬访问rule["key"]可能KeyError，改为.get()加校验
+        rule_id = rule.get("rule_id")
+        device_id = rule.get("device_id")
+        severity = rule.get("severity", "warning")
+
+        if not rule_id or not device_id:
+            logger.warning("告警触发失败: 规则数据不完整 rule_id=%s, device_id=%s", rule_id, device_id)
+            return
 
         # FIXED: 原问题-告警收敛查询和创建无异常保护，数据库异常导致评估循环崩溃
         try:
             existing = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
             if existing:
-                await self._alarm_repo.update_trigger_count(existing["alarm_id"], trigger_value)
-                logger.debug("告警收敛: %s 已有firing告警，更新触发次数", rule_id)
+                # FIXED: 原问题-existing["alarm_id"]硬访问可能KeyError，改为.get()
+                existing_alarm_id = existing.get("alarm_id")
+                if existing_alarm_id:
+                    await self._alarm_repo.update_trigger_count(existing_alarm_id, trigger_value)
+                    logger.debug("告警收敛: %s 已有firing告警，更新触发次数", rule_id)
                 return
 
             alarm = await self._alarm_repo.create(
@@ -350,8 +372,17 @@ class RuleEvaluator:
             return
 
         # 发布告警事件
+        # FIXED: 原问题-alarm可能为None或缺少alarm_id，加空值保护
+        if not alarm:
+            logger.warning("告警创建返回None: rule_id=%s", rule_id)
+            return
+        alarm_id = alarm.get("alarm_id")
+        if not alarm_id:
+            logger.warning("告警创建返回数据缺少alarm_id: rule_id=%s", rule_id)
+            return
+
         alarm_event = AlarmEvent(
-            alarm_id=alarm["alarm_id"],
+            alarm_id=alarm_id,
             rule_id=rule_id,
             device_id=device_id,
             severity=severity,
@@ -361,7 +392,7 @@ class RuleEvaluator:
         await self._event_bus.publish(alarm_event)
         logger.info(
             "告警触发: %s (规则=%s, 设备=%s, 级别=%s)",
-            alarm["alarm_id"],
+            alarm_id,
             rule_id,
             device_id,
             severity,
@@ -378,9 +409,9 @@ class RuleEvaluator:
         if alarm:
             alarm_event = AlarmEvent(
                 alarm_id=alarm_id,
-                rule_id=rule["rule_id"],
-                device_id=rule["device_id"],
-                severity=rule["severity"],
+                rule_id=rule.get("rule_id", ""),
+                device_id=rule.get("device_id", ""),
+                severity=rule.get("severity", "info"),
                 action="recovered",
             )
             await self._event_bus.publish(alarm_event)

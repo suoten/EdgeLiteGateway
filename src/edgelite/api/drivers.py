@@ -13,6 +13,7 @@ from edgelite.api.deps import (
     PluginManagerDep,
     require_permission,
 )
+from edgelite.api.error_codes import DriverErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -64,7 +65,7 @@ async def list_drivers(
 ):
     try:
         if not registry:
-            raise HTTPException(status_code=501, detail="驱动注册表未初始化")
+            raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         drivers = []
         for name, driver_cls in registry.items():
@@ -82,8 +83,8 @@ async def list_drivers(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        logger.error("Failed to list drivers: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=DriverErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/protocols", response_model=ApiResponse[DriverProtocolsResponse])
@@ -93,15 +94,15 @@ async def list_protocols(
 ):
     try:
         if not registry:
-            raise HTTPException(status_code=501, detail="驱动注册表未初始化")
+            raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         protocols = registry.get_supported_protocols()
         return ApiResponse(data={"protocols": protocols})
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        logger.error("Failed to list protocols: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=DriverErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/{driver_name}/config-schema", response_model=ApiResponse[DriverConfigSchemaResponse])
@@ -112,18 +113,18 @@ async def get_driver_config_schema(
 ):
     try:
         if not registry:
-            raise HTTPException(status_code=501, detail="驱动注册表未初始化")
+            raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         driver_cls = registry.get_driver_class(driver_name)
         if not driver_cls:
-            raise HTTPException(status_code=404, detail=f"驱动 {driver_name} 不存在")
+            raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         schema = getattr(driver_cls, "config_schema", None)
         if not schema:
             schema = {
                 "fields": [
-                    {"name": "host", "type": "string", "label": "主机地址", "default": "localhost", "required": True},
-                    {"name": "port", "type": "integer", "label": "端口", "default": 0},
+                    {"name": "host", "type": "string", "label": "Host", "default": "localhost", "required": True},
+                    {"name": "port", "type": "integer", "label": "Port", "default": 0},
                 ]
             }
 
@@ -131,8 +132,8 @@ async def get_driver_config_schema(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取失败") from e
+        logger.error("Failed to get driver config schema: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("", response_model=ApiResponse[list[DriverStatusInfo]])
@@ -168,8 +169,8 @@ async def list_all_drivers(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取列表失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取列表失败") from e
+        logger.error("Failed to list all drivers: %s", e)  # FIXED: 原问题-中文硬编码日志
+        raise HTTPException(status_code=500, detail=DriverErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 class DriverDiscoverRequest(BaseModel):
@@ -184,11 +185,11 @@ async def discover_devices(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if not registry:
-        raise HTTPException(status_code=501, detail="驱动注册表未初始化")
+        raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
     driver_cls = registry.get_driver_class(driver_name)
     if not driver_cls:
-        raise HTTPException(status_code=404, detail=f"驱动 {driver_name} 不存在")
+        raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
 
     try:
         driver = driver_cls()
@@ -198,7 +199,7 @@ async def discover_devices(
         try:
             await driver.stop()
         except Exception as e:
-            logger.warning("驱动停止失败: %s", e)
+            logger.warning("Failed to stop driver: %s", e)  # FIXED: 原问题-中文硬编码日志
         return ApiResponse(data={"devices": devices})
     except Exception as e:
-        raise HTTPException(status_code=500, detail="设备发现失败") from e
+        raise HTTPException(status_code=500, detail=DriverErrors.DISCOVER_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
