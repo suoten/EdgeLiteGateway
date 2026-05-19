@@ -169,10 +169,10 @@ const severityOptions = [
 ]
 
 const channelOptions = [
-  { label: 'DingTalk', value: 'dingtalk' },
-  { label: 'Email', value: 'email' },
-  { label: 'WeChat', value: 'wechat' },
-  { label: 'Webhook', value: 'webhook' },
+  { label: t('channel.dingtalk'), value: 'dingtalk' },
+  { label: t('channel.email'), value: 'email' },
+  { label: t('channel.wechat'), value: 'wechat' },
+  { label: t('channel.webhook'), value: 'webhook' },
 ]
 
 const operatorOptions = OPERATOR_OPTIONS

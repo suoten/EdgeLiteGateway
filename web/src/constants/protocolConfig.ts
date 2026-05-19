@@ -1,4 +1,6 @@
-/**协议配置模板 — 设备创建时的字段映射、中文标签、默认值和测点模板*/
+/**协议配置模板 — 设备创建时的字段映射、标签、默认值和测点模板*/
+
+import { t } from '@/i18n'
 
 export interface ProtocolFieldDef {
   key: string
@@ -30,146 +32,146 @@ export interface ProtocolConfig {
 
 export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
   'modbus-tcp': {
-    label: 'Modbus TCP',
-    description: '最常用的工业协议，适用于PLC、仪表等设备',
+    label: t('protocolConfig.modbusTcp.label'),
+    description: t('protocolConfig.modbusTcp.description'),
     icon: '🔌',
     configFields: [
-      { key: 'host', label: '设备IP地址', placeholder: '例如: 192.168.1.100', required: true, type: 'string' },
-      { key: 'port', label: '端口号', placeholder: '默认502', default: 502, required: true, type: 'number' },
-      { key: 'unit_id', label: '从站地址', placeholder: '1-247，通常为1', default: 1, required: true, type: 'number' },
-      { key: 'timeout', label: '超时时间(秒)', placeholder: '默认3秒', default: 3, type: 'number' },
+      { key: 'host', label: t('protocolConfig.modbusTcp.host'), placeholder: t('protocolConfig.modbusTcp.hostPlaceholder'), required: true, type: 'string' },
+      { key: 'port', label: t('protocolConfig.modbusTcp.port'), placeholder: t('protocolConfig.modbusTcp.portPlaceholder'), default: 502, required: true, type: 'number' },
+      { key: 'unit_id', label: t('protocolConfig.modbusTcp.unitId'), placeholder: t('protocolConfig.modbusTcp.unitIdPlaceholder'), default: 1, required: true, type: 'number' },
+      { key: 'timeout', label: t('protocolConfig.modbusTcp.timeout'), placeholder: t('protocolConfig.modbusTcp.timeoutPlaceholder'), default: 3, type: 'number' },
     ],
     pointTemplates: [
-      { name: 'temperature', data_type: 'float32', unit: '°C', address: 'HR_0', access_mode: 'read', description: '温度' },
-      { name: 'humidity', data_type: 'float32', unit: '%', address: 'HR_1', access_mode: 'read', description: '湿度' },
-      { name: 'pressure', data_type: 'float32', unit: 'MPa', address: 'HR_2', access_mode: 'read', description: '压力' },
+      { name: 'temperature', data_type: 'float32', unit: '°C', address: 'HR_0', access_mode: 'read', description: t('protocolConfig.modbusTcp.pointTemperature') },
+      { name: 'humidity', data_type: 'float32', unit: '%', address: 'HR_1', access_mode: 'read', description: t('protocolConfig.modbusTcp.pointHumidity') },
+      { name: 'pressure', data_type: 'float32', unit: 'MPa', address: 'HR_2', access_mode: 'read', description: t('protocolConfig.modbusTcp.pointPressure') },
     ],
   },
   'modbus-rtu': {
-    label: 'Modbus RTU',
-    description: '串口通信协议，适用于RS485总线设备',
+    label: t('protocolConfig.modbusRtu.label'),
+    description: t('protocolConfig.modbusRtu.description'),
     icon: '🔌',
     configFields: [
-      { key: 'port', label: '串口设备', placeholder: '例如: COM3 或 /dev/ttyUSB0', required: true, type: 'string' },
-      { key: 'baudrate', label: '波特率', default: 9600, required: true, type: 'select', options: [
+      { key: 'port', label: t('protocolConfig.modbusRtu.port'), placeholder: t('protocolConfig.modbusRtu.portPlaceholder'), required: true, type: 'string' },
+      { key: 'baudrate', label: t('protocolConfig.modbusRtu.baudrate'), default: 9600, required: true, type: 'select', options: [
         { label: '9600', value: 9600 }, { label: '19200', value: 19200 }, { label: '38400', value: 38400 }, { label: '115200', value: 115200 },
       ]},
-      { key: 'unit_id', label: '从站地址', placeholder: '1-247', default: 1, required: true, type: 'number' },
-      { key: 'parity', label: '校验位', default: 'N', type: 'select', options: [
-        { label: '无校验(N)', value: 'N' }, { label: '偶校验(E)', value: 'E' }, { label: '奇校验(O)', value: 'O' },
+      { key: 'unit_id', label: t('protocolConfig.modbusRtu.unitId'), placeholder: t('protocolConfig.modbusRtu.unitIdPlaceholder'), default: 1, required: true, type: 'number' },
+      { key: 'parity', label: t('protocolConfig.modbusRtu.parity'), default: 'N', type: 'select', options: [
+        { label: t('protocolConfig.modbusRtu.parityNone'), value: 'N' }, { label: t('protocolConfig.modbusRtu.parityEven'), value: 'E' }, { label: t('protocolConfig.modbusRtu.parityOdd'), value: 'O' },
       ]},
     ],
     pointTemplates: [
-      { name: 'temperature', data_type: 'float32', unit: '°C', address: 'HR_0', access_mode: 'read', description: '温度' },
+      { name: 'temperature', data_type: 'float32', unit: '°C', address: 'HR_0', access_mode: 'read', description: t('protocolConfig.modbusRtu.pointTemperature') },
     ],
   },
   'opcua': {
-    label: 'OPC UA',
-    description: '工业标准通信协议，适用于SCADA/MES系统对接',
+    label: t('protocolConfig.opcua.label'),
+    description: t('protocolConfig.opcua.description'),
     icon: '🔗',
     configFields: [
-      { key: 'server_url', label: '服务器地址', placeholder: '例如: opc.tcp://192.168.1.100:4840', required: true, type: 'string' },
-      { key: 'username', label: '用户名(可选)', placeholder: '匿名连接可留空', type: 'string' },
-      { key: 'password', label: '密码(可选)', type: 'string' },
-      { key: 'security_mode', label: '安全模式', default: 'None', type: 'select', options: [
-        { label: '无加密', value: 'None' }, { label: '签名', value: 'Sign' }, { label: '签名+加密', value: 'SignAndEncrypt' },
+      { key: 'server_url', label: t('protocolConfig.opcua.serverUrl'), placeholder: t('protocolConfig.opcua.serverUrlPlaceholder'), required: true, type: 'string' },
+      { key: 'username', label: t('protocolConfig.opcua.username'), placeholder: t('protocolConfig.opcua.usernamePlaceholder'), type: 'string' },
+      { key: 'password', label: t('protocolConfig.opcua.password'), type: 'string' },
+      { key: 'security_mode', label: t('protocolConfig.opcua.securityMode'), default: 'None', type: 'select', options: [
+        { label: t('protocolConfig.opcua.securityNone'), value: 'None' }, { label: t('protocolConfig.opcua.securitySign'), value: 'Sign' }, { label: t('protocolConfig.opcua.securitySignAndEncrypt'), value: 'SignAndEncrypt' },
       ]},
     ],
     pointTemplates: [
-      { name: 'value', data_type: 'float64', unit: '', address: 'ns=2;s=Node1', access_mode: 'read', description: '变量值' },
+      { name: 'value', data_type: 'float64', unit: '', address: 'ns=2;s=Node1', access_mode: 'read', description: t('protocolConfig.opcua.pointValue') },
     ],
   },
   'mqtt': {
-    label: 'MQTT',
-    description: '物联网消息协议，适用于传感器数据上报',
+    label: t('protocolConfig.mqtt.label'),
+    description: t('protocolConfig.mqtt.description'),
     icon: '📡',
     configFields: [
-      { key: 'broker', label: 'Broker地址', placeholder: '例如: 192.168.1.100:1883', required: true, type: 'string' },
-      { key: 'topic', label: '订阅主题', placeholder: '例如: sensor/data', required: true, type: 'string' },
-      { key: 'username', label: '用户名(可选)', type: 'string' },
-      { key: 'password', label: '密码(可选)', type: 'string' },
-      { key: 'qos', label: 'QoS等级', default: 0, type: 'select', options: [
-        { label: '0 - 最多一次', value: 0 }, { label: '1 - 至少一次', value: 1 }, { label: '2 - 恰好一次', value: 2 },
+      { key: 'broker', label: t('protocolConfig.mqtt.broker'), placeholder: t('protocolConfig.mqtt.brokerPlaceholder'), required: true, type: 'string' },
+      { key: 'topic', label: t('protocolConfig.mqtt.topic'), placeholder: t('protocolConfig.mqtt.topicPlaceholder'), required: true, type: 'string' },
+      { key: 'username', label: t('protocolConfig.mqtt.username'), type: 'string' },
+      { key: 'password', label: t('protocolConfig.mqtt.password'), type: 'string' },
+      { key: 'qos', label: t('protocolConfig.mqtt.qos'), default: 0, type: 'select', options: [
+        { label: t('protocolConfig.mqtt.qos0'), value: 0 }, { label: t('protocolConfig.mqtt.qos1'), value: 1 }, { label: t('protocolConfig.mqtt.qos2'), value: 2 },
       ]},
     ],
     pointTemplates: [
-      { name: 'payload', data_type: 'string', unit: '', address: 'payload', access_mode: 'read', description: '消息内容' },
+      { name: 'payload', data_type: 'string', unit: '', address: 'payload', access_mode: 'read', description: t('protocolConfig.mqtt.pointPayload') },
     ],
   },
   's7': {
-    label: '西门子S7',
-    description: '西门子PLC专有协议(S7Comm)',
+    label: t('protocolConfig.s7.label'),
+    description: t('protocolConfig.s7.description'),
     icon: '⚡',
     configFields: [
-      { key: 'host', label: 'PLC IP地址', placeholder: '例如: 192.168.1.100', required: true, type: 'string' },
-      { key: 'rack', label: '机架号', default: 0, type: 'number' },
-      { key: 'slot', label: '槽号', default: 1, type: 'number' },
-      { key: 'cpu_type', label: 'CPU类型', default: 'S7-1200', type: 'select', options: [
+      { key: 'host', label: t('protocolConfig.s7.host'), placeholder: t('protocolConfig.s7.hostPlaceholder'), required: true, type: 'string' },
+      { key: 'rack', label: t('protocolConfig.s7.rack'), default: 0, type: 'number' },
+      { key: 'slot', label: t('protocolConfig.s7.slot'), default: 1, type: 'number' },
+      { key: 'cpu_type', label: t('protocolConfig.s7.cpuType'), default: 'S7-1200', type: 'select', options: [
         { label: 'S7-200', value: 'S7-200' }, { label: 'S7-300', value: 'S7-300' }, { label: 'S7-400', value: 'S7-400' },
         { label: 'S7-1200', value: 'S7-1200' }, { label: 'S7-1500', value: 'S7-1500' },
       ]},
     ],
     pointTemplates: [
-      { name: 'DB1_value', data_type: 'float32', unit: '', address: 'DB1.DBD0', access_mode: 'read', description: 'DB1数据' },
+      { name: 'DB1_value', data_type: 'float32', unit: '', address: 'DB1.DBD0', access_mode: 'read', description: t('protocolConfig.s7.pointDb1') },
     ],
   },
   'mc': {
-    label: '三菱MC',
-    description: '三菱PLC专有协议(MC Protocol)',
+    label: t('protocolConfig.mc.label'),
+    description: t('protocolConfig.mc.description'),
     icon: '⚡',
     configFields: [
-      { key: 'host', label: 'PLC IP地址', placeholder: '例如: 192.168.1.100', required: true, type: 'string' },
-      { key: 'port', label: '端口号', default: 5007, type: 'number' },
-      { key: 'network_no', label: '网络号', default: 0, type: 'number' },
-      { key: 'station_no', label: '站号', default: 0, type: 'number' },
+      { key: 'host', label: t('protocolConfig.mc.host'), placeholder: t('protocolConfig.mc.hostPlaceholder'), required: true, type: 'string' },
+      { key: 'port', label: t('protocolConfig.mc.port'), default: 5007, type: 'number' },
+      { key: 'network_no', label: t('protocolConfig.mc.networkNo'), default: 0, type: 'number' },
+      { key: 'station_no', label: t('protocolConfig.mc.stationNo'), default: 0, type: 'number' },
     ],
     pointTemplates: [
-      { name: 'D0', data_type: 'int16', unit: '', address: 'D0', access_mode: 'read', description: 'D0寄存器' },
+      { name: 'D0', data_type: 'int16', unit: '', address: 'D0', access_mode: 'read', description: t('protocolConfig.mc.pointD0') },
     ],
   },
   'fins': {
-    label: '欧姆龙FINS',
-    description: '欧姆龙PLC专有协议',
+    label: t('protocolConfig.fins.label'),
+    description: t('protocolConfig.fins.description'),
     icon: '⚡',
     configFields: [
-      { key: 'host', label: 'PLC IP地址', required: true, type: 'string' },
-      { key: 'port', label: '端口号', default: 9600, type: 'number' },
+      { key: 'host', label: t('protocolConfig.fins.host'), required: true, type: 'string' },
+      { key: 'port', label: t('protocolConfig.fins.port'), default: 9600, type: 'number' },
     ],
     pointTemplates: [],
   },
   'ab': {
-    label: 'Allen-Bradley',
-    description: 'AB/Rockwell PLC协议(CIP)',
+    label: t('protocolConfig.ab.label'),
+    description: t('protocolConfig.ab.description'),
     icon: '⚡',
     configFields: [
-      { key: 'host', label: 'PLC IP地址', required: true, type: 'string' },
-      { key: 'port', label: '端口号', default: 44818, type: 'number' },
+      { key: 'host', label: t('protocolConfig.ab.host'), required: true, type: 'string' },
+      { key: 'port', label: t('protocolConfig.ab.port'), default: 44818, type: 'number' },
     ],
     pointTemplates: [],
   },
   'http': {
-    label: 'HTTP/Webhook',
-    description: 'HTTP接口轮询或被动接收',
+    label: t('protocolConfig.http.label'),
+    description: t('protocolConfig.http.description'),
     icon: '🌐',
     configFields: [
-      { key: 'url', label: '接口地址', placeholder: '例如: http://192.168.1.100/api/data', required: true, type: 'string' },
-      { key: 'method', label: '请求方法', default: 'GET', type: 'select', options: [
+      { key: 'url', label: t('protocolConfig.http.url'), placeholder: t('protocolConfig.http.urlPlaceholder'), required: true, type: 'string' },
+      { key: 'method', label: t('protocolConfig.http.method'), default: 'GET', type: 'select', options: [
         { label: 'GET', value: 'GET' }, { label: 'POST', value: 'POST' },
       ]},
-      { key: 'interval', label: '轮询间隔(秒)', default: 10, type: 'number' },
+      { key: 'interval', label: t('protocolConfig.http.interval'), default: 10, type: 'number' },
     ],
     pointTemplates: [],
   },
   'simulator': {
-    label: '模拟器',
-    description: '内置模拟设备，用于测试和演示',
+    label: t('protocolConfig.simulator.label'),
+    description: t('protocolConfig.simulator.description'),
     icon: '🧪',
     configFields: [],
     pointTemplates: [
-      { name: 'temperature', data_type: 'float32', unit: '°C', address: 'sim_temp', access_mode: 'read', description: '模拟温度(0-100°C)' },
-      { name: 'humidity', data_type: 'float32', unit: '%', address: 'sim_hum', access_mode: 'read', description: '模拟湿度(0-100%)' },
-      { name: 'pressure', data_type: 'float32', unit: 'kPa', address: 'sim_press', access_mode: 'read', description: '模拟压力(80-120kPa)' },
-      { name: 'status', data_type: 'int16', unit: '', address: 'sim_status', access_mode: 'read', description: '设备状态(0=停机 1=运行)' },
+      { name: 'temperature', data_type: 'float32', unit: '°C', address: 'sim_temp', access_mode: 'read', description: t('protocolConfig.simulator.pointSimTemp') },
+      { name: 'humidity', data_type: 'float32', unit: '%', address: 'sim_hum', access_mode: 'read', description: t('protocolConfig.simulator.pointSimHum') },
+      { name: 'pressure', data_type: 'float32', unit: 'kPa', address: 'sim_press', access_mode: 'read', description: t('protocolConfig.simulator.pointSimPress') },
+      { name: 'status', data_type: 'int16', unit: '', address: 'sim_status', access_mode: 'read', description: t('protocolConfig.simulator.pointSimStatus') },
     ],
   },
 }

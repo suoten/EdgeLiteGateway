@@ -1,5 +1,7 @@
 /**规则告警模板 — 常见工业场景的预置规则*/
 
+import { t } from '@/i18n'
+
 export interface RuleTemplate {
   id: string
   name: string
@@ -19,9 +21,9 @@ export interface RuleTemplate {
 export const RULE_TEMPLATES: RuleTemplate[] = [
   {
     id: 'temp-high',
-    name: '温度过高告警',
-    category: '温度',
-    description: '当温度超过设定阈值时触发告警，适用于电机、轴承、环境温度监控',
+    name: t('ruleTemplate.tempHigh.name'),
+    category: t('ruleTemplate.category.temperature'),
+    description: t('ruleTemplate.tempHigh.description'),
     severity: 'critical',
     conditions: [{ point: 'temperature', operator: '>', threshold: 80, unit: '°C' }],
     logic: 'AND',
@@ -29,9 +31,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'temp-low',
-    name: '温度过低告警',
-    category: '温度',
-    description: '当温度低于设定阈值时触发告警，适用于冷冻、冷藏、防冻场景',
+    name: t('ruleTemplate.tempLow.name'),
+    category: t('ruleTemplate.category.temperature'),
+    description: t('ruleTemplate.tempLow.description'),
     severity: 'warning',
     conditions: [{ point: 'temperature', operator: '<', threshold: 5, unit: '°C' }],
     logic: 'AND',
@@ -39,9 +41,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'pressure-high',
-    name: '压力过高告警',
-    category: '压力',
-    description: '当压力超过安全阈值时触发告警，适用于管道、容器、锅炉监控',
+    name: t('ruleTemplate.pressureHigh.name'),
+    category: t('ruleTemplate.category.pressure'),
+    description: t('ruleTemplate.pressureHigh.description'),
     severity: 'critical',
     conditions: [{ point: 'pressure', operator: '>', threshold: 1.0, unit: 'MPa' }],
     logic: 'AND',
@@ -49,9 +51,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'humidity-abnormal',
-    name: '湿度异常告警',
-    category: '湿度',
-    description: '当湿度超出正常范围时触发告警，适用于仓储、机房、温室场景',
+    name: t('ruleTemplate.humidityAbnormal.name'),
+    category: t('ruleTemplate.category.humidity'),
+    description: t('ruleTemplate.humidityAbnormal.description'),
     severity: 'warning',
     conditions: [{ point: 'humidity', operator: '>', threshold: 85, unit: '%' }],
     logic: 'AND',
@@ -59,9 +61,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'voltage-low',
-    name: '电压偏低告警',
-    category: '电气',
-    description: '当电压低于正常值时触发告警，适用于供电质量监控',
+    name: t('ruleTemplate.voltageLow.name'),
+    category: t('ruleTemplate.category.electrical'),
+    description: t('ruleTemplate.voltageLow.description'),
     severity: 'warning',
     conditions: [{ point: 'voltage', operator: '<', threshold: 200, unit: 'V' }],
     logic: 'AND',
@@ -69,9 +71,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'current-overload',
-    name: '电流过载告警',
-    category: '电气',
-    description: '当电流超过额定值时触发告警，适用于电机保护、线路监控',
+    name: t('ruleTemplate.currentOverload.name'),
+    category: t('ruleTemplate.category.electrical'),
+    description: t('ruleTemplate.currentOverload.description'),
     severity: 'critical',
     conditions: [{ point: 'current', operator: '>', threshold: 50, unit: 'A' }],
     logic: 'AND',
@@ -79,9 +81,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'level-high',
-    name: '液位过高告警',
-    category: '液位',
-    description: '当液位超过高限位时触发告警，适用于水箱、油罐、反应釜',
+    name: t('ruleTemplate.levelHigh.name'),
+    category: t('ruleTemplate.category.liquidLevel'),
+    description: t('ruleTemplate.levelHigh.description'),
     severity: 'critical',
     conditions: [{ point: 'level', operator: '>', threshold: 90, unit: '%' }],
     logic: 'AND',
@@ -89,29 +91,29 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'device-offline',
-    name: '设备离线告警',
-    category: '通信',
-    description: '当设备持续无数据上报时触发告警，适用于通信故障检测',
+    name: t('ruleTemplate.deviceOffline.name'),
+    category: t('ruleTemplate.category.communication'),
+    description: t('ruleTemplate.deviceOffline.description'),
     severity: 'warning',
-    conditions: [{ point: 'last_seen', operator: '<', threshold: 0, unit: '秒前' }],
+    conditions: [{ point: 'last_seen', operator: '<', threshold: 0, unit: t('ruleTemplate.unit.secondsAgo') }],
     logic: 'AND',
     duration: 300,
   },
 ]
 
 export const OPERATOR_OPTIONS = [
-  { label: '大于 (>)', value: '>' },
-  { label: '小于 (<)', value: '<' },
-  { label: '等于 (=)', value: '==' },
-  { label: '不等于 (≠)', value: '!=' },
-  { label: '大于等于 (≥)', value: '>=' },
-  { label: '小于等于 (≤)', value: '<=' },
+  { label: t('ruleTemplate.operator.gt'), value: '>' },
+  { label: t('ruleTemplate.operator.lt'), value: '<' },
+  { label: t('ruleTemplate.operator.eq'), value: '==' },
+  { label: t('ruleTemplate.operator.ne'), value: '!=' },
+  { label: t('ruleTemplate.operator.gte'), value: '>=' },
+  { label: t('ruleTemplate.operator.lte'), value: '<=' },
 ]
 
 export const SEVERITY_OPTIONS = [
-  { label: '提示', value: 'info', color: '#909399' },
-  { label: '警告', value: 'warning', color: '#E6A23C' },
-  { label: '严重', value: 'critical', color: '#F56C6C' },
+  { label: t('ruleTemplate.severity.info'), value: 'info', color: '#909399' },
+  { label: t('ruleTemplate.severity.warning'), value: 'warning', color: '#E6A23C' },
+  { label: t('ruleTemplate.severity.critical'), value: 'critical', color: '#F56C6C' },
 ]
 
 export function getTemplatesByCategory(category: string): RuleTemplate[] {
