@@ -11,7 +11,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 
-from edgelite.constants import _CACHE_MAX_SIZE
+from edgelite.constants import _CACHE_MAX_SIZE, _CACHE_EVICTION_RATIO  # FIXED: 原问题-缺失_CACHE_EVICTION_RATIO导入导致NameError
 from edgelite.models.db import CacheQueueORM
 
 logger = logging.getLogger(__name__)

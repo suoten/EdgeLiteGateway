@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--port", type=int, default=8080, help="监听端口")
     parser.add_argument("--config", default="configs/config.yaml", help="配置文件路径")
     parser.add_argument("--reload", action="store_true", help="开发模式热重载")
+    parser.add_argument("--reload-dir", action="append", dest="reload_dirs", help="热重载监控目录")  # FIXED: 原问题-docker-compose.dev.yml使用--reload-dir但argparse未定义
     args = parser.parse_args()
 
     if args.config:
@@ -22,6 +23,7 @@ def main():
         host=args.host,
         port=args.port,
         reload=args.reload,
+        reload_dirs=args.reload_dirs or None,
         factory=True,
     )
 

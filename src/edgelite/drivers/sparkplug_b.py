@@ -204,7 +204,9 @@ class SparkplugBDriver(DriverPlugin):
 
     async def start(self, config: dict) -> None:
         app_config = get_config()
-        sp_config = app_config.sparkplug_b
+        sp_config = getattr(app_config, "sparkplug_b", None)  # FIXED: 原问题-直接访问sparkplug_b属性，配置缺失时AttributeError
+        if sp_config is None:
+            raise ValueError("SparkplugB configuration section not found in config")
 
         self._group_id = config.get("group_id", sp_config.group_id)
         self._edge_node_id = config.get("edge_node_id", sp_config.edge_node_id)

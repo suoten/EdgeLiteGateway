@@ -103,7 +103,8 @@ class IntegrationEndpoint:
         try:
             await ws.send(json.dumps(message))
             return True
-        except Exception:
+        except Exception as e:  # FIXED: 原问题-WebSocket发送失败静默返回False，无日志
+            logger.debug("集成WebSocket发送失败[%s]: %s", session_id, e)
             return False
 
     async def broadcast(self, message: dict[str, Any]) -> int:

@@ -22,3 +22,14 @@ env
 *.db
 *.sqlite
 _fix_*.py
+_test_*.py
+_verify*.txt
+_api_test.txt
+_app_check.txt
+_server_log.txt
+_phase3_*
+_docker_config.txt
+tests/
+docs/
+main.py
+requirements.txt

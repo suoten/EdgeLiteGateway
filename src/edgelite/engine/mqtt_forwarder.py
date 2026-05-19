@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from edgelite.config import get_config
-from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _MQTT_FORWARDER_RECONNECT
+from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _MQTT_FORWARDER_RECONNECT, _QUEUE_POLL_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,8 @@ class MqttForwarder:
         self._connected = False
         self._connect_task: asyncio.Task | None = None
         self._pub_queue: asyncio.Queue | None = None
+        self._event_bus: Any = None  # FIXED: 原问题-未保存event_bus引用，stop时无法注销处理器
+        self._handlers_registered = False  # FIXED: 原问题-未跟踪处理器注册状态
 
     async def start(self, event_bus: Any = None) -> None:
         config = get_config()
@@ -30,13 +32,18 @@ class MqttForwarder:
             logger.info("MQTT Broker未配置，北向转发不启动")
             return
 
+        if self._running:  # FIXED: 原问题-重复调用start不清理前次状态，导致新旧任务同时运行
+            await self.stop()
+
         self._running = True
         self._pub_queue = asyncio.Queue(maxsize=_EVENT_BUS_MAX_QUEUE)  # FIXED: 原问题-硬编码队列大小
 
         if event_bus:
+            self._event_bus = event_bus
             event_bus.register_handler("PointUpdateEvent", self._on_point_update)
             event_bus.register_handler("AlarmEvent", self._on_alarm_event)
             event_bus.register_handler("DeviceStatusEvent", self._on_device_status)
+            self._handlers_registered = True
             logger.info("MQTT转发器已订阅EventBus事件")
 
         self._connect_task = asyncio.create_task(self._connect_loop(), name="mqtt-forward-connect")
@@ -44,6 +51,12 @@ class MqttForwarder:
 
     async def stop(self) -> None:
         self._running = False
+
+        if self._handlers_registered and self._event_bus:  # FIXED: 原问题-stop不注销EventBus处理器，停止后仍被回调
+            self._event_bus.unregister_handler("PointUpdateEvent", self._on_point_update)
+            self._event_bus.unregister_handler("AlarmEvent", self._on_alarm_event)
+            self._event_bus.unregister_handler("DeviceStatusEvent", self._on_device_status)
+            self._handlers_registered = False
 
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
@@ -155,7 +168,7 @@ class MqttForwarder:
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    data = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                    data = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
 

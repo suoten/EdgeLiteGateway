@@ -16,8 +16,9 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from edgelite.constants import _MQTT_KEEPALIVE
+from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _QUEUE_POLL_TIMEOUT
 from edgelite.platform.base import PlatformHandler
+from edgelite.utils import timestamp_ms  # FIXED: 原问题-缺失导入导致NameError
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ class IoTSharpHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 try:

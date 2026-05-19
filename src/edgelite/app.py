@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os  # FIXED: 原问题-缺少os导入，环境变量读取需要
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
@@ -218,7 +219,7 @@ def _mount_frontend(app: FastAPI) -> None:
 
     from fastapi.staticfiles import StaticFiles
 
-    frontend_dist = Path("/app/frontend/dist")
+    frontend_dist = Path(os.environ.get("EDGELITE_FRONTEND_DIST", "/app/frontend/dist"))  # FIXED: 原问题-Docker前端路径硬编码，非Docker部署无法挂载
     if not frontend_dist.is_dir():
         frontend_dist = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
 

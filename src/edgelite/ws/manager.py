@@ -65,7 +65,8 @@ class ConnectionManager:
         async def _send_safe(ws: WebSocket) -> None:
             try:
                 await ws.send_text(message)
-            except Exception:
+            except Exception as e:  # FIXED: 原问题-WebSocket发送失败静默添加到disconnected，无日志
+                logger.debug("WebSocket发送失败: %s", e)
                 disconnected.add(ws)
 
         await asyncio.gather(*[_send_safe(ws) for ws in connections])

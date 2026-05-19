@@ -209,8 +209,9 @@ class ModbusSlaveServer:
                         self._context[0].setValues(1, i, [v])
                 except Exception as e:
                     logger.error("Modbus Slave setValues失败: %s", e)
-                    break
-                return
+                    return
+
+            return  # FIXED: 原问题-Cython路径执行后无return，继续执行Python路径导致双重写入
 
             offset = base_address
             for _point_name, value in points.items():

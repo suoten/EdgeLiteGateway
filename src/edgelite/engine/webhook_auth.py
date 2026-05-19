@@ -72,5 +72,6 @@ class WebhookAuthMiddleware:
             return hmac.compare_digest(username, self._username) and hmac.compare_digest(
                 password, self._password
             )
-        except Exception:
+        except Exception as e:  # FIXED: 原问题-HMAC认证异常静默返回False，可能掩盖配置错误
+            logger.debug("Basic认证解码失败: %s", e)
             return False

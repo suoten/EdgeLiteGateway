@@ -1,20 +1,48 @@
-// FIXED: 原问题-TypeScript循环类型引用，改用interface避免自引用
+import { ref, type Ref } from 'vue'
+
 interface LocaleMessages {
   [key: string]: string | LocaleMessages
 }
 
-const messages: LocaleMessages = {}
-
-let currentLocale = 'zh-CN'
+const localeMessages: Record<string, LocaleMessages> = {}
+const currentLocale: Ref<string> = ref('zh-CN')
 
 export function setupLocale(locale: string, msgs: LocaleMessages) {
-  currentLocale = locale
-  Object.assign(messages, msgs)
+  localeMessages[locale] = msgs
+  if (!localeMessages[currentLocale.value]) {
+    currentLocale.value = locale
+  }
+}
+
+export function setLocale(locale: string) {
+  if (localeMessages[locale]) {
+    currentLocale.value = locale
+    localStorage.setItem('edgelite_locale', locale)
+  }
+}
+
+export function getLocale(): string {
+  return currentLocale.value
+}
+
+export function useCurrentLocale(): Ref<string> {
+  return currentLocale
+}
+
+export function getAvailableLocales(): string[] {
+  return Object.keys(localeMessages)
+}
+
+export function initLocale() {
+  const saved = localStorage.getItem('edgelite_locale')
+  if (saved && localeMessages[saved]) {
+    currentLocale.value = saved
+  }
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {
   const parts = key.split('.')
-  let result: string | LocaleMessages = messages
+  let result: string | LocaleMessages = localeMessages[currentLocale.value] || {}
   for (const part of parts) {
     if (typeof result === 'object' && result !== null && part in result) {
       result = result[part]

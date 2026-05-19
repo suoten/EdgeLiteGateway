@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1/rules", tags=["Rules"])
 async def list_rules(
     svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_READ),
-    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
+    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
     device_id: str | None = None,
     search: str | None = None,
     severity: str | None = None,

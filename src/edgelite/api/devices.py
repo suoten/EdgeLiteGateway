@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api/v1/devices", tags=["Devices"])
 async def list_devices(
     svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_READ),
-    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
+    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
     status: str | None = None,
     protocol: str | None = None,
     search: str | None = None,

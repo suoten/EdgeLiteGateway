@@ -89,6 +89,9 @@
           </n-breadcrumb-item>
         </n-breadcrumb>
         <n-space align="center" :size="16">
+          <n-button quaternary circle @click="toggleLocale">
+            <template #icon><n-icon :component="LanguageOutline" /></template>
+          </n-button>
           <n-button quaternary circle @click="toggleTheme">
             <template #icon><n-icon :component="isDark ? SunnyOutline : MoonOutline" /></template>
           </n-button>
@@ -139,11 +142,11 @@ import {
   LogOutOutline, StatsChartOutline, ServerOutline, CubeOutline, BuildOutline, DocumentTextOutline,
   PulseOutline, CloudOutline, CalculatorOutline, MoonOutline, SunnyOutline,
   RocketOutline, BarChartOutline, RadioOutline, PowerOutline, SwapHorizontalOutline,
-  ExtensionPuzzleOutline,
+  ExtensionPuzzleOutline, LanguageOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { alarmApi, authApi } from '@/api'
-import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码，改用i18n
+import { t, setLocale, getLocale } from '@/i18n'
 import * as ws from '@/api/websocket'
 
 const router = useRouter()
@@ -215,6 +218,12 @@ async function handleChangePassword() {
 const toggleTheme = inject<() => void>('toggleTheme', () => {})
 const isDark = inject<Ref<boolean>>('isDark', ref(false))
 const version = __APP_VERSION__ || '1.0.0'
+
+function toggleLocale() {
+  const next = getLocale() === 'zh-CN' ? 'en-US' : 'zh-CN'
+  setLocale(next)
+  window.location.reload()
+}
 
 const currentRoute = computed(() => {
   const name = route.name as string

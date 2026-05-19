@@ -97,8 +97,9 @@ class InfluxDBStorage:
             if self._available:
                 self._fail_count = 0
             return self._available
-        except Exception:
+        except Exception as e:  # FIXED: 原问题-InfluxDB健康检查异常静默返回False，无日志
             self._available = False
+            logger.debug("InfluxDB健康检查异常: %s", e)
             return False
 
     async def write_point(

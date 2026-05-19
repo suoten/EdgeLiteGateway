@@ -23,6 +23,7 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_USER_USER_NOT_FOUND: 'user.userNotFound',
   ERR_USER_UPDATE_FAILED: 'http.requestFailed',
   ERR_USER_CANNOT_DELETE_SELF: 'user.cannotDeleteSelf',
+  ERR_USER_CANNOT_DELETE_ADMIN: 'user.cannotDeleteLastAdmin',
   ERR_USER_CANNOT_DELETE_LAST_ADMIN: 'user.cannotDeleteLastAdmin',
   ERR_USER_DELETE_FAILED: 'http.requestFailed',
   ERR_SVC_LIST_FAILED: 'http.requestFailed',
@@ -40,6 +41,7 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_DEVICE_NOT_FOUND: 'device.notFound',
   ERR_DEVICE_PUSH_EMPTY: 'device.pushEmpty',
   ERR_DEVICE_PUSH_INVALID_ID: 'device.pushInvalidId',
+  ERR_DEVICE_PUSH_INVALID_KEY: 'device.webhookAuthFailed',
   ERR_DEVICE_WEBHOOK_AUTH_FAILED: 'device.webhookAuthFailed',
   ERR_DEVICE_PUSH_FAILED: 'http.requestFailed',
   ERR_DEVICE_LIST_FAILED: 'http.requestFailed',
@@ -60,6 +62,7 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_COMMON_INTERNAL_ERROR: 'http.requestFailed',
   ERR_COMMON_NOT_FOUND: 'http.notFound',
   ERR_GRAFANA_NOT_ENABLED: 'http.serviceNotReady',
+  ERR_GRAFANA_API_KEY_MISSING: 'grafana.apiKeyMissing',
   ERR_GRAFANA_BAD_STATUS: 'http.requestFailed',
   ERR_GRAFANA_DEPS_MISSING: 'http.serviceNotReady',
   ERR_GRAFANA_CONNECTION_FAILED: 'http.requestFailed',
@@ -158,13 +161,15 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_AUTHZ_PERMISSION_DENIED: 'http.forbidden',  // FIXED: 原问题-缺失错误码映射
 }
 
-// FIXED: 原问题-前端依赖后端中文detail字符串匹配错误类型，现改为基于错误码映射i18n
 export function getErrorMessage(detail: string): string {
   if (!detail) return t('http.requestFailed')
   const i18nKey = ERROR_CODE_MAP[detail]
   if (i18nKey) return t(i18nKey)
-  if (detail.startsWith('ERR_')) return t('http.requestFailed')
-  if (detail.startsWith('ERR_GRAFANA_BAD_STATUS:')) return t('http.requestFailed')
-  if (detail.startsWith('ERR_GRAFANA_CONNECTION_FAILED:')) return t('http.requestFailed')
+  if (detail.startsWith('ERR_')) {
+    const directKey = `errorCodes.${detail}`  // FIXED: 原问题-ERR_*码无i18n映射时回退到errorCodes section
+    const directMsg = t(directKey)
+    if (directMsg !== directKey) return directMsg
+    return t('http.requestFailed')
+  }
   return detail
 }

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from edgelite.models.db import AlarmORM, DeviceORM, RuleORM, UserORM
 from edgelite.api.error_codes import RepoErrors
+from edgelite.constants import _SHORT_ID_LENGTH
 
 logger = logging.getLogger(__name__)
 

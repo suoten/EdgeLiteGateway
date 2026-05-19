@@ -257,7 +257,7 @@ class SerialTcpBridge:
         """串口→TCP数据转发（从队列取数据广播给所有客户端）"""
         while self._running:
             try:
-                data = await asyncio.wait_for(self._serial_queue.get(), timeout=1.0)
+                data = await asyncio.wait_for(self._serial_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 dead_clients = []
                 for reader, writer in self._clients.items():
                     try:

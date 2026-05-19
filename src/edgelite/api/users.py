@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 async def list_users(
     db: DatabaseDep,
     user: CurrentUser = require_permission(Permission.USER_READ),
-    pagination: PaginationDep = None,  # FIXED: 原问题-硬编码分页参数，未使用公共PaginationParams模型
+    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
 ):
     try:
         async with db.get_session() as session:

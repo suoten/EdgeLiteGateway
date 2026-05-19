@@ -35,7 +35,8 @@ class OTAManager:
             from edgelite import __version__
 
             return __version__
-        except Exception:
+        except Exception as e:  # FIXED: 原问题-获取版本号异常静默返回unknown，无日志
+            logger.debug("获取版本号失败: %s", e)
             return "unknown"
 
     async def check_update(self, channel: str = "stable") -> dict | None:
@@ -52,7 +53,11 @@ class OTAManager:
                 params={"version": self._current_version, "channel": channel},
             )
             if resp.status_code == 200:
-                return resp.json()
+                try:
+                    return resp.json()
+                except Exception as e:  # FIXED: 原问题-resp.json()未捕获JSONDecodeError，OTA服务器返回非JSON时崩溃
+                    logger.error("OTA响应解析失败: %s", e)
+                    return None
             return None
         except Exception as e:
             logger.error("检查更新失败: %s", e)

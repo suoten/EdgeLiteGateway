@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from edgelite.storage.sqlite_repo import DeviceRepo, RuleRepo
+
+logger = logging.getLogger(__name__)
 
 
 class RuleService:

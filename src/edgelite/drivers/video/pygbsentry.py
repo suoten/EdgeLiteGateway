@@ -107,7 +107,8 @@ class PyGBSentryProvider(VideoProvider):
                 status = data.get("data", {}).get("status", "offline")
                 return DeviceStatus.ONLINE if status == "online" else DeviceStatus.OFFLINE
             return DeviceStatus.UNKNOWN
-        except Exception:
+        except Exception as e:  # FIXED: 原问题-视频设备状态查询异常静默返回UNKNOWN，无日志
+            logger.debug("获取视频设备状态失败: %s - %s", device_id, e)
             return DeviceStatus.UNKNOWN
 
     async def on_alarm(self, callback: Callable) -> None:

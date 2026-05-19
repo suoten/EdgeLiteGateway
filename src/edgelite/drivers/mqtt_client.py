@@ -171,7 +171,7 @@ class MqttClientDriver(DriverPlugin):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    topic, payload = await asyncio.wait_for(self._pub_queue.get(), timeout=1.0)
+                    topic, payload = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 try:

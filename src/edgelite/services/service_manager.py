@@ -15,6 +15,14 @@ from edgelite.config import get_config, update_config_section
 logger = logging.getLogger(__name__)
 
 
+class ServiceErrors(StrEnum):  # FIXED: 原问题-ServiceErrors引用但未定义，导致NameError
+    START_FAILED = "START_FAILED"
+    UNKNOWN_SERVICE = "UNKNOWN_SERVICE"
+    DEPS_INSTALL_FAILED = "DEPS_INSTALL_FAILED"
+    ALREADY_RUNNING = "ALREADY_RUNNING"
+    NOT_RUNNING = "NOT_RUNNING"
+
+
 class ServiceState(StrEnum):
     DISABLED = "disabled"
     ENABLED = "enabled"
@@ -441,7 +449,8 @@ class ServiceManager:
                             sb_stats, "total_connections",
                             getattr(sb_stats, "client_count", 0)
                         )
-                except Exception:
+                except Exception as e:  # FIXED: 原问题-获取串口桥接统计异常静默置零，无日志
+                    logger.debug("获取串口桥接统计失败: %s", e)
                     running_info["total_connections"] = 0
 
         api_only_services = {"mcp_server", "grafana"}

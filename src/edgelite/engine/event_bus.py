@@ -32,8 +32,8 @@ class PointUpdateEvent(Event):
 
     device_id: str = ""
     point_name: str = ""
-    value: float = 0.0
-    quality: str = "good"
+    value: float | None = None  # FIXED: 原问题-默认0.0掩盖数据缺失，None表示无值
+    quality: str = "unknown"  # FIXED: 原问题-默认"good"掩盖数据缺失，unknown表示未确认
 
 
 @dataclass
@@ -94,7 +94,7 @@ class EventBus:
 
     async def publish(self, event: Event) -> None:
         """发布事件到所有订阅者"""
-        for name, queue in self._subscribers.items():
+        for name, queue in list(self._subscribers.items()):  # FIXED: 原问题-迭代中修改dict导致RuntimeError，使用list()快照
             try:
                 # 非阻塞放入，队列满时丢弃最旧事件
                 queue.put_nowait(event)

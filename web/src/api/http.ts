@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { t } from '@/i18n'
+import { getErrorMessage } from '@/utils/errorCodes'
 
 export interface ApiResponse<T = any> {
   code: number
@@ -96,6 +97,19 @@ http.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
     const status = error.response?.status
+
+    if (error.response?.data?.detail !== undefined) {
+      const detail = error.response.data.detail
+      if (typeof detail === 'string' && detail.startsWith('ERR_')) {
+        error.response.data.errorCode = detail
+        error.response.data.detail = getErrorMessage(detail)
+      } else if (typeof detail === 'object' && detail !== null) {
+        if (typeof detail.message === 'string' && detail.message.startsWith('ERR_')) {
+          error.response.data.errorCode = detail.message
+          error.response.data.detail = { ...detail, message: getErrorMessage(detail.message) }
+        }
+      }
+    }
 
     if (status === 401 && originalRequest.url !== '/auth/refresh' && originalRequest.url !== '/auth/login') {
       const auth = useAuthStore()

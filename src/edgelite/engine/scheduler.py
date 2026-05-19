@@ -45,18 +45,25 @@ class CollectScheduler:
         collect_interval: int = 5,
     ) -> None:
         """为设备启动采集任务"""
+        old_info = None
         if device_id in self._tasks:
+            old_info = self._device_info.get(device_id)  # FIXED: 原问题-先停后启非原子性，失败时设备信息丢失
             await self.stop_collect(device_id)
 
         if not self._cache_flush_task and self._cache:
             self._cache_flush_task = asyncio.create_task(self._cache_flush_loop())
 
         self._device_info[device_id] = (driver, points, collect_interval)
-        task = asyncio.create_task(
-            self._collect_loop(device_id, driver, points, collect_interval),
-            name=f"collect-{device_id}",
-        )
-        self._tasks[device_id] = task
+        try:
+            task = asyncio.create_task(
+                self._collect_loop(device_id, driver, points, collect_interval),
+                name=f"collect-{device_id}",
+            )
+            self._tasks[device_id] = task
+        except Exception:
+            if old_info:
+                self._device_info[device_id] = old_info  # FIXED: 原问题-新任务创建失败时恢复旧设备信息
+            raise
         logger.info(
             "采集任务启动: %s (间隔=%ds, 测点=%d)", device_id, collect_interval, len(points)
         )
@@ -226,9 +233,10 @@ class CollectScheduler:
                             rec_id = rec.get("id")  # FIXED: 原问题-硬访问id可能KeyError
                             if rec_id is None:
                                 continue
-                            await self._cache.delete_cached(rec_id)
+                            await self._cache.delete_cached([rec_id])  # FIXED: 原问题-传入int但签名要求list[int]，导致TypeError
                             success_count += 1
-                    except Exception:
+                    except Exception as e:  # FIXED: 原问题-except Exception:break无日志，InfluxDB写入失败后缓存回写永久停止且无告警
+                        logger.error("缓存回写失败，停止回写循环: %s", e)
                         break
                 if success_count > 0:
                     logger.info("缓存回写: %d 条记录已写入InfluxDB", success_count)

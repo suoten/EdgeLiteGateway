@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1/audit", tags=["Audit"])
 async def query_audit_logs(
     svc: AuditServiceDep,
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
-    pagination: PaginationDep = None,
+    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
     user_id: str | None = None,
     action: str | None = None,
     resource_type: str | None = None,
