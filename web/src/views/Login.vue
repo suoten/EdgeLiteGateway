@@ -202,7 +202,7 @@ async function handleChangePassword() {
     // FIXED: 原问题-修改密码后未重新获取token，若后端使旧token失效则后续请求401
     // 现在修改密码成功后重新登录获取新token
     try {
-      await auth.login(changePwdForm.old_password, changePwdForm.new_password)
+      await auth.login(auth.username, changePwdForm.new_password)
     } catch (reLoginError: any) {
       // FIXED: 原问题-重新登录失败时误用passwordChanged(成功语义)作为错误消息
       message.error(t('login.passwordChangeFailed'))
