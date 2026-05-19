@@ -300,7 +300,7 @@ async function fetchRules() {
 
 async function fetchDevices() {
   try {
-    const data = await deviceApi.list({ page: 1, size: 9999 })  // FIXED: 原问题-设备列表截断，size:100改为9999以加载全部设备
+    const data = await deviceApi.list({ page: 1, size: 5000 })  // FIXED: 原问题-size:9999不合理，改为5000匹配后端_MAX_QUERY_SIZE
     const devs = data?.data ?? []
     devices.value = devs
     deviceOptions.value = devs.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))

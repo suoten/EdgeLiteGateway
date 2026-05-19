@@ -19,6 +19,8 @@ from edgelite.constants import _DEVICE_CONNECT_TIMEOUT
 from edgelite.drivers.base import DriverPlugin
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
+_PYMODBUS_MINOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[1]) if _PYMODBUS_MAJOR >= 3 else 0
+_PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)  # FIXED: 原问题-pymodbus3.7+读取方法count变为仅关键字参数，传位置参数导致TypeError
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,15 @@ def _slave_kwarg(slave_id: int) -> dict:
     """返回正确的 Modbus 设备 ID 参数"""
     if _PYMODBUS_MAJOR < 3:
         return {"unit": slave_id}  # pymodbus 2.x
-    return {"device_id": slave_id}  # pymodbus 3.x
+    return {"slave": slave_id}  # FIXED: 原问题-pymodbus3.7+使用slave替代device_id
+
+
+def _read_kwargs(count: int, slave_id: int) -> dict:
+    """返回正确的读取方法关键字参数"""  # FIXED: 原问题-pymodbus3.7+读取方法count变为仅关键字参数
+    kwargs = _slave_kwarg(slave_id)
+    if _PYMODBUS_37_PLUS:
+        kwargs["count"] = count
+    return kwargs
 
 
 # 寄存器类型映射
@@ -176,7 +186,6 @@ class ModbusTcpDriver(DriverPlugin):
             if data_type == "bool":
                 await client.write_coil(address, bool(value), **_slave_kwarg(slave_id))
             else:
-                # 转换为寄存器值
                 if data_type == "float32":
                     raw = struct.pack(">f", float(value))
                     regs = [struct.unpack(">H", raw[i : i + 2])[0] for i in range(0, 4, 2)]
@@ -212,7 +221,7 @@ class ModbusTcpDriver(DriverPlugin):
                 try:
                     connected = await client.connect()
                     if connected:
-                        result = await client.read_holding_registers(0, 1, **_slave_kwarg(slave_id))
+                        result = await client.read_holding_registers(0, **_read_kwargs(1, slave_id))
                         if not result.isError():
                             discovered.append(
                                 {
@@ -256,20 +265,20 @@ class ModbusTcpDriver(DriverPlugin):
         reg_count = DATA_TYPE_REGS.get(data_type, 1)
 
         if reg_type == "coil":
-            result = await client.read_coils(address, reg_count, **_slave_kwarg(slave_id))
+            result = await client.read_coils(address, **_read_kwargs(reg_count, slave_id))
             if result.isError():
                 raise ModbusException(f"读取错误: {result}")
             return bool(result.bits[0])
         elif reg_type == "discrete":
-            result = await client.read_discrete_inputs(address, reg_count, **_slave_kwarg(slave_id))
+            result = await client.read_discrete_inputs(address, **_read_kwargs(reg_count, slave_id))
             if result.isError():
                 raise ModbusException(f"读取错误: {result}")
             return bool(result.bits[0])
         elif reg_type == "input":
-            result = await client.read_input_registers(address, reg_count, **_slave_kwarg(slave_id))
+            result = await client.read_input_registers(address, **_read_kwargs(reg_count, slave_id))
         else:
             result = await client.read_holding_registers(
-                address, reg_count, **_slave_kwarg(slave_id)
+                address, **_read_kwargs(reg_count, slave_id)
             )
 
         if result.isError():

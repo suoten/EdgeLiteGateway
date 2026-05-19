@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -177,6 +178,9 @@ class DriverDiscoverRequest(BaseModel):
     config: dict = {}
 
 
+_DISCOVER_TIMEOUT = 30.0
+
+
 @router.post("/{driver_name}/discover", response_model=ApiResponse[DriverDiscoverResponse])
 async def discover_devices(
     driver_name: str,
@@ -185,21 +189,68 @@ async def discover_devices(
     user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
 ):
     if not registry:
-        raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)
 
     driver_cls = registry.get_driver_class(driver_name)
     if not driver_cls:
-        raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)
 
     try:
         driver = driver_cls()
         driver_config = req.config if req else {}
         await driver.start(driver_config)
-        devices = await driver.discover_devices(driver_config)
+    except Exception as e:
+        logger.error("Driver %s start failed for discover: %s", driver_name, e)
+        raise HTTPException(
+            status_code=503,
+            detail={"message": DriverErrors.START_FAILED, "detail": str(e), "hint": f"Driver {driver_name} failed to start, check configuration and connectivity"},
+        ) from e  # FIXED: 原问题-驱动启动失败直接抛500，改为503+友好提示
+
+    try:
+        devices = await asyncio.wait_for(
+            driver.discover_devices(driver_config),
+            timeout=_DISCOVER_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Discovery timed out ({_DISCOVER_TIMEOUT}s), target may be unreachable or no devices responded"},
+        ) from None  # FIXED: 原问题-驱动扫描无超时保护，前端15s超时后看到网络错误而非业务提示
+    except NotImplementedError:
+        raise HTTPException(
+            status_code=501,
+            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Driver {driver_name} does not support device discovery"},
+        ) from None  # FIXED: 原问题-驱动不支持discover时抛500，改为501+明确提示
+    except ConnectionRefusedError as e:
+        raise HTTPException(
+            status_code=503,
+            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Connection refused, target {driver_name} service may not be running"},
+        ) from e  # FIXED: 原问题-连接被拒时返回500，改为503+友好提示
+    except OSError as e:
+        raise HTTPException(
+            status_code=503,
+            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Network error: {e}, check target address and connectivity"},
+        ) from e  # FIXED: 原问题-网络错误返回500，改为503+友好提示
+    except Exception as e:
+        err_msg = str(e).lower()
+        if "timeout" in err_msg or "timed out" in err_msg:
+            raise HTTPException(
+                status_code=504,
+                detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Discovery timed out, target may be unreachable"},
+            ) from e
+        if "refused" in err_msg or "connection" in err_msg:
+            raise HTTPException(
+                status_code=503,
+                detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Cannot connect to target, check if {driver_name} service is running and reachable"},
+            ) from e
+        raise HTTPException(
+            status_code=500,
+            detail={"message": DriverErrors.DISCOVER_FAILED, "detail": str(e)},
+        ) from e
+    finally:
         try:
             await driver.stop()
         except Exception as e:
-            logger.warning("Failed to stop driver: %s", e)  # FIXED: 原问题-中文硬编码日志
-        return ApiResponse(data={"devices": devices})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=DriverErrors.DISCOVER_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+            logger.warning("Failed to stop driver: %s", e)
+
+    return ApiResponse(data={"devices": devices})

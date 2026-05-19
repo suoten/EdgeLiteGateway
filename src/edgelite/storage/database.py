@@ -181,16 +181,61 @@ class Database:
                     except Exception:
                         try:
                             await conn.execute(text("PRAGMA wal_checkpoint=PASSIVE"))
-                        except Exception:  # FIXED: 原问题-静默吞没异常，加logger
+                        except Exception:
                             logger.warning("SQLite WAL checkpoint failed", exc_info=True)
                     result2 = await conn.execute(text("PRAGMA integrity_check"))
                     row2 = result2.fetchone()
                     if row2 and row2[0] != "ok":
-                        logger.error("SQLite修复失败，数据库仍损坏: %s", row2[0])
+                        logger.error("SQLite修复失败，自动重建数据库: %s", row2[0])
+                        await self._rebuild_sqlite_database()
                     else:
                         logger.info("SQLite修复成功")
         except Exception as e:
             logger.warning("SQLite完整性检查失败: %s", e)
+
+    async def _rebuild_sqlite_database(self) -> None:  # FIXED: 原问题-数据库损坏后仅日志告警不重建，系统带损坏数据库继续运行导致全量数据丢失
+        db_path = self.db_path
+        if not db_path or not Path(db_path).exists():
+            return
+        try:
+            await self._engine.dispose()
+            self._engine = None
+            self._session_factory = None
+        except Exception:
+            pass
+
+        import shutil
+        corrupt_backup = f"{db_path}.corrupt.{int(time.time())}"
+        try:
+            shutil.move(db_path, corrupt_backup)
+            logger.warning("损坏数据库已移至: %s", corrupt_backup)
+        except Exception as e:
+            logger.error("移动损坏数据库失败: %s，尝试删除重建", e)
+            try:
+                Path(db_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        for suffix in ("-wal", "-shm"):
+            try:
+                Path(f"{db_path}{suffix}").unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        self._engine = create_async_engine(
+            self._db_url,
+            echo=self._config.database.echo,
+            connect_args={"check_same_thread": False},
+        )
+        self._session_factory = async_sessionmaker(
+            self._engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await self._migrate_sqlite(conn)
+
+        logger.info("SQLite数据库已自动重建")
 
     async def init_tables(self) -> None:
         """初始化所有表（仅用于开发/首次部署，生产环境请使用 Alembic）"""

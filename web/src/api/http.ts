@@ -106,7 +106,9 @@ http.interceptors.response.use(
       } else if (typeof detail === 'object' && detail !== null) {
         if (typeof detail.message === 'string' && detail.message.startsWith('ERR_')) {
           error.response.data.errorCode = detail.message
-          error.response.data.detail = { ...detail, message: getErrorMessage(detail.message) }
+          const translatedMsg = getErrorMessage(detail.message)
+          const hint = detail.hint ? `\n💡 ${detail.hint}` : ''
+          error.response.data.detail = `${translatedMsg}${hint}`
         }
       }
     }

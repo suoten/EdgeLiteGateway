@@ -136,8 +136,14 @@ async def enable_service(
                         "hint": result.get("hint", ""),
                     },
                 )
-            # FIXED: 原问题-中文硬编码detail
-            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.ENABLE_FAILED))
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "message": result.get("error", ServiceErrors.ENABLE_FAILED),
+                    "detail": result.get("detail", ""),
+                    "hint": result.get("hint", ""),
+                },
+            )  # FIXED: 原问题-enable失败仅返回START_FAILED字符串，前端无法展示友好提示，改为返回包含hint的结构化错误
 
         if result.get("warning"):
             return ApiResponse(data={**result, "message": result.get("warning", "")})
@@ -186,10 +192,22 @@ async def start_service(
 
         if not result.get("success"):
             if result.get("error_type") == "runtime":
-                # FIXED: 原问题-中文硬编码detail
-                raise HTTPException(status_code=409, detail=result.get("error", ServiceErrors.START_FAILED))
-            # FIXED: 原问题-中文硬编码detail
-            raise HTTPException(status_code=500, detail=result.get("error", ServiceErrors.START_FAILED))
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": result.get("error", ServiceErrors.START_FAILED),
+                        "detail": result.get("detail", ""),
+                        "hint": result.get("hint", ""),
+                    },
+                )  # FIXED: 原问题-start失败仅返回START_FAILED，改为返回包含hint的结构化错误
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "message": result.get("error", ServiceErrors.START_FAILED),
+                    "detail": result.get("detail", ""),
+                    "hint": result.get("hint", ""),
+                },
+            )
 
         return ApiResponse(data=result)
     except HTTPException:
