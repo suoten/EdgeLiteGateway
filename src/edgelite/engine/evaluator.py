@@ -26,10 +26,11 @@ logger = logging.getLogger(__name__)
 class RuleEvaluator:
     """规则评估器，订阅PointUpdateEvent评估规则"""
 
-    def __init__(self, event_bus: EventBus, rule_repo: RuleRepo, alarm_repo: AlarmRepo):
+    def __init__(self, event_bus: EventBus, rule_repo: RuleRepo, alarm_repo: AlarmRepo, ai_engine=None):
         self._event_bus = event_bus
         self._rule_repo = rule_repo
         self._alarm_repo = alarm_repo
+        self._ai_engine = ai_engine
         # 持续时间窗口追踪: (rule_id, device_id) -> first_match_time
         self._duration_tracker: dict[tuple[str, str], datetime] = {}
         # 规则缓存: cache_key -> rules
@@ -186,6 +187,8 @@ class RuleEvaluator:
         # 评估条件
         if rule_type == "script" and script:
             matched = self._eval_script(script, point_values)
+        elif rule_type == "ai_inference":
+            matched = await self._evaluate_ai_conditions(conditions, point_values, logic, event.device_id)
         else:
             matched = self._check_conditions(conditions, point_values, logic)
 
@@ -278,6 +281,40 @@ class RuleEvaluator:
             return all(results)
         else:  # OR
             return any(results)
+
+    async def _evaluate_ai_conditions(
+        self, conditions: list[dict], point_values: dict[str, float], logic: str, device_id: str,
+    ) -> bool:
+        """评估AI推理条件"""
+        if not self._ai_engine:
+            logger.warning("AI引擎不可用, 跳过AI条件评估")
+            return False
+        results = []
+        for cond in conditions:
+            model_id = cond.get("model_id")
+            ai_threshold = cond.get("ai_threshold", 0.5)
+            if not model_id:
+                results.append(False)
+                continue
+            try:
+                input_values = list(point_values.values())
+                if not input_values:
+                    results.append(False)
+                    continue
+                result = await self._ai_engine.infer(model_id, input_values)
+                if result.status == "success":
+                    score = result.output_data.get("output_0", [0])
+                    if isinstance(score, list) and score:
+                        score = score[0]
+                    results.append(score > ai_threshold)
+                else:
+                    results.append(False)
+            except Exception as e:
+                logger.warning("AI条件评估失败: model_id=%s, %s", model_id, e)
+                results.append(False)
+        if not results:
+            return False
+        return all(results) if logic == "AND" else any(results)
 
     @staticmethod
     def _compare(value: float, operator: str, threshold: float) -> bool:
@@ -388,6 +425,7 @@ class RuleEvaluator:
             severity=severity,
             action="firing",
             trigger_value=trigger_value,
+            rule_type=rule.get("rule_type", "threshold"),
         )
         await self._event_bus.publish(alarm_event)
         logger.info(
@@ -413,6 +451,7 @@ class RuleEvaluator:
                 device_id=rule.get("device_id", ""),
                 severity=rule.get("severity", "info"),
                 action="recovered",
+                rule_type=rule.get("rule_type", "threshold"),
             )
             await self._event_bus.publish(alarm_event)
             logger.info("告警恢复: %s", alarm_id)

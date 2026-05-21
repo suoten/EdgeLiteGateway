@@ -22,11 +22,11 @@
           </n-card>
         </n-gi>
         <n-gi>
-          <n-card hoverable class="qs-item" @click="router.push('/system/drivers')">
+          <n-card hoverable class="qs-item qs-item-ai" @click="router.push('/system/ai-model')">
             <n-space vertical align="center">
-              <n-icon size="40" :component="PulseOutline" color="#f093fb" />
-              <n-text strong>{{ t('dashboard.driverConfig') }}</n-text>
-              <n-text depth="3">{{ t('dashboard.driverConfigDesc') }}</n-text>
+              <n-icon size="40" :component="PulseOutline" color="#8b5cf6" />
+              <n-text strong>{{ t('dashboard.aiQuickStart') }}</n-text>
+              <n-text depth="3">{{ t('dashboard.aiQuickStartDesc') }}</n-text>
             </n-space>
           </n-card>
         </n-gi>
@@ -85,6 +85,8 @@
         </n-card>
       </n-gi>
     </n-grid>
+
+    <AiStatsWidget />
 
     <n-grid :cols="2" :x-gap="16" :y-gap="16">
       <n-gi>
@@ -178,6 +180,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/api'
 import { protocolLabel as protocolLabelMap } from '@/utils/enumLabels'
+import AiStatsWidget from '@/components/AiStatsWidget.vue'
 
 const getProtocolLabel = (key: string) => protocolLabelMap[key] || ''
 import * as ws from '@/api/websocket'

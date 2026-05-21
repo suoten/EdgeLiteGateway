@@ -64,6 +64,8 @@ def _register_routes(app: FastAPI) -> None:
         ("Services", "edgelite.api.services", "router"),
         ("Grafana", "edgelite.api.grafana", "router"),
         ("SCADA", "edgelite.api.scada", "router"),
+        ("AI Models", "edgelite.api.ai_models", "router"),
+        ("MQTT Forwarder", "edgelite.api.mqtt_forwarder", "router"),
     ]
 
     for label, module_path, attr in _optional_routers:
@@ -161,6 +163,20 @@ def _register_websocket_routes(app: FastAPI) -> None:
         finally:
             if session_id:
                 await _app_state.integration_endpoint.unregister_connection(session_id)
+
+    @app.websocket("/ws/v1/ai")
+    async def ws_ai(websocket: WebSocket, token: str = Query(...)):
+        if not await _app_state.ws_manager.connect(websocket, "ai", token):
+            return
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            pass
+        except Exception as e:
+            logger.debug("WebSocket ai 连接异常: %s", e)
+        finally:
+            await _app_state.ws_manager.disconnect(websocket, "ai")
 
 
 def create_app() -> FastAPI:

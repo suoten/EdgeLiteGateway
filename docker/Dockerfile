@@ -14,7 +14,7 @@ WORKDIR /app
 
 COPY pyproject.toml setup.py ./
 COPY src/edgelite/ src/edgelite/
-RUN pip install --no-cache-dir --prefix=/install -i https://pypi.tuna.tsinghua.edu.cn/simple .
+RUN pip install --no-cache-dir --prefix=/install ".[ai]"
 
 FROM python:3.11-slim
 
@@ -23,6 +23,7 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY --from=frontend-builder /build/dist /app/frontend/dist
 COPY configs/ configs/
+COPY models/ models/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
 COPY scripts/init_db.py scripts/
@@ -34,7 +35,6 @@ RUN chmod +x /app/entrypoint.sh
 
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && chown -R appuser:appuser /app
-USER appuser
 
 ENV PYTHONPATH=/app
 ENV EDGELITE_CONFIG=configs/config.yaml

@@ -241,7 +241,7 @@ const currentTitle = computed(() => {  // FIXED: 原问题-中文硬编码，改
     AuditLog: 'nav.auditLog',
     OtaUpdate: 'nav.otaUpdate', GrafanaDashboard: 'nav.grafanaDashboard', McpServer: 'nav.mcpServer',
     MqttServer: 'nav.mqttServer', ModbusSlave: 'nav.modbusSlave', SerialBridge: 'nav.serialBridge',
-    ServiceOverview: 'nav.serviceOverview',
+    ServiceOverview: 'nav.serviceOverview', AiModel: 'nav.aiModel', Integration: 'nav.platformIntegration',
   }
   const key = titleKeys[route.name as string]
   return key ? t(key) : 'EdgeLiteGateway'
@@ -257,7 +257,7 @@ const breadcrumbItems = computed(() => {  // FIXED: 原问题-中文硬编码，
     System: 'nav.system', Users: 'nav.users', AuditLog: 'nav.auditLog',
     OtaUpdate: 'nav.otaUpdate', GrafanaDashboard: 'nav.grafanaDashboard', McpServer: 'nav.mcpServer',
     MqttServer: 'nav.mqttServer', ModbusSlave: 'nav.modbusSlave', SerialBridge: 'nav.serialBridge',
-    ServiceOverview: 'nav.serviceOverview',
+    ServiceOverview: 'nav.serviceOverview', AiModel: 'nav.aiModel', Integration: 'nav.platformIntegration',
   }
   return route.matched
     .filter(r => r.name)
@@ -272,12 +272,24 @@ const roleType = computed(() => ({ admin: 'error', operator: 'warning', viewer: 
 
 const renderIcon = (icon: any) => () => h(NIcon, { component: icon, size: 18 })
 
-const allMenuOptions = [  // FIXED: 原问题-中文硬编码，改用i18n
+const allMenuOptions = [
   { label: t('nav.dashboard'), key: 'Dashboard', icon: renderIcon(SpeedometerOutline) },
   { label: t('nav.devices'), key: 'Devices', icon: renderIcon(HardwareChip) },
   { label: t('nav.rules'), key: 'Rules', icon: renderIcon(SettingsOutline) },
   { label: t('nav.alarms'), key: 'Alarms', icon: renderIcon(AlertCircleOutline) },
   { label: t('nav.dataQuery'), key: 'DataQuery', icon: renderIcon(StatsChartOutline) },
+  {
+    label: () => h('span', { style: 'display:inline-flex;align-items:center;gap:6px' }, [
+      h('span', { style: 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:linear-gradient(135deg,#8b5cf6,#667eea);color:#fff;font-size:9px;font-weight:700' }, 'AI'),
+      t('nav.aiGroup'),
+    ]),
+    key: 'ai-group',
+    icon: renderIcon(PulseOutline),
+    children: [
+      { label: t('nav.aiModel'), key: 'AiModel', icon: renderIcon(PulseOutline) },
+      { label: t('nav.mcpServer'), key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
+    ],
+  },
   {
     label: t('nav.visualGroup'), key: 'visual-group', icon: renderIcon(CubeOutline),
     children: [
@@ -293,7 +305,7 @@ const allMenuOptions = [  // FIXED: 原问题-中文硬编码，改用i18n
       { label: t('nav.modbusSlave'), key: 'ModbusSlave', icon: renderIcon(PowerOutline) },
       { label: t('nav.serialBridge'), key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
       { label: t('nav.grafanaDashboard'), key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
-      { label: t('nav.mcpServer'), key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
+      { label: t('nav.platformIntegration'), key: 'Integration', icon: renderIcon(CloudOutline) },
     ],
   },
   {

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
+from logging.handlers import RotatingFileHandler
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -45,6 +48,8 @@ class ServiceContainer:
     plugin_manager: Any = None
     preprocessor: Any = None
     serial_bridge: Any = None
+    ai_engine: Any = None
+    ai_service: Any = None
 
     _repos: dict = field(default_factory=dict, repr=False)
     _initialized: list = field(default_factory=list, repr=False)
@@ -158,7 +163,8 @@ async def bootstrap_services(c: ServiceContainer, config) -> None:
 async def bootstrap_evaluator(c: ServiceContainer, config) -> None:
     from edgelite.engine.evaluator import RuleEvaluator
 
-    evaluator = RuleEvaluator(c.event_bus, c._repos["rule"], c._repos["alarm"])
+    ai_engine = getattr(c, "ai_engine", None)
+    evaluator = RuleEvaluator(c.event_bus, c._repos["rule"], c._repos["alarm"], ai_engine=ai_engine)
     c.evaluator = evaluator
     await evaluator.start()
     c.track("evaluator", evaluator)
@@ -342,6 +348,32 @@ async def bootstrap_ota(c: ServiceContainer, config) -> None:
         logger.warning("OTA升级管理器初始化失败: %s", e)
 
 
+async def bootstrap_ai(c: ServiceContainer, config) -> None:
+    ai_config = getattr(config, "ai_inference", None)
+    if not ai_config or not getattr(ai_config, "enabled", False):
+        return
+
+    try:
+        from edgelite.engine.edge_ai_inference import AiInferenceEngine
+        from edgelite.services.ai_service import AiModelService
+
+        ai_engine = AiInferenceEngine(
+            models_dir=ai_config.models_dir,
+            enabled=True,
+        )
+        await ai_engine.initialize(event_bus=c.event_bus)
+        c.ai_engine = ai_engine
+        c.track("ai_engine", ai_engine)
+
+        ai_service = AiModelService(ai_engine, c.database)
+        c.ai_service = ai_service
+        logger.info("AI推理引擎已初始化")
+    except ImportError as e:
+        logger.warning("AI推理引擎模块不可用: %s", e)
+    except Exception as e:
+        logger.warning("AI推理引擎初始化失败: %s", e)
+
+
 async def bootstrap_video(c: ServiceContainer, config) -> None:
     await c.video_service.init_provider()
 
@@ -356,6 +388,32 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
         )
 
     logging.basicConfig(level=config.logging.level, format=config.logging.format)
+
+    # File logging
+    log_dir = Path('logs')
+    log_dir.mkdir(parents=True, exist_ok=True)
+    file_handler = RotatingFileHandler(
+        log_dir / 'edgelite.log',
+        maxBytes=50 * 1024 * 1024,
+        backupCount=10,
+        encoding='utf-8',
+    )
+    file_handler.setLevel(getattr(logging, config.logging.level, logging.INFO))
+    file_handler.setFormatter(logging.Formatter(config.logging.format))
+    logging.getLogger().addHandler(file_handler)
+
+    error_handler = RotatingFileHandler(
+        log_dir / 'edgelite-error.log',
+        maxBytes=50 * 1024 * 1024,
+        backupCount=10,
+        encoding='utf-8',
+    )
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(logging.Formatter(config.logging.format))
+    logging.getLogger().addHandler(error_handler)
+
+    logger.info("日志文件输出到: %s", log_dir.resolve())
+
     logger.info("EdgeLiteGateway 启动中...")
 
     c.config = config
@@ -373,6 +431,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     await bootstrap_devices(c, config)
     await bootstrap_integration(c, config)
     await bootstrap_ota(c, config)
+    await bootstrap_ai(c, config)
 
     logger.info("EdgeLiteGateway 启动完成 (port=%d)", config.server.port)
 

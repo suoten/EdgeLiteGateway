@@ -61,6 +61,8 @@ class AlarmORM(Base):
     acknowledged_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     recovered_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    rule_type: Mapped[str] = mapped_column(String(32), nullable=False, default="threshold")
+
     __table_args__ = (
         Index("idx_alarms_status", "status"),
         Index("idx_alarms_device", "device_id"),

@@ -262,12 +262,11 @@ class Database:
                 logger.error("Database.init_tables admin check failed: %s", e)
                 admin_exists = False
 
+            temp_password = os.environ.get("EDGELITE_ADMIN_PASSWORD")
             if not admin_exists:
                 try:
                     from edgelite.security.password import hash_password
 
-                    # FIXED: 原问题-默认密码admin123硬编码在代码中，安全风险极高
-                    temp_password = os.environ.get("EDGELITE_ADMIN_PASSWORD")
                     if not temp_password:
                         logger.error(
                             "EDGELITE_ADMIN_PASSWORD environment variable not set, "
@@ -292,6 +291,19 @@ class Database:
                     logger.warning("hash_password module not available, admin user creation skipped")
                 except Exception as e:
                     logger.error("Database.init_tables admin creation failed: %s", e)
+            elif admin_exists and temp_password:
+                try:
+                    from edgelite.security.password import hash_password, verify_password
+
+                    result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
+                    admin_user = result.scalar_one_or_none()
+                    if admin_user and admin_user.must_change_password:
+                        if not verify_password(temp_password, admin_user.password):
+                            admin_user.password = hash_password(temp_password)
+                            await session.commit()
+                            logger.info("已根据 EDGELITE_ADMIN_PASSWORD 更新管理员密码")
+                except Exception as e:
+                    logger.warning("同步管理员密码失败: %s", e)
 
     async def _migrate_sqlite(self, conn: Any) -> None:
         """SQLite 自动迁移：为已有表添加缺失的列"""

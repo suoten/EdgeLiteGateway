@@ -50,6 +50,11 @@ class MQTTConfig(BaseModel):
     username: str = ""
     password: str = ""
     topic_prefix: str = "edgelite"
+    offline_cache_enabled: bool = True
+    offline_db_path: str = "data/mqtt_offline_queue.db"
+    max_queue_size: int = Field(default=10000, ge=100)
+    max_retries: int = Field(default=100, ge=1)
+    retry_interval: float = Field(default=5.0, ge=1.0)
 
 
 class PyGBSentryConfig(BaseModel):
@@ -250,6 +255,17 @@ class GrafanaConfig(BaseModel):
     datasource: str = "InfluxDB"
 
 
+class AiInferenceConfig(BaseModel):
+    """边缘AI推理引擎配置"""
+
+    enabled: bool = False
+    models_dir: str = "models"
+    hot_reload_timeout: int = Field(default=30, ge=5, le=300)
+    inference_timeout: int = Field(default=10, ge=1, le=60)
+    max_concurrent_inferences: int = Field(default=4, ge=1, le=32)
+    stats_retention_days: int = Field(default=7, ge=1, le=365)
+
+
 class DriversConfig(BaseModel):
     """驱动配置"""
 
@@ -280,6 +296,7 @@ class AppConfig(BaseModel):
     mcp_server: McpServerConfig = Field(default_factory=McpServerConfig)
     grafana: GrafanaConfig = Field(default_factory=GrafanaConfig)
     drivers: DriversConfig = Field(default_factory=DriversConfig)
+    ai_inference: AiInferenceConfig = Field(default_factory=AiInferenceConfig)
     ota_update_url: str = ""
 
 

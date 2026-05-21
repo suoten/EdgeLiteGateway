@@ -55,6 +55,7 @@ class AlarmEvent(Event):
     severity: str = ""
     action: str = "firing"  # firing / recovered
     trigger_value: dict = field(default_factory=dict)
+    rule_type: str = ""
 
 
 # ─── 事件总线 ───

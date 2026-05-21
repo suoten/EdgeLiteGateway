@@ -162,6 +162,21 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
     ],
     pointTemplates: [],
   },
+  'sparkplug-b': {
+    label: t('protocolConfig.sparkplugB.label'),
+    description: t('protocolConfig.sparkplugB.description'),
+    icon: '📡',
+    configFields: [
+      { key: 'broker', label: t('protocolConfig.sparkplugB.broker'), placeholder: t('protocolConfig.sparkplugB.brokerPlaceholder'), required: true, type: 'string' },
+      { key: 'group_id', label: t('protocolConfig.sparkplugB.groupId'), placeholder: t('protocolConfig.sparkplugB.groupIdPlaceholder'), required: true, type: 'string' },
+      { key: 'edge_node_id', label: t('protocolConfig.sparkplugB.edgeNodeId'), placeholder: t('protocolConfig.sparkplugB.edgeNodeIdPlaceholder'), required: true, type: 'string' },
+      { key: 'username', label: t('protocolConfig.sparkplugB.username'), type: 'string' },
+      { key: 'password', label: t('protocolConfig.sparkplugB.password'), type: 'string' },
+    ],
+    pointTemplates: [
+      { name: 'metrics', data_type: 'float32', unit: '', address: 'metrics/0', access_mode: 'read', description: t('protocolConfig.sparkplugB.pointMetrics') },
+    ],
+  },
   'simulator': {
     label: t('protocolConfig.simulator.label'),
     description: t('protocolConfig.simulator.description'),

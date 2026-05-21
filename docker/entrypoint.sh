@@ -6,4 +6,7 @@ if [ ! -f configs/config.yaml ] && [ -f configs/config.example.yaml ]; then
     echo "[entrypoint] configs/config.yaml created from config.example.yaml"
 fi
 
+# Ensure data and logs directories are writable
+mkdir -p data/backups logs
+
 exec "$@"

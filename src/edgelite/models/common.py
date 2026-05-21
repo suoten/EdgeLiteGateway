@@ -42,4 +42,6 @@ class PaginationParams(BaseModel):
     """分页请求参数"""
 
     page: int = Field(default=1, ge=1)
-    size: int = Field(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_QUERY_SIZE)
+    size: int = Field(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_QUERY_SIZE, alias="page_size")
+
+    model_config = {"populate_by_name": True}

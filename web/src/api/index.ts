@@ -271,6 +271,18 @@ export const systemApi = {
 
   restore: (backupId: string) =>
     http.post<ApiResponse<any>>('/system/restore', { backup_id: backupId }).then((r) => r.data.data),
+
+  getCascadeTopology: () =>
+    http.get<ApiResponse<any>>('/system/cascade/topology').then((r) => r.data.data),
+
+  getCascadeNeighbors: () =>
+    http.get<ApiResponse<any[]>>('/system/cascade/neighbors').then((r) => r.data.data),
+
+  updateCascadeConfig: (config: Record<string, any>) =>
+    http.post<ApiResponse<any>>('/system/cascade/config', config).then((r) => r.data.data),
+
+  removeCascadeNeighbor: (neighborId: string) =>
+    http.delete<ApiResponse<any>>(`/system/cascade/neighbors/${encodeURIComponent(neighborId)}`).then((r) => r.data.data),
 }
 
 // ─── 用户管理 ───
@@ -629,6 +641,12 @@ export const integrationApi = {
 
   status: () =>
     http.get<ApiResponse<any>>('/integration/status').then((r) => r.data.data),
+
+  rpcExecute: (data: { method: string; device_id: string; params: Record<string, any>; timeout: number }) =>
+    http.post<ApiResponse<any>>('/integration/rpc/execute', data).then((r) => r.data.data),
+
+  rpcHistory: (limit = 50) =>
+    http.get<ApiResponse<any[]>>('/integration/rpc/history', { params: { limit } }).then((r) => r.data.data),
 }
 
 // ─── 组态管理 ───
@@ -647,4 +665,31 @@ export const scadaApi = {
   deleteProject: (name: string) =>
     // FIXED: 原问题-r.data.data ?? r.data返回类型不一致，改为统一r.data.data
     http.delete<ApiResponse>(`/scada/project/${encodeURIComponent(name)}`).then((r) => r.data.data),
+}
+
+// ─── AI推理引擎 ───
+
+export const aiApi = {
+  listModels: (page = 1, pageSize = 20) =>
+    http.get<PagedData<any>>('/ai/models', { params: { page, size: pageSize } }).then(r => r.data),
+  getModel: (id: string) =>
+    http.get<ApiResponse<any>>(`/ai/models/${id}`).then(r => r.data.data),
+  enableModel: (id: string) =>
+    http.post<ApiResponse>(`/ai/models/${id}/enable`).then(r => r.data.data),
+  disableModel: (id: string) =>
+    http.post<ApiResponse>(`/ai/models/${id}/disable`).then(r => r.data.data),
+  reloadModel: (id: string, modelFilePath: string) =>
+    http.post<ApiResponse>(`/ai/models/${id}/reload`, { model_file_path: modelFilePath }).then(r => r.data.data),
+  inference: (modelId: string, inputData: number[], deviceId?: string, pointName?: string) =>
+    http.post<ApiResponse<any>>('/ai/inference', { model_id: modelId, input_data: inputData, device_id: deviceId, point_name: pointName }).then(r => r.data.data),
+  getStats: () =>
+    http.get<ApiResponse<any>>('/ai/stats').then(r => r.data.data),
+  getModelStats: (id: string) =>
+    http.get<ApiResponse<any>>(`/ai/models/${id}/stats`).then(r => r.data.data),
+  getInferenceLogs: (modelId?: string, page = 1, pageSize = 20) =>
+    http.get<PagedData<any>>('/ai/inference/logs', { params: { model_id: modelId, page, size: pageSize } }).then(r => r.data),
+  updateModel: (id: string, data: any) =>
+    http.put<ApiResponse<any>>(`/ai/models/${id}`, data).then(r => r.data.data),
+  deleteModel: (id: string) =>
+    http.delete<ApiResponse>(`/ai/models/${id}`).then(r => r.data.data),
 }

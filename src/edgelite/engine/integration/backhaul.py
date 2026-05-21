@@ -2,10 +2,32 @@
 
 import logging
 import time
+import uuid
 from collections import deque
+from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RpcCommand:
+    """RPC指令数据类"""
+    method: str
+    device_id: str
+    params: dict[str, Any] = field(default_factory=dict)
+    timeout: float = 10.0
+    command_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+
+
+@dataclass
+class RpcResult:
+    """RPC执行结果数据类"""
+    command_id: str
+    success: bool
+    result: Any = None
+    error: str | None = None
+    elapsed_ms: float = 0.0
 
 
 class BackhaulManager:
@@ -30,6 +52,94 @@ class BackhaulManager:
         self._last_values: dict[str, float] = {}
         self._last_send_time: dict[str, float] = {}
         self._running = False
+        self._rpc_history: deque[dict[str, Any]] = deque(maxlen=200)
+
+    async def handle_rpc_command(
+        self,
+        command: RpcCommand,
+        device_service: Any = None,
+    ) -> RpcResult:
+        """处理RPC反向控制指令，调用驱动写方法执行设备控制并记录审计日志。
+
+        Args:
+            command: RPC指令对象，包含method/device_id/params/timeout。
+            device_service: 设备服务实例，用于执行写点操作。
+
+        Returns:
+            RpcResult: 执行结果，包含成功/失败状态和返回值。
+        """
+        start = time.time()
+        try:
+            if device_service is None:
+                return RpcResult(
+                    command_id=command.command_id,
+                    success=False,
+                    error="Device service not available",
+                    elapsed_ms=(time.time() - start) * 1000,
+                )
+
+            point = command.params.get("point", command.method)
+            value = command.params.get("value")
+
+            if value is None:
+                return RpcResult(
+                    command_id=command.command_id,
+                    success=False,
+                    error="Missing 'value' in params",
+                    elapsed_ms=(time.time() - start) * 1000,
+                )
+
+            success = await device_service.write_point(
+                command.device_id, point, value
+            )
+
+            elapsed = (time.time() - start) * 1000
+            result = RpcResult(
+                command_id=command.command_id,
+                success=success,
+                result={"device_id": command.device_id, "point": point, "value": value} if success else None,
+                error=None if success else "Write point failed",
+                elapsed_ms=elapsed,
+            )
+
+            self._rpc_history.append({
+                "command_id": command.command_id,
+                "method": command.method,
+                "device_id": command.device_id,
+                "params": command.params,
+                "success": success,
+                "elapsed_ms": elapsed,
+                "timestamp": time.time(),
+            })
+
+            logger.info(
+                "RPC command executed: id=%s method=%s device=%s success=%s",
+                command.command_id, command.method, command.device_id, success,
+            )
+            return result
+
+        except Exception as e:
+            elapsed = (time.time() - start) * 1000
+            logger.error("RPC command failed: id=%s error=%s", command.command_id, e)
+            return RpcResult(
+                command_id=command.command_id,
+                success=False,
+                error=str(e),
+                elapsed_ms=elapsed,
+            )
+
+    def get_rpc_history(self, limit: int = 50) -> list[dict[str, Any]]:
+        """获取RPC执行历史记录。
+
+        Args:
+            limit: 返回记录数上限。
+
+        Returns:
+            按时间倒序排列的RPC执行历史列表。
+        """
+        records = list(self._rpc_history)
+        records.reverse()
+        return records[:limit]
 
     async def start(self) -> None:
         self._running = True

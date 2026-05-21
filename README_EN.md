@@ -2,18 +2,19 @@
 
 # ⚡ EdgeLiteGateway
 
-### Lightweight Edge Computing IoT Gateway — Device Connectivity as Simple as Plug & Play
+### Open-Source Lightweight Edge AI Gateway — Device Connectivity as Simple as Plug & Play, Making Edge Nodes Think
 
 [![License](https://img.shields.io/github/license/suoten/EdgeLiteGateway?color=blue\&label=license)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi\&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Vue](https://img.shields.io/badge/Vue-3.4%2B-4FC08D?logo=vue.js\&logoColor=white)](https://vuejs.org/)
-[![Version](https://img.shields.io/badge/version-1.0.0--community-brightgreen)](https://github.com/suoten/EdgeLiteGateway)
+[![Version](https://img.shields.io/badge/version-1.0.1--community-brightgreen)](https://github.com/suoten/EdgeLiteGateway)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker\&logoColor=white)](https://www.docker.com/)
+[![ONNX](https://img.shields.io/badge/ONNX-Runtime-FF6F00?logo=onnx\&logoColor=white)](https://onnxruntime.ai/)
 
-**🇨🇳 China's First Open-Source Python Edge Gateway | 🎯 22 Industrial Protocols Out-of-the-Box | 📹 Video-IoT Unified | 🚀 10-Min Docker Deploy**
+**🧠 China's First Open-Source Edge AI Gateway | 🎯 22 Industrial Protocols + AI Inference Ready | 📹 Sensor AI + Vision AI Dual Confirmation | 🪶 Lightweight Python | 🚀 10-Min Docker Deploy**
 
-[Quick Start](#-quick-start) · [Features](#-features) · [Deployment](#-deployment) · [Architecture](#-architecture) · [Versions](#-versions--roadmap) · [Support](#-support)
+[Quick Start](#-quick-start) · [AI Features](#-edge-ai-inference-engine) · [Features](#-features) · [Deployment](#-deployment) · [Architecture](#-architecture) · [Versions](#-versions--roadmap) · [Support](#-support)
 
 **[中文](README.md)**
 
@@ -44,6 +45,22 @@ docker compose logs -f edgelite     # "Uvicorn running" = success, Ctrl+C to exi
 ```
 
 Open http://localhost:8080 in your browser. Username: `admin` / Password: `admin123` (password change required on first login).
+
+<details>
+<summary>📡 Offline Cache Configuration (Optional)</summary>
+
+MQTT offline cache is disabled by default. When enabled, messages are automatically persisted to SQLite during network disconnection and retransmitted in order upon recovery:
+
+1. After login, navigate to **System → MQTT Server**
+2. Enable the **Enable Offline Cache** toggle
+3. Configure parameters:
+   - **Offline DB Path**: default `data/mqtt_offline.db`
+   - **Max Queue Size**: default 10000
+   - **Max Retries**: default 5
+   - **Retry Interval (ms)**: default 5000
+4. Click **Save** — messages are automatically cached during network interruption and retransmitted upon recovery
+
+</details>
 
 <details>
 <summary>🖥️ Have Node.js? Hybrid mode (local frontend build + Docker backend)</summary>
@@ -156,6 +173,10 @@ curl http://localhost:8086/health
 
 ## 🎯 When Do You Need EdgeLite?
 
+> **Edge AI Anomaly Detection**: You want your gateway not just to collect data, but to run AI models at the edge for real-time anomaly detection and trend prediction — data stays on-premises, latency under 100ms — instead of sending everything to the cloud.
+
+> **Sensor + Vision Dual Confirmation**: Your production line needs "Sensor AI + Vision AI" dual confirmation — temperature anomaly triggers automatic camera feed, vision AI confirms actual smoke — instead of relying on a single data source with frequent false alarms.
+
 > **Factory Data Collection**: Your workshop runs Siemens, Mitsubishi, Modbus, and other protocol-based equipment. You want a single gateway for unified collection, threshold alarms, and direct data reporting to MES — instead of writing a separate collector for each protocol.
 
 > **Campus Energy + Video Integration**: You need to connect electricity/water meter data and GB28181 camera feeds to the same platform, displaying real-time energy consumption and surveillance on a 3D visualization dashboard — instead of separate energy and video systems.
@@ -177,7 +198,7 @@ curl http://localhost:8086/health
 | **General Industrial** | Allen-Bradley CIP/PCCC | Rockwell AB PLC |
 | **General Industrial** | OPC-UA Client | Cross-platform industrial interoperability standard |
 | **General Industrial** | OPC-DA Client | Legacy Windows OPC compatibility |
-| **General Industrial** | MQTT Client (Sparkplug B) | Industrial IoT MQTT standard |
+| **General Industrial** | MQTT Client (Sparkplug B) | **Sparkplug B** — MQTT Sparkplug B industrial specification protocol, supporting standardized industrial MQTT data publishing and subscription |
 | **Power/Energy** | IEC 60870-5-104 | Power telecontrol protocol, substation/distribution automation |
 | **Power/Energy** | DL/T 645-2007 | Chinese national electricity meter communication protocol |
 | **Robot/CNC** | ABB RWS (Web Services) | ABB Robot REST API |
@@ -203,6 +224,7 @@ flowchart LR
 
     subgraph EdgeLite["EdgeLiteGateway"]
             direction LR
+            B0[🧠 ONNX AI Inference Engine]
             B1[Protocol Driver Layer 22 plugins]
             B2[Rule Engine]
             B3[Preprocessing Pipeline]
@@ -221,6 +243,7 @@ flowchart LR
     end
 
     A1 & A2 & A3 & A4 & A5 & A6 --> B1
+    B0 --> B2
     B1 --> B3 --> B4
     B4 --> D
     B4 --> C1 & C2 & C3 & C4 & C5 & C6
@@ -230,12 +253,39 @@ flowchart LR
 
 ***
 
+### 🧠 Edge AI Inference Engine
+
+> **This is EdgeLite's core differentiator from all traditional gateways — AI inference at the edge, data stays on-premises, latency < 100ms**
+
+- **ONNX Runtime Inference**: Native `.onnx` model support, real-time edge inference, single-inference latency < 100ms
+- **8 preset AI models out-of-the-box**: Anomaly Detection, Trend Prediction, Dynamic Threshold, Vibration Analysis, Power Consumption Prediction, Quality Inspection, Battery Health, Leak Detection
+- **Hot Model Reload**: Swap models without restarting the gateway — zero downtime
+- **AI → Rule Engine Linkage**: AI inference results directly drive alert rules: sensor anomaly → AI confirmation → auto-alert
+- **AI Inference Dashboard**: Real-time stats on inference count / latency / error rate — visualize AI runtime status
+- **Sensor AI + Vision AI Dual Confirmation**: EdgeLite sensor AI detects anomaly → calls PyGBSentry vision AI for secondary confirmation → high-confidence alert
+
+```mermaid
+flowchart LR
+    A[Device Data] --> B[ONNX Inference Engine]
+    B --> C{Anomaly Score > Threshold?}
+    C -->|Yes| D[AI Alert Triggered]
+    C -->|No| E[Normal Data]
+    D --> F[PyGBSentry Visual Confirmation]
+    F --> G[High-Confidence Alert + Notification]
+```
+
+***
+
 ### Edge Computing Engine
 
 - **Rule Engine**: Threshold alarms / Deadband filtering / Change detection / Conditional actions (P1)
 - **Data Preprocessing**: Scaling / Deadband / Clipping / Square root / Accumulation (P1)
 - **Alarm Service**: `DingTalk / Email (SMTP) / WeCom / Webhook` multi-channel notifications
-- **Store-and-Forward**: Offline caching + ordered replay (P1)
+- **MQTT Offline Cache & Auto-Retransmit**: Messages are automatically persisted to SQLite during network disconnection and retransmitted in order upon recovery, ensuring zero data loss (P1)
+- **RPC Reverse Control**: Supports RPC command injection from northbound platforms (ThingsBoard/IoTSharp, etc.) to reverse-control devices, enabling remote parameter adjustment/start-stop (P1)
+- **Sparkplug B Protocol**: Supports Sparkplug B industrial IoT protocol for standardized MQTT data publishing and subscription (P1)
+- **Multi-Gateway Cascade Discovery**: Automatically discovers neighbor gateways via mDNS and builds cascade topology, supporting large-scale deployment scenarios with gateway interconnection (P1)
+- **Edge AI Inference Engine**: ONNX Runtime inference / 3 preset models (anomaly detection / trend prediction / dynamic threshold) / model hot reload / AI rule integration / AI inference dashboard (P2)
 
 ### Platform & System
 
@@ -265,7 +315,7 @@ flowchart LR
 | --- | --- |
 | ![](docs/images/7.png) | ![](docs/images/8.png) |
 
-> Screenshots from Community Edition v1.0.0
+> Screenshots from Community Edition v1.0.1
 
 ***
 
@@ -452,6 +502,8 @@ EdgeLite is positioned as a **full-stack edge computing gateway** — not just i
 ***
 
 ## 📊 Versions & Roadmap
+
+> **Release Date: 2026-05-20**
 
 ### Version Comparison
 

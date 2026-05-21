@@ -43,6 +43,9 @@ export function initLocale() {
 export function t(key: string, params?: Record<string, string | number>): string {
   const parts = key.split('.')
   let result: string | LocaleMessages = localeMessages[currentLocale.value] || {}
+  if (typeof result !== 'object' || result === null || Object.keys(result).length === 0) {
+    result = localeMessages['zh-CN'] || {}
+  }
   for (const part of parts) {
     if (typeof result === 'object' && result !== null && part in result) {
       result = result[part]

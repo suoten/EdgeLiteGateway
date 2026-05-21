@@ -1,6 +1,8 @@
 <template>
   <n-spin :show="pageLoading" :description="t('system.loadingStatus')">
   <n-space vertical :size="16">
+    <n-tabs type="line" animated>
+      <n-tab-pane name="status" :tab="t('system.systemStatus')">
     <n-grid :cols="2" :x-gap="12">
       <n-gi>
         <n-card :title="t('system.systemStatus')" size="small">
@@ -51,13 +53,34 @@
       </template>
       <n-data-table :columns="backupColumns" :data="backups" :bordered="false" size="small" />
     </n-card>
+      </n-tab-pane>
+      <n-tab-pane name="cascade" :tab="t('cascade.title')">
+        <n-space vertical :size="16">
+          <n-card :title="t('cascade.topology')" size="small">
+            <template #header-extra>
+              <n-button text size="small" @click="fetchTopology">{{ t('common.refresh') }}</n-button>
+            </template>
+            <n-descriptions label-placement="left" :column="2" bordered>
+              <n-descriptions-item :label="t('cascade.role')">{{ topology.status || 'standalone' }}</n-descriptions-item>
+              <n-descriptions-item :label="'ID'">{{ topology.local_id || '-' }}</n-descriptions-item>
+              <n-descriptions-item :label="t('cascade.parent')">{{ topology.parent_id || '-' }}</n-descriptions-item>
+              <n-descriptions-item :label="t('cascade.child')">{{ (topology.children || []).join(', ') || '-' }}</n-descriptions-item>
+            </n-descriptions>
+          </n-card>
+          <n-card :title="t('cascade.neighbors')" size="small">
+            <n-data-table v-if="(topology.peers || []).length > 0" :columns="neighborColumns" :data="topology.peers || []" :bordered="false" size="small" />
+            <n-empty v-else :description="t('cascade.noNeighbors')" />
+          </n-card>
+        </n-space>
+      </n-tab-pane>
+    </n-tabs>
   </n-space>
   </n-spin>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, h } from 'vue'
-import { NButton, useMessage, useDialog } from 'naive-ui'
+import { NButton, NTag, useMessage, useDialog } from 'naive-ui'
 import { t } from '@/i18n'  // FIXED: 原问题-#注释导致编译失败，改为//注释
 import { systemApi, type SystemStatus } from '@/api'
 const message = useMessage()
@@ -67,6 +90,7 @@ const backups = ref<any[]>([])
 const backupLoading = ref(false)
 const autoRefresh = ref(true)
 const pageLoading = ref(true)
+const topology = ref<any>({ status: 'standalone', local_id: '', parent_id: null, children: [], peers: [] })
 let timer: number | null = null
 // FIXED: 原问题-定时器持续失败时每5秒弹错误消息刷屏，加错误退避
 let consecutiveErrors = 0
@@ -157,8 +181,21 @@ function handleRestore(r: any) {
 }
 
 onMounted(() => {
-  fetchStatus(); fetchBackups()
+  fetchStatus(); fetchBackups(); fetchTopology()
   timer = window.setInterval(() => { if (autoRefresh.value) fetchStatus() }, 5000)
 })
 onUnmounted(() => { if (timer) clearInterval(timer) })
+
+const neighborColumns = [
+  { title: 'ID', key: 'neighbor_id' },
+  { title: 'Host', key: 'host' },
+  { title: 'Port', key: 'port' },
+  { title: t('cascade.role'), key: 'role', render: (r: any) => h(NTag, { size: 'small' }, { default: () => r.role || 'peer' }) },
+]
+
+async function fetchTopology() {
+  try {
+    topology.value = await systemApi.getCascadeTopology()
+  } catch { /* ignore */ }
+}
 </script>

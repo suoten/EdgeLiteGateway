@@ -11,6 +11,9 @@ class RuleCondition(BaseModel):
     point: str
     operator: Literal[">", ">=", "<", "<=", "=="]
     threshold: float
+    type: Literal["threshold", "ai_inference"] = "threshold"
+    model_id: str | None = None
+    ai_threshold: float | None = None
 
 
 class RuleCreate(BaseModel):

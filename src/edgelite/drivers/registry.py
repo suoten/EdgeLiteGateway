@@ -62,6 +62,7 @@ class DriverRegistry:
         self._discovered = True
         _driver_modules = [
             ("Modbus TCP", "edgelite.drivers.modbus_tcp", "ModbusTcpDriver"),
+            ("Modbus RTU", "edgelite.drivers.modbus_rtu", "ModbusRtuDriver"),
             ("模拟器", "edgelite.drivers.simulator", "SimulatorDriver"),
             ("MQTT Client", "edgelite.drivers.mqtt_client", "MqttClientDriver"),
             ("HTTP Webhook", "edgelite.drivers.http_webhook", "HttpWebhookDriver"),

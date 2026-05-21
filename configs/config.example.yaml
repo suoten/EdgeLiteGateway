@@ -46,6 +46,11 @@ mqtt:
   username: ""                     # 认证用户名（空则不认证）
   password: ""                     # 认证密码
   topic_prefix: "edgelite"         # 发布主题前缀，完整主题：{prefix}/{device_id}/{point_name}
+  offline_cache_enabled: true      # 是否启用断网缓存（断网时消息持久化到SQLite）
+  offline_db_path: "data/mqtt_offline_queue.db"  # 离线缓存数据库路径
+  max_queue_size: 10000            # 离线队列最大条数，超出后丢弃最早数据
+  max_retries: 100                 # 单条消息最大重试次数
+  retry_interval: 5.0              # 重传间隔（秒）
 
 # ── 内置 MQTT Server（南向仿真）──────────────────────────
 mqtt_server:
@@ -208,3 +213,20 @@ platforms: {}
 # drivers:
 #   custom_dir: ""                   # 自定义驱动目录路径
 #   auto_reload: false               # 是否自动重载驱动变更
+
+# ── 边缘AI推理引擎配置 ───────────────────────────────────
+# ai_inference:
+#   enabled: false                   # 是否启用AI推理引擎
+#   models_dir: "models"             # 模型文件目录
+#   hot_reload_timeout: 30           # 模型热加载超时（秒）
+#   inference_timeout: 10            # 推理超时（秒）
+#   max_concurrent_inferences: 4     # 最大并发推理数
+#   stats_retention_days: 7          # 推理统计保留天数
+
+# ── 多网关级联发现 ─────────────────────────────────────
+# cascade:
+#   enabled: false                   # 是否启用级联发现
+#   local_id: ""                     # 本网关ID（空则使用主机名）
+#   service_name: "EdgeLite"         # mDNS服务名
+#   parent_host: ""                  # 父节点网关地址（空则为独立/父节点）
+#   parent_port: 8080                # 父节点网关端口
