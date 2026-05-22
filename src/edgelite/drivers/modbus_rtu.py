@@ -269,7 +269,7 @@ class ModbusRtuDriver(DriverPlugin):
             count = self._retry_count.get(device_id, 0)
             self._retry_count[device_id] = count + 1
 
-        if count > 0 and count % 5 != 0:
+        if count < 5 or count % 5 != 0:
             return
 
         config = self._device_configs.get(device_id)

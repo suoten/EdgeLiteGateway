@@ -156,6 +156,18 @@ class Database:
         if self._backend == "sqlite":
             await self._check_sqlite_integrity()
 
+        # FIXED: P0-3 原问题-connect()创建引擎后未验证连通性，配置错误时启动无感知。
+        # 增加实际连接测试，确保引擎可用后再返回。
+        try:
+            async with self._engine.connect() as test_conn:
+                await test_conn.execute(text("SELECT 1"))
+        except Exception as conn_err:
+            logger.error("数据库连接验证失败: %s", conn_err)
+            await self._engine.dispose()
+            self._engine = None
+            self._session_factory = None
+            raise RuntimeError(f"{DatabaseErrors.CONNECTION_FAILED}: {conn_err}") from conn_err
+
         logger.info("数据库连接已建立 (backend=%s)", self._backend)
         return self._engine
 

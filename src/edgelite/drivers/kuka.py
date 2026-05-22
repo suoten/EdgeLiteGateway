@@ -95,6 +95,9 @@ class KukaDriver(DriverPlugin):
         while self._running:
             if not self._connected:
                 if await self._connect_once():
+                    # FIXED: P0-7 连接成功后启动数据接收任务（之前遗漏）
+                    if self._running and self._connected:
+                        asyncio.create_task(self._recv_loop(), name="kuka-recv")
                     continue
                 logger.info("KUKA %.1fs后重连...", self._backoff_delay)
                 await asyncio.sleep(self._backoff_delay)

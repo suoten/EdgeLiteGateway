@@ -204,9 +204,12 @@ class DatabaseSourceDriver(DriverPlugin):
 
         return result
 
-    # FIXED: 原问题-SQL查询直接执行无注入防护，现增加基本SQL注入检测
+    # FIXED: P0-10 原问题-正则仅检测分号开头的危险语句，可被SELECT OR/AND/UNION注入绕过。
+    # 扩展检测模式以覆盖常见SQL注入向量。
     _SQL_DANGEROUS_PATTERNS = re.compile(
-        r";\s*(DROP|ALTER|CREATE|TRUNCATE|DELETE|INSERT|UPDATE|GRANT|REVOKE)\b",
+        r"(\bOR\b.*\bOR\b|\bAND\b.*\bAND\b|\bOR\b\s*\d+\s*=\s*\d+|\bAND\b\s*\d+\s*=\s*\d+"
+        r"|\bUNION\b.*\bSELECT\b|\bUNION\b\s+ALL|\bEXEC\b|\bEXECUTE\b|\bxp_)"
+        r"|;\s*(DROP|ALTER|CREATE|TRUNCATE|DELETE|INSERT|UPDATE|GRANT|REVOKE)\b",
         re.IGNORECASE,
     )
 

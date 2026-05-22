@@ -317,8 +317,9 @@ class ModbusTcpDriver(DriverPlugin):
             count = self._retry_count.get(device_id, 0)
             self._retry_count[device_id] = count + 1
 
-        # FIXED: P2-2 原条件count%5!=0导致每5次才尝试重连一次，应改为每5次调用时尝试一次
-        if count > 0 and count % 5 != 0:
+        # FIXED: P0-5 原条件count%5!=0导致1-4次跳过、第5次才尝试，逻辑混乱。
+        # 修正为：>=5次失败后每5次尝试一次重连，实现限流重连机制。
+        if count < 5 or count % 5 != 0:
             return
         
         # 重置计数器，已进入重连流程
