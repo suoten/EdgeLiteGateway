@@ -116,18 +116,34 @@ class InfluxDBStorage:
         return self._available
 
     async def check_health(self) -> bool:
-        """检查InfluxDB可用性"""
+        """检查InfluxDB可用性，失败后尝试自动恢复"""
         if not self._client:
             return False
         try:
             health = await asyncio.to_thread(self._client.health)
-            self._available = health.status == "pass"
-            if self._available:
-                self._fail_count = 0
-            return self._available
-        except Exception as e:  # FIXED: 原问题-InfluxDB健康检查异常静默返回False，无日志
+            is_healthy = health.status == "pass"
+            if is_healthy:
+                self._fail_count = 0  # FIXED: P2-1 成功后重置失败计数，防止一次抖动后永久不可用
+                if not self._available:
+                    self._available = True
+                    from influxdb_client.client.write_api import WriteOptions
+
+                    cfg = get_config()
+                    self._write_api = self._client.write_api(
+                        write_options=WriteOptions(
+                            batch_size=cfg.influxdb.batch_size,
+                            flush_interval=cfg.influxdb.flush_interval,
+                        )
+                    )
+                    self._query_api = self._client.query_api()
+                    self._buckets_api = self._client.buckets_api()
+                    logger.info("InfluxDB connection recovered")
+            else:
+                self._available = False
+            return is_healthy
+        except Exception as e:
             self._available = False
-            logger.debug("InfluxDB健康检查异常: %s", e)
+            logger.debug("InfluxDB health check exception: %s", e)
             return False
 
     async def write_point(
@@ -138,8 +154,13 @@ class InfluxDBStorage:
         timestamp: datetime | None = None,
         quality: str = "good",
     ) -> bool:
-        """写入单条测点数据"""
+        """写入单条测点数据
+
+        FIXED: P0-3 原问题-InfluxDB不可用时直接返回False丢弃数据。
+        现改为：当InfluxDB不可用时，将数据写入本地缓存(CacheManager)以便后续恢复。
+        """
         if not self._available or not self._write_api:
+            await self._fallback_to_cache(device_id, point_name, value, timestamp, quality)
             return False
 
         try:
@@ -168,19 +189,54 @@ class InfluxDBStorage:
             self._fail_count = 0
             return True
         except Exception as e:
-            logger.error("InfluxDB写入失败: %s", e)
+            logger.error("InfluxDB写入失败: %s，尝试写入本地缓存", e)
+            await self._fallback_to_cache(device_id, point_name, value, timestamp, quality)
             self._fail_count += 1
             if self._fail_count >= 3:
                 self._available = False
             return False
 
+    async def _fallback_to_cache(
+        self,
+        device_id: str,
+        point_name: str,
+        value: float | Any,
+        timestamp: datetime | None,
+        quality: str,
+    ) -> None:
+        """InfluxDB不可用时将数据写入本地缓存，防止断网丢数据"""
+        try:
+            from edgelite.app import _app_state
+
+            cache_manager = getattr(_app_state, "cache_manager", None)
+            if cache_manager is None:
+                logger.debug("CacheManager not available, data will be lost during outage")
+                return
+            ts_str = timestamp.isoformat() if timestamp else datetime.now(UTC).isoformat()
+            await cache_manager.add_to_cache(
+                measurement="device_points",
+                tags={"device_id": device_id, "point_name": point_name, "quality": quality},
+                fields={"value": float(value)},
+                timestamp=ts_str,
+            )
+        except Exception:
+            pass  # 缓存写入失败不阻止主流程
+
     async def write_points_batch(self, records: list[dict]) -> bool:
         """批量写入测点数据
 
-        records格式: [{"device_id": ..., "point_name": ..., "value": ...,
-                       "timestamp": ..., "quality": ...}]
+        FIXED: P0-3 原问题-InfluxDB不可用时直接返回False丢弃所有数据。
+        现改为：当InfluxDB不可用时，将数据写入本地缓存以便后续恢复。
         """
         if not self._available or not self._write_api:
+            for rec in records:
+                await self._fallback_to_cache(
+                    device_id=rec.get("device_id", ""),
+                    point_name=rec.get("point_name", ""),
+                    value=rec.get("value"),
+                    timestamp=rec.get("timestamp"),
+                    quality=rec.get("quality", "good"),
+                )
             return False
 
         try:
@@ -213,11 +269,21 @@ class InfluxDBStorage:
                     p = p.time(rec["timestamp"])
                 points.append(p)
 
+            if not points:
+                return True
             await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=points)
             self._fail_count = 0
             return True
         except Exception as e:
-            logger.error("InfluxDB批量写入失败: %s", e)
+            logger.error("InfluxDB批量写入失败: %s，尝试写入本地缓存", e)
+            for rec in records:
+                await self._fallback_to_cache(
+                    device_id=rec.get("device_id", ""),
+                    point_name=rec.get("point_name", ""),
+                    value=rec.get("value"),
+                    timestamp=rec.get("timestamp"),
+                    quality=rec.get("quality", "good"),
+                )
             self._fail_count += 1
             if self._fail_count >= 3:
                 self._available = False
@@ -225,15 +291,14 @@ class InfluxDBStorage:
 
     @staticmethod
     def _escape_flux_value(value: str) -> str:
-        """转义 Flux 查询中的字符串值，防止注入"""
-        return (
+        """转义 Flux 查询中的字符串值，使用单引号（Flux 要求单引号包裹字符串字面量）"""
+        escaped = (
             value.replace("\\", "\\\\")
-            .replace('"', '\\"')
             .replace("'", "\\'")
             .replace("\n", "\\n")
             .replace("\r", "\\r")
-            .replace("|", "\\|")
         )
+        return f"'{escaped}'"
 
     async def query_points(
         self,
@@ -262,12 +327,13 @@ class InfluxDBStorage:
         safe_stop = self._escape_flux_value(stop) if stop else ""
 
         stop_clause = f", stop: {safe_stop}" if stop else ""
+        # FIXED: P2-1 Flux 字符串字面量必须用单引号包裹，_escape_flux_value 已返回带单引号的值
         flux = f"""
 from(bucket: "{self._bucket}")
   |> range(start: {safe_start}{stop_clause})
   |> filter(fn: (r) => r._measurement == "device_points")
-  |> filter(fn: (r) => r.device_id == "{safe_device_id}")
-  |> filter(fn: (r) => r.point_name == "{safe_point_name}")
+  |> filter(fn: (r) => r.device_id == {safe_device_id})
+  |> filter(fn: (r) => r.point_name == {safe_point_name})
 """
         if aggregate:
             if not re.match(r"^\d+[smh]$", aggregate):
@@ -306,16 +372,18 @@ from(bucket: "{self._bucket}")
         safe_device_id = self._escape_flux_value(device_id)
         point_filter = ""
         if point_names:
-            safe_names = ", ".join(f'"{self._escape_flux_value(n)}"' for n in point_names)
+            safe_names = ", ".join(self._escape_flux_value(n) for n in point_names)
+            # FIXED: P2-1 Flux point_name filter now uses single-quoted escaped values
             point_filter = (
                 f"  |> filter(fn: (r) => contains(value: r.point_name, set: [{safe_names}]))\n"
             )
 
+        # FIXED: P2-1 Flux string literals must use single quotes
         flux = f"""
 from(bucket: "{self._bucket}")
   |> range(start: -1h)
   |> filter(fn: (r) => r._measurement == "device_points")
-  |> filter(fn: (r) => r.device_id == "{safe_device_id}")
+  |> filter(fn: (r) => r.device_id == {safe_device_id})
   {point_filter}
   |> last()
 """

@@ -163,7 +163,9 @@ class SystemService:
         return backups[:_DEFAULT_PAGE_SIZE]  # FIXED: 原问题-backups[:20]魔法数字
 
     async def restore_backup(self, backup_id: str) -> bool:
-        """从备份恢复配置"""  # FIXED: 原问题-恢复功能为空壳，仅验证文件可读但无实际恢复逻辑
+        """从备份恢复配置"""
+        # FIXED: P1-1 原问题-恢复后仅更新DB，内存中的evaluator/scheduler/driver状态未同步刷新
+        # 修复：恢复后显式清除evaluator规则缓存，并要求重启调度任务
         config = get_config()
         backup_dir = Path(config.database.backup_dir)
         json_file = backup_dir / f"backup_{backup_id}.json"
@@ -183,7 +185,7 @@ class SystemService:
             devices_data = backup_data.get("devices", [])
             if devices_data:
                 for dev in devices_data:
-                    dev_id = dev.get("device_id")  # FIXED: 原问题-dev["device_id"]硬索引
+                    dev_id = dev.get("device_id")
                     if dev_id is None:
                         continue
                     existing = await self._device_repo.get_by_id(dev_id)
@@ -196,7 +198,7 @@ class SystemService:
             rules_data = backup_data.get("rules", [])
             if rules_data:
                 for rule in rules_data:
-                    rule_id = rule.get("rule_id")  # FIXED: 原问题-rule["rule_id"]硬索引
+                    rule_id = rule.get("rule_id")
                     if rule_id is None:
                         continue
                     existing = await self._rule_repo.get_by_id(rule_id)
@@ -209,7 +211,7 @@ class SystemService:
             users_data = backup_data.get("users", [])
             if users_data:
                 for user in users_data:
-                    user_id = user.get("user_id")  # FIXED: 原问题-user["user_id"]硬索引
+                    user_id = user.get("user_id")
                     if user_id is None:
                         continue
                     existing = await self._user_repo.get_by_id(user_id)
@@ -222,7 +224,24 @@ class SystemService:
             logger.error("Restore backup data failed: %s", e)
             raise RuntimeError(f"Restore failed: {e}") from e
 
-        logger.info("Config restored from backup %s: %s (restart recommended)", backup_id, restored_counts)
+        # 恢复后同步刷新运行时状态
+        try:
+            from edgelite.app import _app_state
+
+            evaluator = getattr(_app_state, "evaluator", None)
+            if evaluator is not None:
+                evaluator._rule_cache.clear()
+                evaluator._duration_tracker.clear()
+                evaluator._cache_time = 0.0
+                logger.info("Evaluator rule cache cleared after restore")
+        except Exception as e:
+            logger.warning("Failed to clear evaluator cache after restore: %s", e)
+
+        logger.info(
+            "Config restored from backup %s: %s. Restart required to apply device/scheduler changes.",
+            backup_id,
+            restored_counts,
+        )
         return True
 
     async def _export_all_config(self) -> dict:

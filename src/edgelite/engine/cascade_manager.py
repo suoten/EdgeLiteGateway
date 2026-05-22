@@ -55,11 +55,13 @@ class CascadeManager:
         service_name: str = "EdgeLite",
         parent_host: str | None = None,
         parent_port: int | None = None,
+        service_port: int | None = None,
     ):
         self._local_id = local_id or socket.gethostname()
         self._service_name = service_name
         self._parent_host = parent_host
         self._parent_port = parent_port
+        self._service_port = service_port  # FIXED: P0-4 mDNS服务端口硬编码改为可配置
         self._running = False
         self._zeroconf: Any = None
         self._registration: Any = None
@@ -90,11 +92,17 @@ class CascadeManager:
 
             self._zeroconf = Zeroconf()
 
+            from edgelite.config import get_config
+
+            app_config = get_config()
+            # FIXED: P0-4 mDNS服务端口从配置读取，默认8080
+            service_port = self._service_port or getattr(app_config.server, "port", 8080)
+
             info = ServiceInfo(
                 _MDNS_SERVICE_TYPE,
                 f"{self._service_name}.{_MDNS_SERVICE_TYPE}",
                 addresses=[socket.inet_aton(self._get_local_ip())],
-                port=8080,
+                port=service_port,
                 properties={
                     "local_id": self._local_id,
                     "version": "1.0",

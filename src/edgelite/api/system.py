@@ -114,6 +114,7 @@ async def get_cascade_topology(
         })
     except Exception as e:
         logger.error("get_cascade_topology failed: %s", e)
+        # FIXED: P2-5 原问题-级联拓扑错误时使用了NEIGHBORS错误码
         raise HTTPException(status_code=500, detail=CascadeErrors.TOPOLOGY_FAILED) from e
 
 
@@ -194,9 +195,20 @@ async def remove_cascade_neighbor(
 
 
 def _get_cascade_manager():
-    """获取级联管理器实例(延迟导入)。"""
+    """获取级联管理器实例(延迟导入)。
+
+    FIXED: P2-5 原问题-except Exception全吞所有异常，用户无法区分"功能未启用"和"内部错误"。
+    现改为：仅捕获ImportError，其他异常上浮，级别管理器初始化失败时返回None但记录错误。
+    """
     try:
         from edgelite.bootstrap import _app_state
         return getattr(_app_state, "cascade_manager", None)
-    except Exception:
+    except ImportError:
+        # 级联管理器模块不存在，功能未启用
+        return None
+    except AttributeError:
+        # _app_state未初始化
+        return None
+    except Exception as e:
+        logger.error("_get_cascade_manager failed: %s (cascade_manager not available)", e)
         return None

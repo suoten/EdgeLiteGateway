@@ -12,9 +12,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from edgelite.api.deps import CurrentUser
+from edgelite.api.deps import CurrentUser, require_permission
 from edgelite.api.error_codes import ScadaErrors
 from edgelite.models.common import ApiResponse
+from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def _write_json(path: Path, data: dict) -> None:
 
 
 @router.get("/projects", response_model=ApiResponse)
-async def list_projects(_user: CurrentUser):
+async def list_projects(user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
     projects = []
     try:
         for f in _STORE_DIR.glob("*.json"):
@@ -88,7 +89,7 @@ async def list_projects(_user: CurrentUser):
 
 
 @router.get("/project/{name}", response_model=ApiResponse)
-async def get_project(name: str, _user: CurrentUser):
+async def get_project(name: str, user: CurrentUser = require_permission(Permission.SYSTEM_READ)):
     path = _project_path(name)
     try:
         if not path.exists():
@@ -105,7 +106,7 @@ async def get_project(name: str, _user: CurrentUser):
 
 
 @router.post("/project", response_model=ApiResponse)
-async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
+async def save_project(req: ScadaSaveRequest, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     path = _project_path(req.name)
     try:
         data = {
@@ -129,7 +130,7 @@ async def save_project(req: ScadaSaveRequest, _user: CurrentUser):
 
 
 @router.delete("/project/{name}", response_model=ApiResponse)
-async def delete_project(name: str, _user: CurrentUser):
+async def delete_project(name: str, user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE)):
     path = _project_path(name)
     try:
         if path.exists():

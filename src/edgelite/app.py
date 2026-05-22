@@ -73,8 +73,16 @@ def _register_routes(app: FastAPI) -> None:
             import importlib
             mod = importlib.import_module(module_path)
             app.include_router(getattr(mod, attr))
+        except SyntaxError:
+            # FIXED: P0-1 语法错误是致命问题，必须阻止启动
+            raise RuntimeError(f"[P0-1] {label} module has syntax error: {module_path}") from None
+        except ImportError:
+            logger.warning("%s optional route module not installed: %s", label, module_path)
+        except AttributeError:
+            logger.warning("%s module missing router attribute: %s", label, module_path)
         except Exception as e:
-            logger.warning("%s路由注册失败: %s", label, e)
+            logger.error("%s route registration failed (non-recoverable): %s: %s", label, type(e).__name__, e)
+            raise  # FIXED: P0-1 其他异常（配置错误/循环依赖）不应静默降级
 
 
 def _register_websocket_routes(app: FastAPI) -> None:

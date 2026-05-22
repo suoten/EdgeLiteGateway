@@ -301,36 +301,46 @@ class _SubHandler:
         self._data_callback = data_callback
 
     def datachange_notification(self, node: Any, val: Any, data: Any):
-        """节点值变化通知"""
-        node_id = node.nodeid.to_string()
+        """节点值变化通知（在OPC-UA库线程中被调用，非asyncio上下文）
 
-        # 尝试匹配测点名称
-        # 这里简化处理，用node_id作为key
+        FIXED: P1-3 原datachange_notification在OPC-UA库线程中执行，
+        asyncio.get_running_loop()抛出RuntimeError导致回调被静默丢弃。
+        修复：通过call_soon_threadsafe安全调度到asyncio事件循环。
+        """
+        node_id = node.nodeid.to_string()
         self._latest_values.setdefault(self.device_id, {})[node_id] = val
 
-        if self._data_callback:
-            # 在事件循环中调度回调
-            try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(self._data_callback(self.device_id, {node_id: val}))
-            except RuntimeError as e:
-                logger.warning("OPC-UA data callback error: %s", e)  # FIXED: 原问题-except RuntimeError: pass数据回调异常被静默
-
-        # 发布PointUpdateEvent到EventBus
         try:
-            from edgelite.app import _app_state
+            loop = asyncio.get_event_loop()
+        except Exception:
+            return
 
-            if _app_state.event_bus:
-                from edgelite.engine.event_bus import PointUpdateEvent
-
-                point_name = node_id.split(".")[-1] if "." in node_id else node_id
-                event = PointUpdateEvent(
-                    device_id=self.device_id,
-                    point_name=point_name,
-                    value=val,
-                    quality="good",
+        def _do_callback():
+            if self._data_callback:
+                asyncio.create_task(
+                    self._data_callback(self.device_id, {node_id: val})
                 )
-                loop = asyncio.get_running_loop()
-                loop.create_task(_app_state.event_bus.publish(event))
+
+        def _do_publish():
+            try:
+                from edgelite.app import _app_state
+
+                if _app_state.event_bus:
+                    from edgelite.engine.event_bus import PointUpdateEvent
+
+                    point_name = node_id.split(".")[-1] if "." in node_id else node_id
+                    event = PointUpdateEvent(
+                        device_id=self.device_id,
+                        point_name=point_name,
+                        value=val,
+                        quality="good",
+                    )
+                    asyncio.create_task(_app_state.event_bus.publish(event))
+            except Exception:
+                pass
+
+        try:
+            loop.call_soon_threadsafe(_do_callback)
+            loop.call_soon_threadsafe(_do_publish)
         except Exception as e:
-            logger.debug("OPC-UA数据变更回调异常: %s", e)
+            logger.warning("OPC-UA callback dispatch failed: %s", e)

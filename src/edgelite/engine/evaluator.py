@@ -36,11 +36,12 @@ class RuleEvaluator:
         # 规则缓存: cache_key -> rules
         self._rule_cache: dict[str, list] = {}
         self._cache_time: float = 0.0
-        self._cache_ttl: float = _RULE_CACHE_TTL  # FIXED: 原问题-硬编码缓存TTL，现引用constants.py
+        self._cache_ttl: float = _RULE_CACHE_TTL
         self._task: asyncio.Task | None = None
         self._point_value_cache: dict[str, tuple[float, float]] = {}
         self._point_cache_ttl: float = _POINT_VALUE_CACHE_TTL
         self._point_cache_max_size: int = _POINT_VALUE_CACHE_MAX
+        self._tracker_cleanup_interval: float = 600.0  # FIXED: P2-3 duration_tracker无限增长，每10分钟清理过期条目
 
     async def start(self) -> None:
         """启动评估器"""
@@ -99,15 +100,38 @@ class RuleEvaluator:
 
     async def _eval_loop(self, queue: asyncio.Queue) -> None:
         """评估循环"""
+        last_tracker_cleanup = time.monotonic()
         while True:
             try:
-                event = await queue.get()
+                event = await asyncio.wait_for(queue.get(), timeout=1.0)
                 if isinstance(event, PointUpdateEvent) and event.quality == "good":
                     await self._evaluate(event)
+                # FIXED: P2-3 定期清理duration_tracker，防止随运行时间无限增长
+                now = time.monotonic()
+                if now - last_tracker_cleanup >= self._tracker_cleanup_interval:
+                    self._prune_duration_tracker()
+                    last_tracker_cleanup = now
+            except asyncio.TimeoutError:
+                now = time.monotonic()
+                if now - last_tracker_cleanup >= self._tracker_cleanup_interval:
+                    self._prune_duration_tracker()
+                    last_tracker_cleanup = now
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error("规则评估异常: %s", e)
+                logger.error("Eval loop error: %s", e)
+
+    def _prune_duration_tracker(self) -> None:
+        """FIXED: P2-3 清理过期的duration_tracker条目，防止内存无限增长"""
+        cutoff = datetime.now(UTC).timestamp() - 3600
+        keys_to_remove = []
+        for (rule_id, device_id), first_match_time in list(self._duration_tracker.items()):
+            if first_match_time.timestamp() < cutoff:
+                keys_to_remove.append((rule_id, device_id))
+        for key in keys_to_remove:
+            del self._duration_tracker[key]
+        if keys_to_remove:
+            logger.debug("Pruned %d expired duration_tracker entries", len(keys_to_remove))
 
     async def _evaluate(self, event: PointUpdateEvent) -> None:
         """评估单个测点更新事件"""

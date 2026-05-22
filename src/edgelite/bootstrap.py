@@ -12,6 +12,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from edgelite.constants import _LOG_BACKUP_COUNT, _LOG_DIR, _LOG_MAX_BYTES
+
 
 @dataclass
 class ServiceContainer:
@@ -98,12 +100,15 @@ async def bootstrap_storage(c: ServiceContainer, config) -> None:
     c.track("influx", influx)
 
     c.cache_manager = CacheManager(database)
+    c.track("cache_manager", c.cache_manager)  # FIXED: P0-2 缓存管理器需追踪以便teardown时正确清理
 
     write_lock = database.write_lock
     c._repos["device"] = DeviceRepo(database, write_lock)
     c._repos["rule"] = RuleRepo(database, write_lock)
     c._repos["alarm"] = AlarmRepo(database, write_lock)
     c._repos["user"] = UserRepo(database, write_lock)
+    for repo_name, repo in c._repos.items():
+        c.track(f"repo_{repo_name}", repo)  # FIXED: P0-2 所有仓库实例需追踪
 
 
 async def bootstrap_engine(c: ServiceContainer, config) -> None:
@@ -118,14 +123,16 @@ async def bootstrap_engine(c: ServiceContainer, config) -> None:
 
     scheduler = CollectScheduler(event_bus, c.influx_storage, c.cache_manager)
     c.scheduler = scheduler
-    c.track("scheduler", scheduler)
+    c.track("scheduler", scheduler)  # FIXED: P0-2 scheduler需追踪
 
     preprocessor = DataPreprocessor()
     if config.preprocess.enabled:
         scheduler.set_preprocessor(preprocessor)
     c.preprocessor = preprocessor
+    c.track("preprocessor", preprocessor)  # FIXED: P0-2 preprocessor需追踪
 
     c.lifecycle = DeviceLifecycleManager(event_bus)
+    c.track("lifecycle", c.lifecycle)  # FIXED: P0-2 lifecycle需追踪
 
 
 async def bootstrap_services(c: ServiceContainer, config) -> None:
@@ -144,15 +151,22 @@ async def bootstrap_services(c: ServiceContainer, config) -> None:
     user_repo = c._repos["user"]
 
     c.device_service = DeviceService(device_repo, rule_repo, c.scheduler, c.lifecycle)
+    c.track("device_service", c.device_service)  # FIXED: P0-2 device_service需追踪
     c.rule_service = RuleService(rule_repo, device_repo)
+    c.track("rule_service", c.rule_service)  # FIXED: P0-2 rule_service需追踪
     c.alarm_service = AlarmService(alarm_repo)
+    c.track("alarm_service", c.alarm_service)  # FIXED: P0-2 alarm_service需追踪
     c.data_service = DataService(c.influx_storage, device_repo)
+    c.track("data_service", c.data_service)  # FIXED: P0-2 data_service需追踪
     c.video_service = VideoService(c.event_bus)
+    c.track("video_service", c.video_service)  # FIXED: P0-2 video_service需追踪
     c.notify_service = NotifyService()
+    c.track("notify_service", c.notify_service)  # FIXED: P0-2 notify_service需追踪
     c.system_service = SystemService(
         c.database, device_repo, rule_repo, alarm_repo, user_repo,
         c.scheduler, c.start_time,
     )
+    c.track("system_service", c.system_service)  # FIXED: P0-2 system_service需追踪
 
     audit_service = AuditService(db_path=c.database.audit_db_path)
     await audit_service.initialize()
@@ -177,6 +191,7 @@ async def bootstrap_ws(c: ServiceContainer, config) -> None:
     ws_manager = ConnectionManager()
     ws_channels = WebSocketChannels(c.event_bus, ws_manager)
     c.ws_manager = ws_manager
+    c.track("ws_manager", ws_manager)  # FIXED: P0-2 ws_manager需追踪
     c.ws_channels = ws_channels
     await ws_channels.start()
     c.track("ws_channels", ws_channels)
@@ -367,6 +382,7 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
 
         ai_service = AiModelService(ai_engine, c.database)
         c.ai_service = ai_service
+        c.track("ai_service", ai_service)  # FIXED: P0-2 ai_service需追踪
         logger.info("AI推理引擎已初始化")
     except ImportError as e:
         logger.warning("AI推理引擎模块不可用: %s", e)
@@ -390,12 +406,12 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     logging.basicConfig(level=config.logging.level, format=config.logging.format)
 
     # File logging
-    log_dir = Path('logs')
+    log_dir = Path(_LOG_DIR)  # FIXED: P4-47 extracted to constant
     log_dir.mkdir(parents=True, exist_ok=True)
     file_handler = RotatingFileHandler(
         log_dir / 'edgelite.log',
-        maxBytes=50 * 1024 * 1024,
-        backupCount=10,
+        maxBytes=_LOG_MAX_BYTES,  # FIXED: P4-47 extracted to constant
+        backupCount=_LOG_BACKUP_COUNT,  # FIXED: P4-47 extracted to constant
         encoding='utf-8',
     )
     file_handler.setLevel(getattr(logging, config.logging.level, logging.INFO))
@@ -404,17 +420,17 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
 
     error_handler = RotatingFileHandler(
         log_dir / 'edgelite-error.log',
-        maxBytes=50 * 1024 * 1024,
-        backupCount=10,
+        maxBytes=_LOG_MAX_BYTES,  # FIXED: P4-47 extracted to constant
+        backupCount=_LOG_BACKUP_COUNT,  # FIXED: P4-47 extracted to constant
         encoding='utf-8',
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(logging.Formatter(config.logging.format))
     logging.getLogger().addHandler(error_handler)
 
-    logger.info("日志文件输出到: %s", log_dir.resolve())
+    logger.info("Log file output to: %s", log_dir.resolve())
 
-    logger.info("EdgeLiteGateway 启动中...")
+    logger.info("EdgeLiteGateway starting...")
 
     c.config = config
 
@@ -433,11 +449,11 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     await bootstrap_ota(c, config)
     await bootstrap_ai(c, config)
 
-    logger.info("EdgeLiteGateway 启动完成 (port=%d)", config.server.port)
+    logger.info("EdgeLiteGateway startup complete (port=%d)", config.server.port)
 
 
 async def teardown(c: ServiceContainer) -> None:
-    logger.info("EdgeLiteGateway 关闭中...")
+    logger.info("EdgeLiteGateway shutting down...")
 
     for name, resource in reversed(c._initialized):
         try:
@@ -448,15 +464,15 @@ async def teardown(c: ServiceContainer) -> None:
             elif hasattr(resource, "stop_all"):
                 await resource.stop_all()
         except Exception as e:
-            logger.warning("关闭%s异常: %s", name, e)
+            logger.warning("Shutdown %s exception: %s", name, e)
 
     for name, handler in list(c.platform_handlers.items()):
         try:
             await handler.disconnect()
         except Exception as e:
-            logger.warning("平台对接关闭异常 %s: %s", name, e)
+            logger.warning("Platform shutdown exception %s: %s", name, e)
 
     if c.event_bus:
         c.event_bus.unregister_all()
 
-    logger.info("EdgeLiteGateway 已关闭")
+    logger.info("EdgeLiteGateway shutdown complete")

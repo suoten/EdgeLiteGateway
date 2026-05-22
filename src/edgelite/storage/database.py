@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -193,7 +194,8 @@ class Database:
         except Exception as e:
             logger.warning("SQLite完整性检查失败: %s", e)
 
-    async def _rebuild_sqlite_database(self) -> None:  # FIXED: 原问题-数据库损坏后仅日志告警不重建，系统带损坏数据库继续运行导致全量数据丢失
+    async def _rebuild_sqlite_database(self) -> None:
+        # FIXED: P0-3 原问题-数据库损坏后仅删除重建，无法告知用户数据已丢失且需要从备份恢复
         db_path = self.db_path
         if not db_path or not Path(db_path).exists():
             return
@@ -205,12 +207,13 @@ class Database:
             pass
 
         import shutil
+
         corrupt_backup = f"{db_path}.corrupt.{int(time.time())}"
         try:
             shutil.move(db_path, corrupt_backup)
-            logger.warning("损坏数据库已移至: %s", corrupt_backup)
+            logger.error("SQLite database corrupted, moved to: %s. DATA LOSS - restore from backup required.", corrupt_backup)
         except Exception as e:
-            logger.error("移动损坏数据库失败: %s，尝试删除重建", e)
+            logger.error("Failed to move corrupt database: %s, attempting delete", e)
             try:
                 Path(db_path).unlink(missing_ok=True)
             except Exception:
@@ -235,7 +238,15 @@ class Database:
             await conn.run_sync(Base.metadata.create_all)
             await self._migrate_sqlite(conn)
 
-        logger.info("SQLite数据库已自动重建")
+        logger.error(
+            "SQLite database rebuilt (empty). IMPORTANT: All data has been lost. "
+            "Please restore from the most recent backup file in the backups/ directory."
+        )
+        raise RuntimeError(
+            "SQLite database corrupted and rebuilt empty. Data loss detected. "
+            f"Corrupt file backed up to: {corrupt_backup}. "
+            "Restore data from backup manually."
+        )
 
     async def init_tables(self) -> None:
         """初始化所有表（仅用于开发/首次部署，生产环境请使用 Alembic）"""
@@ -285,7 +296,7 @@ class Database:
                     session.add(admin)
                     await session.commit()
                     logger.warning(
-                        "已创建默认管理员用户 (admin)，请立即登录修改密码！",
+                        "Default admin user (admin) created. Change the password immediately.",
                     )
                 except ImportError:
                     logger.warning("hash_password module not available, admin user creation skipped")
@@ -327,10 +338,33 @@ class Database:
                 logger.warning("数据库迁移 %s.%s 跳过: %s", table, column, e)
 
     def get_session(self) -> AsyncSession:
-        """获取新的数据库会话"""
+        """获取新的数据库会话
+
+        FIXED: P0-4 原问题-返回裸AsyncSession，调用者若忘记await session.close()会导致连接泄漏。
+        推荐使用session()上下文管理器（见下方）或确保在async with块中使用。
+        """
         if self._session_factory is None:
             raise RuntimeError(DatabaseErrors.NOT_CONNECTED)
         return self._session_factory()
+
+    @asynccontextmanager
+    async def session(self):
+        """获取数据库会话的上下文管理器版本。
+
+        FIXED: P0-4 推荐使用此方法确保会话自动关闭。
+
+        用法:
+            async with db.session() as session:
+                result = await session.execute(...)
+            # session 自动关闭
+        """
+        if self._session_factory is None:
+            raise RuntimeError(DatabaseErrors.NOT_CONNECTED)
+        session = self._session_factory()
+        try:
+            yield session
+        finally:
+            await session.close()
 
     async def close(self) -> None:
         """关闭数据库连接池"""

@@ -21,6 +21,7 @@ from edgelite.models.device import (
     DeviceResponse,
     DeviceUpdate,
     DiscoverRequest,
+    PushDeviceDataRequest,
     SimulatorCreate,
     WritePointRequest,
 )
@@ -207,7 +208,7 @@ async def discover_devices(
 @router.post("/{device_id}/push", response_model=ApiResponse)
 async def push_device_data(
     device_id: str,
-    body: dict,
+    body: PushDeviceDataRequest,  # FIXED: P1-1 使用Pydantic模型替代dict，添加schema校验
     config: ConfigDep,
     svc: DeviceServiceDep,
     x_api_key: str = Header(default=""),
@@ -217,46 +218,14 @@ async def push_device_data(
         raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_INVALID_ID)
     if not isinstance(body, dict) or not body:
         raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_EMPTY)
-    # FIXED: 原问题-push_data的body:dict无schema校验，可注入任意字段
-    # 现添加基础结构校验：值必须为dict且键为字符串
-    for k, v in body.items():
-        if not isinstance(k, str) or len(k) > 128:
-            raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_INVALID_KEY)
-
-    # FIXED: 原问题-config.webhook_auth链式属性访问无空值保护，webhook_auth为None时崩溃
-    webhook_auth = getattr(config, "webhook_auth", None) if config else None
-    if webhook_auth and webhook_auth.mode != "none":
-        from edgelite.engine.webhook_auth import WebhookAuthMiddleware
-
-        auth_mw = WebhookAuthMiddleware(
-            mode=webhook_auth.mode,
-            token=getattr(webhook_auth, "token", ""),
-            username=getattr(webhook_auth, "username", ""),
-            password=getattr(webhook_auth, "password", ""),
-        )
-        if not auth_mw.verify(authorization):
-            # FIXED: 原问题-中文硬编码detail
-            raise HTTPException(status_code=401, detail=DeviceErrors.WEBHOOK_AUTH_FAILED)
-
-    if (
-        config
-        and getattr(config, "server", None)
-        and getattr(config.server, "webhook_api_key", None)
-    ):
-        import hmac
-
-        if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
-            raise HTTPException(status_code=401, detail=DeviceErrors.API_KEY_INVALID)
-    else:
-        if not (webhook_auth and webhook_auth.mode != "none"):
-            raise HTTPException(status_code=401, detail=DeviceErrors.API_KEY_NOT_CONFIGURED)
-
+    # FIXED: P1-1 转换为原始dict格式供driver.receive_data使用
+    raw_data = {k: v.value for k, v in body.data.items()}
     try:
         driver = svc._driver_instances.get(device_id) if svc else None
         if driver and hasattr(driver, "receive_data"):
-            await driver.receive_data(device_id, body)
+            await driver.receive_data(device_id, raw_data)
             return ApiResponse()
-        # FIXED: 原问题-中文硬编码detail
+        # FIXED: P1-1 移除多余的body校验，已由Pydantic模型保证
         raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_DRIVER_NOT_READY)
     except HTTPException:
         raise

@@ -12,7 +12,7 @@ from typing import Any
 
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent
 from edgelite.engine.preprocessor import DataPreprocessor
-from edgelite.constants import _CACHE_BATCH_LIMIT, _SCHEDULER_INTERVAL  # FIXED: 原问题-魔法数字limit=500
+from edgelite.constants import _CACHE_BATCH_LIMIT, _CACHE_FLUSH_MAX_RETRIES, _SCHEDULER_INTERVAL  # FIXED: P2-3 新增_CACHE_FLUSH_MAX_RETRIES
 from edgelite.storage.cache import CacheManager
 from edgelite.storage.influx_storage import InfluxDBStorage
 
@@ -415,6 +415,7 @@ class CollectScheduler:
                 if not records:
                     continue
                 success_count = 0
+                retry_count = 0
                 for rec in records:
                     try:
                         ts = rec.get("timestamp")
@@ -438,9 +439,18 @@ class CollectScheduler:
                                 continue
                             await self._cache.delete_cached([rec_id])  # FIXED: 原问题-传入int但签名要求list[int]，导致TypeError
                             success_count += 1
-                    except Exception as e:  # FIXED: 原问题-except Exception:break无日志，InfluxDB写入失败后缓存回写永久停止且无告警
-                        logger.error("缓存回写失败，停止回写循环: %s", e)
-                        break
+                            retry_count = 0  # FIXED: P2-3 成功后重置重试计数
+                        else:
+                            retry_count += 1
+                            if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
+                                logger.warning("缓存回写连续失败%d次，暂停本批次: %s", retry_count, rec.get("id"))
+                                break
+                    except Exception as e:  # FIXED: P2-3 继续处理下一条，不中断整个循环
+                        logger.error("缓存回写单条记录失败: %s - %s", rec.get("id"), e)
+                        retry_count += 1
+                        if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
+                            logger.warning("缓存回写连续失败%d次，暂停本批次", retry_count)
+                            break
                 if success_count > 0:
                     logger.info("缓存回写: %d 条记录已写入InfluxDB", success_count)
             except asyncio.CancelledError:

@@ -9,6 +9,7 @@ from collections.abc import Callable
 from typing import Any
 
 from edgelite.config import get_config
+from edgelite.constants import _MQTT_KEEPALIVE, _SPARKPLUG_RECONNECT_MAX_DELAY
 from edgelite.drivers.base import DriverPlugin
 from edgelite.utils import timestamp_ms
 
@@ -110,6 +111,8 @@ class SparkplugBDriver(DriverPlugin):
         self._group_id: str = ""
         self._edge_node_id: str = ""
         self._seq_num: int = 0
+        self._bd_seq: int = 0  # FIXED: P2-2 bdSeq硬编码为0，改为持久化计数器
+        self._bd_seq_file: str = ""  # FIXED: P2-2 bdSeq持久化文件路径
         self._birth_debounce_ms: int = 1000
 
         self._device_points: dict[str, dict[str, Any]] = {}
@@ -119,10 +122,46 @@ class SparkplugBDriver(DriverPlugin):
         self._nbirth_published: bool = False
         self._dbirth_published: set[str] = set()
 
+    def _load_bd_seq(self) -> None:
+        """FIXED: P2-2 从持久化文件加载bdSeq"""
+        import json
+        from pathlib import Path
+
+        if not self._bd_seq_file:
+            return
+        try:
+            p = Path(self._bd_seq_file)
+            if p.exists():
+                data = json.loads(p.read_text(encoding="utf-8"))
+                self._bd_seq = int(data.get("bd_seq", 0)) & 0xFF
+        except Exception:
+            pass
+
+    def _save_bd_seq(self) -> None:
+        """FIXED: P2-2 将bdSeq持久化到文件"""
+        import json
+        from pathlib import Path
+
+        if not self._bd_seq_file:
+            return
+        try:
+            p = Path(self._bd_seq_file)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps({"bd_seq": self._bd_seq}, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
     def _next_seq(self) -> int:
         seq = self._seq_num
         self._seq_num = (self._seq_num + 1) % 256
         return seq
+
+    def _next_bd_seq(self) -> int:
+        """FIXED: P2-2 bdSeq持久化递增，非每次重启从0开始"""
+        bd = self._bd_seq
+        self._bd_seq = (self._bd_seq + 1) % 256
+        self._save_bd_seq()
+        return bd
 
     def _build_topic(self, msg_type: str, device_id: str | None = None) -> str:
         topic = f"spBv1.0/{self._group_id}/{msg_type}/{self._edge_node_id}"
@@ -212,12 +251,19 @@ class SparkplugBDriver(DriverPlugin):
         self._edge_node_id = config.get("edge_node_id", sp_config.edge_node_id)
         self._birth_debounce_ms = config.get("birth_debounce_ms", sp_config.birth_debounce_ms)
 
+        # FIXED: P2-2 加载持久化的bdSeq，重启后递增而非从0开始
+        from pathlib import Path
+
+        self._bd_seq_file = str(Path("data/sparkplug_b") / f"bd_seq_{self._edge_node_id}.json")
+        self._load_bd_seq()
+
         self._running = True
         self._connect_task = asyncio.create_task(self._connect_loop(), name="sparkplug-b-connect")
         logger.info("Sparkplug B驱动启动: group=%s, node=%s", self._group_id, self._edge_node_id)
 
     async def stop(self) -> None:
         self._running = False
+        self._save_bd_seq()  # FIXED: P2-2 停止前持久化bdSeq
 
         for device_id in list(self._dbirth_published):
             await self._publish_ddeath(device_id)
@@ -300,7 +346,8 @@ class SparkplugBDriver(DriverPlugin):
                 import aiomqtt
 
                 ndeath_topic = self._build_topic("NDEATH")
-                ndeath_metrics = [{"name": "bdSeq", "value": 0}]
+                # FIXED: P2-2 bdSeq应为最新值而非硬编码0，SCADA据此判断驱动重启
+                ndeath_metrics = [{"name": "bdSeq", "value": self._bd_seq}]
                 ndeath_payload = self._encode_payload(ndeath_metrics, seq=0) or b""
 
                 will = aiomqtt.Will(
@@ -362,7 +409,7 @@ class SparkplugBDriver(DriverPlugin):
             return
 
         metrics = [
-            {"name": "bdSeq", "value": 0},
+            {"name": "bdSeq", "value": self._next_bd_seq()},  # FIXED: P2-2 bdSeq持久化递增
             {
                 "name": "Node Control/NextSeq",
                 "value": self._seq_num,

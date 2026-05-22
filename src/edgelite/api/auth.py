@@ -112,7 +112,7 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("登录失败: %s", e)
+        logger.error("Login failed: %s", e)
         raise HTTPException(status_code=500, detail=AuthErrors.LOGIN_FAILED) from e
 
 
@@ -242,7 +242,7 @@ async def change_password(
 
 
 @router.post("/logout", response_model=ApiResponse)
-async def logout(request: Request, user: CurrentUser = None):
+async def logout(request: Request, user: CurrentUser):
     try:
         from edgelite.security.jwt import decode_token
         from edgelite.security.token_revocation import revoke_token

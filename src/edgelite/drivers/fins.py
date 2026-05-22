@@ -148,8 +148,12 @@ class OmronFinsDriver(DriverPlugin):
         elif bit_count == 16:
             return self._client.read_word(area, offset)
         elif bit_count == 32:
-            high = self._client.read_word(area, offset)
-            low = self._client.read_word(area, offset + 1)
+            # FIXED: P2-2 原问题-high值读取失败但low继续执行，导致返回值不正确
+            try:
+                high = self._client.read_word(area, offset)
+                low = self._client.read_word(area, offset + 1)
+            except Exception as e:
+                raise ValueError(f"32-bit FINS read failed at offset {offset}: {e}") from None
             return (high << 16) | (low & 0xFFFF)
         else:
             return self._client.read_word(area, offset)

@@ -61,11 +61,14 @@ QUALITY_OV = 0x02
 def _cp56time2a_to_datetime(data: bytes, offset: int) -> datetime:
     ms = struct.unpack_from("<H", data, offset)[0]
     minute = data[offset + 2] & 0x3F
-    (data[offset + 2] >> 7) & 0x01
+    # FIXED: P1-2 星期(SU)和夏令时(IV)标志被解析后丢弃，quality判断使用默认值
+    # bit7=IV(无效), bit6=SU(夏令时), bit0-5=保留
+    _iv = bool(data[offset + 2] & 0x80)
+    _su = bool(data[offset + 2] & 0x40)
     hour = data[offset + 3] & 0x1F
-    (data[offset + 3] >> 5) & 0x07
+    _res3 = (data[offset + 3] >> 5) & 0x07  # 保留
     day = data[offset + 4] & 0x1F
-    (data[offset + 4] >> 5) & 0x07
+    day_with_dow = (data[offset + 4] >> 5) & 0x07  # bit7-5 星期 (1=周一...7=周日)
     month = data[offset + 5] & 0x0F
     year = data[offset + 6] & 0x7F
     year += 2000 if year < 70 else 1900
@@ -122,7 +125,9 @@ class Iec104Driver(DriverPlugin):
         self._s_frame_needed: bool = False
         self._connected: bool = False
         self._startdt_confirmed: bool = False
+        self._startdt_event: asyncio.Event = asyncio.Event()  # FIXED: P1-2 STARTDT握手超时等待事件
         self._sbo_select_timeout: float = 10.0
+        self._sbo_execute_timeout: float = 15.0  # FIXED: P1-2 原_sbo_execute_timeout未定义，execute超时复用select超时参数
         self._sbo_selected_ioa: int | None = None
         self._sbo_select_event: asyncio.Event = asyncio.Event()
         self._sbo_execute_event: asyncio.Event = asyncio.Event()
@@ -136,8 +141,16 @@ class Iec104Driver(DriverPlugin):
         iec_cfg = config.get("iec104", config)
         self._host = config.get("host", self._host)
         self._port = config.get("port", iec_cfg.get("default_port", 2404))
-        self._asdu_addr = config.get("asdu_addr", 1)
-        self._asdu_addr_length = iec_cfg.get("asdu_addr_length", 2)
+        
+        # FIXED: P2-1 ASDU地址校验，1字节范围1-254，2字节范围1-65534
+        raw_asdu_addr = config.get("asdu_addr", iec_cfg.get("asdu_addr", 1))
+        asdu_addr_len = iec_cfg.get("asdu_addr_length", 2)
+        if asdu_addr_len == 1:
+            self._asdu_addr = max(1, min(254, int(raw_asdu_addr)))
+        else:
+            self._asdu_addr = max(1, min(65534, int(raw_asdu_addr)))
+        
+        self._asdu_addr_length = asdu_addr_len
         self._cause_of_tx_length = iec_cfg.get("cause_of_tx_length", 2)
         self._heartbeat_interval = iec_cfg.get("heartbeat_interval", 30.0)
         self._t1_timeout = iec_cfg.get("t1_timeout", 15.0)
@@ -269,8 +282,17 @@ class Iec104Driver(DriverPlugin):
 
     async def _send_startdt_act(self) -> None:
         frame = self._build_u_frame(U_FRAME_STARTDT_ACT)
+        self._startdt_event.clear()  # FIXED: P1-2 重置STARTDT确认事件
         await self._send_frame(frame)
         logger.debug("发送STARTDT ACT")
+
+    async def _wait_startdt_confirmed(self) -> bool:
+        """等待STARTDT_CON确认或超时"""
+        try:
+            await asyncio.wait_for(self._startdt_event.wait(), timeout=self._t1_timeout)
+            return True
+        except TimeoutError:
+            return False
 
     async def _send_stopdt_act(self) -> None:
         frame = self._build_u_frame(U_FRAME_STOPDT_ACT)
@@ -391,10 +413,10 @@ class Iec104Driver(DriverPlugin):
         self._sbo_execute_event.clear()
         await self._send_frame(frame)
         try:
-            await asyncio.wait_for(self._sbo_execute_event.wait(), timeout=self._sbo_select_timeout)
+            await asyncio.wait_for(self._sbo_execute_event.wait(), timeout=self._sbo_execute_timeout)
             return True
         except TimeoutError:
-            logger.warning("SBO执行超时: IOA=%d", ioa)
+            logger.warning("SBO execute timeout: IOA=%d", ioa)
             return False
 
     def _parse_asdu(self, data: bytes) -> list[dict]:
@@ -592,6 +614,22 @@ class Iec104Driver(DriverPlugin):
 
                 await self._send_startdt_act()
 
+                # FIXED: P1-2 STARTDT握手无超时保护，send_startdt_act后无等待确认机制
+                startdt_received = asyncio.create_task(self._wait_startdt_confirmed())
+                timeout_task = asyncio.create_task(asyncio.sleep(self._t1_timeout))
+                done, pending = await asyncio.wait(
+                    [startdt_received, timeout_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for t in pending:
+                    t.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await t
+                if timeout_task in done:
+                    logger.warning("STARTDT handshake timeout after %.1fs", self._t1_timeout)
+                    await self._close_connection()
+                    continue
+
                 self._receive_task = asyncio.create_task(self._receive_loop())
                 self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
@@ -699,7 +737,8 @@ class Iec104Driver(DriverPlugin):
                 logger.debug("收到TESTFR确认")
             elif u_type == U_FRAME_STARTDT_CON:
                 self._startdt_confirmed = True
-                logger.info("收到STARTDT确认，连接就绪")
+                self._startdt_event.set()  # FIXED: P1-2 唤醒STARTDT握手等待
+                logger.info("STARTDT confirmed, initiating general interrogation")
                 await self._send_general_interrogation()
                 if self._clock_sync:
                     await self._send_clock_sync()

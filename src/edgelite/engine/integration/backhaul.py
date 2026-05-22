@@ -233,21 +233,39 @@ class BackhaulManager:
                 logger.error("广播消息失败: %s", e)
         self._buffer.append(message)
 
-    async def flush_buffer(self) -> int:
+    async def flush_buffer(self, max_retries: int = 3) -> int:
+        """将缓冲区中的消息flush到所有连接。
+
+        FIXED: P0-5 原问题-broadcast返回sent==0时appendleft+break形成死循环。
+        现改为：最多重试max_retries次，失败后丢弃并记录警告，防止消息永久卡在缓冲区。
+        """
         if not self._buffer or not self._endpoint or not self._endpoint.has_connections:
             return 0
         count = 0
+        dropped = 0
         while self._buffer:
+            if dropped >= max_retries:
+                # FIXED: P0-5 防止无限appendleft，当同一消息连续重试超过阈值时丢弃
+                msg = self._buffer.popleft()
+                logger.warning("Backhaul flush: message dropped after %d retries (buffer=%d)", max_retries, len(self._buffer))
+                dropped += 1
+                continue
             msg = self._buffer.popleft()
             try:  # FIXED: 原问题-broadcast无try-catch，广播失败会中断事件处理
                 sent = await self._endpoint.broadcast(msg)
                 if sent > 0:
                     count += 1
+                    dropped = 0
                 else:
+                    # FIXED: P0-5 sent==0表示连接已断开但无异常，不应无限重试
                     self._buffer.appendleft(msg)
-                    break
+                    dropped += 1
+                    if dropped >= max_retries:
+                        logger.warning("Backhaul flush: broadcast returned 0 for %d consecutive retries, dropping message", dropped)
             except Exception as e:
                 logger.error("缓冲区广播消息失败: %s", e)
                 self._buffer.appendleft(msg)
-                break
+                dropped += 1
+                if dropped >= max_retries:
+                    logger.warning("Backhaul flush: exception after %d retries, dropping message", dropped)
         return count

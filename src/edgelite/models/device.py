@@ -132,3 +132,25 @@ class DiscoverRequest(BaseModel):
 
     protocol: str = "modbus_tcp"
     config: dict[str, Any] = {}
+
+
+class PushDataPointValue(BaseModel):
+    """推送数据点值"""
+
+    value: float | int | bool | str
+    quality: str = "good"
+    timestamp: str | None = None
+
+
+class PushDeviceDataRequest(BaseModel):
+    """设备数据推送请求"""
+
+    data: dict[str, PushDataPointValue] = Field(min_length=1, max_length=100)
+
+    @field_validator("data")
+    @classmethod
+    def validate_data_keys(cls, v: dict) -> dict:
+        for key in v.keys():
+            if len(key) > 128:
+                raise ValueError(f"Point name too long: {key}")
+        return v

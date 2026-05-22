@@ -8,7 +8,7 @@ import logging
 import time
 from dataclasses import dataclass
 
-from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _SERIAL_READ_TIMEOUT
+from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _SERIAL_READ_TIMEOUT, _QUEUE_POLL_TIMEOUT, _SERIAL_RETRY_DELAY, _SERIAL_BRIDGE_RAW_POLL_INTERVAL, _SERIAL_BRIDGE_ERROR_RECOVERY_DELAY  # FIXED: P2-3
 
 logger = logging.getLogger(__name__)
 
@@ -246,12 +246,12 @@ class SerialTcpBridge:
                             with contextlib.suppress(asyncio.QueueEmpty):
                                 self._serial_queue.get_nowait()
                             self._serial_queue.put_nowait(data)
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(_SERIAL_BRIDGE_RAW_POLL_INTERVAL)  # FIXED: P2-3 原魔法数字 0.01
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning("串口读取异常: %s", e)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(_SERIAL_RETRY_DELAY)  # FIXED: P2-3 原魔法数字 0.5
 
     async def _serial_to_tcp_relay(self) -> None:
         """串口→TCP数据转发（从队列取数据广播给所有客户端）"""
@@ -282,7 +282,7 @@ class SerialTcpBridge:
                 raise
             except Exception as e:
                 logger.warning("串口→TCP转发异常: %s", e)
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(_SERIAL_BRIDGE_ERROR_RECOVERY_DELAY)  # FIXED: P2-3 原魔法数字 0.1
 
     def get_status(self) -> BridgeStats:
         """获取桥接统计信息"""

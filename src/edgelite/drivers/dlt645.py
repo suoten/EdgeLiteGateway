@@ -186,7 +186,7 @@ class Dlt645Driver(DriverPlugin):
                             await asyncio.to_thread(self._serial.write, frame)
                             await asyncio.sleep(0.05)
 
-                            response = await asyncio.to_thread(self._read_response)
+                            response = await self._read_response_async()
 
                         if not response:
                             logger.debug(
@@ -225,9 +225,7 @@ class Dlt645Driver(DriverPlugin):
                                             next_frame,
                                         )
                                         await asyncio.sleep(0.05)
-                                        next_resp = await asyncio.to_thread(
-                                            self._read_response,
-                                        )
+                                        next_resp = await self._read_response_async()
                                     if not next_resp or not self._validate_cs(next_resp):
                                         break
                                     next_data = self._parse_response(
@@ -432,40 +430,50 @@ class Dlt645Driver(DriverPlugin):
         except Exception:
             return 0
 
-    def _read_response(self) -> bytes:
+    async def _read_response_async(self) -> bytes:
+        """FIXED: P1-6 原_read_response使用time.time() busy-wait轮询，CPU占用高且响应延迟差。
+        改为asyncio.to_thread包装同步read()，通过asyncio.Event超时控制。
+        """
         if not self._serial or not self._serial.is_open:
             return b""
 
-        buf = bytearray()
-        start_found = False
         timeout = self._serial.timeout if self._serial.timeout else 5.0
-        start_time = time.time()
+        end_event = asyncio.Event()
+        result_holder: dict = {"data": bytearray()}
 
-        while (time.time() - start_time) < timeout:
-            b = self._serial.read(1)
-            if not b:
-                break
+        def _sync_read():
+            try:
+                while not end_event.is_set():
+                    if self._serial.in_waiting > 0:
+                        chunk = self._serial.read(self._serial.in_waiting)
+                        if chunk:
+                            result_holder["data"].extend(chunk)
+                            # 找到帧尾即可退出
+                            if FRAME_TAIL in chunk:
+                                end_event.set()
+                                return
+                    else:
+                        import time as _time
+                        _time.sleep(0.01)
+            except Exception:
+                pass
 
-            byte = b[0]
-            buf.append(byte)
+        try:
+            read_task = asyncio.to_thread(_sync_read)
+            timeout_task = asyncio.create_task(asyncio.sleep(timeout))
+            done, pending = await asyncio.wait(
+                [asyncio.shield(read_task), timeout_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            end_event.set()
+            for t in pending:
+                t.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await t
+        except Exception:
+            end_event.set()
 
-            if not start_found:
-                if byte == FRAME_HEAD and len(buf) == 1:
-                    continue
-                if byte == FRAME_HEAD and len(buf) > 1 and buf[-2] == FRAME_HEAD:
-                    start_found = True
-                    head_pos = len(buf) - 2
-                    if head_pos > 0:
-                        buf = buf[head_pos:]
-                    continue
-                if len(buf) > 8 and buf[0] == FRAME_HEAD:
-                    start_found = True
-                continue
-
-            if byte == FRAME_TAIL and len(buf) >= 12:
-                break
-
-        return bytes(buf)
+        return bytes(result_holder["data"])
 
     async def discover_devices(self, config: dict) -> list[dict]:
         try:

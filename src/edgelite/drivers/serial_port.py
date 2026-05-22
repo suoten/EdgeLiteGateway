@@ -20,6 +20,8 @@ try:
 except ImportError:
     pymodbus = None
 
+from edgelite.constants import _SERIAL_READ_TIMEOUT, _SERIAL_WRITE_WAIT  # FIXED: P2-3 将魔法数字 sleep 间隔提取为常量
+
 from edgelite.drivers.base import DriverPlugin
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0]) if pymodbus else 2
@@ -79,6 +81,7 @@ class SerialPortDriver(DriverPlugin):
     def __init__(self):
         self._running = False
         self._serial = None
+        self._modbus_rtu_client = None  # FIXED: P0-2 持久ModbusRTU客户端不复用，每次读取创建新连接导致资源泄漏
         self._config: dict = {}
         self._lock = asyncio.Lock()
         self._read_buffer: bytes = b""
@@ -155,13 +158,19 @@ class SerialPortDriver(DriverPlugin):
             self._read_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._read_task
+        if self._modbus_rtu_client:
+            try:
+                self._modbus_rtu_client.close()
+            except Exception:
+                pass
+            self._modbus_rtu_client = None
         if self._serial and self._serial.is_open:
             try:
                 self._serial.close()
             except Exception as e:
-                logger.warning("串口关闭异常: %s", e)
+                logger.warning("Serial port close error: %s", e)
         self._serial = None
-        logger.info("串口驱动已停止")
+        logger.info("Serial port driver stopped")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         if not self._running or not self._serial:
@@ -178,7 +187,7 @@ class SerialPortDriver(DriverPlugin):
         try:
             from pymodbus.client import AsyncModbusSerialClient as _unused  # noqa: F401
         except ImportError:
-            logger.error("pymodbus未安装，Modbus RTU不可用")
+            logger.error("pymodbus not installed, Modbus RTU unavailable")
             return {}
 
         result = {}
@@ -196,79 +205,49 @@ class SerialPortDriver(DriverPlugin):
                     count = 1
                     func = 3
 
+                rr = None
                 async with self._lock:
-                    if func == 1:
-                        rr = await asyncio.to_thread(self._read_coils, slave_id, addr, count)
-                    elif func == 3:
-                        rr = await asyncio.to_thread(self._read_holding, slave_id, addr, count)
-                    elif func == 4:
-                        rr = await asyncio.to_thread(self._read_input, slave_id, addr, count)
-                    else:
-                        rr = None
+                    if self._modbus_rtu_client is None or not getattr(self._modbus_rtu_client, "connected", False):
+                        self._modbus_rtu_client = _create_serial_client(
+                            self._serial.port,
+                            self._serial.baudrate,
+                            self._serial.parity,
+                        )
+                        try:
+                            self._modbus_rtu_client.connect()
+                        except Exception as e:
+                            logger.warning("Modbus RTU client connect failed: %s", e)
+                            self._modbus_rtu_client = None
+                            result[point] = None
+                            continue
+                    client = self._modbus_rtu_client
+                    if client and client.connected:
+                        try:
+                            if func == 1:
+                                rr = await asyncio.to_thread(
+                                    client.read_coils, addr, count, **_slave_kwarg(slave_id)
+                                )
+                            elif func == 3:
+                                rr = await asyncio.to_thread(
+                                    client.read_holding_registers, addr, count, **_slave_kwarg(slave_id)
+                                )
+                            elif func == 4:
+                                rr = await asyncio.to_thread(
+                                    client.read_input_registers, addr, count, **_slave_kwarg(slave_id)
+                                )
+                        except Exception as e:
+                            logger.warning("Modbus RTU read failed for %s: %s", point, e)
+                            rr = None
 
-                if rr is not None:
-                    result[point] = rr
+                if rr is not None and not rr.isError():
+                    result[point] = rr.registers if func in (3, 4) else rr.bits[:count]
                 else:
                     result[point] = None
             except Exception as e:
-                logger.warning("Modbus RTU读取失败 %s: %s", point, e)
+                logger.warning("Modbus RTU read failed %s: %s", point, e)
                 result[point] = None
 
         return result
-
-    def _read_holding(self, slave_id: int, addr: int, count: int) -> list[int] | None:
-        try:
-            from pymodbus.client import ModbusSerialClient
-
-            client = ModbusSerialClient(
-                port=self._serial.port,
-                baudrate=self._serial.baudrate,
-                parity=self._serial.parity,
-            )
-            client.connect()
-            rr = client.read_holding_registers(addr, count, **_slave_kwarg(slave_id))
-            client.close()
-            if not rr.isError():
-                return rr.registers
-        except Exception as e:
-            logger.warning("Modbus RTU Holding读取异常: %s", e)
-        return None
-
-    def _read_input(self, slave_id: int, addr: int, count: int) -> list[int] | None:
-        try:
-            from pymodbus.client import ModbusSerialClient
-
-            client = ModbusSerialClient(
-                port=self._serial.port,
-                baudrate=self._serial.baudrate,
-                parity=self._serial.parity,
-            )
-            client.connect()
-            rr = client.read_input_registers(addr, count, **_slave_kwarg(slave_id))
-            client.close()
-            if not rr.isError():
-                return rr.registers
-        except Exception as e:
-            logger.warning("Modbus RTU Input读取异常: %s", e)
-        return None
-
-    def _read_coils(self, slave_id: int, addr: int, count: int) -> list[bool] | None:
-        try:
-            from pymodbus.client import ModbusSerialClient
-
-            client = ModbusSerialClient(
-                port=self._serial.port,
-                baudrate=self._serial.baudrate,
-                parity=self._serial.parity,
-            )
-            client.connect()
-            rr = client.read_coils(addr, count, **_slave_kwarg(slave_id))
-            client.close()
-            if not rr.isError():
-                return rr.bits[:count]
-        except Exception as e:
-            logger.warning("Modbus RTU Coil读取异常: %s", e)
-        return None
 
     async def _read_raw(self, points: list[str]) -> dict[str, Any]:
         result = {}
@@ -278,7 +257,7 @@ class SerialPortDriver(DriverPlugin):
                 if cmd:
                     async with self._lock:
                         await asyncio.to_thread(self._serial.write, cmd.encode("utf-8"))
-                        await asyncio.sleep(0.1)
+                        await asyncio.sleep(_SERIAL_WRITE_WAIT)  # FIXED: P2-3 原魔法数字 0.1，串口写入后等待
                         data = await asyncio.to_thread(
                             self._serial.read, self._serial.in_waiting or 1024
                         )
@@ -297,12 +276,12 @@ class SerialPortDriver(DriverPlugin):
                     data = await asyncio.to_thread(self._serial.read, self._serial.in_waiting)
                     if data and self._data_callback:
                         await self._data_callback(data)
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(_SERIAL_POLL_INTERVAL)  # FIXED: P2-3 原魔法数字 0.05
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning("串口读取循环异常: %s", e)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.5)  # FIXED: P2-3 原魔法数字 0.5
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         if not self._running or not self._serial:
@@ -339,7 +318,7 @@ class SerialPortDriver(DriverPlugin):
                     "device_id": p.device,
                     "name": p.description,
                     "ip": p.device,
-                    "protocol": "serial",
+                    "protocol": self.supported_protocols[0],
                     "details": {
                         "hwid": p.hwid,
                         "manufacturer": p.manufacturer,

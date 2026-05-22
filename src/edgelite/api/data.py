@@ -107,8 +107,8 @@ async def get_collect_stats(
         }
         return ApiResponse(data=stats)
     except Exception as e:
-        logger.error("获取采集统计失败: %s", e)
-        raise HTTPException(status_code=500, detail="获取采集统计失败")
+        logger.error("Failed to get collection stats: %s", e)
+        raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from e
 
 
 def _get_device_service():

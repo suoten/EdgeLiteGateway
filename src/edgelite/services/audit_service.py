@@ -121,6 +121,20 @@ class AuditService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action)")
 
+        # FIXED: P2-4 登录失败计数仅存内存，服务重启后清零导致暴力破解防护失效
+        # 创建独立的登录失败计数表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_fail_counts (
+                key TEXT PRIMARY KEY,
+                fail_count INTEGER NOT NULL DEFAULT 0,
+                last_attempt REAL NOT NULL
+            )
+        """)
+        # 从数据库加载已有计数
+        cursor.execute("SELECT key, fail_count FROM login_fail_counts")
+        for row in cursor.fetchall():
+            self._login_fail_counts[row[0]] = row[1]
+
         conn.commit()
 
         if self._tamper_proof:
@@ -274,8 +288,23 @@ class AuditService:
                         }
                     )
                 except Exception as e:
-                    logger.warning("审计告警回调失败: %s", e)
+                    logger.warning("Audit alert callback failed: %s", e)
             self._login_fail_counts[key] = 0
+        # FIXED: P2-4 持久化登录失败计数到数据库，防止服务重启后计数清零
+        try:
+            import sqlite3
+            conn = sqlite3.connect(self._db_path)
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO login_fail_counts (key, fail_count, last_attempt) VALUES (?, ?, ?)",
+                    (key, self._login_fail_counts.get(key, 0), self._login_fail_counts.get(key, 0)),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception:
+            pass
 
     async def query(
         self,

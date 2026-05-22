@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.security.rbac import Permission
 
 router = APIRouter(prefix="/mqtt", tags=["MQTT Forwarder"])
 
 
 @router.get("/offline-queue/status")
-async def get_offline_queue_status(request: Request):
+async def get_offline_queue_status(
+    request: Request,
+    _user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+):
     """获取MQTT离线缓存队列状态"""
     forwarder = getattr(request.app.state, "mqtt_forwarder", None)
     if not forwarder:

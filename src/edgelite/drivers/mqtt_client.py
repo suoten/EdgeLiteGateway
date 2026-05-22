@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from edgelite.config import get_config
-from edgelite.constants import _MQTT_DRIVER_RECONNECT
+from edgelite.constants import _MQTT_DRIVER_RECONNECT, _MQTT_KEEPALIVE, _MQTT_QUEUE_MAXSIZE, _MQTT_RECONNECT_DELAY, _QUEUE_POLL_TIMEOUT
 from edgelite.drivers.base import DriverPlugin
 
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ class MqttClientDriver(DriverPlugin):
                 await asyncio.sleep(_MQTT_DRIVER_RECONNECT)  # FIXED: 原问题-魔法数字，提取为命名常量
             except Exception as e:
                 logger.error("MQTT连接异常: %s，5秒后重试", e)
-                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
+                await asyncio.sleep(_MQTT_RECONNECT_DELAY)  # FIXED: P0-1 未导入_MQTT_RECONNECT_DELAY常量
 
     async def _message_loop(self, client: Any) -> None:
         try:

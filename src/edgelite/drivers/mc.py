@@ -119,12 +119,18 @@ class McDriver(DriverPlugin):
         elif suffix == "long":
             # 双字读取(32位)
             values = self._client.read_device(addr, 2)
+            # FIXED: P2-2 原问题-high值读取失败但low继续执行，导致返回值不正确但无错误提示
+            if not isinstance(values, (list, tuple)) or len(values) < 2:
+                raise ValueError(f"32-bit read failed: expected 2 words, got {type(values)}")
             return (values[0] << 16) | (values[1] & 0xFFFF)
         elif suffix == "float":
             # 浮点数读取(32位)
             import struct
 
             values = self._client.read_device(addr, 2)
+            # FIXED: P2-2 同上，浮点读取需要2个字
+            if not isinstance(values, (list, tuple)) or len(values) < 2:
+                raise ValueError(f"32-bit float read failed: expected 2 words, got {type(values)}")
             raw = struct.pack(">HH", values[0] & 0xFFFF, values[1] & 0xFFFF)
             return struct.unpack(">f", raw)[0]
         else:
