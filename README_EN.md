@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi\&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Vue](https://img.shields.io/badge/Vue-3.4%2B-4FC08D?logo=vue.js\&logoColor=white)](https://vuejs.org/)
-[![Version](https://img.shields.io/badge/version-1.0.1--community-brightgreen)](https://github.com/suoten/EdgeLiteGateway)
+[![Version](https://img.shields.io/badge/version-1.0.2--community-brightgreen)](https://github.com/suoten/EdgeLiteGateway)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker\&logoColor=white)](https://www.docker.com/)
 [![ONNX](https://img.shields.io/badge/ONNX-Runtime-FF6F00?logo=onnx\&logoColor=white)](https://onnxruntime.ai/)
 
@@ -59,6 +59,36 @@ MQTT offline cache is disabled by default. When enabled, messages are automatica
    - **Max Retries**: default 5
    - **Retry Interval (ms)**: default 5000
 4. Click **Save** — messages are automatically cached during network interruption and retransmitted upon recovery
+
+</details>
+
+<details>
+<summary>⚙️ New Config Options in v1.0.2 (click to expand)</summary>
+
+**scheduler section** (`configs/config.yaml`):
+
+```yaml
+scheduler:
+  max_concurrent_collects: 50    # Max concurrent collections
+  error_rate_threshold: 0.1      # Frame error rate alert threshold (10%)
+  watchdog_interval: 10          # Watchdog cycles (auto-restart Task on timeout)
+```
+
+**InfluxDB Retention Policy**:
+
+```yaml
+influxdb:
+  retention_days: 30             # Data retention days (default 30)
+```
+
+**Point Optional Fields** (jump detection + range validation):
+
+```yaml
+# New optional fields in point config:
+jump_threshold: 10.0             # Jump threshold (exceeds → quality=suspect)
+min_value: 0.0                   # Min value (below → quality=out_of_range)
+max_value: 100.0                 # Max value (above → quality=out_of_range)
+```
 
 </details>
 
@@ -287,6 +317,31 @@ flowchart LR
 - **Multi-Gateway Cascade Discovery**: Automatically discovers neighbor gateways via mDNS and builds cascade topology, supporting large-scale deployment scenarios with gateway interconnection (P1)
 - **Edge AI Inference Engine**: ONNX Runtime inference / 3 preset models (anomaly detection / trend prediction / dynamic threshold) / model hot reload / AI rule integration / AI inference dashboard (P2)
 
+### 🔗 Link Reliability Enhancements (v1.0.2)
+
+- **OPC-UA Security Mode**: None / Sign / SignAndEncrypt security modes + certificate path configuration
+- **S7 Auto-Reconnect**: Exponential backoff reconnect (1s→60s) + Rack/Slot range validation (0-7/0-31) + common PLC model hints
+- **Collection Latency Monitoring**: Real-time per-device collection latency/timeout stats, `GET /collect-stats` endpoint
+- **Data Quality Assessment**: Jump detection (quality=suspect) + range validation (quality=out_of_range)
+- **Frame Error Rate Alert**: Auto-degrade alert when device error rate exceeds 10%
+- **Driver Watchdog**: Mark stale after 3 cycles with no output, auto-restart collection Task after 10 cycles
+- **Concurrency Control**: Semaphore limits max concurrent collections (default 50)
+- **InfluxDB Retention Policy**: Auto-create 30-day data retention policy (configurable)
+- **Floating-Point Precision Guard**: `round(value, 6)` to avoid floating-point noise
+
+### 🎨 AI Vision Enhancements (v1.0.2)
+
+- **Alert Center**: AI stats cards + purple highlighted rows + AI gradient labels + AI detail popup (anomaly score gauge) + All/AI/Threshold filter
+- **AI Model Management**: Engine status panel (purple gradient) + preset model card grid + inference test enhancements (simulated data + anomaly score ring) + performance progress bars
+- **Dashboard**: Collection engine panel (4 stats cards + active device list + data waterfall animation)
+- **Device List**: Collection status column (pulse dot + frequency) + today's data column + online/offline/abnormal filter
+
+### 🌐 i18n Fixes (v1.0.2)
+
+- MCP tool descriptions i18n-ized
+- Integration column names i18n-ized
+- Menu "平台对接" renamed to "RPC反控" to eliminate duplication
+
 ### Platform & System
 
 - **Auth**: JWT (Access + Refresh) + RBAC `admin / operator / viewer`
@@ -315,7 +370,7 @@ flowchart LR
 | --- | --- |
 | ![](docs/images/7.png) | ![](docs/images/8.png) |
 
-> Screenshots from Community Edition v1.0.1
+> Screenshots from Community Edition v1.0.2
 
 ***
 
@@ -503,7 +558,7 @@ EdgeLite is positioned as a **full-stack edge computing gateway** — not just i
 
 ## 📊 Versions & Roadmap
 
-> **Release Date: 2026-05-20**
+> **Release Date: 2026-05-22**
 
 ### Version Comparison
 
