@@ -25,7 +25,10 @@ class OpcUaDriver(DriverPlugin):
             {"name": "endpoint", "type": "string", "label": "OPC UA Endpoint", "description": "OPC UA server endpoint URL", "default": "opc.tcp://localhost:4840", "required": True},  # FIXED: 原问题-中文硬编码label/description
             {"name": "username", "type": "string", "label": "Username", "description": "Leave empty for anonymous login"},  # FIXED: 原问题-中文硬编码label/description
             {"name": "password", "type": "string", "label": "Password", "description": "User password, leave empty for anonymous login", "secret": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "security_mode", "type": "string", "label": "Security Mode", "description": "Encryption mode, None=plaintext, SignAndEncrypt=highest security", "default": "None", "options": ["None", "Sign", "SignAndEncrypt"]},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "security_mode", "type": "string", "label": "Security Mode", "description": "Encryption mode, None=plaintext, SignAndEncrypt=highest security", "default": "None", "options": ["None", "Sign", "SignAndEncrypt"]},
+            {"name": "client_cert_path", "type": "string", "label": "Client Cert Path", "description": "Path to client certificate file (PEM/DER)", "default": ""},
+            {"name": "client_key_path", "type": "string", "label": "Client Key Path", "description": "Path to client private key file (PEM/DER)", "default": ""},
+            {"name": "ca_cert_path", "type": "string", "label": "CA Cert Path", "description": "Path to CA certificate file (PEM/DER)", "default": ""},
         ],
     }
 
@@ -165,8 +168,17 @@ class OpcUaDriver(DriverPlugin):
         server_url = config.get("server_url", "opc.tcp://localhost:4840")
         username = config.get("username")
         password = config.get("password")
-        config.get("security_mode", "None")
+        security_mode_str = config.get("security_mode", "None")
+        client_cert_path = config.get("client_cert_path", "")
+        client_key_path = config.get("client_key_path", "")
+        ca_cert_path = config.get("ca_cert_path", "")
         use_subscription = config.get("use_subscription", True)
+
+        _SECURITY_MODE_MAP = {
+            "None": 1,
+            "Sign": 2,
+            "SignAndEncrypt": 3,
+        }
 
         while self._running:
             try:
@@ -174,14 +186,28 @@ class OpcUaDriver(DriverPlugin):
 
                 client = Client(server_url)
 
-                # 设置认证
                 if username and password:
                     client.set_user(username)
                     client.set_password(password)
 
+                security_mode_val = _SECURITY_MODE_MAP.get(security_mode_str, 1)
+                client.security_mode = security_mode_val
+
+                if client_cert_path and client_key_path:
+                    client.certificate = client_cert_path
+                    client.private_key = client_key_path
+                if ca_cert_path:
+                    client.server_certificate = ca_cert_path
+
+                logger.info(
+                    "OPC-UA安全模式: %s (mode=%d, cert=%s)",
+                    device_id, security_mode_val,
+                    "yes" if client_cert_path else "no",
+                )
+
                 await client.connect()
                 self._clients[device_id] = client
-                logger.info("OPC-UA连接成功: %s -> %s", device_id, server_url)
+                logger.info("OPC-UA连接成功: %s -> %s (security=%s)", device_id, server_url, security_mode_str)
 
                 # 创建订阅
                 if use_subscription:

@@ -275,11 +275,20 @@ async def get_plugin_manager(request: Request):
 
 
 async def get_event_bus(request: Request):
-    try:  # FIXED: 原问题-属性不存在时抛出AttributeError导致500
+    try:
         svc = _get_container(request).event_bus
     except AttributeError:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
-    # FIXED: 原问题-返回可能为None的对象，调用方直接访问属性崩溃
+    if svc is None:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
+    return svc
+
+
+async def get_scheduler(request: Request):
+    try:
+        svc = _get_container(request).scheduler
+    except AttributeError:
+        raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from None
     if svc is None:
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY)
     return svc
@@ -304,4 +313,5 @@ PreprocessorDep = Annotated[Any, Depends(get_preprocessor)]
 OtaManagerDep = Annotated[Any, Depends(get_ota_manager)]
 PluginManagerDep = Annotated[Any, Depends(get_plugin_manager)]
 EventBusDep = Annotated[Any, Depends(get_event_bus)]
+SchedulerDep = Annotated[Any, Depends(get_scheduler)]
 PaginationDep = Annotated[PaginationParams, Depends()]

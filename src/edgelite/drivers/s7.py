@@ -19,6 +19,13 @@ class S7Driver(DriverPlugin):
         rack: 机架号 (默认0)
         slot: 插槽号 (默认1，S7-1200/1500默认1，S7-300默认2)
         db_number: 数据块编号
+
+    常见PLC型号rack/slot配置参考:
+        S7-200:   rack=0, slot=1  (通过CP243扩展)
+        S7-300:   rack=0, slot=2  (CPU在slot 2)
+        S7-400:   rack=0, slot=2  (CPU在slot 2)
+        S7-1200:  rack=0, slot=1  (CPU在slot 1)
+        S7-1500:  rack=0, slot=1  (CPU在slot 1)
     """
 
     plugin_name = "siemens_s7"
@@ -28,16 +35,22 @@ class S7Driver(DriverPlugin):
         "description": "Siemens S7 PLC protocol (S7-200/300/400/1200/1500)",  # FIXED: 原问题-中文硬编码description
         "fields": [
             {"name": "host", "type": "string", "label": "IP Address", "description": "PLC IP address", "default": "192.168.1.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "rack", "type": "integer", "label": "Rack", "description": "Hardware rack number, usually 0", "default": 0},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "slot", "type": "integer", "label": "Slot", "description": "CPU slot number, S7-300 usually 2, S7-1200/1500 usually 0 or 1", "default": 1},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "rack", "type": "integer", "label": "Rack", "description": "Hardware rack number (0-7), usually 0", "default": 0},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "slot", "type": "integer", "label": "Slot", "description": "CPU slot number (0-31), S7-300 usually 2, S7-1200/1500 usually 0 or 1", "default": 1},  # FIXED: 原问题-中文硬编码label/description
         ],
     }
+
+    _MAX_RECONNECT_ATTEMPTS = 100
+    _RECONNECT_BASE_DELAY = 1.0
+    _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
         self._running = False
         self._client = None
         self._config: dict = {}
         self._lock = asyncio.Lock()
+        self._reconnect_count: int = 0
+        self._reconnect_delay: float = self._RECONNECT_BASE_DELAY
 
     async def start(self, config: dict) -> None:
         """启动S7驱动连接"""
@@ -51,22 +64,38 @@ class S7Driver(DriverPlugin):
 
         self._config = config
         ip = config.get("ip", "")
-        try:  # FIXED: 原问题-int(config.get())无保护，非数字字符串时ValueError
+        try:
             rack = int(config.get("rack", 0))
             slot = int(config.get("slot", 1))
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid S7 rack/slot config value: {e}") from e
 
         if not ip:
-            raise ValueError("S7 driver config missing 'ip' parameter")  # FIXED: 原问题-中文错误消息
+            raise ValueError("S7 driver config missing 'ip' parameter")
+
+        if not (0 <= rack <= 7):
+            raise ValueError(
+                f"S7 rack out of range [0-7], got {rack}. "
+                f"Common: S7-300/400 rack=0, S7-1200/1500 rack=0"
+            )
+        if not (0 <= slot <= 31):
+            raise ValueError(
+                f"S7 slot out of range [0-31], got {slot}. "
+                f"Common: S7-300 slot=2, S7-1200/1500 slot=1"
+            )
 
         try:
             self._client = snap7.client.Client()
             await asyncio.to_thread(self._client.connect, ip, rack, slot)
             self._running = True
+            self._reconnect_count = 0
+            self._reconnect_delay = self._RECONNECT_BASE_DELAY
             logger.info("S7驱动连接成功: %s (rack=%d, slot=%d)", ip, rack, slot)
         except Exception as e:
-            logger.error("S7驱动连接失败: %s - %s", ip, e)
+            logger.error(
+                "S7驱动连接失败: %s (rack=%d, slot=%d) - %s。请检查IP地址及rack/slot配置",
+                ip, rack, slot, e,
+            )
             raise
 
     async def stop(self) -> None:
@@ -92,16 +121,19 @@ class S7Driver(DriverPlugin):
             R - 实数(FLOAT32)
         """
         if not self._running or not self._client:
+            await self._try_reconnect(device_id)
             return {}
 
         result = {}
         async with self._lock:
-            # 批量读取：一次to_thread调用读取所有点，避免N次线程切换
             try:
                 values = await asyncio.to_thread(self._read_points_batch, points)
                 result = values
             except Exception as e:
                 logger.warning("S7批量读取失败，退回逐点读取: %s", e)
+                if not self._is_connected():
+                    await self._try_reconnect(device_id)
+                    return {}
                 for point_addr in points:
                     try:
                         value = await asyncio.to_thread(self._read_point, point_addr)
@@ -170,6 +202,7 @@ class S7Driver(DriverPlugin):
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         """写入S7 PLC测点值"""
         if not self._running or not self._client:
+            await self._try_reconnect(device_id)
             return False
 
         try:
@@ -178,6 +211,8 @@ class S7Driver(DriverPlugin):
             return True
         except Exception as e:
             logger.error("S7写入失败 %s: %s", point, e)
+            if not self._is_connected():
+                await self._try_reconnect(device_id)
             return False
 
     def _write_point(self, address: str, value: Any) -> None:
@@ -218,3 +253,64 @@ class S7Driver(DriverPlugin):
     async def discover_devices(self, config: dict) -> list[dict]:
         """S7协议不支持自动发现，返回空列表"""
         return []
+
+    def _is_connected(self) -> bool:
+        """检查S7客户端连接状态"""
+        if not self._client:
+            return False
+        try:
+            return self._client.get_connected()
+        except Exception:
+            return False
+
+    async def _try_reconnect(self, device_id: str) -> None:
+        """指数退避重连：初始1秒，最大60秒，每次翻倍，最多100次"""
+        if not self._config:
+            return
+
+        self._reconnect_count += 1
+        if self._reconnect_count > self._MAX_RECONNECT_ATTEMPTS:
+            logger.error(
+                "S7重连放弃: %s (已重试%d次)，设备标记offline",
+                device_id, self._reconnect_count,
+            )
+            self._running = False
+            return
+
+        delay = min(self._reconnect_delay, self._RECONNECT_MAX_DELAY)
+        logger.warning(
+            "S7连接断开，%0.1fs后重连 (第%d次): %s",
+            delay, self._reconnect_count, device_id,
+        )
+        await asyncio.sleep(delay)
+        self._reconnect_delay *= 2
+
+        ip = self._config.get("ip", "")
+        rack = int(self._config.get("rack", 0))
+        slot = int(self._config.get("slot", 1))
+
+        try:
+            import snap7
+        except ImportError:
+            return
+
+        if self._client:
+            try:
+                await asyncio.to_thread(self._client.disconnect)
+            except Exception:
+                pass
+
+        try:
+            self._client = snap7.client.Client()
+            await asyncio.to_thread(self._client.connect, ip, rack, slot)
+            self._running = True
+            self._reconnect_count = 0
+            self._reconnect_delay = self._RECONNECT_BASE_DELAY
+            logger.info(
+                "S7重连成功: %s (rack=%d, slot=%d)", ip, rack, slot,
+            )
+        except Exception as e:
+            logger.error(
+                "S7重连失败: %s (rack=%d, slot=%d) - %s",
+                ip, rack, slot, e,
+            )

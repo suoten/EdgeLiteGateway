@@ -38,6 +38,7 @@ influxdb:
   bucket: "edgelite"               # Bucket 名（需与 InfluxDB 初始化时一致）
   batch_size: 1000                 # 批量写入数据点数，增大可提高吞吐量（范围：100-10000）
   flush_interval: 5000             # 批量刷新间隔（毫秒），增大可减少写入频率（范围：1000-30000）
+  retention_days: 30               # 数据保留天数，超期自动删除（范围：1-3650，默认30）
 
 # ── MQTT 北向转发 ────────────────────────────────────────
 mqtt:
@@ -230,3 +231,11 @@ platforms: {}
 #   service_name: "EdgeLite"         # mDNS服务名
 #   parent_host: ""                  # 父节点网关地址（空则为独立/父节点）
 #   parent_port: 8080                # 父节点网关端口
+
+# ── 采集调度配置 ─────────────────────────────────────
+# scheduler:
+#   max_concurrent_collects: 50      # 最大并发采集数，超过时排队等待（范围：1-500）
+#   error_rate_threshold: 0.1        # 帧错误率告警阈值（0.1=10%），超阈值发布告警事件
+#   watchdog_interval: 30            # 看门狗检查间隔（秒），范围 5-300
+#   watchdog_stale_cycles: 3         # 设备标记stale的未产出周期数
+#   watchdog_restart_cycles: 10      # 设备采集Task重启的未产出周期数

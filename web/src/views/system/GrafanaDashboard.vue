@@ -55,8 +55,8 @@
           <n-form-item-gi :label="t('grafana.address')" path="url">
             <n-input v-model:value="configForm.url" placeholder="http://localhost:3001" />
           </n-form-item-gi>
-          <n-form-item-gi label="API Key" path="api_key">
-            <n-input v-model:value="configForm.api_key" type="password" show-password-on="click" placeholder="Grafana API Key" />
+          <n-form-item-gi :label="t('grafana.apiKey')" path="api_key">
+            <n-input v-model:value="configForm.api_key" type="password" show-password-on="click" :placeholder="t('grafana.apiKeyPlaceholder')" />
           </n-form-item-gi>
           <n-form-item-gi :label="t('grafana.datasourceName')" path="datasource">
             <n-input v-model:value="configForm.datasource" placeholder="InfluxDB" />

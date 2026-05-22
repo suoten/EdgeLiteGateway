@@ -402,6 +402,7 @@ class RuleEvaluator:
                     "device_id": device_id,
                     "severity": severity,
                     "trigger_value": trigger_value,
+                    "rule_type": rule.get("rule_type", "threshold"),
                 }
             )
         except Exception as e:

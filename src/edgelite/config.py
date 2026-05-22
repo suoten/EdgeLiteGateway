@@ -42,6 +42,7 @@ class InfluxDBConfig(BaseModel):
     bucket: str = "edgelite"
     batch_size: int = 1000
     flush_interval: int = 5000
+    retention_days: int = Field(default=30, ge=1, le=3650)
 
 
 class MQTTConfig(BaseModel):
@@ -273,6 +274,16 @@ class DriversConfig(BaseModel):
     auto_reload: bool = False
 
 
+class SchedulerConfig(BaseModel):
+    """采集调度配置"""
+
+    max_concurrent_collects: int = Field(default=50, ge=1, le=500)
+    error_rate_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
+    watchdog_interval: int = Field(default=30, ge=5, le=300)
+    watchdog_stale_cycles: int = Field(default=3, ge=1, le=20)
+    watchdog_restart_cycles: int = Field(default=10, ge=3, le=100)
+
+
 class AppConfig(BaseModel):
     server: ServerConfig = ServerConfig()
     database: DatabaseConfig = DatabaseConfig()
@@ -296,6 +307,7 @@ class AppConfig(BaseModel):
     mcp_server: McpServerConfig = Field(default_factory=McpServerConfig)
     grafana: GrafanaConfig = Field(default_factory=GrafanaConfig)
     drivers: DriversConfig = Field(default_factory=DriversConfig)
+    scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     ai_inference: AiInferenceConfig = Field(default_factory=AiInferenceConfig)
     ota_update_url: str = ""
 

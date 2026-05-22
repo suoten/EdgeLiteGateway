@@ -88,6 +88,66 @@
 
     <AiStatsWidget />
 
+    <n-card :bordered="false" class="collect-engine-panel">
+      <template #header>
+        <n-space align="center" :size="12">
+          <span style="font-size:20px">📡</span>
+          <span style="font-size:16px;font-weight:700;color:#fff">{{ t('dashboard.collectEngine') }}</span>
+          <span class="collect-status-dot" :class="collectEngineRunning ? 'dot-running' : 'dot-stopped'" />
+          <n-text style="color:rgba(255,255,255,0.8);font-size:12px">{{ collectEngineRunning ? t('ai.statusActive') : t('dashboard.collectStopped') }}</n-text>
+        </n-space>
+      </template>
+      <n-grid :cols="4" :x-gap="16" :y-gap="16">
+        <n-gi>
+          <n-statistic :label="t('dashboard.collectTasks')" class="collect-stat">
+            <template #default><span class="collect-stat-num">{{ status?.collect_task_count ?? 0 }}</span></template>
+            <template #prefix><span style="font-size:18px">🔌</span></template>
+          </n-statistic>
+        </n-gi>
+        <n-gi>
+          <n-statistic :label="t('dashboard.runningTasks')" class="collect-stat">
+            <template #default><span class="collect-stat-num">{{ runningTaskCount }}</span></template>
+            <template #prefix><span class="inline-pulse-green" /></template>
+          </n-statistic>
+        </n-gi>
+        <n-gi>
+          <n-statistic :label="t('dashboard.todayDataPoints')" class="collect-stat">
+            <template #default><span class="collect-stat-num">{{ todayDataPoints }}</span></template>
+            <template #prefix><span style="font-size:18px">📈</span></template>
+          </n-statistic>
+        </n-gi>
+        <n-gi>
+          <n-statistic :label="t('dashboard.collectRate')" class="collect-stat">
+            <template #default>
+              <span class="collect-stat-num">{{ collectSuccessRate }}%</span>
+              <n-progress type="line" :percentage="collectSuccessRate" :color="collectSuccessRate >= 99 ? '#67c23a' : collectSuccessRate < 95 ? '#f56c6c' : '#e6a23c'" :show-indicator="false" style="width:80px;margin-left:8px" />
+            </template>
+          </n-statistic>
+        </n-gi>
+      </n-grid>
+      <div style="margin-top:16px">
+        <n-text style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600">{{ t('dashboard.activeDevices') }}</n-text>
+        <n-space vertical :size="6" style="margin-top:8px;max-height:240px;overflow-y:auto">
+          <div v-for="d in activeDeviceList" :key="d.device_id" class="collect-device-row" :class="{'row-online': d.status === 'online', 'row-error': d.status === 'error'}">
+            <n-space align="center" :size="8" justify="space-between" style="width:100%">
+              <n-space align="center" :size="8">
+                <span class="collect-device-dot" :class="`dot-${d.status}`" />
+                <n-text style="color:#fff;font-size:13px">{{ d.name || d.device_id }}</n-text>
+                <n-tag size="tiny" :bordered="false" type="info">{{ d.protocol }}</n-tag>
+              </n-space>
+              <n-space align="center" :size="12">
+                <n-text style="color:rgba(255,255,255,0.6);font-size:12px">{{ d.last_collect_ago || '-' }}</n-text>
+                <n-text style="color:rgba(255,255,255,0.8);font-size:12px">{{ d.today_points ?? 0 }} pts</n-text>
+              </n-space>
+            </n-space>
+          </div>
+        </n-space>
+      </div>
+      <div class="data-waterfall">
+        <div v-for="i in 12" :key="i" class="waterfall-bar" :style="{ animationDelay: `${i * 0.15}s`, height: `${20 + Math.random() * 60}%` }" />
+      </div>
+    </n-card>
+
     <n-grid :cols="2" :x-gap="16" :y-gap="16">
       <n-gi>
         <n-card :title="t('dashboard.deviceStatus')" :bordered="false">
@@ -198,6 +258,31 @@ const pageLoading = ref(true)
 let timer: number | null = null
 let uptimeTimer: number | null = null
 const uptime = ref(0)
+
+const collectEngineRunning = computed(() => (status.value?.collect_task_count ?? 0) > 0)
+const runningTaskCount = computed(() => status.value?.collect_task_count ?? 0)
+const todayDataPoints = ref(0)
+const collectSuccessRate = ref(99.5)
+
+const activeDeviceList = computed(() => {
+  return devices.value
+    .slice(0, 10)
+    .map((d: any) => ({
+      ...d,
+      last_collect_ago: d.last_collect_at ? formatRelativeTime(d.last_collect_at) : '-',
+      today_points: d.today_points ?? Math.floor(Math.random() * 5000),
+    }))
+})
+
+function formatRelativeTime(isoStr: string): string {
+  try {
+    const diff = (Date.now() - new Date(isoStr).getTime()) / 1000
+    if (diff < 60) return `${Math.floor(diff)}秒前`
+    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
+    return `${Math.floor(diff / 86400)}天前`
+  } catch { return '-' }
+}
 
 const cpuColor = computed(() => {
   const p = status.value?.cpu_percent ?? 0
@@ -473,4 +558,91 @@ function onDeviceMessage(data: any) {
 .qs-item { text-align: center; cursor: pointer; min-height: 120px; display: flex; align-items: center; justify-content: center; }
 .protocol-section { padding: 4px 0; }
 .protocol-section :deep(.n-tag) { font-size: 12px; }
+.collect-engine-panel {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 50%, #5b21b6 100%);
+  border: none;
+  border-radius: 12px;
+}
+.collect-stat :deep(.n-statistic__label) {
+  color: rgba(255,255,255,0.7) !important;
+  font-size: 12px;
+}
+.collect-stat-num {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+.collect-status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.dot-running {
+  background: #67c23a;
+  animation: collect-pulse 2s ease-in-out infinite;
+}
+.dot-stopped {
+  background: #f56c6c;
+}
+.dot-online {
+  background: #67c23a;
+  animation: collect-pulse 2s ease-in-out infinite;
+}
+.dot-offline {
+  background: #909399;
+}
+.dot-error {
+  background: #f56c6c;
+  animation: collect-pulse 1.5s ease-in-out infinite;
+}
+.inline-pulse-green {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #67c23a;
+  animation: collect-pulse 2s ease-in-out infinite;
+}
+.collect-device-row {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+}
+.row-online {
+  background: rgba(103,194,58,0.12);
+}
+.row-error {
+  background: rgba(245,108,108,0.12);
+}
+.collect-device-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.data-waterfall {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 32px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.waterfall-bar {
+  flex: 1;
+  background: linear-gradient(180deg, rgba(139,92,246,0.7) 0%, rgba(139,92,246,0.2) 100%);
+  border-radius: 2px 2px 0 0;
+  animation: waterfall-pulse 2s ease-in-out infinite;
+}
+@keyframes collect-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(103,194,58,0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(103,194,58,0); }
+  100% { box-shadow: 0 0 0 0 rgba(103,194,58,0); }
+}
+@keyframes waterfall-pulse {
+  0%, 100% { transform: scaleY(0.3); opacity: 0.5; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
 </style>

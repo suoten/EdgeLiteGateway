@@ -11,6 +11,7 @@ from edgelite.api.deps import (
     CurrentUser,
     DeviceServiceDep,
     PaginationDep,
+    SchedulerDep,
     require_permission,
 )
 from edgelite.api.error_codes import DeviceErrors
@@ -263,3 +264,42 @@ async def push_device_data(
         logger.error("push_device_data failed: %s", e)
         # FIXED: 原问题-中文硬编码detail
         raise HTTPException(status_code=500, detail=DeviceErrors.PUSH_FAILED) from e
+
+
+@router.get("/collect-stats", response_model=ApiResponse)
+async def get_collect_stats(
+    scheduler: SchedulerDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_READ),
+):
+    try:
+        stats = scheduler.get_collect_stats()
+        return ApiResponse(data={k: {
+            "device_id": v.device_id,
+            "avg_latency_ms": round(v.avg_latency_ms, 2),
+            "max_latency_ms": round(v.max_latency_ms, 2),
+            "total_calls": v.total_calls,
+            "timeout_count": v.timeout_count,
+            "last_collect_at": v.last_collect_at,
+        } for k, v in stats.items()})
+    except Exception as e:
+        logger.error("get_collect_stats failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/device-quality-stats", response_model=ApiResponse)
+async def get_device_quality_stats(
+    scheduler: SchedulerDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_READ),
+):
+    try:
+        stats = scheduler.get_device_quality_stats()
+        return ApiResponse(data={k: {
+            "device_id": v.device_id,
+            "success_count": v.success_count,
+            "error_count": v.error_count,
+            "total_count": v.total_count,
+            "error_rate": round(v.error_rate, 4),
+        } for k, v in stats.items()})
+    except Exception as e:
+        logger.error("get_device_quality_stats failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e

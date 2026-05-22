@@ -62,7 +62,7 @@
             </template>
             <n-descriptions label-placement="left" :column="2" bordered>
               <n-descriptions-item :label="t('cascade.role')">{{ topology.status || 'standalone' }}</n-descriptions-item>
-              <n-descriptions-item :label="'ID'">{{ topology.local_id || '-' }}</n-descriptions-item>
+              <n-descriptions-item :label="t('cascade.nodeId')">{{ topology.local_id || '-' }}</n-descriptions-item>
               <n-descriptions-item :label="t('cascade.parent')">{{ topology.parent_id || '-' }}</n-descriptions-item>
               <n-descriptions-item :label="t('cascade.child')">{{ (topology.children || []).join(', ') || '-' }}</n-descriptions-item>
             </n-descriptions>

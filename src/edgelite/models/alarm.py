@@ -22,6 +22,7 @@ class AlarmResponse(BaseModel):
     acknowledged_at: str | None = None
     acknowledged_by: str | None = None
     recovered_at: str | None = None
+    rule_type: str = "threshold"
 
 
 class AlarmAckRequest(BaseModel):

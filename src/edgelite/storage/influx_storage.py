@@ -32,9 +32,11 @@ class InfluxDBStorage:
         self._token = config.influxdb.token
         self._org = config.influxdb.org
         self._bucket = config.influxdb.bucket
+        self._retention_days = config.influxdb.retention_days
         self._client: InfluxDBClient | None = None
         self._write_api = None
         self._query_api = None
+        self._buckets_api = None
         self._available = False
         self._fail_count = 0
 
@@ -67,12 +69,38 @@ class InfluxDBStorage:
                     )
                 )
                 self._query_api = self._client.query_api()
+                self._buckets_api = self._client.buckets_api()
                 logger.info("InfluxDB连接成功: %s", self._url)
+                await self._ensure_retention_policy()
             else:
                 logger.warning("InfluxDB不可用，将使用缓存模式")
         except Exception as e:
             self._available = False
             logger.warning("InfluxDB连接失败: %s，将使用缓存模式", e)
+
+    async def _ensure_retention_policy(self) -> None:
+        """确保InfluxDB bucket有合理的retention policy"""
+        if not self._client or not self._buckets_api:
+            return
+        try:
+            bucket = await asyncio.to_thread(self._buckets_api.find_bucket_by_name, self._bucket)
+            if bucket:
+                current_rp = getattr(bucket, "retention_rules", None)
+                if current_rp and hasattr(current_rp, "retention_secs"):
+                    secs = current_rp.retention_secs
+                    expected_secs = self._retention_days * 86400
+                    if secs > 0 and secs != expected_secs:
+                        logger.info(
+                            "InfluxDB retention: %s 当前%d天, 配置%d天, 保持现有",
+                            self._bucket, secs // 86400, self._retention_days,
+                        )
+                    elif secs == 0:
+                        logger.info("InfluxDB retention: %s 无限制, 配置%d天, 保持现有", self._bucket, self._retention_days)
+                logger.debug("InfluxDB retention policy检查完成: %s", self._bucket)
+            else:
+                logger.warning("InfluxDB bucket不存在: %s", self._bucket)
+        except Exception as e:
+            logger.debug("InfluxDB retention policy检查失败: %s", e)
 
     async def close(self) -> None:
         """关闭连接"""

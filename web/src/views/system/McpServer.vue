@@ -3,7 +3,7 @@
     <n-card :bordered="false">
       <template #header>
         <n-space align="center" :size="12">
-          <span style="font-size: 16px; font-weight: 600">MCP Server</span>
+          <span style="font-size: 16px; font-weight: 600">{{ t('mcpServer.title') }}</span>
           <n-tag :type="stateTagType" size="small">{{ stateLabel }}</n-tag>
         </n-space>
       </template>
@@ -41,6 +41,7 @@
       <template v-if="enabled">
         <n-descriptions label-placement="left" :column="2" bordered>
           <n-descriptions-item :label="t('mcpServer.version')">EdgeLite MCP v1.0</n-descriptions-item>
+          <!-- version string is protocol identifier, keep as-is -->
           <n-descriptions-item :label="t('mcpServer.sseEndpoint')">/api/v1/mcp/sse（{{ t('mcpServer.sseHint') }}）</n-descriptions-item>
           <n-descriptions-item :label="t('mcpServer.apiKeyAuth')">
             <n-space align="center" :size="8">
@@ -225,11 +226,27 @@ const stateLabel = computed(() => {
 })
 
 // FIXED: 原问题-表格列标题中文硬编码，改为i18n
+const mcpToolDescMap: Record<string, string> = {
+  list_devices: 'mcpServer.toolListDevicesDesc',
+  get_device_status: 'mcpServer.toolGetDeviceStatusDesc',
+  read_device_points: 'mcpServer.toolReadDevicePointsDesc',
+  write_device_point: 'mcpServer.toolWriteDevicePointDesc',
+  list_alarms: 'mcpServer.toolListAlarmsDesc',
+  get_system_status: 'mcpServer.toolGetSystemStatusDesc',
+  list_rules: 'mcpServer.toolListRulesDesc',
+}
+
 const toolColumns = [
   { title: t('ruleList.name'), key: 'name', width: 200 },
-  { title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true } },
   {
-    title: t('common.actions'), key: 'action', width: 100,  // FIXED: 原问题-跨域误用alarmList.actions
+    title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true },
+    render: (row: any) => {
+      const i18nKey = mcpToolDescMap[row.name]
+      return i18nKey ? t(i18nKey) : (row.description || '-')
+    },
+  },
+  {
+    title: t('common.actions'), key: 'action', width: 100,
     render: (row: any) => h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openToolCall(row) }, { default: () => t('common.confirm') }),
   },
 ]
@@ -237,12 +254,18 @@ const toolColumns = [
 const resourceColumns = [
   { title: 'URI', key: 'uri', width: 250 },
   { title: t('ruleList.name'), key: 'name', width: 200 },
-  { title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true } },
+  {
+    title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true },
+    render: (row: any) => row.description || '-',
+  },
 ]
 
 const promptColumns = [
   { title: t('ruleList.name'), key: 'name', width: 200 },
-  { title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true } },
+  {
+    title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true },
+    render: (row: any) => row.description || '-',
+  },
 ]
 
 const keyColumns = [
@@ -330,7 +353,7 @@ async function handleToggle(val: boolean) {
   if (!val) {
     dialog.warning({
       title: t('serviceOverview.disableTitle'),
-      content: t('serviceOverview.disableContent', { name: 'MCP Server' }),
+      content: t('serviceOverview.disableContent', { name: t('mcpServer.title') }),
       positiveText: t('serviceOverview.confirmDisable'),
       negativeText: t('common.cancel'),
       onPositiveClick: () => doToggleMcp(false),

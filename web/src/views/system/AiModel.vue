@@ -1,28 +1,50 @@
 <template>
   <n-space vertical :size="16">
-    <n-grid :cols="3" :x-gap="12" :y-gap="12">
-      <n-gi>
-        <n-card size="small" :bordered="true">
-          <n-statistic :label="t('ai.modelCount')">
-            <n-number-animation :from="0" :to="models.length" :duration="500" />
-          </n-statistic>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card size="small" :bordered="true">
-          <n-statistic :label="t('ai.totalCalls')">
-            <n-number-animation :from="0" :to="stats.totalCalls" :duration="500" />
-          </n-statistic>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card size="small" :bordered="true">
-          <n-statistic :label="t('ai.totalErrors')">
-            <n-number-animation :from="0" :to="stats.totalErrors" :duration="500" />
-          </n-statistic>
-        </n-card>
-      </n-gi>
-    </n-grid>
+    <n-card :bordered="false" class="ai-engine-panel">
+      <n-grid :cols="24" :x-gap="16" align="center">
+        <n-gi :span="8">
+          <n-space align="center" :size="16">
+            <span style="font-size:48px">🧠</span>
+            <div>
+              <div style="font-size:20px;font-weight:700;color:#fff">{{ t('ai.engineStatus') }}</div>
+              <n-tag :type="aiEnabled ? 'success' : 'default'" size="small" :bordered="false" round>
+                {{ aiEnabled ? t('ai.statusActive') : t('ai.statusUnavailable') }}
+              </n-tag>
+            </div>
+          </n-space>
+        </n-gi>
+        <n-gi :span="16">
+          <n-grid :cols="4" :x-gap="16">
+            <n-gi>
+              <n-statistic :label="t('ai.modelCount')" class="engine-stat">
+                <template #default><span class="engine-stat-num">{{ models.length }}</span></template>
+              </n-statistic>
+            </n-gi>
+            <n-gi>
+              <n-statistic :label="t('ai.activeModels')" class="engine-stat">
+                <template #default><span class="engine-stat-num">{{ activeModelCount }}</span></template>
+              </n-statistic>
+            </n-gi>
+            <n-gi>
+              <n-statistic :label="t('ai.totalCalls')" class="engine-stat">
+                <template #default><span class="engine-stat-num">{{ stats.totalCalls }}</span></template>
+              </n-statistic>
+            </n-gi>
+            <n-gi>
+              <n-statistic :label="t('ai.avgLatency')" class="engine-stat">
+                <template #default><span class="engine-stat-num">{{ stats.avgLatencyMs }}</span></template>
+                <template #suffix><span class="engine-stat-suffix">ms</span></template>
+              </n-statistic>
+            </n-gi>
+          </n-grid>
+        </n-gi>
+      </n-grid>
+      <div class="engine-footer">
+        <n-text class="engine-footer-text">{{ t('ai.engineVersion') }}: ONNX Runtime</n-text>
+        <n-divider vertical />
+        <n-text class="engine-footer-text">{{ t('ai.engineDevice') }}: CPU</n-text>
+      </div>
+    </n-card>
 
     <n-card :bordered="false">
       <template #header>
@@ -54,41 +76,109 @@
       </n-data-table>
     </n-card>
 
-    <n-grid :cols="3" :x-gap="12" :y-gap="12">
-      <n-gi>
-        <n-card size="small" :bordered="true">
-          <template #header>
-            <n-space align="center" :size="8">
-              <n-tag type="info" size="small" round>AI</n-tag>
-              <span>{{ t('ai.typeAnomaly') }}</span>
-            </n-space>
-          </template>
-          <n-text depth="3">{{ t('ai.presetAnomalyDesc') }}</n-text>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card size="small" :bordered="true">
-          <template #header>
-            <n-space align="center" :size="8">
-              <n-tag type="warning" size="small" round>AI</n-tag>
-              <span>{{ t('ai.typeTrend') }}</span>
-            </n-space>
-          </template>
-          <n-text depth="3">{{ t('ai.presetTrendDesc') }}</n-text>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card size="small" :bordered="true">
-          <template #header>
-            <n-space align="center" :size="8">
-              <n-tag type="success" size="small" round>AI</n-tag>
-              <span>{{ t('ai.typeThreshold') }}</span>
-            </n-space>
-          </template>
-          <n-text depth="3">{{ t('ai.presetThresholdDesc') }}</n-text>
-        </n-card>
-      </n-gi>
-    </n-grid>
+    <n-card :bordered="false">
+      <template #header>
+        <span style="font-size: 16px; font-weight: 600">{{ t('ai.presetModels') }}</span>
+      </template>
+      <n-grid :cols="3" :x-gap="12" :y-gap="12">
+        <n-gi v-for="m in presetModels" :key="m.model_id">
+          <n-card size="small" :bordered="true" hoverable class="model-card">
+            <template #header>
+              <n-space align="center" :size="8">
+                <span style="font-size:20px">{{ modelIcon(m.model_type) }}</span>
+                <span style="font-weight:600">{{ m.model_name }}</span>
+                <n-tag size="small" :bordered="false" round>{{ m.model_version }}</n-tag>
+              </n-space>
+            </template>
+            <template #header-extra>
+              <n-space align="center" :size="6">
+                <span :class="['status-dot', `status-dot-${m.status}`]" />
+                <n-text depth="3" style="font-size:12px">{{ statusLabel(m.status) }}</n-text>
+              </n-space>
+            </template>
+            <n-text depth="3" style="font-size:13px">{{ presetDesc(m.model_id) }}</n-text>
+            <template #action>
+              <n-space justify="space-between" align="center">
+                <n-switch
+                  :value="m.status === 'active'"
+                  @update:value="m.status === 'active' ? handleDisable(m) : handleEnable(m)"
+                  size="small"
+                >
+                  <template #checked>{{ t('ai.statusActive') }}</template>
+                  <template #unchecked>{{ t('ai.statusInactive') }}</template>
+                </n-switch>
+                <n-button size="tiny" type="primary" @click="quickInference(m)">{{ t('ai.quickInference') }}</n-button>
+              </n-space>
+            </template>
+          </n-card>
+        </n-gi>
+      </n-grid>
+    </n-card>
+
+    <n-card v-if="customModels.length > 0" :bordered="false">
+      <template #header>
+        <span style="font-size: 16px; font-weight: 600">{{ t('ai.customModels') }}</span>
+      </template>
+      <n-grid :cols="3" :x-gap="12" :y-gap="12">
+        <n-gi v-for="m in customModels" :key="m.model_id">
+          <n-card size="small" :bordered="true" hoverable class="model-card">
+            <template #header>
+              <n-space align="center" :size="8">
+                <span style="font-size:20px">{{ modelIcon(m.model_type) }}</span>
+                <span style="font-weight:600">{{ m.model_name }}</span>
+                <n-tag size="small" :bordered="false" round>{{ m.model_version }}</n-tag>
+              </n-space>
+            </template>
+            <template #header-extra>
+              <n-space align="center" :size="6">
+                <span :class="['status-dot', `status-dot-${m.status}`]" />
+                <n-text depth="3" style="font-size:12px">{{ statusLabel(m.status) }}</n-text>
+              </n-space>
+            </template>
+            <n-text depth="3" style="font-size:13px">{{ m.model_file_path || '-' }}</n-text>
+            <template #action>
+              <n-space justify="space-between" align="center">
+                <n-switch
+                  :value="m.status === 'active'"
+                  @update:value="m.status === 'active' ? handleDisable(m) : handleEnable(m)"
+                  size="small"
+                />
+                <n-space :size="4">
+                  <n-button size="tiny" type="primary" @click="quickInference(m)">{{ t('ai.quickInference') }}</n-button>
+                  <n-popconfirm @positive-click="handleDelete(m)">
+                    <template #trigger>
+                      <n-button size="tiny" type="error">{{ t('common.delete') }}</n-button>
+                    </template>
+                    {{ t('ai.deleteConfirm') }}
+                  </n-popconfirm>
+                </n-space>
+              </n-space>
+            </template>
+          </n-card>
+        </n-gi>
+      </n-grid>
+    </n-card>
+
+    <n-card v-if="activeModelsWithStats.length > 0" :bordered="false">
+      <template #header>
+        <span style="font-size: 16px; font-weight: 600">{{ t('ai.modelPerformance') }}</span>
+      </template>
+      <n-space vertical :size="12">
+        <n-space v-for="m in activeModelsWithStats" :key="m.model_id" align="center" :size="12">
+          <n-tag size="small" :bordered="false" round type="info">{{ m.model_name }}</n-tag>
+          <n-space align="center" :size="8" style="flex:1">
+            <n-text depth="3" style="font-size:12px;white-space:nowrap">{{ t('ai.inferenceCount') }}:</n-text>
+            <n-progress type="line" :percentage="m.callPercent" :color="'#8b5cf6'" style="width:120px" :show-indicator="false" />
+            <n-text depth="3" style="font-size:12px">{{ m.inference_count ?? 0 }}</n-text>
+          </n-space>
+          <n-space align="center" :size="8">
+            <n-text depth="3" style="font-size:12px;white-space:nowrap">{{ t('ai.errorRate') }}:</n-text>
+            <n-progress type="line" :percentage="m.errorPercent" :color="m.errorPercent > 10 ? '#f56c6c' : '#67c23a'" style="width:80px" :show-indicator="false" />
+            <n-text depth="3" style="font-size:12px">{{ m.errorPercent }}%</n-text>
+          </n-space>
+        </n-space>
+      </n-space>
+    </n-card>
 
     <n-drawer v-model:show="showDetail" :width="480">
       <n-drawer-content :title="t('ai.title')">
@@ -114,8 +204,8 @@
       </n-drawer-content>
     </n-drawer>
 
-    <n-modal v-model:show="showInference" :title="t('ai.inference')" preset="card" style="width: 560px">
-      <n-space vertical :size="12">
+    <n-modal v-model:show="showInference" preset="card" style="width: 640px" :title="t('ai.inference')">
+      <n-space vertical :size="16">
         <n-form-item :label="t('ai.modelName')">
           <n-select
             :value="inferenceModelId"
@@ -125,18 +215,38 @@
           />
         </n-form-item>
         <n-form-item :label="t('ai.inputData')">
-          <n-input v-model:value="inferenceInput" type="textarea" :rows="4" placeholder="[1.0, 2.0, 3.0]" />
+          <n-space vertical :size="8" style="width:100%">
+            <n-input v-model:value="inferenceInput" type="textarea" :rows="4" placeholder="[1.0, 2.0, 3.0]" />
+            <n-button size="tiny" @click="fillSimulatedData">{{ t('ai.useSimulatedData') }}</n-button>
+          </n-space>
         </n-form-item>
-        <n-form-item v-if="inferenceResult" :label="t('ai.outputData')">
-          <n-input :value="inferenceResult" type="textarea" :rows="4" readonly />
-        </n-form-item>
-        <n-form-item v-if="inferenceLatency" :label="t('ai.latencyMs')">
-          <n-text>{{ inferenceLatency }}</n-text>
-        </n-form-item>
+        <template v-if="inferenceResult">
+          <n-card size="small" :bordered="true">
+            <n-space vertical :size="12">
+              <n-space align="center" :size="12">
+                <n-text strong style="font-size:13px">{{ t('ai.anomalyScore') }}</n-text>
+              </n-space>
+              <n-space align="center" :size="16">
+                <span style="font-size:36px;font-weight:700;color:#8b5cf6">{{ anomalyScoreDisplay }}</span>
+                <n-progress type="circle" :percentage="anomalyScorePercent" :stroke-width="10" :color="anomalyScorePercent > 80 ? '#f56c6c' : '#8b5cf6'" style="--n-size:80px" />
+              </n-space>
+              <n-space align="center" :size="8">
+                <n-text depth="3">{{ t('ai.latencyMs') }}:</n-text>
+                <n-text strong>{{ inferenceLatency }}</n-text>
+                <n-text depth="3">ms</n-text>
+              </n-space>
+              <n-collapse>
+                <n-collapse-item :title="t('ai.rawOutput')" name="raw">
+                  <n-code :code="inferenceResult" language="json" />
+                </n-collapse-item>
+              </n-collapse>
+            </n-space>
+          </n-card>
+        </template>
       </n-space>
       <template #action>
         <n-button @click="showInference = false">{{ t('common.cancel') }}</n-button>
-        <n-button type="primary" :loading="inferring" @click="handleInference">{{ t('common.confirm') }}</n-button>
+        <n-button type="primary" :loading="inferring" @click="handleInference">{{ t('ai.inference') }}</n-button>
       </template>
     </n-modal>
   </n-space>
@@ -167,6 +277,55 @@ const stats = reactive({
   totalErrors: 0,
   avgLatencyMs: 0,
 })
+
+const presetModels = computed(() => models.value.filter((m: any) => m.is_preset))
+const customModels = computed(() => models.value.filter((m: any) => !m.is_preset))
+const activeModelCount = computed(() => models.value.filter((m: any) => m.status === 'active').length)
+
+const activeModelsWithStats = computed(() => {
+  const maxCalls = Math.max(...models.value.map((m: any) => m.inference_count ?? 0), 1)
+  return models.value
+    .filter((m: any) => m.status === 'active')
+    .map((m: any) => ({
+      ...m,
+      callPercent: Math.round(((m.inference_count ?? 0) / maxCalls) * 100),
+      errorPercent: m.inference_count > 0 ? Math.round(((m.error_count ?? 0) / m.inference_count) * 100) : 0,
+    }))
+})
+
+const anomalyScoreDisplay = computed(() => {
+  try {
+    const parsed = JSON.parse(inferenceResult.value)
+    const score = parsed?.output_0?.[0] ?? parsed?.anomaly_score
+    return score != null ? Number(score).toFixed(4) : '-'
+  } catch { return '-' }
+})
+const anomalyScorePercent = computed(() => {
+  try {
+    const parsed = JSON.parse(inferenceResult.value)
+    const score = parsed?.output_0?.[0] ?? parsed?.anomaly_score
+    return score != null ? Math.round(Math.min(Math.abs(Number(score)), 1) * 100) : 0
+  } catch { return 0 }
+})
+
+function modelIcon(type: string) {
+  const map: Record<string, string> = { anomaly: '🔴', trend: '📈', threshold: '⚡', custom: '🧪' }
+  return map[type] || '🧪'
+}
+
+function presetDesc(modelId: string) {
+  const map: Record<string, string> = {
+    'preset-anomaly-v1': t('ai.presetAnomalyDesc'),
+    'preset-trend-v1': t('ai.presetTrendDesc'),
+    'preset-threshold-v1': t('ai.presetThresholdDesc'),
+    'preset-vibration-v1': t('ai.presetVibrationDesc'),
+    'preset-power-v1': t('ai.presetPowerDesc'),
+    'preset-quality-v1': t('ai.presetQualityDesc'),
+    'preset-battery-v1': t('ai.presetBatteryDesc'),
+    'preset-leak-v1': t('ai.presetLeakDesc'),
+  }
+  return map[modelId] || ''
+}
 
 function modelTypeLabel(type: string) {
   const map: Record<string, string> = {
@@ -331,6 +490,29 @@ function openInference() {
   showInference.value = true
 }
 
+function quickInference(m: any) {
+  inferenceModelId.value = m.model_id
+  inferenceInput.value = ''
+  inferenceResult.value = ''
+  inferenceLatency.value = ''
+  showInference.value = true
+}
+
+function fillSimulatedData() {
+  const target = models.value.find((m: any) => m.model_id === inferenceModelId.value)
+  if (!target) {
+    inferenceInput.value = JSON.stringify(Array.from({ length: 10 }, () => Math.random()))
+    return
+  }
+  try {
+    const schema = typeof target.input_schema === 'string' ? JSON.parse(target.input_schema) : target.input_schema
+    const size = schema?.shape?.[1] ?? 10
+    inferenceInput.value = JSON.stringify(Array.from({ length: size }, () => Math.round(Math.random() * 100) / 10))
+  } catch {
+    inferenceInput.value = JSON.stringify(Array.from({ length: 10 }, () => Math.random()))
+  }
+}
+
 async function handleInference() {
   if (!inferenceModelId.value) {
     message.warning(t('ai.modelName'))
@@ -358,3 +540,59 @@ onMounted(() => {
   fetchStats()
 })
 </script>
+
+<style scoped>
+.ai-engine-panel {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  border: none;
+  border-radius: 12px;
+}
+.engine-stat :deep(.n-statistic__label) {
+  color: rgba(255,255,255,0.7) !important;
+  font-size: 12px;
+}
+.engine-stat-num {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
+.engine-stat-suffix {
+  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+}
+.engine-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+}
+.engine-footer-text {
+  color: rgba(255,255,255,0.7) !important;
+  font-size: 12px;
+}
+.model-card {
+  transition: all 0.3s ease;
+}
+.model-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-dot-active {
+  background: #67c23a;
+  animation: status-pulse 2s ease-in-out infinite;
+}
+.status-dot-inactive { background: #c0c4cc; }
+.status-dot-unavailable { background: #f56c6c; }
+.status-dot-error { background: #f56c6c; }
+.status-dot-loading { background: #e6a23c; }
+@keyframes status-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(103,194,58,0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(103,194,58,0); }
+  100% { box-shadow: 0 0 0 0 rgba(103,194,58,0); }
+}
+</style>

@@ -5,6 +5,12 @@
         <n-input v-model:value="searchText" :placeholder="t('deviceList.searchPlaceholder')" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
         <n-select v-model:value="filterStatus" :options="statusOptions" :placeholder="t('deviceList.statusFilter')" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
         <n-select v-model:value="filterProtocol" :options="protocolOptions" :placeholder="t('deviceList.protocolFilter')" clearable style="width: 140px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
+        <n-button-group>
+          <n-button :type="collectFilter === 'all' ? 'primary' : 'default'" size="small" @click="collectFilter = 'all'; fetchDevices()">{{ t('common.all') }}</n-button>
+          <n-button :type="collectFilter === 'online' ? 'success' : 'default'" size="small" @click="collectFilter = 'online'; fetchDevices()">{{ t('deviceList.online') }}</n-button>
+          <n-button :type="collectFilter === 'offline' ? 'default' : 'default'" size="small" @click="collectFilter = 'offline'; fetchDevices()">{{ t('deviceList.offline') }}</n-button>
+          <n-button :type="collectFilter === 'error' ? 'error' : 'default'" size="small" @click="collectFilter = 'error'; fetchDevices()">{{ t('deviceList.error') }}</n-button>
+        </n-button-group>
       </n-space>
       <n-space>
         <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">{{ t('deviceList.batchDelete') }} ({{ checkedKeys.length }})</n-button>
@@ -165,6 +171,7 @@ const loading = ref(false)
 const searchText = ref('')
 const filterStatus = ref<string | null>(null)
 const filterProtocol = ref<string | null>(null)
+const collectFilter = ref('all')
 
 async function fetchDevices() {
   loading.value = true
@@ -311,6 +318,33 @@ const columns = [
   },
   { title: t('deviceList.pointCount'), key: 'points', width: 80, render: (row: Device) => row.points?.length ?? 0 },
   { title: t('deviceList.collectInterval'), key: 'collect_interval', width: 90, render: (row: Device) => `${row.collect_interval}s` },
+  {
+    title: t('deviceList.collectStatus'), key: 'collect_status', width: 120,
+    render: (row: Device) => {
+      const isOnline = row.status === 'online'
+      const isError = row.status === 'error'
+      const dotClass = isError ? 'dl-dot-error' : isOnline ? 'dl-dot-online' : 'dl-dot-offline'
+      const freqText = isOnline ? `${row.collect_interval}${t('deviceList.collectFrequency')}` : ''
+      return h(NSpace, { align: 'center', size: 6 }, {
+        default: () => [
+          h('span', { class: ['dl-status-dot', dotClass] }),
+          h('span', { style: 'font-size:12px' }, isError ? t('deviceList.error') : isOnline ? freqText || t('dashboard.online') : t('dashboard.offline')),
+        ],
+      })
+    },
+  },
+  {
+    title: t('deviceList.todayData'), key: 'today_data', width: 120,
+    render: (row: Device) => {
+      const pts = (row as any).today_points ?? 0
+      return h(NSpace, { align: 'center', size: 8 }, {
+        default: () => [
+          h('span', { style: 'font-size:12px' }, String(pts)),
+          h('span', { style: 'font-size:12px;color:#909399' }, 'pts'),
+        ],
+      })
+    },
+  },
   { title: t('deviceList.createTime'), key: 'created_at', width: 180 },
   {
     title: t('deviceList.actions'), key: 'actions', width: 200,
@@ -590,3 +624,28 @@ onUnmounted(() => {
   ws.disconnect('device', onDeviceWsMessage)
 })
 </script>
+
+<style scoped>
+.dl-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.dl-dot-online {
+  background: #67c23a;
+  animation: dl-pulse 2s ease-in-out infinite;
+}
+.dl-dot-offline {
+  background: #909399;
+}
+.dl-dot-error {
+  background: #f56c6c;
+  animation: dl-pulse 1.5s ease-in-out infinite;
+}
+@keyframes dl-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(103,194,58,0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(103,194,58,0); }
+  100% { box-shadow: 0 0 0 0 rgba(103,194,58,0); }
+}
+</style>

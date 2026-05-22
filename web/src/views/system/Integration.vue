@@ -22,17 +22,17 @@
           </n-space>
           <n-card v-if="lastResult" :title="t('common.actions')" size="small">
             <n-descriptions label-placement="left" :column="1" bordered>
-              <n-descriptions-item label="command_id">{{ lastResult.command_id }}</n-descriptions-item>
-              <n-descriptions-item label="success">
+              <n-descriptions-item :label="t('rpc.commandId')">{{ lastResult.command_id }}</n-descriptions-item>
+              <n-descriptions-item :label="t('rpc.successCol')">
                 <n-tag :type="lastResult.success ? 'success' : 'error'">{{ lastResult.success ? 'OK' : 'FAIL' }}</n-tag>
               </n-descriptions-item>
-              <n-descriptions-item v-if="lastResult.result" label="result">
+              <n-descriptions-item v-if="lastResult.result" :label="t('rpc.resultLabel')">
                 <n-code :code="JSON.stringify(lastResult.result, null, 2)" language="json" />
               </n-descriptions-item>
-              <n-descriptions-item v-if="lastResult.error" label="error">
+              <n-descriptions-item v-if="lastResult.error" :label="t('rpc.errorLabel')">
                 <n-text type="error">{{ lastResult.error }}</n-text>
               </n-descriptions-item>
-              <n-descriptions-item label="elapsed_ms">{{ lastResult.elapsed_ms?.toFixed(1) }} ms</n-descriptions-item>
+              <n-descriptions-item :label="t('rpc.elapsedMs')">{{ lastResult.elapsed_ms?.toFixed(1) }} ms</n-descriptions-item>
             </n-descriptions>
           </n-card>
         </n-space>
@@ -68,9 +68,9 @@ const historyColumns = [
   { title: 'ID', key: 'command_id', width: 120 },
   { title: t('rpc.method'), key: 'method' },
   { title: t('rpc.deviceId'), key: 'device_id' },
-  { title: 'Success', key: 'success', width: 80, render: (r: any) => h(NTag, { type: r.success ? 'success' : 'error', size: 'small' }, { default: () => r.success ? 'OK' : 'FAIL' }) },
-  { title: 'Elapsed(ms)', key: 'elapsed_ms', width: 100, render: (r: any) => r.elapsed_ms?.toFixed(1) },
-  { title: 'Time', key: 'timestamp', width: 160, render: (r: any) => r.timestamp ? new Date(r.timestamp * 1000).toLocaleString() : '-' },
+  { title: t('rpc.successCol'), key: 'success', width: 80, render: (r: any) => h(NTag, { type: r.success ? 'success' : 'error', size: 'small' }, { default: () => r.success ? 'OK' : 'FAIL' }) },
+  { title: t('rpc.elapsedMs'), key: 'elapsed_ms', width: 100, render: (r: any) => r.elapsed_ms?.toFixed(1) },
+  { title: t('rpc.time'), key: 'timestamp', width: 160, render: (r: any) => r.timestamp ? new Date(r.timestamp * 1000).toLocaleString() : '-' },
 ]
 
 async function loadDevices() {
@@ -86,7 +86,7 @@ async function handleExecute() {
     const params = JSON.parse(paramsJson.value)
     rpcForm.value.params = params
   } catch {
-    message.error('Invalid JSON params')
+    message.error(t('rpc.invalidJsonParams'))
     return
   }
   if (!rpcForm.value.device_id || !rpcForm.value.method) {

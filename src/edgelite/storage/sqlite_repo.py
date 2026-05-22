@@ -397,6 +397,7 @@ class AlarmRepo(BaseRepo):
                     trigger_value=json.dumps(data.get("trigger_value", {}), ensure_ascii=False),
                     trigger_count=1,
                     fired_at=now,
+                    rule_type=data.get("rule_type", "threshold"),
                 )
                 session.add(orm)
                 await self._commit(session)
@@ -722,6 +723,7 @@ def _orm_to_alarm(orm: AlarmORM) -> dict:
         "message": orm.message,
         "trigger_value": _safe_json_loads(orm.trigger_value),
         "trigger_count": orm.trigger_count,
+        "rule_type": orm.rule_type,
         "fired_at": orm.fired_at.isoformat()
         if isinstance(orm.fired_at, datetime)
         else str(orm.fired_at),
