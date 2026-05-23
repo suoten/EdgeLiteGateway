@@ -391,15 +391,18 @@ class AiInferenceEngine:
     async def enable_model(self, model_id: str) -> tuple[bool, str]:
         wrapper = self._loaded_models.get(model_id)
         if not wrapper:
-            return False, "Model not found"
+            return False, "模型不存在"
         if wrapper.status == "unavailable":
-            return False, "Model file not found or cannot be loaded, cannot enable"
+            model_path = Path(wrapper.model_path)
+            if not model_path.exists():
+                return False, "请先部署模型文件到 models/ 目录，当前缺失: " + wrapper.model_path
+            return False, "模型文件不存在或无法加载，无法启用"
         if wrapper.status == "error":
-            return False, "Model load previously failed, try hot-reload instead"
+            return False, "模型加载曾失败，请尝试热加载代替"
         if wrapper.status == "inactive":
             await wrapper.load()
             if wrapper.status != "active":
-                return False, f"Model enable failed, current status: {wrapper.status}"
+                return False, f"模型启用失败，当前状态: {wrapper.status}"
         return True, ""
 
     async def disable_model(self, model_id: str) -> None:

@@ -340,6 +340,10 @@ class Database:
         ]
         for table, column, definition in migrations:
             try:
+                result = await conn.execute(text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"))
+                if result.fetchone() is None:
+                    logger.info("数据库迁移: 表 %s 不存在，跳过", table)
+                    continue
                 result = await conn.execute(text(f"PRAGMA table_info({table})"))
                 columns = {row[1] for row in result.fetchall()}
                 if column not in columns:

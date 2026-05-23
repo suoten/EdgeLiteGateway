@@ -7,8 +7,8 @@
             <span style="font-size:48px">🧠</span>
             <div>
               <div style="font-size:20px;font-weight:700;color:#fff">{{ t('ai.engineStatus') }}</div>
-              <n-tag :type="aiEnabled ? 'success' : 'default'" size="small" :bordered="false" round>
-                {{ aiEnabled ? t('ai.statusActive') : t('ai.statusUnavailable') }}
+              <n-tag :type="aiEnabled ? 'success' : 'warning'" size="small" :bordered="false" round>
+                {{ aiEnabled ? t('ai.statusActive') : t('ai.statusFileMissing') }}
               </n-tag>
             </div>
           </n-space>
@@ -299,7 +299,7 @@ function statusLabel(status: string) {
     inactive: t('ai.statusInactive'),
     loading: t('ai.statusLoading'),
     error: t('ai.statusError'),
-    unavailable: t('ai.statusUnavailable'),
+    unavailable: t('ai.statusFileMissing'),
   }
   return map[status] || status
 }
@@ -436,10 +436,11 @@ function openDetail(row: any) {
 async function handleEnable(row: any) {
   try {
     await aiApi.enableModel(row.model_id)
-    message.success(t('common.success'))
+    message.success(t('ai.enableSuccess'))
     await fetchModels()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    const detail = e?.response?.data?.detail
+    message.error(typeof detail === 'string' && detail ? detail : (e?.message || t('ai.enableFailed')))
   }
 }
 

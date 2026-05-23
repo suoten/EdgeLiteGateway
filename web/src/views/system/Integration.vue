@@ -114,7 +114,11 @@ async function handleExecute() {
     loadHistory()
   } catch (e: any) {
     const detail = e?.response?.data?.detail
-    message.error(typeof detail === 'string' ? detail : (e?.message || t('common.failed')))
+    if (e?.response?.status === 503 && detail) {
+      message.warning(detail)
+    } else {
+      message.error(typeof detail === 'string' ? detail : (e?.message || t('common.failed')))
+    }
   } finally {
     executing.value = false
   }

@@ -175,12 +175,12 @@ const channelOptions = [
   { label: t('channel.webhook'), value: 'webhook' },
 ]
 
-const operatorOptions = OPERATOR_OPTIONS
+const operatorOptions = OPERATOR_OPTIONS.value  // FIXED-P3: computed→.value
 
 const selectedTemplate = ref<string | null>(null)
 const selectedTemplateDesc = computed(() => {
   if (!selectedTemplate.value) return ''
-  return RULE_TEMPLATES.find(t => t.id === selectedTemplate.value)?.description || ''
+  return RULE_TEMPLATES.value.find(t => t.id === selectedTemplate.value)?.description || ''
 })
 const templateOptions = computed(() => {
   const categories = getTemplateCategories()
@@ -188,7 +188,7 @@ const templateOptions = computed(() => {
     type: 'group' as const,
     label: cat,
     key: cat,
-    children: RULE_TEMPLATES.filter(t => t.category === cat).map(t => ({
+    children: RULE_TEMPLATES.value.filter(t => t.category === cat).map(t => ({  // FIXED-P3: computed→.value
       label: t.name,
       value: t.id,
     })),
@@ -210,7 +210,7 @@ const pointOptions = computed(() => {
 
 function onTemplateChange(val: string | null) {
   if (!val) return
-  const tmpl = RULE_TEMPLATES.find(t => t.id === val)
+  const tmpl = RULE_TEMPLATES.value.find(t => t.id === val)  // FIXED-P3: computed→.value
   if (!tmpl) return
   createForm.name = tmpl.name
   createForm.severity = tmpl.severity
@@ -239,13 +239,13 @@ const columns = [
   { title: t('ruleList.durationCol'), key: 'duration', width: 80, render: (r: Rule) => `${r.duration}s` },
   {
     title: t('ruleList.level'), key: 'severity', width: 80,
-    render: (r: Rule) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => severityLabel[r.severity] || r.severity }),
+    render: (r: Rule) => h(NTag, { type: severityColor[r.severity] || 'default', size: 'small' }, { default: () => severityLabel.value[r.severity] || r.severity }),  // FIXED-P3: computed→.value
   },
   {
     title: t('ruleList.status'), key: 'enabled', width: 80,
-    render: (r: Rule) => h(NTag, { type: r.enabled ? 'success' : 'default', size: 'small' }, { default: () => r.enabled ? t('ruleList.enabled') : t('ruleList.disabled') }),
+    render: (r: Rule) => h(NTag, { type: r.enabled ? 'success' : 'default', size: 'small' }, { default: () => r.enabled ? t('ruleList.statusEnabled') : t('ruleList.statusDisabled') }),
   },
-  { title: t('ruleList.notify'), key: 'notify_channels', width: 150, render: (r: Rule) => (r.notify_channels ?? []).map((c: string) => channelLabel[c] || c).join(', ') },
+  { title: t('ruleList.notify'), key: 'notify_channels', width: 150, render: (r: Rule) => (r.notify_channels ?? []).map((c: string) => channelLabel.value[c] || c).join(', ') },  // FIXED-P3: computed→.value
   {
     title: t('ruleList.actions'), key: 'actions', width: 240,
     render: (r: Rule) =>
@@ -253,7 +253,7 @@ const columns = [
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => openEdit(r) }, { default: () => t('common.edit') }),
           h(NButton, { text: true, type: 'info', onClick: () => openTest(r) }, { default: () => t('ruleList.testRule') }),
-          h(NButton, { text: true, type: r.enabled ? 'warning' : 'success', onClick: () => handleToggle(r) }, { default: () => r.enabled ? t('ruleList.disabled') : t('ruleList.enabled') }),
+          h(NButton, { text: true, type: r.enabled ? 'warning' : 'success', onClick: () => handleToggle(r) }, { default: () => r.enabled ? t('ruleList.actionDisable') : t('ruleList.actionEnable') }),
           h(NPopconfirm as any, { onPositiveClick: () => doDelete(r) }, {
             trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => t('common.delete') }),
             default: () => t('ruleList.deleteConfirm', { name: r.name }),
@@ -299,11 +299,21 @@ async function fetchRules() {
 }
 
 async function fetchDevices() {
+  // FIXED-P2: 全量5000→分批加载(每批200)，避免单次请求过大
   try {
-    const data = await deviceApi.list({ page: 1, size: 5000 })  // FIXED: 原问题-size:9999不合理，改为5000匹配后端_MAX_QUERY_SIZE
-    const devs = data?.data ?? []
-    devices.value = devs
-    deviceOptions.value = devs.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))
+    const batchSize = 200
+    let page = 1
+    let allDevs: Device[] = []
+    let hasMore = true
+    while (hasMore) {
+      const data = await deviceApi.list({ page, size: batchSize })
+      const devs = data?.data ?? []
+      allDevs = allDevs.concat(devs)
+      hasMore = devs.length >= batchSize
+      page++
+    }
+    devices.value = allDevs
+    deviceOptions.value = allDevs.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))
   } catch (e: any) {
     message.error(e?.response?.data?.detail || t('ruleList.fetchDeviceFailed'))
     devices.value = []
