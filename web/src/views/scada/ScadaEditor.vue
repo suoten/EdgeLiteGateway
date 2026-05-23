@@ -345,7 +345,7 @@ const filteredDevices = computed(() => {
 })
 
 const deviceOptions = computed(() =>
-  devices.value.map(d => ({ label: `${d.name} (${protocolLabel[d.protocol] || d.protocol})`, value: d.device_id }))
+  devices.value.map(d => ({ label: `${d.name} (${protocolLabel.value[d.protocol] || d.protocol})`, value: d.device_id }))
 )
 
 function widgetStyle(widget: any) {

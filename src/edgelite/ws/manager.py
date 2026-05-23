@@ -22,27 +22,62 @@ class ConnectionManager:
         self._connections: dict[str, set[WebSocket]] = {}
         self.max_connections = max_connections
 
-    async def connect(self, websocket: WebSocket, channel: str, token: str) -> bool:
-        """建立WebSocket连接，验证Token"""
+    async def connect(self, websocket: WebSocket, channel: str, token: str | None = None) -> bool:
+        """建立WebSocket连接，验证Token
+
+        FIXED-P2: 支持首帧认证模式—token为None时先accept，由调用方从首帧消息提取token后调用authenticate()
+        """
+        if token:
+            try:
+                payload = verify_token(token, token_type="access")
+            except Exception:
+                await websocket.accept()
+                try:
+                    await websocket.send_json({"type": "error", "code": 4001, "message": "Authentication failed: invalid or expired token"})
+                except Exception:
+                    pass
+                await websocket.close(code=4001, reason="Authentication failed")
+                return False
+
+            total = sum(len(conns) for conns in self._connections.values())
+            if total >= self.max_connections:
+                await websocket.accept()
+                await websocket.close(code=1013, reason="Max connections reached")
+                logger.warning("WebSocket max connections reached (%d), rejecting", self.max_connections)
+                return False
+
+            await websocket.accept()
+            if channel not in self._connections:
+                self._connections[channel] = set()
+            self._connections[channel].add(websocket)
+            logger.info("WebSocket connected: channel=%s, user=%s", channel, payload.get("username", ""))
+            return True
+        else:
+            await websocket.accept()
+            return False
+
+    async def authenticate(self, websocket: WebSocket, channel: str, token: str) -> bool:
+        """首帧Token认证—connect(token=None)后调用"""
         try:
             payload = verify_token(token, token_type="access")
         except Exception:
-            await websocket.accept()
-            await websocket.close(code=4001, reason="Token无效")
+            try:
+                await websocket.send_json({"type": "error", "code": 4001, "message": "Authentication failed: invalid or expired token"})
+            except Exception:
+                pass
+            await websocket.close(code=4001, reason="Authentication failed")
             return False
 
         total = sum(len(conns) for conns in self._connections.values())
         if total >= self.max_connections:
-            await websocket.accept()
-            await websocket.close(code=1013, reason="连接数已达上限")
-            logger.warning("WebSocket连接数已达上限(%d)，拒绝新连接", self.max_connections)
+            await websocket.close(code=1013, reason="Max connections reached")
+            logger.warning("WebSocket max connections reached (%d), rejecting", self.max_connections)
             return False
 
-        await websocket.accept()
         if channel not in self._connections:
             self._connections[channel] = set()
         self._connections[channel].add(websocket)
-        logger.info("WebSocket连接: channel=%s, user=%s", channel, payload.get("username", ""))
+        logger.info("WebSocket connected (frame auth): channel=%s, user=%s", channel, payload.get("username", ""))
         return True
 
     async def disconnect(self, websocket: WebSocket, channel: str) -> None:
@@ -51,7 +86,7 @@ class ConnectionManager:
             self._connections[channel].discard(websocket)
             if not self._connections[channel]:
                 del self._connections[channel]
-        logger.info("WebSocket断开: channel=%s", channel)
+        logger.info("WebSocket disconnected: channel=%s", channel)
 
     async def broadcast(self, channel: str, data: dict[str, Any]) -> None:
         """向频道内所有连接广播消息"""
@@ -66,16 +101,21 @@ class ConnectionManager:
             try:
                 await ws.send_text(message)
             except Exception as e:  # FIXED: 原问题-WebSocket发送失败静默添加到disconnected，无日志
-                logger.debug("WebSocket发送失败: %s", e)
+                logger.debug("WebSocket send failed: %s", e)
                 disconnected.add(ws)
 
-        await asyncio.gather(*[_send_safe(ws) for ws in connections])
+        # FIXED-P2: 原asyncio.gather对全部连接并发发送，连接数>1000时压垮服务器，改为分批发送
+        _BROADCAST_BATCH_SIZE = 50
+        conn_list = list(connections)
+        for i in range(0, len(conn_list), _BROADCAST_BATCH_SIZE):
+            batch = conn_list[i : i + _BROADCAST_BATCH_SIZE]
+            await asyncio.gather(*[_send_safe(ws) for ws in batch])
 
         for ws in disconnected:
             try:
                 await ws.close()
             except Exception as e:
-                logger.debug("WebSocket关闭失败: %s", e)
+                logger.debug("WebSocket close failed: %s", e)
             self._connections.get(channel, set()).discard(ws)
         if disconnected and channel in self._connections and not self._connections[channel]:
             del self._connections[channel]

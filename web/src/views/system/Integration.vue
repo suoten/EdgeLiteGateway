@@ -70,10 +70,10 @@ const history = ref<any[]>([])
 const deviceOptions = ref<{ label: string; value: string }[]>([])
 
 const historyColumns = [
-  { title: 'ID', key: 'command_id', width: 120 },
+  { title: t('rpc.commandId'), key: 'command_id', width: 120 },
   { title: t('rpc.method'), key: 'method' },
   { title: t('rpc.deviceId'), key: 'device_id' },
-  { title: t('rpc.successCol'), key: 'success', width: 80, render: (r: any) => h(NTag, { type: r.success ? 'success' : 'error', size: 'small' }, { default: () => r.success ? 'OK' : 'FAIL' }) },
+  { title: t('rpc.successCol'), key: 'success', width: 80, render: (r: any) => h(NTag, { type: r.success ? 'success' : 'error', size: 'small' }, { default: () => r.success ? t('rpc.ok') : t('rpc.fail') }) },
   { title: t('rpc.elapsedMs'), key: 'elapsed_ms', width: 100, render: (r: any) => r.elapsed_ms?.toFixed(1) },
   { title: t('rpc.time'), key: 'timestamp', width: 160, render: (r: any) => r.timestamp ? new Date(r.timestamp * 1000).toLocaleString() : '-' },
 ]

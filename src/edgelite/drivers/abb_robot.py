@@ -70,7 +70,10 @@ class AbbRobotDriver(DriverPlugin):
     async def stop(self) -> None:
         self._running = False
         if self._client:
-            await self._client.aclose()
+            try:
+                await self._client.aclose()
+            except Exception as e:  # FIXED-P2: aclose异常时连接泄漏，添加异常处理
+                logger.warning("ABB驱动关闭HTTP客户端异常: %s", e)
             self._client = None
         logger.info("ABB机器人驱动已停止")
 

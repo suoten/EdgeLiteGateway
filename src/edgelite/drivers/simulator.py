@@ -91,9 +91,9 @@ class SimulatorDriver(DriverPlugin):
             return (min_val + max_val) / 2
 
         elif mode == "sine":
-            # 正弦波，周期约60秒
             phase = self._sine_phase.get(key, 0)
-            phase += 2 * math.pi / 60  # 每次调用推进
+            collect_interval = config.get("collect_interval", 1.0)  # FIXED-P2: 正弦波相位步长与调用频率耦合，采集间隔非1秒时周期错误，现根据实际间隔计算步长
+            phase += 2 * math.pi * collect_interval / 60  # 周期60秒，步长=2π*interval/60
             self._sine_phase[key] = phase
             mid = (min_val + max_val) / 2
             amp = (max_val - min_val) / 2

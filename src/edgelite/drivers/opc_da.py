@@ -48,8 +48,8 @@ class OpcDaDriver(DriverPlugin):
             import OpenOPC
         except ImportError:
             raise ImportError(
-                "OpenOPC未安装，请执行: pip install OpenOPC-Python3。"
-                "注意：OPC DA需要Windows平台或通过OPC网关代理访问"
+                "OpenOPC not installed. Run: pip install OpenOPC-Python3. "
+                "Note: OPC DA requires Windows platform or OPC gateway proxy"
             ) from None
 
         self._config = config
@@ -58,7 +58,7 @@ class OpcDaDriver(DriverPlugin):
         gateway = config.get("gateway", "")
 
         if not server:
-            raise ValueError("OPC DA驱动配置缺少server参数(ProgID)")
+            raise ValueError("OPC DA driver config missing 'server' parameter (ProgID)")  # FIXED-P3: 中文硬编码错误消息
 
         try:
             if gateway:

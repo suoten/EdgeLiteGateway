@@ -96,7 +96,7 @@
         {{ t('login.firstLoginHint') }}
       </n-text>
       <div class="login-footer">
-        <n-text depth="3">v1.0.0 Community Edition</n-text>
+        <n-text depth="3">{{ appVersion }} Community Edition</n-text>  <!-- FIXED-P3: 版本号硬编码v1.0.0，改用__APP_VERSION__动态获取 -->
       </div>
     </n-card>
   </div>
@@ -111,6 +111,9 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
 import { t } from '@/i18n'
 import { getErrorMessage } from '@/utils/errorCodes'
+
+declare const __APP_VERSION__: string
+const appVersion = `v${__APP_VERSION__}`
 
 const router = useRouter()
 const message = useMessage()

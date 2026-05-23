@@ -42,13 +42,15 @@ class RuleEvaluator:
         self._point_cache_ttl: float = _POINT_VALUE_CACHE_TTL
         self._point_cache_max_size: int = _POINT_VALUE_CACHE_MAX
         self._tracker_cleanup_interval: float = 600.0  # FIXED: P2-3 duration_tracker无限增长，每10分钟清理过期条目
+        self._recent_firings: dict[str, float] = {}  # FIXED-P0: 规则循环触发保护，记录rule_id最近触发时间
+        self._min_firing_interval: float = 5.0  # 同一规则两次触发的最小间隔秒数
 
     async def start(self) -> None:
         """启动评估器"""
         queue = self._event_bus.subscribe("rule_evaluator")
         self._task = asyncio.create_task(self._eval_loop(queue), name="rule-evaluator")
-        accel = "Cython加速" if _HAS_CYTHON else "纯Python"
-        logger.info("规则评估器启动 (%s)", accel)
+        accel = "Cython accelerated" if _HAS_CYTHON else "pure Python"
+        logger.info("Rule evaluator started (%s)", accel)  # FIXED-P3: 中文日志→英文
 
     async def _get_rules_for_point(self, device_id: str, point_name: str) -> list:
         now = time.time()
@@ -68,7 +70,7 @@ class RuleEvaluator:
         try:
             rules = await self._rule_repo.list_enabled_by_point(device_id, point_name)
         except Exception as e:
-            logger.error("查询规则失败 %s/%s: %s", device_id, point_name, e)
+            logger.error("Query rules failed %s/%s: %s", device_id, point_name, e)  # FIXED-P3: 中文日志→英文
             rules = []
         self._rule_cache[cache_key] = rules
         return rules
@@ -81,7 +83,7 @@ class RuleEvaluator:
                 await self._task
         self._rule_cache.clear()
         self._duration_tracker.clear()
-        logger.info("规则评估器停止")
+        logger.info("Rule evaluator stopped")  # FIXED-P3: 中文日志→英文
 
     def cleanup_duration_tracker(self, rule_id: str) -> None:
         """清理已删除规则的持续时间追踪器"""
@@ -156,7 +158,7 @@ class RuleEvaluator:
         script = rule.get("script", "")
 
         if not rule_id or not device_id or not conditions:
-            logger.warning("规则数据不完整，跳过: rule_id=%s, device_id=%s", rule_id, device_id)
+            logger.warning("Incomplete rule data, skipping: rule_id=%s, device_id=%s", rule_id, device_id)  # FIXED-P3: 中文日志→英文
             return
 
         now = time.time()
@@ -205,8 +207,8 @@ class RuleEvaluator:
                                     self._point_value_cache[cond_cache_key] = (latest_val, now)
                     except Exception as e:
                         logger.debug(
-                            "从InfluxDB获取测点值失败 %s.%s: %s", event.device_id, cond_point, e
-                        )
+                            "Failed to get point value from InfluxDB %s.%s: %s", event.device_id, cond_point, e
+                        )  # FIXED-P3: 中文日志→英文
 
         # 评估条件
         if rule_type == "script" and script:
@@ -248,12 +250,12 @@ class RuleEvaluator:
             try:
                 firing_alarm = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
             except Exception as e:
-                logger.error("查询firing告警失败 %s/%s: %s", rule_id, device_id, e)
+                logger.error("Query firing alarm failed %s/%s: %s", rule_id, device_id, e)  # FIXED-P3: 中文日志→英文
                 firing_alarm = None
             if firing_alarm:
                 alarm_id = firing_alarm.get("alarm_id")  # FIXED: 原问题-硬访问alarm_id可能KeyError
                 if alarm_id is None:
-                    logger.warning("firing告警缺少alarm_id，跳过恢复: %s", firing_alarm)
+                    logger.warning("Firing alarm missing alarm_id, skip recovery: %s", firing_alarm)  # FIXED-P3: 中文日志→英文
                     return
                 await self._recover_alarm(alarm_id, rule)
 
@@ -311,7 +313,7 @@ class RuleEvaluator:
     ) -> bool:
         """评估AI推理条件"""
         if not self._ai_engine:
-            logger.warning("AI引擎不可用, 跳过AI条件评估")
+            logger.warning("AI engine unavailable, skipping AI condition evaluation")  # FIXED-P3: 中文日志→英文
             return False
         results = []
         for cond in conditions:
@@ -334,7 +336,7 @@ class RuleEvaluator:
                 else:
                     results.append(False)
             except Exception as e:
-                logger.warning("AI条件评估失败: model_id=%s, %s", model_id, e)
+                logger.warning("AI condition evaluation failed: model_id=%s, %s", model_id, e)  # FIXED-P3: 中文日志→英文
                 results.append(False)
         if not results:
             return False
@@ -391,23 +393,30 @@ class RuleEvaluator:
             return bool(result)
         except ImportError:
             logger.error(
-                "RestrictedPython未安装，脚本规则不可用，请执行: pip install RestrictedPython"
-            )
+                "RestrictedPython not installed, script rules unavailable, run: pip install RestrictedPython"
+            )  # FIXED-P3: 中文日志→英文
             return False
         except Exception as e:
-            logger.warning("脚本规则执行失败: %s", e)
+            logger.warning("Script rule execution failed: %s", e)  # FIXED-P3: 中文日志→英文
             return False
 
     async def _fire_alarm(self, rule: dict, trigger_value: dict) -> None:
         """触发告警"""
-        # FIXED: 原问题-字典硬访问rule["key"]可能KeyError，改为.get()加校验
         rule_id = rule.get("rule_id")
         device_id = rule.get("device_id")
         severity = rule.get("severity", "warning")
 
         if not rule_id or not device_id:
-            logger.warning("告警触发失败: 规则数据不完整 rule_id=%s, device_id=%s", rule_id, device_id)
+            logger.warning("Alarm fire failed: incomplete rule data rule_id=%s, device_id=%s", rule_id, device_id)  # FIXED-P3: 中文日志→英文
             return
+
+        # FIXED-P0: 规则循环触发保护，同一规则在最小间隔内不重复触发
+        now = time.time()
+        last_fire = self._recent_firings.get(rule_id, 0)
+        if now - last_fire < self._min_firing_interval:
+            logger.debug("Rule %s in firing cooldown (within %.1fs), skipping", rule_id, self._min_firing_interval)  # FIXED-P3: 中文日志→英文
+            return
+        self._recent_firings[rule_id] = now
 
         # FIXED: 原问题-告警收敛查询和创建无异常保护，数据库异常导致评估循环崩溃
         try:
@@ -417,7 +426,7 @@ class RuleEvaluator:
                 existing_alarm_id = existing.get("alarm_id")
                 if existing_alarm_id:
                     await self._alarm_repo.update_trigger_count(existing_alarm_id, trigger_value)
-                    logger.debug("告警收敛: %s 已有firing告警，更新触发次数", rule_id)
+                    logger.debug("Alarm dedup: %s already has firing alarm, updating trigger count", rule_id)  # FIXED-P3: 中文日志→英文
                 return
 
             alarm = await self._alarm_repo.create(
@@ -430,17 +439,17 @@ class RuleEvaluator:
                 }
             )
         except Exception as e:
-            logger.error("告警创建/更新失败 %s/%s: %s", rule_id, device_id, e)
+            logger.error("Alarm create/update failed %s/%s: %s", rule_id, device_id, e)  # FIXED-P3: 中文日志→英文
             return
 
         # 发布告警事件
         # FIXED: 原问题-alarm可能为None或缺少alarm_id，加空值保护
         if not alarm:
-            logger.warning("告警创建返回None: rule_id=%s", rule_id)
+            logger.warning("Alarm create returned None: rule_id=%s", rule_id)  # FIXED-P3: 中文日志→英文
             return
         alarm_id = alarm.get("alarm_id")
         if not alarm_id:
-            logger.warning("告警创建返回数据缺少alarm_id: rule_id=%s", rule_id)
+            logger.warning("Alarm create result missing alarm_id: rule_id=%s", rule_id)  # FIXED-P3: 中文日志→英文
             return
 
         alarm_event = AlarmEvent(
@@ -454,12 +463,12 @@ class RuleEvaluator:
         )
         await self._event_bus.publish(alarm_event)
         logger.info(
-            "告警触发: %s (规则=%s, 设备=%s, 级别=%s)",
+            "Alarm fired: %s (rule=%s, device=%s, severity=%s)",
             alarm_id,
             rule_id,
             device_id,
             severity,
-        )
+        )  # FIXED-P3: 中文日志→英文
 
     async def _recover_alarm(self, alarm_id: str, rule: dict) -> None:
         """恢复告警"""
@@ -467,7 +476,7 @@ class RuleEvaluator:
         try:
             alarm = await self._alarm_repo.recover(alarm_id)
         except Exception as e:
-            logger.error("告警恢复失败 %s: %s", alarm_id, e)
+            logger.error("Alarm recovery failed %s: %s", alarm_id, e)  # FIXED-P3: 中文日志→英文
             return
         if alarm:
             alarm_event = AlarmEvent(
@@ -479,4 +488,4 @@ class RuleEvaluator:
                 rule_type=rule.get("rule_type", "threshold"),
             )
             await self._event_bus.publish(alarm_event)
-            logger.info("告警恢复: %s", alarm_id)
+            logger.info("Alarm recovered: %s", alarm_id)  # FIXED-P3: 中文日志→英文

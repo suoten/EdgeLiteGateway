@@ -101,8 +101,8 @@
           <n-space v-for="(pt, i) in createForm.points" :key="i" align="center">
             <n-input v-model:value="pt.name" :placeholder="t('deviceList.name')" style="width: 100px" />
             <n-select v-model:value="pt.data_type" :options="dataTypeOptions" style="width: 100px" />
-            <n-input v-model:value="pt.address" placeholder="Address" style="width: 80px" />
-            <n-input v-model:value="pt.unit" placeholder="Unit" style="width: 60px" />
+            <n-input v-model:value="pt.address" :placeholder="t('deviceList.addressPlaceholder')" style="width: 80px" />
+            <n-input v-model:value="pt.unit" :placeholder="t('deviceList.unitPlaceholder')" style="width: 60px" />
             <n-select v-model:value="pt.access_mode" :options="accessModeOptions" style="width: 80px" />
             <n-button text type="error" @click="createForm.points.splice(i, 1)">{{ t('common.delete') }}</n-button>
           </n-space>
@@ -125,9 +125,9 @@
           <n-space v-for="(pt, i) in simForm.points" :key="i" align="center">
             <n-input v-model:value="pt.name" :placeholder="t('deviceList.name')" style="width: 100px" />
             <n-select v-model:value="pt.data_type" :options="dataTypeOptions" style="width: 100px" />
-            <n-input v-model:value="pt.unit" placeholder="Unit" style="width: 60px" />
-            <n-input-number v-model:value="pt.min" placeholder="Min" style="width: 80px" />
-            <n-input-number v-model:value="pt.max" placeholder="Max" style="width: 80px" />
+            <n-input v-model:value="pt.unit" :placeholder="t('deviceList.unitPlaceholder')" style="width: 60px" />
+            <n-input-number v-model:value="pt.min" :placeholder="t('deviceList.minPlaceholder')" style="width: 80px" />
+            <n-input-number v-model:value="pt.max" :placeholder="t('deviceList.maxPlaceholder')" style="width: 80px" />
             <n-select v-model:value="pt.mode" :options="simModeOptions" style="width: 110px" />
             <n-button text type="error" @click="simForm.points.splice(i, 1)">{{ t('common.delete') }}</n-button>
           </n-space>
@@ -259,19 +259,19 @@ async function loadProtocols() {
       { label: 'OPC-UA', value: 'opcua' },
       { label: 'MQTT Client', value: 'mqtt' },
       { label: 'HTTP Webhook', value: 'http' },
-      { label: protocolLabel['siemens_s7'] || 'Siemens S7', value: 's7' },
-      { label: protocolLabel['mitsubishi_mc'] || 'Mitsubishi MC', value: 'mc' },
-      { label: protocolLabel['omron_fins'] || 'Omron FINS', value: 'fins' },
+      { label: protocolLabel.value['siemens_s7'] || 'Siemens S7', value: 's7' },
+      { label: protocolLabel.value['mitsubishi_mc'] || 'Mitsubishi MC', value: 'mc' },
+      { label: protocolLabel.value['omron_fins'] || 'Omron FINS', value: 'fins' },
       { label: 'Allen Bradley', value: 'allen_bradley' },
       { label: 'OPC DA', value: 'opc_da' },
       { label: 'FANUC CNC', value: 'fanuc' },
       { label: 'MTConnect', value: 'mtconnect' },
       { label: 'Toledo', value: 'toledo' },
-      { label: protocolLabel['serial_port'] || 'Serial', value: 'serial_port' },
-      { label: protocolLabel['database_source'] || 'Database', value: 'database_source' },
-      { label: protocolLabel['barcode_scanner'] || 'Scanner', value: 'barcode_scanner' },
-      { label: protocolLabel['simulator'] || 'Simulator', value: 'simulator' },
-      { label: protocolLabel['video'] || 'Video', value: 'video' },
+      { label: protocolLabel.value['serial_port'] || 'Serial', value: 'serial_port' },
+      { label: protocolLabel.value['database_source'] || 'Database', value: 'database_source' },
+      { label: protocolLabel.value['barcode_scanner'] || 'Scanner', value: 'barcode_scanner' },
+      { label: protocolLabel.value['simulator'] || 'Simulator', value: 'simulator' },
+      { label: protocolLabel.value['video'] || 'Video', value: 'video' },
       { label: 'MQTT Sparkplug B', value: 'sparkplug_b' },
       { label: 'DL/T 645', value: 'dlt645' },
       { label: 'IEC 104', value: 'iec104' },
@@ -310,11 +310,11 @@ const columns = [
   { title: t('deviceList.name'), key: 'name', width: 150, sorter: true },
   {
     title: t('deviceList.protocol'), key: 'protocol', width: 120,
-    render: (row: Device) => h(NTag, { size: 'small', bordered: false, type: 'info' }, { default: () => protocolLabel[row.protocol] || row.protocol }),
+    render: (row: Device) => h(NTag, { size: 'small', bordered: false, type: 'info' }, { default: () => protocolLabel.value[row.protocol] || row.protocol }),
   },
   {
     title: t('deviceList.status'), key: 'status', width: 80,
-    render: (row: Device) => h(NTag, { type: deviceStatusColor[row.status] || 'default', size: 'small' }, { default: () => deviceStatusLabel[row.status] || row.status }),
+    render: (row: Device) => h(NTag, { type: deviceStatusColor[row.status] || 'default', size: 'small' }, { default: () => deviceStatusLabel.value[row.status] || row.status }),
   },
   { title: t('deviceList.pointCount'), key: 'points', width: 80, render: (row: Device) => row.points?.length ?? 0 },
   { title: t('deviceList.collectInterval'), key: 'collect_interval', width: 90, render: (row: Device) => `${row.collect_interval}s` },

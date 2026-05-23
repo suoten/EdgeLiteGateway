@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio  # FIXED-P2: WS首帧认证需要asyncio.wait_for
+import json  # FIXED-P2: WS首帧认证需要json.loads
 import logging
 import os  # FIXED: 原问题-缺少os导入，环境变量读取需要
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from edgelite.bootstrap import ServiceContainer, bootstrap_all, teardown
 from edgelite.config import get_config
@@ -23,7 +25,7 @@ async def lifespan(app: FastAPI):
     try:
         await bootstrap_all(_app_state, config)
     except Exception as init_err:
-        logger.error("初始化失败: %s，开始清理已初始化资源", init_err)
+        logger.error("Initialization failed: %s, cleaning up initialized resources", init_err)  # FIXED-P3: 中文日志→英文
         await teardown(_app_state)
         raise
 
@@ -86,9 +88,24 @@ def _register_routes(app: FastAPI) -> None:
 
 
 def _register_websocket_routes(app: FastAPI) -> None:
+    # FIXED-P2: WS Token从URL查询参数改为首帧认证消息，防止Token在日志/Referer中泄露
+
+    async def _recv_auth_token(websocket: WebSocket) -> str | None:
+        """从首帧消息中提取auth token"""
+        try:
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+            data = json.loads(raw)
+            if data.get("type") == "auth":
+                return data.get("token")
+        except Exception:
+            pass
+        return None
+
     @app.websocket("/ws/v1/realtime")
-    async def ws_realtime(websocket: WebSocket, token: str = Query(...)):
-        if not await _app_state.ws_manager.connect(websocket, "realtime", token):
+    async def ws_realtime(websocket: WebSocket):
+        await _app_state.ws_manager.connect(websocket, "realtime")
+        token = await _recv_auth_token(websocket)
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "realtime", token):
             return
         try:
             while True:
@@ -96,13 +113,15 @@ def _register_websocket_routes(app: FastAPI) -> None:
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            logger.debug("WebSocket realtime 连接异常: %s", e)
+            logger.debug("WebSocket realtime error: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "realtime")
 
     @app.websocket("/ws/v1/alarm")
-    async def ws_alarm(websocket: WebSocket, token: str = Query(...)):
-        if not await _app_state.ws_manager.connect(websocket, "alarm", token):
+    async def ws_alarm(websocket: WebSocket):
+        await _app_state.ws_manager.connect(websocket, "alarm")
+        token = await _recv_auth_token(websocket)
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "alarm", token):
             return
         try:
             while True:
@@ -110,13 +129,15 @@ def _register_websocket_routes(app: FastAPI) -> None:
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            logger.debug("WebSocket alarm 连接异常: %s", e)
+            logger.debug("WebSocket alarm error: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "alarm")
 
     @app.websocket("/ws/v1/device")
-    async def ws_device(websocket: WebSocket, token: str = Query(...)):
-        if not await _app_state.ws_manager.connect(websocket, "device", token):
+    async def ws_device(websocket: WebSocket):
+        await _app_state.ws_manager.connect(websocket, "device")
+        token = await _recv_auth_token(websocket)
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "device", token):
             return
         try:
             while True:
@@ -124,23 +145,30 @@ def _register_websocket_routes(app: FastAPI) -> None:
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            logger.debug("WebSocket device 连接异常: %s", e)
+            logger.debug("WebSocket device error: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "device")
 
     @app.websocket("/ws/v1/integration")
-    async def ws_integration(websocket: WebSocket, token: str = Query(...)):
+    async def ws_integration(websocket: WebSocket):
         if not _app_state.integration_endpoint:
+            await websocket.accept()
             await websocket.close(code=1003, reason="Integration not available")
             return
-        from edgelite.security.jwt import verify_token
 
+        await _app_state.ws_manager.connect(websocket, "integration")
+        token = await _recv_auth_token(websocket)
+        if not token:
+            await websocket.close(code=4001, reason="Auth failed")
+            return
+
+        from edgelite.security.jwt import verify_token
         try:
             verify_token(token, token_type="access")
         except Exception:
             await websocket.close(code=4001, reason="Auth failed")
             return
-        await websocket.accept()
+
         session_id = None
         try:
             handshake_msg = await websocket.receive_text()
@@ -173,8 +201,10 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 await _app_state.integration_endpoint.unregister_connection(session_id)
 
     @app.websocket("/ws/v1/ai")
-    async def ws_ai(websocket: WebSocket, token: str = Query(...)):
-        if not await _app_state.ws_manager.connect(websocket, "ai", token):
+    async def ws_ai(websocket: WebSocket):
+        await _app_state.ws_manager.connect(websocket, "ai")
+        token = await _recv_auth_token(websocket)
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "ai", token):
             return
         try:
             while True:
@@ -182,7 +212,7 @@ def _register_websocket_routes(app: FastAPI) -> None:
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            logger.debug("WebSocket ai 连接异常: %s", e)
+            logger.debug("WebSocket ai error: %s", e)
         finally:
             await _app_state.ws_manager.disconnect(websocket, "ai")
 
@@ -264,4 +294,4 @@ def _mount_frontend(app: FastAPI) -> None:
                 return FileResponse(str(file_path))
             return FileResponse(str(frontend_dist / "index.html"))
 
-        logger.info("前端静态文件已挂载: %s", frontend_dist)
+        logger.info("Frontend static files mounted: %s", frontend_dist)  # FIXED-P3: 中文日志→英文

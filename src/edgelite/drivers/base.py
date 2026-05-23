@@ -15,6 +15,10 @@ class DriverPlugin(ABC):
     supported_protocols: list[str] = []
     config_schema: dict = {}
 
+    def __init__(self) -> None:
+        self._running: bool = False  # FIXED-P2: 基类初始化_running和_data_callback，避免子类访问未定义属性抛AttributeError
+        self._data_callback: Callable | None = None
+
     @abstractmethod
     async def start(self, config: dict) -> None:
         """启动驱动"""

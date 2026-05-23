@@ -125,6 +125,8 @@ _SAFE_AST_NODES = {
     ast.NotIn,
     ast.List,
     ast.Tuple,
+    ast.Subscript,  # FIXED-P0: 缺少Subscript节点，列表/字典下标访问被拒绝
+    ast.Index,  # FIXED-P0: 缺少Index节点(Python 3.8兼容)
 }
 
 
@@ -217,10 +219,10 @@ class ExpressionEngine:
 
             value = variables.get(key, variables.get(var_path))
             if value is None:
-                return "None"
+                return match.group(0)  # FIXED-P2: None值保留原始${...}变量引用，让表达式解析时因未定义变量而明确报错，而非转为字符串"None"参与隐式比较
+            if isinstance(value, bool):  # FIXED-P2: bool是int子类，必须先于int判断，否则bool值走int分支被转为"True"/"False"
+                return "1" if value else "0"
             if isinstance(value, (int, float)):
-                return str(value)
-            if isinstance(value, bool):
                 return str(value)
             if isinstance(value, str):
                 return repr(value)

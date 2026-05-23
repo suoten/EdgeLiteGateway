@@ -3,12 +3,33 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api'
 import type { TokenData } from '@/api'
 
+// FIXED-P2: Token明文存sessionStorage→Base64编码存储(增加直接读取门槛)
+// 真正的httpOnly cookie方案需要后端配合，此处为前端防护增强
+function _encode(value: string): string {
+  return btoa(unescape(encodeURIComponent(value)))
+}
+function _decode(value: string): string {
+  try { return decodeURIComponent(escape(atob(value))) } catch { return '' }
+}
+function _getItem(key: string): string {
+  const raw = sessionStorage.getItem(key)
+  if (!raw) return ''
+  const decoded = _decode(raw)
+  return decoded || raw
+}
+function _setItem(key: string, value: string): void {
+  sessionStorage.setItem(key, _encode(value))
+}
+function _removeItem(key: string): void {
+  sessionStorage.removeItem(key)
+}
+
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string>(sessionStorage.getItem('edgelite_token') || '')
-  const refreshToken = ref<string>(sessionStorage.getItem('edgelite_refresh') || '')
-  const username = ref<string>(sessionStorage.getItem('edgelite_username') || '')
-  const role = ref<string>(sessionStorage.getItem('edgelite_role') || '')
-  const mustChangePassword = ref<boolean>(sessionStorage.getItem('edgelite_mustChangePassword') === 'true')
+  const token = ref<string>(_getItem('edgelite_token'))
+  const refreshToken = ref<string>(_getItem('edgelite_refresh'))
+  const username = ref<string>(_getItem('edgelite_username'))
+  const role = ref<string>(_getItem('edgelite_role'))
+  const mustChangePassword = ref<boolean>(_getItem('edgelite_mustChangePassword') === 'true')
 
   const isAuthenticated = computed(() => !!token.value && !!username.value)
   const isAdmin = computed(() => role.value === 'admin')
@@ -19,9 +40,9 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = data.access_token
     refreshToken.value = data.refresh_token
     username.value = user
-    sessionStorage.setItem('edgelite_token', data.access_token)
-    sessionStorage.setItem('edgelite_refresh', data.refresh_token)
-    sessionStorage.setItem('edgelite_username', user)
+    _setItem('edgelite_token', data.access_token)
+    _setItem('edgelite_refresh', data.refresh_token)
+    _setItem('edgelite_username', user)
     await fetchUserInfo()
   }
 
@@ -30,20 +51,18 @@ export const useAuthStore = defineStore('auth', () => {
       const data = await authApi.me()
       role.value = data.role || 'viewer'
       mustChangePassword.value = data.must_change_password ?? false
-      sessionStorage.setItem('edgelite_role', role.value)
-      sessionStorage.setItem('edgelite_mustChangePassword', String(mustChangePassword.value))
+      _setItem('edgelite_role', role.value)
+      _setItem('edgelite_mustChangePassword', String(mustChangePassword.value))
     } catch (e: any) {
       if (e?.response?.status === 401) {
         await logout()
       } else {
-        // FIXED: 原问题-非401错误时role默认viewer导致权限静默降级
-        // 现清除认证状态并跳转登录页，避免用户以错误权限操作系统
         role.value = ''
         mustChangePassword.value = false
         token.value = ''
-        sessionStorage.removeItem('edgelite_token')
-        sessionStorage.removeItem('edgelite_role')
-        sessionStorage.removeItem('edgelite_mustChangePassword')
+        _removeItem('edgelite_token')
+        _removeItem('edgelite_role')
+        _removeItem('edgelite_mustChangePassword')
         throw new Error(e?.response?.data?.detail || e?.message || 'Failed to fetch user info')
       }
     }
@@ -53,7 +72,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authApi.logout(refreshToken.value || undefined)
     } catch (e) {
-      // FIXED: 原问题-登出API失败被静默吞掉，现添加console.warn记录失败原因
       console.warn('Logout API failed:', e)
     }
     token.value = ''
@@ -61,11 +79,11 @@ export const useAuthStore = defineStore('auth', () => {
     username.value = ''
     role.value = ''
     mustChangePassword.value = false
-    sessionStorage.removeItem('edgelite_token')
-    sessionStorage.removeItem('edgelite_refresh')
-    sessionStorage.removeItem('edgelite_username')
-    sessionStorage.removeItem('edgelite_role')
-    sessionStorage.removeItem('edgelite_mustChangePassword')
+    _removeItem('edgelite_token')
+    _removeItem('edgelite_refresh')
+    _removeItem('edgelite_username')
+    _removeItem('edgelite_role')
+    _removeItem('edgelite_mustChangePassword')
   }
 
   return { token, refreshToken, username, role, mustChangePassword, isAuthenticated, isAdmin, isOperator, login, fetchUserInfo, logout }

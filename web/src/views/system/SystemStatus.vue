@@ -187,9 +187,9 @@ onMounted(() => {
 onUnmounted(() => { if (timer) clearInterval(timer) })
 
 const neighborColumns = [
-  { title: 'ID', key: 'neighbor_id' },
-  { title: 'Host', key: 'host' },
-  { title: 'Port', key: 'port' },
+  { title: t('cascade.nodeId'), key: 'neighbor_id' },
+  { title: t('cascade.host'), key: 'host' },
+  { title: t('cascade.port'), key: 'port' },
   { title: t('cascade.role'), key: 'role', render: (r: any) => h(NTag, { size: 'small' }, { default: () => r.role || 'peer' }) },
 ]
 

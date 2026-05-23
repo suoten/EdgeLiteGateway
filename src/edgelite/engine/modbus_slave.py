@@ -77,6 +77,8 @@ class ModbusSlaveServer:
         config = config or {}
         host = config.get("host", "0.0.0.0")
         port = int(config.get("port", 502))
+        if port < 1024:  # FIXED-P2: Modbus默认502端口需要root权限，Linux下非root用户无法绑定
+            logger.warning("Modbus Slave port %d < 1024 requires root/Admin privileges. Consider using port 5020 or higher.", port)
         coils_size = int(config.get("coils_size", 100))
         discrete_size = int(config.get("discrete_size", 100))
         holding_size = int(config.get("holding_size", 1000))
@@ -211,7 +213,7 @@ class ModbusSlaveServer:
                     logger.error("Modbus Slave setValues失败: %s", e)
                     return
 
-            return  # FIXED: 原问题-Cython路径执行后无return，继续执行Python路径导致双重写入
+                return  # FIXED-P0: Cython路径完成后return，否则执行下方Python回退路径
 
             offset = base_address
             for _point_name, value in points.items():

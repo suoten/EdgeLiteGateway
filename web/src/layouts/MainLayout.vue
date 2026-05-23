@@ -222,7 +222,8 @@ const version = __APP_VERSION__ || '1.0.0'
 function toggleLocale() {
   const next = getLocale() === 'zh-CN' ? 'en-US' : 'zh-CN'
   setLocale(next)
-  window.location.reload()
+  // FIXED-P2: 原window.location.reload()丢失所有Pinia store状态、WS连接和表单输入
+  // 改为无需刷新的响应式切换，t()函数依赖currentLocale ref会自动更新
 }
 
 const currentRoute = computed(() => {

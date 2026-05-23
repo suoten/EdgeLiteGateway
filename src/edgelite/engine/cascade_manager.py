@@ -121,10 +121,10 @@ class CascadeManager:
             logger.info("CascadeManager started: local_id=%s role=%s", self._local_id, self._topology.status)
 
         except ImportError:
-            logger.warning("zeroconf库未安装，级联发现功能不可用")
+            logger.warning("zeroconf library not installed, cascade discovery unavailable")  # FIXED-P3: 中文日志→英文
             self._running = True
         except Exception as e:
-            logger.error("CascadeManager启动失败: %s", e)
+            logger.error("CascadeManager start failed: %s", e)  # FIXED-P3: 中文日志→英文
 
     async def stop(self) -> None:
         """停止级联管理器，注销mDNS服务。"""
@@ -141,7 +141,7 @@ class CascadeManager:
                     await self._zeroconf.async_unregister_service(self._registration)
                 await self._zeroconf.async_close()
             except Exception as e:
-                logger.debug("Zeroconf关闭异常: %s", e)
+                logger.debug("Zeroconf close exception: %s", e)  # FIXED-P3: 中文日志→英文
 
         self._zeroconf = None
         self._registration = None
@@ -171,17 +171,17 @@ class CascadeManager:
                         properties=props,
                     )
                     self._rebuild_topology()
-                    logger.info("发现邻居: id=%s host=%s:%d", neighbor_id, host, port)
+                    logger.info("Neighbor discovered: id=%s host=%s:%d", neighbor_id, host, port)  # FIXED-P3: 中文日志→英文
 
             elif state_change == ServiceStateChange.Removed:
                 for nid in list(self._neighbors.keys()):
                     if nid in name:
                         del self._neighbors[nid]
                         self._rebuild_topology()
-                        logger.info("邻居离线: id=%s", nid)
+                        logger.info("Neighbor offline: id=%s", nid)  # FIXED-P3: 中文日志→英文
                         break
         except Exception as e:
-            logger.error("mDNS服务状态回调异常: %s", e)
+            logger.error("mDNS service state callback exception: %s", e)  # FIXED-P3: 中文日志→英文
 
     def _rebuild_topology(self) -> None:
         """根据邻居信息重建拓扑。"""
@@ -228,7 +228,7 @@ class CascadeManager:
             转发是否成功。
         """
         if not self._parent_host or not self._parent_port:
-            logger.warning("未配置父节点，无法转发数据")
+            logger.warning("Parent node not configured, cannot forward data")  # FIXED-P3: 中文日志→英文
             return False
 
         try:
@@ -239,10 +239,10 @@ class CascadeManager:
                 async with session.post(url, json=data, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     return resp.status == 200
         except ImportError:
-            logger.warning("aiohttp库未安装，数据转发不可用")
+            logger.warning("aiohttp library not installed, data forwarding unavailable")  # FIXED-P3: 中文日志→英文
             return False
         except Exception as e:
-            logger.error("数据转发至父节点失败: %s", e)
+            logger.error("Forward data to parent node failed: %s", e)  # FIXED-P3: 中文日志→英文
             return False
 
     async def update_config(self, config: dict[str, Any]) -> None:
@@ -263,7 +263,7 @@ class CascadeManager:
             self._topology.parent_id = f"{self._parent_host}:{self._parent_port or 8080}"
             self._topology.status = TopologyStatus.CHILD
         self._rebuild_topology()
-        logger.info("级联配置已更新: parent=%s:%s role=%s", self._parent_host, self._parent_port, self._topology.status)
+        logger.info("Cascade config updated: parent=%s:%s role=%s", self._parent_host, self._parent_port, self._topology.status)  # FIXED-P3: 中文日志→英文
 
     async def remove_neighbor(self, neighbor_id: str) -> bool:
         """移除指定邻居。
@@ -277,7 +277,7 @@ class CascadeManager:
         if neighbor_id in self._neighbors:
             del self._neighbors[neighbor_id]
             self._rebuild_topology()
-            logger.info("邻居已移除: id=%s", neighbor_id)
+            logger.info("Neighbor removed: id=%s", neighbor_id)  # FIXED-P3: 中文日志→英文
             return True
         return False
 
@@ -289,11 +289,11 @@ class CascadeManager:
                 if self._parent_host:
                     success = await self.forward_to_parent({"type": "heartbeat", "local_id": self._local_id})
                     if not success:
-                        logger.debug("父节点心跳失败: %s:%s", self._parent_host, self._parent_port)
+                        logger.debug("Parent heartbeat failed: %s:%s", self._parent_host, self._parent_port)  # FIXED-P3: 中文日志→英文
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error("父节点维持异常: %s", e)
+                logger.error("Parent connection maintenance exception: %s", e)  # FIXED-P3: 中文日志→英文
 
     @staticmethod
     def _get_local_ip() -> str:

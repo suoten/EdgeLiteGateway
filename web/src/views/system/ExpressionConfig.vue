@@ -127,8 +127,65 @@ async function evaluateBatch() {
 async function loadFunctions() {
   try {
     const data = await expressionApi.functions()
-    functions.value = data?.functions || []
-    operators.value = data?.operators || []
+    const funcDescI18n: Record<string, string> = {
+      'Absolute value': 'exprFunc.abs',
+      'Round to N decimal places': 'exprFunc.round',
+      'Minimum value': 'exprFunc.min',
+      'Maximum value': 'exprFunc.max',
+      'Power operation': 'exprFunc.pow',
+      'Square root': 'exprFunc.sqrt',
+      'Convert to integer': 'exprFunc.int',
+      'Convert to float': 'exprFunc.float',
+      'Ceiling (round up)': 'exprFunc.ceil',
+      'Floor (round down)': 'exprFunc.floor',
+      'Natural logarithm': 'exprFunc.log',
+      'Base-10 logarithm': 'exprFunc.log10',
+      'Sine': 'exprFunc.sin',
+      'Cosine': 'exprFunc.cos',
+      'Tangent': 'exprFunc.tan',
+      'Convert degrees to radians': 'exprFunc.radians',
+      'Convert radians to degrees': 'exprFunc.degrees',
+      'Sum of iterable': 'exprFunc.sum',
+      'Count of items': 'exprFunc.count',
+      'Standard deviation': 'exprFunc.stdev',
+      'Mean (average)': 'exprFunc.mean',
+      'Median': 'exprFunc.median',
+      'e raised to power x': 'exprFunc.exp',
+      'Hyperbolic sine': 'exprFunc.sinh',
+      'Hyperbolic cosine': 'exprFunc.cosh',
+      'Hyperbolic tangent': 'exprFunc.tanh',
+    }
+    const opDescI18n: Record<string, string> = {
+      'Addition': 'exprOp.add',
+      'Subtraction': 'exprOp.sub',
+      'Multiplication': 'exprOp.mul',
+      'Division': 'exprOp.div',
+      'Modulo': 'exprOp.mod',
+      'Exponentiation': 'exprOp.pow',
+      'Floor division': 'exprOp.floordiv',
+      'Equal': 'exprOp.eq',
+      'Not equal': 'exprOp.ne',
+      'Less than': 'exprOp.lt',
+      'Less or equal': 'exprOp.le',
+      'Greater than': 'exprOp.gt',
+      'Greater or equal': 'exprOp.ge',
+      'Logical AND': 'exprOp.and',
+      'Logical OR': 'exprOp.or',
+      'Logical NOT': 'exprOp.not',
+      'Bitwise AND': 'exprOp.bitand',
+      'Bitwise OR': 'exprOp.bitor',
+      'Bitwise XOR': 'exprOp.bitxor',
+      'Left shift': 'exprOp.lshift',
+      'Right shift': 'exprOp.rshift',
+    }
+    functions.value = (data?.functions || []).map((f: any) => ({
+      ...f,
+      description: funcDescI18n[f.description] ? t(funcDescI18n[f.description]) : f.description,
+    }))
+    operators.value = (data?.operators || []).map((o: any) => ({
+      ...o,
+      description: opDescI18n[o.description] ? t(opDescI18n[o.description]) : o.description,
+    }))
   } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('expressionConfig.loadFunctionsFailed')) }
   finally { pageLoading.value = false }
 }

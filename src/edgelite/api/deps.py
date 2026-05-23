@@ -47,7 +47,7 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
     else:
-        logger.warning("Token无jti字段(旧格式)，跳过撤销检查")
+        logger.warning("Token has no jti field (legacy format), skipping revocation check")  # FIXED-P3: 中文日志→英文
 
     username = payload.get("username", "")
     container = _get_container(request)
@@ -59,7 +59,7 @@ async def get_current_user(
             repo = UserRepo(session, container.database.write_lock)
             user = await repo.get_by_username(username)
     except Exception as e:
-        logger.error("认证查询用户失败: %s", e)
+        logger.error("Auth query user failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(503, CommonErrors.DB_NOT_READY) from None
 
     if user is None or not user["enabled"]:

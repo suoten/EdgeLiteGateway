@@ -36,7 +36,10 @@ const MAX_RECONNECT_ATTEMPTS = 10
 
 function getToken(): string {
   try {
-    return sessionStorage.getItem('edgelite_token') || ''
+    const raw = sessionStorage.getItem('edgelite_token') || ''
+    if (!raw) return ''
+    // FIXED-P2: Token已Base64编码存储，需解码
+    try { return decodeURIComponent(escape(atob(raw))) } catch { return raw }
   } catch {
     return ''
   }
@@ -76,7 +79,8 @@ function connectChannel(channel: ChannelName): void {
     return
   }
 
-  const url = `${WS_BASE}${CHANNELS[channel]}?token=${token}`
+  // FIXED-P2: Token不再通过URL查询参数传输(防止日志/Referer泄露)，改为连接后首帧认证
+  const url = `${WS_BASE}${CHANNELS[channel]}`
 
   try {
     const ws = new WebSocket(url)
@@ -87,6 +91,10 @@ function connectChannel(channel: ChannelName): void {
         conn.reconnectTimer = null
       }
       conn.reconnectAttempt = 0
+      // FIXED-P2: 连接建立后首帧发送Token认证，替代URL参数
+      try {
+        ws.send(JSON.stringify({ type: 'auth', token }))
+      } catch (e) { console.error('[WS] Auth frame send failed:', e) }
       notifyStatus(conn, 'connected')
     }
 
@@ -161,6 +169,10 @@ export function connect(channel: ChannelName, onMessage: MessageHandler): void {
   conn.handlers.add(onMessage)
 
   if (!conn.ws || conn.ws.readyState === WebSocket.CLOSED) {
+    // FIXED-P2: 重连次数达上限后断网恢复时，重置计数允许重新连接
+    if (conn.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      conn.reconnectAttempt = 0
+    }
     connectChannel(channel)
   }
 }

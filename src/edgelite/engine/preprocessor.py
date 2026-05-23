@@ -75,8 +75,8 @@ class DataPreprocessor:
         if point_key not in self._filter_windows:
             self._filter_windows[point_key] = deque(maxlen=window_size)
         elif self._filter_windows[point_key].maxlen != window_size:
-            del self._filter_windows[point_key]
-            self._filter_windows[point_key] = deque(maxlen=window_size)
+            old_data = list(self._filter_windows[point_key])  # FIXED-P2: filter窗口大小变更时直接del丢失历史数据，现保留旧数据重建
+            self._filter_windows[point_key] = deque(old_data[-window_size:], maxlen=window_size)
 
         window = self._filter_windows[point_key]
         window.append(value)
@@ -123,7 +123,7 @@ class DataPreprocessor:
             return None
 
         if point_key not in self._aggregate_windows:
-            self._aggregate_windows[point_key] = deque()
+            self._aggregate_windows[point_key] = deque(maxlen=_PREPROCESSOR_MAX_POINTS)  # FIXED-P2: 聚合窗口使用无maxlen的deque，高频采集时内存无限增长，现设置maxlen上限
 
         window = self._aggregate_windows[point_key]
         window.append((ts, value))

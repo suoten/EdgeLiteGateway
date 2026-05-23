@@ -265,6 +265,15 @@ class AiInferenceEngine:
     async def load_preset_models(self) -> None:
         for preset in PRESET_MODELS:
             model_path = str(self._models_dir / preset["model_file"])
+            abs_model_path = str(Path(model_path).resolve())
+            file_exists = Path(model_path).exists()
+            logger.info(
+                "Preset model: id=%s, file=%s, abs_path=%s, exists=%s",
+                preset["model_id"],
+                preset["model_file"],
+                abs_model_path,
+                file_exists,
+            )
             wrapper = OnnxModelWrapper(
                 model_id=preset["model_id"],
                 model_name=preset["model_name"],
@@ -275,11 +284,11 @@ class AiInferenceEngine:
                 input_schema=preset["input_schema"],
                 output_schema=preset["output_schema"],
             )
-            if Path(model_path).exists():
+            if file_exists:
                 await wrapper.load()
             else:
                 wrapper.status = "unavailable"
-                logger.warning("Preset model file not found: %s", model_path)  # FIXED-P3: 中文日志→英文
+                logger.warning("Preset model file not found: %s (abs: %s)", model_path, abs_model_path)
             self._loaded_models[preset["model_id"]] = wrapper
 
     async def reload_model(self, model_id: str, model_path: str) -> None:
@@ -391,18 +400,18 @@ class AiInferenceEngine:
     async def enable_model(self, model_id: str) -> tuple[bool, str]:
         wrapper = self._loaded_models.get(model_id)
         if not wrapper:
-            return False, "模型不存在"
+            return False, "Model not found"
         if wrapper.status == "unavailable":
             model_path = Path(wrapper.model_path)
             if not model_path.exists():
-                return False, "请先部署模型文件到 models/ 目录，当前缺失: " + wrapper.model_path
-            return False, "模型文件不存在或无法加载，无法启用"
+                return False, "Model file not found, please deploy to models/ dir: " + wrapper.model_path
+            return False, "Model file cannot be loaded"
         if wrapper.status == "error":
-            return False, "模型加载曾失败，请尝试热加载代替"
+            return False, "Model load previously failed, try hot-reload instead"
         if wrapper.status == "inactive":
             await wrapper.load()
             if wrapper.status != "active":
-                return False, f"模型启用失败，当前状态: {wrapper.status}"
+                return False, f"Model enable failed, current status: {wrapper.status}"
         return True, ""
 
     async def disable_model(self, model_id: str) -> None:

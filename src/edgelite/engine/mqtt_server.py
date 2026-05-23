@@ -44,7 +44,7 @@ class MqttServer:
         try:
             from amqtt.broker import Broker
         except ImportError:
-            logger.warning("amqtt未安装，内置MQTT Server不可用。请执行: pip install amqtt")
+            logger.warning("amqtt not installed, built-in MQTT Server unavailable. Run: pip install amqtt")  # FIXED-P3: 中文日志→英文
             return
 
         config = config or {}
@@ -77,19 +77,21 @@ class MqttServer:
         username = config.get("username")
         password = config.get("password")
         if username and password:
+            import hashlib
+            hashed = hashlib.sha256(password.encode()).hexdigest()  # FIXED-P2: MQTT Server密码明文存储，改为SHA256哈希(amqtt支持plaintext校验时可替换)
             broker_config["auth"]["password-db"] = {
-                username: password,
+                username: hashed,
             }
 
         try:
             self._broker = Broker(broker_config)
             self._task = asyncio.create_task(self._broker.start(), name="mqtt-server")
             self._running = True
-            logger.info("内置MQTT Server启动: %s:%d", host, port)
+            logger.info("Built-in MQTT Server started: %s:%d", host, port)  # FIXED-P3: 中文日志→英文
             if ws_port:
-                logger.info("MQTT WebSocket端口: %d", int(ws_port))
+                logger.info("MQTT WebSocket port: %d", int(ws_port))  # FIXED-P3: 中文日志→英文
         except Exception as e:
-            logger.error("内置MQTT Server启动失败: %s", e)
+            logger.error("Built-in MQTT Server start failed: %s", e)  # FIXED-P3: 中文日志→英文
             self._broker = None
             self._running = False
 
@@ -100,13 +102,13 @@ class MqttServer:
             try:
                 await self._broker.shutdown()
             except Exception as e:
-                logger.warning("MQTT Server关闭异常: %s", e)
+                logger.warning("MQTT Server shutdown error: %s", e)  # FIXED-P3: 中文日志→英文
             self._broker = None
         if self._task and not self._task.done():
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-        logger.info("内置MQTT Server已停止")
+        logger.info("Built-in MQTT Server stopped")  # FIXED-P3: 中文日志→英文
 
     @property
     def is_running(self) -> bool:

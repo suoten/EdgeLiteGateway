@@ -163,7 +163,7 @@ async def mcp_sse(
                 repo = UserRepo(session, container.database.write_lock)
                 user = await repo.get_by_username(username)
         except (JWTError, Exception) as e:
-            logger.warning("MCP SSE token验证失败: %s", e)
+            logger.warning("MCP SSE token verification failed: %s", e)  # FIXED-P3: 中文日志→英文
     if user is None:
         from fastapi import status as _st
         raise HTTPException(status_code=_st.HTTP_401_UNAUTHORIZED, detail="Invalid or missing token")

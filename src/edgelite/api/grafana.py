@@ -25,7 +25,7 @@ def _get_grafana_config():
         config = get_config()
         return getattr(config, "grafana", None)
     except Exception as e:
-        logger.warning("获取Grafana配置失败: %s", e)
+        logger.warning("Failed to get Grafana config: %s", e)  # FIXED-P3: 中文日志→英文
         return None
 
 
@@ -62,7 +62,7 @@ async def get_grafana_config(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
+        logger.error("Get Grafana config failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=CommonErrors.INTERNAL_ERROR) from e
 
 
@@ -78,7 +78,7 @@ async def list_grafana_dashboards(
     api_key = getattr(grafana_config, "api_key", "")
 
     if not api_key:
-        logger.warning("Grafana api_key 为空，无法认证，请在配置中设置 grafana.api_key")
+        logger.warning("Grafana api_key is empty, cannot authenticate, please set grafana.api_key in config")  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=503, detail=GrafanaErrors.API_KEY_MISSING)  # FIXED: 原问题-403 Forbidden暗示权限不足，实际是配置缺失，改为503 Service Unavailable更准确
 
     try:
@@ -120,5 +120,5 @@ async def get_grafana_embed_url(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
+        logger.error("Get embed URL failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=CommonErrors.INTERNAL_ERROR) from e

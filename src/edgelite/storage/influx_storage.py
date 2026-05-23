@@ -389,7 +389,10 @@ from(bucket: "{self._bucket}")
 """
 
         try:
-            tables = await asyncio.to_thread(self._query_api.query, flux, self._org)
+            tables = await asyncio.wait_for(
+                asyncio.to_thread(self._query_api.query, flux, self._org),
+                timeout=10.0,
+            )
             result = {}
             for table in tables:
                 for record in table.records:
@@ -401,6 +404,9 @@ from(bucket: "{self._bucket}")
                             "quality": record.values.get("quality", "good"),
                         }
             return result
+        except TimeoutError:
+            logger.warning("InfluxDB最新值查询超时(10s): device=%s", device_id)
+            return {}
         except Exception as e:
             logger.error("InfluxDB最新值查询失败: %s", e)
             return {}

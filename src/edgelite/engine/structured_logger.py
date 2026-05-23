@@ -101,7 +101,10 @@ class StructuredLogger:
         root_logger = logging.getLogger()
         root_logger.setLevel(self._level)
 
-        root_logger.handlers.clear()
+        # FIXED-P2: 无条件清除所有handler可能移除第三方库(如uvicorn)的handler，改为只移除自己添加的
+        for h in list(root_logger.handlers):
+            if getattr(h, '_edgelite_handler', False):
+                root_logger.removeHandler(h)
 
         console_handler = logging.StreamHandler()
         if self._json_format:
@@ -111,6 +114,7 @@ class StructuredLogger:
                 logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
             )
         console_handler.addFilter(self._context_filter)
+        console_handler._edgelite_handler = True  # FIXED-P2: 标记edgelite自己的handler，便于后续只移除自己的
         root_logger.addHandler(console_handler)
 
         app_log = self._log_dir / "edgelite.log"
@@ -122,6 +126,7 @@ class StructuredLogger:
         )
         file_handler.setFormatter(StructuredFormatter())
         file_handler.addFilter(self._context_filter)
+        file_handler._edgelite_handler = True
         root_logger.addHandler(file_handler)
 
         error_log = self._log_dir / "edgelite-error.log"
@@ -134,6 +139,7 @@ class StructuredLogger:
         error_handler.setFormatter(StructuredFormatter())
         error_handler.setLevel(logging.ERROR)
         error_handler.addFilter(self._context_filter)
+        error_handler._edgelite_handler = True
         root_logger.addHandler(error_handler)
 
     def set_context(self, **kwargs: Any) -> None:

@@ -73,7 +73,7 @@ class EventBus:
         """订阅事件，返回独立队列"""
         queue = asyncio.Queue(maxsize=self._max_size)
         self._subscribers[name] = queue
-        logger.info("事件总线订阅者注册: %s", name)
+        logger.info("Event bus subscriber registered: %s", name)  # FIXED-P3: 中文日志→英文
         return queue
 
     def register_handler(self, event_type: str, handler: Callable) -> None:
@@ -104,7 +104,7 @@ class EventBus:
                 with contextlib.suppress(asyncio.QueueEmpty):
                     queue.get_nowait()
                 queue.put_nowait(event)
-                logger.debug("事件队列满，丢弃最旧事件: subscriber=%s", name)
+                logger.debug("Event queue full, dropping oldest event: subscriber=%s", name)  # FIXED-P3: 中文日志→英文
 
         # 调用注册的处理器
         event_type = type(event).__name__
@@ -116,16 +116,16 @@ class EventBus:
                 else:
                     handler(event)
             except Exception as e:
-                logger.error("事件处理器执行失败: %s - %s", event_type, e)
+                logger.error("Event handler execution failed: %s - %s", event_type, e)  # FIXED-P3: 中文日志→英文
 
     async def start_handler_loop(self, subscriber_name: str, handler: Callable) -> None:
         """启动订阅者处理循环"""
         queue = self._subscribers.get(subscriber_name)
         if queue is None:
-            logger.error("订阅者不存在: %s", subscriber_name)
+            logger.error("Subscriber not found: %s", subscriber_name)  # FIXED-P3: 中文日志→英文
             return
 
-        logger.info("启动事件处理循环: %s", subscriber_name)
+        logger.info("Starting event handler loop: %s", subscriber_name)  # FIXED-P3: 中文日志→英文
         while True:
             try:
                 event = await queue.get()
@@ -134,7 +134,7 @@ class EventBus:
                 else:
                     handler(event)
             except asyncio.CancelledError:
-                logger.info("事件处理循环取消: %s", subscriber_name)
+                logger.info("Event handler loop cancelled: %s", subscriber_name)  # FIXED-P3: 中文日志→英文
                 break
             except Exception as e:
-                logger.error("事件处理循环异常: %s - %s", subscriber_name, e)
+                logger.error("Event handler loop exception: %s - %s", subscriber_name, e)  # FIXED-P3: 中文日志→英文

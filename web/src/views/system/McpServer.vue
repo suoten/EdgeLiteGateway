@@ -272,7 +272,7 @@ const toolColumns = [
 ]
 
 const resourceColumns = [
-  { title: 'URI', key: 'uri', width: 250 },
+  { title: t('mcpServer.colUri'), key: 'uri', width: 250 },
   {
     title: t('ruleList.name'), key: 'name', width: 200,
     render: (row: any) => {
@@ -308,7 +308,7 @@ const promptColumns = [
 
 const keyColumns = [
   { title: t('mcpServer.keyName'), key: 'name', width: 150 },
-  { title: 'Key', key: 'key', width: 200, ellipsis: { tooltip: true } },
+  { title: t('mcpServer.colKey'), key: 'key', width: 200, ellipsis: { tooltip: true } },
   {
     title: t('mcpServer.permission'), key: 'scopes', width: 150,
     render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => (row.scopes || []).join(', ') }),

@@ -44,7 +44,7 @@ async def get_mqtt_server_status(
             try:
                 connections = mqtt_server.get_client_count()
             except Exception as e:
-                logger.warning("获取MQTT客户端数量失败: %s", e)
+                logger.warning("Failed to get MQTT client count: %s", e)  # FIXED-P3: 中文日志→英文
 
         # FIXED: 原问题-info.current_config可能为None时直接调用.get()崩溃
         _cfg = info.current_config or {}
@@ -66,7 +66,7 @@ async def get_mqtt_server_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
+        logger.error("Get MQTT server status failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=ServiceErrors.STATUS_FAILED) from e
 
 

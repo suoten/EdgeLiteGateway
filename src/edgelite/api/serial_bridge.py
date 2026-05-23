@@ -108,7 +108,7 @@ async def get_serial_bridge_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
+        logger.error("Get serial bridge status failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=ServiceErrors.STATUS_FAILED) from e
 
 
@@ -138,7 +138,7 @@ async def start_serial_bridge(
                 status_code=409,
                 detail=ServiceErrors.SERIAL_PORT_UNAVAILABLE,
             ) from e
-        logger.error("启动失败: %s", e)
+        logger.error("Start serial bridge failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=ServiceErrors.START_FAILED) from e
 
 

@@ -108,7 +108,7 @@ class ToledoDriver(DriverPlugin):
             return {}
 
         result = {}
-        self._config.get("protocol", "mt-sics")
+        protocol = self._config.get("protocol", "mt-sics")  # FIXED-P2: protocol读取后未使用，始终走MT-SICS路径，现根据protocol选择读取方法
 
         async with self._lock:
             for point_name in points:

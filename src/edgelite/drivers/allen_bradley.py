@@ -56,7 +56,7 @@ class AllenBradleyDriver(DriverPlugin):
 
         try:
             if micrologix:
-                self._client = PLC(ip=ip, port=_ALLEN_BRADLEY_DEFAULT_PORT)  # FIXED: 原问题-port=2222魔法数字
+                self._client = PLC(ip=ip, port=_ALLEN_BRADLEY_DEFAULT_PORT, slot=slot)  # FIXED-P2: MicroLogix模式未传递slot参数，某些型号连接失败
             else:
                 self._client = PLC(ip=ip, slot=slot)
             self._running = True

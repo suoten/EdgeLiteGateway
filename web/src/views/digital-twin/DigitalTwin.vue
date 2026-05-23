@@ -42,10 +42,10 @@
           <div class="panel-title-row">
             <span class="panel-name">{{ selectedDevice.name }}</span>
             <n-tag :type="selectedDevice.status === 'online' ? 'success' : selectedDevice.status === 'offline' ? 'error' : 'default'" size="small" round>
-              {{ deviceStatusLabel[selectedDevice.status] || selectedDevice.status }}
+              {{ deviceStatusLabel.value[selectedDevice.status] || selectedDevice.status }}
             </n-tag>
           </div>
-          <div class="panel-id">{{ selectedDevice.device_id }} · {{ protocolLabel[selectedDevice.protocol] || selectedDevice.protocol }}</div>
+          <div class="panel-id">{{ selectedDevice.device_id }} · {{ protocolLabel.value[selectedDevice.protocol] || selectedDevice.protocol }}</div>
         </div>
         <n-divider style="margin: 8px 0" />
         <div class="panel-points">
@@ -77,7 +77,7 @@
             <div class="dl-dot" :style="{ background: d.status === 'online' ? '#18a058' : d.status === 'offline' ? '#d03050' : '#666' }"></div>
             <div class="dl-info">
               <div class="dl-name">{{ d.name }}</div>
-              <div class="dl-meta">{{ protocolLabel[d.protocol] || d.protocol }}</div>
+              <div class="dl-meta">{{ protocolLabel.value[d.protocol] || d.protocol }}</div>
             </div>
             <div v-if="alarmingDevices.has(d.device_id)" class="dl-alarm-badge">⚠</div>
           </div>

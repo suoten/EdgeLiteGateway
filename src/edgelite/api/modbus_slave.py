@@ -60,7 +60,7 @@ async def get_modbus_slave_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
+        logger.error("Get modbus slave status failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=ServiceErrors.STATUS_FAILED) from e
 
 

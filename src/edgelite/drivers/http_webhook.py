@@ -22,25 +22,32 @@ class HttpWebhookDriver(DriverPlugin):
 
     def __init__(self):
         self._running = False
-        # device_id -> config
         self._device_configs: dict[str, dict] = {}
-        # device_id -> points定义
         self._device_points: dict[str, list[dict]] = {}
-        # device_id -> latest_values
         self._latest_values: dict[str, dict[str, Any]] = {}
-        # device_id -> last_receive_time
         self._last_receive: dict[str, float] = {}
-        # 数据回调
         self._data_callback: Callable | None = None
+        self._http_client: Any = None  # FIXED-P2: 复用httpx客户端而非每次write_point创建新实例
 
     async def start(self, config: dict) -> None:
         """启动驱动（HTTP Webhook不需要主动连接）"""
+        try:
+            import httpx
+            self._http_client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
+        except ImportError:
+            self._http_client = None
         self._running = True
         logger.info("HTTP Webhook驱动启动")
 
     async def stop(self) -> None:
         """停止驱动"""
         self._running = False
+        if self._http_client:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+            self._http_client = None
         logger.info("HTTP Webhook驱动停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
@@ -73,15 +80,15 @@ class HttpWebhookDriver(DriverPlugin):
             return False
 
         try:
-            import httpx
-
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    push_url,
-                    json={"point": point, "value": value},
-                    timeout=_HTTP_TIMEOUT,  # FIXED: 原问题-timeout=10.0魔法数字
-                )
-                return resp.status_code == 200
+            if not self._http_client:
+                import httpx
+                self._http_client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
+            resp = await self._http_client.post(
+                push_url,
+                json={"point": point, "value": value},
+                timeout=_HTTP_TIMEOUT,
+            )
+            return resp.status_code == 200
         except Exception as e:
             logger.error("HTTP推送失败: %s - %s", device_id, e)
             return False

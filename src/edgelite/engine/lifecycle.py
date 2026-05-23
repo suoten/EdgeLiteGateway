@@ -37,7 +37,7 @@ class DeviceLifecycleManager:
 
     async def on_device_offline(self, device_id: str) -> None:
         """设备下线处理"""
-        old_status = self._status_map.get(device_id, "online")
+        old_status = self._status_map.get(device_id, "offline")  # FIXED-P2: 默认状态与on_device_online一致为"offline"，避免未注册设备首次offline时old_status错误显示"online"
         if old_status == "offline":
             return
 

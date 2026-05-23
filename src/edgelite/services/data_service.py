@@ -41,9 +41,10 @@ class DataService:
         start: str,
         stop: str | None = None,
         fmt: str = "csv",
+        limit: int = 100000,  # FIXED-P2: export_data无数据量限制，长时间范围导出可能OOM，添加limit参数
     ) -> str:
         """导出数据"""
-        data = await self._influx.query_points(device_id, point_name, start, stop)
+        data = await self._influx.query_points(device_id, point_name, start, stop, limit=limit)
 
         if fmt == "csv":
             output = io.StringIO()

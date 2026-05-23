@@ -1,6 +1,5 @@
-/**规则告警模板 — 常见工业场景的预置规则*/
-
-import { t } from '@/i18n'
+import { computed } from 'vue'
+import { t, useCurrentLocale } from '@/i18n'
 
 export interface RuleTemplate {
   id: string
@@ -18,12 +17,19 @@ export interface RuleTemplate {
   duration: number
 }
 
-export const RULE_TEMPLATES: RuleTemplate[] = [
+// FIXED-P3: 顶层t()→computed，语言切换响应式
+const _locale = useCurrentLocale()
+function _tc(key: string) {
+  void _locale.value
+  return t(key)
+}
+
+export const RULE_TEMPLATES = computed<RuleTemplate[]>(() => [
   {
     id: 'temp-high',
-    name: t('ruleTemplate.tempHigh.name'),
-    category: t('ruleTemplate.category.temperature'),
-    description: t('ruleTemplate.tempHigh.description'),
+    name: _tc('ruleTemplate.tempHigh.name'),
+    category: _tc('ruleTemplate.category.temperature'),
+    description: _tc('ruleTemplate.tempHigh.description'),
     severity: 'critical',
     conditions: [{ point: 'temperature', operator: '>', threshold: 80, unit: '°C' }],
     logic: 'AND',
@@ -31,9 +37,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'temp-low',
-    name: t('ruleTemplate.tempLow.name'),
-    category: t('ruleTemplate.category.temperature'),
-    description: t('ruleTemplate.tempLow.description'),
+    name: _tc('ruleTemplate.tempLow.name'),
+    category: _tc('ruleTemplate.category.temperature'),
+    description: _tc('ruleTemplate.tempLow.description'),
     severity: 'warning',
     conditions: [{ point: 'temperature', operator: '<', threshold: 5, unit: '°C' }],
     logic: 'AND',
@@ -41,9 +47,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'pressure-high',
-    name: t('ruleTemplate.pressureHigh.name'),
-    category: t('ruleTemplate.category.pressure'),
-    description: t('ruleTemplate.pressureHigh.description'),
+    name: _tc('ruleTemplate.pressureHigh.name'),
+    category: _tc('ruleTemplate.category.pressure'),
+    description: _tc('ruleTemplate.pressureHigh.description'),
     severity: 'critical',
     conditions: [{ point: 'pressure', operator: '>', threshold: 1.0, unit: 'MPa' }],
     logic: 'AND',
@@ -51,9 +57,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'humidity-abnormal',
-    name: t('ruleTemplate.humidityAbnormal.name'),
-    category: t('ruleTemplate.category.humidity'),
-    description: t('ruleTemplate.humidityAbnormal.description'),
+    name: _tc('ruleTemplate.humidityAbnormal.name'),
+    category: _tc('ruleTemplate.category.humidity'),
+    description: _tc('ruleTemplate.humidityAbnormal.description'),
     severity: 'warning',
     conditions: [{ point: 'humidity', operator: '>', threshold: 85, unit: '%' }],
     logic: 'AND',
@@ -61,9 +67,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'voltage-low',
-    name: t('ruleTemplate.voltageLow.name'),
-    category: t('ruleTemplate.category.electrical'),
-    description: t('ruleTemplate.voltageLow.description'),
+    name: _tc('ruleTemplate.voltageLow.name'),
+    category: _tc('ruleTemplate.category.electrical'),
+    description: _tc('ruleTemplate.voltageLow.description'),
     severity: 'warning',
     conditions: [{ point: 'voltage', operator: '<', threshold: 200, unit: 'V' }],
     logic: 'AND',
@@ -71,9 +77,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'current-overload',
-    name: t('ruleTemplate.currentOverload.name'),
-    category: t('ruleTemplate.category.electrical'),
-    description: t('ruleTemplate.currentOverload.description'),
+    name: _tc('ruleTemplate.currentOverload.name'),
+    category: _tc('ruleTemplate.category.electrical'),
+    description: _tc('ruleTemplate.currentOverload.description'),
     severity: 'critical',
     conditions: [{ point: 'current', operator: '>', threshold: 50, unit: 'A' }],
     logic: 'AND',
@@ -81,9 +87,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'level-high',
-    name: t('ruleTemplate.levelHigh.name'),
-    category: t('ruleTemplate.category.liquidLevel'),
-    description: t('ruleTemplate.levelHigh.description'),
+    name: _tc('ruleTemplate.levelHigh.name'),
+    category: _tc('ruleTemplate.category.liquidLevel'),
+    description: _tc('ruleTemplate.levelHigh.description'),
     severity: 'critical',
     conditions: [{ point: 'level', operator: '>', threshold: 90, unit: '%' }],
     logic: 'AND',
@@ -91,35 +97,35 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: 'device-offline',
-    name: t('ruleTemplate.deviceOffline.name'),
-    category: t('ruleTemplate.category.communication'),
-    description: t('ruleTemplate.deviceOffline.description'),
+    name: _tc('ruleTemplate.deviceOffline.name'),
+    category: _tc('ruleTemplate.category.communication'),
+    description: _tc('ruleTemplate.deviceOffline.description'),
     severity: 'warning',
-    conditions: [{ point: 'last_seen', operator: '<', threshold: 0, unit: t('ruleTemplate.unit.secondsAgo') }],
+    conditions: [{ point: 'last_seen', operator: '<', threshold: 0, unit: _tc('ruleTemplate.unit.secondsAgo') }],
     logic: 'AND',
     duration: 300,
   },
-]
+])
 
-export const OPERATOR_OPTIONS = [
-  { label: t('ruleTemplate.operator.gt'), value: '>' },
-  { label: t('ruleTemplate.operator.lt'), value: '<' },
-  { label: t('ruleTemplate.operator.eq'), value: '==' },
-  { label: t('ruleTemplate.operator.ne'), value: '!=' },
-  { label: t('ruleTemplate.operator.gte'), value: '>=' },
-  { label: t('ruleTemplate.operator.lte'), value: '<=' },
-]
+export const OPERATOR_OPTIONS = computed(() => [
+  { label: _tc('ruleTemplate.operator.gt'), value: '>' },
+  { label: _tc('ruleTemplate.operator.lt'), value: '<' },
+  { label: _tc('ruleTemplate.operator.eq'), value: '==' },
+  { label: _tc('ruleTemplate.operator.ne'), value: '!=' },
+  { label: _tc('ruleTemplate.operator.gte'), value: '>=' },
+  { label: _tc('ruleTemplate.operator.lte'), value: '<=' },
+])
 
-export const SEVERITY_OPTIONS = [
-  { label: t('ruleTemplate.severity.info'), value: 'info', color: '#909399' },
-  { label: t('ruleTemplate.severity.warning'), value: 'warning', color: '#E6A23C' },
-  { label: t('ruleTemplate.severity.critical'), value: 'critical', color: '#F56C6C' },
-]
+export const SEVERITY_OPTIONS = computed(() => [
+  { label: _tc('ruleTemplate.severity.info'), value: 'info', color: '#909399' },
+  { label: _tc('ruleTemplate.severity.warning'), value: 'warning', color: '#E6A23C' },
+  { label: _tc('ruleTemplate.severity.critical'), value: 'critical', color: '#F56C6C' },
+])
 
 export function getTemplatesByCategory(category: string): RuleTemplate[] {
-  return RULE_TEMPLATES.filter(t => t.category === category)
+  return RULE_TEMPLATES.value.filter(t => t.category === category)
 }
 
 export function getTemplateCategories(): string[] {
-  return [...new Set(RULE_TEMPLATES.map(t => t.category))]
+  return [...new Set(RULE_TEMPLATES.value.map(t => t.category))]
 }

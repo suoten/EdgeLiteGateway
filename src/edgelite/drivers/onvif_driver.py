@@ -173,7 +173,7 @@ class OnvifDriver(DriverPlugin):
                                 "name": f"ONVIF Device @ {addr[0]}",
                                 "ip": addr[0],
                                 "protocol": "onvif",
-                                "details": {"port": 80},
+                                "details": {"port": addr[1] if len(addr) > 1 else 80},  # FIXED-P2: 发现设备端口硬编码80，改为使用实际响应端口
                             }
                         )
                 except TimeoutError:

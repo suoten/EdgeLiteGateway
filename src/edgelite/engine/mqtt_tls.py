@@ -26,6 +26,9 @@ class MqttTlsHelper:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
         if cert_reqs == "none":
+            import os
+            if os.getenv("EDGELITE_ALLOW_INSECURE_TLS") != "1":  # FIXED-P2: cert_reqs=none默认禁止，需显式设置环境变量允许，防止生产环境误配置中间人攻击
+                raise ValueError("MQTT TLS: cert_reqs=none is prohibited by default. Set EDGELITE_ALLOW_INSECURE_TLS=1 to override (NOT recommended for production)")
             logger.warning("MQTT TLS: cert_reqs=none 完全禁用证书验证，存在中间人攻击风险")
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE

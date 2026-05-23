@@ -151,7 +151,7 @@ const stateLabel = computed(() => {
 const dashboardColumns = computed(() => [
   { title: t('grafana.colTitle'), key: 'title', width: 200 },
   { title: t('grafana.colType'), key: 'type', width: 100 },
-  { title: 'URI', key: 'uri', width: 200 },
+  { title: t('grafana.colUri'), key: 'uri', width: 200 },
   {
     title: t('grafana.colActions'), key: 'actions', width: 100,
     render: (row: any) =>

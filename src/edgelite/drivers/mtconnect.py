@@ -57,6 +57,8 @@ class MTConnectDriver(DriverPlugin):
 
     async def start(self, config: dict) -> None:
         """启动MTConnect驱动"""
+        if httpx is None:  # FIXED-P2: httpx未安装时直接调用httpx.AsyncClient抛TypeError，改为明确ImportError
+            raise ImportError("MTConnect驱动需要httpx库，请安装: pip install httpx")
         self._config = config
         url = config.get("url", "")
 

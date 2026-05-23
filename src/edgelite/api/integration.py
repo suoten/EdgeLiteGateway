@@ -97,7 +97,7 @@ async def execute_rpc_command(
 
         backhaul = getattr(endpoint, "_backhaul", None)
         if backhaul is None:
-            raise HTTPException(status_code=503, detail=IntegrationErrors.BACKHAUL_NOT_READY)
+            raise HTTPException(status_code=503, detail="反向控制通道未就绪，请先在系统配置中启用联调集成服务并确保与北向平台的连接已建立")
 
         device_service = getattr(endpoint, "_device_service", None)
 

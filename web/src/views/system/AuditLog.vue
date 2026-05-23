@@ -64,11 +64,11 @@ const actionOptions = [
 const columns = [
   { title: t('auditLog.time'), key: 'created_at', width: 180 },
   { title: t('auditLog.user'), key: 'username', width: 100 },
-  { title: t('auditLog.operation'), key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, () => auditActionLabel[row.action] || row.action) },
+  { title: t('auditLog.operation'), key: 'action', width: 120, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'error' }, () => auditActionLabel.value[row.action] || row.action) },
   { title: t('auditLog.resourceType'), key: 'resource_type', width: 100 },
   { title: t('auditLog.resourceId'), key: 'resource_id', width: 120 },
   { title: t('auditLog.ipAddress'), key: 'ip_address', width: 130 },
-  { title: t('auditLog.statusCol'), key: 'status', width: 80, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'warning' }, () => auditStatusLabel[row.status] || row.status) },
+  { title: t('auditLog.statusCol'), key: 'status', width: 80, render: (row: any) => h(NTag, { size: 'small', type: row.status === 'success' ? 'success' : 'warning' }, () => auditStatusLabel.value[row.status] || row.status) },
   { title: t('auditLog.detail'), key: 'details', ellipsis: { tooltip: true } },
 ]
 

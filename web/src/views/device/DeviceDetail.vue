@@ -12,8 +12,8 @@
     <n-page-header @back="router.push('/devices')" :title="device?.name ?? ''" :subtitle="device?.device_id ?? ''">
       <template #extra>
         <n-space>
-          <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'">{{ deviceStatusLabel[device?.status ?? ''] || device?.status }}</n-tag>
-          <n-tag type="info" :bordered="false">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-tag>
+          <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'">{{ deviceStatusLabel.value[device?.status ?? ''] || device?.status }}</n-tag>
+          <n-tag type="info" :bordered="false">{{ protocolLabel.value[device?.protocol ?? ''] || device?.protocol }}</n-tag>
         </n-space>
       </template>
     </n-page-header>
@@ -35,9 +35,9 @@
               <n-descriptions v-if="!editing" label-placement="left" :column="1" bordered>
                 <n-descriptions-item :label="t('deviceDetail.deviceId')">{{ device?.device_id }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
                 <n-descriptions-item :label="t('deviceDetail.name')">{{ device?.name }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
-                <n-descriptions-item :label="t('deviceDetail.protocol')">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
+                <n-descriptions-item :label="t('deviceDetail.protocol')">{{ protocolLabel.value[device?.protocol ?? ''] || device?.protocol }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
                 <n-descriptions-item :label="t('deviceDetail.status')"><!-- FIXED: 原问题-中文硬编码 -->
-                  <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'" size="small">{{ deviceStatusLabel[device?.status ?? ''] || device?.status }}</n-tag>
+                  <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'" size="small">{{ deviceStatusLabel.value[device?.status ?? ''] || device?.status }}</n-tag>
                 </n-descriptions-item>
                 <n-descriptions-item :label="t('deviceDetail.collectInterval')">{{ device?.collect_interval }}s</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
                 <n-descriptions-item :label="t('deviceDetail.createTime')">{{ device?.created_at }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
@@ -242,7 +242,7 @@ const realtimeData = computed(() => {
 const realtimeColumns = [
   { title: t('deviceDetail.point'), key: 'name', width: 120 },  // FIXED: 原问题-中文硬编码
   { title: t('deviceDetail.currentValue'), key: 'value', width: 150, render: (r: any) => h(NText, { style: { fontWeight: 'bold', fontSize: '14px' } }, { default: () => r.value }) },  // FIXED: 原问题-中文硬编码
-  { title: t('deviceDetail.quality'), key: 'quality', width: 80, render: (r: any) => h(NTag, { size: 'small', type: r.quality === 'good' ? 'success' : 'warning', bordered: false }, { default: () => qualityLabel[r.quality] || t('deviceDetail.abnormal') }) },  // FIXED: 原问题-中文硬编码
+  { title: t('deviceDetail.quality'), key: 'quality', width: 80, render: (r: any) => h(NTag, { size: 'small', type: r.quality === 'good' ? 'success' : 'warning', bordered: false }, { default: () => qualityLabel.value[r.quality] || t('deviceDetail.abnormal') }) },  // FIXED: 原问题-中文硬编码
   { title: t('deviceDetail.unit'), key: 'unit', width: 60 },  // FIXED: 原问题-中文硬编码
   { title: t('deviceDetail.dataType'), key: 'data_type', width: 80 },  // FIXED: 原问题-中文硬编码
 ]

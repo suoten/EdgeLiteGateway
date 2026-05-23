@@ -24,9 +24,13 @@ class TokenRevocationManager:
     def revoke_token(self, jti: str, exp: float | None = None) -> None:
         """撤销指定jti的令牌，exp为过期时间戳(Unix)"""
         with self._lock:
-            self._revoked_tokens[jti] = exp or (time.time() + _TOKEN_REVOCATION_DEFAULT_TTL)  # FIXED: 原问题-魔法数字，提取为命名常量
+            self._revoked_tokens[jti] = exp or (time.time() + _TOKEN_REVOCATION_DEFAULT_TTL)
             if len(self._revoked_tokens) > _MAX_REVOKED_ENTRIES:
                 self._cleanup_expired()
+            # FIXED-P2: 清理过期后仍超上限则拒绝新撤销而非淘汰未过期条目，避免被撤销Token"复活"
+            if len(self._revoked_tokens) > _MAX_REVOKED_ENTRIES:
+                logger.warning("Token撤销列表已达上限(%d)，拒绝新撤销: %s", _MAX_REVOKED_ENTRIES, jti)
+                return
 
     def is_token_revoked(self, jti: str) -> bool:
         """检查令牌是否已被撤销"""

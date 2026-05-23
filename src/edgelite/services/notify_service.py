@@ -53,10 +53,10 @@ class NotifyService:
                     results[channel] = await self._send_webhook(alarm_data)
                 else:
                     results[channel] = False
-                    logger.warning("未知通知渠道: %s", channel)
+                    logger.warning("Unknown notification channel: %s", channel)  # FIXED-P3: 中文日志→英文
             except Exception as e:
                 results[channel] = False
-                logger.error("通知发送失败: %s - %s", channel, e)
+                logger.error("Notification send failed: %s - %s", channel, e)  # FIXED-P3: 中文日志→英文
 
         return results
 
@@ -67,7 +67,7 @@ class NotifyService:
         config = get_config()
         dt = config.notify.dingtalk
         if not dt.webhook_url:
-            logger.debug("钉钉Webhook未配置，跳过")
+            logger.debug("DingTalk webhook not configured, skipping")  # FIXED-P3: 中文日志→英文
             return True
 
         severity_emoji = {"critical": "🔴", "warning": "🟡", "info": "🟢"}
@@ -76,15 +76,15 @@ class NotifyService:
         message = {
             "msgtype": "markdown",
             "markdown": {
-                "title": f"{emoji} EdgeLite告警",
-                "text": f"### {emoji} EdgeLite告警\n\n"
-                f"- **设备**: {alarm_data.get('device_id', '')}\n"
-                f"- **规则**: {alarm_data.get('rule_id', '')}\n"
-                f"- **级别**: {alarm_data.get('severity', '')}\n"
-                f"- **状态**: {alarm_data.get('status', '')}\n"
-                f"- **触发值**: "
+                "title": f"{emoji} EdgeLite Alert",  # FIXED-P3: 中文标题→英文
+                "text": f"### {emoji} EdgeLite Alert\n\n"  # FIXED-P3: 中文标题→英文
+                f"- **Device**: {alarm_data.get('device_id', '')}\n"  # FIXED-P3: 中文标签→英文
+                f"- **Rule**: {alarm_data.get('rule_id', '')}\n"
+                f"- **Severity**: {alarm_data.get('severity', '')}\n"
+                f"- **Status**: {alarm_data.get('status', '')}\n"
+                f"- **Trigger Value**: "  # FIXED-P3: 中文标签→英文
                 f"{json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}\n"
-                f"- **时间**: {alarm_data.get('fired_at', '')}\n",
+                f"- **Time**: {alarm_data.get('fired_at', '')}\n",  # FIXED-P3: 中文标签→英文
             },
         }
 
@@ -103,12 +103,15 @@ class NotifyService:
 
         try:
             if not self._http_client:
-                logger.error("httpx 未安装，无法发送钉钉通知")
+                logger.error("httpx not installed, cannot send DingTalk notification")  # FIXED-P3: 中文日志→英文
                 return False
             resp = await self._http_client.post(url, json=message)
-            return resp.status_code == 200
+            if resp.status_code != 200:
+                return False
+            body = resp.json()
+            return body.get("errcode", 0) == 0  # FIXED-P2: 钉钉API返回200但body中errcode可能非0(如限流)，需检查errcode
         except Exception as e:
-            logger.error("钉钉通知发送失败: %s", e)
+            logger.error("DingTalk notification send failed: %s", e)  # FIXED-P3: 中文日志→英文
             return False
 
     # ─── 邮件 ───
@@ -118,14 +121,14 @@ class NotifyService:
         config = get_config()
         email = config.notify.email
         if not email.smtp_host or not email.to_addrs:
-            logger.debug("邮件通知未配置，跳过")
+            logger.debug("Email notification not configured, skipping")  # FIXED-P3: 中文日志→英文
             return True
 
-        severity_label = {"critical": "严重", "warning": "警告", "info": "信息"}
+        severity_label = {"critical": "Critical", "warning": "Warning", "info": "Info"}  # FIXED-P3: 中文→英文
         severity = alarm_data.get("severity", "")
         label = severity_label.get(severity, severity)
 
-        subject = f"[EdgeLite告警] {label} - 设备 {html.escape(alarm_data.get('device_id', ''))}"
+        subject = f"[EdgeLite Alert] {label} - Device {html.escape(alarm_data.get('device_id', ''))}"  # FIXED-P3: 中文→英文
         body_html = f"""
         <html><body>
         <h2 style="color: {
@@ -133,23 +136,23 @@ class NotifyService:
                     else "orange" if severity == "warning"
                     else "green"
                 }">
-            EdgeLite告警通知
+            EdgeLite Alert Notification  <!-- FIXED-P3: 中文→英文 -->
         </h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-            <tr><td><b>设备ID</b></td>
+            <tr><td><b>Device ID</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{html.escape(str(alarm_data.get("device_id", "")))}</td></tr>
-            <tr><td><b>规则ID</b></td>
+            <tr><td><b>Rule ID</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{html.escape(str(alarm_data.get("rule_id", "")))}</td></tr>
-            <tr><td><b>告警级别</b></td><td>{html.escape(label)}</td></tr>
-            <tr><td><b>告警状态</b></td>
+            <tr><td><b>Severity</b></td><td>{html.escape(label)}</td></tr>  <!-- FIXED-P3: 中文→英文 -->
+            <tr><td><b>Status</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{html.escape(str(alarm_data.get("status", "")))}</td></tr>
-            <tr><td><b>触发值</b></td>
+            <tr><td><b>Trigger Value</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{html.escape(json.dumps(
                 alarm_data.get("trigger_value", {}), ensure_ascii=False
             ))}</td></tr>
-            <tr><td><b>触发次数</b></td>
+            <tr><td><b>Trigger Count</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{alarm_data.get("trigger_count", 1)}</td></tr>
-            <tr><td><b>触发时间</b></td>
+            <tr><td><b>Fired At</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{html.escape(str(alarm_data.get("fired_at", "")))}</td></tr>
         </table>
         </body></html>
@@ -165,10 +168,10 @@ class NotifyService:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._smtp_send, email, msg)
 
-            logger.info("邮件通知已发送: %s -> %s", subject, email.to_addrs)
+            logger.info("Email notification sent: %s -> %s", subject, email.to_addrs)  # FIXED-P3: 中文日志→英文
             return True
         except Exception as e:
-            logger.error("邮件通知发送失败: %s", e)
+            logger.error("Email notification send failed: %s", e)  # FIXED-P3: 中文日志→英文
             return False
 
     @staticmethod
@@ -189,7 +192,7 @@ class NotifyService:
             try:
                 server.quit()
             except Exception as e:
-                logger.debug("SMTP quit失败: %s", e)
+                logger.debug("SMTP quit failed: %s", e)  # FIXED-P3: 中文日志→英文
 
     # ─── 企业微信 ───
 
@@ -198,37 +201,37 @@ class NotifyService:
         config = get_config()
         wechat = config.notify.wechat
         if not wechat.webhook_url:
-            logger.debug("企业微信Webhook未配置，跳过")
+            logger.debug("WeChat webhook not configured, skipping")  # FIXED-P3: 中文日志→英文
             return True
 
-        severity_label = {"critical": "严重", "warning": "警告", "info": "信息"}
+        severity_label = {"critical": "Critical", "warning": "Warning", "info": "Info"}  # FIXED-P3: 中文→英文
         severity = alarm_data.get("severity", "")
         label = severity_label.get(severity, severity)
 
         message = {
             "msgtype": "markdown",
             "markdown": {
-                "content": f"### EdgeLite告警\n"
-                f'> **级别**: <font color="'
+                "content": f"### EdgeLite Alert\n"  # FIXED-P3: 中文→英文
+                f'> **Severity**: <font color="'  # FIXED-P3: 中文→英文
                 f'{"warning" if severity == "critical" else "info"}'
                 f'">{label}</font>\n'
-                f"> **设备**: {alarm_data.get('device_id', '')}\n"
-                f"> **规则**: {alarm_data.get('rule_id', '')}\n"
-                f"> **状态**: {alarm_data.get('status', '')}\n"
-                f"> **触发值**: "
+                f"> **Device**: {alarm_data.get('device_id', '')}\n"  # FIXED-P3: 中文→英文
+                f"> **Rule**: {alarm_data.get('rule_id', '')}\n"
+                f"> **Status**: {alarm_data.get('status', '')}\n"
+                f"> **Trigger Value**: "  # FIXED-P3: 中文→英文
                 f"{json.dumps(alarm_data.get('trigger_value', {}), ensure_ascii=False)}\n"
-                f"> **时间**: {alarm_data.get('fired_at', '')}\n",
+                f"> **Time**: {alarm_data.get('fired_at', '')}\n",  # FIXED-P3: 中文→英文
             },
         }
 
         try:
             if not self._http_client:
-                logger.error("httpx 未安装，无法发送企业微信通知")
+                logger.error("httpx not installed, cannot send WeChat notification")  # FIXED-P3: 中文日志→英文
                 return False
             resp = await self._http_client.post(wechat.webhook_url, json=message)
             return resp.status_code == 200
         except Exception as e:
-            logger.error("企业微信通知发送失败: %s", e)
+            logger.error("WeChat notification send failed: %s", e)  # FIXED-P3: 中文日志→英文
             return False
 
     # ─── 自定义Webhook ───
@@ -238,7 +241,7 @@ class NotifyService:
         config = get_config()
         wh = config.notify.webhook
         if not wh.url:
-            logger.debug("Webhook未配置，跳过")
+            logger.debug("Webhook not configured, skipping")  # FIXED-P3: 中文日志→英文
             return True
 
         try:
@@ -246,10 +249,10 @@ class NotifyService:
             if wh.headers:
                 headers.update(wh.headers)
             if not self._http_client:
-                logger.error("httpx 未安装，无法发送Webhook通知")
+                logger.error("httpx not installed, cannot send Webhook notification")  # FIXED-P3: 中文日志→英文
                 return False
             resp = await self._http_client.post(wh.url, json=alarm_data, headers=headers)
             return resp.status_code < 400
         except Exception as e:
-            logger.error("Webhook通知发送失败: %s", e)
+            logger.error("Webhook notification send failed: %s", e)  # FIXED-P3: 中文日志→英文
             return False

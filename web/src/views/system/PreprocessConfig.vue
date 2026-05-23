@@ -114,17 +114,17 @@ const addRules = {
 }
 
 const filterOptions = [
-  { label: 'Median-3', value: 'median_3' },
-  { label: 'Median-5', value: 'median_5' },
-  { label: 'Median-7', value: 'median_7' },
+  { label: t('preprocess.filterMedian3'), value: 'median_3' },
+  { label: t('preprocess.filterMedian5'), value: 'median_5' },
+  { label: t('preprocess.filterMedian7'), value: 'median_7' },
 ]
 
 const aggregateOptions = [
-  { label: 'AVG', value: 'avg' },
-  { label: 'MAX', value: 'max' },
-  { label: 'MIN', value: 'min' },
-  { label: 'SUM', value: 'sum' },
-  { label: 'LAST', value: 'last' },
+  { label: t('preprocess.aggAvg'), value: 'avg' },
+  { label: t('preprocess.aggMax'), value: 'max' },
+  { label: t('preprocess.aggMin'), value: 'min' },
+  { label: t('preprocess.aggSum'), value: 'sum' },
+  { label: t('preprocess.aggLast'), value: 'last' },
 ]
 
 // FIXED: 原问题-表格列标题中文硬编码，改为i18n

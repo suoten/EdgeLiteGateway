@@ -290,10 +290,10 @@ const activeDeviceList = computed(() => {
 function formatRelativeTime(isoStr: string): string {
   try {
     const diff = (Date.now() - new Date(isoStr).getTime()) / 1000
-    if (diff < 60) return `${Math.floor(diff)}秒前`
-    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
-    return `${Math.floor(diff / 86400)}天前`
+    if (diff < 60) return `${Math.floor(diff)}${t('dashboard.secondsAgo')}`
+    if (diff < 3600) return `${Math.floor(diff / 60)}${t('dashboard.minutesAgo')}`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}${t('dashboard.hoursAgo')}`
+    return `${Math.floor(diff / 86400)}${t('dashboard.daysAgo')}`
   } catch { return '-' }
 }
 
@@ -406,7 +406,7 @@ const resourceTrendOption = computed(() => {
     xAxis: { type: 'category', data: times, axisLabel: { fontSize: 10, interval: 'auto' } },
     yAxis: { type: 'value', max: 100, axisLabel: { fontSize: 10, formatter: '{value}%' } },
     series: [
-      { name: 'CPU', type: 'line', data: cpuData, smooth: true, itemStyle: { color: '#667eea' }, areaStyle: { color: 'rgba(102,126,234,0.15)' } },
+      { name: t('dashboard.cpuUsage'), type: 'line', data: cpuData, smooth: true, itemStyle: { color: '#667eea' }, areaStyle: { color: 'rgba(102,126,234,0.15)' } },
       { name: t('dashboard.memoryUsage'), type: 'line', data: memData, smooth: true, itemStyle: { color: '#11998e' }, areaStyle: { color: 'rgba(17,153,142,0.15)' } },
     ],
   }
@@ -426,7 +426,7 @@ async function fetchProtocols() {
   try {
     const data = await driverApi.list()
     const drivers = data?.drivers || []
-    supportedProtocols.value = drivers.flatMap((d: any) => d.protocols || [])
+    supportedProtocols.value = drivers.map((d: any) => d.name || d.protocols?.[0] || 'unknown')
     if (supportedProtocols.value.length === 0) {
       const protoData = await driverApi.protocols()
       supportedProtocols.value = protoData?.protocols || []

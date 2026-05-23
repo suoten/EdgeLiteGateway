@@ -53,7 +53,8 @@ async function fetchStats() {
     const data = await aiApi.getStats()
     stats.value = data || {}
     aiEnabled.value = true
-  } catch {
+  } catch (e) {  // FIXED-P2: 原catch {}静默吞错，AI服务故障时用户无感知
+    console.warn('[AiStatsWidget] Failed to fetch AI stats:', e)
     stats.value = {}
     aiEnabled.value = false
   }

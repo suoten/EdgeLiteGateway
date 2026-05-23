@@ -30,11 +30,13 @@ class VideoDriver(DriverPlugin):
 
         self._provider = PyGBSentryProvider(config)
         await self._provider.connect()
+        self._running = True  # FIXED-P0: start()未设置_running标志，is_running始终返回False
 
     async def stop(self) -> None:
         if self._provider:
             await self._provider.close()
             self._provider = None
+        self._running = False  # FIXED-P0: stop()时重置_running标志
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         result = {}
