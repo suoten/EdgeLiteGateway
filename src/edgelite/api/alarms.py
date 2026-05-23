@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from edgelite.api.deps import AlarmServiceDep, CurrentUser, PaginationDep, require_permission
+from edgelite.api.deps import AlarmServiceDep, CurrentUser, PaginationDep, require_permission, AuditServiceDep
 from edgelite.api.error_codes import AlarmErrors
 from edgelite.models.alarm import AlarmResponse
 from edgelite.models.common import ApiResponse, PagedResponse
@@ -60,11 +60,18 @@ async def ack_alarm(
     alarm_id: str,
     svc: AlarmServiceDep,
     user: CurrentUser = require_permission(Permission.ALARM_ACK),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         alarm = await svc.ack_alarm(alarm_id, user["username"])
         if alarm is None:
             raise HTTPException(status_code=404, detail=AlarmErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.ALARM_ACK, user_id=user["user_id"], username=user["username"], resource_type="alarm", resource_id=alarm_id)
+        except Exception:
+            pass
         return ApiResponse(data=alarm)
     except HTTPException:
         raise

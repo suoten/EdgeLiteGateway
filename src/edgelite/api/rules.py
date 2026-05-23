@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from edgelite.api.deps import CurrentUser, PaginationDep, RuleServiceDep, require_permission
+from edgelite.api.deps import CurrentUser, PaginationDep, RuleServiceDep, require_permission, AuditServiceDep
 from edgelite.api.error_codes import RuleErrors
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.rule import RuleCreate, RuleResponse, RuleTestRequest, RuleUpdate
@@ -41,9 +41,16 @@ async def create_rule(
     body: RuleCreate,
     svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_CREATE),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         rule = await svc.create_rule(body.model_dump())
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.RULE_CREATE, user_id=user["user_id"], username=user["username"], resource_type="rule", resource_id=rule.get("rule_id", ""))
+        except Exception:
+            pass
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -76,12 +83,19 @@ async def update_rule(
     body: RuleUpdate,
     svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_UPDATE),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         data = body.model_dump(exclude_none=True)
         rule = await svc.update_rule(rule_id, data)
         if rule is None:
             raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.RULE_UPDATE, user_id=user["user_id"], username=user["username"], resource_type="rule", resource_id=rule_id)
+        except Exception:
+            pass
         return ApiResponse(data=rule)
     except HTTPException:
         raise
@@ -95,11 +109,18 @@ async def delete_rule(
     rule_id: str,
     svc: RuleServiceDep,
     user: CurrentUser = require_permission(Permission.RULE_DELETE),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         success = await svc.delete_rule(rule_id)
         if not success:
             raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.RULE_DELETE, user_id=user["user_id"], username=user["username"], resource_type="rule", resource_id=rule_id)
+        except Exception:
+            pass
         return ApiResponse()
     except HTTPException:
         raise

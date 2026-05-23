@@ -66,19 +66,19 @@ def _ensure_secret_key(config) -> None:
 
         config.security.secret_key = secrets.token_urlsafe(48)
         logger.warning(
-            "⚠️  JWT密钥未配置，已自动生成随机密钥。"
-            "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置固定密钥！"
-        )
+            "JWT secret key not configured, auto-generated random key. "
+            "Set a fixed key via EDGELITE_SECURITY__SECRET_KEY env var in production!"
+        )  # FIXED-P3: 中文日志→英文
         # FIXED: 原问题-自动生成的JWT密钥明文写入.env文件存在泄露风险
         # 现不再写入.env，仅通过环境变量或配置文件设置持久密钥
         # 运行时生成的密钥在进程重启后变更，所有已颁发token失效
         # 生产环境必须通过环境变量设置固定密钥
     elif len(config.security.secret_key) < 32:
         logger.warning(
-            "⚠️  安全警告: JWT密钥过短(%d字符)，"
-            "生产环境请通过 EDGELITE_SECURITY__SECRET_KEY 环境变量设置至少32字符的随机密钥！",
+            "Security warning: JWT secret key too short (%d chars), "
+            "set at least 32-char random key via EDGELITE_SECURITY__SECRET_KEY env var in production!",
             len(config.security.secret_key),
-        )
+        )  # FIXED-P3: 中文日志→英文
 
 
 async def bootstrap_storage(c: ServiceContainer, config) -> None:
@@ -92,7 +92,7 @@ async def bootstrap_storage(c: ServiceContainer, config) -> None:
     await database.init_tables()
     c.database = database
     c.track("database", database)
-    logger.info("数据库初始化完成")
+    logger.info("Database initialized")  # FIXED-P3: 中文日志→英文
 
     influx = InfluxDBStorage()
     await influx.connect()
@@ -267,9 +267,9 @@ async def bootstrap_platforms(c: ServiceContainer, config) -> None:
             handler = handler_cls()
             await handler.connect(platform_conf)
             c.platform_handlers[platform_name] = handler
-            logger.info("%s平台对接已启动", platform_name)
+            logger.info("Platform %s integration started", platform_name)  # FIXED-P3: 中文日志→英文
         except Exception as e:
-            logger.error("平台对接启动失败 %s: %s", platform_name, e)
+            logger.error("Platform integration start failed %s: %s", platform_name, e)  # FIXED-P3: 中文日志→英文
 
 
 async def bootstrap_modbus_slave(c: ServiceContainer, config) -> None:
@@ -308,7 +308,7 @@ async def bootstrap_devices(c: ServiceContainer, config) -> None:
                         "collect_interval": dev_config.collect_interval,
                     }
                 )
-                logger.info("自动创建模拟设备: %s", dev_config.device_id)
+                logger.info("Auto-created simulator device: %s", dev_config.device_id)  # FIXED-P3: 中文日志→英文
 
     rule_repo = c._repos["rule"]
     alarm_repo = c._repos["alarm"]
@@ -346,9 +346,9 @@ async def bootstrap_integration(c: ServiceContainer, config) -> None:
         c.backhaul_manager = backhaul_manager
         await backhaul_manager.start()
         c.track("backhaul_manager", backhaul_manager)
-        logger.info("联调集成端点已初始化")
+        logger.info("Integration endpoint initialized")  # FIXED-P3: 中文日志→英文
     except ImportError:
-        logger.warning("联调集成模块不可用")
+        logger.warning("Integration module not available")  # FIXED-P3: 中文日志→英文
 
 
 async def bootstrap_ota(c: ServiceContainer, config) -> None:
@@ -356,11 +356,11 @@ async def bootstrap_ota(c: ServiceContainer, config) -> None:
         from edgelite.engine.ota_manager import OTAManager
 
         c.ota_manager = OTAManager()
-        logger.info("OTA升级管理器已初始化")
+        logger.info("OTA upgrade manager initialized")  # FIXED-P3: 中文日志→英文
     except ImportError:
-        logger.warning("OTA升级管理器模块不可用")
+        logger.warning("OTA upgrade manager module not available")  # FIXED-P3: 中文日志→英文
     except Exception as e:
-        logger.warning("OTA升级管理器初始化失败: %s", e)
+        logger.warning("OTA upgrade manager init failed: %s", e)  # FIXED-P3: 中文日志→英文
 
 
 async def bootstrap_ai(c: ServiceContainer, config) -> None:
@@ -372,8 +372,11 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
         from edgelite.engine.edge_ai_inference import AiInferenceEngine
         from edgelite.services.ai_service import AiModelService
 
+        models_dir = ai_config.models_dir
+        if not models_dir:
+            models_dir = str(Path(__file__).resolve().parent.parent.parent / "models")
         ai_engine = AiInferenceEngine(
-            models_dir=ai_config.models_dir,
+            models_dir=models_dir,
             enabled=True,
         )
         await ai_engine.initialize(event_bus=c.event_bus)
@@ -383,11 +386,11 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
         ai_service = AiModelService(ai_engine, c.database)
         c.ai_service = ai_service
         c.track("ai_service", ai_service)  # FIXED: P0-2 ai_service需追踪
-        logger.info("AI推理引擎已初始化")
+        logger.info("AI inference engine initialized")  # FIXED-P3: 中文日志→英文
     except ImportError as e:
-        logger.warning("AI推理引擎模块不可用: %s", e)
+        logger.warning("AI inference engine module not available: %s", e)  # FIXED-P3: 中文日志→英文
     except Exception as e:
-        logger.warning("AI推理引擎初始化失败: %s", e)
+        logger.warning("AI inference engine init failed: %s", e)  # FIXED-P3: 中文日志→英文
 
 
 async def bootstrap_video(c: ServiceContainer, config) -> None:
@@ -399,9 +402,9 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
 
     if not config.influxdb.token:
         logger.warning(
-            "⚠️  InfluxDB Token未配置，时序数据存储功能不可用。"
-            "请通过 EDGELITE_INFLUXDB__TOKEN 环境变量设置！"
-        )
+            "InfluxDB Token not configured, time-series data storage unavailable. "
+            "Set via EDGELITE_INFLUXDB__TOKEN env var!"
+        )  # FIXED-P3: 中文日志→英文
 
     logging.basicConfig(level=config.logging.level, format=config.logging.format)
 

@@ -84,6 +84,7 @@ class AiInferenceResponse(BaseModel):
 
 
 class AiStatsResponse(BaseModel):
+    model_count: int = 0
     total_calls: int
     total_errors: int
     avg_latency_ms: int

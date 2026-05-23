@@ -161,7 +161,9 @@ class AiModelService:
 
     async def get_stats(self) -> AiStatsResponse:
         snapshot = self._engine.get_stats()
+        models = self._engine.get_loaded_models()
         return AiStatsResponse(
+            model_count=len(models),
             total_calls=snapshot.get("total_calls", 0),
             total_errors=snapshot.get("total_errors", 0),
             avg_latency_ms=snapshot.get("avg_latency_ms", 0),

@@ -13,6 +13,7 @@ from edgelite.api.deps import (
     PaginationDep,
     SchedulerDep,
     require_permission,
+    AuditServiceDep,
 )
 from edgelite.api.error_codes import DeviceErrors
 from edgelite.models.common import ApiResponse, PagedResponse
@@ -57,9 +58,16 @@ async def create_device(
     body: DeviceCreate,
     svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_CREATE),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         device = await svc.create_device(body.model_dump())
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.DEVICE_CREATE, user_id=user["user_id"], username=user["username"], resource_type="device", resource_id=body.device_id)
+        except Exception:
+            pass
         return ApiResponse(data=device)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -97,6 +105,7 @@ async def update_device(
     body: DeviceUpdate,
     svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_UPDATE),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         data = body.model_dump(exclude_none=True)
@@ -104,6 +113,12 @@ async def update_device(
         if device is None:
             # FIXED: 原问题-中文硬编码detail
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.DEVICE_UPDATE, user_id=user["user_id"], username=user["username"], resource_type="device", resource_id=device_id)
+        except Exception:
+            pass
         return ApiResponse(data=device)
     except HTTPException:
         raise
@@ -118,12 +133,19 @@ async def delete_device(
     device_id: str,
     svc: DeviceServiceDep,
     user: CurrentUser = require_permission(Permission.DEVICE_DELETE),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         success, error = await svc.delete_device(device_id)
         if not success:
             # FIXED: 原问题-中文硬编码detail
             raise HTTPException(status_code=409, detail=error or DeviceErrors.DELETE_FAILED)
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.DEVICE_DELETE, user_id=user["user_id"], username=user["username"], resource_type="device", resource_id=device_id)
+        except Exception:
+            pass
         return ApiResponse()
     except HTTPException:
         raise

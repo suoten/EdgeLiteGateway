@@ -260,7 +260,7 @@ class AiInferenceConfig(BaseModel):
     """边缘AI推理引擎配置"""
 
     enabled: bool = False
-    models_dir: str = "models"
+    models_dir: str = ""
     hot_reload_timeout: int = Field(default=30, ge=5, le=300)
     inference_timeout: int = Field(default=10, ge=1, le=60)
     max_concurrent_inferences: int = Field(default=4, ge=1, le=32)

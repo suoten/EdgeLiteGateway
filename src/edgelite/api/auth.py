@@ -10,7 +10,7 @@ from collections import defaultdict
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from jose import JWTError
 
-from edgelite.api.deps import CurrentUser, DatabaseDep, get_current_user
+from edgelite.api.deps import CurrentUser, DatabaseDep, get_current_user, AuditServiceDep
 from edgelite.api.error_codes import AuthErrors
 from edgelite.constants import _AUTH_ATTEMPTS_LIMIT, _AUTH_MAX_ATTEMPTS, _AUTH_PASSWORD_MAX_LENGTH
 from edgelite.models.common import ApiResponse
@@ -75,7 +75,7 @@ def _get_client_ip(request: Request) -> str:
 
 
 @router.post("/login", response_model=ApiResponse[TokenResponse])
-async def login(req: LoginRequest, request: Request, db: DatabaseDep):
+async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc: AuditServiceDep):
     try:
         client_ip = _get_client_ip(request)
         _check_login_rate(client_ip)
@@ -86,6 +86,11 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep):
 
         if user is None or not verify_password(req.password, user["password"]):
             _record_login_attempt(client_ip)
+            try:
+                from edgelite.services.audit_service import AuditAction
+                await audit_svc.log(AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="failed")
+            except Exception:
+                pass
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.INVALID_CREDENTIALS)
 
         if not user["enabled"]:
@@ -101,6 +106,12 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep):
         from edgelite.config import get_config
 
         config = get_config()
+
+        try:
+            from edgelite.services.audit_service import AuditAction
+            await audit_svc.log(AuditAction.LOGIN, user_id=user["user_id"], username=user["username"], ip_address=client_ip)
+        except Exception:
+            pass
 
         return ApiResponse(
             data=TokenResponse(
@@ -162,7 +173,7 @@ async def refresh_token(db: DatabaseDep, refresh: str = Body(..., embed=True)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Token刷新失败: %s", e)
+        logger.error("Token refresh failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=AuthErrors.LOGIN_FAILED) from e
 
 
@@ -188,7 +199,7 @@ async def get_current_user_info(user: CurrentUser, db: DatabaseDep):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("获取失败: %s", e)
+        logger.error("Get user info failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=AuthErrors.LOGIN_FAILED) from e
 
 
@@ -198,6 +209,7 @@ async def change_password(
     old_password: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
     user: dict = Depends(get_current_user),
+    audit_svc: AuditServiceDep = None,
 ):
     try:
         async with db.get_session() as session:
@@ -233,19 +245,32 @@ async def change_password(
             repo = UserRepo(session, db.write_lock)
             await repo.update_password(user["username"], hashed)
             await repo.update_user(user["username"], {"must_change_password": False})
+        try:
+            from edgelite.services.audit_service import AuditAction
+            if audit_svc:
+                await audit_svc.log(AuditAction.PASSWORD_CHANGE, user_id=user["user_id"], username=user["username"])
+        except Exception:
+            pass
         return ApiResponse(data={"message": "password_changed"})
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("修改失败: %s", e)
+        logger.error("Change password failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=AuthErrors.PASSWORD_CHANGE_FAILED) from e
 
 
 @router.post("/logout", response_model=ApiResponse)
-async def logout(request: Request, user: CurrentUser):
+async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep):
     try:
         from edgelite.security.jwt import decode_token
         from edgelite.security.token_revocation import revoke_token
+
+        try:
+            from edgelite.services.audit_service import AuditAction
+            client_ip = _get_client_ip(request)
+            await audit_svc.log(AuditAction.LOGOUT, user_id=user.get("user_id"), username=user.get("username"), ip_address=client_ip)
+        except Exception:
+            pass
 
         tokens_to_revoke = []
         auth_header = request.headers.get("Authorization", "")
@@ -262,7 +287,7 @@ async def logout(request: Request, user: CurrentUser):
                 if jti:
                     revoke_token(jti, exp)
             except Exception as e:
-                logger.warning("Access Token撤销失败: %s", e)
+                logger.warning("Access token revocation failed: %s", e)  # FIXED-P3: 中文日志→英文
 
         refresh_tokens = []
         cookie_refresh = request.cookies.get("edgelite_refresh")
@@ -283,7 +308,7 @@ async def logout(request: Request, user: CurrentUser):
                 if jti:
                     revoke_token(jti, exp)
             except Exception as e:
-                logger.warning("Refresh Token撤销失败: %s", e)
+                logger.warning("Refresh token revocation failed: %s", e)  # FIXED-P3: 中文日志→英文
 
         from fastapi.responses import JSONResponse
 
@@ -294,5 +319,5 @@ async def logout(request: Request, user: CurrentUser):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("操作失败: %s", e)
+        logger.error("Logout failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=AuthErrors.LOGOUT_FAILED) from e
