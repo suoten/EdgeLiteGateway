@@ -2,7 +2,7 @@
   <n-space vertical :size="16">
     <n-grid :cols="4" :x-gap="12" :y-gap="12">
       <n-gi>
-        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-purple">
+        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-purple" style="height:100px">
           <n-statistic :label="t('alarmList.aiAlarmTotal')">
             <template #prefix><span style="font-size:18px">🧠</span></template>
             <n-number-animation :from="0" :to="aiAlarmCount" :duration="500" />
@@ -10,17 +10,17 @@
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-indigo">
+        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-indigo" style="height:100px">
           <n-statistic :label="t('alarmList.aiAlarmRatio')">
             <template #prefix><span style="font-size:18px">📊</span></template>
             <template #default>
-              <n-progress type="circle" :percentage="aiAlarmRatio" :stroke-width="8" :color="'#8b5cf6'" :rail-color="'#e5e7eb'" style="--n-size:48px" />
+              <span class="ai-ratio-num">{{ aiAlarmRatio }}%</span>
             </template>
           </n-statistic>
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-cyan">
+        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-cyan" style="height:100px">
           <n-statistic :label="t('alarmList.todayAiInferences')">
             <template #prefix><span style="font-size:18px">⚡</span></template>
             <n-number-animation :from="0" :to="aiStats.total_calls ?? 0" :duration="500" />
@@ -28,7 +28,7 @@
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-pink">
+        <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-pink" style="height:100px">
           <n-statistic :label="t('alarmList.avgInferenceLatency')">
             <template #prefix><span style="font-size:18px">⏱</span></template>
             <n-number-animation :from="0" :to="aiStats.avg_latency_ms ?? 0" :duration="500" />
@@ -187,7 +187,7 @@ const columns = [
     render: (r: Alarm) => {
       const isAi = (r as any).rule_type === 'ai_inference'
       const isCritical = r.severity === 'critical'
-      const children: any[] = [severityLabel[r.severity] || r.severity]
+      const children: any[] = [severityLabel.value[r.severity] || r.severity]  // FIXED-P3: computed→.value
       if (isAi && isCritical) {
         children.unshift(h('span', { class: 'pulse-dot', style: 'display:inline-block;width:8px;height:8px;border-radius:50%;background:#f56c6c;margin-right:6px;animation:pulse-anim 1.5s ease-in-out infinite;' }))
       }
@@ -299,8 +299,8 @@ onMounted(() => {
   fetchAlarms()
   fetchAiStats()
   ws.connect('alarm', onAlarmPush)
-  ws.onStatus('alarm', (connected: any) => {
-    if (!connected) {
+  ws.onStatus('alarm', (status: string) => {  // FIXED-P2: onStatus回调签名为(status:'connected'|'disconnected'|'error', reason?)，之前将status当布尔值判断永远truthy导致断线提示永不触发
+    if (status === 'disconnected' || status === 'error') {
       message.warning(t('alarmList.wsDisconnected'))
     }
   })
@@ -340,6 +340,11 @@ function onAlarmPush(data: any) {
 .ai-stat-card-indigo { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
 .ai-stat-card-cyan { background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%); }
 .ai-stat-card-pink { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); }
+.ai-ratio-num {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
 .ai-stat-card :deep(.n-statistic .n-statistic-value__content),
 .ai-stat-card :deep(.n-statistic .n-statistic-value),
 .ai-stat-card :deep(.n-statistic .n-statistic-value__integer),

@@ -24,55 +24,55 @@ def _ensure_registry() -> dict[str, dict]:
         {
             "iotsharp": {
                 "label": "IoTSharp",
-                "description": "开源IoT平台",
+                "description": "Open-source IoT platform",  # FIXED-P3: 中文硬编码description
                 "module": "edgelite.platform.iotsharp",
                 "class": "IoTSharpHandler",
                 "schema": {
                     "fields": [
-                        {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
-                        {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
-                        {"name": "username", "type": "string", "label": "MQTT用户名"},
-                        {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
+                        {"name": "broker", "type": "string", "label": "MQTT Broker Address", "default": "localhost", "required": True},  # FIXED-P3: 中文label
+                        {"name": "port", "type": "integer", "label": "MQTT Port", "default": 1883, "required": True},
+                        {"name": "username", "type": "string", "label": "MQTT Username"},
+                        {"name": "password", "type": "string", "label": "MQTT Password", "secret": True},
                     ]
                 },
             },
             "thingsboard": {
                 "label": "ThingsBoard",
-                "description": "开源IoT平台",
+                "description": "Open-source IoT platform",  # FIXED-P3: 中文硬编码description
                 "module": "edgelite.platform.thingsboard",
                 "class": "ThingsBoardHandler",
                 "schema": {
                     "fields": [
-                        {"name": "broker", "type": "string", "label": "MQTT Broker地址", "default": "localhost", "required": True},
-                        {"name": "port", "type": "integer", "label": "MQTT端口", "default": 1883, "required": True},
-                        {"name": "token", "type": "string", "label": "网关AccessToken", "required": True},
-                        {"name": "password", "type": "string", "label": "MQTT密码", "secret": True},
+                        {"name": "broker", "type": "string", "label": "MQTT Broker Address", "default": "localhost", "required": True},  # FIXED-P3: 中文label
+                        {"name": "port", "type": "integer", "label": "MQTT Port", "default": 1883, "required": True},
+                        {"name": "token", "type": "string", "label": "Gateway Access Token", "required": True},
+                        {"name": "password", "type": "string", "label": "MQTT Password", "secret": True},
                     ]
                 },
             },
             "huawei_iotda": {
-                "label": "华为云IoTDA",
-                "description": "华为云设备接入服务",
+                "label": "Huawei IoTDA",  # FIXED-P3: 中文硬编码label→英文
+                "description": "Huawei Cloud Device Access Service",  # FIXED-P3: 中文硬编码description→英文
                 "module": "edgelite.platform.huawei_iotda",
                 "class": "HuaweiIoTDAHandler",
                 "schema": {
                     "fields": [
                         {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                        {"name": "port", "type": "integer", "label": "端口", "default": 8883},
-                        {"name": "device_id", "type": "string", "label": "设备ID", "required": True},
-                        {"name": "secret", "type": "string", "label": "设备密钥", "secret": True, "required": True},
+                        {"name": "port", "type": "integer", "label": "Port", "default": 8883},  # FIXED-P3: 中文label→英文
+                        {"name": "device_id", "type": "string", "label": "Device ID", "required": True},  # FIXED-P3: 中文label→英文
+                        {"name": "secret", "type": "string", "label": "Device Secret", "secret": True, "required": True},  # FIXED-P3: 中文label→英文
                     ]
                 },
             },
             "thingscloud": {
                 "label": "ThingsCloud",
-                "description": "ThingsCloud物联网平台",
+                "description": "ThingsCloud IoT Platform",  # FIXED-P3: 中文硬编码description→英文
                 "module": "edgelite.platform.thingscloud",
                 "class": "ThingsCloudHandler",
                 "schema": {
                     "fields": [
                         {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                        {"name": "port", "type": "integer", "label": "端口", "default": 1883},
+                        {"name": "port", "type": "integer", "label": "Port", "default": 1883},  # FIXED-P3: 中文label→英文
                         {"name": "access_key", "type": "string", "label": "Access Key", "required": True},
                         {"name": "access_secret", "type": "string", "label": "Access Secret", "secret": True, "required": True},
                     ]
@@ -80,31 +80,31 @@ def _ensure_registry() -> dict[str, dict]:
             },
             "thingspanel": {
                 "label": "ThingsPanel",
-                "description": "ThingsPanel开源物联网平台",
+                "description": "ThingsPanel Open-Source IoT Platform",  # FIXED-P3: 中文硬编码description→英文
                 "module": "edgelite.platform.thingspanel",
                 "class": "ThingsPanelHandler",
                 "schema": {
                     "fields": [
                         {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                        {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                        {"name": "username", "type": "string", "label": "用户名"},
-                        {"name": "password", "type": "string", "label": "密码", "secret": True},
-                        {"name": "device_token", "type": "string", "label": "设备Token", "required": True},
+                        {"name": "port", "type": "integer", "label": "Port", "default": 1883},  # FIXED-P3: 中文label→英文
+                        {"name": "username", "type": "string", "label": "Username"},  # FIXED-P3: 中文label→英文
+                        {"name": "password", "type": "string", "label": "Password", "secret": True},  # FIXED-P3: 中文label→英文
+                        {"name": "device_token", "type": "string", "label": "Device Token", "required": True},  # FIXED-P3: 中文label→英文
                     ]
                 },
             },
             "custom": {
-                "label": "自定义平台",
-                "description": "MQTT/HTTP自定义对接",
+                "label": "Custom Platform",  # FIXED-P3: 中文硬编码label→英文
+                "description": "MQTT/HTTP Custom Integration",  # FIXED-P3: 中文硬编码description→英文
                 "module": "edgelite.platform.custom_mqtt",
                 "class": "CustomMqttHandler",
                 "schema": {
                     "fields": [
                         {"name": "broker", "type": "string", "label": "MQTT Broker", "required": True},
-                        {"name": "port", "type": "integer", "label": "端口", "default": 1883},
-                        {"name": "username", "type": "string", "label": "用户名"},
-                        {"name": "password", "type": "string", "label": "密码", "secret": True},
-                        {"name": "topic_prefix", "type": "string", "label": "Topic前缀", "default": "edgelite"},
+                        {"name": "port", "type": "integer", "label": "Port", "default": 1883},  # FIXED-P3: 中文label→英文
+                        {"name": "username", "type": "string", "label": "Username"},  # FIXED-P3: 中文label→英文
+                        {"name": "password", "type": "string", "label": "Password", "secret": True},  # FIXED-P3: 中文label→英文
+                        {"name": "topic_prefix", "type": "string", "label": "Topic Prefix", "default": "edgelite"},  # FIXED-P3: 中文label→英文
                     ]
                 },
             },
@@ -201,3 +201,22 @@ class PlatformService:
             "name": getattr(handler, "platform_name", platform_name),
             "version": getattr(handler, "platform_version", "1.0.0"),
         }
+
+    async def test_connection(self, platform_name: str, config: dict) -> dict[str, Any]:
+        registry = _ensure_registry()
+        entry = registry.get(platform_name)
+        if not entry:
+            raise ValueError(f"Unsupported platform: {platform_name}")
+        missing = self.validate_config(platform_name, config)
+        if missing:
+            raise ValueError(f"Missing required config: {', '.join(missing)}")
+        module = importlib.import_module(entry["module"])
+        handler_cls = getattr(module, entry["class"])
+        handler = handler_cls()
+        try:
+            await handler.connect(config)
+            connected = getattr(handler, "_connected", False)
+            await handler.disconnect()
+            return {"success": connected, "message": "Connection test successful" if connected else "Connection test failed"}
+        except Exception as e:
+            return {"success": False, "message": f"Connection test failed: {e}"}

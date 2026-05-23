@@ -49,7 +49,7 @@
         <n-form-item :label="t('preprocess.deadbandPercent')">
           <n-input-number v-model:value="addForm.deadband_percent" :min="0" :step="0.1" style="width: 200px" />
         </n-form-item>
-        <n-form-item :label="t('preprocess.filterType')">
+        <n-form-item :label="t('preprocess.filterType')" path="filter">
           <n-select v-model:value="addForm.filter" :options="filterOptions" clearable style="width: 200px" />
         </n-form-item>
         <n-form-item :label="t('preprocess.filterWindow')">
@@ -110,6 +110,7 @@ const addForm = reactive({
 
 const addRules = {
   point_key: { required: true, message: t('preprocess.pointIdRequired'), trigger: 'blur' },
+  filter: { required: true, type: 'string' as const, message: t('preprocess.filterTypeRequired'), trigger: 'change' },
 }
 
 const filterOptions = [
@@ -187,6 +188,11 @@ async function handleAdd() {
   try {
     await addFormRef.value?.validate()
   } catch { return }
+
+  if (addForm.deadband > 0 && addForm.deadband_percent > 0) {
+    message.warning(t('preprocess.deadbandConflict'))
+    return
+  }
 
   const config: any = {}
   if (addForm.deadband > 0) config.deadband = addForm.deadband

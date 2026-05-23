@@ -659,6 +659,8 @@ const zhCN: LocaleMessages = {
     activeDevices: '活跃设备',
     dataFlow: '数据流速',
     collectStopped: '已停止',
+    clickToExpand: '点击查看详情',
+    clickToCollapse: '点击收起',
   },
   deviceList: {
     searchPlaceholder: '搜索设备名称/ID',
@@ -917,6 +919,8 @@ const zhCN: LocaleMessages = {
     aggType: '聚合类型',
     aggWindow: '聚合窗口(秒)',
     pointIdRequired: '请输入测点标识',
+    filterTypeRequired: '请选择滤波类型',
+    deadbandConflict: '死区值和死区百分比不能同时设置',
   },
   mcpServer: {
     title: 'MCP Server',
@@ -959,6 +963,16 @@ const zhCN: LocaleMessages = {
     toolListAlarmsDesc: '获取当前活跃告警列表',
     toolGetSystemStatusDesc: '获取系统运行状态',
     toolListRulesDesc: '获取所有规则列表',
+    resourceDevicesName: '设备列表',
+    resourceDevicesDesc: '所有已注册设备的汇总',
+    resourceAlarmsName: '活跃告警',
+    resourceAlarmsDesc: '当前未确认的告警列表',
+    resourceSystemName: '系统状态',
+    resourceSystemDesc: '系统运行状态概要',
+    templateAnalyzeName: '设备分析',
+    templateAnalyzeDesc: '分析设备运行状态和异常',
+    templateAlarmSummaryName: '告警摘要',
+    templateAlarmSummaryDesc: '生成告警摘要报告',
   },
   otaUpdate: {
     rollbackSuccess: '已回滚到版本 {version}',
@@ -1197,6 +1211,11 @@ const zhCN: LocaleMessages = {
     disconnected: '已断开',  // FIXED: 原问题-中文硬编码
     disconnectFailed: '断开失败',  // FIXED: 原问题-中文硬编码
     actions: '操作',
+    testConnection: '测试连接',
+    testConnectionSuccess: '连接测试成功',
+    testConnectionFailed: '连接测试失败',
+    invalidUrlFormat: 'URL格式无效',
+    portRangeError: '端口范围1-65535',
   },
   nav: {  // FIXED: 原问题-中文硬编码，改用i18n
     dashboard: '仪表盘',
@@ -1295,6 +1314,8 @@ const zhCN: LocaleMessages = {
     rawOutput: '原始输出',
     errorRate: '错误率',
     modelPerformance: '模型性能',
+    detail: '详情',
+    cannotEnableUnavailable: '模型文件不存在，无法启用',
   },
   expressionConfig: {
     loading: '加载表达式配置...',  // FIXED: 原问题-中文硬编码，改用i18n

@@ -336,6 +336,7 @@ class Database:
             ("users", "must_change_password", "BOOLEAN NOT NULL DEFAULT 0"),
             ("users", "updated_at", "DATETIME DEFAULT NULL"),
             ("alarms", "message", "VARCHAR(256) NOT NULL DEFAULT ''"),
+            ("alarms", "rule_type", "VARCHAR(32) NOT NULL DEFAULT 'threshold'"),
         ]
         for table, column, definition in migrations:
             try:

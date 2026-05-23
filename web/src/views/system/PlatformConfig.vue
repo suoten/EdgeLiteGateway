@@ -93,6 +93,7 @@
 
         <n-space justify="end" style="margin-top: 8px">
           <n-button @click="currentStep = 1">{{ t('platformConfig.prevStep') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
+          <n-button @click="testConnection" :loading="testing">{{ t('platformConfig.testConnection') }}</n-button>
           <n-button type="primary" :loading="connecting" @click="connectPlatform">{{ t('platformConfig.connect') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
         </n-space>
       </div>
@@ -117,6 +118,7 @@ const supportedPlatforms = ref<any[]>([])
 const loading = ref(false)
 const showAddModal = ref(false)
 const connecting = ref(false)
+const testing = ref(false)
 const schemaLoading = ref(false)
 const platformFields = ref<any[]>([])
 const currentStep = ref(1)
@@ -143,15 +145,31 @@ const dynamicFormRules = computed(() => {
         rules['config.' + field.name] = {
           type: 'number',
           required: true,
-          message: t('platformConfig.fieldRequired', { field: field.label || field.name }),  // FIXED: 原问题-中文硬编码
+          message: t('platformConfig.fieldRequired', { field: field.label || field.name }),
           trigger: ['blur', 'change'],
         }
       } else {
         rules['config.' + field.name] = {
           required: true,
-          message: t('platformConfig.fieldRequired', { field: field.label || field.name }),  // FIXED: 原问题-中文硬编码
+          message: t('platformConfig.fieldRequired', { field: field.label || field.name }),
           trigger: ['blur', 'change'],
         }
+      }
+    }
+    if (field.name === 'host' || field.name === 'url' || field.name === 'server_url') {
+      rules['config.' + field.name] = rules['config.' + field.name] || {}
+      rules['config.' + field.name].validator = (_rule: any, value: string) => {
+        if (!value) return true
+        if (value.startsWith('http://') || value.startsWith('https://') || /^[a-zA-Z0-9].*/.test(value)) return true
+        return new Error(t('platformConfig.invalidUrlFormat'))
+      }
+    }
+    if (field.name === 'port') {
+      rules['config.' + field.name] = rules['config.' + field.name] || {}
+      rules['config.' + field.name].validator = (_rule: any, value: number) => {
+        if (value == null) return true
+        if (value >= 1 && value <= 65535) return true
+        return new Error(t('platformConfig.portRangeError'))
       }
     }
   }
@@ -250,7 +268,7 @@ async function connectPlatform() {
   try {
     await formRef.value?.validate()
   } catch {
-    message.warning(t('platformConfig.fillRequired'))  // FIXED: 原问题-中文硬编码
+    message.warning(t('platformConfig.fillRequired'))
     return
   }
 
@@ -259,12 +277,31 @@ async function connectPlatform() {
     await platformApi.connect(formData.value.platform_name, formData.value.config)
     showAddModal.value = false
     await loadPlatforms()
-    message.success(t('platformConfig.connectSuccess'))  // FIXED: 原问题-中文硬编码
+    message.success(t('platformConfig.connectSuccess'))
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || t('platformConfig.connectFailed')  // FIXED: 原问题-中文硬编码
-    message.error(detail)
+    const detail = e?.response?.data?.detail || e?.message || t('platformConfig.connectFailed')
+    message.error(typeof detail === 'string' ? detail : t('platformConfig.connectFailed'))
   } finally {
     connecting.value = false
+  }
+}
+
+async function testConnection() {
+  try {
+    await formRef.value?.validate()
+  } catch {
+    message.warning(t('platformConfig.fillRequired'))
+    return
+  }
+  testing.value = true
+  try {
+    await platformApi.testConnection(formData.value.platform_name, formData.value.config)
+    message.success(t('platformConfig.testConnectionSuccess'))
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail || e?.message || t('platformConfig.testConnectionFailed')
+    message.error(typeof detail === 'string' ? detail : t('platformConfig.testConnectionFailed'))
+  } finally {
+    testing.value = false
   }
 }
 

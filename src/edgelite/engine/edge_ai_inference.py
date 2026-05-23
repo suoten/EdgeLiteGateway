@@ -60,7 +60,7 @@ class OnnxModelWrapper:
     async def load(self) -> None:
         if not _HAS_ONNX:
             self.status = "unavailable"
-            logger.warning("ONNX Runtime未安装, 模型 %s 标记为不可用", self.model_id)
+            logger.warning("ONNX Runtime not installed, model %s marked as unavailable", self.model_id)  # FIXED-P3: 中文日志→英文
             return
         try:
             self.status = "loading"
@@ -75,11 +75,11 @@ class OnnxModelWrapper:
             )
             self.status = "active"
             self.loaded_at = datetime.now(UTC)
-            logger.info("模型加载成功: %s (%s)", self.model_id, self.model_name)
+            logger.info("Model loaded successfully: %s (%s)", self.model_id, self.model_name)  # FIXED-P3: 中文日志→英文
         except Exception as e:
             self.status = "error"
             self.session = None
-            logger.error("模型加载失败: %s - %s", self.model_id, e)
+            logger.error("Model load failed: %s - %s", self.model_id, e)  # FIXED-P3: 中文日志→英文
 
     async def unload(self) -> None:
         self.session = None
@@ -252,15 +252,15 @@ class AiInferenceEngine:
 
     async def initialize(self, event_bus: Any = None, db_session_factory: Any = None) -> None:
         if not self._enabled:
-            logger.info("AI推理引擎已禁用")
+            logger.info("AI inference engine disabled")  # FIXED-P3: 中文日志→英文
             return
         self._event_bus = event_bus
         self._db_session_factory = db_session_factory
         if not _HAS_ONNX:
-            logger.warning("onnxruntime未安装, AI推理引擎不可用, 请执行: pip install onnxruntime")
+            logger.warning("onnxruntime not installed, AI inference engine unavailable, run: pip install onnxruntime")  # FIXED-P3: 中文日志→英文
         self._models_dir.mkdir(parents=True, exist_ok=True)
         await self.load_preset_models()
-        logger.info("AI推理引擎初始化完成, 已加载 %d 个模型", len(self._loaded_models))
+        logger.info("AI inference engine initialized, %d models loaded", len(self._loaded_models))  # FIXED-P3: 中文日志→英文
 
     async def load_preset_models(self) -> None:
         for preset in PRESET_MODELS:
@@ -279,7 +279,7 @@ class AiInferenceEngine:
                 await wrapper.load()
             else:
                 wrapper.status = "unavailable"
-                logger.warning("预置模型文件不存在: %s", model_path)
+                logger.warning("Preset model file not found: %s", model_path)  # FIXED-P3: 中文日志→英文
             self._loaded_models[preset["model_id"]] = wrapper
 
     async def reload_model(self, model_id: str, model_path: str) -> None:
@@ -291,7 +291,7 @@ class AiInferenceEngine:
             wrapper.model_path = model_path
             await wrapper.unload()
             await wrapper.load()
-            logger.info("模型热加载完成: %s (%s -> %s)", model_id, old_status, wrapper.status)
+            logger.info("Model hot-reload completed: %s (%s -> %s)", model_id, old_status, wrapper.status)  # FIXED-P3: 中文日志→英文
 
     async def load_custom_model(
         self,
@@ -388,10 +388,19 @@ class AiInferenceEngine:
     def get_model_stats(self, model_id: str) -> dict | None:
         return self._stats.get_model_stats(model_id)
 
-    async def enable_model(self, model_id: str) -> None:
+    async def enable_model(self, model_id: str) -> tuple[bool, str]:
         wrapper = self._loaded_models.get(model_id)
-        if wrapper and wrapper.status == "inactive":
+        if not wrapper:
+            return False, "Model not found"
+        if wrapper.status == "unavailable":
+            return False, "Model file not found or cannot be loaded, cannot enable"
+        if wrapper.status == "error":
+            return False, "Model load previously failed, try hot-reload instead"
+        if wrapper.status == "inactive":
             await wrapper.load()
+            if wrapper.status != "active":
+                return False, f"Model enable failed, current status: {wrapper.status}"
+        return True, ""
 
     async def disable_model(self, model_id: str) -> None:
         wrapper = self._loaded_models.get(model_id)
@@ -407,7 +416,7 @@ class AiInferenceEngine:
         for wrapper in self._loaded_models.values():
             await wrapper.unload()
         self._loaded_models.clear()
-        logger.info("AI推理引擎关闭, 所有模型资源已释放")
+        logger.info("AI inference engine shutdown, all model resources released")  # FIXED-P3: 中文日志→英文
 
 
 class AiInferenceEvent:

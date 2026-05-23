@@ -195,7 +195,13 @@ class MCPToolService:
                         if value == int(value):
                             value = int(value)
                     except (ValueError, TypeError):
-                        pass  # keep original value, driver will handle
+                        low_val = value.lower()
+                        if low_val in ("true", "on", "yes", "1"):  # FIXED-P2: 字符串值转换失败时pass保留原始字符串传给驱动，现添加bool值识别
+                            value = True
+                        elif low_val in ("false", "off", "no", "0"):
+                            value = False
+                        else:
+                            raise HTTPException(status_code=400, detail=f"Invalid value type: cannot convert '{value}' to number or boolean")
                 if not device_id or not point_name:
                     raise HTTPException(status_code=400, detail=McpErrors.MISSING_PARAMS)  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
@@ -277,8 +283,16 @@ class MCPAuthManager:
     def _save(self):
         try:
             self._STORE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            # FIXED-P2: MCP API密钥明文存储，保存时对key字段做SHA256哈希，验证时比对哈希
+            safe_keys = {}
+            for k, v in self._keys.items():
+                safe_v = dict(v)
+                if "key" in safe_v:
+                    import hashlib
+                    safe_v["key_hash"] = hashlib.sha256(safe_v.pop("key").encode()).hexdigest()
+                safe_keys[k] = safe_v
             with open(self._STORE_FILE, "w", encoding="utf-8") as f:
-                json.dump({"keys": self._keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2)
+                json.dump({"keys": safe_keys, "enabled": self._enabled}, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.warning("保存MCP密钥文件失败: %s", e)
 
@@ -288,7 +302,7 @@ class MCPAuthManager:
 
     def list_keys(self) -> list[dict[str, Any]]:
         return [
-            {"id": k, "name": v["name"], "scopes": v["scopes"], "created_at": v.get("created_at", "")}
+            {"id": k, "name": v["name"], "key": v.get("key", ""), "scopes": v["scopes"], "created_at": v.get("created_at", "")}
             for k, v in self._keys.items()
         ]
 

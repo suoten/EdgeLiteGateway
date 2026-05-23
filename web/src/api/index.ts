@@ -117,6 +117,13 @@ export const deviceApi = {
     if (apiKey) headers['x-api-key'] = apiKey
     return http.post<ApiResponse>(`/devices/${deviceId}/push`, data, { headers }).then((r) => r.data.data)
   },
+
+  // FIXED-P1: 后端存在collect-stats/device-quality-stats路由但前端无对应API函数
+  collectStats: () =>
+    http.get<ApiResponse<Record<string, any>>>('/devices/collect-stats').then((r) => r.data.data),
+
+  deviceQualityStats: () =>
+    http.get<ApiResponse<Record<string, any>>>('/devices/device-quality-stats').then((r) => r.data.data),
 }
 
 // ─── 规则 ───
@@ -213,6 +220,10 @@ export const dataApi = {
 
   export: (params: { device_id: string; point_name: string; start: string; stop?: string; format?: string }) =>
     http.get('/data/export', { params, responseType: 'blob' }),
+
+  // FIXED-P1: 后端存在data/stats路由但前端无对应API函数
+  stats: (params?: { device_id?: string }) =>
+    http.get<ApiResponse<Record<string, any>>>('/data/stats', { params }).then((r) => r.data.data),
 }
 
 // ─── 视频 ───
@@ -390,6 +401,9 @@ export const platformApi = {
 
   status: (platformName: string) =>
     http.get<ApiResponse<{ connected: boolean; name: string; version: string }>>(`/platforms/status/${platformName}`).then((r) => r.data.data),
+
+  testConnection: (platformName: string, config: Record<string, any>) =>
+    http.post<ApiResponse<any>>(`/platforms/test-connection/${platformName}`, { config }).then((r) => r.data.data),
 }
 
 // ─── 审计日志 ───
@@ -585,7 +599,8 @@ export const mcpApi = {
     // FIXED: 原问题-r.data.data ?? r.data返回类型不一致，改为统一r.data.data
     http.delete<ApiResponse>(`/mcp/auth-keys/${keyId}`).then((r) => r.data.data),
 
-  // FIXED: 后端有mcp/sse路由但前端无对应API函数
+  // FIXED-P2: SSE EventSource不支持自定义header，Token暂仍通过URL传递
+  // TODO: 后端支持httpOnly cookie后移除URL Token参数
   createSseConnection: (token?: string) => {
     const base = import.meta.env.VITE_API_BASE_URL || '/api/v1'
     const url = token ? `${base}/mcp/sse?token=${encodeURIComponent(token)}` : `${base}/mcp/sse`

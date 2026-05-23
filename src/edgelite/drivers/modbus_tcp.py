@@ -20,20 +20,38 @@ from edgelite.drivers.base import DriverPlugin
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
 _PYMODBUS_MINOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[1]) if _PYMODBUS_MAJOR >= 3 else 0
-_PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)  # FIXED: 原问题-pymodbus3.7+读取方法count变为仅关键字参数，传位置参数导致TypeError
+_PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)
 
 logger = logging.getLogger(__name__)
+
+_SLAVE_KWARG_NAME: str | None = None
+
+
+def _detect_slave_kwarg_name() -> str:
+    """通过检查read_holding_registers方法签名来决定使用slave还是unit"""
+    import inspect
+
+    dummy = AsyncModbusTcpClient(host="127.0.0.1")
+    sig = inspect.signature(dummy.read_holding_registers)
+    for pname in ("slave", "unit"):
+        if pname in sig.parameters:
+            return pname
+    return "slave"
 
 
 def _slave_kwarg(slave_id: int) -> dict:
     """返回正确的 Modbus 设备 ID 参数"""
-    if _PYMODBUS_MAJOR < 3:
-        return {"unit": slave_id}  # pymodbus 2.x
-    return {"slave": slave_id}  # FIXED: 原问题-pymodbus3.7+使用slave替代device_id
+    global _SLAVE_KWARG_NAME
+    if _SLAVE_KWARG_NAME is None:
+        try:
+            _SLAVE_KWARG_NAME = _detect_slave_kwarg_name()
+        except Exception:
+            _SLAVE_KWARG_NAME = "slave" if _PYMODBUS_MAJOR >= 3 else "unit"
+    return {_SLAVE_KWARG_NAME: slave_id}
 
 
 def _read_kwargs(count: int, slave_id: int) -> dict:
-    """返回正确的读取方法关键字参数"""  # FIXED: 原问题-pymodbus3.7+读取方法count变为仅关键字参数
+    """返回正确的读取方法关键字参数"""
     kwargs = _slave_kwarg(slave_id)
     if _PYMODBUS_37_PLUS:
         kwargs["count"] = count

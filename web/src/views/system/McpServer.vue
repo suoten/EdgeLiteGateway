@@ -236,6 +236,26 @@ const mcpToolDescMap: Record<string, string> = {
   list_rules: 'mcpServer.toolListRulesDesc',
 }
 
+const mcpResourceNameMap: Record<string, string> = {
+  devices: 'mcpServer.resourceDevicesName',
+  'alarms/active': 'mcpServer.resourceAlarmsName',
+  'system/status': 'mcpServer.resourceSystemName',
+}
+const mcpResourceDescMap: Record<string, string> = {
+  devices: 'mcpServer.resourceDevicesDesc',
+  'alarms/active': 'mcpServer.resourceAlarmsDesc',
+  'system/status': 'mcpServer.resourceSystemDesc',
+}
+
+const mcpTemplateNameMap: Record<string, string> = {
+  analyze_device: 'mcpServer.templateAnalyzeName',
+  alarm_summary: 'mcpServer.templateAlarmSummaryName',
+}
+const mcpTemplateDescMap: Record<string, string> = {
+  analyze_device: 'mcpServer.templateAnalyzeDesc',
+  alarm_summary: 'mcpServer.templateAlarmSummaryDesc',
+}
+
 const toolColumns = [
   { title: t('ruleList.name'), key: 'name', width: 200 },
   {
@@ -253,18 +273,36 @@ const toolColumns = [
 
 const resourceColumns = [
   { title: 'URI', key: 'uri', width: 250 },
-  { title: t('ruleList.name'), key: 'name', width: 200 },
+  {
+    title: t('ruleList.name'), key: 'name', width: 200,
+    render: (row: any) => {
+      const i18nKey = mcpResourceNameMap[row.name] || mcpResourceNameMap[row.uri?.replace('edgelite://', '')]
+      return i18nKey ? t(i18nKey) : (row.name || '-')
+    },
+  },
   {
     title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true },
-    render: (row: any) => row.description || '-',
+    render: (row: any) => {
+      const i18nKey = mcpResourceDescMap[row.name] || mcpResourceDescMap[row.uri?.replace('edgelite://', '')]
+      return i18nKey ? t(i18nKey) : (row.description || '-')
+    },
   },
 ]
 
 const promptColumns = [
-  { title: t('ruleList.name'), key: 'name', width: 200 },
+  {
+    title: t('ruleList.name'), key: 'name', width: 200,
+    render: (row: any) => {
+      const i18nKey = mcpTemplateNameMap[row.name]
+      return i18nKey ? t(i18nKey) : (row.name || '-')
+    },
+  },
   {
     title: t('auditLog.detail'), key: 'description', ellipsis: { tooltip: true },
-    render: (row: any) => row.description || '-',
+    render: (row: any) => {
+      const i18nKey = mcpTemplateDescMap[row.name]
+      return i18nKey ? t(i18nKey) : (row.description || '-')
+    },
   },
 ]
 

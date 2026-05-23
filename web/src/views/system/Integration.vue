@@ -3,11 +3,11 @@
     <n-tabs type="line" animated>
       <n-tab-pane name="rpc" :tab="t('rpc.title')">
         <n-space vertical :size="16">
-          <n-form label-placement="left" :label-width="100">
-            <n-form-item :label="t('rpc.deviceId')">
+          <n-form label-placement="left" :label-width="100" :model="rpcForm" :rules="rpcFormRules" ref="rpcFormRef">
+            <n-form-item :label="t('rpc.deviceId')" path="device_id">
               <n-select v-model:value="rpcForm.device_id" :options="deviceOptions" filterable :placeholder="t('rpc.deviceId')" />
             </n-form-item>
-            <n-form-item :label="t('rpc.method')">
+            <n-form-item :label="t('rpc.method')" path="method">
               <n-input v-model:value="rpcForm.method" :placeholder="t('rpc.method')" />
             </n-form-item>
             <n-form-item :label="t('rpc.params')">
@@ -58,6 +58,11 @@ const rpcForm = ref({
   params: {} as Record<string, any>,
   timeout: 10,
 })
+const rpcFormRef = ref<any>(null)
+const rpcFormRules = {
+  device_id: { required: true, message: t('rpc.deviceId') + t('common.required'), trigger: 'change' },
+  method: { required: true, message: t('rpc.method') + t('common.required'), trigger: 'blur' },
+}
 const paramsJson = ref('{}')
 const executing = ref(false)
 const lastResult = ref<any>(null)
@@ -83,14 +88,13 @@ async function loadDevices() {
 
 async function handleExecute() {
   try {
+    await rpcFormRef.value?.validate()
+  } catch { return }
+  try {
     const params = JSON.parse(paramsJson.value)
     rpcForm.value.params = params
   } catch {
     message.error(t('rpc.invalidJsonParams'))
-    return
-  }
-  if (!rpcForm.value.device_id || !rpcForm.value.method) {
-    message.error(t('common.required'))
     return
   }
   executing.value = true
@@ -109,7 +113,8 @@ async function handleExecute() {
     }
     loadHistory()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    const detail = e?.response?.data?.detail
+    message.error(typeof detail === 'string' ? detail : (e?.message || t('common.failed')))
   } finally {
     executing.value = false
   }

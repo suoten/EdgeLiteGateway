@@ -109,8 +109,11 @@ class AiModelService:
         wrapper = self._engine.get_model(model_id)
         if not wrapper:
             return False
-        await self._engine.enable_model(model_id)
-        return True
+        ok, reason = await self._engine.enable_model(model_id)
+        if not ok and reason:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail=reason)
+        return ok
 
     async def disable_model(self, model_id: str) -> bool:
         wrapper = self._engine.get_model(model_id)

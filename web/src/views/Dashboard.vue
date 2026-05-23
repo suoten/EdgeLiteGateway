@@ -99,7 +99,7 @@
       </template>
       <n-grid :cols="4" :x-gap="16" :y-gap="16">
         <n-gi>
-          <n-statistic :label="t('dashboard.collectTasks')" class="collect-stat">
+          <n-statistic :label="t('dashboard.collectTasks')" class="collect-stat" @click="collectExpanded = !collectExpanded" style="cursor:pointer">
             <template #default><span class="collect-stat-num">{{ status?.collect_task_count ?? 0 }}</span></template>
             <template #prefix><span style="font-size:18px">🔌</span></template>
           </n-statistic>
@@ -125,24 +125,36 @@
           </n-statistic>
         </n-gi>
       </n-grid>
-      <div style="margin-top:16px">
-        <n-text style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600">{{ t('dashboard.activeDevices') }}</n-text>
-        <n-space vertical :size="6" style="margin-top:8px;max-height:240px;overflow-y:auto">
-          <div v-for="d in activeDeviceList" :key="d.device_id" class="collect-device-row" :class="{'row-online': d.status === 'online', 'row-error': d.status === 'error'}">
-            <n-space align="center" :size="8" justify="space-between" style="width:100%">
-              <n-space align="center" :size="8">
-                <span class="collect-device-dot" :class="`dot-${d.status}`" />
-                <n-text style="color:#fff;font-size:13px">{{ d.name || d.device_id }}</n-text>
-                <n-tag size="tiny" :bordered="false" type="info">{{ d.protocol }}</n-tag>
-              </n-space>
-              <n-space align="center" :size="12">
-                <n-text style="color:rgba(255,255,255,0.6);font-size:12px">{{ d.last_collect_ago || '-' }}</n-text>
-                <n-text style="color:rgba(255,255,255,0.8);font-size:12px">{{ d.today_points ?? 0 }} pts</n-text>
-              </n-space>
-            </n-space>
-          </div>
-        </n-space>
+      <div style="margin-top:8px;text-align:center">
+        <n-text
+          style="color:rgba(255,255,255,0.6);font-size:12px;cursor:pointer;user-select:none"
+          class="collect-expand-hint"
+          @click="collectExpanded = !collectExpanded"
+        >
+          {{ collectExpanded ? t('dashboard.clickToCollapse') : t('dashboard.clickToExpand') }}
+          {{ collectExpanded ? '▲' : '▼' }}
+        </n-text>
       </div>
+      <n-collapse-transition :show="collectExpanded">
+        <div style="margin-top:12px">
+          <n-text style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600">{{ t('dashboard.activeDevices') }}</n-text>
+          <n-space vertical :size="6" style="margin-top:8px;max-height:240px;overflow-y:auto">
+            <div v-for="d in activeDeviceList" :key="d.device_id" class="collect-device-row" :class="{'row-online': d.status === 'online', 'row-error': d.status === 'error'}">
+              <n-space align="center" :size="8" justify="space-between" style="width:100%">
+                <n-space align="center" :size="8">
+                  <span class="collect-device-dot" :class="`dot-${d.status}`" />
+                  <n-text style="color:#fff;font-size:13px">{{ d.name || d.device_id }}</n-text>
+                  <n-tag size="tiny" :bordered="false" type="info">{{ d.protocol }}</n-tag>
+                </n-space>
+                <n-space align="center" :size="12">
+                  <n-text style="color:rgba(255,255,255,0.6);font-size:12px">{{ d.last_collect_ago || '-' }}</n-text>
+                  <n-text style="color:rgba(255,255,255,0.8);font-size:12px">{{ d.today_points ?? 0 }} pts</n-text>
+                </n-space>
+              </n-space>
+            </div>
+          </n-space>
+        </div>
+      </n-collapse-transition>
       <div class="data-waterfall">
         <div v-for="i in 12" :key="i" class="waterfall-bar" :style="{ animationDelay: `${i * 0.15}s`, height: `${20 + Math.random() * 60}%` }" />
       </div>
@@ -242,7 +254,7 @@ import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/
 import { protocolLabel as protocolLabelMap } from '@/utils/enumLabels'
 import AiStatsWidget from '@/components/AiStatsWidget.vue'
 
-const getProtocolLabel = (key: string) => protocolLabelMap[key] || ''
+const getProtocolLabel = (key: string) => protocolLabelMap.value[key] || ''
 import * as ws from '@/api/websocket'
 
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
@@ -260,6 +272,7 @@ let uptimeTimer: number | null = null
 const uptime = ref(0)
 
 const collectEngineRunning = computed(() => (status.value?.collect_task_count ?? 0) > 0)
+const collectExpanded = ref(false)
 const runningTaskCount = computed(() => status.value?.collect_task_count ?? 0)
 const todayDataPoints = ref(0)
 const collectSuccessRate = ref(99.5)
@@ -608,6 +621,9 @@ function onDeviceMessage(data: any) {
   padding: 6px 10px;
   border-radius: 6px;
   background: rgba(255,255,255,0.06);
+}
+.collect-expand-hint:hover {
+  color: rgba(255,255,255,0.9) !important;
 }
 .row-online {
   background: rgba(103,194,58,0.12);

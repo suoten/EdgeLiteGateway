@@ -62,101 +62,57 @@
         </n-space>
       </template>
 
-      <n-data-table
-        :columns="columns"
-        :data="models"
-        :loading="loading"
-        :bordered="false"
-        size="small"
-        :row-key="(row: any) => row.model_id"
-      >
-        <template #empty>
-          <n-empty :description="t('ai.noModels')" />
-        </template>
-      </n-data-table>
-    </n-card>
-
-    <n-card :bordered="false">
-      <template #header>
-        <span style="font-size: 16px; font-weight: 600">{{ t('ai.presetModels') }}</span>
-      </template>
-      <n-grid :cols="3" :x-gap="12" :y-gap="12">
-        <n-gi v-for="m in presetModels" :key="m.model_id">
-          <n-card size="small" :bordered="true" hoverable class="model-card">
-            <template #header>
-              <n-space align="center" :size="8">
-                <span style="font-size:20px">{{ modelIcon(m.model_type) }}</span>
-                <span style="font-weight:600">{{ m.model_name }}</span>
-                <n-tag size="small" :bordered="false" round>{{ m.model_version }}</n-tag>
-              </n-space>
+      <n-tabs type="line" animated>
+        <n-tab-pane name="preset" :tab="t('ai.presetModels')">
+          <n-grid :cols="3" :x-gap="12" :y-gap="12">
+            <n-gi v-for="m in presetModels" :key="m.model_id">
+              <n-card size="small" :bordered="true" hoverable class="model-card">
+                <template #header>
+                  <n-space align="center" :size="8">
+                    <span style="font-size:20px">{{ modelIcon(m.model_type) }}</span>
+                    <span style="font-weight:600">{{ m.model_name }}</span>
+                    <n-tag size="small" :bordered="false" round>{{ m.model_version }}</n-tag>
+                  </n-space>
+                </template>
+                <template #header-extra>
+                  <n-space align="center" :size="6">
+                    <span :class="['status-dot', `status-dot-${m.status}`]" />
+                    <n-text depth="3" style="font-size:12px">{{ statusLabel(m.status) }}</n-text>
+                  </n-space>
+                </template>
+                <n-text depth="3" style="font-size:13px">{{ presetDesc(m.model_id) }}</n-text>
+                <template #action>
+                  <n-space justify="space-between" align="center">
+                    <n-switch
+                      :value="m.status === 'active'"
+                      @update:value="m.status === 'active' ? handleDisable(m) : handleEnable(m)"
+                      size="small"
+                    >
+                      <template #checked>{{ t('ai.statusActive') }}</template>
+                      <template #unchecked>{{ t('ai.statusInactive') }}</template>
+                    </n-switch>
+                    <n-button size="tiny" type="primary" @click="quickInference(m)">{{ t('ai.quickInference') }}</n-button>
+                  </n-space>
+                </template>
+              </n-card>
+            </n-gi>
+          </n-grid>
+        </n-tab-pane>
+        <n-tab-pane name="custom" :tab="t('ai.customModels')">
+          <n-data-table
+            :columns="customColumns"
+            :data="customModels"
+            :loading="loading"
+            :bordered="false"
+            size="small"
+            :row-key="(row: any) => row.model_id"
+          >
+            <template #empty>
+              <n-empty :description="t('ai.noModels')" />
             </template>
-            <template #header-extra>
-              <n-space align="center" :size="6">
-                <span :class="['status-dot', `status-dot-${m.status}`]" />
-                <n-text depth="3" style="font-size:12px">{{ statusLabel(m.status) }}</n-text>
-              </n-space>
-            </template>
-            <n-text depth="3" style="font-size:13px">{{ presetDesc(m.model_id) }}</n-text>
-            <template #action>
-              <n-space justify="space-between" align="center">
-                <n-switch
-                  :value="m.status === 'active'"
-                  @update:value="m.status === 'active' ? handleDisable(m) : handleEnable(m)"
-                  size="small"
-                >
-                  <template #checked>{{ t('ai.statusActive') }}</template>
-                  <template #unchecked>{{ t('ai.statusInactive') }}</template>
-                </n-switch>
-                <n-button size="tiny" type="primary" @click="quickInference(m)">{{ t('ai.quickInference') }}</n-button>
-              </n-space>
-            </template>
-          </n-card>
-        </n-gi>
-      </n-grid>
-    </n-card>
-
-    <n-card v-if="customModels.length > 0" :bordered="false">
-      <template #header>
-        <span style="font-size: 16px; font-weight: 600">{{ t('ai.customModels') }}</span>
-      </template>
-      <n-grid :cols="3" :x-gap="12" :y-gap="12">
-        <n-gi v-for="m in customModels" :key="m.model_id">
-          <n-card size="small" :bordered="true" hoverable class="model-card">
-            <template #header>
-              <n-space align="center" :size="8">
-                <span style="font-size:20px">{{ modelIcon(m.model_type) }}</span>
-                <span style="font-weight:600">{{ m.model_name }}</span>
-                <n-tag size="small" :bordered="false" round>{{ m.model_version }}</n-tag>
-              </n-space>
-            </template>
-            <template #header-extra>
-              <n-space align="center" :size="6">
-                <span :class="['status-dot', `status-dot-${m.status}`]" />
-                <n-text depth="3" style="font-size:12px">{{ statusLabel(m.status) }}</n-text>
-              </n-space>
-            </template>
-            <n-text depth="3" style="font-size:13px">{{ m.model_file_path || '-' }}</n-text>
-            <template #action>
-              <n-space justify="space-between" align="center">
-                <n-switch
-                  :value="m.status === 'active'"
-                  @update:value="m.status === 'active' ? handleDisable(m) : handleEnable(m)"
-                  size="small"
-                />
-                <n-space :size="4">
-                  <n-button size="tiny" type="primary" @click="quickInference(m)">{{ t('ai.quickInference') }}</n-button>
-                  <n-popconfirm @positive-click="handleDelete(m)">
-                    <template #trigger>
-                      <n-button size="tiny" type="error">{{ t('common.delete') }}</n-button>
-                    </template>
-                    {{ t('ai.deleteConfirm') }}
-                  </n-popconfirm>
-                </n-space>
-              </n-space>
-            </template>
-          </n-card>
-        </n-gi>
-      </n-grid>
+          </n-data-table>
+        </n-tab-pane>
+      </n-tabs>
     </n-card>
 
     <n-card v-if="activeModelsWithStats.length > 0" :bordered="false">
@@ -254,7 +210,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h, reactive } from 'vue'
-import { NTag, NButton, NSpace, NPopconfirm, useMessage, useDialog } from 'naive-ui'
+import { NTag, NButton, NSpace, NPopconfirm, NTooltip, useMessage, useDialog } from 'naive-ui'
 import { aiApi } from '@/api'
 import { t } from '@/i18n'
 
@@ -395,13 +351,52 @@ const columns = [
           trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
           default: () => t('ai.reloadConfirm'),
         }),
-        h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(row) }, { default: () => t('common.edit') }),
+        h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(row) }, { default: () => t('ai.detail') }),
         !row.is_preset
           ? h(NPopconfirm, { onPositiveClick: () => handleDelete(row) }, {
               trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('common.delete') }),
               default: () => t('ai.deleteConfirm'),
             })
           : null,
+      ].filter(Boolean),
+    }),
+  },
+]
+
+const customColumns = [
+  { title: t('ai.modelName'), key: 'model_name', width: 180 },
+  {
+    title: t('ai.modelType'), key: 'model_type', width: 120,
+    render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => modelTypeLabel(row.model_type) }),
+  },
+  { title: t('ai.modelVersion'), key: 'model_version', width: 80 },
+  {
+    title: t('ai.status'), key: 'status', width: 100,
+    render: (row: any) => h(NTag, { size: 'small', type: statusTagType(row.status) }, { default: () => statusLabel(row.status) }),
+  },
+  { title: t('ai.modelPath'), key: 'model_file_path', width: 200, ellipsis: { tooltip: true } },
+  {
+    title: t('ai.inferenceCount'), key: 'inference_count', width: 100,
+    render: (row: any) => row.inference_count ?? 0,
+  },
+  {
+    title: t('common.actions'), key: 'action', width: 280,
+    render: (row: any) => h(NSpace, { size: 4 }, {
+      default: () => [
+        row.status === 'active'
+          ? h(NButton, { text: true, type: 'warning', size: 'small', onClick: () => handleDisable(row) }, { default: () => t('ai.disable') })
+          : row.status === 'unavailable'
+            ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }), default: () => t('ai.cannotEnableUnavailable') })
+            : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }),
+        h(NPopconfirm, { onPositiveClick: () => handleReload(row) }, {
+          trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
+          default: () => t('ai.reloadConfirm'),
+        }),
+        h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(row) }, { default: () => t('ai.detail') }),
+        h(NPopconfirm, { onPositiveClick: () => handleDelete(row) }, {
+          trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('common.delete') }),
+          default: () => t('ai.deleteConfirm'),
+        }),
       ].filter(Boolean),
     }),
   },

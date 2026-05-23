@@ -94,7 +94,26 @@ async def disconnect_platform(
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=PlatformErrors.DISCONNECT_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(status_code=500, detail=PlatformErrors.DISCONNECT_FAILED) from e
+
+
+class TestConnectionRequest(BaseModel):
+    config: dict
+
+
+@router.post("/test-connection/{platform_name}", response_model=ApiResponse)
+async def test_connection(
+    platform_name: str,
+    req: TestConnectionRequest,
+    handlers: PlatformHandlersDep,
+    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+):
+    try:
+        svc = _get_service(handlers)
+        result = await svc.test_connection(platform_name, req.config)
+        return ApiResponse(data=result)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/status/{platform_name}", response_model=ApiResponse)
