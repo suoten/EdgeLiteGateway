@@ -43,6 +43,21 @@ class InfluxDBConfig(BaseModel):
     batch_size: int = 1000
     flush_interval: int = 5000
     retention_days: int = Field(default=30, ge=1, le=3650)
+    fallback_backend: str = "sqlite"
+    sqlite_ts_path: str = "data/edgelite_ts.db"
+    auto_sync_on_recovery: bool = True
+    sync_batch_size: int = Field(default=500, ge=10, le=5000)
+    sync_interval: int = Field(default=30, ge=5, le=300)
+
+
+class CacheConfig(BaseModel):
+    """环形缓冲区与增量同步配置"""
+
+    ring_buffer_capacity: int = Field(default=100000, ge=1000)
+    ring_buffer_compress: bool = True
+    incremental_sync_enabled: bool = True
+    high_watermark_pct: float = Field(default=0.8, ge=0.5, le=1.0)
+    critical_watermark_pct: float = Field(default=0.9, ge=0.6, le=1.0)
 
 
 class MQTTConfig(BaseModel):
@@ -56,6 +71,8 @@ class MQTTConfig(BaseModel):
     max_queue_size: int = Field(default=10000, ge=100)
     max_retries: int = Field(default=100, ge=1)
     retry_interval: float = Field(default=5.0, ge=1.0)
+    ring_buffer_capacity: int = Field(default=50000, ge=1000)
+    ring_buffer_compress: bool = True
 
 
 class PyGBSentryConfig(BaseModel):
@@ -259,7 +276,7 @@ class GrafanaConfig(BaseModel):
 class AiInferenceConfig(BaseModel):
     """边缘AI推理引擎配置"""
 
-    enabled: bool = False
+    enabled: bool = True
     models_dir: str = ""
     hot_reload_timeout: int = Field(default=30, ge=5, le=300)
     inference_timeout: int = Field(default=10, ge=1, le=60)
@@ -309,6 +326,7 @@ class AppConfig(BaseModel):
     drivers: DriversConfig = Field(default_factory=DriversConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     ai_inference: AiInferenceConfig = Field(default_factory=AiInferenceConfig)
+    cache: CacheConfig = Field(default_factory=CacheConfig)
     ota_update_url: str = ""
 
 

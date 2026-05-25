@@ -16,7 +16,7 @@
       <n-gi>
         <n-card class="stat-card stat-card-ai-primary" :bordered="false" size="small">
           <n-statistic :label="t('ai.modelCount')" :value="stats.model_count ?? 0">
-            <template #prefix><span class="ai-icon">🧠</span></template>
+            <template #prefix><n-icon :component="SparklesOutline" :size="18" /></template>
           </n-statistic>
         </n-card>
       </n-gi>
@@ -41,6 +41,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { NIcon } from 'naive-ui'
+import { SparklesOutline } from '@vicons/ionicons5'
 import { aiApi } from '@/api'
 import { t } from '@/i18n'
 
@@ -86,9 +88,6 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
-}
-.ai-icon {
-  font-size: 18px;
 }
 .stat-card {
   border-radius: 8px;

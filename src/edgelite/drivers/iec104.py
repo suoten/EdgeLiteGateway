@@ -132,6 +132,7 @@ class Iec104Driver(DriverPlugin):
         self._sbo_select_event: asyncio.Event = asyncio.Event()
         self._sbo_execute_event: asyncio.Event = asyncio.Event()
         self._lock: asyncio.Lock = asyncio.Lock()
+        self._devices: dict[str, dict] = {}
 
     def on_data(self, callback: Callable) -> None:
         self._data_callback = callback
@@ -175,6 +176,26 @@ class Iec104Driver(DriverPlugin):
         self._receive_task = None
         await self._close_connection()
         logger.info("IEC 104驱动停止")
+
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加IEC 104设备，保存配置并更新IOA映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        # 将测点的IOA映射合并到_ioa_map中
+        for pt in points:
+            name = pt.get("name", "")
+            ioa = pt.get("ioa", pt.get("address", ""))
+            if name and ioa:
+                try:
+                    ioa_int = int(ioa)
+                    self._ioa_map[ioa_int] = name
+                except (ValueError, TypeError):
+                    pass
+        logger.info("IEC 104设备已添加: %s (%d测点)", device_id, len(points))
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         """IEC 104 协议使用事件驱动模式，数据通过 TCP 连接被动接收，不支持主动轮询读取。
@@ -803,3 +824,10 @@ class Iec104Driver(DriverPlugin):
                 logger.debug("IEC104写入端关闭失败: %s", e)
             self._writer = None
         self._reader = None
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        self._ioa_map.pop(device_id, None)
+        logger.info("IEC 104 device removed: %s", device_id)

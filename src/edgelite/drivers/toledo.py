@@ -39,19 +39,29 @@ class ToledoDriver(DriverPlugin):
         ],
     }
 
+    _MAX_RECONNECT_ATTEMPTS = 100
+    _RECONNECT_BASE_DELAY = 1.0
+    _RECONNECT_MAX_DELAY = 60.0
+
     def __init__(self):
         self._running = False
         self._reader = None
         self._writer = None
         self._config: dict = {}
         self._lock = asyncio.Lock()
+        self._reconnect_count: int = 0
+        self._reconnect_delay: float = self._RECONNECT_BASE_DELAY
+        self._devices: dict[str, dict] = {}
 
     async def start(self, config: dict) -> None:
         """启动托利多设备连接"""
         self._config = config
-        ip = config.get("ip", "")
-        port = int(config.get("port", 8000))
+        ip = config.get("ip") or config.get("host", "")
+        port = int(config.get("port", 1701))
         serial_port = config.get("serial_port", "")
+
+        if not (1 <= port <= 65535):
+            raise ValueError(f"托利多驱动port超出范围[1-65535]，当前: {port}")
 
         if ip:
             # TCP模式
@@ -105,6 +115,7 @@ class ToledoDriver(DriverPlugin):
             - zero: 是否零点
         """
         if not self._running or not self._reader:
+            await self._try_reconnect(device_id)
             return {}
 
         result = {}
@@ -193,6 +204,7 @@ class ToledoDriver(DriverPlugin):
             - zero: 清零 (value=True执行清零)
         """
         if not self._running or not self._writer:
+            await self._try_reconnect(device_id)
             return False
 
         try:
@@ -214,6 +226,63 @@ class ToledoDriver(DriverPlugin):
             logger.error("托利多写入失败 %s: %s", point, e)
             return False
 
+    async def _try_reconnect(self, device_id: str) -> None:
+        if not self._config:
+            return
+        self._reconnect_count += 1
+        if self._reconnect_count > self._MAX_RECONNECT_ATTEMPTS:
+            logger.error("托利多重连放弃: %s (已重试%d次)", device_id, self._reconnect_count)
+            self._running = False
+            return
+        delay = min(self._reconnect_delay, self._RECONNECT_MAX_DELAY)
+        logger.warning("托利多连接断开，%.1fs后重连 (第%d次): %s", delay, self._reconnect_count, device_id)
+        await asyncio.sleep(delay)
+        self._reconnect_delay *= 2
+        ip = self._config.get("ip") or self._config.get("host", "")
+        port = int(self._config.get("port", 1701))
+        serial_port = self._config.get("serial_port", "")
+        if self._writer:
+            try:
+                self._writer.close()
+                await self._writer.wait_closed()
+            except Exception:
+                pass
+            self._writer = None
+            self._reader = None
+        try:
+            if ip:
+                self._reader, self._writer = await asyncio.open_connection(ip, port)
+            elif serial_port:
+                import serial_asyncio
+                baudrate = int(self._config.get("baudrate", 9600))
+                self._reader, self._writer = await serial_asyncio.open_serial_connection(
+                    url=serial_port, baudrate=baudrate
+                )
+            else:
+                return
+            self._running = True
+            self._reconnect_count = 0
+            self._reconnect_delay = self._RECONNECT_BASE_DELAY
+            logger.info("托利多重连成功: %s:%d", ip, port)
+        except Exception as e:
+            logger.error("托利多重连失败: %s - %s", ip, e)
+
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加托利多设备，保存配置和测点映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        logger.info("托利多设备已添加: %s (%d测点)", device_id, len(points))
+
     async def discover_devices(self, config: dict) -> list[dict]:
         """托利多设备不支持自动发现"""
         return []
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        logger.info("Toledo device removed: %s", device_id)

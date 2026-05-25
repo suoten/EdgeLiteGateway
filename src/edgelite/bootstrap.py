@@ -198,11 +198,12 @@ async def bootstrap_ws(c: ServiceContainer, config) -> None:
 
 
 async def bootstrap_drivers(c: ServiceContainer, config) -> None:
-    from edgelite.drivers.registry import DriverRegistry
+    from edgelite.drivers.registry import get_driver_registry
     from edgelite.engine.plugin_manager import PluginManager
 
-    driver_registry = DriverRegistry()
-    driver_registry.auto_discover()
+    # FIXED: 原问题-创建新DriverRegistry实例导致驱动注册执行两次，
+    # 改用全局单例get_driver_registry()，与DeviceService共享同一实例
+    driver_registry = get_driver_registry()
     c.driver_registry = driver_registry
 
     c.plugin_manager = PluginManager(driver_registry)
@@ -246,30 +247,18 @@ async def bootstrap_platforms(c: ServiceContainer, config) -> None:
     if not platforms_config:
         return
 
-    platform_map = {
-        "iotsharp": ("edgelite.platform.iotsharp", "IoTSharpHandler"),
-        "thingsboard": ("edgelite.platform.thingsboard", "ThingsBoardHandler"),
-        "huawei_iotda": ("edgelite.platform.huawei_iotda", "HuaweiIoTDAHandler"),
-        "thingscloud": ("edgelite.platform.thingscloud", "ThingsCloudHandler"),
-        "thingspanel": ("edgelite.platform.thingspanel", "ThingsPanelHandler"),
-    }
+    from edgelite.services.platform_service import PlatformService
+
+    svc = PlatformService(c.platform_handlers)
 
     for platform_name, platform_conf in platforms_config.items():
         if not isinstance(platform_conf, dict) or not platform_conf.get("enabled", False):
             continue
-        mapping = platform_map.get(platform_name)
-        if not mapping:
-            continue
         try:
-            import importlib
-            module = importlib.import_module(mapping[0])
-            handler_cls = getattr(module, mapping[1])
-            handler = handler_cls()
-            await handler.connect(platform_conf)
-            c.platform_handlers[platform_name] = handler
-            logger.info("Platform %s integration started", platform_name)  # FIXED-P3: 中文日志→英文
+            result = await svc.connect(platform_name, platform_conf)
+            logger.info("Platform %s integration started: %s", platform_name, result.get("status"))
         except Exception as e:
-            logger.error("Platform integration start failed %s: %s", platform_name, e)  # FIXED-P3: 中文日志→英文
+            logger.error("Platform integration start failed %s: %s", platform_name, e)
 
 
 async def bootstrap_modbus_slave(c: ServiceContainer, config) -> None:
@@ -340,15 +329,23 @@ async def bootstrap_integration(c: ServiceContainer, config) -> None:
         c.integration_dispatcher = integration_dispatcher
         c.integration_endpoint = integration_endpoint
 
+        # FIX: 将 device_service 和 backhaul_manager 绑定到 endpoint，
+        # 使 RPC 反向控制 API 和缓冲区刷新功能可用
+        integration_endpoint._device_service = c.device_service
+
         backhaul_manager = BackhaulManager(
             event_bus=c.event_bus, endpoint=integration_endpoint, buffer_size=1000
         )
         c.backhaul_manager = backhaul_manager
+
+        # FIX: 回填 backhaul_manager 引用（必须在创建后赋值）
+        integration_endpoint._backhaul = backhaul_manager
+
         await backhaul_manager.start()
         c.track("backhaul_manager", backhaul_manager)
-        logger.info("Integration endpoint initialized")  # FIXED-P3: 中文日志→英文
+        logger.info("Integration endpoint initialized")
     except ImportError:
-        logger.warning("Integration module not available")  # FIXED-P3: 中文日志→英文
+        logger.warning("Integration module not available")
 
 
 async def bootstrap_ota(c: ServiceContainer, config) -> None:
@@ -363,18 +360,31 @@ async def bootstrap_ota(c: ServiceContainer, config) -> None:
         logger.warning("OTA upgrade manager init failed: %s", e)  # FIXED-P3: 中文日志→英文
 
 
+def _get_project_root() -> Path:
+    return Path(__file__).resolve().parent.parent.parent
+
+
 async def bootstrap_ai(c: ServiceContainer, config) -> None:
     ai_config = getattr(config, "ai_inference", None)
     if not ai_config or not getattr(ai_config, "enabled", False):
+        logger.info("AI inference engine is disabled in config, skipping initialization")
         return
 
     try:
-        from edgelite.engine.edge_ai_inference import AiInferenceEngine
+        from edgelite.engine.edge_ai_inference import AiInferenceEngine, _check_onnxruntime
         from edgelite.services.ai_service import AiModelService
 
         models_dir = ai_config.models_dir
         if not models_dir:
-            models_dir = str(Path(__file__).resolve().parent.parent.parent / "models")
+            # 优先使用包内 ai_models 目录，不依赖工作目录
+            models_dir = str(Path(__file__).resolve().parent / "ai_models")
+
+        if not _check_onnxruntime():
+            logger.warning(
+                "onnxruntime not installed! AI models will be loaded as 'inactive' status. "
+                "Install it to enable AI inference: pip install onnxruntime"
+            )
+
         ai_engine = AiInferenceEngine(
             models_dir=models_dir,
             enabled=True,
@@ -385,12 +395,25 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
 
         ai_service = AiModelService(ai_engine, c.database)
         c.ai_service = ai_service
-        c.track("ai_service", ai_service)  # FIXED: P0-2 ai_service需追踪
-        logger.info("AI inference engine initialized")  # FIXED-P3: 中文日志→英文
+        c.track("ai_service", ai_service)
+
+        active_count = sum(1 for w in ai_engine.get_loaded_models().values() if w.status == "active")
+        inactive_count = sum(1 for w in ai_engine.get_loaded_models().values() if w.status == "inactive")
+        unavailable_count = sum(1 for w in ai_engine.get_loaded_models().values() if w.status == "unavailable")
+        logger.info(
+            "AI inference engine initialized: %d active, %d inactive, %d unavailable",
+            active_count, inactive_count, unavailable_count,
+        )
+        if inactive_count > 0 and not _check_onnxruntime():
+            logger.warning(
+                "%d models are inactive because onnxruntime is not installed. "
+                "Run: pip install onnxruntime  then restart or enable models via API.",
+                inactive_count,
+            )
     except ImportError as e:
-        logger.warning("AI inference engine module not available: %s", e)  # FIXED-P3: 中文日志→英文
+        logger.warning("AI inference engine module not available: %s", e)
     except Exception as e:
-        logger.warning("AI inference engine init failed: %s", e)  # FIXED-P3: 中文日志→英文
+        logger.warning("AI inference engine init failed: %s", e)
 
 
 async def bootstrap_video(c: ServiceContainer, config) -> None:
@@ -440,6 +463,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     await bootstrap_storage(c, config)
     await bootstrap_engine(c, config)
     await bootstrap_services(c, config)
+    await bootstrap_ai(c, config)          # AI引擎必须在evaluator之前初始化，evaluator需要ai_engine引用
     await bootstrap_evaluator(c, config)
     await bootstrap_ws(c, config)
     await bootstrap_video(c, config)
@@ -450,7 +474,6 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     await bootstrap_devices(c, config)
     await bootstrap_integration(c, config)
     await bootstrap_ota(c, config)
-    await bootstrap_ai(c, config)
 
     logger.info("EdgeLiteGateway startup complete (port=%d)", config.server.port)
 
@@ -458,9 +481,20 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
 async def teardown(c: ServiceContainer) -> None:
     logger.info("EdgeLiteGateway shutting down...")
 
+    # 先关闭AI引擎释放ONNX资源（从_initialized列表中移除，避免后续重复关闭）
+    if c.ai_engine:
+        try:
+            await c.ai_engine.shutdown()
+        except Exception as e:
+            logger.warning("AI engine shutdown exception: %s", e)
+        # 从_initialized中移除，避免reversed循环中再次shutdown
+        c._initialized = [(n, r) for n, r in c._initialized if r is not c.ai_engine]
+
     for name, resource in reversed(c._initialized):
         try:
-            if hasattr(resource, "close"):
+            if hasattr(resource, "shutdown"):
+                await resource.shutdown()
+            elif hasattr(resource, "close"):
                 await resource.close()
             elif hasattr(resource, "stop"):
                 await resource.stop()

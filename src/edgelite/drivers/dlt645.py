@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import struct
 import time
@@ -147,6 +148,11 @@ class Dlt645Driver(DriverPlugin):
             "points": points or [],
         }
         logger.info("DL/T 645添加设备: %s (地址=%s)", device_id, address)
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._devices.pop(device_id, None)
+        logger.info("DL/T 645 device removed: %s", device_id)
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         if not self._running or not self._serial:

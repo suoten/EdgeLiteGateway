@@ -134,6 +134,12 @@ class DiscoverRequest(BaseModel):
     config: dict[str, Any] = {}
 
 
+class BatchDeviceIds(BaseModel):
+    """Batch device IDs request"""
+
+    device_ids: list[str] = Field(..., min_length=1, max_length=100)
+
+
 class PushDataPointValue(BaseModel):
     """推送数据点值"""
 

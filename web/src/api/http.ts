@@ -107,7 +107,7 @@ http.interceptors.response.use(
         if (typeof detail.message === 'string' && detail.message.startsWith('ERR_')) {
           error.response.data.errorCode = detail.message
           const translatedMsg = getErrorMessage(detail.message)
-          const hint = detail.hint ? `\n💡 ${detail.hint}` : ''
+          const hint = detail.hint ? `\n[HINT] ${detail.hint}` : ''
           error.response.data.detail = `${translatedMsg}${hint}`
         }
       }

@@ -161,6 +161,7 @@ import { serviceApi, mcpApi } from '@/api'
 import type { ServiceDependency } from '@/api'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -332,7 +333,7 @@ async function fetchStatus() {
       await Promise.all([fetchTools(), fetchResources(), fetchPrompts(), fetchApiKeys()])
     }
   } catch (e: any) {
-    if (e?.response?.status !== 404) message.error(e?.message || t('http.requestFailed'))
+    if (e?.response?.status !== 404) message.error(extractError(e, t('http.requestFailed')))
   } finally {
     loading.value = false
   }
@@ -417,7 +418,7 @@ async function doToggleMcp(val: boolean) {
     if (typeof detail === 'object' && detail?.missing_dependencies) {
       message.warning(detail.message || t('serviceManager.depMissing'))
     } else {
-      message.error(typeof detail === 'string' ? detail : (e?.message || t('serviceOverview.operationFailed')))
+      message.error(extractError(e, t('serviceOverview.operationFailed')))
     }
   } finally {
     toggleLoading.value = false
@@ -435,7 +436,7 @@ async function handleInstallDeps() {
     message.success(t('serviceOverview.installSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    installResult.value = `${t('serviceOverview.installFailed')}: ${e?.response?.data?.detail || e?.message}`
+    installResult.value = `${t('serviceOverview.installFailed')}: ${extractError(e, '')}`
     message.error(t('serviceOverview.installFailed'))
   } finally {
     installing.value = false
@@ -455,7 +456,7 @@ async function handleCreateKey() {
     keyForm.scopes = ['read']
     fetchApiKeys()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   }
 }
 
@@ -475,7 +476,7 @@ async function handleToolCall() {
     toolCallResult.value = JSON.stringify(result, null, 2)
     message.success(t('common.success'))
   } catch (e: any) {
-    toolCallResult.value = e?.response?.data?.detail || e?.message || t('common.failed')
+    toolCallResult.value = extractError(e, t('common.failed'))
     message.error(t('common.failed'))
   } finally {
     callingTool.value = false
@@ -494,7 +495,7 @@ function handleDeleteKey(key: any) {
         message.success(t('common.success'))
         fetchApiKeys()
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || t('common.failed'))
+        message.error(extractError(e, t('common.failed')))
       }
     },
   })

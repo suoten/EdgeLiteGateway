@@ -20,18 +20,40 @@ try:
 except ImportError:
     pymodbus = None
 
-from edgelite.constants import _SERIAL_READ_TIMEOUT, _SERIAL_WRITE_WAIT  # FIXED: P2-3 将魔法数字 sleep 间隔提取为常量
+from edgelite.constants import _SERIAL_READ_TIMEOUT, _SERIAL_WRITE_WAIT, _SERIAL_POLL_INTERVAL  # FIXED: P2-3 将魔法数字 sleep 间隔提取为常量
 
 from edgelite.drivers.base import DriverPlugin
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0]) if pymodbus else 2
+_PYMODBUS_MINOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[1]) if pymodbus and _PYMODBUS_MAJOR >= 3 else 0
+_PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)
+
+# FIXED: pymodbus 3.7+ 不再接受 slave/unit 作为关键字参数
+_SLAVE_KWARG_NAME: str | None = None
+
+
+def _detect_slave_kwarg_name() -> str | None:
+    if _PYMODBUS_MAJOR < 3:
+        return "slave"
+    if _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 7:
+        return "unit"
+    return None
 
 
 def _slave_kwarg(slave_id: int) -> dict:
-    """返回 pymodbus 3.x 兼容的设备 ID 参数"""
-    if _PYMODBUS_MAJOR < 3:
-        return {"slave": slave_id}
-    return {"device_id": slave_id}
+    """返回 pymodbus 兼容的设备 ID 参数"""
+    global _SLAVE_KWARG_NAME
+    if _SLAVE_KWARG_NAME is None:
+        _SLAVE_KWARG_NAME = _detect_slave_kwarg_name()
+    if _SLAVE_KWARG_NAME is None:
+        return {}
+    return {_SLAVE_KWARG_NAME: slave_id}
+
+
+def _set_client_slave_id(client: Any, slave_id: int) -> None:
+    """为 pymodbus 3.7+ 设置 client.slave_id"""
+    if _SLAVE_KWARG_NAME is None and hasattr(client, "slave_id"):
+        client.slave_id = slave_id
 
 
 def _create_serial_client(port: str, baudrate: int, parity: str) -> Any:
@@ -87,6 +109,7 @@ class SerialPortDriver(DriverPlugin):
         self._read_buffer: bytes = b""
         self._read_task: asyncio.Task | None = None
         self._data_callback = None
+        self._devices: dict[str, dict] = {}
 
     async def start(self, config: dict) -> None:
         try:
@@ -222,6 +245,8 @@ class SerialPortDriver(DriverPlugin):
                             continue
                     client = self._modbus_rtu_client
                     if client and client.connected:
+                        # FIXED: pymodbus 3.7+ 需要通过 client.slave_id 设置从站ID
+                        _set_client_slave_id(client, slave_id)
                         try:
                             if func == 1:
                                 rr = await asyncio.to_thread(
@@ -304,6 +329,16 @@ class SerialPortDriver(DriverPlugin):
     def on_data(self, callback) -> None:
         self._data_callback = callback
 
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加串口设备，保存配置和测点映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        logger.info("串口设备已添加: %s (%d测点)", device_id, len(points))
+
     async def discover_devices(self, config: dict) -> list[dict]:
         try:
             import serial.tools.list_ports
@@ -327,3 +362,9 @@ class SerialPortDriver(DriverPlugin):
                 }
             )
         return result
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        logger.info("Serial port device removed: %s", device_id)

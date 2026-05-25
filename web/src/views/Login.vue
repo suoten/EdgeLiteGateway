@@ -74,6 +74,14 @@
           {{ t('login.submit') }}
         </n-button>
       </n-form>
+      <n-space justify="space-between" style="margin-top: 8px" v-if="!showChangePassword">
+        <n-button text size="small" @click="showForgotModal = true">
+          {{ t('login.forgotPassword') }}
+        </n-button>
+      </n-space>
+      <n-text depth="3" style="display:block;text-align:center;margin-top:8px;font-size:13px" v-if="!showChangePassword">
+        {{ t('login.firstLoginHint') }}
+      </n-text>
       <n-form v-else ref="changePwdFormRef" :model="changePwdForm" :rules="changePwdRules" size="large">
         <n-alert type="warning" style="margin-bottom:16px">
           {{ t('login.mustChangePassword') }}
@@ -92,13 +100,28 @@
           {{ t('login.changePassword') }}
         </n-button>
       </n-form>
-      <n-text depth="3" style="display:block;text-align:center;margin-top:16px;font-size:13px">
-        {{ t('login.firstLoginHint') }}
-      </n-text>
       <div class="login-footer">
         <n-text depth="3">{{ appVersion }} Community Edition</n-text>  <!-- FIXED-P3: 版本号硬编码v1.0.0，改用__APP_VERSION__动态获取 -->
       </div>
     </n-card>
+    <!-- Forgot Password Modal -->
+    <n-modal v-model:show="showForgotModal" preset="card" :title="t('login.forgotPassword')" style="width: 400px">
+      <n-form v-if="!resetTokenSent" :model="forgotForm" :rules="forgotRules" ref="forgotFormRef">
+        <n-form-item :label="t('userManage.username')" path="username">
+          <n-input v-model:value="forgotForm.username" :placeholder="t('login.enterUsername')" />
+        </n-form-item>
+      </n-form>
+      <n-result v-else status="success" :title="t('login.resetEmailSent')" />
+      <template #action>
+        <n-space justify="end" v-if="!resetTokenSent">
+          <n-button @click="showForgotModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" :loading="sendingReset" @click="handleForgotPassword">{{ t('login.sendResetLink') }}</n-button>
+        </n-space>
+        <n-space justify="end" v-else>
+          <n-button @click="showForgotModal = false; resetTokenSent = false; forgotForm.username = ''">{{ t('common.close') }}</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -110,7 +133,7 @@ import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
 import { t } from '@/i18n'
-import { getErrorMessage } from '@/utils/errorCodes'
+import { extractError } from '@/utils/errorCodes'
 
 declare const __APP_VERSION__: string
 const appVersion = `v${__APP_VERSION__}`
@@ -121,6 +144,14 @@ const auth = useAuthStore()
 const loading = ref(false)
 const showChangePassword = ref(false)
 const changingPwd = ref(false)
+const showForgotModal = ref(false)
+const resetTokenSent = ref(false)
+const sendingReset = ref(false)
+const forgotForm = reactive({ username: '' })
+const forgotRules = {
+  username: { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
+}
+const forgotFormRef = ref<any>(null)
 
 const form = reactive({ username: '', password: '' })
 const rules = {
@@ -166,23 +197,20 @@ async function handleLogin() {
     // FIXED: 原问题-错误分类依赖中文字符串匹配(detail.includes('频繁'))，
     // 现改为基于HTTP status code判断，并使用错误码映射i18n
     const status = e?.response?.status
-    const detail = e?.response?.data?.detail || e?.message || ''
     if (status === 429) {
-      message.warning(getErrorMessage(detail))
+      message.warning(extractError(e, t('loginPage.loginFailed')))
     } else if (status === 401) {
-      message.error(getErrorMessage(detail))
+      message.error(extractError(e, t('login.invalidCredentials')))
     } else if (status === 403) {
-      message.error(getErrorMessage(detail))
+      message.error(extractError(e, t('loginPage.loginFailed')))
     } else if (!status) {
-      // FIXED: 原问题-非Axios错误(如fetchUserInfo抛Error)走入此分支显示"网络错误"，
-      // 现区分isBusinessError和纯网络错误
       if (e?.isBusinessError) {
         message.error(e?.message || t('loginPage.loginFailed'))
       } else {
         message.error(t('loginPage.networkError'))
       }
     } else {
-      message.error(getErrorMessage(detail))
+      message.error(extractError(e, t('loginPage.loginFailed')))
     }
   } finally {
     loading.value = false
@@ -214,10 +242,24 @@ async function handleChangePassword() {
     }
     router.push('/')
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || ''
-    message.error(getErrorMessage(detail) || t('login.passwordChangeFailed'))
+    message.error(extractError(e, t('login.passwordChangeFailed')))
   } finally {
     changingPwd.value = false
+  }
+}
+
+async function handleForgotPassword() {
+  try {
+    await forgotFormRef.value?.validate()
+  } catch { return }
+  sendingReset.value = true
+  try {
+    await authApi.forgotPassword(forgotForm.username)
+    resetTokenSent.value = true
+  } catch (e: any) {
+    message.error(extractError(e, t('common.failed')))
+  } finally {
+    sendingReset.value = false
   }
 }
 </script>

@@ -38,7 +38,7 @@ class SimulatorDriver(DriverPlugin):
         self._running = False
         logger.info("模拟器驱动停止")
 
-    def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         """添加模拟设备"""
         if points is None:
             points = []
@@ -53,7 +53,7 @@ class SimulatorDriver(DriverPlugin):
             self._walk_state[f"{device_id}:{name}"] = mid
             self._sine_phase[f"{device_id}:{name}"] = random.uniform(0, 2 * math.pi)
 
-    def remove_device(self, device_id: str) -> None:
+    async def remove_device(self, device_id: str) -> None:
         """移除模拟设备"""
         self._devices.pop(device_id, None)
 

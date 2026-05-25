@@ -43,6 +43,7 @@ class OnvifDriver(DriverPlugin):
         self._media: Any = None
         self._ptz: Any = None
         self._lock = asyncio.Lock()
+        self._devices: dict[str, dict] = {}
 
     async def start(self, config: dict) -> None:
         self._config = config
@@ -112,6 +113,16 @@ class OnvifDriver(DriverPlugin):
         if self._ptz is None and self._cam is not None:
             self._ptz = self._cam.create_ptz_service()
         return self._ptz
+
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加ONVIF设备，保存配置和PTZ/流映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        logger.info("ONVIF设备已添加: %s (%d测点)", device_id, len(points))
 
     async def discover_devices(self, config: dict) -> list[dict]:
         """WS-Discovery发现ONVIF设备"""
@@ -379,3 +390,9 @@ class OnvifDriver(DriverPlugin):
         except Exception as e:
             logger.error("ONVIF写入失败 %s: %s", point, e)
             return False
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        logger.info("ONVIF device removed: %s", device_id)

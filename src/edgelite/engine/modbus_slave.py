@@ -26,7 +26,26 @@ import contextlib
 
 import pymodbus
 
-_PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0])
+def _parse_pymodbus_version():
+    try:
+        parts = getattr(pymodbus, "__version__", "2.0.0").split(".")
+        major = int(parts[0])
+        minor = int(parts[1]) if len(parts) > 1 else 0
+        return major, minor
+    except (ValueError, IndexError, AttributeError):
+        return 2, 0
+
+_PYMODBUS_MAJOR, _PYMODBUS_MINOR = _parse_pymodbus_version()
+_PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)
+try:
+    if _PYMODBUS_37_PLUS:
+        from pymodbus.datastore import SimData, SimDevice
+        from pymodbus.server import ModbusTcpServer
+        _PYMODBUS_37_PLUS = True
+    else:
+        _PYMODBUS_37_PLUS = False
+except ImportError:
+    _PYMODBUS_37_PLUS = False
 
 logger = logging.getLogger(__name__)
 
@@ -59,25 +78,10 @@ class ModbusSlaveServer:
                 holding_size: Holding寄存器数量 (默认1000)
                 input_size: Input寄存器数量 (默认1000)
         """
-        try:
-            from pymodbus.datastore import (
-                ModbusSequentialDataBlock,
-                ModbusServerContext,
-            )
-            from pymodbus.server import StartAsyncTcpServer
-
-            try:
-                from pymodbus.datastore import ModbusSlaveContext as _SlaveCtx
-            except ImportError:
-                from pymodbus.datastore import ModbusDeviceContext as _SlaveCtx
-        except ImportError:
-            logger.warning("pymodbus未安装，内置Modbus Slave不可用")
-            return
-
         config = config or {}
         host = config.get("host", "0.0.0.0")
         port = int(config.get("port", 502))
-        if port < 1024:  # FIXED-P2: Modbus默认502端口需要root权限，Linux下非root用户无法绑定
+        if port < 1024:  # FIXED-P2: Modbus默认502端口需要root权限
             logger.warning("Modbus Slave port %d < 1024 requires root/Admin privileges. Consider using port 5020 or higher.", port)
         coils_size = int(config.get("coils_size", 100))
         discrete_size = int(config.get("discrete_size", 100))
@@ -85,46 +89,70 @@ class ModbusSlaveServer:
         input_size = int(config.get("input_size", 1000))
 
         try:
-            # 创建数据存储 (pymodbus 3.x 要求地址 >= 1)
-            coils_block = ModbusSequentialDataBlock(1, [0] * coils_size)
-            discrete_block = ModbusSequentialDataBlock(1, [0] * discrete_size)
-            holding_block = ModbusSequentialDataBlock(1, [0] * holding_size)
-            input_block = ModbusSequentialDataBlock(1, [0] * input_size)
-
-            # pymodbus 3.x 使用 ModbusDeviceContext
-            slave_context = _SlaveCtx(
-                di=discrete_block,
-                co=coils_block,
-                hr=holding_block,
-                ir=input_block,
-            )
-            # pymodbus 3.x 参数名变化: slaves -> devices
-            if _PYMODBUS_MAJOR < 3:
-                self._context = ModbusServerContext(slaves=slave_context, single=True)
+            # FIXED: pymodbus 3.7+ 废弃了 ModbusSequentialDataBlock/ModbusServerContext/StartAsyncTcpServer
+            # 改用 SimData/SimDevice/ModbusTcpServer 新API
+            if _PYMODBUS_37_PLUS:
+                await self._start_new_api(host, port, coils_size, discrete_size, holding_size, input_size)
             else:
-                self._context = ModbusServerContext(devices=slave_context, single=True)
-
-            # 启动Server
-            self._task = asyncio.create_task(
-                StartAsyncTcpServer(
-                    context=self._context,
-                    address=(host, port),
-                ),
-                name="modbus-slave",
-            )
-            self._running = True
-            logger.info(
-                "内置Modbus Slave启动: %s:%d (Holding=%d, Input=%d)",
-                host,
-                port,
-                holding_size,
-                input_size,
-            )
-
+                await self._start_legacy_api(host, port, coils_size, discrete_size, holding_size, input_size)
         except Exception as e:
             logger.error("内置Modbus Slave启动失败: %s", e)
             self._task = None
             self._running = False
+
+    async def _start_new_api(self, host: str, port: int, coils_size: int,
+                              discrete_size: int, holding_size: int, input_size: int) -> None:
+        """pymodbus 3.7+ 新API: SimData/SimDevice/ModbusTcpServer"""
+        from pymodbus.datastore import SimData, SimDevice
+        from pymodbus.server import ModbusTcpServer
+
+        coils = SimData.create([0] * coils_size)
+        discrete = SimData.create([0] * discrete_size)
+        holding = SimData.create([0] * holding_size)
+        input_reg = SimData.create([0] * input_size)
+
+        device = SimDevice(di=discrete, co=coils, hr=holding, ir=input_reg)
+        self._context = device  # 保存引用，用于后续写入
+
+        server = ModbusTcpServer(device, address=(host, port))
+        self._server = server
+        self._task = asyncio.create_task(server.serve_forever(), name="modbus-slave")
+        self._running = True
+        logger.info("内置Modbus Slave启动: %s:%d (Holding=%d, Input=%d)", host, port, holding_size, input_size)
+
+    async def _start_legacy_api(self, host: str, port: int, coils_size: int,
+                                 discrete_size: int, holding_size: int, input_size: int) -> None:
+        """pymodbus < 3.7 旧API: ModbusSequentialDataBlock/ModbusServerContext/StartAsyncTcpServer"""
+        from pymodbus.datastore import (
+            ModbusSequentialDataBlock,
+            ModbusServerContext,
+        )
+        from pymodbus.server import StartAsyncTcpServer
+
+        try:
+            from pymodbus.datastore import ModbusSlaveContext as _SlaveCtx
+        except ImportError:
+            from pymodbus.datastore import ModbusDeviceContext as _SlaveCtx
+
+        coils_block = ModbusSequentialDataBlock(1, [0] * coils_size)
+        discrete_block = ModbusSequentialDataBlock(1, [0] * discrete_size)
+        holding_block = ModbusSequentialDataBlock(1, [0] * holding_size)
+        input_block = ModbusSequentialDataBlock(1, [0] * input_size)
+
+        slave_context = _SlaveCtx(
+            di=discrete_block, co=coils_block, hr=holding_block, ir=input_block,
+        )
+        if _PYMODBUS_MAJOR < 3:
+            self._context = ModbusServerContext(slaves=slave_context, single=True)
+        else:
+            self._context = ModbusServerContext(devices=slave_context, single=True)
+
+        self._task = asyncio.create_task(
+            StartAsyncTcpServer(context=self._context, address=(host, port)),
+            name="modbus-slave",
+        )
+        self._running = True
+        logger.info("内置Modbus Slave启动: %s:%d (Holding=%d, Input=%d)", host, port, holding_size, input_size)
 
     async def stop(self) -> None:
         """停止内置Modbus Slave"""
@@ -137,36 +165,44 @@ class ModbusSlaveServer:
         logger.info("内置Modbus Slave已停止")
 
     async def set_holding_register(self, address: int, value: int) -> None:
-        """设置Holding寄存器值
-
-        Args:
-            address: 寄存器地址 (0-based)
-            value: 寄存器值 (16位无符号整数)
-        """
+        """设置Holding寄存器值"""
         if not self._context:
             return
         try:
-            self._context[0].setValues(3, address, [value])
+            if _PYMODBUS_37_PLUS:
+                # SimDevice: 直接操作 hr 的 data 列表
+                if address < len(self._context.hr.data):
+                    self._context.hr.data[address] = value
+            else:
+                self._context[0].setValues(3, address, [value])
         except Exception as e:
-            logger.debug("Modbus Slave写入Holding失败: %s", e)
+            logger.warning("Modbus Slave写入Holding失败: %s", e)
 
     async def set_input_register(self, address: int, value: int) -> None:
         """设置Input寄存器值"""
         if not self._context:
             return
         try:
-            self._context[0].setValues(4, address, [value])
+            if _PYMODBUS_37_PLUS:
+                if address < len(self._context.ir.data):
+                    self._context.ir.data[address] = value
+            else:
+                self._context[0].setValues(4, address, [value])
         except Exception as e:
-            logger.debug("Modbus Slave写入Input失败: %s", e)
+            logger.warning("Modbus Slave写入Input失败: %s", e)
 
     async def set_coil(self, address: int, value: bool) -> None:
         """设置Coil值"""
         if not self._context:
             return
         try:
-            self._context[0].setValues(1, address, [int(value)])
+            if _PYMODBUS_37_PLUS:
+                if address < len(self._context.co.data):
+                    self._context.co.data[address] = int(value)
+            else:
+                self._context[0].setValues(1, address, [int(value)])
         except Exception as e:
-            logger.debug("Modbus Slave写入Coil失败: %s", e)
+            logger.warning("Modbus Slave写入Coil失败: %s", e)
 
     async def map_device_data(
         self, device_id: str, points: dict[str, Any], base_address: int = 0
@@ -187,12 +223,17 @@ class ModbusSlaveServer:
                 input_size = 1000
                 coils_size = 100
                 try:
-                    hr = self._context[0].getValues(3, 0, holding_size)
-                    ir = self._context[0].getValues(4, 0, input_size)
-                    co = self._context[0].getValues(1, 0, coils_size)
-                    holding_list = list(hr)
-                    input_list = list(ir)
-                    coils_list = list(co)
+                    if _PYMODBUS_37_PLUS:
+                        holding_list = list(self._context.hr.data[:holding_size])
+                        input_list = list(self._context.ir.data[:input_size])
+                        coils_list = list(self._context.co.data[:coils_size])
+                    else:
+                        hr = self._context[0].getValues(3, 0, holding_size)
+                        ir = self._context[0].getValues(4, 0, input_size)
+                        co = self._context[0].getValues(1, 0, coils_size)
+                        holding_list = list(hr)
+                        input_list = list(ir)
+                        coils_list = list(co)
                 except Exception:
                     holding_list = [0] * holding_size
                     input_list = [0] * input_size
@@ -202,18 +243,30 @@ class ModbusSlaveServer:
                     points, holding_list, input_list, coils_list, base_address
                 )
 
-                try:  # FIXED: 原问题-3处setValues调用无异常保护
-                    for i, v in enumerate(holding_list[base_address:next_addr]):
-                        self._context[0].setValues(3, base_address + i, [v])
-                    for i, v in enumerate(input_list):
-                        self._context[0].setValues(4, i, [v])
-                    for i, v in enumerate(coils_list):
-                        self._context[0].setValues(1, i, [v])
+                try:
+                    if _PYMODBUS_37_PLUS:
+                        for i, v in enumerate(holding_list[base_address:next_addr]):
+                            addr = base_address + i
+                            if addr < len(self._context.hr.data):
+                                self._context.hr.data[addr] = v
+                        for i, v in enumerate(input_list):
+                            if i < len(self._context.ir.data):
+                                self._context.ir.data[i] = v
+                        for i, v in enumerate(coils_list):
+                            if i < len(self._context.co.data):
+                                self._context.co.data[i] = v
+                    else:
+                        for i, v in enumerate(holding_list[base_address:next_addr]):
+                            self._context[0].setValues(3, base_address + i, [v])
+                        for i, v in enumerate(input_list):
+                            self._context[0].setValues(4, i, [v])
+                        for i, v in enumerate(coils_list):
+                            self._context[0].setValues(1, i, [v])
                 except Exception as e:
-                    logger.error("Modbus Slave setValues失败: %s", e)
+                    logger.error("Modbus Slave写入失败: %s", e)
                     return
 
-                return  # FIXED-P0: Cython路径完成后return，否则执行下方Python回退路径
+                return  # FIXED-P0: Cython路径完成后return
 
             offset = base_address
             for _point_name, value in points.items():
@@ -240,8 +293,87 @@ class ModbusSlaveServer:
                 else:
                     offset += 1
         except Exception as e:
-            logger.debug("Modbus Slave数据映射失败: %s", e)
+            logger.warning("Modbus Slave数据映射失败: %s", e)
 
     @property
     def is_running(self) -> bool:
         return self._running
+
+    async def set_coils_batch(self, start_address: int, values: list[bool]) -> None:
+        """批量设置多个Coil值"""
+        for i, value in enumerate(values):
+            await self.set_coil(start_address + i, value)
+
+    async def set_holding_registers_batch(
+        self, start_address: int, values: list[int]
+    ) -> None:
+        """批量设置多个Holding寄存器值"""
+        for i, value in enumerate(values):
+            await self.set_holding_register(start_address + i, value)
+
+    async def set_input_registers_batch(
+        self, start_address: int, values: list[int]
+    ) -> None:
+        """批量设置多个Input寄存器值"""
+        for i, value in enumerate(values):
+            await self.set_input_register(start_address + i, value)
+
+    async def get_holding_register(self, address: int) -> int | None:
+        """读取Holding寄存器值"""
+        if not self._context:
+            return None
+        try:
+            if _PYMODBUS_37_PLUS:
+                if address < len(self._context.hr.data):
+                    return self._context.hr.data[address]
+            else:
+                values = self._context[0].getValues(3, address, 1)
+                return values[0] if values else None
+        except Exception as e:
+            logger.warning("Modbus Slave读取Holding失败: %s", e)
+        return None
+
+    async def get_input_register(self, address: int) -> int | None:
+        """读取Input寄存器值"""
+        if not self._context:
+            return None
+        try:
+            if _PYMODBUS_37_PLUS:
+                if address < len(self._context.ir.data):
+                    return self._context.ir.data[address]
+            else:
+                values = self._context[0].getValues(4, address, 1)
+                return values[0] if values else None
+        except Exception as e:
+            logger.warning("Modbus Slave读取Input失败: %s", e)
+        return None
+
+    def get_register_map(self) -> dict:
+        """获取寄存器映射信息"""
+        if not self._context:
+            return {}
+        try:
+            if _PYMODBUS_37_PLUS:
+                return {
+                    "coils": {
+                        "size": len(self._context.co.data),
+                        "sample": list(self._context.co.data[:10]),
+                    },
+                    "discrete_inputs": {
+                        "size": len(self._context.di.data),
+                        "sample": list(self._context.di.data[:10]),
+                    },
+                    "holding_registers": {
+                        "size": len(self._context.hr.data),
+                        "sample": list(self._context.hr.data[:10]),
+                    },
+                    "input_registers": {
+                        "size": len(self._context.ir.data),
+                        "sample": list(self._context.ir.data[:10]),
+                    },
+                }
+            else:
+                return {"status": "legacy_api", "message": "寄存器数据需要通过getValues获取"}
+        except Exception as e:
+            logger.warning("获取寄存器映射失败: %s", e)
+            return {}

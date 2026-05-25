@@ -227,11 +227,23 @@ class DeviceRepo(BaseRepo):
             logger.error("DeviceRepo.delete failed: %s", e)
             return False
 
-    async def list_by_protocol(self, protocol: str) -> list[dict]:
-        # FIXED: 原问题-list_by_protocol无try-except保护，被调度器高频调用
+    async def list_by_protocol(
+        self,
+        protocol: str,
+        page: int = 1,
+        size: int = 200,
+    ) -> list[dict]:
+        # FIXED: W2 原问题-list_by_protocol无分页参数，高频调度场景每次返回全量设备列表
         try:
             async with self._auto_session() as session:
-                result = await session.execute(select(DeviceORM).where(DeviceORM.protocol == protocol))
+                offset = (page - 1) * size
+                result = await session.execute(
+                    select(DeviceORM)
+                    .where(DeviceORM.protocol == protocol)
+                    .order_by(DeviceORM.created_at.desc())
+                    .offset(offset)
+                    .limit(size)
+                )
                 rows = result.scalars().all()
                 return [_orm_to_device(r) for r in rows]
         except Exception as e:
@@ -526,6 +538,101 @@ class AlarmRepo(BaseRepo):
         except Exception as e:
             logger.error("AlarmRepo.get_firing_by_rule_device failed: %s", e)
             return None
+
+    async def query_trend_data(self, hours: int = 24) -> dict[str, Any]:
+        """Query alarm trend data from the database for the specified number of hours"""
+        try:
+            async with self._auto_session() as session:
+                from datetime import timedelta
+
+                since = _now() - timedelta(hours=hours)
+
+                # Alarm counts by hour
+                hour_expr = func.strftime("%Y-%m-%dT%H:00", AlarmORM.fired_at)
+                hour_query = (
+                    select(hour_expr.label("hour"), func.count().label("count"))
+                    .where(AlarmORM.fired_at >= since)
+                    .group_by(hour_expr)
+                    .order_by(hour_expr)
+                )
+                hour_result = await session.execute(hour_query)
+                alarm_counts_by_hour = [
+                    {"hour": row.hour, "count": row.count} for row in hour_result
+                ]
+
+                # Severity distribution from database
+                sev_query = (
+                    select(AlarmORM.severity, func.count().label("count"))
+                    .where(AlarmORM.fired_at >= since)
+                    .group_by(AlarmORM.severity)
+                )
+                sev_result = await session.execute(sev_query)
+                severity_distribution = {row.severity: row.count for row in sev_result}
+
+                # Top 10 devices by alarm count
+                dev_query = (
+                    select(AlarmORM.device_id, func.count().label("count"))
+                    .where(AlarmORM.fired_at >= since)
+                    .group_by(AlarmORM.device_id)
+                    .order_by(func.count().desc())
+                    .limit(10)
+                )
+                dev_result = await session.execute(dev_query)
+                top_devices = [
+                    {"device_id": row.device_id, "count": row.count} for row in dev_result
+                ]
+
+                # Top 10 rules by alarm count
+                rule_query = (
+                    select(AlarmORM.rule_id, func.count().label("count"))
+                    .where(AlarmORM.fired_at >= since)
+                    .group_by(AlarmORM.rule_id)
+                    .order_by(func.count().desc())
+                    .limit(10)
+                )
+                rule_result = await session.execute(rule_query)
+                top_rules = [
+                    {"rule_id": row.rule_id, "count": row.count} for row in rule_result
+                ]
+
+                return {
+                    "period_hours": hours,
+                    "alarm_counts_by_hour": alarm_counts_by_hour,
+                    "severity_distribution": severity_distribution,
+                    "top_devices": top_devices,
+                    "top_rules": top_rules,
+                }
+        except Exception as e:
+            logger.error("AlarmRepo.query_trend_data failed: %s", e)
+            return {
+                "period_hours": hours,
+                "alarm_counts_by_hour": [],
+                "severity_distribution": {},
+                "top_devices": [],
+                "top_rules": [],
+            }
+
+    async def cleanup_old_alarms(self, retention_days: int = 90) -> int:
+        """Delete recovered/acknowledged alarms older than retention_days"""
+        try:
+            async with self._auto_session() as session:
+                from datetime import timedelta
+
+                cutoff = _now() - timedelta(days=retention_days)
+                result = await session.execute(
+                    delete(AlarmORM).where(
+                        AlarmORM.status.in_(["recovered", "acknowledged"]),
+                        AlarmORM.fired_at < cutoff,
+                    )
+                )
+                await self._commit(session)
+                deleted = result.rowcount
+                if deleted > 0:
+                    logger.info("Cleaned up %d old alarms (retention=%d days)", deleted, retention_days)
+                return deleted
+        except Exception as e:
+            logger.error("AlarmRepo.cleanup_old_alarms failed: %s", e)
+            return 0
 
 
 class UserRepo(BaseRepo):

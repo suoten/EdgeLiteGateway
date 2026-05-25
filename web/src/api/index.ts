@@ -34,6 +34,12 @@ export const authApi = {
   changePassword: (oldPassword: string, newPassword: string) =>
     // FIXED: 返回值解包不一致，统一提取内层data
     http.post<ApiResponse>('/auth/change-password', { old_password: oldPassword, new_password: newPassword }).then((r) => r.data.data),
+
+  forgotPassword: (username: string) =>
+    http.post<ApiResponse>('/auth/forgot-password', { username }).then((r) => r.data.data),
+
+  resetPassword: (token: string, newPassword: string) =>
+    http.post<ApiResponse>('/auth/reset-password', { token, new_password: newPassword }).then((r) => r.data.data),
 }
 
 // ─── 设备 ───
@@ -109,7 +115,7 @@ export const deviceApi = {
     http.post<ApiResponse<Device>>('/devices/simulator', data).then((r) => r.data.data),
 
   discover: (params: { protocol: string; host?: string; port?: number }) =>
-    http.post<ApiResponse<any[]>>('/devices/discover', { protocol: params.protocol, config: { host: params.host, port: params.port } }).then((r) => r.data.data),
+    http.post<ApiResponse<any[]>>('/devices/discover', { protocol: params.protocol, config: { host: params.host, port: params.port } }, { timeout: 60000 }).then((r) => r.data.data),
 
   // FIXED: 后端有push路由但前端无对应API函数
   pushData: (deviceId: string, data: Record<string, any>, apiKey?: string) => {
@@ -210,6 +216,9 @@ export const alarmApi = {
 
   ack: (id: string) =>
     http.put<ApiResponse<Alarm>>(`/alarms/${id}/ack`).then((r) => r.data.data),
+
+  recover: (id: string) =>
+    http.put<ApiResponse<Alarm>>(`/alarms/${id}/recover`).then((r) => r.data.data),
 }
 
 // ─── 数据查询 ───
@@ -339,7 +348,7 @@ export const driverApi = {
     http.get<ApiResponse<{ driver_name: string; config_schema: any }>>(`/drivers/${driverName}/config-schema`).then((r) => r.data.data),
 
   discover: (driverName: string, config?: Record<string, any>) =>
-    http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, { config: config || {} }).then((r) => r.data.data),
+    http.post<ApiResponse<{ devices: any[] }>>(`/drivers/${driverName}/discover`, { config: config || {} }, { timeout: 60000 }).then((r) => r.data.data),
 }
 
 // ─── 预处理配置 ───
@@ -707,4 +716,166 @@ export const aiApi = {
     http.put<ApiResponse<any>>(`/ai/models/${id}`, data).then(r => r.data.data),
   deleteModel: (id: string) =>
     http.delete<ApiResponse>(`/ai/models/${id}`).then(r => r.data.data),
+}
+
+// ─── 通知渠道 ───
+
+export interface NotifyChannelStatus {
+  id: string
+  name: string
+  type: string
+  enabled: boolean
+  status: string
+  last_test: string | null
+  config: Record<string, any>
+}
+
+export interface DingTalkConfig {
+  enabled?: boolean
+  name?: string
+  webhook_url: string
+  secret?: string
+  at_mobiles?: string[]
+  is_at_all?: boolean
+  max_per_minute?: number
+  cooldown_seconds?: number
+}
+
+export interface WeComConfig {
+  enabled?: boolean
+  name?: string
+  webhook_url: string
+  max_per_minute?: number
+  cooldown_seconds?: number
+}
+
+export interface EmailConfig {
+  enabled?: boolean
+  name?: string
+  smtp_host: string
+  smtp_port?: number
+  smtp_user?: string
+  smtp_password?: string
+  from_address?: string
+  to_addresses: string[]
+  use_tls?: boolean
+  use_ssl?: boolean
+  max_per_minute?: number
+  cooldown_seconds?: number
+}
+
+export interface WebhookConfig {
+  enabled?: boolean
+  name?: string
+  url: string
+  method?: string
+  headers?: Record<string, string>
+  auth_type?: 'none' | 'basic' | 'bearer' | 'api_key'
+  auth_token?: string
+  auth_username?: string
+  auth_password?: string
+  max_per_minute?: number
+  cooldown_seconds?: number
+}
+
+export const notifyApi = {
+  listChannels: () =>
+    http.get<ApiResponse<{ channels: NotifyChannelStatus[] }>>('/notify/channels').then(r => r.data.data),
+
+  updateDingTalk: (data: DingTalkConfig) =>
+    http.post<ApiResponse>('/notify/channels/dingtalk', data).then(r => r.data.data),
+
+  updateWeCom: (data: WeComConfig) =>
+    http.post<ApiResponse>('/notify/channels/wecom', data).then(r => r.data.data),
+
+  updateEmail: (data: EmailConfig) =>
+    http.post<ApiResponse>('/notify/channels/email', data).then(r => r.data.data),
+
+  updateWebhook: (data: WebhookConfig) =>
+    http.post<ApiResponse>('/notify/channels/webhook', data).then(r => r.data.data),
+
+  testChannel: (channelId: string) =>
+    http.post<ApiResponse<{ success: boolean; message: string }>>(`/notify/channels/${channelId}/test`).then(r => r.data.data),
+
+  enableChannel: (channelId: string, enabled: boolean = true) =>
+    http.post<ApiResponse>(`/notify/channels/${channelId}/enable`, null, { params: { enabled } }).then(r => r.data.data),
+
+  deleteChannel: (channelId: string) =>
+    http.delete<ApiResponse>(`/notify/channels/${channelId}`).then(r => r.data.data),
+}
+
+// ─── MQTT Forwarder ───
+
+export const mqttForwarderApi = {
+  getOfflineQueueStatus: () =>
+    http.get<ApiResponse<any>>('/mqtt/offline-queue/status').then(r => r.data.data),
+}
+
+// ─── 协议调试 ───
+
+export interface DebugProtocol {
+  key: string
+  name: string
+  schema: {
+    name: string
+    fields: DebugProtocolField[]
+  }
+}
+
+export interface DebugProtocolField {
+  key: string
+  label: string
+  type: 'text' | 'number' | 'select' | 'textarea'
+  placeholder?: string
+  default?: any
+  min?: number
+  max?: number
+  optional?: boolean
+  options?: { value: string; label: string }[]
+}
+
+export interface DebugDevice {
+  device_id: string
+  name: string
+  protocol: string
+  status: string
+}
+
+export interface DebugPacket {
+  timestamp: number
+  direction: 'tx' | 'rx'
+  protocol: string
+  device_id: string
+  content: string
+  content_type: 'hex' | 'ascii'
+  metadata: Record<string, any>
+}
+
+export interface SimulateResult {
+  protocol: string
+  device_id: string
+  operation: string
+  params: Record<string, any>
+  request_raw: string | null
+  response_raw: string | null
+  values: any
+  error: string | null
+  elapsed_ms: number
+}
+
+export const debugApi = {
+  listProtocols: () =>
+    http.get<ApiResponse<{ protocols: DebugProtocol[] }>>('/debug/protocols').then(r => r.data.data),
+
+  listDevices: (protocol?: string) =>
+    http.get<ApiResponse<{ devices: DebugDevice[] }>>('/debug/devices', { params: { protocol } }).then(r => r.data.data),
+
+  getPackets: (params?: { protocol?: string; device_id?: string; limit?: number }) =>
+    http.get<ApiResponse<{ packets: DebugPacket[]; total: number }>>('/debug/packets', { params }).then(r => r.data.data),
+
+  clearPackets: (protocol?: string) =>
+    http.delete<ApiResponse<{ cleared: number }>>('/debug/packets', { params: { protocol } }).then(r => r.data.data),
+
+  simulate: (protocol: string, deviceId: string, operation: string, params?: Record<string, any>) =>
+    http.post<ApiResponse<SimulateResult>>('/debug/simulate', params, { params: { protocol, device_id: deviceId, operation } }).then(r => r.data.data),
 }

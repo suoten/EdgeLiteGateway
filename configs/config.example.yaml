@@ -73,8 +73,8 @@ modbus_slave:
 # ── 视频接入（PyGBSentry）────────────────────────────────
 video:
   pygbsentry:
-    endpoint: "http://your-pygbsentry-host:8080"  # PyGBSentry 服务地址
-    api_key: "your-pygbsentry-api-key"            # PyGBSentry API Key
+    endpoint: ""  # PyGBSentry 服务地址，如 http://192.168.1.100:8080
+    api_key: ""   # PyGBSentry API Key
     timeout: 10                    # 请求超时（秒）
 
 # ── 安全配置 ─────────────────────────────────────────────
@@ -216,13 +216,15 @@ platforms: {}
 #   auto_reload: false               # 是否自动重载驱动变更
 
 # ── 边缘AI推理引擎配置 ───────────────────────────────────
-# ai_inference:
-#   enabled: false                   # 是否启用AI推理引擎
-#   models_dir: "models"             # 模型文件目录
-#   hot_reload_timeout: 30           # 模型热加载超时（秒）
-#   inference_timeout: 10            # 推理超时（秒）
-#   max_concurrent_inferences: 4     # 最大并发推理数
-#   stats_retention_days: 7          # 推理统计保留天数
+ai_inference:
+  enabled: true                    # 是否启用AI推理引擎（默认启用）
+  models_dir: ""                   # 模型文件目录（空则自动定位包内ai_models目录）
+  hot_reload_timeout: 30           # 模型热加载超时（秒）
+  inference_timeout: 10            # 推理超时（秒）
+  max_concurrent_inferences: 4     # 最大并发推理数
+  stats_retention_days: 7          # 推理统计保留天数
+# 注：若模型文件缺失，启动时会自动生成预置onnx模型
+# 若onnxruntime未安装，模型将标记为inactive，安装后可通过API启用
 
 # ── 多网关级联发现 ─────────────────────────────────────
 # cascade:

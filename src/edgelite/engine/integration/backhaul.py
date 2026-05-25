@@ -7,6 +7,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
+from edgelite.api.error_codes import IntegrationErrors
+
 logger = logging.getLogger(__name__)
 
 
@@ -74,7 +76,7 @@ class BackhaulManager:
                 return RpcResult(
                     command_id=command.command_id,
                     success=False,
-                    error="Device service not available",
+                    error=IntegrationErrors.RPC_DEVICE_SERVICE_UNAVAILABLE,
                     elapsed_ms=(time.time() - start) * 1000,
                 )
 
@@ -85,7 +87,7 @@ class BackhaulManager:
                 return RpcResult(
                     command_id=command.command_id,
                     success=False,
-                    error="Missing 'value' in params",
+                    error=IntegrationErrors.RPC_MISSING_VALUE,
                     elapsed_ms=(time.time() - start) * 1000,
                 )
 
@@ -98,7 +100,7 @@ class BackhaulManager:
                 command_id=command.command_id,
                 success=success,
                 result={"device_id": command.device_id, "point": point, "value": value} if success else None,
-                error=None if success else "Write point failed",
+                error=None if success else IntegrationErrors.RPC_WRITE_FAILED,
                 elapsed_ms=elapsed,
             )
 
@@ -230,42 +232,39 @@ class BackhaulManager:
                 if sent > 0:
                     return
             except Exception as e:
-                logger.error("广播消息失败: %s", e)
+                logger.error("Broadcast message failed: %s", e)
         self._buffer.append(message)
 
     async def flush_buffer(self, max_retries: int = 3) -> int:
         """将缓冲区中的消息flush到所有连接。
 
-        FIXED: P0-5 原问题-broadcast返回sent==0时appendleft+break形成死循环。
-        现改为：最多重试max_retries次，失败后丢弃并记录警告，防止消息永久卡在缓冲区。
+        修复逻辑：连续失败 max_retries 次后丢弃当前消息，但重置计数器
+        让下一条消息有机会被发送，避免连续失败后丢弃所有剩余消息。
         """
         if not self._buffer or not self._endpoint or not self._endpoint.has_connections:
             return 0
         count = 0
-        dropped = 0
+        consecutive_failures = 0
         while self._buffer:
-            if dropped >= max_retries:
-                # FIXED: P0-5 防止无限appendleft，当同一消息连续重试超过阈值时丢弃
-                msg = self._buffer.popleft()
-                logger.warning("Backhaul flush: message dropped after %d retries (buffer=%d)", max_retries, len(self._buffer))
-                dropped += 1
-                continue
             msg = self._buffer.popleft()
-            try:  # FIXED: 原问题-broadcast无try-catch，广播失败会中断事件处理
+            try:
                 sent = await self._endpoint.broadcast(msg)
                 if sent > 0:
                     count += 1
-                    dropped = 0
+                    consecutive_failures = 0
                 else:
-                    # FIXED: P0-5 sent==0表示连接已断开但无异常，不应无限重试
-                    self._buffer.appendleft(msg)
-                    dropped += 1
-                    if dropped >= max_retries:
-                        logger.warning("Backhaul flush: broadcast returned 0 for %d consecutive retries, dropping message", dropped)
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_retries:
+                        # 连续失败超过阈值，丢弃当前消息，重置计数器
+                        logger.warning("Backhaul flush: message dropped after %d consecutive failures (buffer=%d)", max_retries, len(self._buffer))
+                        consecutive_failures = 0
+                    else:
+                        self._buffer.appendleft(msg)
             except Exception as e:
-                logger.error("缓冲区广播消息失败: %s", e)
-                self._buffer.appendleft(msg)
-                dropped += 1
-                if dropped >= max_retries:
-                    logger.warning("Backhaul flush: exception after %d retries, dropping message", dropped)
+                consecutive_failures += 1
+                if consecutive_failures >= max_retries:
+                    logger.warning("Backhaul flush: message dropped after %d consecutive exceptions: %s (buffer=%d)", max_retries, e, len(self._buffer))
+                    consecutive_failures = 0
+                else:
+                    self._buffer.appendleft(msg)
         return count

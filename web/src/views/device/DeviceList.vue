@@ -148,6 +148,27 @@
         <n-button type="primary" :disabled="selectedDiscoverKeys.length === 0" :loading="addingDevices" @click="handleAddDiscovered">{{ t('deviceList.addSelected') }} ({{ selectedDiscoverKeys.length }})</n-button>
       </template>
     </n-modal>
+
+    <n-modal v-model:show="showEditModal" :title="t('deviceList.editDevice')" preset="card" style="width: 480px">
+      <n-form :model="editForm" :rules="editRules" ref="editFormRef" label-placement="left" label-width="90">
+        <n-form-item :label="t('deviceList.deviceId')">
+          <n-input :value="editForm.device_id" disabled />
+        </n-form-item>
+        <n-form-item :label="t('deviceList.name')" path="name">
+          <n-input v-model:value="editForm.name" :placeholder="t('deviceList.namePlaceholder')" />
+        </n-form-item>
+        <n-form-item :label="t('deviceList.collectInterval')" path="collect_interval">
+          <n-space align="center">
+            <n-input-number v-model:value="editForm.collect_interval" :min="1" :max="3600" />
+            <n-text>{{ t('deviceList.seconds') }}</n-text>
+          </n-space>
+        </n-form-item>
+      </n-form>
+      <template #action>
+        <n-button @click="showEditModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="editSaving" @click="handleEditSubmit">{{ t('common.save') }}</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
@@ -155,8 +176,9 @@
 import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
-// FIXED: 原问题-添加i18n支持，使用项目统一的i18n导入
+// FIXED: added i18n support, using project unified i18n import
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import { deviceApi, driverApi, type Device } from '@/api'
 import { deviceStatusLabel, deviceStatusColor, protocolLabel } from '@/utils/enumLabels'
 import { PROTOCOL_CONFIGS, getProtocolConfig } from '@/constants/protocolConfig'
@@ -173,6 +195,15 @@ const filterStatus = ref<string | null>(null)
 const filterProtocol = ref<string | null>(null)
 const collectFilter = ref('all')
 
+// Edit device state
+const showEditModal = ref(false)
+const editSaving = ref(false)
+const editForm = reactive({ device_id: '', name: '', collect_interval: 5 })
+const editFormRef = ref<any>(null)
+const editRules = {
+  name: { required: true, message: t('deviceList.deviceNameRequired'), trigger: 'blur' },
+}
+
 async function fetchDevices() {
   loading.value = true
   try {
@@ -186,7 +217,7 @@ async function fetchDevices() {
   } catch (e: any) {
     devices.value = []
     // FIXED: 原问题-硬编码中文消息，改为i18n
-    message.error(e?.response?.data?.detail || e?.message || t('deviceList.fetchFailed'))
+    message.error(extractError(e, t('deviceList.fetchFailed')))
   } finally {
     loading.value = false
   }
@@ -233,7 +264,14 @@ const discoverColumns = [
   { title: t('deviceList.slaveId'), key: 'slave_id', width: 80 },
 ]
 
-const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchDevices() } })
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (p: number) => { pagination.page = p; fetchDevices() },
+  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1; fetchDevices() },
+})
 
 const statusOptions = [
   { label: t('dashboard.online'), value: 'online' },
@@ -347,11 +385,12 @@ const columns = [
   },
   { title: t('deviceList.createTime'), key: 'created_at', width: 180 },
   {
-    title: t('deviceList.actions'), key: 'actions', width: 200,
+    title: t('deviceList.actions'), key: 'actions', width: 250,
     render: (row: Device) =>
       h(NSpace, null, {
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/devices/${row.device_id}`) }, { default: () => t('deviceList.detail') }),
+          h(NButton, { text: true, type: 'info', onClick: () => handleEdit(row) }, { default: () => t('common.edit') }),
           h(NButton, { text: true, type: 'info', onClick: () => handleWritePoint(row) }, { default: () => t('deviceList.push') }),
           h(NPopconfirm as any, { onPositiveClick: () => doDelete(row) }, {
             trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => t('common.delete') }),
@@ -502,7 +541,7 @@ async function handleCreate() {
     createForm.points = buildPointsFromTemplate('modbus_tcp')
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('deviceList.createFailed'))
+    message.error(extractError(e, t('deviceList.createFailed')))
   } finally {
     creating.value = false
   }
@@ -528,7 +567,7 @@ async function handleCreateSim() {
     simForm.points = [{ name: 'temperature', data_type: 'float32', unit: '°C', address: '0', access_mode: 'r', min: 15, max: 35, mode: 'sine' }]
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('deviceList.createFailed'))
+    message.error(extractError(e, t('deviceList.createFailed')))
   } finally {
     creating.value = false
   }
@@ -542,7 +581,7 @@ async function handleDiscover() {
     selectedDiscoverKeys.value = []
     showDiscoverModal.value = true
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('deviceList.discoverFailed'))
+    message.error(extractError(e, t('deviceList.discoverFailed')))
   } finally {
     discovering.value = false
   }
@@ -586,13 +625,40 @@ function handleWritePoint(row: Device) {
   router.push({ name: 'DeviceDetail', params: { id: row.device_id }, query: { tab: 'write' } })
 }
 
+function handleEdit(row: Device) {
+  editForm.device_id = row.device_id
+  editForm.name = row.name
+  editForm.collect_interval = row.collect_interval
+  showEditModal.value = true
+}
+
+async function handleEditSubmit() {
+  try {
+    await editFormRef.value?.validate()
+  } catch { return }
+  editSaving.value = true
+  try {
+    await deviceApi.update(editForm.device_id, {
+      name: editForm.name,
+      collect_interval: editForm.collect_interval,
+    })
+    message.success(t('deviceList.editSuccess'))
+    showEditModal.value = false
+    fetchDevices()
+  } catch (e: any) {
+    message.error(extractError(e, t('deviceList.editFailed')))
+  } finally {
+    editSaving.value = false
+  }
+}
+
 async function doDelete(row: Device) {
   try {
     await deviceApi.delete(row.device_id)
     message.success(t('deviceList.deleteSuccess'))
     fetchDevices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('deviceList.deleteFailed'))
+    message.error(extractError(e, t('deviceList.deleteFailed')))
   }
 }
 
@@ -608,9 +674,9 @@ async function handleBatchDelete() {
       const succeeded = results.filter(r => r.status === 'fulfilled').length
       const failed = results.filter(r => r.status === 'rejected').length
       if (failed > 0) {
-        message.warning(t('device.batchDeletePartial', { succeeded, failed }))  // FIXED: 原问题-硬编码中文，改用i18n
+        message.warning(t('deviceList.batchDeletePartial', { succeeded, failed }))  // FIXED: 原问题-硬编码中文，改用i18n
       } else {
-        message.success(t('device.batchDeleteSuccess', { succeeded }))  // FIXED: 原问题-硬编码中文，改用i18n
+        message.success(t('deviceList.batchDeleteSuccess', { succeeded }))  // FIXED: 原问题-硬编码中文，改用i18n
       }
       checkedKeys.value = []
       fetchDevices()

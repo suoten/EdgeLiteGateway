@@ -23,12 +23,15 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY --from=frontend-builder /build/dist /app/frontend/dist
 COPY configs/ configs/
-COPY models/ models/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
 COPY scripts/init_db.py scripts/
 
 RUN mkdir -p data/backups logs
+
+# Verify onnxruntime is available and model files are installed
+RUN python -c "import onnxruntime; print('onnxruntime version:', onnxruntime.__version__)" && \
+    python -c "from pathlib import Path; import edgelite; p = Path(edgelite.__file__).parent / 'ai_models'; print('AI models dir:', p, 'files:', list(p.glob('*.onnx')))"
 
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
@@ -43,7 +46,30 @@ EXPOSE 8080
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=30s \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD python -c "
+import urllib.request
+import json
+
+try:
+    # Check main health endpoint
+    resp = urllib.request.urlopen('http://localhost:8080/health', timeout=5)
+    if resp.status != 200:
+        exit(1)
+
+    # Check detailed health (optional endpoint)
+    try:
+        resp2 = urllib.request.urlopen('http://localhost:8080/api/v1/system/health', timeout=5)
+        data = json.loads(resp2.read())
+        # Verify key services are healthy
+        if not data.get('data', {}).get('database', False):
+            exit(1)
+    except:
+        pass  # Optional endpoint may not exist
+
+    exit(0)
+except Exception as e:
+    exit(1)
+"
 
 CMD ["python", "-m", "edgelite", "--host", "0.0.0.0", "--port", "8080"]

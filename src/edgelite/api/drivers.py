@@ -178,7 +178,7 @@ class DriverDiscoverRequest(BaseModel):
     config: dict = {}
 
 
-_DISCOVER_TIMEOUT = 30.0
+_DISCOVER_TIMEOUT = 60.0
 
 
 @router.post("/{driver_name}/discover", response_model=ApiResponse[DriverDiscoverResponse])

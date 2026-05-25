@@ -417,7 +417,7 @@ class Database:
                 except Exception as e:
                     logger.warning("WAL文件备份失败: %s", e)
         else:
-            logger.warning(
-                "备份功能暂不支持 %s 后端，请使用数据库自带的备份工具（如 pg_dump/mysqldump）",
-                self._backend,
+            raise NotImplementedError(
+                f"Backup not implemented for {self._backend} backend. "
+                f"Use native tools: pg_dump (PostgreSQL), mysqldump (MySQL), or sqlcmd (MSSQL)."
             )

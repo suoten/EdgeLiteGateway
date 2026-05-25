@@ -52,6 +52,7 @@ import { NButton, NPopconfirm, NSpin, useMessage, useDialog } from 'naive-ui'
 import { otaApi } from '@/api'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -83,7 +84,7 @@ async function checkUpdate() {
     const data = await otaApi.check()
     updateInfo.value = data
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('ota.checkFailed'))
+    message.error(extractError(e, t('ota.checkFailed')))
   } finally { checking.value = false }
 }
 
@@ -122,7 +123,7 @@ async function applyUpdate() {
     message.success(t('ota.applySuccess') + t('ota.restartSoon'))  // FIXED: 原问题-硬编码中文，改用i18n
     pollHealthAndReload()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('ota.applyFailed'))
+    message.error(extractError(e, t('ota.applyFailed')))
   } finally { applying.value = false }
 }
 
@@ -135,7 +136,7 @@ async function handleRollback(version: string) {
     // FIXED: 原问题-固定10秒reload，改为轮询/health端点
     pollHealthAndReload()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('otaUpdate.rollbackFailed'))
+    message.error(extractError(e, t('otaUpdate.rollbackFailed')))
   } finally {
     rollingBack.value = false
   }
@@ -147,7 +148,7 @@ async function fetchBackups() {
     const data = await otaApi.backups()
     backups.value = data?.backups || []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('otaUpdate.fetchBackupFailed'))
+    message.error(extractError(e, t('otaUpdate.fetchBackupFailed')))
   } finally {
     pageLoading.value = false
     fetchingBackups.value = false

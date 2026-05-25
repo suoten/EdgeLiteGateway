@@ -55,7 +55,7 @@ class HttpWebhookDriver(DriverPlugin):
         self._device_configs[device_id] = config
         self._device_points[device_id] = points
         self._latest_values[device_id] = {}
-        self._last_receive[device_id] = time.time()
+        self._last_receive[device_id] = 0  # 尚未收到数据，初始为0
         logger.info("HTTP Webhook设备注册: %s", device_id)
 
     async def remove_device(self, device_id: str) -> None:
@@ -151,3 +151,20 @@ class HttpWebhookDriver(DriverPlugin):
     def get_last_receive_time(self, device_id: str) -> float:
         """获取设备最后数据接收时间"""
         return self._last_receive.get(device_id, 0)
+
+    # ─── 连通性判定 ─────────────────────────────────────────
+
+    _OFFLINE_TIMEOUT = 60  # 超过60秒未收到数据视为离线
+
+    def is_device_connected(self, device_id: str) -> bool:
+        """HTTP Webhook 设备连通性判定：设备已注册即视为在线（被动协议，等待外部推送）；
+        超过 OFFLINE_TIMEOUT 未收到数据则视为离线。
+        """
+        if device_id not in self._device_configs:
+            return False
+        last = self._last_receive.get(device_id, 0)
+        # 设备已注册但尚未收到数据 → 视为在线（等待推送中）
+        if last == 0:
+            return True
+        # 收到过数据，检查是否超时
+        return (time.time() - last) < self._OFFLINE_TIMEOUT

@@ -59,6 +59,8 @@ class HuaweiIoTDAHandler(PlatformHandler):
         self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
 
         broker = config.get("broker", config.get("host", ""))
+        if not broker:
+            raise ValueError("broker is required")
         port = int(config.get("port", 8883))
         device_id = config.get("device_id", "")
         secret = config.get("secret", "")

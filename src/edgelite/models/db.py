@@ -91,4 +91,9 @@ class CacheQueueORM(Base):
     fields: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[str] = mapped_column(Text, nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+
+    __table_args__ = (
+        Index("idx_cache_queue_status", "status"),
+    )

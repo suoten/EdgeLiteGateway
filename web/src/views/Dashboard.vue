@@ -1,52 +1,12 @@
 <template>
   <n-spin :show="pageLoading" :description="t('dashboard.loading')">
   <n-space vertical :size="20">
-    <n-card v-if="showQuickStart" :title="t('dashboard.quickStart')" :bordered="false" class="quick-start-card">
-      <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
-        <n-gi>
-          <n-card hoverable class="qs-item" @click="router.push('/devices')">
-            <n-space vertical align="center">
-              <n-icon size="40" :component="HardwareChip" color="#667eea" />
-              <n-text strong>{{ t('dashboard.createDevice') }}</n-text>
-              <n-text depth="3">{{ t('dashboard.createDeviceDesc') }}</n-text>
-            </n-space>
-          </n-card>
-        </n-gi>
-        <n-gi>
-          <n-card hoverable class="qs-item" @click="router.push('/rules')">
-            <n-space vertical align="center">
-              <n-icon size="40" :component="SettingsOutline" color="#11998e" />
-              <n-text strong>{{ t('dashboard.configAlarm') }}</n-text>
-              <n-text depth="3">{{ t('dashboard.configAlarmDesc') }}</n-text>
-            </n-space>
-          </n-card>
-        </n-gi>
-        <n-gi>
-          <n-card hoverable class="qs-item qs-item-ai" @click="router.push('/system/ai-model')">
-            <n-space vertical align="center">
-              <n-icon size="40" :component="PulseOutline" color="#8b5cf6" />
-              <n-text strong>{{ t('dashboard.aiQuickStart') }}</n-text>
-              <n-text depth="3">{{ t('dashboard.aiQuickStartDesc') }}</n-text>
-            </n-space>
-          </n-card>
-        </n-gi>
-        <n-gi>
-          <n-card hoverable class="qs-item" @click="router.push('/system/platforms')">
-            <n-space vertical align="center">
-              <n-icon size="40" :component="AlertCircleOutline" color="#4facfe" />
-              <n-text strong>{{ t('dashboard.platformIntegration') }}</n-text>
-              <n-text depth="3">{{ t('dashboard.platformIntegrationDesc') }}</n-text>
-            </n-space>
-          </n-card>
-        </n-gi>
-      </n-grid>
-    </n-card>
-
+    <!-- 核心统计卡片 -->
     <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
       <n-gi>
         <n-card class="stat-card stat-card-primary" :bordered="false">
           <n-statistic :label="t('dashboard.deviceTotal')" :value="status?.device_total ?? 0">
-            <template #prefix><n-icon :component="HardwareChip" /></template>
+            <template #prefix><n-icon :component="HardwareChipOutline" /></template>
           </n-statistic>
           <div class="stat-footer">
             <span>{{ t('dashboard.onlineCount', { count: status?.device_online ?? 0 }) }}</span>
@@ -77,7 +37,7 @@
       <n-gi>
         <n-card class="stat-card stat-card-info" :bordered="false">
           <n-statistic :label="t('dashboard.collectTask')" :value="status?.collect_task_count ?? 0">
-            <template #prefix><n-icon :component="PulseOutline" /></template>
+            <template #prefix><n-icon :component="PulseSharp" /></template>
           </n-statistic>
           <div class="stat-footer">
             <span>{{ t('dashboard.running') }}</span>
@@ -88,10 +48,11 @@
 
     <AiStatsWidget />
 
+    <!-- 数据采集概览 -->
     <n-card :bordered="false" class="collect-engine-panel">
       <template #header>
         <n-space align="center" :size="12">
-          <span style="font-size:20px">📡</span>
+          <n-icon :component="WifiSharp" size="20" color="#fff" />
           <span style="font-size:16px;font-weight:700;color:#fff">{{ t('dashboard.collectEngine') }}</span>
           <span class="collect-status-dot" :class="collectEngineRunning ? 'dot-running' : 'dot-stopped'" />
           <n-text style="color:rgba(255,255,255,0.8);font-size:12px">{{ collectEngineRunning ? t('ai.statusActive') : t('dashboard.collectStopped') }}</n-text>
@@ -101,19 +62,13 @@
         <n-gi>
           <n-statistic :label="t('dashboard.collectTasks')" class="collect-stat" @click="collectExpanded = !collectExpanded" style="cursor:pointer">
             <template #default><span class="collect-stat-num">{{ status?.collect_task_count ?? 0 }}</span></template>
-            <template #prefix><span style="font-size:18px">🔌</span></template>
-          </n-statistic>
-        </n-gi>
-        <n-gi>
-          <n-statistic :label="t('dashboard.runningTasks')" class="collect-stat">
-            <template #default><span class="collect-stat-num">{{ runningTaskCount }}</span></template>
-            <template #prefix><span class="inline-pulse-green" /></template>
+            <template #prefix><n-icon :component="TrendingUpOutline" size="18" color="rgba(255,255,255,0.7)" /></template>
           </n-statistic>
         </n-gi>
         <n-gi>
           <n-statistic :label="t('dashboard.todayDataPoints')" class="collect-stat">
-            <template #default><span class="collect-stat-num">{{ todayDataPoints }}</span></template>
-            <template #prefix><span style="font-size:18px">📈</span></template>
+            <template #default><span class="collect-stat-num">{{ todayDataPoints.toLocaleString() }}</span></template>
+            <template #prefix><n-icon :component="AnalyticsOutline" size="18" color="rgba(255,255,255,0.7)" /></template>
           </n-statistic>
         </n-gi>
         <n-gi>
@@ -124,6 +79,12 @@
             </template>
           </n-statistic>
         </n-gi>
+        <n-gi>
+          <n-statistic :label="t('dashboard.uptime')" class="collect-stat">
+            <template #default><span class="collect-stat-num">{{ formatUptime(uptime) }}</span></template>
+            <template #prefix><n-icon :component="TimeOutline" size="18" color="rgba(255,255,255,0.7)" /></template>
+          </n-statistic>
+        </n-gi>
       </n-grid>
       <div style="margin-top:8px;text-align:center">
         <n-text
@@ -132,13 +93,13 @@
           @click="collectExpanded = !collectExpanded"
         >
           {{ collectExpanded ? t('dashboard.clickToCollapse') : t('dashboard.clickToExpand') }}
-          {{ collectExpanded ? '▲' : '▼' }}
+          <n-icon :component="collectExpanded ? ChevronUpOutline : ChevronDownOutline" :size="14" />
         </n-text>
       </div>
       <n-collapse-transition :show="collectExpanded">
         <div style="margin-top:12px">
           <n-text style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600">{{ t('dashboard.activeDevices') }}</n-text>
-          <n-space vertical :size="6" style="margin-top:8px;max-height:240px;overflow-y:auto">
+          <n-space vertical :size="6" style="margin-top:8px;max-height:200px;overflow-y:auto">
             <div v-for="d in activeDeviceList" :key="d.device_id" class="collect-device-row" :class="{'row-online': d.status === 'online', 'row-error': d.status === 'error'}">
               <n-space align="center" :size="8" justify="space-between" style="width:100%">
                 <n-space align="center" :size="8">
@@ -155,46 +116,49 @@
           </n-space>
         </div>
       </n-collapse-transition>
-      <div class="data-waterfall">
-        <div v-for="i in 12" :key="i" class="waterfall-bar" :style="{ animationDelay: `${i * 0.15}s`, height: `${20 + Math.random() * 60}%` }" />
-      </div>
     </n-card>
 
+    <!-- 图表区域 -->
     <n-grid :cols="2" :x-gap="16" :y-gap="16">
       <n-gi>
         <n-card :title="t('dashboard.deviceStatus')" :bordered="false">
-          <v-chart :option="deviceStatusOption" autoresize style="height: 280px" />
+          <v-chart :option="deviceStatusOption" autoresize style="height: 240px" />
         </n-card>
       </n-gi>
       <n-gi>
         <n-card :title="t('dashboard.protocolDist')" :bordered="false">
-          <v-chart :option="protocolOption" autoresize style="height: 280px" />
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card :title="t('dashboard.alarmTrend')" :bordered="false">
-          <v-chart :option="alarmTrendOption" autoresize style="height: 280px" />
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card :title="t('dashboard.resourceTrend')" :bordered="false">
-          <v-chart :option="resourceTrendOption" autoresize style="height: 280px" />
+          <v-chart :option="protocolOption" autoresize style="height: 240px" />
         </n-card>
       </n-gi>
     </n-grid>
 
+    <n-grid :cols="2" :x-gap="16" :y-gap="16">
+      <n-gi>
+        <n-card :title="t('dashboard.alarmTrend')" :bordered="false">
+          <v-chart :option="alarmTrendOption" autoresize style="height: 240px" />
+        </n-card>
+      </n-gi>
+      <n-gi>
+        <n-card :title="t('dashboard.resourceTrend')" :bordered="false">
+          <v-chart :option="resourceTrendOption" autoresize style="height: 240px" />
+        </n-card>
+      </n-gi>
+    </n-grid>
+
+    <!-- 系统资源 -->
     <n-grid :cols="3" :x-gap="16" :y-gap="16">
       <n-gi>
         <n-card :title="t('dashboard.cpuUsage')" :bordered="false" class="resource-card">
-          <n-progress type="circle" :percentage="status?.cpu_percent ?? 0" :stroke-width="12" :color="cpuColor" />
-          <div class="resource-info">
-            <n-text depth="3">{{ t('dashboard.currentLoad') }}</n-text>
-          </div>
+          <n-progress type="circle" :percentage="status?.cpu_percent ?? 0" :stroke-width="10" :color="cpuColor" :size="120">
+            <template #default>{{ status?.cpu_percent ?? 0 }}%</template>
+          </n-progress>
         </n-card>
       </n-gi>
       <n-gi>
         <n-card :title="t('dashboard.memoryUsage')" :bordered="false" class="resource-card">
-          <n-progress type="circle" :percentage="status?.memory_percent ?? 0" :stroke-width="12" :color="memColor" />
+          <n-progress type="circle" :percentage="status?.memory_percent ?? 0" :stroke-width="10" :color="memColor" :size="120">
+            <template #default>{{ status?.memory_percent ?? 0 }}%</template>
+          </n-progress>
           <div class="resource-info">
             <n-text depth="3">{{ formatBytes(status?.memory_used) }} / {{ formatBytes(status?.memory_total) }}</n-text>
           </div>
@@ -202,7 +166,9 @@
       </n-gi>
       <n-gi>
         <n-card :title="t('dashboard.diskUsage')" :bordered="false" class="resource-card">
-          <n-progress type="circle" :percentage="status?.disk_percent ?? 0" :stroke-width="12" :color="diskColor" />
+          <n-progress type="circle" :percentage="status?.disk_percent ?? 0" :stroke-width="10" :color="diskColor" :size="120">
+            <template #default>{{ status?.disk_percent ?? 0 }}%</template>
+          </n-progress>
           <div class="resource-info">
             <n-text depth="3">{{ formatBytes(status?.disk_used) }} / {{ formatBytes(status?.disk_total) }}</n-text>
           </div>
@@ -210,15 +176,16 @@
       </n-gi>
     </n-grid>
 
+    <!-- 系统信息 -->
     <n-card :title="t('dashboard.systemInfo')" :bordered="false">
       <n-grid :cols="2" :x-gap="24" :y-gap="16">
         <n-gi>
-          <n-descriptions label-placement="left" :column="1" bordered>
+          <n-descriptions label-placement="left" :column="1" bordered size="small">
             <n-descriptions-item :label="t('dashboard.version')">
               <n-tag type="success" size="small">v{{ status?.version ?? '-' }} Community</n-tag>
             </n-descriptions-item>
             <n-descriptions-item :label="t('dashboard.uptime')">
-              <n-time :time="Date.now() - uptime * 1000" type="relative" />
+              <n-text>{{ formatUptime(uptime) }}</n-text>
             </n-descriptions-item>
             <n-descriptions-item :label="t('device.title')">{{ t('dashboard.deviceCount', { total: status?.device_total ?? 0, online: status?.device_online ?? 0 }) }}</n-descriptions-item>
             <n-descriptions-item :label="t('rule.title')">{{ t('dashboard.ruleCount', { total: status?.rule_total ?? 0, enabled: status?.rule_enabled ?? 0 }) }}</n-descriptions-item>
@@ -242,19 +209,21 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-// FIXED: 原问题-添加i18n支持，使用项目统一的i18n导入
 import { t } from '@/i18n'
-import { HardwareChip, SettingsOutline, AlertCircleOutline, PulseOutline } from '@vicons/ionicons5'
+import { extractError } from '@/utils/errorCodes'
+import {
+  HardwareChipOutline, SettingsOutline, AlertCircleOutline, PulseSharp,
+  WifiSharp, TrendingUpOutline, AnalyticsOutline, TimeOutline,
+  ChevronUpOutline, ChevronDownOutline
+} from '@vicons/ionicons5'
 import { use } from 'echarts/core'
 import { PieChart, LineChart, BarChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-import { systemApi, deviceApi, alarmApi, driverApi, type SystemStatus } from '@/api'
+import { systemApi, deviceApi, alarmApi, driverApi, dataApi, type SystemStatus } from '@/api'
 import { protocolLabel as protocolLabelMap } from '@/utils/enumLabels'
 import AiStatsWidget from '@/components/AiStatsWidget.vue'
-
-const getProtocolLabel = (key: string) => protocolLabelMap.value[key] || ''
 import * as ws from '@/api/websocket'
 
 use([PieChart, LineChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer])
@@ -273,19 +242,25 @@ const uptime = ref(0)
 
 const collectEngineRunning = computed(() => (status.value?.collect_task_count ?? 0) > 0)
 const collectExpanded = ref(false)
-const runningTaskCount = computed(() => status.value?.collect_task_count ?? 0)
 const todayDataPoints = ref(0)
-const collectSuccessRate = ref(99.5)
+const collectSuccessRate = ref(0)
 
 const activeDeviceList = computed(() => {
   return devices.value
-    .slice(0, 10)
+    .slice(0, 8)
     .map((d: any) => ({
       ...d,
       last_collect_ago: d.last_collect_at ? formatRelativeTime(d.last_collect_at) : '-',
-      today_points: d.today_points ?? Math.floor(Math.random() * 5000),
+      today_points: d.today_points ?? 0,
     }))
 })
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
+  return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`
+}
 
 function formatRelativeTime(isoStr: string): string {
   try {
@@ -310,9 +285,7 @@ const diskColor = computed(() => {
   return p > 90 ? '#f56c6c' : p > 80 ? '#e6a23c' : '#67c23a'
 })
 
-const showQuickStart = computed(() => {
-  return devices.value.length === 0 && status.value !== null
-})
+const getProtocolLabel = (key: string) => protocolLabelMap.value[key] || ''
 
 // 设备状态饼图
 const deviceStatusOption = computed(() => {
@@ -323,10 +296,9 @@ const deviceStatusOption = computed(() => {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
     series: [{
-      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      type: 'pie', radius: ['45%', '75%'], center: ['50%', '45%'],
       label: { show: true, formatter: '{b}\n{c}', fontSize: 12 },
       data: [
-        // FIXED: 原问题-ECharts数据name中文硬编码，改为i18n
         { value: online, name: t('dashboard.online'), itemStyle: { color: '#67c23a' } },
         { value: offline, name: t('dashboard.offline'), itemStyle: { color: '#909399' } },
       ],
@@ -343,7 +315,7 @@ const protocolOption = computed(() => {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
     series: [{
-      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      type: 'pie', radius: ['45%', '75%'], center: ['50%', '45%'],
       label: { show: true, formatter: '{b}\n{c}', fontSize: 12 },
       data: Object.entries(protoMap).map(([name, value], i) => ({
         value, name: getProtocolLabel(name) || name, itemStyle: { color: colors[i % colors.length] },
@@ -352,11 +324,9 @@ const protocolOption = computed(() => {
   }
 })
 
-// 告警趋势折线图（按小时统计近24小时告警数量）
+// 告警趋势折线图
 const alarmTrendOption = computed(() => {
   const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`)
-
-  // 按小时和严重级别统计告警
   const counts: Record<string, Record<string, number>> = {}
   hours.forEach(h => { counts[h] = { critical: 0, warning: 0, info: 0 } })
 
@@ -417,8 +387,7 @@ async function fetchStatus() {
     status.value = await systemApi.getStatus()
     uptime.value = status.value?.uptime ?? 0
   } catch (e: any) {
-    // FIXED: 原问题-硬编码中文消息，改为i18n
-    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchStatusFailed'))
+    msg.warning(extractError(e, t('dashboard.fetchStatusFailed')))
   }
 }
 
@@ -432,7 +401,7 @@ async function fetchProtocols() {
       supportedProtocols.value = protoData?.protocols || []
     }
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchProtocolsFailed'))
+    msg.warning(extractError(e, t('dashboard.fetchProtocolsFailed')))
     supportedProtocols.value = []
   }
 }
@@ -442,7 +411,7 @@ async function fetchDevices() {
     const data = await deviceApi.list({ page: 1, size: 500 })
     devices.value = data?.data ?? []
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchDevicesFailed'))
+    msg.warning(extractError(e, t('dashboard.fetchDevicesFailed')))
     devices.value = []
   }
 }
@@ -452,8 +421,20 @@ async function fetchAlarms() {
     const data = await alarmApi.list({ page: 1, size: 500 })
     alarms.value = data?.data ?? []
   } catch (e: any) {
-    msg.warning(e?.response?.data?.detail || e?.message || t('dashboard.fetchAlarmsFailed'))
+    msg.warning(extractError(e, t('dashboard.fetchAlarmsFailed')))
     alarms.value = []
+  }
+}
+
+async function fetchDashboardStats() {
+  try {
+    const stats = await dataApi.stats()
+    if (stats) {
+      todayDataPoints.value = stats.total_points_today ?? 0
+      collectSuccessRate.value = stats.success_rate ?? 0
+    }
+  } catch (e: any) {
+    console.error('Dashboard: fetchDashboardStats failed', e)
   }
 }
 
@@ -474,14 +455,13 @@ function formatBytes(bytes?: number) {
 }
 
 onMounted(async () => {
-  // FIXED: 原问题-Promise.allSettled吞没异常，status.value保持null导致所有统计卡片显示0
-  // 现改为逐个await并独立处理异常，确保部分成功的数据仍能展示
   try { await fetchStatus() } catch (e) { console.error('Dashboard: fetchStatus failed', e) }
   try { await fetchDevices() } catch (e) { console.error('Dashboard: fetchDevices failed', e) }
   try { await fetchAlarms() } catch (e) { console.error('Dashboard: fetchAlarms failed', e) }
   try { await fetchProtocols() } catch (e) { console.error('Dashboard: fetchProtocols failed', e) }
+  try { await fetchDashboardStats() } catch (e) { console.error('Dashboard: fetchDashboardStats failed', e) }
   pageLoading.value = false
-  timer = window.setInterval(() => { fetchStatus(); updateResourceHistory() }, 5000)
+  timer = window.setInterval(() => { fetchStatus(); updateResourceHistory(); fetchDashboardStats() }, 5000)
   uptimeTimer = window.setInterval(() => { uptime.value++ }, 1000)
   ws.connect('realtime', onRealtimeMessage)
   ws.connect('alarm', onAlarmMessage)
@@ -497,8 +477,6 @@ onUnmounted(() => {
 
 function onRealtimeMessage(data: any) {
   try {
-    // FIXED: 原问题-status.value为null时所有实时消息被丢弃
-    // 现仅检查data有效性，不再依赖status.value
     if (data?.device_id) {
       updateResourceHistory()
     }
@@ -567,8 +545,6 @@ function onDeviceMessage(data: any) {
 .stat-footer-warning { color: #ffeb3b; font-weight: 500; }
 .resource-card { text-align: center; }
 .resource-info { margin-top: 12px; }
-.quick-start-card { border: 2px dashed #e0e0e0; }
-.qs-item { text-align: center; cursor: pointer; min-height: 120px; display: flex; align-items: center; justify-content: center; }
 .protocol-section { padding: 4px 0; }
 .protocol-section :deep(.n-tag) { font-size: 12px; }
 .collect-engine-panel {
@@ -609,14 +585,6 @@ function onDeviceMessage(data: any) {
   background: #f56c6c;
   animation: collect-pulse 1.5s ease-in-out infinite;
 }
-.inline-pulse-green {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #67c23a;
-  animation: collect-pulse 2s ease-in-out infinite;
-}
 .collect-device-row {
   padding: 6px 10px;
   border-radius: 6px;
@@ -637,28 +605,9 @@ function onDeviceMessage(data: any) {
   height: 8px;
   border-radius: 50%;
 }
-.data-waterfall {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 32px;
-  margin-top: 12px;
-  overflow: hidden;
-  border-radius: 4px;
-}
-.waterfall-bar {
-  flex: 1;
-  background: linear-gradient(180deg, rgba(139,92,246,0.7) 0%, rgba(139,92,246,0.2) 100%);
-  border-radius: 2px 2px 0 0;
-  animation: waterfall-pulse 2s ease-in-out infinite;
-}
 @keyframes collect-pulse {
   0% { box-shadow: 0 0 0 0 rgba(103,194,58,0.4); }
   70% { box-shadow: 0 0 0 6px rgba(103,194,58,0); }
   100% { box-shadow: 0 0 0 0 rgba(103,194,58,0); }
-}
-@keyframes waterfall-pulse {
-  0%, 100% { transform: scaleY(0.3); opacity: 0.5; }
-  50% { transform: scaleY(1); opacity: 1; }
 }
 </style>

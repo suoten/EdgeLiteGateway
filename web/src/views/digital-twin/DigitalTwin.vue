@@ -1,8 +1,8 @@
 <template>
   <n-spin :show="pageLoading" :description="t('digitalTwin.loadingScene')">
   <div class="twin-page">
-    <div v-if="threeUnavailable" class="three-unavailable">  <!-- FIXED: 原问题-three加载失败时无降级提示 -->
-      <div class="three-unavailable-icon">⚠️</div>
+    <div v-if="threeUnavailable" class="three-unavailable">
+      <n-icon :component="WarningOutline" :size="48" color="#e6a23c" />
       <div class="three-unavailable-text">{{ t('digitalTwin.threeUnavailable') }}</div>
     </div>
     <div ref="containerRef" class="twin-canvas" @click="onCanvasClick"></div>
@@ -16,18 +16,28 @@
         >{{ s.icon }} {{ s.label }}</div>
       </div>
       <div class="top-actions">
-        <div :class="['action-btn', { active: autoRotate }]" @click="toggleAutoRotate" :title="t('digitalTwin.autoRotate')">🔄</div>
-        <div :class="['action-btn', { active: showLabels }]" @click="showLabels = !showLabels" :title="t('digitalTwin.labels')">🏷️</div>
-        <div :class="['action-btn', { active: showConnections }]" @click="showConnections = !showConnections; rebuildScene()" :title="t('digitalTwin.connections')">🔗</div>
-        <div class="action-btn" @click="takeScreenshot" :title="t('digitalTwin.screenshot')">📷</div>
-        <div class="action-btn" @click="rebuildScene" :title="t('digitalTwin.refresh')">🔁</div>
+        <div :class="['action-btn', { active: autoRotate }]" @click="toggleAutoRotate" :title="t('digitalTwin.autoRotate')">
+          <n-icon :component="ReloadOutline" :size="16" />
+        </div>
+        <div :class="['action-btn', { active: showLabels }]" @click="showLabels = !showLabels" :title="t('digitalTwin.labels')">
+          <n-icon :component="CreateOutline" :size="16" />
+        </div>
+        <div :class="['action-btn', { active: showConnections }]" @click="showConnections = !showConnections; rebuildScene()" :title="t('digitalTwin.connections')">
+          <n-icon :component="GitBranchSharp" :size="16" />
+        </div>
+        <div class="action-btn" @click="takeScreenshot" :title="t('digitalTwin.screenshot')">
+          <n-icon :component="CameraOutline" :size="16" />
+        </div>
+        <div class="action-btn" @click="rebuildScene" :title="t('digitalTwin.refresh')">
+          <n-icon :component="RefreshOutline" :size="16" />
+        </div>
       </div>
     </div>
 
     <div class="overlay-stats">
-      <div class="stat-chip online">● {{ onlineCount }} {{ t('digitalTwin.online') }}</div>
-      <div class="stat-chip offline">● {{ offlineCount }} {{ t('digitalTwin.offline') }}</div>
-      <div v-if="alarmCount > 0" class="stat-chip alarm">⚠ {{ alarmCount }} {{ t('digitalTwin.alarm') }}</div>
+      <div class="stat-chip online"><span class="stat-dot online-dot"></span> {{ onlineCount }} {{ t('digitalTwin.online') }}</div>
+      <div class="stat-chip offline"><span class="stat-dot offline-dot"></span> {{ offlineCount }} {{ t('digitalTwin.offline') }}</div>
+      <div class="stat-chip alarm" v-if="alarmCount > 0"><n-icon :component="WarningOutline" :size="14" /> {{ alarmCount }} {{ t('digitalTwin.alarm') }}</div>
       <div class="stat-chip total">{{ t('digitalTwin.deviceTotal', { count: deviceList.length }) }}</div>
     </div>
 
@@ -58,12 +68,15 @@
         <n-button block type="primary" ghost size="small" style="margin-top: 10px" @click="goToDeviceDetail">
           {{ t('digitalTwin.viewDeviceDetail') }} →
         </n-button>
-        <n-button text size="tiny" style="position: absolute; top: 8px; right: 8px" @click="selectedDevice = null">✕</n-button>
+        <n-button text size="tiny" style="position: absolute; top: 8px; right: 8px" @click="selectedDevice = null">
+          <n-icon :component="CloseOutline" :size="14" />
+        </n-button>
       </div>
     </Transition>
 
     <div :class="['device-list-toggle', { expanded: listExpanded }]" @click="listExpanded = !listExpanded">
-      <span>{{ listExpanded ? t('digitalTwin.collapse') : '📋 ' + t('digitalTwin.deviceList') }}</span>
+      <n-icon :component="listExpanded ? CloseOutline : ListOutline" :size="14" />
+      <span>{{ t('digitalTwin.deviceList') }}</span>
     </div>
     <Transition name="slide-left">
       <div v-if="listExpanded" class="device-list-panel">
@@ -79,7 +92,9 @@
               <div class="dl-name">{{ d.name }}</div>
               <div class="dl-meta">{{ protocolLabel.value[d.protocol] || d.protocol }}</div>
             </div>
-            <div v-if="alarmingDevices.has(d.device_id)" class="dl-alarm-badge">⚠</div>
+            <div v-if="alarmingDevices.has(d.device_id)" class="dl-alarm-badge">
+              <n-icon :component="WarningOutline" :size="12" color="#fff" />
+            </div>
           </div>
         </div>
       </div>
@@ -91,10 +106,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NTag, NButton, NDivider, NInput, NSpin, useMessage } from 'naive-ui'
+import { NTag, NButton, NDivider, NInput, NSpin, NIcon, useMessage } from 'naive-ui'
+import {
+  BusinessOutline, BusinessSharp, FlashOutline, RefreshOutline, GitBranchSharp,
+  CameraOutline, ReloadOutline, WarningOutline, FileTrayOutline, CloseOutline,
+  ListOutline, CreateOutline
+} from '@vicons/ionicons5'
 import { deviceApi, alarmApi } from '@/api'
 import { deviceStatusLabel, protocolLabel } from '@/utils/enumLabels'
-import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
+import { t } from '@/i18n'
 
 const router = useRouter()
 const msg = useMessage()
@@ -115,11 +135,11 @@ const minimapUrl = ref('')
 const pageLoading = ref(true)
 const threeUnavailable = ref(false)  // FIXED: 原问题-three模块加载失败时无标志位，组件无法降级
 
-const sceneOptions = [
-  { label: t('digitalTwin.sceneFactory'), value: 'factory', icon: '🏭' },  // FIXED: 原问题-中文硬编码
-  { label: t('digitalTwin.scenePark'), value: 'park', icon: '🏢' },  // FIXED: 原问题-中文硬编码
-  { label: t('digitalTwin.sceneEnergy'), value: 'energy', icon: '⚡' },  // FIXED: 原问题-中文硬编码
-]
+const sceneOptions = computed(() => [
+  { label: t('digitalTwin.sceneFactory'), value: 'factory', icon: h(NIcon, { component: BusinessSharp, size: 14 }) },
+  { label: t('digitalTwin.scenePark'), value: 'park', icon: h(NIcon, { component: BusinessOutline, size: 14 }) },
+  { label: t('digitalTwin.sceneEnergy'), value: 'energy', icon: h(NIcon, { component: FlashOutline, size: 14 }) },
+])
 
 const onlineCount = computed(() => deviceList.value.filter(d => d.status === 'online').length)
 const offlineCount = computed(() => deviceList.value.filter(d => d.status === 'offline').length)
@@ -812,6 +832,9 @@ onUnmounted(() => {
 }
 .stat-chip.online { color: #18a058; }
 .stat-chip.offline { color: #d03050; }
+.stat-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.online-dot { background: #18a058; }
+.offline-dot { background: #d03050; }
 .stat-chip.alarm { color: #ff1744; border-color: rgba(255, 23, 68, 0.3); }
 .stat-chip.total { color: #e0f0ff; }
 

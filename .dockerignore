@@ -1,35 +1,78 @@
-__pycache__
-*.pyc
-*.pyo
+# Git
 .git
 .gitignore
-.vscode
-.idea
-*.md
-!README.md
-web/node_modules
-web/dist
-data/
-logs/
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
 *.egg-info
-.eggs
-.env
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
 venv
 .venv
-env
-.env.*
-!.env.example
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Testing
+.tox
+.pytest_cache
+.coverage
+htmlcov
+.hypothesis
+
+# Documentation
+docs/_build
+*.md
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Data
 *.db
 *.sqlite
-_fix_*.py
-_test_*.py
-_verify*.txt
-_api_test.txt
-_app_check.txt
-_server_log.txt
-_phase3_*
-_docker_config.txt
-tests/
-docs/
-main.py
-requirements.txt
+*.sqlite3
+data/*.json
+data/*.csv
+
+# Frontend build artifacts (will be built inside Docker)
+web/node_modules
+web/dist
+web/.nuxt
+web/.output
+
+# Misc
+.env
+.env.local
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml

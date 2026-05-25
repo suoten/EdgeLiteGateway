@@ -14,15 +14,36 @@ psutil>=5.9.0
 aiomqtt>=2.1.0
 asyncua>=1.1.0
 pyserial>=3.5
+pymcprotocol>=0.3.0
+fins>=1.0.5
+pylogix>=1.1.5
+python-snap7>=1.3.0
+amqtt>=0.11.0b0
+sparkplugb>=0.3.0
+onvif-zeep>=0.2.0
+cryptography>=42.0.0
+pyserial-asyncio>=0.6
+zeroconf>=0.131.0
+aiohttp>=3.9.0
+RestrictedPython>=7.0
+lxml>=5.1.0
 
 # ORM与数据库迁移
 sqlalchemy[asyncio]>=2.0.30
 alembic>=1.13.0
 
 # 可选依赖（按需安装）
-# sparkplugb>=0.3.0       # Sparkplug B协议驱动
-# amqtt>=0.11.0b0         # 内置MQTT Server
 # aiomysql>=0.2.0         # MySQL/MariaDB 数据源
 # asyncpg>=0.29.0         # PostgreSQL 数据源
 # aioodbc>=0.4.0          # SQL Server 数据源
-# onvif-zeep>=0.2.0       # ONVIF视频设备驱动
+# pyfanuc>=0.0.5          # FANUC CNC驱动（依赖fwlipy+FOCAS闭源库，pip无法自动安装，需手动编译FOCAS后pip install --no-deps pyfanuc）
+# pysoem>=0.2.0           # EtherCAT SOEM库Python绑定(需先安装SOEM C库: apt install soem 或 brew install soem)
+
+# AI推理引擎依赖（启用AI功能必须安装）
+numpy>=1.24.0
+onnx>=1.15.0
+onnxruntime>=1.16.0
+
+# 测试依赖
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

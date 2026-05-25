@@ -35,6 +35,11 @@ class PyGBSentryProvider(VideoProvider):
         if not self._endpoint:
             logger.warning("PyGBSentry endpoint未配置")
             return
+        # FIXED: 原问题-示例配置中的占位地址"your-pygbsentry-host"未被拦截，
+        # 导致运行时连接无效地址无报错
+        if "your-pygbsentry-host" in self._endpoint or "example.com" in self._endpoint:
+            logger.warning("PyGBSentry endpoint为占位地址(%s)，请配置实际服务地址", self._endpoint)
+            return
         self._client = httpx.AsyncClient(
             base_url=self._endpoint,
             headers={"Authorization": f"Bearer {self._api_key}"} if self._api_key else {},

@@ -24,6 +24,7 @@ const CHANNELS = {
   alarm: '/ws/v1/alarm',
   device: '/ws/v1/device',
   integration: '/ws/v1/integration',
+  ai: '/ws/v1/ai',
 } as const
 
 type ChannelName = keyof typeof CHANNELS

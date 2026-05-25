@@ -79,7 +79,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
 import { serviceApi } from '@/api'
-import { getErrorMessage } from '@/utils/errorCodes'
+import { extractError } from '@/utils/errorCodes'
 import { t } from '@/i18n'
 
 const props = defineProps<{
@@ -143,7 +143,7 @@ async function handleEnable() {
     if (typeof detail === 'object' && detail?.missing_dependencies) {
       msg.warning(t('serviceManager.depMissing'))
     } else if (typeof detail === 'object' && detail !== null) {
-      const errMsg = getErrorMessage(detail.message || '')
+      const errMsg = extractError(e, t('serviceManager.enableFailed'))
       const hint = detail.hint || ''
       if (hint) {
         dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
@@ -151,7 +151,7 @@ async function handleEnable() {
         msg.error(errMsg)
       }
     } else {
-      const errStr = typeof detail === 'string' ? detail : (e?.message || '')
+      const errStr = extractError(e, '')
       if (errStr.includes('depend') || errStr.includes('424') || errStr.includes('ERR_')) {
         msg.warning(t('serviceManager.depMissing'))
       } else {
@@ -185,7 +185,7 @@ async function handleStart() {
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     if (typeof detail === 'object' && detail !== null) {
-      const errMsg = getErrorMessage(detail.message || '')
+      const errMsg = extractError(e, t('serviceManager.startFailed'))
       const hint = detail.hint || ''
       if (hint) {
         dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
@@ -193,7 +193,7 @@ async function handleStart() {
         msg.error(errMsg)
       }
     } else {
-      const errStr = typeof detail === 'string' ? detail : (e?.message || t('serviceManager.unknownError'))
+      const errStr = extractError(e, t('serviceManager.unknownError'))
       msg.error(t('serviceManager.startFailed') + (errStr ? ': ' + errStr : ''))
     }
   } finally {

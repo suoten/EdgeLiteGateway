@@ -132,6 +132,7 @@ import { ref, reactive, computed, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, NPopconfirm, useMessage, useDialog } from 'naive-ui'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import { ruleApi, deviceApi, type Rule, type Device } from '@/api'
 import { severityLabel, channelLabel } from '@/utils/enumLabels'
 import { RULE_TEMPLATES, OPERATOR_OPTIONS, getTemplateCategories } from '@/constants/ruleTemplates'
@@ -158,7 +159,14 @@ const createFormRef = ref<any>(null)
 const editFormRef = ref<any>(null)
 const editingRuleId = ref('')
 
-const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchRules() } })
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (p: number) => { pagination.page = p; fetchRules() },
+  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1; fetchRules() },
+})
 
 const deviceOptions = ref<{ label: string; value: string }[]>([])
 
@@ -292,7 +300,7 @@ async function fetchRules() {
     pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     rules.value = []
-    message.error(e?.response?.data?.detail || e?.message || t('ruleList.fetchFailed'))
+    message.error(extractError(e, t('ruleList.fetchFailed')))
   } finally {
     loading.value = false
   }
@@ -315,7 +323,7 @@ async function fetchDevices() {
     devices.value = allDevs
     deviceOptions.value = allDevs.map(d => ({ label: `${d.name} (${d.device_id})`, value: d.device_id }))
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('ruleList.fetchDeviceFailed'))
+    message.error(extractError(e, t('ruleList.fetchDeviceFailed')))
     devices.value = []
     deviceOptions.value = []
   }
@@ -343,7 +351,7 @@ async function handleCreate() {
     createForm.conditions = [{ point: '', operator: '>', threshold: 0 }]
     fetchRules()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('ruleList.createFailed'))
+    message.error(extractError(e, t('ruleList.createFailed')))
   } finally {
     creating.value = false
   }
@@ -377,7 +385,7 @@ async function handleEdit() {
     showEditModal.value = false
     fetchRules()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('ruleList.updateFailed'))
+    message.error(extractError(e, t('ruleList.updateFailed')))
   } finally {
     saving.value = false
   }
@@ -396,7 +404,7 @@ async function handleToggle(r: Rule) {
           message.success(t('ruleList.disableSuccess'))
           fetchRules()
         } catch (e: any) {
-          message.error(e?.response?.data?.detail || e?.message || t('ruleList.operationFailed'))
+          message.error(extractError(e, t('ruleList.operationFailed')))
         }
       },
     })
@@ -406,7 +414,7 @@ async function handleToggle(r: Rule) {
       message.success(t('ruleList.enableSuccess'))
       fetchRules()
     } catch (e: any) {
-      message.error(e?.response?.data?.detail || t('ruleList.operationFailed'))
+      message.error(extractError(e, t('ruleList.operationFailed')))
     }
   }
 }
@@ -417,7 +425,7 @@ async function doDelete(r: Rule) {
     message.success(t('ruleList.deleteSuccess'))
       fetchRules()
     } catch (e: any) {
-      message.error(e?.response?.data?.detail || t('ruleList.deleteFailed'))
+      message.error(extractError(e, t('ruleList.deleteFailed')))
   }
 }
 
@@ -450,7 +458,7 @@ async function handleTest() {
     testResult.value = result?.triggered ?? result?.fired ?? false
     message.success(t('ruleList.testComplete'))
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('ruleList.testFailed'))
+    message.error(extractError(e, t('ruleList.testFailed')))
   } finally {
     testing.value = false
   }

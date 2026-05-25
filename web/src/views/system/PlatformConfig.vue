@@ -78,7 +78,7 @@
                 v-if="field.type === 'string'"
                 v-model:value="formData.config[field.name]"
                 :type="field.secret ? 'password' : 'text'"
-                :placeholder="field.required ? t('platformConfig.required') : t('platformConfig.optional')"
+                :placeholder="field.placeholder || (field.required ? t('platformConfig.required') : t('platformConfig.optional'))"
                 show-password-on="click"
               />
               <n-input-number
@@ -109,7 +109,8 @@ import {
   useMessage, useDialog,
 } from 'naive-ui'
 import { platformApi } from '@/api'
-import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
+import { t } from '@/i18n'
+import { getErrorMessage, extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -156,14 +157,17 @@ const dynamicFormRules = computed(() => {
         }
       }
     }
-    if (field.name === 'host' || field.name === 'url' || field.name === 'server_url') {
+    // broker/host/url/server_url 地址格式验证
+    if (field.name === 'broker' || field.name === 'host' || field.name === 'url' || field.name === 'server_url') {
       rules['config.' + field.name] = rules['config.' + field.name] || {}
       rules['config.' + field.name].validator = (_rule: any, value: string) => {
         if (!value) return true
-        if (value.startsWith('http://') || value.startsWith('https://') || /^[a-zA-Z0-9].*/.test(value)) return true
+        const cleanVal = value.replace(/^(mqtt|mqtt|mqtts):\/\//, '')
+        if (/^[a-zA-Z0-9]/.test(cleanVal)) return true
         return new Error(t('platformConfig.invalidUrlFormat'))
       }
     }
+    // port 端口范围验证
     if (field.name === 'port') {
       rules['config.' + field.name] = rules['config.' + field.name] || {}
       rules['config.' + field.name].validator = (_rule: any, value: number) => {
@@ -208,7 +212,7 @@ async function loadPlatforms() {
     platforms.value = data?.platforms || []
     supportedPlatforms.value = data?.supported || []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('platformConfig.loadListFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('platformConfig.loadListFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     loading.value = false
   }
@@ -258,7 +262,7 @@ async function loadConfigSchema() {
       formData.value.config = newConfig
     }
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('platformConfig.fetchSchemaFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('platformConfig.fetchSchemaFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     schemaLoading.value = false
   }
@@ -279,8 +283,7 @@ async function connectPlatform() {
     await loadPlatforms()
     message.success(t('platformConfig.connectSuccess'))
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || t('platformConfig.connectFailed')
-    message.error(typeof detail === 'string' ? detail : t('platformConfig.connectFailed'))
+    message.error(extractError(e, t('platformConfig.connectFailed')))
   } finally {
     connecting.value = false
   }
@@ -295,11 +298,14 @@ async function testConnection() {
   }
   testing.value = true
   try {
-    await platformApi.testConnection(formData.value.platform_name, formData.value.config)
-    message.success(t('platformConfig.testConnectionSuccess'))
+    const result = await platformApi.testConnection(formData.value.platform_name, formData.value.config)
+    if (result?.success) {
+      message.success(result.message || t('platformConfig.testConnectionSuccess'))
+    } else {
+      message.error(result?.message || t('platformConfig.testConnectionFailed'))
+    }
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || t('platformConfig.testConnectionFailed')
-    message.error(typeof detail === 'string' ? detail : t('platformConfig.testConnectionFailed'))
+    message.error(extractError(e, t('platformConfig.testConnectionFailed')))
   } finally {
     testing.value = false
   }
@@ -317,7 +323,7 @@ async function disconnectPlatform(name: string) {
         await loadPlatforms()
         message.success(t('platformConfig.disconnected'))  // FIXED: 原问题-中文硬编码
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || t('platformConfig.disconnectFailed'))  // FIXED: 原问题-中文硬编码
+        message.error(extractError(e, t('platformConfig.disconnectFailed')))  // FIXED: 原问题-中文硬编码
       }
     },
   })

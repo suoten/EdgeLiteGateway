@@ -5,7 +5,7 @@
       <n-button type="primary" @click="showCreateModal = true">{{ t('userManage.createUser') }}</n-button> <!-- FIXED: 原问题-中文硬编码 -->
     </n-space>
 
-    <n-data-table :columns="columns" :data="filteredUsers" :loading="loading" :row-key="(r: User) => r.user_id" />
+    <n-data-table :columns="columns" :data="users" :loading="loading" :row-key="(r: User) => r.user_id" :pagination="pagination" />
 
     <n-empty v-if="!loading && filteredUsers.length === 0" :description="t('userManage.noUserData')" style="margin-top: 24px" /> <!-- FIXED: 原问题-中文硬编码 -->
 
@@ -43,10 +43,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, h } from 'vue'
 import { NButton, NTag, NSpace, NSwitch, useMessage, useDialog } from 'naive-ui'
 import { userApi, type User } from '@/api'
-import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
+import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -73,11 +74,6 @@ const editRules = {
   },
 }
 
-const filteredUsers = computed(() => {
-  if (!searchText.value) return users.value
-  const s = searchText.value.toLowerCase()
-  return users.value.filter(u => u.username.toLowerCase().includes(s))
-})
 
 const roleOptions = [
   { label: t('userManage.admin') + ' (admin)', value: 'admin' },  // FIXED: 原问题-中文硬编码
@@ -132,13 +128,23 @@ const columns = [
 const createForm = reactive({ username: '', password: '', role: 'viewer' })
 const editForm = reactive({ user_id: '', username: '', role: '', password: '', enabled: true })
 
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (p: number) => { pagination.page = p },
+  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1 },
+})
+
 async function fetchUsers() {
   loading.value = true
   try {
-    const data = await userApi.list({ page: 1, size: 5000 })  // FIXED: 原问题-size:9999一页显示9999条不合理，改为5000匹配后端_MAX_QUERY_SIZE
+    const data = await userApi.list({ page: pagination.page, size: pagination.pageSize })
     users.value = data?.data ?? []
+    pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('userManage.fetchListFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('userManage.fetchListFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     loading.value = false
   }
@@ -158,7 +164,7 @@ async function handleCreate() {
     createForm.role = 'viewer'
     fetchUsers()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('userManage.createFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('userManage.createFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     creating.value = false
   }
@@ -186,7 +192,7 @@ async function handleEdit() {
     showEditModal.value = false
     fetchUsers()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('userManage.updateFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('userManage.updateFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     editing.value = false
   }
@@ -204,7 +210,7 @@ function handleDelete(row: User) {
         message.success(t('userManage.deleteSuccess'))  // FIXED: 原问题-中文硬编码
         fetchUsers()
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || t('userManage.deleteFailed'))  // FIXED: 原问题-中文硬编码
+        message.error(extractError(e, t('userManage.deleteFailed')))  // FIXED: 原问题-中文硬编码
       }
     },
   })

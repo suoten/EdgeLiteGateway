@@ -58,8 +58,11 @@ class DeviceService:
 
         device = await self._repo.create(data)
 
+        _driver_instance: Any = None
+        _is_simulator = False
         try:
             if protocol == "simulator":
+                _is_simulator = True
                 driver = await self._get_simulator_driver()
                 driver.add_device(device["device_id"], data.get("points", []))
                 self._driver_instances[device["device_id"]] = driver
@@ -73,6 +76,7 @@ class DeviceService:
                 )
             elif driver_class is not None:
                 driver = driver_class()
+                _driver_instance = driver  # FIXED: 记录引用用于异常回滚
                 await driver.start(data.get("config", {}))
                 with contextlib.suppress(NotImplementedError):
                     await driver.add_device(
@@ -100,6 +104,13 @@ class DeviceService:
         except Exception as e:
             logger.error("设备驱动启动失败，回滚数据库记录: %s - %s", device["device_id"], e)
             await self._repo.delete(device["device_id"])
+            # FIXED: 若driver.start()成功但后续步骤失败，需停止已启动的driver防止资源泄漏
+            # simulator驱动是共享单例，不能stop
+            if _driver_instance is not None and not _is_simulator:
+                try:
+                    await _driver_instance.stop()
+                except Exception as stop_err:
+                    logger.debug("驱动停止失败(回滚中): %s", stop_err)
             raise ValueError(f"Device driver start failed: {e}") from e  # FIXED: 原问题-中文硬编码错误消息
 
         return device
@@ -152,7 +163,14 @@ class DeviceService:
         return success, None
 
     async def read_points(self, device_id: str) -> dict[str, Any]:
-        """读取设备实时测点值"""
+        """读取设备测点值：优先从调度器缓存获取（毫秒级），缓存无数据时走驱动实时读取"""
+        # 1. 优先从调度器缓存获取最近采集值（毫秒级返回）
+        if self._scheduler:
+            cached = self._scheduler.get_last_values(device_id)
+            if cached:
+                return cached
+
+        # 2. 缓存无数据时走驱动实时读取（可能较慢或失败）
         driver = self._driver_instances.get(device_id)
         if driver is None:
             return {}
@@ -161,10 +179,14 @@ class DeviceService:
         if device is None:
             return {}
 
-        # FIXED: points可能为None，device.get("points", [])不防None
         points = device.get("points") or []
-        point_names = [p.get("name") for p in points if p.get("name") is not None]  # FIXED: 原问题-p["name"]硬索引
-        return await driver.read_points(device_id, point_names)
+        point_names = [p.get("name") for p in points if p.get("name") is not None]
+        try:
+            return await driver.read_points(device_id, point_names)
+        except Exception as e:
+            # FIXED: 驱动读取异常时返回空数据而非传播异常，避免前端无限等待
+            logger.warning("驱动读取测点异常 %s: %s", device_id, e)
+            return {}
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         """写入设备测点值"""
@@ -219,6 +241,36 @@ class DeviceService:
         finally:
             await driver.stop()
         return result
+
+    async def batch_delete_devices(self, device_ids: list[str]) -> dict:
+        """Batch delete devices, returns {device_id: (success, error_msg)}"""
+        results: dict[str, tuple[bool, str | None]] = {}
+        for device_id in device_ids:
+            success, error = await self.delete_device(device_id)
+            results[device_id] = (success, error)
+        return results
+
+    async def batch_start_collect(self, device_ids: list[str]) -> dict:
+        """Batch start collect, returns {device_id: (success, error_msg)}"""
+        results: dict[str, tuple[bool, str | None]] = {}
+        for device_id in device_ids:
+            try:
+                await self.start_collect(device_id)
+                results[device_id] = (True, None)
+            except Exception as e:
+                results[device_id] = (False, str(e))
+        return results
+
+    async def batch_stop_collect(self, device_ids: list[str]) -> dict:
+        """Batch stop collect, returns {device_id: (success, error_msg)}"""
+        results: dict[str, tuple[bool, str | None]] = {}
+        for device_id in device_ids:
+            try:
+                await self.stop_collect(device_id)
+                results[device_id] = (True, None)
+            except Exception as e:
+                results[device_id] = (False, str(e))
+        return results
 
     async def load_existing_devices(self) -> None:
         """启动时加载所有已有设备并恢复采集"""

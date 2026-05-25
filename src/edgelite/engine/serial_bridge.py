@@ -212,7 +212,10 @@ class SerialTcpBridge:
 
     async def _tcp_to_serial_loop(self, reader: asyncio.StreamReader) -> None:
         """TCP→串口数据转发"""
-        buffer_size = int(self._config.get("buffer_size", DEFAULT_BUFFER_SIZE))
+        try:
+            buffer_size = int(self._config.get("buffer_size", DEFAULT_BUFFER_SIZE))
+        except (ValueError, TypeError):
+            buffer_size = DEFAULT_BUFFER_SIZE
         while self._running:
             try:
                 data = await reader.read(buffer_size)

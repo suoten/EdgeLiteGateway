@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Header, HTTPException
@@ -18,6 +19,7 @@ from edgelite.api.deps import (
 from edgelite.api.error_codes import DeviceErrors
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.models.device import (
+    BatchDeviceIds,
     DeviceCreate,
     DeviceResponse,
     DeviceUpdate,
@@ -162,13 +164,17 @@ async def get_device_points(
     user: CurrentUser = require_permission(Permission.DEVICE_READ),
 ):
     try:
-        values = await svc.read_points(device_id)
+        # 设置5秒超时，防止驱动实时读取阻塞过久
+        values = await asyncio.wait_for(svc.read_points(device_id), timeout=5.0)
         return ApiResponse(data=values)
+    except asyncio.TimeoutError:
+        # 超时时返回空数据而非错误，让页面至少能显示
+        logger.warning("read_points timeout for device %s", device_id)
+        return ApiResponse(data={})
     except HTTPException:
         raise
     except Exception as e:
         logger.error("get_device_points failed: %s", e)
-        # FIXED: 原问题-中文硬编码detail
         raise HTTPException(status_code=500, detail=DeviceErrors.POINTS_FAILED) from e
 
 
@@ -294,3 +300,66 @@ async def get_device_quality_stats(
     except Exception as e:
         logger.error("get_device_quality_stats failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/batch/delete", response_model=ApiResponse)
+async def batch_delete_devices(
+    body: BatchDeviceIds,
+    svc: DeviceServiceDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_DELETE),
+):
+    try:
+        results = await svc.batch_delete_devices(body.device_ids)
+        failed = {k: v[1] for k, v in results.items() if not v[0]}
+        success = {k for k, v in results.items() if v[0]}
+        return ApiResponse(data={
+            "success_count": len(success),
+            "failed": failed,
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_delete_devices failed: %s", e)
+        raise HTTPException(status_code=500, detail=DeviceErrors.BATCH_DELETE_FAILED) from e
+
+
+@router.post("/batch/start-collect", response_model=ApiResponse)
+async def batch_start_collect(
+    body: BatchDeviceIds,
+    svc: DeviceServiceDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_UPDATE),
+):
+    try:
+        results = await svc.batch_start_collect(body.device_ids)
+        failed = {k: v[1] for k, v in results.items() if not v[0]}
+        success = {k for k, v in results.items() if v[0]}
+        return ApiResponse(data={
+            "success_count": len(success),
+            "failed": failed,
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_start_collect failed: %s", e)
+        raise HTTPException(status_code=500, detail=DeviceErrors.BATCH_START_COLLECT_FAILED) from e
+
+
+@router.post("/batch/stop-collect", response_model=ApiResponse)
+async def batch_stop_collect(
+    body: BatchDeviceIds,
+    svc: DeviceServiceDep,
+    user: CurrentUser = require_permission(Permission.DEVICE_UPDATE),
+):
+    try:
+        results = await svc.batch_stop_collect(body.device_ids)
+        failed = {k: v[1] for k, v in results.items() if not v[0]}
+        success = {k for k, v in results.items() if v[0]}
+        return ApiResponse(data={
+            "success_count": len(success),
+            "failed": failed,
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_stop_collect failed: %s", e)
+        raise HTTPException(status_code=500, detail=DeviceErrors.BATCH_STOP_COLLECT_FAILED) from e

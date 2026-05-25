@@ -90,15 +90,23 @@ class SparkplugBDriver(DriverPlugin):
     """MQTT Sparkplug B 协议驱动"""
 
     plugin_name = "sparkplug_b"
-    plugin_version = "0.1.0"
+    plugin_version = "1.1.0"
     supported_protocols = ["sparkplug_b"]
     config_schema = {
-        "description": "MQTT Sparkplug B industrial IoT protocol, standardized device data pub/sub",  # FIXED: 原问题-中文硬编码description
+        "description": "MQTT Sparkplug B industrial IoT protocol, standardized device data pub/sub",
         "fields": [
-            {"name": "group_id", "type": "string", "label": "Group ID", "description": "Sparkplug B logical group ID", "default": "group1", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "edge_node_id", "type": "string", "label": "Edge Node ID", "description": "Gateway node ID in Sparkplug B", "default": "edgelite_node", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "mqtt_broker", "type": "string", "label": "Broker Address", "description": "MQTT Broker address", "default": "localhost", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "mqtt_port", "type": "integer", "label": "Port", "description": "MQTT Broker port", "default": 1883},  # FIXED: 原问题-中文硬编码label/description
+            {"name": "group_id", "type": "string", "label": "Group ID",
+             "description": "Sparkplug B logical group ID", "default": "group1", "required": True},
+            {"name": "edge_node_id", "type": "string", "label": "Edge Node ID",
+             "description": "Gateway node ID in Sparkplug B", "default": "edgelite_node", "required": True},
+            {"name": "mqtt_broker", "type": "string", "label": "Broker Address",
+             "description": "MQTT Broker address", "default": "localhost", "required": True},
+            {"name": "mqtt_port", "type": "integer", "label": "Port",
+             "description": "MQTT Broker port", "default": 1883},
+            {"name": "enable_cmd_response", "type": "boolean", "label": "Enable Command Response",
+             "description": "Send command response messages (DCMD/RESP)", "default": True},
+            {"name": "batch_interval_ms", "type": "integer", "label": "Batch Interval (ms)",
+             "description": "Batch publish interval for DDATA messages", "default": 100},
         ],
     }
 
@@ -118,9 +126,15 @@ class SparkplugBDriver(DriverPlugin):
         self._device_points: dict[str, dict[str, Any]] = {}
         self._device_metadata: dict[str, dict] = {}
         self._latest_values: dict[str, dict[str, Any]] = {}
+        self._values_lock = asyncio.Lock()
 
         self._nbirth_published: bool = False
         self._dbirth_published: set[str] = set()
+        # 新增: 命令响应和批量优化
+        self._enable_cmd_response: bool = True
+        self._batch_interval_ms: int = 100
+        self._pending_metrics: dict[str, list[dict]] = {}  # device_id -> metrics
+        self._batch_task: asyncio.Task | None = None
 
     def _load_bd_seq(self) -> None:
         """FIXED: P2-2 从持久化文件加载bdSeq"""
@@ -304,7 +318,8 @@ class SparkplugBDriver(DriverPlugin):
         self._latest_values.pop(device_id, None)
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
-        values = self._latest_values.get(device_id, {})
+        async with self._values_lock:
+            values = self._latest_values.get(device_id, {}).copy()
         return {p: values.get(p) for p in points if values.get(p) is not None}  # FIXED: 原问题-values[p]硬访问可能KeyError，改为values.get(p)缺失时跳过
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
@@ -319,7 +334,8 @@ class SparkplugBDriver(DriverPlugin):
 
         try:
             await self._client.publish(topic, payload)
-            self._latest_values.setdefault(device_id, {})[point] = value
+            async with self._values_lock:
+                self._latest_values.setdefault(device_id, {})[point] = value
             self._device_points.setdefault(device_id, {})[point] = value
             return True
         except Exception as e:
@@ -552,7 +568,13 @@ class SparkplugBDriver(DriverPlugin):
             point = m.get("name", "")
             value = m.get("value")
             if point and value is not None:
+                # 执行写入操作
                 success = await self.write_point(device_id, point, value)
+
+                # 发送命令响应
+                if self._enable_cmd_response:
+                    await self._send_cmd_response(device_id, point, value, success)
+
                 if success:
                     logger.info("DCMD写入成功: %s/%s=%s", device_id, point, value)
                     if self._data_callback:
@@ -562,6 +584,26 @@ class SparkplugBDriver(DriverPlugin):
                             logger.error("数据回调执行失败: %s", e)
                 else:
                     logger.warning("DCMD写入失败: %s/%s", device_id, point)
+
+    async def _send_cmd_response(self, device_id: str, point: str, value: Any, success: bool) -> None:
+        """发送命令响应消息"""
+        if not self._client:
+            return
+
+        topic = self._build_topic("RESP", device_id)
+        metrics = [{
+            "name": f"{point}_response",
+            "value": "Success" if success else "Failure",
+        }, {
+            "name": f"{point}_value",
+            "value": value,
+        }]
+        payload = self._encode_payload(metrics, seq=self._next_seq())
+        if payload:
+            try:
+                await self._client.publish(topic, payload, qos=1)
+            except Exception as e:
+                logger.error("命令响应发布失败: %s", e)
 
     async def handle_point_update(self, event: Any) -> None:
         if not self._running:
@@ -574,11 +616,154 @@ class SparkplugBDriver(DriverPlugin):
         if not device_id or not point_name:
             return
 
-        self._latest_values.setdefault(device_id, {})[point_name] = value
+        async with self._values_lock:
+            self._latest_values.setdefault(device_id, {})[point_name] = value
         self._device_points.setdefault(device_id, {})[point_name] = value
 
         metrics = [{"name": point_name, "value": value}]
-        await self._publish_ddata(device_id, metrics)
+        # 批量模式: 缓存指标，定期发布
+        self._pending_metrics.setdefault(device_id, []).append({
+            "name": point_name,
+            "value": value,
+        })
+        # 启动批量发布协程
+        if self._batch_task is None or self._batch_task.done():
+            self._batch_task = asyncio.create_task(self._batch_publish_loop())
+
+    async def _batch_publish_loop(self) -> None:
+        """批量发布循环，定期将缓存的指标发布"""
+        while self._running and self._pending_metrics:
+            try:
+                await asyncio.sleep(self._batch_interval_ms / 1000.0)
+
+                async with self._values_lock:
+                    metrics_to_publish = dict(self._pending_metrics)
+                    self._pending_metrics.clear()
+
+                for device_id, metrics in metrics_to_publish.items():
+                    if metrics:
+                        await self._publish_ddata(device_id, metrics)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("批量发布异常: %s", e)
 
     async def discover_devices(self, config: dict) -> list[dict]:
-        return []
+        """通过MQTT订阅Sparkplug B主题发现在线设备
+
+        订阅 spBv1.0/+/DBIRTH/+ 主题，等待设备上线广播，
+        解析DBIRTH消息中的设备信息和测点列表。
+
+        config参数:
+            mqtt_broker: MQTT Broker地址 (默认localhost)
+            mqtt_port: MQTT Broker端口 (默认1883)
+            mqtt_username: MQTT用户名 (可选)
+            mqtt_password: MQTT密码 (可选)
+            group_id: 要发现的组ID (可选，不指定则发现所有组)
+            timeout: 等待发现的超时秒数 (默认10)
+        """
+        try:
+            import aiomqtt
+        except ImportError:
+            logger.warning("aiomqtt未安装，无法执行Sparkplug B设备发现")
+            return []
+
+        if _pb2 is None:
+            logger.warning("sparkplugb库未安装，无法解码Sparkplug B消息")
+            return []
+
+        broker = config.get("mqtt_broker", "localhost")
+        port = int(config.get("mqtt_port", 1883))
+        username = config.get("mqtt_username") or None
+        password = config.get("mqtt_password") or None
+        group_id = config.get("group_id", "")
+        timeout = float(config.get("timeout", 10.0))
+
+        discovered = []
+        discovered_ids: set[str] = set()
+
+        # 构建订阅主题: spBv1.0/{group_id}/DBIRTH/+
+        if group_id:
+            birth_topic = f"spBv1.0/{group_id}/DBIRTH/+"
+        else:
+            birth_topic = "spBv1.0/+/DBIRTH/+"
+
+        try:
+            async with aiomqtt.Client(
+                hostname=broker,
+                port=port,
+                username=username,
+                password=password,
+            ) as client:
+                await client.subscribe(birth_topic, qos=1)
+
+                deadline = asyncio.get_running_loop().time() + timeout
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        break
+                    try:
+                        message = await asyncio.wait_for(
+                            client.messages.__anext__(),
+                            timeout=remaining,
+                        )
+                    except (StopAsyncIteration, TimeoutError):
+                        break
+
+                    try:
+                        topic_str = str(message.topic)
+                        payload_data = message.payload
+
+                        # 解析主题: spBv1.0/{group}/DBIRTH/{edge_node}/{device_id}
+                        parts = topic_str.split("/")
+                        if len(parts) < 5 or parts[0] != "spBv1.0":
+                            continue
+
+                        sp_group = parts[1]
+                        msg_type = parts[2]
+                        edge_node = parts[3] if len(parts) > 3 else ""
+                        device = parts[4] if len(parts) > 4 else ""
+
+                        if msg_type != "DBIRTH":
+                            continue
+
+                        # 解析Payload获取设备测点信息
+                        metrics = self._decode_payload(payload_data)
+                        points = []
+                        if metrics:
+                            for m in metrics:
+                                point_name = m.get("name", "")
+                                if point_name:
+                                    points.append({
+                                        "name": point_name,
+                                        "datatype": m.get("datatype"),
+                                    })
+
+                        # 如果主题中没有device部分，使用edge_node作为device
+                        device_name = device or edge_node
+                        device_id = f"spb_{sp_group}_{edge_node}_{device_name}"
+
+                        if device_id not in discovered_ids:
+                            discovered_ids.add(device_id)
+                            discovered.append({
+                                "device_id": device_id,
+                                "name": f"Sparkplug B Device ({sp_group}/{edge_node}/{device_name})",
+                                "protocol": "sparkplug_b",
+                                "config": {
+                                    "group_id": sp_group,
+                                    "edge_node_id": edge_node,
+                                    "device_id": device_name,
+                                },
+                                "points": points,
+                            })
+
+                    except Exception as e:
+                        logger.debug("Sparkplug B发现: 解析消息失败 - %s", e)
+                        continue
+
+        except Exception as e:
+            logger.error("Sparkplug B设备发现失败: %s", e)
+
+        logger.info("Sparkplug B设备发现完成: 发现%d台设备", len(discovered))
+        return discovered

@@ -30,21 +30,25 @@ class AiModelService:
         models = self._engine.get_loaded_models()
         items = []
         for mid, wrapper in models.items():
-            items.append(
-                AiModelResponse(
-                    model_id=wrapper.model_id,
-                    model_name=wrapper.model_name,
-                    model_version=wrapper.model_version,
-                    model_type=wrapper.model_type,
-                    model_file_path=wrapper.model_path,
-                    status=wrapper.status,
-                    is_preset=wrapper.is_preset,
-                    input_schema=wrapper.input_schema,
-                    output_schema=wrapper.output_schema,
-                    created_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
-                    updated_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
-                ).model_dump()
-            )
+            # FIXED: 原问题-list_models不返回inference_count，前端列表页所有模型推理次数显示0
+            stats = self._engine.get_model_stats(mid)
+            item = AiModelResponse(
+                model_id=wrapper.model_id,
+                model_name=wrapper.model_name,
+                model_version=wrapper.model_version,
+                model_type=wrapper.model_type,
+                model_file_path=wrapper.model_path,
+                status=wrapper.status,
+                is_preset=wrapper.is_preset,
+                input_schema=wrapper.input_schema,
+                output_schema=wrapper.output_schema,
+                created_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
+                updated_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
+            ).model_dump()
+            item["inference_count"] = stats.get("call_count", 0) if stats else 0
+            item["error_count"] = stats.get("error_count", 0) if stats else 0
+            item["avg_latency_ms"] = stats.get("avg_latency_ms", 0) if stats else 0
+            items.append(item)
         total = len(items)
         start = (page - 1) * page_size
         end = start + page_size
@@ -112,6 +116,13 @@ class AiModelService:
         ok, reason = await self._engine.enable_model(model_id)
         if not ok and reason:
             from fastapi import HTTPException
+
+            # 根据错误码映射到合适的HTTP状态码
+            if reason == "ERR_AI_ONNXRUNTIME_NOT_INSTALLED":
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"{reason}: onnxruntime is not installed. Run: pip install onnxruntime",
+                )
             raise HTTPException(status_code=400, detail=reason)
         return ok
 
@@ -127,7 +138,7 @@ class AiModelService:
             await self._engine.reload_model(model_id, model_file_path)
             return True
         except Exception as e:
-            logger.error("模型热加载失败: %s - %s", model_id, e)
+            logger.error("AI model hot-reload failed: %s - %s", model_id, e)
             return False
 
     async def inference(self, model_id: str, input_data: list[float], device_id: str | None = None, point_name: str | None = None) -> dict:

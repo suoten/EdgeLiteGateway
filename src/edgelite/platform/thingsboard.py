@@ -50,7 +50,9 @@ class ThingsBoardHandler(PlatformHandler):
         self._running = True
         self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-硬编码队列大小
 
-        broker = config.get("broker", "localhost")
+        broker = config.get("broker", "")
+        if not broker:
+            raise ValueError("broker is required")
         port = int(config.get("port", 1883))
         token = config.get("token", config.get("username", ""))
         password = config.get("password", "")

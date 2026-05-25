@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 
 from fastapi import APIRouter, HTTPException, Query
@@ -12,6 +13,8 @@ from edgelite.api.deps import CurrentUser, DataServiceDep, require_permission
 from edgelite.api.error_codes import DataErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/data", tags=["Data"])
 
@@ -103,7 +106,7 @@ async def get_collect_stats(
                 "offline": total_devices - online_devices - error_devices,
                 "error": error_devices,
             },
-            "success_rate": 99.5 if online_devices > 0 else 0,
+            "success_rate": round(online_devices / total_devices, 4) if total_devices > 0 else 0.0,
         }
         return ApiResponse(data=stats)
     except Exception as e:
@@ -114,3 +117,86 @@ async def get_collect_stats(
 def _get_device_service():
     from edgelite.app import _app_state
     return _app_state.device_service
+
+
+@router.get("/trend", response_model=ApiResponse)
+async def query_trend(
+    svc: DataServiceDep,
+    device_id: str = Query(...),
+    point_name: str = Query(...),
+    start: str = Query("-24h"),
+    stop: str | None = None,
+    bucket_size: str = Query("1h"),
+    user: CurrentUser = require_permission(Permission.DATA_READ),
+):
+    """Query data trend with linear regression analysis"""
+    try:
+        data = await svc.query_trend(device_id, point_name, start, stop, bucket_size)
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from None
+
+
+@router.get("/correlation", response_model=ApiResponse)
+async def query_correlation(
+    svc: DataServiceDep,
+    device_id: str = Query(...),
+    point1: str = Query(...),
+    point2: str = Query(...),
+    start: str = Query("-24h"),
+    stop: str | None = None,
+    user: CurrentUser = require_permission(Permission.DATA_READ),
+):
+    """Calculate correlation between two data points"""
+    try:
+        data = await svc.query_correlation(device_id, point1, point2, start, stop)
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from None
+
+
+@router.get("/statistics", response_model=ApiResponse)
+async def get_statistics(
+    svc: DataServiceDep,
+    device_id: str = Query(...),
+    point_name: str = Query(...),
+    start: str = Query("-24h"),
+    stop: str | None = None,
+    aggregate: str | None = None,
+    user: CurrentUser = require_permission(Permission.DATA_READ),
+):
+    """Get statistical summary of data points"""
+    try:
+        data = await svc.get_statistics(device_id, point_name, start, stop, aggregate)
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from None
+
+
+@router.get("/multi-point", response_model=ApiResponse)
+async def query_multi_point(
+    svc: DataServiceDep,
+    device_id: str = Query(...),
+    point_names: str = Query(..., description="Comma-separated point names"),
+    start: str = Query("-1h"),
+    stop: str | None = None,
+    aggregate: str | None = None,
+    user: CurrentUser = require_permission(Permission.DATA_READ),
+):
+    """Query multiple data points at once"""
+    try:
+        names = [n.strip() for n in point_names.split(",") if n.strip()]
+        if not names:
+            raise HTTPException(status_code=400, detail=DataErrors.UNSUPPORTED_AGGREGATE)
+        data = await svc.query_multi_point(device_id, names, start, stop, aggregate)
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from None

@@ -166,6 +166,16 @@ class CollectScheduler:
         """获取所有设备采集统计"""
         return dict(self._collect_stats)
 
+    def get_last_values(self, device_id: str | None = None) -> dict[str, Any]:
+        """获取设备最近采集值（缓存，毫秒级返回）
+
+        Args:
+            device_id: 设备ID，为None时返回所有设备
+        """
+        if device_id:
+            return dict(self._last_values.get(device_id, {}))
+        return {k: dict(v) for k, v in self._last_values.items()}
+
     def get_device_quality_stats(self) -> dict[str, DeviceQualityStats]:
         """获取所有设备帧错误率统计"""
         return dict(self._device_quality_stats)
@@ -403,57 +413,145 @@ class CollectScheduler:
                 logger.error("看门狗异常: %s", e)
 
     async def _cache_flush_loop(self) -> None:
-        """定期检查InfluxDB可用性并回写缓存数据"""
+        """定期检查InfluxDB可用性并回写缓存数据
+
+        优先从 RingBuffer 获取待同步记录（增量同步），
+        若 RingBuffer 不可用则回退到 SQLite 查询。
+        """
+        # 首次启动时从 SQLite 恢复到 RingBuffer
+        if self._cache and hasattr(self._cache, "restore_from_sqlite"):
+            try:
+                await self._cache.restore_from_sqlite()
+            except Exception as e:
+                logger.error("从SQLite恢复到RingBuffer失败: %s", e)
+
         while True:
             try:
-                await asyncio.sleep(_SCHEDULER_INTERVAL)  # FIXED: 原问题-魔法数字，提取为命名常量
+                await asyncio.sleep(_SCHEDULER_INTERVAL)
                 if not self._cache or not self._influx:
                     continue
                 if not await self._influx.check_health():
                     continue
-                records = await self._cache.get_cached_records(limit=_CACHE_BATCH_LIMIT)  # FIXED: 原问题-魔法数字limit=500
-                if not records:
-                    continue
-                success_count = 0
-                retry_count = 0
-                for rec in records:
-                    try:
-                        ts = rec.get("timestamp")
-                        if ts:
-                            from datetime import datetime as dt
-                            try:
-                                timestamp = dt.fromisoformat(ts)
-                            except (ValueError, TypeError):
-                                timestamp = dt.now(UTC)
-                        else:
-                            timestamp = dt.now(UTC)
-                        ok = await self._influx.write_point(
-                            measurement=rec.get("measurement", "device_points"),
-                            tags=rec.get("tags", {}),
-                            fields=rec.get("fields", {}),
-                            timestamp=timestamp,
-                        )
-                        if ok:
-                            rec_id = rec.get("id")  # FIXED: 原问题-硬访问id可能KeyError
-                            if rec_id is None:
-                                continue
-                            await self._cache.delete_cached([rec_id])  # FIXED: 原问题-传入int但签名要求list[int]，导致TypeError
-                            success_count += 1
-                            retry_count = 0  # FIXED: P2-3 成功后重置重试计数
-                        else:
-                            retry_count += 1
-                            if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
-                                logger.warning("缓存回写连续失败%d次，暂停本批次: %s", retry_count, rec.get("id"))
-                                break
-                    except Exception as e:  # FIXED: P2-3 继续处理下一条，不中断整个循环
-                        logger.error("缓存回写单条记录失败: %s - %s", rec.get("id"), e)
-                        retry_count += 1
-                        if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
-                            logger.warning("缓存回写连续失败%d次，暂停本批次", retry_count)
-                            break
-                if success_count > 0:
-                    logger.info("缓存回写: %d 条记录已写入InfluxDB", success_count)
+
+                # 优先从 RingBuffer 获取待同步记录
+                use_ring_buffer = (
+                    hasattr(self._cache, "get_pending_from_ring_buffer")
+                    and self._cache.get_ring_buffer_stats() is not None
+                )
+
+                if use_ring_buffer:
+                    await self._flush_from_ring_buffer()
+                else:
+                    await self._flush_from_sqlite()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.error("缓存回写异常: %s", e)
+
+    async def _flush_from_ring_buffer(self) -> None:
+        """从 RingBuffer 增量同步缓存数据到 InfluxDB"""
+        records = await self._cache.get_pending_from_ring_buffer(limit=_CACHE_BATCH_LIMIT)
+        if not records:
+            return
+
+        synced_ring_ids: list[int] = []
+        synced_sqlite_ids: list[int] = []
+        failed_ring_ids: list[int] = []
+        retry_count = 0
+
+        for rec in records:
+            try:
+                ts = rec.get("timestamp")
+                if ts:
+                    from datetime import datetime as dt
+                    try:
+                        timestamp = dt.fromisoformat(ts)
+                    except (ValueError, TypeError):
+                        timestamp = dt.now(UTC)
+                else:
+                    timestamp = dt.now(UTC)
+                ok = await self._influx.write_point(
+                    measurement=rec.get("measurement", "device_points"),
+                    tags=rec.get("tags", {}),
+                    fields=rec.get("fields", {}),
+                    timestamp=timestamp,
+                )
+                if ok:
+                    ring_id = rec.get("_id")
+                    if ring_id is not None:
+                        synced_ring_ids.append(ring_id)
+                    sqlite_id = rec.get("sqlite_id")
+                    if sqlite_id is not None:
+                        synced_sqlite_ids.append(sqlite_id)
+                    retry_count = 0
+                else:
+                    ring_id = rec.get("_id")
+                    if ring_id is not None:
+                        failed_ring_ids.append(ring_id)
+                    retry_count += 1
+                    if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
+                        logger.warning("缓存回写连续失败%d次，暂停本批次", retry_count)
+                        break
+            except Exception as e:
+                ring_id = rec.get("_id")
+                if ring_id is not None:
+                    failed_ring_ids.append(ring_id)
+                logger.error("缓存回写单条记录失败: %s - %s", rec.get("_id"), e)
+                retry_count += 1
+                if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
+                    logger.warning("缓存回写连续失败%d次，暂停本批次", retry_count)
+                    break
+
+        # 标记已同步的记录
+        if synced_ring_ids:
+            await self._cache.mark_synced(synced_ring_ids, synced_sqlite_ids or None)
+            logger.info("缓存回写(RingBuffer): %d 条记录已写入InfluxDB", len(synced_ring_ids))
+
+        # 标记失败的记录回退为 pending
+        if failed_ring_ids:
+            await self._cache.mark_failed(failed_ring_ids)
+
+    async def _flush_from_sqlite(self) -> None:
+        """从 SQLite 回写缓存数据到 InfluxDB（回退路径）"""
+        records = await self._cache.get_cached_records(limit=_CACHE_BATCH_LIMIT)
+        if not records:
+            return
+        success_count = 0
+        retry_count = 0
+        for rec in records:
+            try:
+                ts = rec.get("timestamp")
+                if ts:
+                    from datetime import datetime as dt
+                    try:
+                        timestamp = dt.fromisoformat(ts)
+                    except (ValueError, TypeError):
+                        timestamp = dt.now(UTC)
+                else:
+                    timestamp = dt.now(UTC)
+                ok = await self._influx.write_point(
+                    measurement=rec.get("measurement", "device_points"),
+                    tags=rec.get("tags", {}),
+                    fields=rec.get("fields", {}),
+                    timestamp=timestamp,
+                )
+                if ok:
+                    rec_id = rec.get("id")
+                    if rec_id is None:
+                        continue
+                    await self._cache.delete_cached([rec_id])
+                    success_count += 1
+                    retry_count = 0
+                else:
+                    retry_count += 1
+                    if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
+                        logger.warning("缓存回写连续失败%d次，暂停本批次: %s", retry_count, rec.get("id"))
+                        break
+            except Exception as e:
+                logger.error("缓存回写单条记录失败: %s - %s", rec.get("id"), e)
+                retry_count += 1
+                if retry_count >= _CACHE_FLUSH_MAX_RETRIES:
+                    logger.warning("缓存回写连续失败%d次，暂停本批次", retry_count)
+                    break
+        if success_count > 0:
+            logger.info("缓存回写: %d 条记录已写入InfluxDB", success_count)

@@ -60,7 +60,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
 import { NCard, NButton, NDataTable, NTag, NSpace, NModal, NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NEmpty, NSpin, NAlert, NText, useMessage } from 'naive-ui'
-import { t } from '@/i18n'  // FIXED: 原问题-#注释导致编译失败，改为//注释
+import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import { driverApi } from '@/api'
 
 const driverFieldI18nMap: Record<string, Record<string, string>> = {
@@ -131,7 +132,7 @@ const driverFieldI18nMap: Record<string, Record<string, string>> = {
     'Allen-Bradley CIP protocol for ControlLogix/CompactLogix': 'driverField.allen-bradley.desc',
   },
   'FANUC CNC': {
-    'FANUC FOCAS/HSSB protocol for CNC controllers': 'driverField.fanuc-cnc.desc',
+    'FANUC FOCAS2 protocol (native socket, no fwlipy required)': 'driverField.fanuc-cnc.desc',
     'FANUC CNC IP address': 'driverField.fanuc-cnc.ipAddr',
     'Port Number': 'driverField.fanuc-cnc.portNumber',
     'FANUC CNC port number': 'driverField.fanuc-cnc.portNumberDesc',
@@ -253,7 +254,7 @@ async function loadDrivers() {
   try {
     const data = await driverApi.list()
     drivers.value = data?.drivers || []
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('driver.loadListFailed')) }
+  } catch (e: any) { message.error(extractError(e, t('driver.loadListFailed'))) }
   finally { loading.value = false }
 }
 
@@ -265,7 +266,7 @@ async function viewSchema(name: string) {
       currentSchema.value = data.config_schema
       showSchemaModal.value = true
     }
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('driver.loadSchemaFailed')) }
+  } catch (e: any) { message.error(extractError(e, t('driver.loadSchemaFailed'))) }
 }
 
 function startDiscover(name: string) {
@@ -279,7 +280,7 @@ async function doDiscover() {
   try {
     const data = await driverApi.discover(currentDriverName.value)
     discoveredDevices.value = data?.devices || []
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('driver.discoverFailed')) }
+  } catch (e: any) { message.error(extractError(e, t('driver.discoverFailed'))) }
   finally { discovering.value = false }
 }
 

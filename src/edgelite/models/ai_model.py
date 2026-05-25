@@ -69,6 +69,15 @@ class AiModelReloadRequest(BaseModel):
     model_file_path: str = Field(pattern=r".+\.onnx$")
 
 
+class ScheduleInferenceRequest(BaseModel):
+    """Scheduled inference request"""
+
+    device_id: str
+    point_name: str
+    interval_seconds: int = Field(ge=5, le=3600, default=60)
+    input_window_size: int = Field(ge=1, le=10000, default=100)
+
+
 class AiInferenceRequest(BaseModel):
     model_id: str
     input_data: list[float]

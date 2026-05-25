@@ -4,7 +4,7 @@
       <n-gi>
         <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-purple" style="height:100px">
           <n-statistic :label="t('alarmList.aiAlarmTotal')">
-            <template #prefix><span style="font-size:18px">🧠</span></template>
+            <template #prefix><n-icon :component="SparklesOutline" :size="18" /></template>
             <n-number-animation :from="0" :to="aiAlarmCount" :duration="500" />
           </n-statistic>
         </n-card>
@@ -12,7 +12,7 @@
       <n-gi>
         <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-indigo" style="height:100px">
           <n-statistic :label="t('alarmList.aiAlarmRatio')">
-            <template #prefix><span style="font-size:18px">📊</span></template>
+            <template #prefix><n-icon :component="AnalyticsOutline" :size="18" /></template>
             <template #default>
               <span class="ai-ratio-num">{{ aiAlarmRatio }}%</span>
             </template>
@@ -22,7 +22,7 @@
       <n-gi>
         <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-cyan" style="height:100px">
           <n-statistic :label="t('alarmList.todayAiInferences')">
-            <template #prefix><span style="font-size:18px">⚡</span></template>
+            <template #prefix><n-icon :component="SparklesOutline" :size="18" /></template>
             <n-number-animation :from="0" :to="aiStats.total_calls ?? 0" :duration="500" />
           </n-statistic>
         </n-card>
@@ -30,7 +30,7 @@
       <n-gi>
         <n-card size="small" :bordered="true" class="ai-stat-card ai-stat-card-pink" style="height:100px">
           <n-statistic :label="t('alarmList.avgInferenceLatency')">
-            <template #prefix><span style="font-size:18px">⏱</span></template>
+            <template #prefix><n-icon :component="TimerOutline" :size="18" /></template>
             <n-number-animation :from="0" :to="aiStats.avg_latency_ms ?? 0" :duration="500" />
             <template #suffix>ms</template>
           </n-statistic>
@@ -87,16 +87,46 @@
         </n-descriptions>
       </template>
     </n-modal>
+
+    <n-modal v-model:show="showDetailModal" preset="card" style="width: 600px" :title="t('alarmList.detailTitle')">
+      <template v-if="selectedAlarm">
+        <n-descriptions label-placement="left" :column="2" bordered>
+          <n-descriptions-item :label="t('alarmList.alarmId')" :span="2">{{ selectedAlarm.alarm_id }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.ruleId')">{{ selectedAlarm.rule_id }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.deviceId')">{{ selectedAlarm.device_id || '-' }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.deviceName')">{{ selectedAlarm.device_id ? ((deviceNameMap.value as any)[selectedAlarm.device_id] || '-') : '-' }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.level')">
+            <n-tag :type="(severityColor as any)[selectedAlarm.severity] || 'default'" size="small">{{ (severityLabel.value as any)[selectedAlarm.severity] || selectedAlarm.severity }}</n-tag>
+          </n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.status')">
+            <n-tag :type="statusColor[selectedAlarm.status] || 'default'" size="small">{{ statusLabel[selectedAlarm.status] || selectedAlarm.status }}</n-tag>
+          </n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.message')" :span="2">{{ selectedAlarm.message || '-' }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.triggerCount')">{{ selectedAlarm.trigger_count }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.alarmType')">{{ (selectedAlarm as any).rule_type === 'ai_inference' ? t('alarm.aiAlarm') : t('alarm.thresholdAlarm') }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.triggerValue')" :span="2">
+            <n-scrollbar x-scrollable style="max-width: 460px">
+              <pre style="margin:0;white-space:pre-wrap;font-size:12px">{{ selectedAlarm.trigger_value ? JSON.stringify(selectedAlarm.trigger_value, null, 2) : '-' }}</pre>
+            </n-scrollbar>
+          </n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.triggerTime')">{{ selectedAlarm.fired_at || '-' }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.ackBy')">{{ selectedAlarm.acknowledged_by || '-' }}</n-descriptions-item>
+          <n-descriptions-item :label="t('alarmList.recoverTime')" :span="2">{{ selectedAlarm.recovered_at || '-' }}</n-descriptions-item>
+        </n-descriptions>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
-import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
-import { alarmApi, aiApi, type Alarm } from '@/api'
+import { NButton, NTag, NSpace, NTooltip, NPopconfirm, NIcon, useMessage, useDialog } from 'naive-ui'
+import { SparklesOutline, AnalyticsOutline, TimerOutline } from '@vicons/ionicons5'
+import { alarmApi, aiApi, deviceApi, type Alarm, type Device } from '@/api'
 import { severityLabel, alarmStatusLabel, alarmStatusColor } from '@/utils/enumLabels'
 import * as ws from '@/api/websocket'
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -112,7 +142,14 @@ const showAiDetail = ref(false)
 const selectedAiAlarm = ref<Alarm | null>(null)
 const aiStats = ref<Record<string, any>>({})
 
-const ackLoading = ref(false)
+// Device name mapping
+const deviceNameMap = ref<Record<string, string>>({})
+
+// Alarm detail modal
+const showDetailModal = ref(false)
+const selectedAlarm = ref<Alarm | null>(null)
+
+const recoverLoading = ref(false)
 const firingAlarms = computed(() => alarms.value.filter(a => a.status === 'firing'))
 
 const aiAlarmCount = computed(() => alarms.value.filter(a => (a as any).rule_type === 'ai_inference').length)
@@ -131,7 +168,14 @@ const aiAnomalyScorePercent = computed(() => {
   return score != null ? Math.round(Number(score) * 100) : 0
 })
 
-const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (p: number) => { pagination.page = p; fetchAlarms() } })
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (p: number) => { pagination.page = p; fetchAlarms() },
+  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1; fetchAlarms() },
+})
 
 const statusOptions = [
   { label: t('alarm.firing'), value: 'firing' },
@@ -167,6 +211,10 @@ const columns = [
   { title: t('alarmList.ruleId'), key: 'rule_id', width: 140 },
   { title: t('alarmList.deviceId'), key: 'device_id', width: 160 },
   {
+    title: t('alarmList.deviceName'), key: 'device_name', width: 140,
+    render: (r: Alarm) => r.device_id ? (deviceNameMap.value[r.device_id] || '-') : '-',
+  },
+  {
     title: t('alarmList.alarmType'), key: 'rule_type', width: 100,
     render: (r: Alarm) => {
       const isAi = (r as any).rule_type === 'ai_inference'
@@ -177,7 +225,7 @@ const columns = [
         style: isAi ? 'background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:none;' : undefined,
       }, {
         default: () => isAi ? h(NSpace, { size: 4, align: 'center' }, {
-          default: () => [h('span', { style: 'font-size:12px' }, '🧠'), h('span', null, t('alarm.aiAlarm'))]
+          default: () => [h(NIcon, { component: SparklesOutline, size: 12 }), h('span', null, ' ' + t('alarm.aiAlarm'))]
         }) : t('alarm.thresholdAlarm'),
       })
     },
@@ -211,7 +259,7 @@ const columns = [
   { title: t('alarmList.ackBy'), key: 'acknowledged_by', width: 100, render: (r: Alarm) => r.acknowledged_by || '-' },
   { title: t('alarmList.recoverTime'), key: 'recovered_at', width: 180, render: (r: Alarm) => r.recovered_at || '-' },
   {
-    title: t('alarmList.actions'), key: 'actions', width: 120,
+    title: t('alarmList.actions'), key: 'actions', width: 180,
     render: (r: Alarm) => {
       const isAi = (r as any).rule_type === 'ai_inference'
       const ackBtn = r.status === 'firing'
@@ -220,10 +268,17 @@ const columns = [
           default: () => t('alarmList.ackConfirm'),
         })
         : null
-      const detailBtn = isAi
+      const recoverBtn = r.status === 'firing'
+        ? h(NPopconfirm as any, { onPositiveClick: () => doRecover(r.alarm_id) }, {
+          trigger: () => h(NButton, { text: true, type: 'warning' }, { default: () => t('alarmList.recover') }),
+          default: () => t('alarmList.recoverConfirm'),
+        })
+        : null
+      const detailBtn = h(NButton, { text: true, type: 'info', onClick: () => openAlarmDetail(r) }, { default: () => t('alarmList.detail') })
+      const aiDetailBtn = isAi
         ? h(NButton, { text: true, type: 'info', onClick: () => openAiDetail(r) }, { default: () => t('alarmList.aiDetail') })
         : null
-      return h(NSpace, { size: 4 }, { default: () => [ackBtn, detailBtn].filter(Boolean) })
+      return h(NSpace, { size: 4 }, { default: () => [ackBtn, recoverBtn, detailBtn, aiDetailBtn].filter(Boolean) })
     },
   },
 ]
@@ -247,7 +302,7 @@ async function fetchAlarms() {
     pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
     alarms.value = []
-    message.error(e?.response?.data?.detail || e?.message || t('alarmList.fetchFailed'))
+    message.error(extractError(e, t('alarmList.fetchFailed')))
   } finally {
     loading.value = false
   }
@@ -263,17 +318,47 @@ async function fetchAiStats() {
 }
 
 async function doAck(alarmId: string) {
-  if (ackLoading.value) return
-  ackLoading.value = true
+  if (recoverLoading.value) return
+  recoverLoading.value = true
   try {
     await alarmApi.ack(alarmId)
     message.success(t('alarmList.ackSuccess'))
     fetchAlarms()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('alarmList.ackFailed'))
+    message.error(extractError(e, t('alarmList.ackFailed')))
   } finally {
-    ackLoading.value = false
+    recoverLoading.value = false
   }
+}
+
+async function doRecover(alarmId: string) {
+  if (recoverLoading.value) return
+  recoverLoading.value = true
+  try {
+    await alarmApi.recover(alarmId)
+    message.success(t('alarmList.recoverSuccess'))
+    fetchAlarms()
+  } catch (e: any) {
+    message.error(extractError(e, t('alarmList.recoverFailed')))
+  } finally {
+    recoverLoading.value = false
+  }
+}
+
+async function fetchDeviceNames() {
+  try {
+    const data = await deviceApi.list({ page: 1, size: 9999 })
+    const map: Record<string, string> = {}
+    for (const d of (data?.data ?? [])) {
+      map[d.device_id] = d.name
+    }
+    deviceNameMap.value = map
+  } catch { /* ignore */ }
+}
+
+function openAlarmDetail(r: Alarm) {
+  selectedAlarm.value = r
+  showDetailModal.value = true
 }
 
 async function handleBatchAck() {
@@ -298,6 +383,7 @@ async function handleBatchAck() {
 onMounted(() => {
   fetchAlarms()
   fetchAiStats()
+  fetchDeviceNames()
   ws.connect('alarm', onAlarmPush)
   ws.onStatus('alarm', (status: string) => {  // FIXED-P2: onStatus回调签名为(status:'connected'|'disconnected'|'error', reason?)，之前将status当布尔值判断永远truthy导致断线提示永不触发
     if (status === 'disconnected' || status === 'error') {

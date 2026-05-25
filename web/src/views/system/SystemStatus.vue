@@ -81,7 +81,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, h } from 'vue'
 import { NButton, NTag, useMessage, useDialog } from 'naive-ui'
-import { t } from '@/i18n'  // FIXED: 原问题-#注释导致编译失败，改为//注释
+import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import { systemApi, type SystemStatus } from '@/api'
 const message = useMessage()
 const dialog = useDialog()
@@ -136,7 +137,7 @@ async function fetchStatus() {
     consecutiveErrors++
     // FIXED: 原问题-定时器持续失败时每5秒弹错误消息刷屏，连续3次以上不再弹
     if (consecutiveErrors <= 3) {
-      message.error(e?.response?.data?.detail || e?.message || t('system.fetchStatusFailed'))
+      message.error(extractError(e, t('system.fetchStatusFailed')))
     }
   } finally {
     pageLoading.value = false
@@ -144,7 +145,7 @@ async function fetchStatus() {
 }
 
 async function fetchBackups() {
-  try { backups.value = await systemApi.listBackups() } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('system.fetchBackupFailed')) }
+  try { backups.value = await systemApi.listBackups() } catch (e: any) { message.error(extractError(e, t('system.fetchBackupFailed'))) }
 }
 
 async function handleBackup() {
@@ -154,7 +155,7 @@ async function handleBackup() {
     message.success(t('system.backupSuccess'))  // FIXED: 原问题-中文硬编码，改为i18n
     fetchBackups()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('system.backupFailed'))  // FIXED: 原问题-中文硬编码，改为i18n
+    message.error(extractError(e, t('system.backupFailed')))  // FIXED: 原问题-中文硬编码，改为i18n
   } finally {
     backupLoading.value = false
   }
@@ -174,7 +175,7 @@ function handleRestore(r: any) {
         fetchStatus()
         fetchBackups()
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || t('system.restoreFailed'))  // FIXED: 原问题-中文硬编码，改为i18n
+        message.error(extractError(e, t('system.restoreFailed')))  // FIXED: 原问题-中文硬编码，改为i18n
       }
     },
   })

@@ -1,0 +1,33 @@
+fix(EdgeLite): 修复 P0-P1 联调问题 [阶段2深度修复]
+
+修复问题:
+- P0: bootstrap.py _backhaul/_device_service赋值丢失
+- P0: DeviceService.delete_device()返回tuple被忽略
+- P0: dispatcher _rebuild_device delete异常后未阻止create
+- P0: _validate_push_device_payload缺少数据校验
+- P0: _handle_device_control缺少action校验
+- P0: S7驱动不读取port参数(snap7 connect缺tcp_port)
+- P0: AB驱动缺少port支持+host/ip字段名不兼容
+- P0: OPC-UA驱动endpoint/server_url字段名不兼容
+- P0: MQTT客户端topic/subscribe_topic字段名不兼容
+- P0: Toledo驱动host/ip字段名不兼容+默认端口错误
+- P0: 基类is_device_connected()默认返回False导致设备始终offline
+- P0: HTTP Webhook设备始终offline(添加is_device_connected)
+- P0: "already exists"检测缺少SQLite关键词
+- P1: flush_buffer连续失败后丢弃所有消息(重置计数器)
+- P1: endpoint register_connection后未触发flush_buffer
+- P1: 新增GET /api/v1/integration/health健康检查端点
+
+改动文件:
+- src/edgelite/bootstrap.py (_backhaul/_device_service赋值)
+- src/edgelite/engine/integration/dispatcher.py (校验+tuple解包+异常处理)
+- src/edgelite/engine/integration/endpoint.py (flush_buffer触发)
+- src/edgelite/engine/integration/backhaul.py (计数器重置)
+- src/edgelite/api/integration.py (health端点)
+- src/edgelite/drivers/base.py (is_device_connected默认True)
+- src/edgelite/drivers/s7.py (port参数)
+- src/edgelite/drivers/allen_bradley.py (port+字段兼容)
+- src/edgelite/drivers/opcua.py (字段兼容)
+- src/edgelite/drivers/mqtt_client.py (字段兼容+设备级配置)
+- src/edgelite/drivers/toledo.py (字段兼容+默认端口)
+- src/edgelite/drivers/http_webhook.py (is_device_connected)

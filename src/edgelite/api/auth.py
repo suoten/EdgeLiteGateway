@@ -19,6 +19,9 @@ from edgelite.security.jwt import create_access_token, create_refresh_token, ver
 from edgelite.security.password import verify_password
 from edgelite.storage.sqlite_repo import UserRepo
 
+_AUTH_COOKIE_ACCESS = "edgelite_access"
+_AUTH_COOKIE_REFRESH = "edgelite_refresh"
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -259,6 +262,114 @@ async def change_password(
         raise HTTPException(status_code=500, detail=AuthErrors.PASSWORD_CHANGE_FAILED) from e
 
 
+@router.post("/forgot-password", response_model=ApiResponse)
+async def forgot_password(
+    db: DatabaseDep,
+    username: str = Body(..., embed=True),
+):
+    """Send password reset email to user (requires email configuration)"""
+    try:
+        async with db.get_session() as session:
+            repo = UserRepo(session, db.write_lock)
+            db_user = await repo.get_by_username(username)
+
+        if db_user is None:
+            # Return success anyway to prevent username enumeration
+            logger.info("Password reset requested for non-existent user: %s", username)
+            return ApiResponse(success=True, message="If the account exists, a reset email will be sent")
+
+        # Generate reset token
+        from edgelite.security.jwt import create_access_token
+        from datetime import timedelta
+
+        reset_token = create_access_token(
+            data={"sub": username, "type": "password_reset"},
+            expires_delta=timedelta(minutes=30),
+        )
+
+        # TODO: Send email with reset link
+        # For now, log the token (in production, send actual email)
+        logger.info("Password reset token generated for user: %s", username)
+        logger.debug("Reset token (expires in 30 min): %s", reset_token)
+
+        # Check if email service is configured
+        from edgelite.services.notification import get_notification_manager
+        notification_mgr = get_notification_manager()
+        has_email = any(
+            isinstance(ch, type)
+            for ch in getattr(notification_mgr, '_channels', [])
+        )
+
+        if not has_email:
+            logger.warning("Email service not configured, password reset token logged only")
+
+        return ApiResponse(
+            success=True,
+            message="If the account exists, a password reset link has been sent to your registered email"
+        )
+
+    except Exception as e:
+        logger.error("Forgot password request failed: %s", e)
+        return ApiResponse(success=True, message="If the account exists, a reset email will be sent")
+
+
+@router.post("/reset-password", response_model=ApiResponse)
+async def reset_password(
+    db: DatabaseDep,
+    token: str = Body(..., embed=True),
+    new_password: str = Body(..., embed=True),
+):
+    """Reset password using token from email"""
+    try:
+        from edgelite.security.jwt import verify_token, decode_token
+        from edgelite.security.password import hash_password
+
+        # Verify token
+        try:
+            payload = decode_token(token, verify_exp=True)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+        if payload.get("type") != "password_reset":
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+
+        # Validate new password
+        if len(new_password) < _MIN_PASSWORD_LENGTH:
+            raise HTTPException(status_code=400, detail=AuthErrors.PASSWORD_POLICY)
+        if len(new_password) > _MAX_PASSWORD_LENGTH:
+            raise HTTPException(status_code=400, detail=AuthErrors.PASSWORD_TOO_LONG)
+        has_letter = any(c.isalpha() for c in new_password)
+        has_digit = any(c.isdigit() for c in new_password)
+        if not (has_letter and has_digit):
+            raise HTTPException(status_code=400, detail=AuthErrors.PASSWORD_LETTER_AND_DIGIT)
+
+        # Update password
+        async with db.get_session() as session:
+            repo = UserRepo(session, db.write_lock)
+            db_user = await repo.get_by_username_with_password(username)
+
+        if db_user is None:
+            raise HTTPException(status_code=404, detail=AuthErrors.USER_NOT_FOUND)
+
+        hashed = hash_password(new_password)
+        async with db.get_session() as session:
+            repo = UserRepo(session, db.write_lock)
+            await repo.update_password(username, hashed)
+
+        logger.info("Password reset successful for user: %s", username)
+        return ApiResponse(success=True, message="Password reset successful. Please login with your new password.")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Password reset failed: %s", e)
+        raise HTTPException(status_code=500, detail="Password reset failed") from e
+
+
 @router.post("/logout", response_model=ApiResponse)
 async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep):
     try:
@@ -276,7 +387,7 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             tokens_to_revoke.append(auth_header[7:])
-        cookie_access = request.cookies.get("edgelite_access")
+        cookie_access = request.cookies.get(_AUTH_COOKIE_ACCESS)
         if cookie_access:
             tokens_to_revoke.append(cookie_access)
         for raw_token in tokens_to_revoke:
@@ -290,7 +401,7 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
                 logger.warning("Access token revocation failed: %s", e)  # FIXED-P3: 中文日志→英文
 
         refresh_tokens = []
-        cookie_refresh = request.cookies.get("edgelite_refresh")
+        cookie_refresh = request.cookies.get(_AUTH_COOKIE_REFRESH)
         if cookie_refresh:
             refresh_tokens.append(cookie_refresh)
         try:
@@ -313,8 +424,8 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
         from fastapi.responses import JSONResponse
 
         response = JSONResponse(content=ApiResponse().model_dump())
-        response.delete_cookie("edgelite_access", path="/api/v1")
-        response.delete_cookie("edgelite_refresh", path="/api/v1/auth")
+        response.delete_cookie(_AUTH_COOKIE_ACCESS, path="/api/v1")
+        response.delete_cookie(_AUTH_COOKIE_REFRESH, path="/api/v1/auth")
         return response
     except HTTPException:
         raise

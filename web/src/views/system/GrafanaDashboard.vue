@@ -94,7 +94,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { NButton, useMessage, useDialog } from 'naive-ui'
-import { t } from '@/i18n'  // FIXED: 原问题-#注释导致编译失败，改为//注释
+import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import { serviceApi, grafanaApi } from '@/api'
 import type { ServiceDependency } from '@/api'
 
@@ -174,7 +175,7 @@ async function fetchConfig() {
       await fetchDashboards()
     }
   } catch (e: any) {
-    if (e?.response?.status !== 404) message.error(e?.response?.data?.detail || e?.message || t('grafana.fetchConfigFailed'))
+    if (e?.response?.status !== 404) message.error(extractError(e, t('grafana.fetchConfigFailed')))
   } finally {
     loading.value = false
   }
@@ -185,7 +186,7 @@ async function fetchDashboards() {
     const data = await grafanaApi.dashboards()
     dashboards.value = data?.dashboards || []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('grafana.fetchDashboardsFailed'))
+    message.error(extractError(e, t('grafana.fetchDashboardsFailed')))
   }
 }
 
@@ -194,7 +195,7 @@ async function handleOpen(uid?: string) {
     const data = await grafanaApi.embedUrl(uid)
     embedUrl.value = data?.url ?? ''
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('grafana.fetchEmbedFailed'))
+    message.error(extractError(e, t('grafana.fetchEmbedFailed')))
   }
 }
 
@@ -226,9 +227,9 @@ async function doToggle(val: boolean) {
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     if (typeof detail === 'object' && detail?.missing_dependencies) {
-      message.warning(detail.message || t('grafana.missingDepsWarning'))
+      message.warning(extractError(e, t('grafana.missingDepsWarning')))
     } else {
-      message.error(typeof detail === 'string' ? detail : (e?.message || t('grafana.operationFailed')))
+      message.error(extractError(e, t('grafana.operationFailed')))
     }
   } finally {
     toggleLoading.value = false
@@ -246,7 +247,7 @@ async function handleInstallDeps() {
     message.success(t('grafana.installSuccess'))
     await fetchConfig()
   } catch (e: any) {
-    installResult.value = `${t('grafana.installFailed')}: ${e?.response?.data?.detail || e?.message}`
+    installResult.value = `${t('grafana.installFailed')}: ${extractError(e, '')}`
     message.error(t('grafana.installFailed'))
   } finally {
     installing.value = false
@@ -261,7 +262,7 @@ async function handleSaveConfig() {
     message.success(t('grafana.configSaved'))
     await fetchConfig()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('grafana.saveConfigFailed'))
+    message.error(extractError(e, t('grafana.saveConfigFailed')))
   } finally {
     savingConfig.value = false
   }

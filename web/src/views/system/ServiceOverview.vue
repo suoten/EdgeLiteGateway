@@ -158,7 +158,7 @@ import {
 } from '@vicons/ionicons5'
 import { serviceApi } from '@/api'
 import type { ServiceInfo } from '@/api'
-import { getErrorMessage } from '@/utils/errorCodes'
+import { extractError } from '@/utils/errorCodes'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
 
@@ -255,7 +255,7 @@ async function handleToggle(name: string, val: boolean) {
           message.success(t('serviceOverview.disableSuccess'))
           await fetchServices()
         } catch (e: any) {
-          message.error(e?.response?.data?.detail || e?.message || t('serviceOverview.operationFailed'))
+          message.error(extractError(e, t('serviceOverview.operationFailed')))
         } finally {
           toggleLoadingMap[name] = false
         }
@@ -289,20 +289,12 @@ async function handleToggle(name: string, val: boolean) {
           },
         })
       } else {
-        let errMsg = t('serviceOverview.operationFailed')
-        let hint = ''
-        if (typeof detail === 'object' && detail !== null) {
-          errMsg = getErrorMessage(detail.message || '')
-          hint = detail.hint || ''
-        } else if (typeof detail === 'string') {
-          errMsg = getErrorMessage(detail)
-        } else {
-          errMsg = e?.message || t('serviceOverview.operationFailed')
-        }
+        const extracted = extractError(e, t('serviceOverview.operationFailed'))
+        const hint = (typeof detail === 'object' && detail !== null) ? (detail.hint || '') : ''
         if (hint) {
-          dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
+          dialog.error({ title: extracted, content: hint, positiveText: t('common.confirm') })
         } else {
-          message.error(errMsg)
+          message.error(extracted)
         }
       }
       await fetchServices()
@@ -320,7 +312,7 @@ async function handleInstallDeps(name: string) {
     await serviceApi.enable(name)
     await fetchServices()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('serviceOverview.installFailed'))
+    message.error(extractError(e, t('serviceOverview.installFailed')))
   } finally {
     installingMap[name] = false
   }

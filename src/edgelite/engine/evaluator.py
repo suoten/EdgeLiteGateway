@@ -216,7 +216,7 @@ class RuleEvaluator:
         elif rule_type == "ai_inference":
             matched = await self._evaluate_ai_conditions(conditions, point_values, logic, event.device_id)
         else:
-            matched = self._check_conditions(conditions, point_values, logic)
+            matched = await self._check_conditions(conditions, point_values, logic, device_id)
 
         tracker_key = (rule_id, device_id)
 
@@ -259,16 +259,28 @@ class RuleEvaluator:
                     return
                 await self._recover_alarm(alarm_id, rule)
 
-    def _check_conditions(
-        self, conditions: list[dict], point_values: dict[str, float], logic: str
+    async def _check_conditions(
+        self, conditions: list[dict], point_values: dict[str, float], logic: str,
+        device_id: str = "",
     ) -> bool:
-        """检查条件组合"""
+        """检查条件组合
+
+        Args:
+            conditions: 条件列表
+            point_values: 当前测点值映射
+            logic: 逻辑组合 (AND/OR)
+            device_id: 设备ID，用于窗口聚合查询
+        """
         if _HAS_CYTHON:
             fast_conds = []
             all_available = True
             for cond in conditions:
                 # FIXED: 原问题-cond硬访问可能KeyError，改为.get()
                 point = cond.get("point")
+                # 窗口聚合条件需要异步查询，跳过Cython快速路径
+                if cond.get("window_seconds", 0) > 0 and cond.get("aggregate"):
+                    all_available = False
+                    break
                 value = point_values.get(point)
                 if value is None or not point:
                     all_available = False
@@ -291,8 +303,20 @@ class RuleEvaluator:
             point = cond.get("point")
             operator = cond.get("operator", ">")
             threshold = cond.get("threshold", 0)
+            window_seconds = cond.get("window_seconds", 0)
+            aggregate = cond.get("aggregate", "")
 
-            value = point_values.get(point)
+            # 窗口聚合条件：从流计算引擎或InfluxDB获取聚合值
+            if window_seconds > 0 and aggregate and device_id:
+                value = await self._get_window_aggregate(
+                    device_id, point, window_seconds, aggregate
+                )
+                if value is None:
+                    results.append(False)
+                    continue
+            else:
+                value = point_values.get(point)
+
             if value is None or not point:
                 results.append(False)
                 continue
@@ -313,7 +337,7 @@ class RuleEvaluator:
     ) -> bool:
         """评估AI推理条件"""
         if not self._ai_engine:
-            logger.warning("AI engine unavailable, skipping AI condition evaluation")  # FIXED-P3: 中文日志→英文
+            logger.warning("AI engine unavailable, skipping AI condition evaluation")
             return False
         results = []
         for cond in conditions:
@@ -323,10 +347,28 @@ class RuleEvaluator:
                 results.append(False)
                 continue
             try:
+                # 获取模型期望的输入维度，将point_values填充到所需长度
+                wrapper = self._ai_engine.get_model(model_id)
+                if not wrapper or wrapper.status != "active":
+                    results.append(False)
+                    continue
+
                 input_values = list(point_values.values())
                 if not input_values:
                     results.append(False)
                     continue
+
+                # 根据模型输入schema填充/截断数据到期望长度
+                input_shape = wrapper.input_schema.get("shape", [1, -1])
+                expected_len = input_shape[-1] if len(input_shape) >= 2 and input_shape[-1] > 0 else -1
+                if expected_len > 0:
+                    if len(input_values) >= expected_len:
+                        input_values = input_values[:expected_len]
+                    else:
+                        # 数据不足时，用最后一个值重复填充
+                        last_val = input_values[-1]
+                        input_values = input_values + [last_val] * (expected_len - len(input_values))
+
                 result = await self._ai_engine.infer(model_id, input_values)
                 if result.status == "success":
                     score = result.output_data.get("output_0", [0])
@@ -336,7 +378,7 @@ class RuleEvaluator:
                 else:
                     results.append(False)
             except Exception as e:
-                logger.warning("AI condition evaluation failed: model_id=%s, %s", model_id, e)  # FIXED-P3: 中文日志→英文
+                logger.warning("AI condition evaluation failed: model_id=%s, %s", model_id, e)
                 results.append(False)
         if not results:
             return False
@@ -360,6 +402,53 @@ class RuleEvaluator:
         elif operator == "!=":
             return abs(value - threshold) >= 1e-9
         return False
+
+    async def _get_window_aggregate(
+        self, device_id: str, point_name: str, window_seconds: int, aggregate: str,
+    ) -> float | None:
+        """获取窗口聚合值（优先从流计算引擎缓存，回退到InfluxDB）
+
+        Args:
+            device_id: 设备ID
+            point_name: 测点名称
+            window_seconds: 滑动窗口秒数
+            aggregate: 聚合函数 (avg/sum/min/max/count/std)
+
+        Returns:
+            聚合值，无结果时返回 None
+        """
+        # 优先从流计算引擎获取缓存结果
+        try:
+            from edgelite.engine.stream_compute import get_stream_engine
+            engine = get_stream_engine()
+            result = engine.get_window_result(device_id, point_name, window_seconds, aggregate)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
+        # 回退到InfluxDB查询
+        try:
+            from edgelite.app import _app_state
+            if _app_state.influx_storage:
+                data = await _app_state.influx_storage.query_points(
+                    device_id=device_id,
+                    point_name=point_name,
+                    start=f"-{window_seconds}s",
+                    aggregate=f"{window_seconds}s",
+                )
+                if data:
+                    last_item = data[-1]
+                    val = last_item.get("value")
+                    if isinstance(val, (int, float)):
+                        return float(val)
+        except Exception as e:
+            logger.debug(
+                "Failed to get window aggregate from InfluxDB %s.%s: %s",
+                device_id, point_name, e,
+            )
+
+        return None
 
     @staticmethod
     def _eval_script(script: str, point_values: dict[str, float]) -> bool:

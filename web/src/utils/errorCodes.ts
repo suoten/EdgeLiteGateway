@@ -4,7 +4,7 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_AUTH_RATE_LIMITED: 'login.rateLimited',
   ERR_AUTH_INVALID_CREDENTIALS: 'login.invalidCredentials',
   ERR_AUTH_USER_DISABLED: 'login.userDisabled',
-  ERR_AUTH_LOGIN_FAILED: 'http.requestFailed',
+  ERR_AUTH_LOGIN_FAILED: 'errorCodes.ERR_AUTH_LOGIN_FAILED',
   ERR_AUTH_REFRESH_TOKEN_INVALID: 'login.refreshTokenInvalid',
   ERR_AUTH_USER_NOT_FOUND: 'user.userNotFound',
   ERR_AUTH_OLD_PASSWORD_WRONG: 'login.oldPasswordWrong',
@@ -15,161 +15,254 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_AUTH_PASSWORD_CHANGE_FAILED: 'login.passwordChangeFailed',
   ERR_AUTH_TOKEN_INVALID: 'http.sessionExpired',
   ERR_AUTH_TOKEN_REVOKED: 'http.sessionExpired',
-  ERR_AUTH_LOGOUT_FAILED: 'http.requestFailed',
-  ERR_USER_LIST_FAILED: 'http.requestFailed',
+  ERR_AUTH_LOGOUT_FAILED: 'errorCodes.ERR_AUTH_LOGOUT_FAILED',
+  ERR_USER_LIST_FAILED: 'errorCodes.ERR_USER_LIST_FAILED',
   ERR_USER_USERNAME_EXISTS: 'user.usernameExists',
-  ERR_USER_CREATE_FAILED: 'http.requestFailed',
+  ERR_USER_CREATE_FAILED: 'errorCodes.ERR_USER_CREATE_FAILED',
   ERR_USER_CANNOT_REMOVE_LAST_ADMIN: 'user.cannotRemoveLastAdminRole',
   ERR_USER_USER_NOT_FOUND: 'user.userNotFound',
-  ERR_USER_UPDATE_FAILED: 'http.requestFailed',
+  ERR_USER_UPDATE_FAILED: 'errorCodes.ERR_USER_UPDATE_FAILED',
   ERR_USER_CANNOT_DELETE_SELF: 'user.cannotDeleteSelf',
   ERR_USER_CANNOT_DELETE_ADMIN: 'user.cannotDeleteLastAdmin',
   ERR_USER_CANNOT_DELETE_LAST_ADMIN: 'user.cannotDeleteLastAdmin',
-  ERR_USER_DELETE_FAILED: 'http.requestFailed',
-  ERR_SVC_LIST_FAILED: 'http.requestFailed',
+  ERR_USER_DELETE_FAILED: 'errorCodes.ERR_USER_DELETE_FAILED',
+  ERR_SVC_LIST_FAILED: 'errorCodes.ERR_SVC_LIST_FAILED',
   ERR_SVC_UNKNOWN_SERVICE: 'http.notFound',
-  ERR_SVC_NOT_REGISTERED: 'http.notFound',
-  ERR_SVC_STATUS_FAILED: 'http.requestFailed',
-  ERR_SVC_ENABLE_FAILED: 'http.requestFailed',
-  ERR_SVC_DISABLE_FAILED: 'http.requestFailed',
-  ERR_SVC_START_FAILED: 'http.requestFailed',
-  ERR_SVC_STOP_FAILED: 'http.requestFailed',
-  ERR_SVC_INSTALL_FAILED: 'http.requestFailed',
-  ERR_SVC_CONFIG_UPDATE_FAILED: 'http.requestFailed',
-  ERR_SVC_DEPS_INSTALL_FAILED: 'http.requestFailed',
+  ERR_SVC_NOT_REGISTERED: 'errorCodes.ERR_SVC_NOT_REGISTERED',
+  ERR_SVC_STATUS_FAILED: 'errorCodes.ERR_SVC_STATUS_FAILED',
+  ERR_SVC_ENABLE_FAILED: 'errorCodes.ERR_SVC_ENABLE_FAILED',
+  ERR_SVC_DISABLE_FAILED: 'errorCodes.ERR_SVC_DISABLE_FAILED',
+  ERR_SVC_START_FAILED: 'errorCodes.ERR_SVC_START_FAILED',
+  ERR_SVC_STOP_FAILED: 'errorCodes.ERR_SVC_STOP_FAILED',
+  ERR_SVC_INSTALL_FAILED: 'errorCodes.ERR_SVC_INSTALL_FAILED',
+  ERR_SVC_CONFIG_UPDATE_FAILED: 'errorCodes.ERR_SVC_CONFIG_UPDATE_FAILED',
+  ERR_SVC_DEPS_INSTALL_FAILED: 'errorCodes.ERR_SVC_DEPS_INSTALL_FAILED',
   ERR_SVC_SERIAL_PORT_UNAVAILABLE: 'device.serialPortUnavailable',
   ERR_DEVICE_NOT_FOUND: 'device.notFound',
   ERR_DEVICE_PUSH_EMPTY: 'device.pushEmpty',
   ERR_DEVICE_PUSH_INVALID_ID: 'device.pushInvalidId',
   ERR_DEVICE_PUSH_INVALID_KEY: 'device.webhookAuthFailed',
   ERR_DEVICE_WEBHOOK_AUTH_FAILED: 'device.webhookAuthFailed',
-  ERR_DEVICE_PUSH_FAILED: 'http.requestFailed',
-  ERR_DEVICE_LIST_FAILED: 'http.requestFailed',
-  ERR_DEVICE_CREATE_FAILED: 'http.requestFailed',
-  ERR_DEVICE_GET_FAILED: 'http.requestFailed',
-  ERR_DEVICE_UPDATE_FAILED: 'http.requestFailed',
-  ERR_DEVICE_DELETE_FAILED: 'http.requestFailed',
-  ERR_DEVICE_POINTS_FAILED: 'http.requestFailed',
-  ERR_DEVICE_WRITE_FAILED: 'http.requestFailed',
-  ERR_DEVICE_SIMULATOR_FAILED: 'http.requestFailed',
-  ERR_DEVICE_DISCOVER_FAILED: 'http.requestFailed',
+  ERR_DEVICE_PUSH_FAILED: 'errorCodes.ERR_DEVICE_PUSH_FAILED',
+  ERR_DEVICE_LIST_FAILED: 'errorCodes.ERR_DEVICE_LIST_FAILED',
+  ERR_DEVICE_CREATE_FAILED: 'errorCodes.ERR_DEVICE_CREATE_FAILED',
+  ERR_DEVICE_GET_FAILED: 'errorCodes.ERR_DEVICE_GET_FAILED',
+  ERR_DEVICE_UPDATE_FAILED: 'errorCodes.ERR_DEVICE_UPDATE_FAILED',
+  ERR_DEVICE_DELETE_FAILED: 'errorCodes.ERR_DEVICE_DELETE_FAILED',
+  ERR_DEVICE_POINTS_FAILED: 'errorCodes.ERR_DEVICE_POINTS_FAILED',
+  ERR_DEVICE_WRITE_FAILED: 'errorCodes.ERR_DEVICE_WRITE_FAILED',
+  ERR_DEVICE_SIMULATOR_FAILED: 'errorCodes.ERR_DEVICE_SIMULATOR_FAILED',
+  ERR_DEVICE_DISCOVER_FAILED: 'errorCodes.ERR_DEVICE_DISCOVER_FAILED',
   ERR_DEVICE_PUSH_DRIVER_NOT_READY: 'device.pushDriverNotReady',
-  ERR_PREPROCESS_GET_FAILED: 'http.requestFailed',
-  ERR_PREPROCESS_NOT_INITIALIZED: 'http.serviceNotReady',
-  ERR_PREPROCESS_UPDATE_FAILED: 'http.requestFailed',
+  ERR_PREPROCESS_GET_FAILED: 'errorCodes.ERR_PREPROCESS_GET_FAILED',
+  ERR_PREPROCESS_NOT_INITIALIZED: 'errorCodes.ERR_PREPROCESS_NOT_INITIALIZED',
+  ERR_PREPROCESS_UPDATE_FAILED: 'errorCodes.ERR_PREPROCESS_UPDATE_FAILED',
   ERR_COMMON_SERVICE_NOT_READY: 'http.serviceNotReady',
   ERR_COMMON_DB_NOT_READY: 'http.serviceNotReady',
-  ERR_COMMON_INTERNAL_ERROR: 'http.requestFailed',
+  ERR_COMMON_INTERNAL_ERROR: 'errorCodes.ERR_COMMON_INTERNAL_ERROR',
   ERR_COMMON_NOT_FOUND: 'http.notFound',
-  ERR_GRAFANA_NOT_ENABLED: 'http.serviceNotReady',
+  ERR_GRAFANA_NOT_ENABLED: 'errorCodes.ERR_GRAFANA_NOT_ENABLED',
   ERR_GRAFANA_API_KEY_MISSING: 'grafana.apiKeyMissing',
-  ERR_GRAFANA_BAD_STATUS: 'http.requestFailed',
-  ERR_GRAFANA_DEPS_MISSING: 'http.serviceNotReady',
-  ERR_GRAFANA_CONNECTION_FAILED: 'http.requestFailed',
-  ERR_GRAFANA_INVALID_UID: 'http.requestFailed',
-  ERR_OTA_NOT_ENABLED: 'http.serviceNotReady',
-  ERR_OTA_CHECK_FAILED: 'http.requestFailed',
-  ERR_OTA_IN_PROGRESS: 'http.requestFailed',
-  ERR_OTA_NO_UPDATE: 'http.notFound',
-  ERR_OTA_NO_DOWNLOAD_URL: 'http.requestFailed',
-  ERR_OTA_DOWNLOAD_FAILED: 'http.requestFailed',
-  ERR_OTA_APPLY_FAILED: 'http.requestFailed',
-  ERR_OTA_ROLLBACK_FAILED: 'http.requestFailed',
-  ERR_OTA_LIST_BACKUPS_FAILED: 'http.requestFailed',
-  ERR_MCP_LIST_FAILED: 'http.requestFailed',
-  ERR_MCP_CALL_FAILED: 'http.requestFailed',
-  ERR_MCP_CREATE_KEY_FAILED: 'http.requestFailed',
-  ERR_MCP_KEY_NOT_FOUND: 'http.notFound',
-  ERR_MCP_SSE_FAILED: 'http.requestFailed',
+  ERR_GRAFANA_BAD_STATUS: 'errorCodes.ERR_GRAFANA_BAD_STATUS',
+  ERR_GRAFANA_DEPS_MISSING: 'errorCodes.ERR_GRAFANA_DEPS_MISSING',
+  ERR_GRAFANA_CONNECTION_FAILED: 'errorCodes.ERR_GRAFANA_CONNECTION_FAILED',
+  ERR_GRAFANA_INVALID_UID: 'errorCodes.ERR_GRAFANA_INVALID_UID',
+  ERR_OTA_NOT_ENABLED: 'errorCodes.ERR_OTA_NOT_ENABLED',
+  ERR_OTA_CHECK_FAILED: 'errorCodes.ERR_OTA_CHECK_FAILED',
+  ERR_OTA_IN_PROGRESS: 'errorCodes.ERR_OTA_IN_PROGRESS',
+  ERR_OTA_NO_UPDATE: 'errorCodes.ERR_OTA_NO_UPDATE',
+  ERR_OTA_NO_DOWNLOAD_URL: 'errorCodes.ERR_OTA_NO_DOWNLOAD_URL',
+  ERR_OTA_DOWNLOAD_FAILED: 'errorCodes.ERR_OTA_DOWNLOAD_FAILED',
+  ERR_OTA_APPLY_FAILED: 'errorCodes.ERR_OTA_APPLY_FAILED',
+  ERR_OTA_ROLLBACK_FAILED: 'errorCodes.ERR_OTA_ROLLBACK_FAILED',
+  ERR_OTA_LIST_BACKUPS_FAILED: 'errorCodes.ERR_OTA_LIST_BACKUPS_FAILED',
+  ERR_MCP_LIST_FAILED: 'errorCodes.ERR_MCP_LIST_FAILED',
+  ERR_MCP_CALL_FAILED: 'errorCodes.ERR_MCP_CALL_FAILED',
+  ERR_MCP_CREATE_KEY_FAILED: 'errorCodes.ERR_MCP_CREATE_KEY_FAILED',
+  ERR_MCP_KEY_NOT_FOUND: 'errorCodes.ERR_MCP_KEY_NOT_FOUND',
+  ERR_MCP_SSE_FAILED: 'errorCodes.ERR_MCP_SSE_FAILED',
   ERR_REPO_DEVICE_EXISTS: 'device.deviceExists',
   ERR_REPO_RULE_EXISTS: 'rule.ruleExists',
   ERR_REPO_ALARM_EXISTS: 'alarm.alarmExists',
   ERR_REPO_USERNAME_EXISTS: 'user.usernameExists',
-  ERR_REPO_DB_MODE_SESSION_REQUIRED: 'http.requestFailed',
-  ERR_REPO_NO_SESSION_AVAILABLE: 'http.requestFailed',
-  ERR_DB_UNSUPPORTED_BACKEND: 'http.requestFailed',
-  ERR_DB_DRIVER_REQUIRED: 'http.requestFailed',
-  ERR_DB_NOT_CONNECTED: 'http.serviceNotReady',
-  ERR_DB_SESSION_NOT_INIT: 'http.serviceNotReady',
-  ERR_CONFIG_LOAD_FAILED: 'http.requestFailed',
-  ERR_CONFIG_SAVE_FAILED: 'http.requestFailed',
-  ERR_DRIVER_START_FAILED: 'http.requestFailed',
-  ERR_DEVICE_API_KEY_INVALID: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DEVICE_API_KEY_NOT_CONFIGURED: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DRIVER_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_DRIVER_REGISTRY_NOT_INIT: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_DRIVER_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DRIVER_GET_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DRIVER_DISCOVER_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DATA_UNSUPPORTED_AGGREGATE: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DATA_QUERY_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_DATA_EXPORT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_VIDEO_PTZ_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_VIDEO_WEBHOOK_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_VIDEO_API_KEY_INVALID: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_VIDEO_API_KEY_NOT_CONFIGURED: 'device.webhookAuthFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_INVALID_ACTION: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_INVALID_TIME_FORMAT: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_NOT_ENABLED: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_CLEANUP_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_EXPORT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_INTEGRITY_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUDIT_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_EXPR_EVALUATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_EXPR_BATCH_EVALUATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_EXPR_VALIDATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SCADA_PROJECT_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_SCADA_SAVE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SCADA_DELETE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SCADA_LOAD_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_PLATFORM_CONFIG_SCHEMA_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_PLATFORM_CONNECT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_PLATFORM_DISCONNECT_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_PLATFORM_NOT_SUPPORTED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_PLATFORM_MISSING_CONFIG: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_PLATFORM_NOT_CONNECTED: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_SYS_STATUS_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SYS_BACKUP_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SYS_BACKUP_CREATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SYS_INVALID_BACKUP_ID: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_SYS_BACKUP_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_SYS_RESTORE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_CREATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_GET_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_UPDATE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_DELETE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_ENABLE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_DISABLE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_RULE_TEST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_ALARM_LIST_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_ALARM_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_ALARM_GET_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_ALARM_ACK_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_INTEG_HANDSHAKE_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_INTEG_STATUS_FAILED: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_DEVICE_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_MISSING_DEVICE_ID: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_DEVICE_NOT_FOUND: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_MISSING_PARAMS: 'http.requestFailed',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_ALARM_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_SYSTEM_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_RULE_SERVICE_UNAVAILABLE: 'http.serviceNotReady',  // FIXED: 原问题-缺失错误码映射
-  ERR_MCP_UNKNOWN_TOOL: 'http.notFound',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUTHZ_NOT_AUTHENTICATED: 'http.sessionExpired',  // FIXED: 原问题-缺失错误码映射
-  ERR_AUTHZ_PERMISSION_DENIED: 'http.forbidden',  // FIXED: 原问题-缺失错误码映射
+  ERR_REPO_DB_MODE_SESSION_REQUIRED: 'errorCodes.ERR_REPO_DB_MODE_SESSION_REQUIRED',
+  ERR_REPO_NO_SESSION_AVAILABLE: 'errorCodes.ERR_REPO_NO_SESSION_AVAILABLE',
+  ERR_DB_UNSUPPORTED_BACKEND: 'errorCodes.ERR_DB_UNSUPPORTED_BACKEND',
+  ERR_DB_DRIVER_REQUIRED: 'errorCodes.ERR_DB_DRIVER_REQUIRED',
+  ERR_DB_NOT_CONNECTED: 'errorCodes.ERR_DB_NOT_CONNECTED',
+  ERR_DB_SESSION_NOT_INIT: 'errorCodes.ERR_DB_SESSION_NOT_INIT',
+  ERR_CONFIG_LOAD_FAILED: 'errorCodes.ERR_CONFIG_LOAD_FAILED',
+  ERR_CONFIG_SAVE_FAILED: 'errorCodes.ERR_CONFIG_SAVE_FAILED',
+  ERR_DRIVER_START_FAILED: 'errorCodes.ERR_DRIVER_START_FAILED',
+  ERR_DEVICE_API_KEY_INVALID: 'errorCodes.ERR_DEVICE_API_KEY_INVALID',
+  ERR_DEVICE_API_KEY_NOT_CONFIGURED: 'errorCodes.ERR_DEVICE_API_KEY_NOT_CONFIGURED',
+  ERR_DRIVER_NOT_FOUND: 'errorCodes.ERR_DRIVER_NOT_FOUND',
+  ERR_DRIVER_REGISTRY_NOT_INIT: 'errorCodes.ERR_DRIVER_REGISTRY_NOT_INIT',
+  ERR_DRIVER_LIST_FAILED: 'errorCodes.ERR_DRIVER_LIST_FAILED',
+  ERR_DRIVER_GET_FAILED: 'errorCodes.ERR_DRIVER_GET_FAILED',
+  ERR_DRIVER_DISCOVER_FAILED: 'errorCodes.ERR_DRIVER_DISCOVER_FAILED',
+  ERR_DATA_UNSUPPORTED_AGGREGATE: 'errorCodes.ERR_DATA_UNSUPPORTED_AGGREGATE',
+  ERR_DATA_QUERY_FAILED: 'errorCodes.ERR_DATA_QUERY_FAILED',
+  ERR_DATA_EXPORT_FAILED: 'errorCodes.ERR_DATA_EXPORT_FAILED',
+  ERR_VIDEO_PTZ_FAILED: 'errorCodes.ERR_VIDEO_PTZ_FAILED',
+  ERR_VIDEO_WEBHOOK_FAILED: 'errorCodes.ERR_VIDEO_WEBHOOK_FAILED',
+  ERR_VIDEO_API_KEY_INVALID: 'errorCodes.ERR_VIDEO_API_KEY_INVALID',
+  ERR_VIDEO_API_KEY_NOT_CONFIGURED: 'errorCodes.ERR_VIDEO_API_KEY_NOT_CONFIGURED',
+  ERR_AUDIT_INVALID_ACTION: 'errorCodes.ERR_AUDIT_INVALID_ACTION',
+  ERR_AUDIT_INVALID_TIME_FORMAT: 'errorCodes.ERR_AUDIT_INVALID_TIME_FORMAT',
+  ERR_AUDIT_NOT_ENABLED: 'errorCodes.ERR_AUDIT_NOT_ENABLED',
+  ERR_AUDIT_CLEANUP_FAILED: 'errorCodes.ERR_AUDIT_CLEANUP_FAILED',
+  ERR_AUDIT_EXPORT_FAILED: 'errorCodes.ERR_AUDIT_EXPORT_FAILED',
+  ERR_AUDIT_INTEGRITY_FAILED: 'errorCodes.ERR_AUDIT_INTEGRITY_FAILED',
+  ERR_AUDIT_LIST_FAILED: 'errorCodes.ERR_AUDIT_LIST_FAILED',
+  ERR_EXPR_EVALUATE_FAILED: 'errorCodes.ERR_EXPR_EVALUATE_FAILED',
+  ERR_EXPR_BATCH_EVALUATE_FAILED: 'errorCodes.ERR_EXPR_BATCH_EVALUATE_FAILED',
+  ERR_EXPR_VALIDATE_FAILED: 'errorCodes.ERR_EXPR_VALIDATE_FAILED',
+  ERR_SCADA_PROJECT_NOT_FOUND: 'errorCodes.ERR_SCADA_PROJECT_NOT_FOUND',
+  ERR_SCADA_SAVE_FAILED: 'errorCodes.ERR_SCADA_SAVE_FAILED',
+  ERR_SCADA_DELETE_FAILED: 'errorCodes.ERR_SCADA_DELETE_FAILED',
+  ERR_SCADA_LOAD_FAILED: 'errorCodes.ERR_SCADA_LOAD_FAILED',
+  ERR_PLATFORM_CONFIG_SCHEMA_NOT_FOUND: 'errorCodes.ERR_PLATFORM_CONFIG_SCHEMA_NOT_FOUND',
+  ERR_PLATFORM_CONNECT_FAILED: 'errorCodes.ERR_PLATFORM_CONNECT_FAILED',
+  ERR_PLATFORM_DISCONNECT_FAILED: 'errorCodes.ERR_PLATFORM_DISCONNECT_FAILED',
+  ERR_PLATFORM_NOT_SUPPORTED: 'errorCodes.ERR_PLATFORM_NOT_SUPPORTED',
+  ERR_PLATFORM_MISSING_CONFIG: 'platformConfig.missingConfig',
+  ERR_PLATFORM_NOT_CONNECTED: 'errorCodes.ERR_PLATFORM_NOT_CONNECTED',
+  ERR_PLATFORM_VALIDATION_REQUIRED: 'platformConfig.validationRequired',
+  ERR_PLATFORM_VALIDATION_BROKER_FORMAT: 'platformConfig.validationBrokerFormat',
+  ERR_PLATFORM_VALIDATION_PORT_RANGE: 'platformConfig.validationPortRange',
+  ERR_PLATFORM_VALIDATION_PORT_NUMBER: 'platformConfig.validationPortNumber',
+  ERR_PLATFORM_VALIDATION_TOO_LONG: 'platformConfig.validationTooLong',
+  ERR_PLATFORM_VALIDATION_UNSUPPORTED: 'platformConfig.validationUnsupported',
+  ERR_SYS_STATUS_FAILED: 'errorCodes.ERR_SYS_STATUS_FAILED',
+  ERR_SYS_BACKUP_LIST_FAILED: 'errorCodes.ERR_SYS_BACKUP_LIST_FAILED',
+  ERR_SYS_BACKUP_CREATE_FAILED: 'errorCodes.ERR_SYS_BACKUP_CREATE_FAILED',
+  ERR_SYS_INVALID_BACKUP_ID: 'errorCodes.ERR_SYS_INVALID_BACKUP_ID',
+  ERR_SYS_BACKUP_NOT_FOUND: 'errorCodes.ERR_SYS_BACKUP_NOT_FOUND',
+  ERR_SYS_RESTORE_FAILED: 'errorCodes.ERR_SYS_RESTORE_FAILED',
+  ERR_RULE_LIST_FAILED: 'errorCodes.ERR_RULE_LIST_FAILED',
+  ERR_RULE_CREATE_FAILED: 'errorCodes.ERR_RULE_CREATE_FAILED',
+  ERR_RULE_NOT_FOUND: 'http.notFound',
+  ERR_RULE_GET_FAILED: 'errorCodes.ERR_RULE_GET_FAILED',
+  ERR_RULE_UPDATE_FAILED: 'errorCodes.ERR_RULE_UPDATE_FAILED',
+  ERR_RULE_DELETE_FAILED: 'errorCodes.ERR_RULE_DELETE_FAILED',
+  ERR_RULE_ENABLE_FAILED: 'errorCodes.ERR_RULE_ENABLE_FAILED',
+  ERR_RULE_DISABLE_FAILED: 'errorCodes.ERR_RULE_DISABLE_FAILED',
+  ERR_RULE_TEST_FAILED: 'errorCodes.ERR_RULE_TEST_FAILED',
+  ERR_ALARM_LIST_FAILED: 'errorCodes.ERR_ALARM_LIST_FAILED',
+  ERR_ALARM_NOT_FOUND: 'http.notFound',
+  ERR_ALARM_GET_FAILED: 'errorCodes.ERR_ALARM_GET_FAILED',
+  ERR_ALARM_ACK_FAILED: 'errorCodes.ERR_ALARM_ACK_FAILED',
+  ERR_INTEG_HANDSHAKE_FAILED: 'errorCodes.ERR_INTEG_HANDSHAKE_FAILED',
+  ERR_INTEG_STATUS_FAILED: 'errorCodes.ERR_INTEG_STATUS_FAILED',
+  ERR_INTEG_RPC_EXECUTE_FAILED: 'errorCodes.ERR_INTEG_RPC_EXECUTE_FAILED',
+  ERR_INTEG_RPC_HISTORY_FAILED: 'errorCodes.ERR_INTEG_RPC_HISTORY_FAILED',
+  ERR_INTEG_BACKHAUL_NOT_READY: 'errorCodes.ERR_INTEG_BACKHAUL_NOT_READY',
+  ERR_INTEG_RPC_DEVICE_SERVICE_UNAVAILABLE: 'errorCodes.ERR_INTEG_RPC_DEVICE_SERVICE_UNAVAILABLE',
+  ERR_INTEG_RPC_MISSING_VALUE: 'integration.rpcMissingValue',
+  ERR_INTEG_RPC_WRITE_FAILED: 'integration.rpcWriteFailed',
+  ERR_MCP_DEVICE_SERVICE_UNAVAILABLE: 'errorCodes.ERR_MCP_DEVICE_SERVICE_UNAVAILABLE',
+  ERR_MCP_MISSING_DEVICE_ID: 'errorCodes.ERR_MCP_MISSING_DEVICE_ID',
+  ERR_MCP_DEVICE_NOT_FOUND: 'errorCodes.ERR_MCP_DEVICE_NOT_FOUND',
+  ERR_MCP_MISSING_PARAMS: 'errorCodes.ERR_MCP_MISSING_PARAMS',
+  ERR_MCP_ALARM_SERVICE_UNAVAILABLE: 'errorCodes.ERR_MCP_ALARM_SERVICE_UNAVAILABLE',
+  ERR_MCP_SYSTEM_SERVICE_UNAVAILABLE: 'errorCodes.ERR_MCP_SYSTEM_SERVICE_UNAVAILABLE',
+  ERR_MCP_RULE_SERVICE_UNAVAILABLE: 'errorCodes.ERR_MCP_RULE_SERVICE_UNAVAILABLE',
+  ERR_MCP_UNKNOWN_TOOL: 'errorCodes.ERR_MCP_UNKNOWN_TOOL',
+  ERR_AUTHZ_NOT_AUTHENTICATED: 'http.sessionExpired',
+  ERR_AUTHZ_PERMISSION_DENIED: 'http.forbidden',
+  ERR_AI_ENGINE_NOT_INITIALIZED: 'ai.errorEngineNotInit',
+  ERR_AI_MODEL_NOT_FOUND: 'ai.errorModelNotFound',
+  ERR_AI_MODEL_LOAD_FAILED: 'ai.errorModelLoadFailed',
+  ERR_AI_MODEL_RELOAD_FAILED: 'ai.errorModelReloadFailed',
+  ERR_AI_MODEL_DELETE_PRESET: 'ai.presetCannotDelete',
+  ERR_AI_MODEL_ALREADY_LOADED: 'ai.errorModelAlreadyLoaded',
+  ERR_AI_MODEL_FILE_NOT_FOUND: 'ai.errorModelFileNotFound',
+  ERR_AI_MODEL_CANNOT_LOAD: 'ai.errorModelCannotLoad',
+  ERR_AI_MODEL_PREVIOUS_ERROR: 'ai.errorModelPreviousError',
+  ERR_AI_MODEL_ENABLE_FAILED: 'ai.enableFailed',
+  ERR_AI_INFERENCE_FAILED: 'ai.errorInferenceFailed',
+  ERR_AI_INFERENCE_TIMEOUT: 'ai.errorInferenceTimeout',
+  ERR_AI_ONNX_NOT_AVAILABLE: 'ai.errorOnnxNotAvailable',
+  ERR_AI_ONNXRUNTIME_NOT_INSTALLED: 'ai.errorOnnxruntimeNotInstalled',
+  ERR_AI_MODEL_IS_LOADING: 'ai.errorModelIsLoading',
+  ERR_AI_INVALID_INPUT_DATA: 'ai.errorInvalidInput',
+  ERR_AI_INTERNAL_ERROR: 'errorCodes.ERR_AI_INTERNAL_ERROR',
+  ERR_AI_STATS_FAILED: 'errorCodes.ERR_AI_STATS_FAILED',
+  ERR_AI_LIST_FAILED: 'errorCodes.ERR_AI_LIST_FAILED',
+  ERR_AI_GET_FAILED: 'errorCodes.ERR_AI_GET_FAILED',
+  ERR_AI_UPDATE_FAILED: 'errorCodes.ERR_AI_UPDATE_FAILED',
+  ERR_AI_DELETE_FAILED: 'errorCodes.ERR_AI_DELETE_FAILED',
+  ERR_AI_ENABLE_FAILED: 'ai.enableFailed',
+  ERR_AI_DISABLE_FAILED: 'errorCodes.ERR_AI_DISABLE_FAILED',
+  ERR_CASCADE_INVALID_CONFIG: 'cascade.invalidConfig',
+  ERR_CASCADE_TOPOLOGY_FAILED: 'cascade.topologyFailed',
+  ERR_CASCADE_NEIGHBORS_FAILED: 'cascade.neighborsFailed',
+  ERR_CASCADE_CONFIG_UPDATE_FAILED: 'cascade.configUpdateFailed',
+  ERR_CASCADE_NEIGHBOR_NOT_FOUND: 'cascade.neighborNotFound',
+  ERR_CASCADE_REMOVE_FAILED: 'cascade.removeFailed',
+  ERR_CASCADE_NOT_ENABLED: 'cascade.notEnabled',
+  // --- AUTH (新增) ---
+  ERR_AUTH_TOKEN_EXPIRED: 'http.sessionExpired',
+  ERR_AUTH_PERMISSION_DENIED: 'http.forbidden',
+  ERR_AUTH_ACCOUNT_DISABLED: 'login.userDisabled',
+  ERR_AUTH_PASSWORD_EXPIRED: 'errorCodes.ERR_AUTH_PASSWORD_EXPIRED',
+  // --- DEVICE (新增) ---
+  ERR_DEVICE_ALREADY_EXISTS: 'device.deviceExists',
+  ERR_DEVICE_OFFLINE: 'errorCodes.ERR_DEVICE_OFFLINE',
+  ERR_DEVICE_CONFIG_INVALID: 'errorCodes.ERR_DEVICE_CONFIG_INVALID',
+  ERR_DEVICE_DRIVER_UNAVAILABLE: 'errorCodes.ERR_DEVICE_DRIVER_UNAVAILABLE',
+  // --- RULE (新增) ---
+  ERR_RULE_CONDITION_INVALID: 'errorCodes.ERR_RULE_CONDITION_INVALID',
+  // --- ALARM (新增) ---
+  ERR_ALARM_ALREADY_ACKNOWLEDGED: 'errorCodes.ERR_ALARM_ALREADY_ACKNOWLEDGED',
+  ERR_ALARM_ALREADY_RECOVERED: 'errorCodes.ERR_ALARM_ALREADY_RECOVERED',
+  // --- DATA (新增) ---
+  ERR_DATA_NO_DATA: 'errorCodes.ERR_DATA_NO_DATA',
+  // --- STORAGE (新增) ---
+  ERR_STORAGE_INFLUXDB_UNAVAILABLE: 'errorCodes.ERR_STORAGE_INFLUXDB_UNAVAILABLE',
+  ERR_STORAGE_SQLITE_ERROR: 'errorCodes.ERR_STORAGE_SQLITE_ERROR',
+  ERR_STORAGE_CACHE_OVERFLOW: 'errorCodes.ERR_STORAGE_CACHE_OVERFLOW',
+  ERR_STORAGE_SYNC_FAILED: 'errorCodes.ERR_STORAGE_SYNC_FAILED',
+  // --- NETWORK (新增) ---
+  ERR_NETWORK_TIMEOUT: 'errorCodes.ERR_NETWORK_TIMEOUT',
+  ERR_NETWORK_CONNECTION_REFUSED: 'errorCodes.ERR_NETWORK_CONNECTION_REFUSED',
+  ERR_NETWORK_DNS_FAILED: 'errorCodes.ERR_NETWORK_DNS_FAILED',
+  // --- PROTOCOL (新增) ---
+  ERR_PROTOCOL_MODBUS_CRC: 'errorCodes.ERR_PROTOCOL_MODBUS_CRC',
+  ERR_PROTOCOL_S7_PDU: 'errorCodes.ERR_PROTOCOL_S7_PDU',
+  ERR_PROTOCOL_OPCUA_SESSION: 'errorCodes.ERR_PROTOCOL_OPCUA_SESSION',
+  ERR_PROTOCOL_MQTT_AUTH: 'errorCodes.ERR_PROTOCOL_MQTT_AUTH',
 }
 
 export function getErrorMessage(detail: string): string {
   if (!detail) return t('http.requestFailed')
-  const i18nKey = ERROR_CODE_MAP[detail]
-  if (i18nKey) return t(i18nKey)
+  // 支持带参数的错误码格式: ERR_CODE:param
+  const colonIdx = detail.indexOf(':')
+  const code = colonIdx > 0 ? detail.substring(0, colonIdx) : detail
+  const param = colonIdx > 0 ? detail.substring(colonIdx + 1) : ''
+  const i18nKey = ERROR_CODE_MAP[code]
+  if (i18nKey) {
+    return param ? t(i18nKey, { field: param }) : t(i18nKey)
+  }
   if (detail.startsWith('ERR_')) {
-    const directKey = `errorCodes.${detail}`  // FIXED: 原问题-ERR_*码无i18n映射时回退到errorCodes section
+    const directKey = `errorCodes.${code}`
     const directMsg = t(directKey)
     if (directMsg !== directKey) return directMsg
     return t('http.requestFailed')
   }
   return detail
+}
+
+export function extractError(e: any, fallback?: string): string {
+  const detail = e?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (typeof detail === 'object' && detail !== null) {
+    const msg = getErrorMessage(detail.message || '')
+    const hintStr = detail.hint ? `\n${detail.hint}` : ''
+    return `${msg}${hintStr}`
+  }
+  const errMsg = e?.message || ''
+  if (errMsg.startsWith('ERR_')) return getErrorMessage(errMsg)
+  return errMsg || fallback || t('http.requestFailed')
 }

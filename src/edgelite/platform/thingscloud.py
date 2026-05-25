@@ -48,7 +48,9 @@ class ThingsCloudHandler(PlatformHandler):
         self._running = True
         self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-maxsize=1000魔法数字
 
-        broker = config.get("broker", config.get("host", "localhost"))
+        broker = config.get("broker", config.get("host", ""))
+        if not broker:
+            raise ValueError("broker is required")
         port = int(config.get("port", 1883))
         username = config.get("username", config.get("access_key", ""))
         password = config.get("password", config.get("access_secret", ""))

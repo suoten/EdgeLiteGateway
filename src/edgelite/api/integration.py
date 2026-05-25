@@ -146,3 +146,55 @@ async def get_rpc_history(
     except Exception as e:
         logger.error("get_rpc_history failed: %s", e)
         raise HTTPException(status_code=500, detail=IntegrationErrors.RPC_HISTORY_FAILED) from e
+
+
+@router.get("/health")
+async def integration_health_check():
+    """集成通道健康检查（无需认证，供外部监控和 ProtoForge 调用）。
+
+    返回集成通道各组件的状态：
+    - endpoint: 集成端点是否已初始化
+    - sessions: 活跃会话数
+    - backhaul: 回传管理器是否可用
+    - buffer_size: 缓冲区积压消息数
+    - rpc_available: RPC 通道是否可用
+    """
+    # FIX: 直接从 app state 获取 endpoint，不通过依赖注入（避免缺少 request 参数）
+    try:
+        from edgelite.app import _app_state
+        endpoint = getattr(_app_state, "integration_endpoint", None)
+    except Exception:
+        endpoint = None
+
+    sessions = {}
+    session_count = 0
+    connection_count = 0
+    if endpoint:
+        try:
+            sessions = getattr(endpoint, "_sessions", {})
+            session_count = len(sessions)
+            connection_count = len(getattr(endpoint, "_connections", {}))
+        except Exception:
+            pass
+
+    backhaul = getattr(endpoint, "_backhaul", None) if endpoint else None
+    buffer_size = 0
+    rpc_available = False
+    if backhaul:
+        try:
+            buffer_size = len(getattr(backhaul, "_buffer", []))
+            rpc_available = True
+        except Exception:
+            pass
+
+    healthy = endpoint is not None and (backhaul is not None)
+
+    return {
+        "status": "healthy" if healthy else "degraded",
+        "endpoint_initialized": endpoint is not None,
+        "active_sessions": session_count,
+        "active_connections": connection_count,
+        "backhaul_available": backhaul is not None,
+        "buffer_backlog": buffer_size,
+        "rpc_available": rpc_available,
+    }

@@ -56,6 +56,7 @@ import { ref, onMounted } from 'vue'
 import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, NSpin, useMessage } from 'naive-ui'
 import { expressionApi } from '@/api'
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const expression = ref('')
@@ -186,7 +187,7 @@ async function loadFunctions() {
       ...o,
       description: opDescI18n[o.description] ? t(opDescI18n[o.description]) : o.description,
     }))
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('expressionConfig.loadFunctionsFailed')) }
+  } catch (e: any) { message.error(extractError(e, t('expressionConfig.loadFunctionsFailed'))) }
   finally { pageLoading.value = false }
 }
 

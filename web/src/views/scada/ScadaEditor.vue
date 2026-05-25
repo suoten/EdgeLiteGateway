@@ -9,15 +9,31 @@
       <div class="header-actions">
         <n-button size="small" quaternary style="color: #fff" @click="showHelp = true">{{ t('scada.instructions') }}</n-button>
         <n-button-group size="small">
-          <n-button quaternary style="color: #fff" @click="undo" :disabled="historyIndex <= 0">↩ {{ t('scada.undo') }}</n-button>
-            <n-button quaternary style="color: #fff" @click="redo" :disabled="historyIndex >= historyStack.length - 1">↪ {{ t('scada.redo') }}</n-button>
+          <n-button quaternary style="color: #fff" @click="undo" :disabled="historyIndex <= 0">
+            <template #icon><n-icon :component="ArrowUndoOutline" /></template>
+            {{ t('scada.undo') }}
+          </n-button>
+            <n-button quaternary style="color: #fff" @click="redo" :disabled="historyIndex >= historyStack.length - 1">
+            <template #icon><n-icon :component="ArrowRedoOutline" /></template>
+            {{ t('scada.redo') }}
+          </n-button>
         </n-button-group>
         <n-button size="small" :type="previewMode ? 'warning' : 'default'" style="color: #fff" @click="previewMode = !previewMode">
-          {{ previewMode ? t('scada.exitPreview') : '▶ ' + t('scada.preview') }}
+          <template #icon><n-icon :component="previewMode ? PlayOutline : PlayCircleSharp" /></template>
+          {{ previewMode ? t('scada.exitPreview') : t('scada.preview') }}
         </n-button>
-        <n-button size="small" type="primary" @click="saveProject">💾 {{ t('scada.save') }}</n-button>
-        <n-button size="small" style="color: #fff" @click="loadProject">📂 {{ t('scada.load') }}</n-button>
-        <n-button size="small" quaternary style="color: #fff" @click="exportAsImage">🖼 {{ t('scada.exportImage') }}</n-button>
+        <n-button size="small" type="primary" @click="saveProject">
+          <template #icon><n-icon :component="SaveOutline" /></template>
+          {{ t('scada.save') }}
+        </n-button>
+        <n-button size="small" style="color: #fff" @click="loadProject">
+          <template #icon><n-icon :component="Folder" /></template>
+          {{ t('scada.load') }}
+        </n-button>
+        <n-button size="small" quaternary style="color: #fff" @click="exportAsImage">
+          <template #icon><n-icon :component="Image" /></template>
+          {{ t('scada.exportImage') }}
+        </n-button>
       </div>
     </div>
 
@@ -64,10 +80,10 @@
           :style="{ transform: `scale(${zoom})`, transformOrigin: 'top left' }"
           @click="onCanvasClick"
         >
-          <div v-if="widgets.length === 0" class="empty-hint">
-            <div class="empty-icon">📊</div>
-            <div class="empty-text">{{ t('scada.selectHint') }}</div>
-          </div>
+            <div v-if="widgets.length === 0" class="empty-hint">
+              <n-icon :component="StatsChartOutline" :size="48" class="empty-icon-svg" />
+              <div class="empty-text">{{ t('scada.selectHint') }}</div>
+            </div>
           <div
             v-for="widget in widgets" :key="widget.id"
             :class="['scada-widget', `widget-${widget.type}`, { selected: selectedWidgetId === widget.id && !previewMode }]"
@@ -112,8 +128,12 @@
               {{ widget.label }}
             </div>
             <div v-if="!previewMode" class="widget-actions">
-              <span class="wa-btn" @click.stop="editWidget(widget)">⚙</span>
-              <span class="wa-btn wa-del" @click.stop="removeWidget(widget.id)">✕</span>
+              <n-button text class="wa-btn" @click.stop="editWidget(widget)">
+                <n-icon :component="AddOutline" :size="14" />
+              </n-button>
+              <n-button text class="wa-btn wa-del" @click.stop="removeWidget(widget.id)">
+                <n-icon :component="CloseOutline" :size="14" />
+              </n-button>
             </div>
             <div v-if="!previewMode && selectedWidgetId === widget.id" class="resize-handle" @mousedown.stop="startResize($event, widget)"></div>
           </div>
@@ -174,8 +194,14 @@ import { ref, computed, onMounted, onUnmounted, watch, onBeforeUnmount } from 'v
 import { onBeforeRouteLeave } from 'vue-router'
 import {
   NButton, NButtonGroup, NSpace, NInput, NSelect, NTag, NSwitch, NModal,
-  NInputNumber, NAlert, NSpin, useMessage, useDialog,
+  NInputNumber, NAlert, NSpin, NIcon, useMessage, useDialog,
 } from 'naive-ui'
+import {
+  OptionsSharp, BulbOutline, StatsChartOutline, PowerOutline,
+  CubeSharp, Text, SaveOutline, Folder,
+  Image, ArrowUndoOutline, ArrowRedoOutline, PlayCircleSharp, RefreshOutline, PlayOutline,
+  TimerOutline, AddOutline, CloseOutline
+} from '@vicons/ionicons5'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
@@ -329,13 +355,13 @@ function onKeyDown(e: KeyboardEvent) {
   else if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveProject() }
 }
 
-const componentTypes = [  // FIXED: 原问题-中文硬编码
-  { type: 'gauge', label: t('scada.gauge'), icon: '📊', color: '#18a058' },
-  { type: 'indicator', label: t('scada.indicator'), icon: '💡', color: '#f0c040' },
-  { type: 'chart', label: t('scada.chart'), icon: '📈', color: '#667eea' },
-  { type: 'switch', label: t('scada.switchCtrl'), icon: '🔌', color: '#e8804c' },
-  { type: 'tank', label: t('scada.tank'), icon: '🛢️', color: '#4fc3f7' },
-  { type: 'label', label: t('scada.textLabel'), icon: '🏷️', color: '#90a4ae' },
+const componentTypes = [
+  { type: 'gauge', label: t('scada.gauge'), icon: h(NIcon, { component: OptionsSharp, size: 18 }), color: '#18a058' },
+  { type: 'indicator', label: t('scada.indicator'), icon: h(NIcon, { component: BulbOutline, size: 18 }), color: '#f0c040' },
+  { type: 'chart', label: t('scada.chart'), icon: h(NIcon, { component: StatsChartOutline, size: 18 }), color: '#667eea' },
+  { type: 'switch', label: t('scada.switchCtrl'), icon: h(NIcon, { component: PowerOutline, size: 18 }), color: '#e8804c' },
+  { type: 'tank', label: t('scada.tank'), icon: h(NIcon, { component: CubeSharp, size: 18 }), color: '#4fc3f7' },
+  { type: 'label', label: t('scada.textLabel'), icon: h(NIcon, { component: Text, size: 18 }), color: '#90a4ae' },
 ]
 
 const filteredDevices = computed(() => {
@@ -808,7 +834,7 @@ if (typeof window !== 'undefined') {
 .scada-canvas.preview-mode { background-color: #080c14; }
 
 .empty-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #8faabe; }
-.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-icon-svg { font-size: 48px; margin-bottom: 12px; color: #4fc3f7; }
 .empty-text { font-size: 14px; }
 
 .scada-widget {
@@ -833,7 +859,7 @@ if (typeof window !== 'undefined') {
   display: flex;
   gap: 2px;
 }
-.wa-btn { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; font-size: 11px; color: #8faabe; transition: all 0.15s; }
+.wa-btn { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; font-size: 11px; color: #8faabe; transition: all 0.15s; padding: 2px; }
 .wa-btn:hover { color: #e0f0ff; background: rgba(79, 195, 247, 0.15); }
 .wa-del:hover { color: #d03050; background: rgba(208, 48, 80, 0.15); }
 

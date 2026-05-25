@@ -89,6 +89,16 @@
           </n-breadcrumb-item>
         </n-breadcrumb>
         <n-space align="center" :size="16">
+          <n-tooltip v-if="!isOnline">
+            <template #trigger>
+              <n-badge value="!" type="warning" :offset="[-4, 4]">
+                <n-button quaternary circle @click="checkOnline">
+                  <template #icon><n-icon :component="CloudOfflineSharp" /></template>
+                </n-button>
+              </n-badge>
+            </template>
+            {{ t('network.offline') }}
+          </n-tooltip>
           <n-button quaternary circle @click="toggleLocale">
             <template #icon><n-icon :component="LanguageOutline" /></template>
           </n-button>
@@ -100,6 +110,7 @@
               <template #icon><n-icon :component="NotificationsOutline" /></template>
             </n-button>
           </n-badge>
+          <NotificationCenter />
           <n-dropdown :options="userOptions" @select="handleUserSelect">
             <n-button quaternary>
               <template #icon><n-icon :component="UserAvatar" /></template>
@@ -113,7 +124,7 @@
         <router-view />
       </n-layout-content>
     </n-layout>
-    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" :title="'🔒 ' + t('login.changePassword')" preset="card" style="width: 440px">  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
+    <n-modal v-model:show="showChangePwd" :mask-closable="true" :close-on-esc="true" :title="t('login.changePassword')" preset="card" style="width: 440px">
       <n-alert v-if="auth.mustChangePassword" type="info" style="margin-bottom: 16px">
         {{ t('login.changePasswordSecurityHint') }}  <!-- FIXED: 原问题-中文硬编码，改用i18n -->
       </n-alert>
@@ -137,16 +148,20 @@ import { ref, computed, h, inject, onMounted, onUnmounted, watch, type Ref } fro
 import { useRouter, useRoute } from 'vue-router'
 import { NIcon, useDialog, useMessage } from 'naive-ui'
 import {
-  SpeedometerOutline, HardwareChip, SettingsOutline, AlertCircleOutline,
+  Speedometer, HardwareChipOutline, SettingsOutline, AlertCircleOutline,
   DesktopOutline, PeopleOutline, ChevronForwardOutline, NotificationsOutline, PersonOutline as UserAvatar,
-  LogOutOutline, StatsChartOutline, ServerOutline, CubeOutline, BuildOutline, DocumentTextOutline,
-  PulseOutline, CloudOutline, CalculatorOutline, MoonOutline, SunnyOutline,
+  LogOutOutline, StatsChartOutline, ServerOutline, CubeSharp, BuildOutline, FileTrayOutline,
+  PulseSharp, CloudOutline, CloudOfflineSharp, CalculatorSharp, MoonOutline, SunnyOutline,
   RocketOutline, BarChartOutline, RadioOutline, PowerOutline, SwapHorizontalOutline,
-  ExtensionPuzzleOutline, LanguageOutline,
+  ExtensionPuzzleOutline, LanguageOutline, ShieldOutline, DatabaseOutline, WifiSharp,
+  NavigateOutline, SparklesOutline, EyeOffOutline, TerminalOutline, LinkOutline,
+  NotificationsOffOutline, BugOutline, OptionsOutline, GridOutline, LayersOutline, LockClosedOutline, KeyOutline, ConstructOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
+import NotificationCenter from '@/components/NotificationCenter.vue'
 import { alarmApi, authApi } from '@/api'
 import { t, setLocale, getLocale } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import * as ws from '@/api/websocket'
 
 const router = useRouter()
@@ -156,7 +171,23 @@ const dialog = useDialog()
 const message = useMessage()
 const collapsed = ref(false)
 const alarmCount = ref(0)
+const isOnline = ref(navigator.onLine)
 let alarmTimer: number | null = null
+
+function checkOnline() {
+  isOnline.value = navigator.onLine
+  if (isOnline.value) {
+    message.success(t('network.reconnected'))
+  } else {
+    message.warning(t('network.offline'))
+  }
+}
+
+// Listen for online/offline events
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { isOnline.value = true; message.success(t('network.reconnected')) })
+  window.addEventListener('offline', () => { isOnline.value = false; message.warning(t('network.offline')) })
+}
 
 const showChangePwd = ref(false)
 const changingPwd = ref(false)
@@ -209,7 +240,7 @@ async function handleChangePassword() {
       router.push('/login')
     }
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('login.passwordChangeFailed'))  // FIXED: 原问题-中文硬编码，改用i18n
+    message.error(extractError(e, t('login.passwordChangeFailed')))
   } finally {
     changingPwd.value = false
   }
@@ -259,6 +290,7 @@ const breadcrumbItems = computed(() => {  // FIXED: 原问题-中文硬编码，
     OtaUpdate: 'nav.otaUpdate', GrafanaDashboard: 'nav.grafanaDashboard', McpServer: 'nav.mcpServer',
     MqttServer: 'nav.mqttServer', ModbusSlave: 'nav.modbusSlave', SerialBridge: 'nav.serialBridge',
     ServiceOverview: 'nav.serviceOverview', AiModel: 'nav.aiModel', Integration: 'nav.platformIntegration',
+    NotifyConfig: 'nav.notifyChannels',
   }
   return route.matched
     .filter(r => r.name)
@@ -274,9 +306,9 @@ const roleType = computed(() => ({ admin: 'error', operator: 'warning', viewer: 
 const renderIcon = (icon: any) => () => h(NIcon, { component: icon, size: 18 })
 
 const allMenuOptions = [
-  { label: t('nav.dashboard'), key: 'Dashboard', icon: renderIcon(SpeedometerOutline) },
-  { label: t('nav.devices'), key: 'Devices', icon: renderIcon(HardwareChip) },
-  { label: t('nav.rules'), key: 'Rules', icon: renderIcon(SettingsOutline) },
+  { label: t('nav.dashboard'), key: 'Dashboard', icon: renderIcon(Speedometer) },
+  { label: t('nav.devices'), key: 'Devices', icon: renderIcon(HardwareChipOutline) },
+  { label: t('nav.rules'), key: 'Rules', icon: renderIcon(ConstructOutline) },
   { label: t('nav.alarms'), key: 'Alarms', icon: renderIcon(AlertCircleOutline) },
   { label: t('nav.dataQuery'), key: 'DataQuery', icon: renderIcon(StatsChartOutline) },
   {
@@ -285,39 +317,40 @@ const allMenuOptions = [
       t('nav.aiGroup'),
     ]),
     key: 'ai-group',
-    icon: renderIcon(PulseOutline),
+    icon: renderIcon(SparklesOutline),
     children: [
-      { label: t('nav.aiModel'), key: 'AiModel', icon: renderIcon(PulseOutline) },
+      { label: t('nav.aiModel'), key: 'AiModel', icon: renderIcon(HardwareChipOutline) },
       { label: t('nav.mcpServer'), key: 'McpServer', icon: renderIcon(ExtensionPuzzleOutline) },
     ],
   },
   {
-    label: t('nav.visualGroup'), key: 'visual-group', icon: renderIcon(CubeOutline),
+    label: t('nav.visualGroup'), key: 'visual-group', icon: renderIcon(LayersOutline),
     children: [
-      { label: t('nav.digitalTwinMenu'), key: 'DigitalTwin', icon: renderIcon(CubeOutline) },
-      { label: t('nav.scadaEditorMenu'), key: 'ScadaEditor', icon: renderIcon(BuildOutline) },
+      { label: t('nav.digitalTwinMenu'), key: 'DigitalTwin', icon: renderIcon(CubeSharp) },
+      { label: t('nav.scadaEditorMenu'), key: 'ScadaEditor', icon: renderIcon(GridOutline) },
     ],
   },
   {
-    label: t('nav.serviceGroup'), key: 'service-group', icon: renderIcon(RadioOutline), adminOnly: true,
+    label: t('nav.serviceGroup'), key: 'service-group', icon: renderIcon(ServerOutline), adminOnly: true,
     children: [
-      { label: t('nav.serviceOverview'), key: 'ServiceOverview', icon: renderIcon(RadioOutline) },
-      { label: t('nav.mqttServer'), key: 'MqttServer', icon: renderIcon(RadioOutline) },
-      { label: t('nav.modbusSlave'), key: 'ModbusSlave', icon: renderIcon(PowerOutline) },
-      { label: t('nav.serialBridge'), key: 'SerialBridge', icon: renderIcon(SwapHorizontalOutline) },
+      { label: t('nav.serviceOverview'), key: 'ServiceOverview', icon: renderIcon(TerminalOutline) },
+      { label: t('nav.mqttServer'), key: 'MqttServer', icon: renderIcon(WifiSharp) },
+      { label: t('nav.modbusSlave'), key: 'ModbusSlave', icon: renderIcon(HardwareChipOutline) },
+      { label: t('nav.serialBridge'), key: 'SerialBridge', icon: renderIcon(LinkOutline) },
       { label: t('nav.grafanaDashboard'), key: 'GrafanaDashboard', icon: renderIcon(BarChartOutline) },
       { label: t('nav.platformIntegration'), key: 'Integration', icon: renderIcon(CloudOutline) },
     ],
   },
   {
-    label: t('nav.systemGroup'), key: 'system-group', icon: renderIcon(ServerOutline), adminOnly: true,
+    label: t('nav.systemGroup'), key: 'system-group', icon: renderIcon(ShieldOutline), adminOnly: true,
     children: [
       { label: t('nav.system'), key: 'System', icon: renderIcon(ServerOutline) },
-      { label: t('nav.driverConfig'), key: 'DriverConfig', icon: renderIcon(PulseOutline) },
+      { label: t('nav.driverConfig'), key: 'DriverConfig', icon: renderIcon(GridOutline) },
       { label: t('nav.platformConfig'), key: 'PlatformConfig', icon: renderIcon(CloudOutline) },
-      { label: t('nav.expressionConfig'), key: 'ExpressionConfig', icon: renderIcon(CalculatorOutline) },
-      { label: t('nav.preprocessConfig'), key: 'PreprocessConfig', icon: renderIcon(PulseOutline) },
-      { label: t('nav.auditLog'), key: 'AuditLog', icon: renderIcon(DocumentTextOutline) },
+      { label: t('nav.expressionConfig'), key: 'ExpressionConfig', icon: renderIcon(CalculatorSharp) },
+      { label: t('nav.preprocessConfig'), key: 'PreprocessConfig', icon: renderIcon(NavigateOutline) },
+      { label: t('nav.notifyChannels'), key: 'NotifyConfig', icon: renderIcon(NotificationsOutline) },
+      { label: t('nav.auditLog'), key: 'AuditLog', icon: renderIcon(FileTrayOutline) },
       { label: t('nav.users'), key: 'Users', icon: renderIcon(PeopleOutline) },
       { label: t('nav.otaUpdate'), key: 'OtaUpdate', icon: renderIcon(RocketOutline) },
     ],
@@ -330,7 +363,7 @@ const menuOptions = computed(() => {
 })
 
 const userOptions = [  // FIXED: 原问题-中文硬编码，改用i18n
-  { label: t('nav.changePassword'), key: 'changePassword', icon: renderIcon(DocumentTextOutline) },
+  { label: t('nav.changePassword'), key: 'changePassword', icon: renderIcon(KeyOutline) },
   { label: t('nav.logout'), key: 'logout', icon: renderIcon(LogOutOutline) },
 ]
 

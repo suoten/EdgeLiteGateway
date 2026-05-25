@@ -17,6 +17,8 @@ class ApiResponse(BaseModel, Generic[T]):
     code: int = 0
     message: str = "success"
     data: T | None = None
+    error_code: str | None = None  # 业务错误码 (如 ERR_DEVICE_NOT_FOUND)
+    trace_id: str | None = None  # 请求追踪ID
 
 
 class PagedResponse(BaseModel, Generic[T]):
@@ -36,6 +38,8 @@ class ErrorResponse(BaseModel):
     code: int
     message: str
     data: None = None
+    error_code: str | None = None  # 业务错误码 (如 ERR_DEVICE_NOT_FOUND)
+    trace_id: str | None = None  # 请求追踪ID
 
 
 class PaginationParams(BaseModel):

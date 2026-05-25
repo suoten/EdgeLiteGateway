@@ -4,11 +4,11 @@
       <n-grid :cols="24" :x-gap="16" align="center">
         <n-gi :span="8">
           <n-space align="center" :size="16">
-            <span style="font-size:48px">🧠</span>
+            <n-icon :component="SparklesOutline" :size="48" color="#8b5cf6" />
             <div>
               <div style="font-size:20px;font-weight:700;color:#fff">{{ t('ai.engineStatus') }}</div>
-              <n-tag :type="aiEnabled ? 'success' : 'warning'" size="small" :bordered="false" round>
-                {{ aiEnabled ? t('ai.statusActive') : t('ai.statusFileMissing') }}
+              <n-tag :type="engineStatusType" size="small" :bordered="false" round>
+                {{ engineStatusText }}
               </n-tag>
             </div>
           </n-space>
@@ -49,9 +49,9 @@
     <n-card :bordered="false">
       <template #header>
         <n-space align="center" :size="12">
-          <n-tag :type="aiEnabled ? 'success' : 'default'" size="small" round>
-            {{ aiEnabled ? t('ai.statusActive') : t('ai.statusInactive') }}
-          </n-tag>
+          <n-tag :type="engineStatusType" size="small" round>
+          {{ engineStatusText }}
+        </n-tag>
           <span style="font-size: 16px; font-weight: 600">{{ t('ai.manageModels') }}</span>
         </n-space>
       </template>
@@ -61,6 +61,12 @@
           <n-button size="small" @click="fetchModels" :loading="loading">{{ t('common.refresh') }}</n-button>
         </n-space>
       </template>
+
+      <n-space :size="12" style="margin-bottom: 12px">
+        <n-input v-model:value="filterName" :placeholder="t('common.search')" clearable size="small" style="width: 200px" />
+        <n-select v-model:value="filterType" :options="typeOptions" :placeholder="t('ai.modelType')" clearable size="small" style="width: 140px" />
+        <n-select v-model:value="filterStatus" :options="statusOptions" :placeholder="t('ai.status')" clearable size="small" style="width: 140px" />
+      </n-space>
 
       <n-tabs type="line" animated>
         <n-tab-pane name="preset" :tab="t('ai.presetModels')">
@@ -101,11 +107,12 @@
         <n-tab-pane name="custom" :tab="t('ai.customModels')">
           <n-data-table
             :columns="customColumns"
-            :data="customModels"
+            :data="customModelsPaginated"
             :loading="loading"
             :bordered="false"
             size="small"
             :row-key="(row: any) => row.model_id"
+            :pagination="customPagination"
           >
             <template #empty>
               <n-empty :description="t('ai.noModels')" />
@@ -136,26 +143,56 @@
       </n-space>
     </n-card>
 
-    <n-drawer v-model:show="showDetail" :width="480">
+    <n-drawer v-model:show="showDetail" :width="520">
       <n-drawer-content :title="t('ai.title')">
         <template v-if="currentModel">
-          <n-descriptions label-placement="left" :column="1" bordered>
-            <n-descriptions-item :label="t('ai.modelName')">{{ currentModel.model_name }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.modelType')">{{ modelTypeLabel(currentModel.model_type) }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.modelVersion')">{{ currentModel.model_version }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.status')">{{ statusLabel(currentModel.status) }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.isPreset')">
-              <n-tag :type="currentModel.is_preset ? 'success' : 'default'" size="small">
-                {{ currentModel.is_preset ? t('common.confirm') : t('common.cancel') }}
-              </n-tag>
-            </n-descriptions-item>
-            <n-descriptions-item :label="t('ai.modelPath')">{{ currentModel.model_file_path || '-' }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.inputSchema')">{{ currentModel.input_schema || '-' }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.outputSchema')">{{ currentModel.output_schema || '-' }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.inferenceCount')">{{ currentModel.inference_count ?? 0 }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.avgLatency')">{{ currentModel.avg_latency_ms ?? '-' }}</n-descriptions-item>
-            <n-descriptions-item :label="t('ai.lastInference')">{{ currentModel.last_inference_at || '-' }}</n-descriptions-item>
-          </n-descriptions>
+          <n-tabs v-model:value="detailTab" type="line">
+            <n-tab-pane name="info" :tab="t('ai.detail')">
+              <n-descriptions label-placement="left" :column="1" bordered>
+                <n-descriptions-item :label="t('ai.modelName')">{{ currentModel.model_name }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.modelType')">{{ modelTypeLabel(currentModel.model_type) }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.modelVersion')">{{ currentModel.model_version }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.status')">{{ statusLabel(currentModel.status) }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.isPreset')">
+                  <n-tag :type="currentModel.is_preset ? 'success' : 'default'" size="small">
+                    {{ currentModel.is_preset ? t('common.confirm') : t('common.cancel') }}
+                  </n-tag>
+                </n-descriptions-item>
+                <n-descriptions-item :label="t('ai.modelPath')">{{ currentModel.model_file_path || '-' }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.inputSchema')">{{ currentModel.input_schema || '-' }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.outputSchema')">{{ currentModel.output_schema || '-' }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.inferenceCount')">{{ currentModel.inference_count ?? 0 }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.avgLatency')">{{ currentModel.avg_latency_ms ?? '-' }}</n-descriptions-item>
+                <n-descriptions-item :label="t('ai.lastInference')">{{ currentModel.last_inference_at || '-' }}</n-descriptions-item>
+              </n-descriptions>
+            </n-tab-pane>
+            <n-tab-pane name="logs" :tab="t('ai.inferenceLogs')">
+              <n-spin :show="inferenceLogsLoading">
+                <n-data-table
+                  v-if="inferenceLogs.length > 0"
+                  :columns="[
+                    { title: t('ai.modelName'), key: 'model_id', width: 120, ellipsis: { tooltip: true } },
+                    { title: t('ai.latencyMs'), key: 'latency_ms', width: 80 },
+                    { title: t('ai.status'), key: 'status', width: 80 },
+                    { title: t('ai.lastInference'), key: 'created_at', width: 140, ellipsis: { tooltip: true } },
+                  ]"
+                  :data="inferenceLogs"
+                  :bordered="false"
+                  size="small"
+                  :row-key="(row: any) => row.id ?? row.log_id ?? Math.random()"
+                />
+                <n-empty v-else :description="t('ai.noLogs')" />
+                <n-space justify="center" style="margin-top: 12px" v-if="inferenceLogsTotal > 10">
+                  <n-pagination
+                    v-model:page="inferenceLogsPage"
+                    :page-count="Math.ceil(inferenceLogsTotal / 10)"
+                    size="small"
+                    @update:page="(p: number) => fetchInferenceLogs(currentModel?.model_id, p)"
+                  />
+                </n-space>
+              </n-spin>
+            </n-tab-pane>
+          </n-tabs>
         </template>
       </n-drawer-content>
     </n-drawer>
@@ -209,10 +246,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h, reactive } from 'vue'
-import { NTag, NButton, NSpace, NPopconfirm, NTooltip, useMessage, useDialog } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted, h, reactive, watch } from 'vue'
+import { NTag, NButton, NSpace, NPopconfirm, NTooltip, NIcon, useMessage, useDialog } from 'naive-ui'
+import { SparklesOutline, HardwareChipOutline, AnalyticsOutline, WarningOutline, FlaskOutline, TrendingUpOutline, FlashOutline } from '@vicons/ionicons5'
 import { aiApi } from '@/api'
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -227,6 +266,20 @@ const inferenceInput = ref('')
 const inferenceResult = ref('')
 const inferenceLatency = ref('')
 const aiEnabled = ref(false)
+const engineStatusText = computed(() => {
+  if (aiEnabled.value) return t('ai.statusActive')
+  const hasInactive = models.value.some((m: any) => m.status === 'inactive')
+  const hasUnavailable = models.value.some((m: any) => m.status === 'unavailable')
+  if (hasInactive && !hasUnavailable) return t('ai.statusOnnxruntimeMissing')
+  if (hasUnavailable && !hasInactive) return t('ai.statusFileMissing')
+  if (hasInactive && hasUnavailable) return t('ai.statusFileAndRuntimeMissing')
+  return t('ai.statusInactive')
+})
+const engineStatusType = computed(() => {
+  if (aiEnabled.value) return 'success'
+  const hasUnavailable = models.value.some((m: any) => m.status === 'unavailable')
+  return hasUnavailable ? 'error' : 'warning'
+})
 
 const stats = reactive({
   totalCalls: 0,
@@ -234,8 +287,66 @@ const stats = reactive({
   avgLatencyMs: 0,
 })
 
-const presetModels = computed(() => models.value.filter((m: any) => m.is_preset))
-const customModels = computed(() => models.value.filter((m: any) => !m.is_preset))
+// 搜索/过滤
+const filterName = ref('')
+const filterType = ref<string | null>(null)
+const filterStatus = ref<string | null>(null)
+
+// 过滤器变化时重置分页
+watch([filterName, filterType, filterStatus], () => {
+  customPagination.page = 1
+})
+
+// 自定义模型分页
+const customPagination = reactive({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (p: number) => { customPagination.page = p },
+  onUpdatePageSize: (s: number) => { customPagination.pageSize = s; customPagination.page = 1 },
+})
+const typeOptions = computed(() => {
+  const types = [...new Set(models.value.map((m: any) => m.model_type))]
+  return types.map(t => ({ label: modelTypeLabel(t), value: t }))
+})
+const statusOptions = computed(() => [
+  { label: t('ai.statusActive'), value: 'active' },
+  { label: t('ai.statusInactive'), value: 'inactive' },
+  { label: t('ai.statusError'), value: 'error' },
+  { label: t('ai.statusFileMissing'), value: 'unavailable' },
+])
+
+// 推理日志
+const inferenceLogs = ref<any[]>([])
+const inferenceLogsLoading = ref(false)
+const inferenceLogsPage = ref(1)
+const inferenceLogsTotal = ref(0)
+const detailTab = ref('info')
+
+// 定时刷新
+let statsTimer: ReturnType<typeof setInterval> | null = null
+
+const presetModels = computed(() => {
+  let list = models.value.filter((m: any) => m.is_preset)
+  if (filterName.value) list = list.filter((m: any) => m.model_name.toLowerCase().includes(filterName.value.toLowerCase()))
+  if (filterType.value) list = list.filter((m: any) => m.model_type === filterType.value)
+  if (filterStatus.value) list = list.filter((m: any) => m.status === filterStatus.value)
+  return list
+})
+const customModels = computed(() => {
+  let list = models.value.filter((m: any) => !m.is_preset)
+  if (filterName.value) list = list.filter((m: any) => m.model_name.toLowerCase().includes(filterName.value.toLowerCase()))
+  if (filterType.value) list = list.filter((m: any) => m.model_type === filterType.value)
+  if (filterStatus.value) list = list.filter((m: any) => m.status === filterStatus.value)
+  customPagination.itemCount = list.length
+  return list
+})
+const customModelsPaginated = computed(() => {
+  const start = (customPagination.page - 1) * customPagination.pageSize
+  const end = start + customPagination.pageSize
+  return customModels.value.slice(start, end)
+})
 const activeModelCount = computed(() => models.value.filter((m: any) => m.status === 'active').length)
 
 const activeModelsWithStats = computed(() => {
@@ -265,8 +376,13 @@ const anomalyScorePercent = computed(() => {
 })
 
 function modelIcon(type: string) {
-  const map: Record<string, string> = { anomaly: '🔴', trend: '📈', threshold: '⚡', custom: '🧪' }
-  return map[type] || '🧪'
+  const map: Record<string, any> = {
+    anomaly: h(NIcon, { component: WarningOutline, size: 14, color: '#f56c6c' }),
+    trend: h(NIcon, { component: TrendingUpOutline, size: 14, color: '#67c23a' }),
+    threshold: h(NIcon, { component: FlashOutline, size: 14, color: '#e6a23c' }),
+    custom: h(NIcon, { component: FlaskOutline, size: 14, color: '#8b5cf6' }),
+  }
+  return map[type] || h(NIcon, { component: HardwareChipOutline, size: 14 })
 }
 
 function presetDesc(modelId: string) {
@@ -346,7 +462,11 @@ const columns = [
       default: () => [
         row.status === 'active'
           ? h(NButton, { text: true, type: 'warning', size: 'small', onClick: () => handleDisable(row) }, { default: () => t('ai.disable') })
-          : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }),
+          : row.status === 'unavailable'
+            ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }), default: () => t('ai.cannotEnableUnavailable') })
+            : row.status === 'inactive'
+              ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }), default: () => t('ai.installOnnxruntimeTip') })
+              : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }),
         h(NPopconfirm, { onPositiveClick: () => handleReload(row) }, {
           trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
           default: () => t('ai.reloadConfirm'),
@@ -408,8 +528,9 @@ async function fetchModels() {
     const data = await aiApi.listModels()
     models.value = data?.data ?? []
     aiEnabled.value = models.value.some((m: any) => m.status === 'active')
+    customPagination.page = 1
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   } finally {
     loading.value = false
   }
@@ -430,7 +551,24 @@ async function fetchStats() {
 
 function openDetail(row: any) {
   currentModel.value = row
+  detailTab.value = 'info'
   showDetail.value = true
+  fetchInferenceLogs(row.model_id)
+}
+
+async function fetchInferenceLogs(modelId?: string, page = 1) {
+  inferenceLogsLoading.value = true
+  try {
+    const data = await aiApi.getInferenceLogs(modelId, page, 10)
+    inferenceLogs.value = data?.data ?? []
+    inferenceLogsTotal.value = data?.total ?? 0
+    inferenceLogsPage.value = page
+  } catch {
+    inferenceLogs.value = []
+    inferenceLogsTotal.value = 0
+  } finally {
+    inferenceLogsLoading.value = false
+  }
 }
 
 async function handleEnable(row: any) {
@@ -439,8 +577,7 @@ async function handleEnable(row: any) {
     message.success(t('ai.enableSuccess'))
     await fetchModels()
   } catch (e: any) {
-    const detail = e?.response?.data?.detail
-    message.error(typeof detail === 'string' && detail ? detail : (e?.message || t('ai.enableFailed')))
+    message.error(extractError(e, t('ai.enableFailed')))
   }
 }
 
@@ -450,7 +587,7 @@ async function handleDisable(row: any) {
     message.success(t('common.success'))
     await fetchModels()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   }
 }
 
@@ -460,7 +597,7 @@ async function handleReload(row: any) {
     message.success(t('common.success'))
     await fetchModels()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   }
 }
 
@@ -474,7 +611,7 @@ async function handleDelete(row: any) {
     message.success(t('common.success'))
     await fetchModels()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   }
 }
 
@@ -524,16 +661,25 @@ async function handleInference() {
     inferenceLatency.value = String(Date.now() - start)
     inferenceResult.value = JSON.stringify(result, null, 2)
   } catch (e: any) {
-    inferenceResult.value = e?.response?.data?.detail || e?.message || t('common.failed')
+    inferenceResult.value = extractError(e, t('common.failed'))
     message.error(t('common.failed'))
   } finally {
     inferring.value = false
+    fetchStats()
   }
 }
 
 onMounted(() => {
   fetchModels()
   fetchStats()
+  statsTimer = setInterval(fetchStats, 30000)
+})
+
+onUnmounted(() => {
+  if (statsTimer) {
+    clearInterval(statsTimer)
+    statsTimer = null
+  }
 })
 </script>
 

@@ -49,6 +49,7 @@ class BarcodeScannerDriver(DriverPlugin):
         self._data_callback = None
         self._buffer: str = ""
         self._latest_barcodes: dict[str, str] = {}
+        self._devices: dict[str, dict] = {}
 
     async def start(self, config: dict) -> None:
         try:
@@ -141,6 +142,16 @@ class BarcodeScannerDriver(DriverPlugin):
                 logger.warning("扫码枪读取异常: %s", e)
                 await asyncio.sleep(0.5)
 
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加扫码枪设备，保存配置和测点映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        logger.info("扫码枪设备已添加: %s (%d测点)", device_id, len(points))
+
     async def discover_devices(self, config: dict) -> list[dict]:
         try:
             import serial.tools.list_ports
@@ -163,3 +174,11 @@ class BarcodeScannerDriver(DriverPlugin):
                     }
                 )
         return result
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        self._latest_barcodes.clear()
+        self._buffer = ""
+        logger.info("Barcode scanner device removed: %s", device_id)

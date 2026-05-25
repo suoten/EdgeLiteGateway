@@ -14,6 +14,7 @@ from edgelite.models.ai_model import (
     AiModelReloadRequest,
     AiModelUpdate,
     AiStatsResponse,
+    ScheduleInferenceRequest,
 )
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.security.rbac import Permission
@@ -212,4 +213,71 @@ async def get_model_stats(model_id: str, user: CurrentUser = require_permission(
         raise
     except Exception as e:
         logger.error("get_model_stats failed: %s", e)
+        raise HTTPException(status_code=500, detail=AiErrors.INTERNAL_ERROR) from e
+
+
+@router.post("/models/{model_id}/schedule", response_model=ApiResponse, summary="启动定时推理")
+async def schedule_inference(
+    model_id: str,
+    body: ScheduleInferenceRequest,
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
+    try:
+        service = _get_ai_service()
+        engine = service._engine
+        try:
+            await engine.start_scheduled_inference(
+                model_id=model_id,
+                device_id=body.device_id,
+                point_name=body.point_name,
+                interval_seconds=body.interval_seconds,
+                input_window_size=body.input_window_size,
+            )
+        except ValueError as e:
+            err_msg = str(e)
+            if "already exists" in err_msg:
+                raise HTTPException(status_code=409, detail=AiErrors.SCHEDULE_ALREADY_EXISTS) from e
+            if "not available" in err_msg:
+                raise HTTPException(status_code=400, detail=AiErrors.SCHEDULE_START_FAILED) from e
+            raise HTTPException(status_code=400, detail=AiErrors.SCHEDULE_START_FAILED) from e
+        return ApiResponse(code=0, message="success", data=None)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("schedule_inference failed: %s", e)
+        raise HTTPException(status_code=500, detail=AiErrors.INTERNAL_ERROR) from e
+
+
+@router.delete("/models/{model_id}/schedule", response_model=ApiResponse, summary="停止定时推理")
+async def cancel_scheduled_inference(
+    model_id: str,
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
+    try:
+        service = _get_ai_service()
+        engine = service._engine
+        stopped = await engine.stop_scheduled_inference(model_id)
+        if not stopped:
+            raise HTTPException(status_code=404, detail=AiErrors.SCHEDULE_NOT_FOUND)
+        return ApiResponse(code=0, message="success", data=None)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("cancel_scheduled_inference failed: %s", e)
+        raise HTTPException(status_code=500, detail=AiErrors.INTERNAL_ERROR) from e
+
+
+@router.get("/schedules", response_model=ApiResponse, summary="获取所有定时推理配置")
+async def list_scheduled_inferences(
+    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+):
+    try:
+        service = _get_ai_service()
+        engine = service._engine
+        schedules = engine.get_scheduled_inferences()
+        return ApiResponse(code=0, message="success", data=schedules)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("list_scheduled_inferences failed: %s", e)
         raise HTTPException(status_code=500, detail=AiErrors.INTERNAL_ERROR) from e

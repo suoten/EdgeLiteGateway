@@ -32,6 +32,7 @@ import { auditApi } from '@/api'
 import { auditStatusLabel, auditActionLabel } from '@/utils/enumLabels'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -40,7 +41,14 @@ const loading = ref(false)
 const pageLoading = ref(true)
 const filterAction = ref(null)
 const timeRange = ref<[number, number] | null>(null)
-const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0, onChange: (page: number) => { pagination.page = page; loadLogs() } })
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page: number) => { pagination.page = page; loadLogs() },
+  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1; loadLogs() },
+})
 const showCleanupModal = ref(false)
 const retentionDays = ref(90)
 
@@ -85,7 +93,7 @@ async function loadLogs() {
     logs.value = data?.logs ?? []
     pagination.itemCount = data?.total ?? 0
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('auditLog.loadFailed'))
+    message.error(extractError(e, t('auditLog.loadFailed')))
   } finally { loading.value = false; pageLoading.value = false }
 }
 
@@ -105,7 +113,7 @@ async function exportCSV() {
       a.href = url; a.download = 'audit_logs.csv'; a.click()
       URL.revokeObjectURL(url)
     }
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('auditLog.exportFailed')) }
+  } catch (e: any) { message.error(extractError(e, t('auditLog.exportFailed'))) }
 }
 
 async function verifyIntegrity() {
@@ -120,7 +128,7 @@ async function verifyIntegrity() {
         positiveText: t('common.confirm'),
       })
     }
-  } catch (e: any) { message.error(e?.response?.data?.detail || e?.message || t('auditLog.integrityFailed')) }
+  } catch (e: any) { message.error(extractError(e, t('auditLog.integrityFailed'))) }
 }
 
 async function doCleanup() {
@@ -129,7 +137,7 @@ async function doCleanup() {
     message.success(t('auditLog.cleanupResult', { count: data?.deleted ?? 0 }))
     await loadLogs()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('auditLog.cleanupFailed'))
+    message.error(extractError(e, t('auditLog.cleanupFailed')))
     return false
   }
 }

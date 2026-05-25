@@ -47,8 +47,10 @@ class KukaDriver(DriverPlugin):
         self._writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
         self._connect_task: asyncio.Task | None = None
+        self._recv_task: asyncio.Task | None = None
         self._connected = False
         self._backoff_delay = BACKOFF_BASE
+        self._devices: dict[str, dict] = {}
 
     async def start(self, config: dict) -> None:
         self._config = config
@@ -65,6 +67,11 @@ class KukaDriver(DriverPlugin):
 
     async def stop(self) -> None:
         self._running = False
+        if self._recv_task and not self._recv_task.done():
+            self._recv_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._recv_task
+        self._recv_task = None
         if self._connect_task and not self._connect_task.done():
             self._connect_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -97,7 +104,7 @@ class KukaDriver(DriverPlugin):
                 if await self._connect_once():
                     # FIXED: P0-7 连接成功后启动数据接收任务（之前遗漏）
                     if self._running and self._connected:
-                        asyncio.create_task(self._recv_loop(), name="kuka-recv")
+                        self._recv_task = asyncio.create_task(self._recv_loop(), name="kuka-recv")
                     continue
                 logger.info("KUKA %.1fs后重连...", self._backoff_delay)
                 await asyncio.sleep(self._backoff_delay)
@@ -176,6 +183,85 @@ class KukaDriver(DriverPlugin):
         except (ValueError, TypeError):
             return value_str
 
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加KUKA机器人设备，保存配置和XML变量映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        logger.info("KUKA设备已添加: %s (%d测点)", device_id, len(points))
+
+    async def discover_devices(self, config: dict) -> list[dict]:
+        """扫描IP段发现KUKA机器人设备，通过尝试TCP连接EKRL端口判断设备是否在线
+
+        config参数:
+            network: 网段地址 (如 "192.168.1.0/24") 或单个IP
+            ip: 单个IP地址 (与network二选一)
+            port: EKRL端口 (默认54600)
+            timeout: 连接超时秒数 (默认3)
+            max_concurrent: 最大并发数 (默认10)
+        """
+        import ipaddress
+
+        network = config.get("network", "")
+        ip = config.get("ip", config.get("host", ""))
+        port = int(config.get("port", DEFAULT_EKRL_PORT))
+        timeout = float(config.get("timeout", 3.0))
+        max_concurrent = int(config.get("max_concurrent", 10))
+
+        if network:
+            try:
+                net = ipaddress.ip_network(network, strict=False)
+                ips = [str(addr) for addr in net.hosts()]
+            except ValueError as e:
+                logger.error("KUKA发现: 无效的网段 %s - %s", network, e)
+                return []
+        elif ip:
+            ips = [ip]
+        else:
+            logger.warning("KUKA发现: 未指定network或ip参数")
+            return []
+
+        discovered = []
+        sem = asyncio.Semaphore(max_concurrent)
+
+        async def _probe(ip_addr: str) -> dict | None:
+            async with sem:
+                try:
+                    reader, writer = await asyncio.wait_for(
+                        asyncio.open_connection(ip_addr, port),
+                        timeout=timeout,
+                    )
+                    try:
+                        writer.close()
+                        await writer.wait_closed()
+                    except Exception:
+                        pass
+                    return {
+                        "device_id": f"kuka_{ip_addr.replace('.', '_')}",
+                        "name": f"KUKA Robot ({ip_addr})",
+                        "protocol": "kuka_ekrl",
+                        "config": {
+                            "ip": ip_addr,
+                            "port": port,
+                        },
+                        "points": [],
+                    }
+                except Exception:
+                    return None
+
+        tasks = [_probe(addr) for addr in ips]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for r in results:
+            if isinstance(r, dict):
+                discovered.append(r)
+
+        logger.info("KUKA设备发现完成: 扫描%d个IP, 发现%d台设备", len(ips), len(discovered))
+        return discovered
+
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         """读取KUKA机器人变量"""
         if not self._connected or not self._writer or not self._reader:
@@ -250,3 +336,9 @@ class KukaDriver(DriverPlugin):
                 logger.error("KUKA写入异常: %s - %s", device_id, e)
                 self._connected = False
                 return False
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        logger.info("KUKA device removed: %s", device_id)

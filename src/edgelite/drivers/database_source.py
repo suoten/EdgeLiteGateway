@@ -56,6 +56,7 @@ class DatabaseSourceDriver(DriverPlugin):
         self._pool = None
         self._config: dict = {}
         self._lock = asyncio.Lock()
+        self._devices: dict[str, dict] = {}
 
     async def start(self, config: dict) -> None:
         self._config = config
@@ -248,6 +249,272 @@ class DatabaseSourceDriver(DriverPlugin):
 
         return []
 
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        """添加数据库设备，保存配置和查询映射"""
+        if points is None:
+            points = []
+        self._devices[device_id] = {
+            "config": config,
+            "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
+        }
+        # 合并新设备的SQL查询到驱动配置中
+        queries = dict(self._config.get("queries", {}))
+        for pt in points:
+            name = pt.get("name", "")
+            sql = pt.get("address", pt.get("sql", pt.get("query", "")))
+            if name and sql:
+                queries[name] = sql
+        if queries:
+            self._config["queries"] = queries
+        logger.info("数据库设备已添加: %s (%d测点)", device_id, len(points))
+
+    async def discover_devices(self, config: dict) -> list[dict]:
+        """通过连接测试发现可用的数据库
+
+        config参数:
+            db_type: 数据库类型 mysql/postgresql/sqlite/mssql
+            host: 数据库主机 (默认localhost)
+            port: 数据库端口 (默认按类型)
+            database: 数据库名 (可选，不指定则列出所有可访问的库)
+            username: 用户名
+            password: 密码
+        对于SQLite: database参数为文件路径，测试文件是否存在及可读
+        对于MySQL/PostgreSQL/MSSQL: 测试连接是否成功，成功则返回该数据库信息
+        """
+        db_type = config.get("db_type", config.get("protocol", "mysql"))
+        host = config.get("host", "localhost")
+        port = int(config.get("port", 0))
+        database = config.get("database", "")
+        username = config.get("username", "")
+        password = config.get("password", "")
+
+        discovered = []
+
+        try:
+            if db_type in ("mysql", "mariadb"):
+                discovered = await self._discover_mysql(host, port or 3306, username, password, database)
+            elif db_type in ("postgresql", "postgres"):
+                discovered = await self._discover_postgresql(host, port or 5432, username, password, database)
+            elif db_type == "sqlite":
+                discovered = await self._discover_sqlite(database)
+            elif db_type == "mssql":
+                discovered = await self._discover_mssql(host, port or 1433, username, password, database)
+            else:
+                logger.warning("数据库发现: 不支持的类型 %s", db_type)
+        except Exception as e:
+            logger.error("数据库发现失败 (%s): %s", db_type, e)
+
+        return discovered
+
+    async def _discover_mysql(self, host: str, port: int, username: str, password: str, database: str) -> list[dict]:
+        """发现MySQL/MariaDB数据库"""
+        try:
+            import aiomysql
+        except ImportError:
+            logger.warning("aiomysql未安装，无法发现MySQL数据库")
+            return []
+
+        try:
+            async with await aiomysql.create_pool(
+                host=host, port=port, user=username, password=password,
+                db=database or "information_schema",
+                minsize=1, maxsize=1, autocommit=True,
+            ) as pool:
+                async with pool.acquire() as conn, conn.cursor() as cur:
+                    # 获取服务器版本
+                    await cur.execute("SELECT VERSION()")
+                    row = await cur.fetchone()
+                    version = row[0] if row else ""
+
+                    # 获取可访问的数据库列表
+                    if not database:
+                        await cur.execute("SHOW DATABASES")
+                        databases = [r[0] for r in await cur.fetchall()
+                                     if r[0] not in ("information_schema", "mysql", "performance_schema", "sys")]
+                    else:
+                        databases = [database]
+
+            return [
+                {
+                    "device_id": f"mysql_{host.replace('.', '_')}_{db}",
+                    "name": f"MySQL ({host}:{port}/{db})" + (f" - {version}" if version else ""),
+                    "protocol": "mysql",
+                    "config": {
+                        "db_type": "mysql",
+                        "host": host,
+                        "port": port,
+                        "database": db,
+                    },
+                    "points": [],
+                    "details": {
+                        "version": version,
+                    },
+                }
+                for db in databases
+            ]
+        except Exception as e:
+            logger.debug("MySQL发现: 连接 %s:%d 失败 - %s", host, port, e)
+            return []
+
+    async def _discover_postgresql(self, host: str, port: int, username: str, password: str, database: str) -> list[dict]:
+        """发现PostgreSQL数据库"""
+        try:
+            import asyncpg
+        except ImportError:
+            logger.warning("asyncpg未安装，无法发现PostgreSQL数据库")
+            return []
+
+        from urllib.parse import quote_plus
+
+        dsn = (
+            f"postgresql://{quote_plus(username)}:{quote_plus(password)}@"
+            f"{host}:{port}/{database or 'postgres'}"
+        )
+
+        try:
+            conn = await asyncpg.connect(dsn)
+            try:
+                version = await conn.fetchval("SELECT version()")
+
+                if not database:
+                    rows = await conn.fetch(
+                        "SELECT datname FROM pg_database WHERE datistemplate = false"
+                    )
+                    databases = [r["datname"] for r in rows]
+                else:
+                    databases = [database]
+            finally:
+                await conn.close()
+
+            return [
+                {
+                    "device_id": f"pg_{host.replace('.', '_')}_{db}",
+                    "name": f"PostgreSQL ({host}:{port}/{db})",
+                    "protocol": "postgresql",
+                    "config": {
+                        "db_type": "postgresql",
+                        "host": host,
+                        "port": port,
+                        "database": db,
+                    },
+                    "points": [],
+                    "details": {
+                        "version": version or "",
+                    },
+                }
+                for db in databases
+            ]
+        except Exception as e:
+            logger.debug("PostgreSQL发现: 连接 %s:%d 失败 - %s", host, port, e)
+            return []
+
+    async def _discover_sqlite(self, database: str) -> list[dict]:
+        """发现SQLite数据库文件"""
+        from pathlib import Path
+
+        if not database:
+            # 默认扫描data目录下的.db文件
+            data_dir = Path("data")
+            if not data_dir.exists():
+                return []
+            db_files = list(data_dir.glob("*.db"))
+        else:
+            p = Path(database)
+            if p.exists():
+                db_files = [p]
+            else:
+                return []
+
+        discovered = []
+        for db_file in db_files:
+            try:
+                import aiosqlite
+                async with aiosqlite.connect(str(db_file)) as conn:
+                    cursor = await conn.execute("SELECT sqlite_version()")
+                    row = await cursor.fetchone()
+                    version = row[0] if row else ""
+                    tables = []
+                    cursor = await conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                    tables = [r[0] for r in await cursor.fetchall()]
+
+                discovered.append({
+                    "device_id": f"sqlite_{db_file.stem}",
+                    "name": f"SQLite ({db_file.name})",
+                    "protocol": "sqlite",
+                    "config": {
+                        "db_type": "sqlite",
+                        "database": str(db_file),
+                    },
+                    "points": [],
+                    "details": {
+                        "version": version,
+                        "tables": tables,
+                    },
+                })
+            except Exception as e:
+                logger.debug("SQLite发现: %s 失败 - %s", db_file, e)
+
+        return discovered
+
+    async def _discover_mssql(self, host: str, port: int, username: str, password: str, database: str) -> list[dict]:
+        """发现SQL Server数据库"""
+        try:
+            import aioodbc
+        except ImportError:
+            logger.warning("aioodbc未安装，无法发现MSSQL数据库")
+            return []
+
+        conn_str = (
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={host},{port};"
+            f"DATABASE={database or 'master'};"
+            f"UID={username};"
+            f"PWD={password};"
+            f"TrustServerCertificate=yes"
+        )
+
+        try:
+            pool = await aioodbc.create_pool(dsn=conn_str, minsize=1, maxsize=1)
+            try:
+                async with pool.acquire() as conn:
+                    cursor = await conn.execute("SELECT @@VERSION")
+                    row = await cursor.fetchone()
+                    version = row[0] if row else ""
+
+                    if not database:
+                        cursor = await conn.execute(
+                            "SELECT name FROM sys.databases WHERE database_id > 4"
+                        )
+                        databases = [r[0] for r in await cursor.fetchall()]
+                    else:
+                        databases = [database]
+            finally:
+                pool.close()
+
+            return [
+                {
+                    "device_id": f"mssql_{host.replace('.', '_')}_{db}",
+                    "name": f"SQL Server ({host}:{port}/{db})",
+                    "protocol": "mssql",
+                    "config": {
+                        "db_type": "mssql",
+                        "host": host,
+                        "port": port,
+                        "database": db,
+                    },
+                    "points": [],
+                    "details": {
+                        "version": version or "",
+                    },
+                }
+                for db in databases
+            ]
+        except Exception as e:
+            logger.debug("MSSQL发现: 连接 %s:%d 失败 - %s", host, port, e)
+            return []
+
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         if not self._running or not self._pool:
             return False
@@ -277,3 +544,9 @@ class DatabaseSourceDriver(DriverPlugin):
         except Exception as e:
             logger.error("数据库写入失败 %s: %s", point, e)
             return False
+
+    def remove_device(self, device_id: str) -> None:
+        """Remove a device at runtime"""
+        self._health_stats.pop(device_id, None)
+        self._offline_since.pop(device_id, None)
+        logger.info("Database source device removed: %s", device_id)

@@ -12,8 +12,8 @@
     <n-page-header @back="router.push('/devices')" :title="device?.name ?? ''" :subtitle="device?.device_id ?? ''">
       <template #extra>
         <n-space>
-          <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'">{{ deviceStatusLabel.value[device?.status ?? ''] || device?.status }}</n-tag>
-          <n-tag type="info" :bordered="false">{{ protocolLabel.value[device?.protocol ?? ''] || device?.protocol }}</n-tag>
+          <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'">{{ deviceStatusLabel[device?.status ?? ''] || device?.status }}</n-tag>
+          <n-tag type="info" :bordered="false">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-tag>
         </n-space>
       </template>
     </n-page-header>
@@ -35,9 +35,9 @@
               <n-descriptions v-if="!editing" label-placement="left" :column="1" bordered>
                 <n-descriptions-item :label="t('deviceDetail.deviceId')">{{ device?.device_id }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
                 <n-descriptions-item :label="t('deviceDetail.name')">{{ device?.name }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
-                <n-descriptions-item :label="t('deviceDetail.protocol')">{{ protocolLabel.value[device?.protocol ?? ''] || device?.protocol }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
+                <n-descriptions-item :label="t('deviceDetail.protocol')">{{ protocolLabel[device?.protocol ?? ''] || device?.protocol }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
                 <n-descriptions-item :label="t('deviceDetail.status')"><!-- FIXED: 原问题-中文硬编码 -->
-                  <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'" size="small">{{ deviceStatusLabel.value[device?.status ?? ''] || device?.status }}</n-tag>
+                  <n-tag :type="deviceStatusColor[device?.status ?? ''] || 'default'" size="small">{{ deviceStatusLabel[device?.status ?? ''] || device?.status }}</n-tag>
                 </n-descriptions-item>
                 <n-descriptions-item :label="t('deviceDetail.collectInterval')">{{ device?.collect_interval }}s</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
                 <n-descriptions-item :label="t('deviceDetail.createTime')">{{ device?.created_at }}</n-descriptions-item><!-- FIXED: 原问题-中文硬编码 -->
@@ -157,7 +157,8 @@ import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } fr
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, dataApi, videoApi, type Device } from '@/api'
-import { t } from '@/i18n'  // FIXED: 原问题-缺少t()导入导致运行时ReferenceError
+import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 import { deviceStatusLabel, deviceStatusColor, qualityLabel, protocolLabel } from '@/utils/enumLabels'
 import { connect as wsConnect, disconnect as wsDisconnect, onStatus as wsOnStatus } from '@/api/websocket'
 
@@ -180,7 +181,7 @@ async function handleRefreshStream() {
     const data = await videoApi.getStreamUrl(device.value.device_id, '1')
     streamUrl.value = data?.url || ''
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('deviceDetail.streamFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('deviceDetail.streamFailed')))  // FIXED: 原问题-中文硬编码
   }
 }
 
@@ -190,7 +191,7 @@ async function handlePtz(action: string) {
     await videoApi.ptzControl(device.value.device_id, action, '1')
     message.success(t('device.ptzSent'))  // FIXED: 原问题-中文硬编码，改为i18n
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('deviceDetail.ptzFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('deviceDetail.ptzFailed')))  // FIXED: 原问题-中文硬编码
   }
 }
 const pointValues = ref<Record<string, any> | null>(null)
@@ -211,8 +212,13 @@ const editRules = {
 let wsHandler: ((data: any) => void) | null = null
 const writeValues = ref<Record<string, any>>({})
 
-// FIXED: 原问题-快速切换设备竞态，watch中未取消上一次未完成的请求，添加递增requestId标志位
-let fetchRequestId = 0
+// FIXED: 原问题-fetchDevice和fetchPoints共用fetchRequestId计数器，
+// onMounted同时调用两者时fetchPoints的++会使fetchRequestId变为2，
+// 导致fetchDevice完成后检查currentRequestId(1)===fetchRequestId(2)为FALSE，
+// pageLoading永远不会被设为false，页面永远显示加载中。
+// 修复：拆分为独立的请求ID计数器
+let fetchDeviceRequestId = 0
+let fetchPointsRequestId = 0
 
 const deviceId = computed(() => route.params.id as string)
 
@@ -242,7 +248,7 @@ const realtimeData = computed(() => {
 const realtimeColumns = [
   { title: t('deviceDetail.point'), key: 'name', width: 120 },  // FIXED: 原问题-中文硬编码
   { title: t('deviceDetail.currentValue'), key: 'value', width: 150, render: (r: any) => h(NText, { style: { fontWeight: 'bold', fontSize: '14px' } }, { default: () => r.value }) },  // FIXED: 原问题-中文硬编码
-  { title: t('deviceDetail.quality'), key: 'quality', width: 80, render: (r: any) => h(NTag, { size: 'small', type: r.quality === 'good' ? 'success' : 'warning', bordered: false }, { default: () => qualityLabel.value[r.quality] || t('deviceDetail.abnormal') }) },  // FIXED: 原问题-中文硬编码
+  { title: t('deviceDetail.quality'), key: 'quality', width: 80, render: (r: any) => h(NTag, { size: 'small', type: r.quality === 'good' ? 'success' : 'warning', bordered: false }, { default: () => qualityLabel[r.quality] || t('deviceDetail.abnormal') }) },  // FIXED: 原问题-中文硬编码
   { title: t('deviceDetail.unit'), key: 'unit', width: 60 },  // FIXED: 原问题-中文硬编码
   { title: t('deviceDetail.dataType'), key: 'data_type', width: 80 },  // FIXED: 原问题-中文硬编码
 ]
@@ -317,20 +323,20 @@ async function handleSave() {
     editing.value = false
     fetchDevice()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('deviceDetail.updateFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('deviceDetail.updateFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     saving.value = false
   }
 }
 
 async function fetchDevice() {
-  // FIXED: 原问题-快速切换设备竞态，记录当前请求ID，异步响应后校验
-  const currentRequestId = ++fetchRequestId
+  // FIXED: 使用独立的fetchDeviceRequestId，避免与fetchPoints的计数器互相干扰
+  const currentRequestId = ++fetchDeviceRequestId
   notFound.value = false
   pageLoading.value = true
   try {
     const result = await deviceApi.get(deviceId.value)
-    if (currentRequestId !== fetchRequestId) return
+    if (currentRequestId !== fetchDeviceRequestId) return
     device.value = result
     if (!device.value) { notFound.value = true; return }
     if (device.value?.points?.length) {
@@ -343,30 +349,30 @@ async function fetchDevice() {
   }
     if (route.query.tab) activeTab.value = route.query.tab as string
   } catch (e: any) {
-    if (currentRequestId !== fetchRequestId) return
+    if (currentRequestId !== fetchDeviceRequestId) return
     if (e?.response?.status === 404) {
       notFound.value = true
     } else {
-      message.error(e?.response?.data?.detail || e?.message || t('deviceDetail.loadFailed'))  // FIXED: 原问题-中文硬编码
+      message.error(extractError(e, t('deviceDetail.loadFailed')))  // FIXED: 原问题-中文硬编码
     }
   } finally {
-    if (currentRequestId === fetchRequestId) pageLoading.value = false
+    if (currentRequestId === fetchDeviceRequestId) pageLoading.value = false
   }
 }
 
 async function fetchPoints() {
-  // FIXED: 原问题-快速切换设备竞态，记录当前请求ID，异步响应后校验
-  const currentRequestId = ++fetchRequestId
+  // FIXED: 使用独立的fetchPointsRequestId，避免与fetchDevice的计数器互相干扰
+  const currentRequestId = ++fetchPointsRequestId
   pointsLoading.value = true
   try {
     const result = await deviceApi.getPoints(deviceId.value)
-    if (currentRequestId !== fetchRequestId) return
+    if (currentRequestId !== fetchPointsRequestId) return
     pointValues.value = result
   } catch (e: any) {
-    if (currentRequestId !== fetchRequestId) return
-    message.error(e?.response?.data?.detail || e?.message || t('deviceDetail.realtimeFailed'))  // FIXED: 原问题-中文硬编码
+    if (currentRequestId !== fetchPointsRequestId) return
+    message.error(extractError(e, t('deviceDetail.realtimeFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
-    if (currentRequestId === fetchRequestId) pointsLoading.value = false
+    if (currentRequestId === fetchPointsRequestId) pointsLoading.value = false
   }
 }
 
@@ -396,7 +402,7 @@ async function handleWrite(pt: any) {
         message.success(t('deviceDetail.writeSuccess', { point: pt.name, value: val }))  // FIXED: 原问题-中文硬编码
         fetchPoints()
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || t('deviceDetail.writeFailed'))  // FIXED: 原问题-中文硬编码
+        message.error(extractError(e, t('deviceDetail.writeFailed')))  // FIXED: 原问题-中文硬编码
       }
     },
   })
@@ -409,7 +415,7 @@ async function fetchChartData() {
     const result = await dataApi.query({ device_id: deviceId.value, point_name: chartPoint.value, start: chartRange.value })
     chartData.value = (result || []).map((d: any) => ({ time: d.time?.substring(11, 19) || d._time?.substring(11, 19) || '', value: d.value ?? d._value ?? 0 }))
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('deviceDetail.chartQueryFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('deviceDetail.chartQueryFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     chartLoading.value = false
   }

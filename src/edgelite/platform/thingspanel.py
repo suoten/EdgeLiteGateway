@@ -53,7 +53,9 @@ class ThingsPanelHandler(PlatformHandler):
         self._running = True
         self._pub_queue = asyncio.Queue(maxsize=_MQTT_QUEUE_MAXSIZE)  # FIXED: 原问题-maxsize=1000魔法数字
 
-        broker = config.get("broker", config.get("host", "localhost"))
+        broker = config.get("broker", config.get("host", ""))
+        if not broker:
+            raise ValueError("broker is required")
         port = int(config.get("port", 1883))
         username = config.get("username", config.get("access_key", ""))
         password = config.get("password", config.get("access_secret", ""))
@@ -80,18 +82,21 @@ class ThingsPanelHandler(PlatformHandler):
         logger.info("ThingsPanel平台对接已断开")
 
     async def publish_telemetry(self, device_id: str, data: dict[str, Any]) -> None:
-        if not self._pub_queue:
+        if not self._connected or not self._pub_queue:
             return
         payload = {
-            "ts": timestamp_ms(),  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
+            "ts": timestamp_ms(),
             "values": data,
         }
-        await self._pub_queue.put(
-            {
-                "topic": "v1/gateway/telemetry",
-                "payload": json.dumps({device_id: [payload]}, ensure_ascii=False),
-            }
-        )
+        try:
+            self._pub_queue.put_nowait(
+                {
+                    "topic": "v1/gateway/telemetry",
+                    "payload": json.dumps({device_id: [payload]}, ensure_ascii=False),
+                }
+            )
+        except asyncio.QueueFull:
+            logger.warning("ThingsPanel发布队列已满，丢弃消息")
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
         if not self._connected or not self._pub_queue:
@@ -107,24 +112,14 @@ class ThingsPanelHandler(PlatformHandler):
         self._rpc_callback = callback
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
-        if not self._pub_queue:
+        if not self._connected or not self._pub_queue:
             return
-        if online:
-            payload = {"device": device_id}
-            await self._pub_queue.put(
-                {
-                    "topic": "v1/gateway/connect",
-                    "payload": json.dumps(payload, ensure_ascii=False),
-                }
-            )
-        else:
-            payload = {"device": device_id}
-            await self._pub_queue.put(
-                {
-                    "topic": "v1/gateway/disconnect",
-                    "payload": json.dumps(payload, ensure_ascii=False),
-                }
-            )
+        topic = "v1/gateway/connect" if online else "v1/gateway/disconnect"
+        payload = json.dumps({"device": device_id}, ensure_ascii=False)
+        try:
+            self._pub_queue.put_nowait({"topic": topic, "payload": payload})
+        except asyncio.QueueFull:
+            logger.warning("ThingsPanel发布队列已满，丢弃消息")
 
     async def _connect_loop(
         self, broker: str, port: int, username: str, password: str, device_token: str

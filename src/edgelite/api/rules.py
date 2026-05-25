@@ -51,12 +51,12 @@ async def create_rule(
                 await audit_svc.log(AuditAction.RULE_CREATE, user_id=user["user_id"], username=user["username"], resource_type="rule", resource_id=rule.get("rule_id", ""))
         except Exception:
             pass
+        return ApiResponse(data=rule)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("create_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.CREATE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
-    return ApiResponse(data=rule)
+        raise HTTPException(status_code=500, detail=RuleErrors.CREATE_FAILED) from e
 
 
 @router.get("/{rule_id}", response_model=ApiResponse[RuleResponse])

@@ -42,7 +42,7 @@
     </n-grid>
 
     <n-card :title="t('dataQuery.rawData')" :bordered="false">
-      <n-data-table :columns="dataColumns" :data="tableData" :bordered="false" size="small" :pagination="{ pageSize: 50 }" />
+      <n-data-table :columns="dataColumns" :data="tableData" :bordered="false" size="small" :pagination="pagination" />
     </n-card>
   </n-space>
 </template>
@@ -56,7 +56,8 @@ import { TitleComponent, TooltipComponent, GridComponent, DataZoomComponent } fr
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { deviceApi, dataApi, type Device } from '@/api'
-import { t } from '@/i18n'  // FIXED: 原问题-中文硬编码
+import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 use([LineChart, TitleComponent, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer])
 
@@ -140,14 +141,28 @@ const dataColumns = [
   { title: t('dataQuery.colQuality'), key: 'quality', width: 80, render: (r: any) => r.quality || '-' },  // FIXED: 原问题-中文硬编码
 ]
 
-const tableData = computed(() => [...queryResult.value].reverse())
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  pageSizes: [20, 50, 100, 200],
+  onChange: (p: number) => { pagination.page = p },
+  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1 },
+})
+
+const tableData = computed(() => {
+  pagination.itemCount = queryResult.value.length
+  const start = (pagination.page - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return [...queryResult.value].reverse().slice(start, end)
+})
 
 async function fetchDevices() {
   try {
     const data = await deviceApi.list({ page: 1, size: 100 })
     devices.value = data?.data ?? []
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || t('dataQuery.loadDevicesFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('dataQuery.loadDevicesFailed')))  // FIXED: 原问题-中文硬编码
     devices.value = []
   }
 }
@@ -157,6 +172,7 @@ async function handleQuery() {
     message.warning(t('dataQuery.selectDeviceAndPoint'))  // FIXED: 原问题-中文硬编码
     return
   }
+  pagination.page = 1
   loading.value = true
   try {
     const result = await dataApi.query({
@@ -173,7 +189,7 @@ async function handleQuery() {
       queryResult.value = result
     }
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('dataQuery.queryFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('dataQuery.queryFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     loading.value = false
   }
@@ -200,7 +216,7 @@ async function handleExport() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('dataQuery.exportFailed'))  // FIXED: 原问题-中文硬编码
+    message.error(extractError(e, t('dataQuery.exportFailed')))  // FIXED: 原问题-中文硬编码
   } finally {
     exporting.value = false
   }

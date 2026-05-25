@@ -22,6 +22,22 @@ _app_state = ServiceContainer()
 async def lifespan(app: FastAPI):
     config = get_config()
 
+    loop = asyncio.get_running_loop()
+    _asyncio_logger = logging.getLogger("edgelite.asyncio")
+
+    def _suppress_unhandled(loop, context):
+        exception = context.get("exception")
+        message = context.get("message", "")
+        if exception and "MqttCodeError" in type(exception).__name__:
+            _asyncio_logger.debug("MQTT内部异常已抑制: %s", exception)
+            return
+        if "Task exception was never retrieved" in message:
+            _asyncio_logger.debug("未检索的Task异常: %s", exception or message)
+            return
+        loop.default_exception_handler(context)
+
+    loop.set_exception_handler(_suppress_unhandled)
+
     try:
         await bootstrap_all(_app_state, config)
     except Exception as init_err:
@@ -52,6 +68,7 @@ def _register_routes(app: FastAPI) -> None:
 
     # FIXED: 原问题-路由标签中文硬编码，现改为英文标签
     _optional_routers = [
+        ("Notification", "edgelite.api.notify", "router"),
         ("Drivers", "edgelite.api.drivers", "router"),
         ("Platforms", "edgelite.api.platforms", "router"),
         ("Expressions", "edgelite.api.expressions", "router"),
@@ -68,6 +85,7 @@ def _register_routes(app: FastAPI) -> None:
         ("SCADA", "edgelite.api.scada", "router"),
         ("AI Models", "edgelite.api.ai_models", "router"),
         ("MQTT Forwarder", "edgelite.api.mqtt_forwarder", "router"),
+        ("Debug", "edgelite.api.debug", "router"),
     ]
 
     for label, module_path, attr in _optional_routers:
@@ -179,6 +197,10 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 handshake_data = _json.loads(handshake_msg)
             except _json.JSONDecodeError:
                 await websocket.send(_json.dumps({"type": "error", "message": "Invalid JSON"}))
+                return
+            # FIXED: 原问题-客户端发送非字典JSON，handshake_data.get()报TypeError
+            if not isinstance(handshake_data, dict):
+                await websocket.send(_json.dumps({"type": "error", "message": "Handshake must be a JSON object"}))
                 return
             if handshake_data.get("type") == "handshake":
                 response = await _app_state.integration_endpoint.handle_handshake(handshake_data)

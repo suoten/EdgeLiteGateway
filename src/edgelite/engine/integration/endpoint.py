@@ -43,6 +43,7 @@ class IntegrationEndpoint:
             "capabilities": request.get("capabilities", []),
             "heartbeat_interval": request.get("heartbeat_interval", 30.0),
             "connected_at": time.time(),
+            "last_activity": time.time(),
         }
         try:
             from edgelite.drivers.registry import get_driver_registry
@@ -64,7 +65,7 @@ class IntegrationEndpoint:
             ],
             "session_id": session_id,
         }
-        logger.info("联调握手完成, session: %s", session_id)
+        logger.info("Integration handshake complete, session: %s", session_id)
         return response
 
     async def register_connection(self, session_id: str, websocket: Any) -> None:
@@ -72,6 +73,16 @@ class IntegrationEndpoint:
             oldest = min(self._sessions, key=lambda s: self._sessions[s].get("connected_at", 0))
             await self.unregister_connection(oldest)
         self._connections[session_id] = websocket
+        # FIX: 新连接注册后，触发 BackhaulManager 刷新缓冲区，
+        # 将断线期间积压的回传消息发送给新连接
+        backhaul = getattr(self, "_backhaul", None)
+        if backhaul and hasattr(backhaul, "flush_buffer"):
+            try:
+                flushed = await backhaul.flush_buffer()
+                if flushed > 0:
+                    logger.info("Flushed %d buffered messages to new integration connection %s", flushed, session_id)
+            except Exception as e:
+                logger.warning("Failed to flush backhaul buffer for new connection %s: %s", session_id, e)
 
     async def unregister_connection(self, session_id: str) -> None:
         ws = self._connections.pop(session_id, None)
@@ -79,7 +90,7 @@ class IntegrationEndpoint:
             try:
                 await ws.close()
             except Exception as e:
-                logger.debug("集成WebSocket关闭失败[%s]: %s", session_id, e)
+                logger.debug("Integration WebSocket close failed[%s]: %s", session_id, e)
         self._sessions.pop(session_id, None)
 
     async def handle_message(self, session_id: str, raw_data: str) -> dict[str, Any] | None:
@@ -87,6 +98,15 @@ class IntegrationEndpoint:
             message = json.loads(raw_data)
         except json.JSONDecodeError:
             return {"type": "error", "error": "Invalid JSON"}
+
+        # FIXED: 原问题-客户端发送非字典JSON（如字符串/数字），message.get()报TypeError
+        if not isinstance(message, dict):
+            return {"type": "error", "error": "Message must be a JSON object"}
+
+        # FIX: 每次收到消息时更新 session 的 last_activity，防止活跃连接被误清理
+        session = self._sessions.get(session_id)
+        if session:
+            session["last_activity"] = time.time()
 
         msg_type = message.get("type", "")
         payload = message.get("payload", {})
@@ -104,7 +124,7 @@ class IntegrationEndpoint:
             await ws.send(json.dumps(message))
             return True
         except Exception as e:  # FIXED: 原问题-WebSocket发送失败静默返回False，无日志
-            logger.debug("集成WebSocket发送失败[%s]: %s", session_id, e)
+            logger.debug("Integration WebSocket send failed[%s]: %s", session_id, e)
             return False
 
     async def broadcast(self, message: dict[str, Any]) -> int:
@@ -123,4 +143,4 @@ class IntegrationEndpoint:
         ]
         for sid in expired:
             self._sessions.pop(sid, None)
-            logger.info("清理过期session: %s", sid)
+            logger.info("Cleaning up expired session: %s", sid)

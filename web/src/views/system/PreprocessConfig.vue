@@ -79,6 +79,7 @@ import { AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { preprocessApi } from '@/api'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -162,7 +163,7 @@ async function fetchConfig() {
     pointConfigs.value = data.point_configs ?? {}
     updatePointList()
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('http.requestFailed'))
+    message.error(extractError(e, t('http.requestFailed')))
   } finally {
     pageLoading.value = false
   }
@@ -178,7 +179,7 @@ async function handleSave() {
     message.success(t('common.success'))
     dirty.value = false
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   } finally {
     saving.value = false
   }
@@ -213,7 +214,7 @@ async function handleAdd() {
     dirty.value = false
     message.success(t('common.success'))
   } catch (e: any) {
-    message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+    message.error(extractError(e, t('common.failed')))
   }
 
   addForm.point_key = ''
@@ -245,7 +246,7 @@ function handleDelete(pointKey: string) {
         dirty.value = false
         message.success(t('common.success'))
       } catch (e: any) {
-        message.error(e?.response?.data?.detail || e?.message || t('common.failed'))
+        message.error(extractError(e, t('common.failed')))
       }
     },
   })
