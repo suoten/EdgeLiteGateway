@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import logging
 import os
@@ -77,15 +78,38 @@ class CertManager:
 
     def validate_cert(self, cert_path: Path) -> bool:
         """验证证书是否有效"""
-        # 简化实现：检查文件是否存在且未过期
+        # 修复P1-13: 原实现仅检查文件 mtime 判断"1年内有效"，与证书真实有效期无关——
+        # 文件可被 touch/复制刷新 mtime 而证书实际已过期，或 mtime 旧但证书仍在有效期内。
+        # 现解析证书的 not_valid_after，校验 not_valid_after_utc > now 且 not_before_utc <= now。
         try:
             if not cert_path.exists():
                 return False
-            # 检查文件修改时间，30天后认为需要更新
-            mtime = cert_path.stat().st_mtime
-            age_days = (time.time() - mtime) / 86400
-            return age_days < 365  # 1年内有效
-        except Exception:
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+
+            cert_data = cert_path.read_bytes()
+            cert = x509.load_pem_x509_certificate(cert_data, default_backend())
+            now = datetime.now(UTC)
+            # cryptography >= 42 提供 not_valid_after_utc / not_valid_before_utc（带时区）；
+            # 旧版本仅提供 naive 的 not_valid_after / not_valid_before，需手动补时区
+            not_after = getattr(cert, "not_valid_after_utc", None)
+            if not_after is None:
+                naive_after = cert.not_valid_after
+                not_after = naive_after.replace(tzinfo=UTC) if naive_after.tzinfo is None else naive_after
+            not_before = getattr(cert, "not_valid_before_utc", None)
+            if not_before is None:
+                naive_before = cert.not_valid_before
+                not_before = naive_before.replace(tzinfo=UTC) if naive_before.tzinfo is None else naive_before
+            if now > not_after:
+                logger.warning("证书已过期: %s (not_valid_after=%s)", cert_path, not_after.isoformat())
+                return False
+            if now < not_before:
+                logger.warning("证书尚未生效: %s (not_valid_before=%s)", cert_path, not_before.isoformat())
+                return False
+            return True
+        except Exception as e:
+            # 解析失败（非 PEM、损坏、缺 cryptography 库等）视为无效
+            logger.warning("证书校验失败: %s err=%s", cert_path, e)
             return False
 
 
@@ -116,26 +140,40 @@ class TlsConfigBuilder:
         try:
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             context.verify_mode = verify_mode
+            context.minimum_version = ssl.TLSVersion.TLSv1_2  # FIXED-P1: 强制最低TLS 1.2，禁用不安全的TLS 1.0/1.1
 
             if ca_cert:
                 import tempfile
-                with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
-                    f.write(ca_cert)
-                    ca_path = f.name
-                context.load_verify_locations(ca_path)
+                ca_path = None
+                try:
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
+                        f.write(ca_cert)
+                        ca_path = f.name
+                    context.load_verify_locations(ca_path)
+                finally:
+                    # FIXED-P1: 原实现CA证书临时文件从未清理，导致敏感证书文件泄漏到系统临时目录
+                    if ca_path and os.path.exists(ca_path):
+                        with contextlib.suppress(OSError):
+                            os.unlink(ca_path)
 
             if client_cert and client_key:
                 import tempfile
-                with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
-                    f.write(client_cert)
-                    cert_path = f.name
-                with tempfile.NamedTemporaryFile(mode="w", suffix=".key", delete=False) as f:
-                    f.write(client_key)
-                    key_path = f.name
-                context.load_cert_chain(cert_path, key_path)
-                # 清理临时文件
-                os.unlink(cert_path)
-                os.unlink(key_path)
+                cert_path = None
+                key_path = None
+                try:
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
+                        f.write(client_cert)
+                        cert_path = f.name
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".key", delete=False) as f:
+                        f.write(client_key)
+                        key_path = f.name
+                    context.load_cert_chain(cert_path, key_path)
+                finally:
+                    # 清理临时文件
+                    for tmp_path in (cert_path, key_path):
+                        if tmp_path and os.path.exists(tmp_path):
+                            with contextlib.suppress(OSError):
+                                os.unlink(tmp_path)
 
             return context
 
@@ -161,6 +199,7 @@ class TlsConfigBuilder:
         """
         try:
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.minimum_version = ssl.TLSVersion.TLSv1_2  # FIXED-P1: 强制最低TLS 1.2
 
             cert = Path(cert_path)
             key = Path(key_path)
@@ -300,12 +339,13 @@ class TlsManager:
             证书和私钥内容，失败返回None
         """
         try:
-            from datetime import datetime, timedelta
+            from datetime import UTC, datetime, timedelta  # FIXED-P2: 使用UTC替代弃用的utcnow()
+
             from cryptography import x509
-            from cryptography.x509.oid import NameOID
+            from cryptography.hazmat.backends import default_backend
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.hazmat.primitives.asymmetric import rsa
-            from cryptography.hazmat.backends import default_backend
+            from cryptography.x509.oid import NameOID
 
             # 生成RSA私钥
             private_key = rsa.generate_private_key(
@@ -321,14 +361,15 @@ class TlsManager:
                 x509.NameAttribute(NameOID.COMMON_NAME, common_name),
             ])
 
+            now = datetime.now(UTC)  # FIXED-P2: datetime.utcnow()在Python 3.12+已弃用，改为datetime.now(UTC)
             cert = (
                 x509.CertificateBuilder()
                 .subject_name(subject)
                 .issuer_name(issuer)
                 .public_key(private_key.public_key())
                 .serial_number(x509.random_serial_number())
-                .not_valid_before(datetime.utcnow())
-                .not_valid_after(datetime.utcnow() + timedelta(days=validity_days))
+                .not_valid_before(now)
+                .not_valid_after(now + timedelta(days=validity_days))
                 .sign(private_key, hashes.SHA256(), default_backend())
             )
 
@@ -373,6 +414,7 @@ class TlsManager:
         try:
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             context.verify_mode = ssl.CERT_REQUIRED
+            context.minimum_version = ssl.TLSVersion.TLSv1_2  # FIXED-P1: 强制最低TLS 1.2
             context.load_verify_locations(ca_cert_path)
             context.load_cert_chain(device_cert_path, device_key_path)
 

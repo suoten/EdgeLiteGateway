@@ -41,21 +41,20 @@ EC_STATE_BOOT = 0x03
 EC_STATE_SAFE_OP = 0x04
 EC_STATE_OPERATIONAL = 0x08
 
-# EtherCAT 命令
-EC_CMD_NOP = 0x00
-EC_CMD_APRM = 0x01
-EC_CMD_PRDM = 0x02
-EC_CMD_BRM = 0x03
-EC_CMD_BWRM = 0x04
-EC_CMD_BRDM = 0x05
-EC_CMD_BFRM = 0x06
-EC_CMD_BFRM = 0x07
-EC_CMD_LRD = 0x08
-EC_CMD_LWR = 0x09
-EC_CMD_LRW = 0x0A
-EC_CMD_LRD = 0x0A
-EC_CMD_LWR = 0x0B
-EC_CMD_LRW = 0x0C
+# EtherCAT 命令 (ETG.1000.6 标准)
+EC_CMD_NOP = 0x00   # No Operation
+EC_CMD_APRD = 0x01  # Auto Increment Physical Read
+EC_CMD_APWR = 0x02  # Auto Increment Physical Write
+EC_CMD_APRW = 0x03  # Auto Increment Physical Read/Write
+EC_CMD_FPRD = 0x04  # Configured Address Physical Read
+EC_CMD_FPWR = 0x05  # Configured Address Physical Write
+EC_CMD_FPRW = 0x06  # Configured Address Physical Read/Write
+EC_CMD_BRD = 0x07   # Broadcast Read
+EC_CMD_BWR = 0x08   # Broadcast Write
+EC_CMD_BRW = 0x09   # Broadcast Read/Write
+EC_CMD_LRD = 0x0A   # Logical Memory Read
+EC_CMD_LWR = 0x0B   # Logical Memory Write
+EC_CMD_LRW = 0x0C   # Logical Memory Read/Write
 
 # EtherCAT Working Counter 类型
 EC_WKC_TYPE_PDO_OUT = 1
@@ -166,8 +165,9 @@ class EtherCATClient:
         try:
             self._soem = SOEMContext(self._iface, self._timeout)
 
-            # 初始化SOEM
-            if not self._soem.initialize():
+            # 初始化SOEM (通过 asyncio.to_thread 释放 GIL)
+            init_result = await asyncio.to_thread(self._soem.initialize)
+            if not init_result:
                 logger.warning("SOEM initialization failed, using simulation mode")
                 self._use_real_soem = False
             else:
@@ -195,8 +195,8 @@ class EtherCATClient:
         slaves = []
 
         if self._soem and self._use_real_soem:
-            # 使用真实SOEM扫描
-            soem_slaves = self._soem.scan_slaves()
+            # 使用真实SOEM扫描 (通过 asyncio.to_thread 释放 GIL)
+            soem_slaves = await asyncio.to_thread(self._soem.scan_slaves)
             for s in soem_slaves:
                 slave = EtherCATSlave(
                     station_address=s.position,
@@ -260,7 +260,7 @@ class EtherCATClient:
         self._output_size = max(self._output_size, output_size)
         self._input_size = max(self._input_size, input_size)
 
-        # 同步配置到SOEM
+        # 同步配置到SOEM (通过 asyncio.to_thread 释放 GIL)
         if self._soem and self._use_real_soem:
             soem_mappings = [
                 SOEMPdoConfig(
@@ -273,7 +273,7 @@ class EtherCATClient:
                 )
                 for m in mappings
             ]
-            self._soem.configure_pdo(slave_addr, soem_mappings)
+            await asyncio.to_thread(self._soem.configure_pdo, slave_addr, soem_mappings)
 
         logger.info("PDO config complete: slave %d, output %d bytes, input %d bytes",
                    slave_addr, output_size, input_size)
@@ -365,7 +365,7 @@ class EtherCATClient:
             subindex: 子索引
         """
         if self._soem and self._use_real_soem:
-            result = self._soem.read_sdo(slave_addr, index, subindex)
+            result = await asyncio.to_thread(self._soem.read_sdo, slave_addr, index, subindex)
             logger.debug("SDO read (SOEM): slave=%d 0x%04X:%02X = %s", slave_addr, index, subindex, result)
             return result
 
@@ -383,7 +383,7 @@ class EtherCATClient:
             data_type: 数据类型
         """
         if self._soem and self._use_real_soem:
-            result = self._soem.write_sdo(slave_addr, index, subindex, value, data_type)
+            result = await asyncio.to_thread(self._soem.write_sdo, slave_addr, index, subindex, value, data_type)
             logger.debug("SDO write (SOEM): slave=%d 0x%04X:%02X = %s (%s)",
                         slave_addr, index, subindex, value, "OK" if result else "FAIL")
             return result
@@ -502,8 +502,11 @@ class EtherCATDriver(DriverPlugin):
         """PDO循环任务 - 用于实时数据交换"""
         while self._running and self._dc_enabled:
             try:
-                if self._client:
-                    await asyncio.sleep(0.001)  # 1ms周期
+                if self._client and self._client._use_real_soem and self._client._soem:
+                    # 通过 asyncio.to_thread 释放 GIL
+                    await asyncio.to_thread(self._client._soem.send_process_data)
+                    await asyncio.to_thread(self._client._soem.receive_process_data)
+                await asyncio.sleep(0.001)  # 1ms周期
             except asyncio.CancelledError:
                 break
             except Exception as e:

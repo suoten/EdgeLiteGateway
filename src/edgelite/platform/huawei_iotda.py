@@ -16,11 +16,18 @@ import hashlib
 import hmac
 import json
 import logging
+import random
 import time
 from collections.abc import Callable
 from typing import Any
 
-from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY  # FIXED: 原问题-缺失导入导致NameError
+from edgelite.constants import (  # FIXED-P0: 补充_QUEUE_POLL_TIMEOUT导入
+    _MQTT_KEEPALIVE,
+    _MQTT_QUEUE_MAXSIZE,
+    _MQTT_RECONNECT_DELAY,
+    _NORTH_RETRY_MAX_ATTEMPTS,  # FIXED-P0: 导入重试上限常量，用于_publish_loop重试计数
+    _QUEUE_POLL_TIMEOUT,
+)
 from edgelite.platform.base import PlatformHandler
 from edgelite.utils import timestamp_ms  # FIXED: 原问题-缺失导入导致NameError
 
@@ -34,17 +41,21 @@ class HuaweiIoTDAHandler(PlatformHandler):
     platform_version = "1.0.0"
 
     def __init__(self):
-        self._connected = False
+        super().__init__()  # FIXED-P2: 调用基类__init__，初始化离线队列和重连退避
         self._config: dict = {}
         self._rpc_callback: Callable | None = None
         self._connect_task: asyncio.Task | None = None
         self._running = False
         self._pub_queue: asyncio.Queue | None = None
+        self._consecutive_failures: int = 0  # FIXED-P2: 原问题-重连固定延迟无退避，添加指数退避计数
 
     def _generate_password(self, device_id: str, secret: str, timestamp: str) -> str:
-        message = f"{timestamp}"
+        # FIXED-P0: 原问题-HMAC的key/message顺序错误。华为官方规范要求：
+        # base64.b64encode(hmac.new(timestamp.encode(), secret.encode(), hashlib.sha256).digest()).decode()
+        # 即 key=timestamp, message=secret。原代码 key=secret, message=timestamp 导致认证失败。
+        # 时间戳使用毫秒级 str(timestamp_ms())，由调用方传入。
         hmac_code = hmac.new(
-            secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
+            timestamp.encode("utf-8"), secret.encode("utf-8"), hashlib.sha256
         ).digest()
         return base64.b64encode(hmac_code).decode("utf-8")
 
@@ -52,7 +63,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
+            raise ImportError("aiomqtt not installed, run: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -65,19 +76,18 @@ class HuaweiIoTDAHandler(PlatformHandler):
         device_id = config.get("device_id", "")
         secret = config.get("secret", "")
 
-        timestamp = str(timestamp_ms())  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
-        if secret:
-            password = self._generate_password(device_id, secret, timestamp)
-        else:
-            password = config.get("password", "")
-
-        username = f"{device_id}_{timestamp}"
+        # FIXED-P1#17: 存储 device_id/secret/broker/port，每次重连重新生成带时间戳的密码
+        self._huawei_broker = broker
+        self._huawei_port = port
+        self._huawei_device_id = device_id
+        self._huawei_secret = secret
+        self._huawei_password_fallback = config.get("password", "")
 
         self._connect_task = asyncio.create_task(
-            self._connect_loop(broker, port, username, password, device_id),
+            self._connect_loop(broker, port, device_id, secret),
             name="huawei-iotda-connect",
         )
-        logger.info("华为云IoTDA平台对接启动: %s:%d", broker, port)
+        logger.info("Huawei IoTDA platform started: %s:%d", broker, port)  # FIXED-P3: 中文日志→英文
 
     async def disconnect(self) -> None:
         self._running = False
@@ -87,11 +97,9 @@ class HuaweiIoTDAHandler(PlatformHandler):
             with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
         self._connected = False
-        logger.info("华为云IoTDA平台对接已断开")
+        logger.info("Huawei IoTDA platform disconnected")  # FIXED-P3: 中文日志→英文
 
     async def publish_telemetry(self, device_id: str, data: dict[str, Any]) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = f"$oc/devices/{device_id}/sys/properties/report"
         payload = json.dumps(
             {
@@ -106,14 +114,17 @@ class HuaweiIoTDAHandler(PlatformHandler):
             ensure_ascii=False,
             default=str,
         )
+        # FIXED-P2#26: 断连时入离线队列而非静默丢弃
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
-            logger.warning("华为云IoTDA发布队列已满，丢弃消息")
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26: 队列满时入离线队列
+            logger.warning("Huawei IoTDA pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = f"$oc/devices/{device_id}/sys/properties/report"
         payload = json.dumps(
             {
@@ -128,17 +139,20 @@ class HuaweiIoTDAHandler(PlatformHandler):
             ensure_ascii=False,
             default=str,
         )
+        # FIXED-P2#26: 断连时入离线队列而非静默丢弃
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
-            logger.warning("华为云IoTDA发布队列已满，丢弃消息")
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26
+            logger.warning("Huawei IoTDA pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
     async def on_rpc_request(self, callback: Callable) -> None:
         self._rpc_callback = callback
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = f"$oc/devices/{device_id}/sys/events/report"
         payload = json.dumps(
             {
@@ -154,18 +168,31 @@ class HuaweiIoTDAHandler(PlatformHandler):
             ensure_ascii=False,
             default=str,
         )
+        # FIXED-P2#26: 断连时入离线队列而非静默丢弃
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
-            logger.warning("华为云IoTDA发布队列已满，丢弃消息")
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26
+            logger.warning("Huawei IoTDA pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
     async def _connect_loop(
-        self, broker: str, port: int, username: str, password: str, device_id: str
+        self, broker: str, port: int, device_id: str, secret: str
     ) -> None:
         import aiomqtt
 
         while self._running:
             try:
+                # FIXED-P1#17: 每次重连重新生成带时间戳的密码，避免密码过期导致认证失败
+                timestamp = str(timestamp_ms())
+                if secret:
+                    password = self._generate_password(device_id, secret, timestamp)
+                else:
+                    password = self._huawei_password_fallback
+                username = f"{device_id}_{timestamp}"
+
                 async with aiomqtt.Client(
                     hostname=broker,
                     port=port,
@@ -174,7 +201,11 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     keepalive=_MQTT_KEEPALIVE,
                 ) as client:
                     self._connected = True
-                    logger.info("华为云IoTDA MQTT连接成功: %s:%d", broker, port)
+                    self._consecutive_failures = 0  # FIXED-P2: 连接成功重置退避计数
+                    logger.info("Huawei IoTDA MQTT connected: %s:%d", broker, port)  # FIXED-P3: 中文日志→英文
+
+                    # FIXED-P2#26: 重连成功后刷出离线缓存队列
+                    await self._flush_offline_queue()
 
                     await client.subscribe(f"$oc/devices/{device_id}/sys/commands/#", qos=1)
                     await client.subscribe(f"$oc/devices/{device_id}/sys/properties/set/#", qos=1)
@@ -203,9 +234,12 @@ class HuaweiIoTDAHandler(PlatformHandler):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error("华为云IoTDA MQTT连接异常: %s，5秒后重试", e)
+                self._consecutive_failures += 1
+                delay = min(5 * (2 ** (self._consecutive_failures - 1)), 60)
+                delay *= 0.5 + random.random() * 0.5  # FIXED-P2: 原问题-重连固定延迟无退避无抖动，改为指数退避+jitter
+                logger.error("Huawei IoTDA MQTT connection error: %s, retrying in %.1fs (failures=%d)", e, delay, self._consecutive_failures)  # FIXED-P3: 中文日志→英文
                 self._connected = False
-                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
+                await asyncio.sleep(delay)
 
     async def _publish_loop(self, client: Any) -> None:
         try:
@@ -214,13 +248,34 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
+                # FIXED-P0: 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)
+                if len(item) == 4:
+                    topic, payload, qos, retry_count = item
+                else:
+                    topic, payload, qos = item
+                    retry_count = 0
                 try:
                     await client.publish(topic, payload, qos=qos)
                 except Exception as e:
-                    logger.error("华为云IoTDA MQTT发布失败: %s", e)
+                    logger.error("Huawei IoTDA MQTT publish failed: %s", e)  # FIXED-P3: 中文日志→英文
+                    # FIXED-P0: 原问题-失败消息无限重入队导致队列积压；增加retry_count计数，
+                    # 超过_NORTH_RETRY_MAX_ATTEMPTS后丢弃，参考thingsboard.py的4元组实现
+                    retry_count += 1
+                    if retry_count > _NORTH_RETRY_MAX_ATTEMPTS:
+                        # FIXED-P1: 超过重试上限时写入离线队列而非直接丢弃，原问题-消息直接丢弃无持久化
+                        self._enqueue_offline(topic, payload, qos)
+                        logger.warning("Huawei IoTDA message enqueued offline after %d retries: %s", retry_count, topic)
+                    elif self._pub_queue is not None:
+                        try:
+                            self._pub_queue.put_nowait((topic, payload, qos, retry_count))
+                        except Exception as qe:
+                            # FIXED-P1: 原问题-重入队列失败时仅log不入离线队列，消息永久丢失
+                            # 修复：重入队列失败时调用_enqueue_offline缓存到离线队列，网络恢复后重试
+                            self._enqueue_offline(topic, payload, qos)
+                            logger.error("Huawei IoTDA re-enqueue failed, enqueued offline: %s", qe)  # FIXED-P2: 原问题-重入队列失败时pass吞没异常，消息永久丢失无感知
         except asyncio.CancelledError:
             pass
 
@@ -235,7 +290,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     try:
                         payload = json.loads(message.payload.decode("utf-8"))
                     except json.JSONDecodeError as e:
-                        logger.warning("华为云IoTDA MQTT消息JSON解析失败: %s", e)
+                        logger.warning("Huawei IoTDA MQTT JSON parse failed: %s", e)  # FIXED-P3: 中文日志→英文
                         continue
 
                     if "/sys/commands/" in topic:
@@ -250,6 +305,6 @@ class HuaweiIoTDAHandler(PlatformHandler):
                             await self._rpc_callback(device_id, "set_properties", props)
 
                 except Exception as e:
-                    logger.error("华为云IoTDA消息处理异常: %s", e)
+                    logger.error("Huawei IoTDA message handler error: %s", e)  # FIXED-P3: 中文日志→英文
         except asyncio.CancelledError:
             pass

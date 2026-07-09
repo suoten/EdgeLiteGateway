@@ -103,7 +103,7 @@
           size="small"
         />
 
-        <n-modal v-model:show="showCreateKeyModal" :title="t('mcpServer.createKeyTitle')" preset="card" style="width: 480px">
+        <n-modal v-model:show="showCreateKeyModal" :title="t('mcpServer.createKeyTitle')" preset="card" style="width: 480px; max-width: 95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
           <n-form :model="keyForm" :rules="keyFormRules" ref="keyFormRef" label-placement="left" label-width="100">
             <n-form-item :label="t('mcpServer.keyName')" path="name">
               <n-input v-model:value="keyForm.name" :placeholder="t('mcpServer.keyNamePlaceholder')" />
@@ -118,14 +118,14 @@
             </n-form-item>
           </n-form>
           <template #action>
-            <n-button @click="showCreateKeyModal = false">{{ t('common.cancel') }}</n-button>
-            <n-button type="primary" @click="handleCreateKey">{{ t('deviceList.create') }}</n-button>
+            <n-button @click="showCreateKeyModal = false" :disabled="creatingKey">{{ t('common.cancel') }}</n-button>
+            <n-button type="primary" :loading="creatingKey" @click="handleCreateKey">{{ t('deviceList.create') }}</n-button>
           </template>
         </n-modal>
       </n-card>
     </template>
 
-    <n-modal v-model:show="showInstallProgress" :title="t('mcpServer.installTitle')" preset="card" style="width: 480px" :closable="false">
+    <n-modal v-model:show="showInstallProgress" :title="t('mcpServer.installTitle')" preset="card" style="width: 480px; max-width: 95vw" :closable="false" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
       <n-spin :description="installProgress">
         <n-space vertical>
           <p>{{ t('mcpServer.installDesc') }}</p>
@@ -137,7 +137,7 @@
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showToolCallModal" :title="t('mcpServer.callTool') + ' ' + toolCallName" preset="card" style="width: 600px">
+    <n-modal v-model:show="showToolCallModal" :title="t('mcpServer.callTool') + ' ' + toolCallName" preset="card" style="width: 600px; max-width: 95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
       <n-space vertical :size="12">
         <n-form-item :label="t('mcpServer.paramJson')">
           <n-input v-model:value="toolCallArgs" type="textarea" :rows="6" placeholder='{"key": "value"}' />
@@ -156,18 +156,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { NTag, NButton, NPopconfirm, useMessage, useDialog } from 'naive-ui'
+import { NTag, NButton, NPopconfirm } from 'naive-ui'
 import { serviceApi, mcpApi } from '@/api'
 import type { ServiceDependency } from '@/api'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
 import { extractError } from '@/utils/errorCodes'
+import { useAuthStore } from '@/stores/auth'
+import { message, dialog } from '@/utils/discreteApi'
 
-const message = useMessage()
-const dialog = useDialog()
 const loading = ref(false)
 const toggleLoading = ref(false)
 const installing = ref(false)
+const auth = useAuthStore()
 const showInstallProgress = ref(false)
 const installProgress = ref('')
 const installResult = ref('')
@@ -193,16 +194,18 @@ const toolCallName = ref('')
 const toolCallArgs = ref('{}')
 const toolCallResult = ref('')
 const keyFormRef = ref<any>(null)
+// [AUDIT-FIX] 严重-5: 创建 API Key 按钮绑定 loading 状态，防止并发竞态
+const creatingKey = ref(false)
 
 const keyForm = reactive({
   name: '',
   scopes: ['read'] as string[],
 })
 
-const keyFormRules = {
-  name: { required: true, message: t('mcpServer.keyNamePlaceholder'), trigger: 'blur' },
-  scopes: { type: 'array' as const, required: true, message: t('common.required'), trigger: 'change' },
-}
+const keyFormRules = computed(() => ({
+  name: { required: true, message: t('mcpServer.keyNamePlaceholder'), trigger: ['input', 'blur'] },
+  scopes: { type: 'array' as const, required: true, message: t('common.required'), trigger: ['change', 'blur'] },
+}))
 
 const missingDeps = computed(() => dependencies.value.filter(d => !d.installed))
 
@@ -309,7 +312,16 @@ const promptColumns = [
 
 const keyColumns = [
   { title: t('mcpServer.keyName'), key: 'name', width: 150 },
-  { title: t('mcpServer.colKey'), key: 'key', width: 200, ellipsis: { tooltip: true } },
+  // FIXED-Severe: API Key 明文显示存在泄露风险，改为掩码显示（前4+****+后4）
+  {
+    title: t('mcpServer.colKey'), key: 'key', width: 200, ellipsis: { tooltip: true },
+    render: (row: any) => {
+      const k = String(row.key || '')
+      if (!k) return '-'
+      if (k.length <= 8) return '****'
+      return `${k.slice(0, 4)}****${k.slice(-4)}`
+    },
+  },
   {
     title: t('mcpServer.permission'), key: 'scopes', width: 150,
     render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => (row.scopes || []).join(', ') }),
@@ -345,7 +357,7 @@ async function fetchTools() {
     const data = await mcpApi.tools()
     tools.value = data?.tools || []
   } catch (e: any) {
-    message.error(t('http.requestFailed'))
+    message.error(extractError(e, t('http.requestFailed')))
   } finally {
     loadingTools.value = false
   }
@@ -357,7 +369,7 @@ async function fetchResources() {
     const data = await mcpApi.resources()
     resources.value = data?.resources || []
   } catch (e: any) {
-    message.error(t('http.requestFailed'))
+    message.error(extractError(e, t('http.requestFailed')))
   } finally {
     loadingResources.value = false
   }
@@ -369,7 +381,7 @@ async function fetchPrompts() {
     const data = await mcpApi.prompts()
     prompts.value = data?.prompts || []
   } catch (e: any) {
-    message.error(t('http.requestFailed'))
+    message.error(extractError(e, t('http.requestFailed')))
   } finally {
     loadingPrompts.value = false
   }
@@ -382,7 +394,7 @@ async function fetchApiKeys() {
     apiKeys.value = data?.keys || []
     authEnabled.value = data?.enabled ?? false
   } catch (e: any) {
-    message.error(t('http.requestFailed'))
+    message.error(extractError(e, t('http.requestFailed')))
   } finally {
     loadingKeys.value = false
   }
@@ -426,6 +438,7 @@ async function doToggleMcp(val: boolean) {
 }
 
 async function handleInstallDeps() {
+  if (!auth.isAdmin) { message.warning(t('common.permissionDenied')); return }
   installing.value = true
   showInstallProgress.value = true
   installProgress.value = t('mcpServer.installDesc')
@@ -445,9 +458,12 @@ async function handleInstallDeps() {
 }
 
 async function handleCreateKey() {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  if (creatingKey.value) return
   try {
     await keyFormRef.value?.validate()
   } catch { return }
+  creatingKey.value = true
   try {
     await mcpApi.createKey(keyForm)
     message.success(t('common.success'))
@@ -457,6 +473,8 @@ async function handleCreateKey() {
     fetchApiKeys()
   } catch (e: any) {
     message.error(extractError(e, t('common.failed')))
+  } finally {
+    creatingKey.value = false
   }
 }
 
@@ -468,18 +486,36 @@ function openToolCall(tool: any) {
 }
 
 async function handleToolCall() {
-  callingTool.value = true
-  toolCallResult.value = ''
-  try {
-    const args = JSON.parse(toolCallArgs.value)
-    const result = await mcpApi.callTool(toolCallName.value, args)
-    toolCallResult.value = JSON.stringify(result, null, 2)
-    message.success(t('common.success'))
-  } catch (e: any) {
-    toolCallResult.value = extractError(e, t('common.failed'))
-    message.error(t('common.failed'))
-  } finally {
-    callingTool.value = false
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  // FIXED-Severe: 写操作类工具（如 write_device_point）可能修改工业设备状态，需二次确认
+  const writeToolPatterns = ['write', 'set', 'update', 'delete', 'remove', 'create', 'reset', 'send', 'control']
+  const toolNameLower = toolCallName.value.toLowerCase()
+  const isWriteTool = writeToolPatterns.some(p => toolNameLower.includes(p))
+  const doCall = async () => {
+    callingTool.value = true
+    toolCallResult.value = ''
+    try {
+      const args = JSON.parse(toolCallArgs.value)
+      const result = await mcpApi.callTool(toolCallName.value, args)
+      toolCallResult.value = JSON.stringify(result, null, 2)
+      message.success(t('common.success'))
+    } catch (e: any) {
+      toolCallResult.value = extractError(e, t('common.failed'))
+      message.error(toolCallResult.value)
+    } finally {
+      callingTool.value = false
+    }
+  }
+  if (isWriteTool) {
+    dialog.warning({
+      title: t('common.confirm'),
+      content: `${t('mcpServer.callConfirmContent') || t('common.confirm')} (${toolCallName.value})`,
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: doCall,
+    })
+  } else {
+    await doCall()
   }
 }
 

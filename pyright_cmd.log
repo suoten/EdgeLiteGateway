@@ -1,0 +1,1777 @@
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\__main__.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\__main__.py:51:30 - warning: “SIGHUP”不是模块“signal”的已知属性 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:131:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:142:30 - warning: 类型“str”和“set[str] | None”不支持运算符“not in”
+    类型“str”和“None”不支持运算符“not in” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:156:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:165:14 - warning: 无法解析导入“edgelite.services.alarm_silence” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:182:21 - warning: “None”不支持运算符"<" (reportOptionalOperand)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:209:14 - warning: 无法解析导入“edgelite.services.alarm_correlation” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:269:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:304:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:342:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:424:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:508:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:518:14 - warning: 无法解析导入“edgelite.services.alarm_silence” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:568:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:573:14 - warning: 无法解析导入“edgelite.services.alarm_silence” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\audit.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\audit.py:24:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:369:46 - warning: “generate_csrf_token”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:398:19 - warning: 类型“str | None”不可分配给声明的类型“str”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:508:46 - warning: “generate_csrf_token”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:566:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:675:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:919:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:1124:31 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:1125:31 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:1149:31 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:1150:31 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\auth.py:1161:46 - warning: “remove_csrf_token”是未知的导入符号 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:545:19 - warning: 类型为“dict[str, str]”的对象不可调用
+    属性“__call__”未知 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:640:16 - warning: 类型“str”不可分配给声明的类型“Literal['modbus_tcp', 'modbus_rtu', 'opcua', 'mqtt', 'http']”
+    类型“str”不可分配给类型“Literal['modbus_tcp', 'modbus_rtu', 'opcua', 'mqtt', 'http']”
+      “str”不可分配给类型“Literal['modbus_tcp']”
+      “str”不可分配给类型“Literal['modbus_rtu']”
+      “str”不可分配给类型“Literal['opcua']”
+      “str”不可分配给类型“Literal['mqtt']”
+      “str”不可分配给类型“Literal['http']” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:664:14 - warning: 类型“dict[str, Any]”不可分配给声明的类型“SimulateParams | None”
+    类型“dict[str, Any]”不可分配给类型“SimulateParams | None”
+      “dict[str, Any]”不可分配给“SimulateParams”
+      “dict[str, Any]”不可分配给“None” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:683:86 - warning: 无法将“SimulateParams | None”类型的参数分配给函数“_simulate_modbus”中类型为“dict[Unknown, Unknown]”的参数“params”
+    类型“SimulateParams | None”不可分配给类型“dict[Unknown, Unknown]”
+      “SimulateParams”不可分配给“dict[Unknown, Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:686:85 - warning: 无法将“SimulateParams | None”类型的参数分配给函数“_simulate_opcua”中类型为“dict[Unknown, Unknown]”的参数“params”
+    类型“SimulateParams | None”不可分配给类型“dict[Unknown, Unknown]”
+      “SimulateParams”不可分配给“dict[Unknown, Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:689:84 - warning: 无法将“SimulateParams | None”类型的参数分配给函数“_simulate_mqtt”中类型为“dict[Unknown, Unknown]”的参数“params”
+    类型“SimulateParams | None”不可分配给类型“dict[Unknown, Unknown]”
+      “SimulateParams”不可分配给“dict[Unknown, Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:710:92 - warning: 无法将“SimulateParams | None”类型的参数分配给函数“_simulate_http_webhook”中类型为“dict[Unknown, Unknown]”的参数“params”
+    类型“SimulateParams | None”不可分配给类型“dict[Unknown, Unknown]”
+      “SimulateParams”不可分配给“dict[Unknown, Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:1313:39 - warning: 无法将"None"类型的表达式分配给"str | int | float | bool"类型的参数
+    类型“None”不可分配给类型“str | int | float | bool”
+      “None”不可分配给“str”
+      “None”不可分配给“int”
+      “None”不可分配给“float”
+      “None”不可分配给“bool” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:1436:28 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\debug.py:1438:23 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:110:16 - warning: 类型“None”不可分配给返回类型“set[str]”
+    “None”不可分配给“set[str]” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:125:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:170:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:726:55 - warning: “BaseException”不可迭代
+    未定义“__iter__”方法 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:794:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:877:24 - warning: 类型为“None”的对象不能用作可迭代值 (reportOptionalIterable)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:1284:35 - warning: 无法访问类“DriverRegistry”的属性“get_driver_instance”
+    属性“get_driver_instance”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:1299:26 - warning: 无法访问类“CommandApprovalService”的属性“record_intent”
+    属性“record_intent”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:1346:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\devices.py:1576:31 - warning: 无法访问类“DriverRegistry”的属性“get_driver_instance”
+    属性“get_driver_instance”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\drivers.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\drivers.py:237:34 - warning: 无法将"None"类型的表达式分配给"DriverDiscoverRequest"类型的参数
+    “None”不可分配给“DriverDiscoverRequest” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\drivers.py:551:18 - warning: 参数 "self" 缺少参数 (reportCallIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py:178:17 - warning: 未在类型"BaseException"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py:178:37 - warning: 未在类型"BaseException"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py:178:57 - warning: 未在类型"BaseException"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py:178:75 - warning: 未在类型"BaseException"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py:243:13 - warning: 未在类型"BaseException"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\health.py:243:49 - warning: 未在类型"BaseException"上定义"__getitem__"方法 (reportIndexIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\mcp.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\mcp.py:196:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\mcp.py:645:41 - warning: 无法将“str | None”类型的参数分配给函数“_handle_rpc_method”中类型为“str”的参数“method”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\metrics.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\metrics.py:1109:13 - warning: 无法将“dict[str, float]”类型的参数分配给函数“__setitem__”中类型为“dict[str, int]”的参数“value”
+    “dict[str, float]”不可分配给“dict[str, int]”
+      类型参数 "_VT@dict" 是固定的，但 "float" 与 "int" 不同
+      请考虑从 “dict” 切换到 “Mapping”(在值类型中为协变) (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\metrics.py:1227:14 - warning: 无法解析导入“edgelite.services.db_monitor” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\modbus_slave.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\modbus_slave.py:184:50 - warning: “get_device_service”是未知的导入符号 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:245:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:305:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:318:45 - warning: 无法访问类“NotifyWechatConfig”的属性“enabled”
+    属性“enabled”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:319:42 - warning: 无法访问类“NotifyWechatConfig”的属性“name”
+    属性“name”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:359:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:368:44 - warning: 无法访问类“NotifyEmailConfig”的属性“enabled”
+    属性“enabled”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:369:41 - warning: 无法访问类“NotifyEmailConfig”的属性“name”
+    属性“name”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:424:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:491:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:537:113 - warning: 无法访问类“NotifyEmailConfig”的属性“use_ssl”
+    属性“use_ssl”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:606:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\notify.py:645:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\rules.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\rules.py:56:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\rules.py:95:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\rules.py:329:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\rules.py:379:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\system.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\system.py:415:32 - warning: 无法访问类“BackupResult”的属性“component”
+    属性“component”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\system.py:1415:49 - warning: 无法将“str”类型的参数分配给函数“validate_cert”中类型为“Path”的参数“cert_path”
+    “str”不可分配给“Path” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\system.py:1417:49 - warning: 无法访问类“bool”的属性“get”
+    属性“get”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\system.py:1418:42 - warning: 无法访问类“bool”的属性“get”
+    属性“get”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\system.py:1419:46 - warning: 无法访问类“bool”的属性“get”
+    属性“get”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:36:33 - warning: 无法将"None"类型的表达式分配给"PaginationDep"类型的参数
+    “None”不可分配给“PaginationParams” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:41:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:56:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:125:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:183:63 - warning: “_invalidate_user_cache”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:255:24 - warning: 无法将"None"类型的表达式分配给"Request"类型的参数
+    “None”不可分配给“Request” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:286:17 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\users.py:301:63 - warning: “_invalidate_user_cache”是未知的导入符号 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\video.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\video.py:81:40 - warning: 无法将“ConfigDep”类型的参数分配给函数“Depends”中类型为“((...) -> Any) | None”的参数“dependency”
+    类型“Annotated”不可分配给类型“((...) -> Any) | None”
+      类型“Annotated”不可分配给类型“(...) -> Any”
+      “Annotated”不可分配给“None” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\app.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\app.py:61:18 - warning: 无法解析导入“scripts.audit.check_model_orm_consistency” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\app.py:111:31 - warning: 无法访问类“object”的属性“stop_cleanup_task”
+    属性“stop_cleanup_task”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\app.py:113:31 - warning: 无法访问类“object”的属性“stop_scheduler”
+    属性“stop_scheduler”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\app.py:115:31 - warning: 无法访问类“object”的属性“stop”
+    属性“stop”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:146:14 - warning: 无法解析导入“edgelite.services.db_monitor” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:483:30 - warning: 无法为类“IntegrationEndpoint”的属性“_device_service”赋值。
+    属性“_device_service”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:491:30 - warning: 无法为类“IntegrationEndpoint”的属性“_backhaul”赋值。
+    属性“_backhaul”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:502:14 - warning: 无法解析导入“edgelite.engine.app_updater” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:574:18 - warning: 无法解析导入“edgelite.engine.inference_scheduler” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:584:44 - warning: 无法访问类“OnnxModelWrapper”的属性“predict”
+    属性“predict”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:648:10 - warning: 无法解析导入“edgelite.services.shadow_service” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:697:47 - warning: 无法访问类“bool”的属性“get”
+    属性“get”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:720:7 - warning: 无法为类“ServiceContainer”的属性“_cert_monitor”赋值。
+    属性“_cert_monitor”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:721:31 - warning: 无法访问类“ServiceContainer”的属性“_cert_monitor”
+    属性“_cert_monitor”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:927:14 - warning: 无法解析导入“edgelite.engine.log_aggregator” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\bootstrap.py:935:10 - warning: 无法解析导入“edgelite.engine.graceful_restarter” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config.py:547:27 - warning: 无法访问类“MappingProxyType[str, Any]”的属性“update”
+    属性“update”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config.py:549:13 - warning: 未在类型"MappingProxyType[str, Any]"上定义"__setitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config.py:919:14 - warning: 无法解析导入“edgelite.services.config_version” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config_reload.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config_reload.py:421:28 - warning: “iscoroutine_function”不是模块“asyncio”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\config_reload.py:431:28 - warning: “iscoroutine_function”不是模块“asyncio”的已知属性 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\abb_robot.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\abb_robot.py:30:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:339:44 - warning: 无法将“str”类型的参数分配给函数“GetTagList”中类型为“bool”的参数“allTags”
+    “str”不可分配给“bool” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:345:33 - warning: 无法访问类“PLC”的属性“GetProgramList”
+    属性“GetProgramList”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:359:25 - warning: 无法访问类“list[Response]”的属性“Status”
+    属性“Status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:359:25 - warning: 无法访问类“list[Unknown]”的属性“Status”
+    属性“Status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:391:33 - warning: 无法访问类“PLC”的属性“ForwardClose”
+    属性“ForwardClose”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:876:30 - warning: 没有名为“ip”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:886:34 - warning: 无法访问类“PLC”的属性“set_cip_security”
+    属性“set_cip_security”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:899:30 - warning: 无法为类“PLC”的属性“LargeForwardOpen”赋值。
+    属性“LargeForwardOpen”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:902:34 - warning: 无法为类“PLC”的属性“LargeForwardOpen”赋值。
+    属性“LargeForwardOpen”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:907:34 - warning: 无法为类“PLC”的属性“LargeForwardOpen”赋值。
+    属性“LargeForwardOpen”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1294:34 - warning: 无法访问类“int”的属性“tobytes”
+    属性“tobytes”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1294:34 - warning: 无法访问类“float”的属性“tobytes”
+    属性“tobytes”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1294:34 - warning: 无法访问类“str”的属性“tobytes”
+    属性“tobytes”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1294:34 - warning: 无法访问类“bool”的属性“tobytes”
+    属性“tobytes”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1294:34 - warning: 无法访问类“list[Unknown]”的属性“tobytes”
+    属性“tobytes”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1294:34 - warning: 无法访问类“bytes”的属性“tobytes”
+    属性“tobytes”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1631:40 - warning: 没有名为“ip”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1636:34 - warning: 无法为类“PLC”的属性“LargeForwardOpen”赋值。
+    属性“LargeForwardOpen”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1639:38 - warning: 无法为类“PLC”的属性“LargeForwardOpen”赋值。
+    属性“LargeForwardOpen”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1644:38 - warning: 无法为类“PLC”的属性“LargeForwardOpen”赋值。
+    属性“LargeForwardOpen”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1649:38 - warning: 无法访问类“PLC”的属性“set_cip_security”
+    属性“set_cip_security”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1686:50 - warning: 没有名为“ip”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1715:30 - warning: 没有名为“ip”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1770:40 - warning: 没有名为“ip”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1961:16 - warning: 类型“list[AlarmRecord]”不可分配给返回类型“list[dict[Unknown, Unknown]]”
+    “list[AlarmRecord]”不可分配给“list[dict[Unknown, Unknown]]”
+      类型参数 "_T@list" 是固定的，但 "AlarmRecord" 与 "dict[Unknown, Unknown]" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:1982:18 - warning: 无法解析导入“edgelite.drivers.ab_ts_store” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:2050:34 - warning: 没有名为“ip”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:2488:14 - warning: 无法解析导入“edgelite.drivers.ab_audit” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:2489:14 - warning: 无法解析导入“edgelite.drivers.ab_config_version” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\allen_bradley.py:2490:14 - warning: 无法解析导入“edgelite.drivers.ab_ota” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\bacnet.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\bacnet.py:512:14 - warning: 无法为类“BACnetClient*”的属性“_reader”赋值。
+    无法将类型“DatagramTransport”的表达式分配给类“BACnetClient”的属性“_reader”
+      类型“DatagramTransport”不可分配给类型“DatagramProtocol | None”
+        “DatagramTransport”不可分配给“DatagramProtocol”
+        “DatagramTransport”不可分配给“None” (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\bacnet.py:512:28 - warning: 无法为类“BACnetClient*”的属性“_transport”赋值。
+    无法将类型“_BACnetProtocol”的表达式分配给类“BACnetClient”的属性“_transport”
+      类型“_BACnetProtocol”不可分配给类型“DatagramTransport | None”
+        “_BACnetProtocol”不可分配给“DatagramTransport”
+        “_BACnetProtocol”不可分配给“None” (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\bacnet.py:1161:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\bacnet.py:1336:46 - warning: “read_property_multiple”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\bacnet.py:1393:35 - warning: “read_property”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\barcode_scanner.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\barcode_scanner.py:33:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:174:19 - warning: 无法访问类“DriverHealthStats*”的属性“_stats_lock”
+    属性“_stats_lock”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:240:5 - warning: 声明“_half_open_calls”被同名声明遮盖 (reportRedeclaration)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:240:29 - warning: 类型“Literal[0]”不可分配给声明的类型“dict[str, int]”
+    “Literal[0]”不可分配给“dict[str, int]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:444:26 - warning: 类型“Future[Unknown]”不可分配给声明的类型“Future[Unknown] | None”
+    类型“Future[Unknown]”不可分配给类型“Future[Unknown] | None”
+      “_asyncio.Future”不可分配给“concurrent.futures._base.Future”
+      “Future[Unknown]”不可分配给“None” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:446:48 - warning: 无法将“Future[Unknown] | None”类型的参数分配给函数“add”中类型为“Future[Unknown]”的参数“element”
+    类型“Future[Unknown] | None”不可分配给类型“Future[Unknown]”
+      “None”不可分配给“Future[Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:456:53 - warning: 无法将“Future[Unknown] | None”类型的参数分配给函数“wait_for”中类型为“_FutureLike[_T@wait_for]”的参数“fut”
+    类型“Future[Unknown] | None”不可分配给类型“_FutureLike[_T@wait_for]”
+      类型“Future[Unknown]”不可分配给类型“_FutureLike[_T@wait_for]”
+        “Future[Unknown]”与协议“Awaitable[_T@wait_for]”不兼容
+          “__await__”不存在
+        “Future[Unknown]”不可分配给“Future[_T@wait_for]”
+        “Future[Unknown]”与协议“Generator[Any, None, _T@wait_for]”不兼容
+          “__next__”不存在
+          “send”不存在
+    ... (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:477:26 - warning: 类型“Future[Unknown]”不可分配给声明的类型“Future[Unknown] | None”
+    类型“Future[Unknown]”不可分配给类型“Future[Unknown] | None”
+      “_asyncio.Future”不可分配给“concurrent.futures._base.Future”
+      “Future[Unknown]”不可分配给“None” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:479:48 - warning: 无法将“Future[Unknown] | None”类型的参数分配给函数“add”中类型为“Future[Unknown]”的参数“element”
+    类型“Future[Unknown] | None”不可分配给类型“Future[Unknown]”
+      “None”不可分配给“Future[Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:488:32 - warning: "Future[Unknown]" 并非 awaitable
+    “Future[Unknown]”与协议“Awaitable[_T_co@Awaitable]”不兼容
+      “__await__”不存在 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\base.py:488:32 - warning: "None" 并非 awaitable
+    “None”与协议“Awaitable[_T_co@Awaitable]”不兼容
+      “__await__”不存在 (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:40:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:141:20 - warning: 无法解析导入“aioodbc” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:170:32 - warning: 无法访问类“Connection”的属性“terminate”
+    属性“terminate”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:227:35 - warning: “acquire”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:227:35 - warning: 无法访问类“Connection”的属性“acquire”
+    属性“acquire”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:234:35 - warning: “acquire”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:234:35 - warning: 无法访问类“Connection”的属性“acquire”
+    属性“acquire”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:239:39 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:240:33 - warning: 无法访问类“str”的属性“fetchall”
+    属性“fetchall”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:241:51 - warning: 无法访问类“str”的属性“description”
+    属性“description”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:241:74 - warning: 无法访问类“str”的属性“description”
+    属性“description”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:245:35 - warning: “acquire”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:245:35 - warning: 无法访问类“Connection”的属性“acquire”
+    属性“acquire”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\database_source.py:464:20 - warning: 无法解析导入“aioodbc” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dlt645.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dlt645.py:52:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dlt645.py:453:37 - warning: “in_waiting”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dlt645.py:454:46 - warning: “read”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dlt645.py:454:64 - warning: “in_waiting”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dnp3.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dnp3.py:225:60 - warning: “readexactly”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dnp3.py:229:48 - warning: “readexactly”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\dnp3.py:550:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\edge_rule_engine.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\edge_rule_engine.py:224:23 - warning: "None" 并非 awaitable
+    “None”与协议“Awaitable[_T_co@Awaitable]”不兼容
+      “__await__”不存在 (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\ethercat.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\ethercat.py:29:5 - warning: “SOEM_AVAILABLE”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\ethercat.py:450:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:172:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:248:39 - warning: “read_status”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:250:39 - warning: “read_position”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:252:39 - warning: “read_feedrate”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:254:39 - warning: “read_spindle_speed”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:256:39 - warning: “read_program_number”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:258:39 - warning: “read_alarms”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fanuc.py:263:48 - warning: “read_position”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fins.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fins.py:814:28 - warning: 无法访问类“UDPFinsConnection”的属性“close”
+    属性“close”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fins.py:814:28 - warning: 无法访问类“TCPFinsConnection”的属性“close”
+    属性“close”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fins.py:823:32 - warning: 无法访问类“UDPFinsConnection”的属性“close”
+    属性“close”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\fins.py:823:32 - warning: 无法访问类“TCPFinsConnection”的属性“close”
+    属性“close”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:113:9 - warning: 无法将“list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]]]”类型的参数分配给函数“__setitem__”中类型为“list[tuple[int, int, int, int, str]]”的参数“value”
+    “list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]]]”不可分配给“list[tuple[int, int, int, int, str]]”
+      类型参数 "_T@list" 是固定的，但 "tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]]" 与 "tuple[int, int, int, int, str]" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:115:16 - warning: 类型“list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]]]”不可分配给返回类型“list[tuple[int, int, int, int, str]]”
+    “list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]]]”不可分配给“list[tuple[int, int, int, int, str]]”
+      类型参数 "_T@list" 是固定的，但 "tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]]" 与 "tuple[int, int, int, int, str]" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:235:71 - warning: 没有名为“resolver”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:607:19 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:645:56 - warning: 无法将“Unknown | None”类型的参数分配给函数“_get_point_health”中类型为“str”的参数“point_name”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:651:52 - warning: 无法将“Unknown | None”类型的参数分配给函数“_get_point_health”中类型为“str”的参数“point_name”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:665:78 - warning: 无法将“Unknown | None”类型的参数分配给函数“get”中类型为“str”的参数“key”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:680:62 - warning: 无法将“Unknown | None”类型的参数分配给函数“_check_rate_of_change”中类型为“str”的参数“point”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:686:60 - warning: 无法将“Unknown | None”类型的参数分配给函数“_check_frozen_value”中类型为“str”的参数“point”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:695:13 - warning: 无法将“Unknown | None”类型的参数分配给函数“__setitem__”中类型为“str”的参数“key”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\http_webhook.py:1011:76 - warning: “isoformat”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\iec104.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\iec104.py:87:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\iec104.py:832:9 - warning: “pop”的重载与提供的参数不匹配 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\iec104.py:832:27 - warning: 无法将“str”类型的参数分配给函数“pop”中类型为“int”的参数“key”
+    “str”不可分配给“int” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py:173:17 - warning: 无法将“() -> (_KNXProtocol | None)”类型的参数分配给函数“create_datagram_endpoint”中类型为“() -> _ProtocolT@create_datagram_endpoint”的参数“protocol_factory”
+    类型“() -> (_KNXProtocol | None)”不可分配给类型“() -> _ProtocolT@create_datagram_endpoint”
+      函数返回类型"_KNXProtocol | None"与类型"_ProtocolT@create_datagram_endpoint"不兼容
+        类型“_KNXProtocol | None”不可分配给类型“BaseProtocol”
+          类型“_KNXProtocol | None”不可分配给类型“BaseProtocol”
+            “None”不可分配给“BaseProtocol” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py:178:17 - warning: 无法将“() -> (_KNXProtocol | None)”类型的参数分配给函数“create_datagram_endpoint”中类型为“() -> _ProtocolT@create_datagram_endpoint”的参数“protocol_factory”
+    类型“() -> (_KNXProtocol | None)”不可分配给类型“() -> _ProtocolT@create_datagram_endpoint”
+      函数返回类型"_KNXProtocol | None"与类型"_ProtocolT@create_datagram_endpoint"不兼容
+        类型“_KNXProtocol | None”不可分配给类型“BaseProtocol”
+          类型“_KNXProtocol | None”不可分配给类型“BaseProtocol”
+            “None”不可分配给“BaseProtocol” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py:226:42 - warning: “create_future”不是模块“asyncio”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py:263:42 - warning: “create_future”不是模块“asyncio”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py:499:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\knx.py:638:39 - warning: “read_group_value”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\kuka.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\kuka.py:34:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\kuka.py:107:68 - warning: 无法访问类“KukaDriver*”的属性“_recv_loop”
+    属性“_recv_loop”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:190:29 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:190:29 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:549:26 - warning: 无法访问类“Type4E”的属性“read_word_device”
+    属性“read_word_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:549:26 - warning: 无法访问类“Type3E”的属性“read_word_device”
+    属性“read_word_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:578:29 - warning: 无法访问类“Type4E”的属性“read_bit_device”
+    属性“read_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:578:29 - warning: 无法访问类“Type3E”的属性“read_bit_device”
+    属性“read_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:584:29 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:584:29 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:590:29 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:590:29 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:596:29 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:596:29 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:608:29 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:608:29 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:621:29 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:621:29 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:646:26 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:646:26 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:646:26 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:658:19 - warning: “set_accessopt”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:658:19 - warning: 无法访问类“Type4E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:658:19 - warning: 无法访问类“Type3E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:663:34 - warning: “read_bit_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:663:34 - warning: 无法访问类“Type4E”的属性“read_bit_device”
+    属性“read_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:663:34 - warning: 无法访问类“Type3E”的属性“read_bit_device”
+    属性“read_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:665:36 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:665:36 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:665:36 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:670:31 - warning: “set_accessopt”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:670:31 - warning: 无法访问类“Type4E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:670:31 - warning: 无法访问类“Type3E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:674:35 - warning: “reset_accessopt”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:674:35 - warning: 无法访问类“Type4E”的属性“reset_accessopt”
+    属性“reset_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:674:35 - warning: 无法访问类“Type3E”的属性“reset_accessopt”
+    属性“reset_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:679:28 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:679:28 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:679:28 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:688:24 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:688:24 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:688:24 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:709:28 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:709:28 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:709:28 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:718:19 - warning: “set_accessopt”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:718:19 - warning: 无法访问类“Type4E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:718:19 - warning: 无法访问类“Type3E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:721:34 - warning: “read_bit_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:721:34 - warning: 无法访问类“Type4E”的属性“read_bit_device”
+    属性“read_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:721:34 - warning: 无法访问类“Type3E”的属性“read_bit_device”
+    属性“read_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:723:36 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:723:36 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:723:36 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:728:31 - warning: “set_accessopt”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:728:31 - warning: 无法访问类“Type4E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:728:31 - warning: 无法访问类“Type3E”的属性“set_accessopt”
+    属性“set_accessopt”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:728:47 - warning: ** 后面的参数表达式必须是具有“str”键类型的映射 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:732:28 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:732:28 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:732:28 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:740:24 - warning: “read_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:740:24 - warning: 无法访问类“Type4E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:740:24 - warning: 无法访问类“Type3E”的属性“read_device”
+    属性“read_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:878:20 - warning: 无法访问类“Type4E”的属性“write_bit_device”
+    属性“write_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:878:20 - warning: 无法访问类“Type3E”的属性“write_bit_device”
+    属性“write_bit_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:881:20 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:881:20 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:882:74 - warning: 无法访问类“McDriver*”的属性“_point_types”
+    属性“_point_types”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:888:24 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:888:24 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:890:24 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:890:24 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:891:75 - warning: 无法访问类“McDriver*”的属性“_point_types”
+    属性“_point_types”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:896:24 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:896:24 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:901:24 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:901:24 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:903:20 - warning: 无法访问类“Type4E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:903:20 - warning: 无法访问类“Type3E”的属性“write_device”
+    属性“write_device”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1644:38 - warning: 无法访问类“type[EventBus]”的属性“instance”
+    属性“instance”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1759:16 - warning: 类型“list[AlarmRecord]”不可分配给返回类型“list[dict[Unknown, Unknown]]”
+    “list[AlarmRecord]”不可分配给“list[dict[Unknown, Unknown]]”
+      类型参数 "_T@list" 是固定的，但 "AlarmRecord" 与 "dict[Unknown, Unknown]" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1833:25 - warning: 没有名为“measurement”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1838:25 - warning: 没有名为“timestamp_ns”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1873:70 - warning: 无法将“(topic: str, payload: Any) -> CoroutineType[Any, Any, bool]”类型的参数分配给函数“flush”中类型为“((list[dict[Unknown, Unknown]]) -> Awaitable[Any]) | None”的参数“send_callback”
+    类型“(topic: str, payload: Any) -> CoroutineType[Any, Any, bool]”不可分配给类型“((list[dict[Unknown, Unknown]]) -> Awaitable[Any]) | None”
+      类型“(topic: str, payload: Any) -> CoroutineType[Any, Any, bool]”不可分配给类型“(list[dict[Unknown, Unknown]]) -> Awaitable[Any]”
+        参数 1: 类型“list[dict[Unknown, Unknown]]”与类型“str”不兼容
+          “list[dict[Unknown, Unknown]]”不可分配给“str”
+        额外参数“payload”
+      “MethodType”不可分配给“None” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1897:21 - warning: 没有名为“measurement”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1902:21 - warning: 没有名为“timestamp_ns”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1904:20 - warning: 类型“bool | Unknown | None”不可分配给返回类型“bool”
+    类型“bool | Unknown | None”不可分配给类型“bool”
+      “None”不可分配给“bool” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1913:43 - warning: 无法访问类“SqliteTimeSeriesStorage”的属性“force_sync”
+    属性“force_sync”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1922:48 - warning: 无法访问类“InfluxDBStorage”的属性“get_stats”
+    属性“get_stats”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1924:54 - warning: 无法访问类“SqliteTimeSeriesStorage”的属性“get_fallback_stats”
+    属性“get_fallback_stats”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1935:18 - warning: 无法解析导入“edgelite.drivers.mc_ota” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1946:18 - warning: 无法解析导入“edgelite.drivers.mc_config_version” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1955:18 - warning: 无法解析导入“edgelite.drivers.mc_audit” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mc.py:1994:44 - warning: 无法将“str”类型的参数分配给函数“has_permission”中类型为“Permission”的参数“permission”
+    “str”不可分配给“Permission” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:44:43 - warning: “ModbusAudit”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:44:56 - warning: “ModbusAuditAction”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:385:21 - warning: 无法将“Task[Unknown] | None”类型的参数分配给函数“__setitem__”中类型为“Task[Unknown]”的参数“value”
+    类型“Task[Unknown] | None”不可分配给类型“Task[Unknown]”
+      “None”不可分配给“Task[Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:439:33 - warning: 无法将“Task[Unknown] | None”类型的参数分配给函数“__setitem__”中类型为“Task[Unknown]”的参数“value”
+    类型“Task[Unknown] | None”不可分配给类型“Task[Unknown]”
+      “None”不可分配给“Task[Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:835:100 - warning: 没有名为“exc_info”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1287:72 - warning: 没有名为“exc_info”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1436:32 - warning: “None”不可迭代
+    未定义“__iter__”方法 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1446:32 - warning: “None”不可迭代
+    未定义“__iter__”方法 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1509:22 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1510:22 - warning: 无法将“str | None”类型的参数分配给函数“__init__”中类型为“str”的参数“host”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1527:22 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1528:22 - warning: 无法将“str | None”类型的参数分配给函数“__init__”中类型为“str”的参数“port”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1538:40 - warning: 无法为类“CommParams”的属性“rs485_mode”赋值。
+    属性“rs485_mode”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1539:40 - warning: 无法为类“CommParams”的属性“rs485_rts_on_send”赋值。
+    属性“rs485_rts_on_send”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1540:40 - warning: 无法为类“CommParams”的属性“rs485_rts_on_recv”赋值。
+    属性“rs485_rts_on_recv”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1541:40 - warning: 无法为类“CommParams”的属性“rs485_delay_before_send”赋值。
+    属性“rs485_delay_before_send”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1542:40 - warning: 无法为类“CommParams”的属性“rs485_delay_after_send”赋值。
+    属性“rs485_delay_after_send”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1558:17 - warning: “pop”的重载与提供的参数不匹配 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1558:40 - warning: 无法将“str | None”类型的参数分配给函数“pop”中类型为“str”的参数“key”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1559:17 - warning: 无法将“str | None”类型的参数分配给函数“__setitem__”中类型为“str”的参数“value”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1621:59 - warning: 无法将“str | None”类型的参数分配给函数“setdefault”中类型为“str”的参数“key”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1630:56 - warning: 无法将“str | None”类型的参数分配给函数“setdefault”中类型为“str”的参数“key”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1678:34 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1679:30 - warning: 无法将“str | None”类型的参数分配给函数“__init__”中类型为“str”的参数“host”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1684:34 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1685:30 - warning: 无法将“str | None”类型的参数分配给函数“__init__”中类型为“str”的参数“port”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1695:52 - warning: 无法为类“CommParams”的属性“rs485_mode”赋值。
+    属性“rs485_mode”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1696:52 - warning: 无法为类“CommParams”的属性“rs485_rts_on_send”赋值。
+    属性“rs485_rts_on_send”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1697:52 - warning: 无法为类“CommParams”的属性“rs485_rts_on_recv”赋值。
+    属性“rs485_rts_on_recv”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1698:52 - warning: 无法为类“CommParams”的属性“rs485_delay_before_send”赋值。
+    属性“rs485_delay_before_send”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1699:52 - warning: 无法为类“CommParams”的属性“rs485_delay_after_send”赋值。
+    属性“rs485_delay_after_send”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1715:25 - warning: “pop”的重载与提供的参数不匹配 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1715:48 - warning: 无法将“str | None”类型的参数分配给函数“pop”中类型为“str”的参数“key”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:1716:25 - warning: 无法将“str | None”类型的参数分配给函数“__setitem__”中类型为“str”的参数“value”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:2040:67 - warning: 无法将“str | None”类型的参数分配给函数“setdefault”中类型为“str”的参数“key”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:2053:63 - warning: 无法将“str | None”类型的参数分配给函数“setdefault”中类型为“str”的参数“key”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:2326:87 - warning: 没有名为“exc_info”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:2429:72 - warning: 没有名为“exc_info”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:2637:16 - warning: 类型“list[AlarmRecord]”不可分配给返回类型“list[dict[Unknown, Unknown]]”
+    “list[AlarmRecord]”不可分配给“list[dict[Unknown, Unknown]]”
+      类型参数 "_T@list" 是固定的，但 "AlarmRecord" 与 "dict[Unknown, Unknown]" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_rtu.py:2926:16 - warning: 类型“dict[str, Any] | None”不可分配给返回类型“dict[Unknown, Unknown]”
+    类型“dict[str, Any] | None”不可分配给类型“dict[Unknown, Unknown]”
+      “None”不可分配给“dict[Unknown, Unknown]” (reportReturnType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:36:43 - warning: “ModbusAudit”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:36:56 - warning: “ModbusAuditAction”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:40:41 - warning: “LinkRedundancyManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:40:64 - warning: “LinkRole”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:40:74 - warning: “RedundancyConfig”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:114:16 - warning: 无法为类“AsyncModbusTcpClient”的属性“slave_id”赋值。
+    属性“slave_id”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:419:9 - warning: 无法将“set[Unknown | None]”类型的参数分配给函数“__setitem__”中类型为“set[str]”的参数“value”
+    “set[Unknown | None]”不可分配给“set[str]”
+      类型参数 "_T@set" 是固定的，但 "Unknown | None" 与 "str" 不同
+      请考虑从“set”切换到“Container”，后者是协变的 (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:767:48 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_release_client”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:769:53 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_lease_client”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:782:49 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_read_single_point”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:838:48 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_release_client”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:840:53 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_lease_client”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:853:53 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_batch_read_points”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:896:40 - warning: 无法将“AsyncModbusTcpClient | None”类型的参数分配给函数“_release_client”中类型为“AsyncModbusTcpClient”的参数“client”
+    类型“AsyncModbusTcpClient | None”不可分配给类型“AsyncModbusTcpClient”
+      “None”不可分配给“AsyncModbusTcpClient” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:1949:16 - warning: 类型“Unknown | str | None”不可分配给返回类型“str”
+    类型“Unknown | str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:2574:43 - warning: “get_rule”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\modbus_tcp.py:2681:16 - warning: 类型“dict[str, Any] | None”不可分配给返回类型“dict[Unknown, Unknown]”
+    类型“dict[str, Any] | None”不可分配给类型“dict[Unknown, Unknown]”
+      “None”不可分配给“dict[Unknown, Unknown]” (reportReturnType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:553:77 - warning: 没有名为“ssl_context”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:588:85 - warning: 没有名为“ssl_context”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:751:37 - warning: “put_nowait”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:757:41 - warning: “get_nowait”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:759:41 - warning: “put_nowait”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:775:70 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:928:35 - warning: 函数声明“_safe_callback”被同名声明遮盖 (reportRedeclaration)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:930:39 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:959:39 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:985:34 - warning: 类型 tuple[()] 的索引 0 超出范围 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:985:44 - warning: 类型 tuple[()] 的索引 1 超出范围 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mqtt_client.py:985:44 - warning: 类型 tuple[Unknown] 的索引 1 超出范围 (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:20:22 - warning: “etree”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:44:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:65:23 - warning: 类型表达式中不允许使用变量 (reportInvalidTypeForm)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:135:56 - warning: 无法访问类“str”的属性“get”
+    属性“get”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:152:39 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:156:48 - warning: 无法访问类“tuple[dict[str, Any], int | None]”的属性“get”
+    属性“get”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\mtconnect.py:162:47 - warning: 无法访问类“tuple[dict[str, Any], int | None]”的属性“items”
+    属性“items”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py:375:42 - warning: 无法将“int | None”类型的参数分配给函数“_register_thread_cleanup”中类型为“int”的参数“thread_id”
+    类型“int | None”不可分配给类型“int”
+      “None”不可分配给“int” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py:646:30 - warning: “connect”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py:1075:37 - warning: “browse”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py:1182:27 - warning: “CoSetProxyBlanket”不是模块“pythoncom”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py:1202:27 - warning: “CoSetProxyBlanket”不是模块“pythoncom”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da.py:1397:87 - warning: “connect”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da_gateway.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opc_da_gateway.py:277:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:31:51 - warning: “OpcUaConfigVersionManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:32:40 - warning: “OpcUaOtaManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:32:57 - warning: “OtaPackage”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:33:45 - warning: “OpcUaOfflineSyncManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:33:70 - warning: “OpcUaTsStore”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:962:27 - warning: “add_rule”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:1007:27 - warning: 没有名为“type”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:1007:48 - warning: 没有名为“data”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:1023:16 - warning: 类型“list[AlarmRecord]”不可分配给返回类型“list[dict[Unknown, Unknown]]”
+    “list[AlarmRecord]”不可分配给“list[dict[Unknown, Unknown]]”
+      类型参数 "_T@list" 是固定的，但 "AlarmRecord" 与 "dict[Unknown, Unknown]" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:1038:30 - warning: “start”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:1045:34 - warning: “start”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2086:122 - warning: 无法将“DHPublicKey | DSAPublicKey | Ed25519PublicKey | Ed448PublicKey | EllipticCurvePublicKey | RSAPublicKey | X25519PublicKey | X448PublicKey”类型的参数分配给函数“public_key”中类型为“CertificatePublicKeyTypes”的参数“key”
+    类型“DHPublicKey | DSAPublicKey | Ed25519PublicKey | Ed448PublicKey | EllipticCurvePublicKey | RSAPublicKey | X25519PublicKey | X448PublicKey”不可分配给类型“CertificatePublicKeyTypes”
+      类型“DHPublicKey”不可分配给类型“CertificatePublicKeyTypes”
+        “DHPublicKey”不可分配给“DSAPublicKey”
+        “DHPublicKey”不可分配给“RSAPublicKey”
+        “DHPublicKey”不可分配给“EllipticCurvePublicKey”
+        “DHPublicKey”不可分配给“Ed25519PublicKey”
+        “DHPublicKey”不可分配给“Ed448PublicKey”
+        “DHPublicKey”不可分配给“X25519PublicKey”
+    ... (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2086:265 - warning: 无法将“PrivateKeyTypes”类型的参数分配给函数“sign”中类型为“CertificateIssuerPrivateKeyTypes”的参数“private_key”
+    类型“PrivateKeyTypes”不可分配给类型“CertificateIssuerPrivateKeyTypes”
+      类型“DHPrivateKey”不可分配给类型“CertificateIssuerPrivateKeyTypes”
+        “DHPrivateKey”不可分配给“Ed25519PrivateKey”
+        “DHPrivateKey”不可分配给“Ed448PrivateKey”
+        “DHPrivateKey”不可分配给“RSAPrivateKey”
+        “DHPrivateKey”不可分配给“DSAPrivateKey”
+        “DHPrivateKey”不可分配给“EllipticCurvePrivateKey” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2158:49 - warning: 无法访问类“type[SecurityPolicy]”的属性“Basic128Rsa15”
+    属性“Basic128Rsa15”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2159:44 - warning: 无法访问类“type[SecurityPolicy]”的属性“Basic256”
+    属性“Basic256”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2160:50 - warning: 无法访问类“type[SecurityPolicy]”的属性“Basic256Sha256”
+    属性“Basic256Sha256”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2274:28 - warning: 无法为类“Client”的属性“security_mode”赋值。
+    属性“security_mode”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2287:55 - warning: 无法将“str”类型的参数分配给函数“load_private_key”中类型为“Path”的参数“path”
+    “str”不可分配给“Path” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2289:38 - warning: 无法访问类“Client”的属性“load_server_certificate”
+    属性“load_server_certificate”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2366:40 - warning: 无法访问类“Client”的属性“session_state”
+    属性“session_state”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2537:55 - warning: “disconnect”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2623:53 - warning: “DeadbandType”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2665:57 - warning: “DeadbandType”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2737:20 - warning: 无法为类“Client”的属性“security_mode”赋值。
+    属性“security_mode”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua.py:2742:55 - warning: 无法将“Node”类型的参数分配给函数“wait_for”中类型为“_FutureLike[_T@wait_for]”的参数“fut”
+    类型“Node”不可分配给类型“_FutureLike[_T@wait_for]”
+      “Node”与协议“Awaitable[_T@wait_for]”不兼容
+        “__await__”不存在
+      “Node”不可分配给“Future[_T@wait_for]”
+      “Node”与协议“Generator[Any, None, _T@wait_for]”不兼容
+        “__next__”不存在
+        “send”不存在
+        “throw”不存在
+    ... (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_config_version.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_config_version.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_ota.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_ota.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:72:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:172:18 - warning: 无法解析导入“asyncua.server.users” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:213:49 - warning: 无法访问类“CustomUserManager*”的属性“username”
+    属性“username”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:213:79 - warning: 无法访问类“CustomUserManager*”的属性“password”
+    属性“password”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:218:34 - warning: 无法为类“CustomUserManager”的属性“username”赋值。
+    属性“username”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:219:34 - warning: 无法为类“CustomUserManager”的属性“password”赋值。
+    属性“password”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:220:34 - warning: 无法为类“Server”的属性“user_manager”赋值。
+    属性“user_manager”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:224:13 - warning: 参数 "callback" 缺少参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:231:19 - warning: "None" 并非 awaitable
+    “None”与协议“Awaitable[_T_co@Awaitable]”不兼容
+      “__await__”不存在 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:327:20 - warning: 未在类型"CoroutineType[Any, Any, Any]"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:415:24 - warning: 未在类型"CoroutineType[Any, Any, Any]"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:418:38 - warning: 无法为类“DataValue”的属性“ServerTimestamp”赋值。
+    类型“datetime”不可分配给类型“DateTime | None”
+      “datetime”不可分配给“DateTime”
+      “datetime”不可分配给“None” (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:419:38 - warning: 无法为类“DataValue”的属性“SourceTimestamp”赋值。
+    类型“datetime”不可分配给类型“DateTime | None”
+      “datetime”不可分配给“DateTime”
+      “datetime”不可分配给“None” (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:487:34 - warning: 无法为类“DataValue”的属性“ServerTimestamp”赋值。
+    类型“datetime”不可分配给类型“DateTime | None”
+      “datetime”不可分配给“DateTime”
+      “datetime”不可分配给“None” (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:488:34 - warning: 无法为类“DataValue”的属性“SourceTimestamp”赋值。
+    类型“datetime”不可分配给类型“DateTime | None”
+      “datetime”不可分配给“DateTime”
+      “datetime”不可分配给“None” (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:489:16 - warning: 无法为类“DataValue”的属性“Quality”赋值。
+    属性“Quality”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_server.py:489:80 - warning: 无法访问类“type[StatusCode]”的属性“Good”
+    属性“Good”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_ts_store.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\opcua_ts_store.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:252:17 - warning: 无法将“() -> (_ProfinetProtocol | None)”类型的参数分配给函数“create_datagram_endpoint”中类型为“() -> _ProtocolT@create_datagram_endpoint”的参数“protocol_factory”
+    类型“() -> (_ProfinetProtocol | None)”不可分配给类型“() -> _ProtocolT@create_datagram_endpoint”
+      函数返回类型"_ProfinetProtocol | None"与类型"_ProtocolT@create_datagram_endpoint"不兼容
+        类型“_ProfinetProtocol | None”不可分配给类型“BaseProtocol”
+          类型“_ProfinetProtocol | None”不可分配给类型“BaseProtocol”
+            “None”不可分配给“BaseProtocol” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:418:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:591:48 - warning: “read_db_int16”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:593:47 - warning: “read_area”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:601:43 - warning: “read_area”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:608:43 - warning: “read_area”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\profinet.py:650:43 - warning: “write_area”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\redundancy.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\redundancy.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\registry.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\registry.py:283:50 - warning: “util”不是模块“importlib”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\registry.py:298:42 - warning: “util”不是模块“importlib”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\registry.py:507:28 - warning: 无法为类“ModuleType”的属性“__builtins__”赋值。
+    属性“__builtins__”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\registry.py:540:32 - warning: 静态方法不应采用“self”或“cls”参数 (reportSelfClsParameterName)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:71:26 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:73:26 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:74:26 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:77:26 - warning: “rollback”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:82:26 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:83:26 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:86:26 - warning: “rollback”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:92:32 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:111:33 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:123:32 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:124:26 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\rule_store.py:128:26 - warning: “rollback”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:32:41 - warning: “LinkRedundancyManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:32:64 - warning: “LinkRole”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:32:74 - warning: “RedundancyConfig”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:34:48 - warning: “S7ConfigVersionManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:35:37 - warning: “S7OtaManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:37:5 - warning: “S7OfflineSyncManager”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:38:5 - warning: “S7TsStore”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:326:38 - warning: 无法访问类“Client”的属性“get_timeout”
+    属性“get_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:335:24 - warning: 无法访问类“Client”的属性“set_timeout”
+    属性“set_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:340:32 - warning: 无法访问类“Client”的属性“set_timeout”
+    属性“set_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:353:38 - warning: 无法访问类“Client”的属性“get_timeout”
+    属性“get_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:360:24 - warning: 无法访问类“Client”的属性“set_timeout”
+    属性“set_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:365:32 - warning: 无法访问类“Client”的属性“set_timeout”
+    属性“set_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:420:34 - warning: 无法访问类“type[EventBus]”的属性“instance”
+    属性“instance”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:424:26 - warning: “set_on_switch_callback”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:480:81 - warning: 应为 3 个位置参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:484:62 - warning: 应为 3 个位置参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:520:30 - warning: “register_device”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:524:38 - warning: 无法访问类“type[EventBus]”的属性“instance”
+    属性“instance”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:538:34 - warning: “start”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:545:38 - warning: “start”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:547:44 - warning: “save_version”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:554:27 - warning: “set_current_version”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:819:33 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:820:31 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:821:34 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:822:29 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1140:22 - warning: 类型“float”和“Any | None”不支持运算符“-”
+    类型“float”和“None”不支持运算符“-” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1285:42 - warning: 无法访问类“Client”的属性“get_timeout”
+    属性“get_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1291:28 - warning: 无法访问类“Client”的属性“set_timeout”
+    属性“set_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1301:36 - warning: 无法访问类“Client”的属性“set_timeout”
+    属性“set_timeout”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1448:65 - warning: 应为 3 个位置参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1533:61 - warning: “get_pdu_size”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1533:61 - warning: 无法访问类“Client”的属性“get_pdu_size”
+    属性“get_pdu_size”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1579:59 - warning: “set_password”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1579:59 - warning: 无法访问类“Client”的属性“set_password”
+    属性“set_password”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1584:24 - warning: “password”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1584:24 - warning: 无法为类“Client”的属性“password”赋值。
+    属性“password”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1889:79 - warning: 应为 3 个位置参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:1892:60 - warning: 应为 3 个位置参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:2076:72 - warning: 应为 3 个位置参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:2135:43 - warning: “get_rule”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:2254:45 - warning: “OtaPackage”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7.py:2267:45 - warning: “OtaPackage”是未知的导入符号 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7_config_version.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7_config_version.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7_ota.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7_ota.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7_ts_store.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\s7_ts_store.py:1:1 - error: 字符串文本未终止
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:93:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:238:29 - warning: 无法将“str | None”类型的参数分配给函数“_create_serial_client”中类型为“str”的参数“port”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:238:42 - warning: “port”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:239:42 - warning: “baudrate”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:240:42 - warning: “parity”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:287:62 - warning: “write”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:290:42 - warning: “read”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\serial_port.py:290:61 - warning: “in_waiting”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py:152:12 - warning: 类型“dict[Unknown, Unknown] | int”和“Literal[0]”不支持运算符“<=”
+    类型“dict[Unknown, Unknown]”和“Literal[0]”不支持运算符“<=” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py:154:12 - warning: 类型“float”和“dict[Unknown, Unknown] | int”不支持运算符“>=”
+    类型“float”和“dict[Unknown, Unknown]”不支持运算符“>=” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py:158:16 - warning: 类型“dict[Unknown, Unknown]”不可分配给返回类型“str | None”
+    类型“dict[Unknown, Unknown]”不可分配给类型“str | None”
+      “dict[Unknown, Unknown]”不可分配给“str”
+      “dict[Unknown, Unknown]”不可分配给“None” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py:338:17 - warning: 无法将“Any | int | float”类型的参数分配给函数“__setitem__”中类型为“dict[Unknown, Unknown]”的参数“value”
+    类型“Any | int | float”不可分配给类型“dict[Unknown, Unknown]”
+      “float”不可分配给“dict[Unknown, Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py:344:17 - warning: 无法将“float”类型的参数分配给函数“__setitem__”中类型为“dict[Unknown, Unknown]”的参数“value”
+    “float”不可分配给“dict[Unknown, Unknown]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\simulator.py:439:30 - warning: 类型“float | None”不可分配给声明的类型“float”
+    类型“float | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\snap7_integration.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\snap7_integration.py:202:69 - warning: 无法将“c_void_p”类型的参数分配给函数“__init__”中类型为“int | None”的参数“value”
+    类型“c_void_p”不可分配给类型“int | None”
+      “c_void_p”不可分配给“int”
+      “c_void_p”不可分配给“None” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\soem_integration.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\soem_integration.py:42:12 - warning: 无法解析导入“pysoem” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\soem_integration.py:113:37 - warning: “Network”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:19:10 - warning: 无法解析导入“sparkplugb” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:94:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:216:40 - warning: 无法将“Unknown | None”类型的参数分配给函数“__new__”中类型为“ConvertibleToInt”的参数“x”
+    类型“Unknown | None”不可分配给类型“ConvertibleToInt”
+      类型“None”不可分配给类型“ConvertibleToInt”
+        “None”不可分配给“str”
+        “None”与协议“Buffer”不兼容
+          “__buffer__”不存在
+        “None”与协议“SupportsInt”不兼容
+          “__int__”不存在
+        “None”与协议“SupportsIndex”不兼容
+    ... (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:216:40 - warning: 无法将“Unknown | None”类型的参数分配给函数“__new__”中类型为“ConvertibleToInt”的参数“x”
+    类型“Unknown | None”不可分配给类型“ConvertibleToInt”
+      类型“None”不可分配给类型“ConvertibleToInt”
+        “None”不可分配给“str”
+        “None”与协议“Buffer”不兼容
+          “__buffer__”不存在
+        “None”与协议“SupportsInt”不兼容
+          “__int__”不存在
+        “None”与协议“SupportsIndex”不兼容 (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:218:44 - warning: 无法将“Unknown | None”类型的参数分配给函数“__new__”中类型为“ConvertibleToInt”的参数“x”
+    类型“Unknown | None”不可分配给类型“ConvertibleToInt”
+      类型“None”不可分配给类型“ConvertibleToInt”
+        “None”不可分配给“str”
+        “None”与协议“Buffer”不兼容
+          “__buffer__”不存在
+        “None”与协议“SupportsInt”不兼容
+          “__int__”不存在
+        “None”与协议“SupportsIndex”不兼容
+    ... (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:218:44 - warning: 无法将“Unknown | None”类型的参数分配给函数“__new__”中类型为“ConvertibleToInt”的参数“x”
+    类型“Unknown | None”不可分配给类型“ConvertibleToInt”
+      类型“None”不可分配给类型“ConvertibleToInt”
+        “None”不可分配给“str”
+        “None”与协议“Buffer”不兼容
+          “__buffer__”不存在
+        “None”与协议“SupportsInt”不兼容
+          “__int__”不存在
+        “None”与协议“SupportsIndex”不兼容 (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\sparkplug_b.py:352:32 - warning: 无法访问类“AppConfig”的属性“sparkplug_b”
+    属性“sparkplug_b”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\toledo.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\toledo.py:32:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\toledo.py:161:22 - warning: “write”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\toledo.py:162:28 - warning: “drain”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\toledo.py:166:56 - warning: “readline”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\toledo.py:231:53 - warning: “readline”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\video\__init__.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\video\__init__.py:22:27 - warning: 类型“list[str]”不可分配给声明的类型“tuple[str, ...]”
+    “list[str]”不可分配给“tuple[str, ...]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\video\__init__.py:89:14 - warning: 无法访问类“VideoDriver*”的属性“_set_device_config”
+    属性“_set_device_config”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\video_ai.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\video_ai.py:422:38 - warning: “run”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\drivers\video_ai.py:476:38 - warning: “run”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\alarm_outbox.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\alarm_outbox.py:55:22 - warning: 无法将“DataclassInstance | type[DataclassInstance]”类型的参数分配给函数“asdict”中类型为“DataclassInstance”的参数“obj”
+    类型“DataclassInstance | type[DataclassInstance]”不可分配给类型“DataclassInstance”
+      “__dataclass_fields__”在协议中定义为 ClassVar (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\backpressure.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\backpressure.py:130:23 - warning: 无法访问类“Queue[Unknown]”的属性“close”
+    属性“close”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\backpressure.py:153:23 - warning: 无法访问类“Queue[Unknown]”的属性“close”
+    属性“close”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\backpressure.py:220:24 - warning: 无法访问类“BackpressureController*”的属性“_notify_callbacks”
+    属性“_notify_callbacks”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\backpressure.py:238:24 - warning: 无法访问类“BackpressureController*”的属性“_notify_callbacks”
+    属性“_notify_callbacks”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\backpressure.py:441:32 - warning: “iscoroutine_function”不是模块“asyncio”的已知属性 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\cascade_manager.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\cascade_manager.py:150:80 - warning: 无法将“(zeroconf: Any, service_type: str, name: str, state_change: Any) -> None”类型的参数分配给函数“__init__”中类型为“ServiceListener | list[(...) -> None] | None”的参数“handlers”
+    类型“(zeroconf: Any, service_type: str, name: str, state_change: Any) -> None”不可分配给类型“ServiceListener | list[(...) -> None] | None”
+      “MethodType”不可分配给“ServiceListener”
+      “MethodType”不可分配给“list[(...) -> None]”
+      “MethodType”不可分配给“None” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\driver_watchdog.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\driver_watchdog.py:74:33 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\driver_watchdog.py:108:52 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:213:18 - warning: 无法解析导入“edgelite.engine.ai_preprocess” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:216:18 - warning: 无法解析导入“edgelite.engine.ai_postprocess” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:239:28 - warning: “InferenceSession”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:563:14 - warning: 无法解析导入“edgelite.engine.ai_inference_cache” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:568:14 - warning: 无法解析导入“edgelite.engine.ai_version_manager” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:571:14 - warning: 无法解析导入“edgelite.engine.ai_resource_monitor” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:584:18 - warning: 无法解析导入“edgelite.engine.ai_device_detector” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:658:36 - warning: 没有名为“provider”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:688:88 - warning: 无法访问类“OnnxModelWrapper”的属性“_last_mtime”
+    属性“_last_mtime”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:688:88 - warning: 无法访问类“TFLiteModelWrapper”的属性“_last_mtime”
+    属性“_last_mtime”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:688:88 - warning: 无法访问类“PMMLModelWrapper”的属性“_last_mtime”
+    属性“_last_mtime”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:691:37 - warning: 无法为类“OnnxModelWrapper”的属性“_last_mtime”赋值。
+    属性“_last_mtime”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:691:37 - warning: 无法为类“TFLiteModelWrapper”的属性“_last_mtime”赋值。
+    属性“_last_mtime”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:691:37 - warning: 无法为类“PMMLModelWrapper”的属性“_last_mtime”赋值。
+    属性“_last_mtime”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:811:44 - warning: 没有名为“provider”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:822:34 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_record_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:823:56 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_auto_increment_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:832:34 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_record_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:895:60 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_auto_increment_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:896:38 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_record_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:909:34 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_record_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:946:22 - warning: “array”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:946:49 - warning: “float32”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:947:24 - warning: 无法访问类“TFLiteModelWrapper”的属性“_preprocess_pipeline”
+    属性“_preprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:947:24 - warning: 无法访问类“PMMLModelWrapper”的属性“_preprocess_pipeline”
+    属性“_preprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:948:31 - warning: 无法访问类“TFLiteModelWrapper”的属性“_preprocess_pipeline”
+    属性“_preprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:948:31 - warning: 无法访问类“PMMLModelWrapper”的属性“_preprocess_pipeline”
+    属性“_preprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:959:39 - warning: “pad”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:971:43 - warning: “ndarray”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:996:39 - warning: “pad”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1011:43 - warning: “ndarray”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1018:24 - warning: 无法访问类“TFLiteModelWrapper”的属性“_postprocess_pipeline”
+    属性“_postprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1018:24 - warning: 无法访问类“PMMLModelWrapper”的属性“_postprocess_pipeline”
+    属性“_postprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1019:39 - warning: 无法访问类“TFLiteModelWrapper”的属性“_postprocess_pipeline”
+    属性“_postprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1019:39 - warning: 无法访问类“PMMLModelWrapper”的属性“_postprocess_pipeline”
+    属性“_postprocess_pipeline”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1039:25 - warning: 无法将“AiInferenceEvent”类型的参数分配给函数“publish”中类型为“Event”的参数“event”
+    “AiInferenceEvent”不可分配给“Event” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1049:21 - warning: 无法为类“TFLiteModelWrapper”的属性“last_result”赋值。
+    属性“last_result”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1049:21 - warning: 无法为类“PMMLModelWrapper”的属性“last_result”赋值。
+    属性“last_result”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1049:21 - warning: 无法为类“OnnxModelWrapper”的属性“last_result”赋值。
+    属性“last_result”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1198:16 - warning: 类型“dict[str, OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper]”不可分配给返回类型“dict[str, OnnxModelWrapper]”
+    “dict[str, OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper]”不可分配给“dict[str, OnnxModelWrapper]”
+      类型参数 "_VT@dict" 是固定的，但 "OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper" 与 "OnnxModelWrapper" 不同
+      请考虑从 “dict” 切换到 “Mapping”(在值类型中为协变) (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1201:16 - warning: 类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper | None”不可分配给返回类型“OnnxModelWrapper | None”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper | None”不可分配给类型“OnnxModelWrapper | None”
+      类型“PMMLModelWrapper”不可分配给类型“OnnxModelWrapper | None”
+        “PMMLModelWrapper”不可分配给“OnnxModelWrapper”
+        “PMMLModelWrapper”不可分配给“None” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1321:37 - warning: 无法将“AiInferenceEvent”类型的参数分配给函数“publish”中类型为“Event”的参数“event”
+    “AiInferenceEvent”不可分配给“Event” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1560:38 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_record_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1586:21 - warning: 无法为类“OnnxModelWrapper”的属性“_version_history”赋值。
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1586:21 - warning: 无法为类“TFLiteModelWrapper”的属性“_version_history”赋值。
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1586:21 - warning: 无法为类“PMMLModelWrapper”的属性“_version_history”赋值。
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1592:30 - warning: 无法将“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”类型的参数分配给函数“_record_version”中类型为“OnnxModelWrapper”的参数“wrapper”
+    类型“OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper”不可分配给类型“OnnxModelWrapper”
+      “PMMLModelWrapper”不可分配给“OnnxModelWrapper” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1613:21 - warning: 无法为类“OnnxModelWrapper”的属性“_version_history”赋值。
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1620:17 - warning: 无法访问类“OnnxModelWrapper”的属性“_version_history”
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1621:24 - warning: 无法访问类“OnnxModelWrapper”的属性“_version_history”
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1622:21 - warning: 无法为类“OnnxModelWrapper”的属性“_version_history”赋值。
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1622:48 - warning: 无法访问类“OnnxModelWrapper”的属性“_version_history”
+    属性“_version_history”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1721:31 - warning: 类型表达式中不允许使用变量 (reportInvalidTypeForm)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1721:51 - warning: 类型表达式中不允许使用变量 (reportInvalidTypeForm)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1943:28 - warning: 类型表达式中不允许使用变量 (reportInvalidTypeForm)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1958:58 - warning: “load_model”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1958:70 - warning: “model_builder”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:1968:13 - warning: 没有名为“optimize_model”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:2054:30 - warning: 类型为“(number: int) -> str”的对象不可下标 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\edge_ai_inference.py:2062:30 - warning: 类型为“(number: int) -> str”的对象不可下标 (reportIndexIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:16:34 - warning: “check_condition_fast”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:236:13 - warning: 无法将“tuple[float | None, float]”类型的参数分配给函数“__setitem__”中类型为“tuple[float, float]”的参数“value”
+    “tuple[float | None, float]”不可分配给“tuple[float, float]”
+      Tuple 条目 1 的类型不正确
+        类型“float | None”不可分配给类型“float”
+          “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:286:55 - warning: 无法将“dict[str, float | None]”类型的参数分配给函数“_eval_script”中类型为“dict[str, float]”的参数“point_values”
+    “dict[str, float | None]”不可分配给“dict[str, float]”
+      类型参数 "_VT@dict" 是固定的，但 "float | None" 与 "float" 不同
+      请考虑从 “dict” 切换到 “Mapping”(在值类型中为协变) (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:288:70 - warning: 无法将“dict[str, float | None]”类型的参数分配给函数“_evaluate_ai_conditions”中类型为“dict[str, float]”的参数“point_values”
+    “dict[str, float | None]”不可分配给“dict[str, float]”
+      类型参数 "_VT@dict" 是固定的，但 "float | None" 与 "float" 不同
+      请考虑从 “dict” 切换到 “Mapping”(在值类型中为协变) (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:290:64 - warning: 无法将“dict[str, float | None]”类型的参数分配给函数“_check_conditions”中类型为“dict[str, float]”的参数“point_values”
+    “dict[str, float | None]”不可分配给“dict[str, float]”
+      类型参数 "_VT@dict" 是固定的，但 "float | None" 与 "float" 不同
+      请考虑从 “dict” 切换到 “Mapping”(在值类型中为协变) (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:355:42 - warning: 无法将“Unknown | None”类型的参数分配给函数“get”中类型为“str”的参数“key”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:366:32 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:373:28 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:397:32 - warning: 无法将“Unknown | None”类型的参数分配给函数“_get_window_aggregate”中类型为“str”的参数“point_name”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:403:42 - warning: 无法将“Unknown | None”类型的参数分配给函数“get”中类型为“str”的参数“key”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:525:20 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:599:14 - warning: 无法解析导入“edgelite.engine.sandbox” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:636:30 - warning: “min”的重载与提供的参数不匹配 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\evaluator.py:636:60 - warning: 无法将“Overload[(key: str, default: None = None, /) -> (float | None), (key: str, default: float, /) -> float, (key: str, default: _T@get, /) -> (float | _T@get)]”类型的参数分配给函数“min”中类型为“(_T@min) -> SupportsRichComparison”的参数“key”
+    没有重载函数与类型“(str) -> SupportsRichComparison”匹配 (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\integration\backhaul.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\integration\backhaul.py:394:43 - warning: 无法访问类“OfflineQueue”的属性“purge_expired”
+    属性“purge_expired”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:19:34 - warning: “map_device_data_fast”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:44:40 - warning: “SimData”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:44:49 - warning: “SimDevice”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:134:40 - warning: “SimData”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:134:49 - warning: “SimDevice”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:161:44 - warning: “ModbusSlaveContext”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:174:49 - warning: 没有名为“slaves”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:210:52 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:211:39 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:213:21 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:231:52 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:232:39 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:234:21 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:249:52 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:250:39 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:252:21 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:278:63 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:279:61 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:280:61 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:282:34 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:283:34 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:284:34 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:293:33 - warning: 无法调用类型为“None”的对象 (reportOptionalCall)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:301:61 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:302:51 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:304:58 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:305:51 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:307:58 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:308:51 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:311:33 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:313:33 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:315:33 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:359:57 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:360:47 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:362:29 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:370:57 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:371:47 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:373:29 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:410:52 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:411:46 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:413:30 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:427:52 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:428:46 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:430:30 - warning: 未在类型"ModbusServerContext"上定义"__getitem__"方法 (reportIndexIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:447:55 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:448:58 - warning: 无法访问类“ModbusServerContext”的属性“co”
+    属性“co”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:451:55 - warning: 无法访问类“ModbusServerContext”的属性“di”
+    属性“di”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:452:58 - warning: 无法访问类“ModbusServerContext”的属性“di”
+    属性“di”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:455:55 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:456:58 - warning: 无法访问类“ModbusServerContext”的属性“hr”
+    属性“hr”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:459:55 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\modbus_slave.py:460:58 - warning: 无法访问类“ModbusServerContext”的属性“ir”
+    属性“ir”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_forwarder.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_forwarder.py:374:74 - warning: 没有名为“ssl_context”的参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_forwarder.py:388:85 - warning: 无法将“(topic: str, payload: Any) -> CoroutineType[Any, Any, bool]”类型的参数分配给函数“flush”中类型为“((list[dict[Unknown, Unknown]]) -> Awaitable[Any]) | None”的参数“send_callback”
+    类型“(topic: str, payload: Any) -> CoroutineType[Any, Any, bool]”不可分配给类型“((list[dict[Unknown, Unknown]]) -> Awaitable[Any]) | None”
+      类型“(topic: str, payload: Any) -> CoroutineType[Any, Any, bool]”不可分配给类型“(list[dict[Unknown, Unknown]]) -> Awaitable[Any]”
+        参数 1: 类型“list[dict[Unknown, Unknown]]”与类型“str”不兼容
+          “list[dict[Unknown, Unknown]]”不可分配给“str”
+        额外参数“payload”
+      “FunctionType”不可分配给“None” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_forwarder.py:727:40 - warning: 无法将“Generator[Unknown | None, None, None]”类型的参数分配给函数“extend”中类型为“Iterable[int]”的参数“iterable”
+    “Generator[Unknown | None, None, None]”不可分配给“Iterable[int]”
+      类型参数 "_T_co@Iterable" 是协变的，但 "Unknown | None" 不是 "int" 的子类型
+        类型“Unknown | None”不可分配给类型“int”
+          “None”不可分配给“int” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_forwarder.py:757:46 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_forwarder.py:763:46 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:33:54 - warning: 类型“type[BaseAuthPlugin]”不可分配给声明的类型“type[_BaseAuthPlugin]”
+    “type[BaseAuthPlugin]”不可分配给“type[_BaseAuthPlugin]”
+    类型“type[BaseAuthPlugin]”不可分配给类型“type[_BaseAuthPlugin]” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:64:43 - warning: 无法访问类“object”的属性“authenticate”
+    属性“authenticate”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:69:32 - warning: 无法访问类“None”的属性“username”
+    属性“username”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:69:60 - warning: 无法访问类“None”的属性“password”
+    属性“password”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:72:48 - warning: 无法访问类“None”的属性“username”
+    属性“username”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:72:93 - warning: 无法访问类“None”的属性“password”
+    属性“password”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\mqtt_server.py:74:26 - warning: 无法访问类“object”的属性“logger”
+    属性“logger”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:401:60 - warning: 无法将“float | None”类型的参数分配给函数“_apply_transform”中类型为“float”的参数“value”
+    类型“float | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:410:68 - warning: 无法将“float | None”类型的参数分配给函数“_apply_sliding_window”中类型为“float”的参数“value”
+    类型“float | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:420:54 - warning: 无法将“float | None”类型的参数分配给函数“_apply_filter”中类型为“float”的参数“value”
+    类型“float | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:429:61 - warning: 无法将“float | None”类型的参数分配给函数“_apply_deadband”中类型为“float”的参数“value”
+    类型“float | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:438:61 - warning: 无法将“float | None”类型的参数分配给函数“_apply_aggregation”中类型为“float”的参数“value”
+    类型“float | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:504:17 - warning: “__setitem__”的重载与提供的参数不匹配 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:504:17 - warning: 无法将“float | Unknown | None”类型的参数分配给函数“__setitem__”中类型为“float”的参数“value”
+    类型“float | Unknown | None”不可分配给类型“float”
+      “None”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:523:17 - warning: 类型“int”和“int | None”不支持运算符“-”
+    类型“int”和“None”不支持运算符“-” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\preprocessor.py:523:36 - warning: 类型“int | None”和“int | None”不支持运算符“-”
+    类型“int”和“None”不支持运算符“-”
+    类型“None”和“int”不支持运算符“-”
+    类型“None”和“None”不支持运算符“-” (reportOperatorIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\protocol_bridge.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\protocol_bridge.py:111:20 - warning: 类型“None”不可分配给返回类型“float | int | bool”
+    类型“None”不可分配给类型“float | int | bool”
+      “None”不可分配给“float”
+      “None”不可分配给“int”
+      “None”不可分配给“bool” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\protocol_bridge.py:245:36 - warning: “iscoroutine_function”不是模块“asyncio”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\protocol_bridge.py:376:9 - warning: 无法将“int”类型的参数分配给函数“__setitem__”中类型为“str”的参数“key”
+    “int”不可分配给“str” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:580:53 - warning: 无法访问类“object”的属性“items”
+    属性“items”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:687:61 - warning: 无法将“object | dict[Unknown, Unknown]”类型的参数分配给函数“_run_ai_inference”中类型为“dict[str, float]”的参数“values”
+    类型“object | dict[Unknown, Unknown]”不可分配给类型“dict[str, float]”
+      “object”不可分配给“dict[str, float]” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:699:40 - warning: 无法将“Unknown | None”类型的参数分配给函数“__init__”中类型为“str”的参数“point_name”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:736:36 - warning: 无法将“Unknown | None”类型的参数分配给函数“__init__”中类型为“str”的参数“point_name”
+    类型“Unknown | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:994:37 - warning: “get_pending_from_ring_buffer”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:1026:31 - warning: 无法将“tuple[Unknown | None, Unknown | None]”类型的参数分配给函数“append”中类型为“tuple[int, int | None]”的参数“object”
+    类型“Unknown | None”不可分配给类型“int”
+      “None”不可分配给“int” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:1036:35 - warning: “mark_synced”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:1041:35 - warning: “mark_failed”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:1046:37 - warning: “get_cached_records”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\scheduler.py:1090:39 - warning: “delete_cached”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\stream_compute.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\stream_compute.py:85:12 - warning: 类型“int”和“int | None”不支持运算符“>=”
+    类型“int”和“None”不支持运算符“>=” (reportOperatorIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\structured_logger.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\structured_logger.py:127:25 - warning: 无法为类“StreamHandler[TextIO]”的属性“_edgelite_handler”赋值。
+    属性“_edgelite_handler”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\structured_logger.py:139:22 - warning: 无法为类“RotatingFileHandler”的属性“_edgelite_handler”赋值。
+    属性“_edgelite_handler”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\structured_logger.py:152:23 - warning: 无法为类“RotatingFileHandler”的属性“_edgelite_handler”赋值。
+    属性“_edgelite_handler”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\tls_security.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\engine\tls_security.py:142:35 - warning: 无法为类“SSLContext”的属性“verify_mode”赋值。
+    “int”不可分配给“VerifyMode” (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\middleware\__init__.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\middleware\__init__.py:14:12 - warning: "request_id"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\middleware\__init__.py:14:26 - warning: "csrf"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\middleware\__init__.py:14:34 - warning: "rate_limit"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\middleware\__init__.py:14:48 - warning: "token_renewal"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\ai_model.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\ai_model.py:12:36 - warning: “mapped_column”是未知的导入符号 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\db.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\db.py:18:28 - warning: “DeclarativeBase”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\db.py:18:53 - warning: “mapped_column”是未知的导入符号 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\rule.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\models\rule.py:45:14 - warning: 无法解析导入“edgelite.engine.sandbox” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\monitoring\metrics.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\monitoring\metrics.py:108:52 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:2:6 - warning: 无法解析导入“edgelite.platform.north_base” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:7:5 - warning: "IoTSharpHandler"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:8:5 - warning: "ThingsBoardHandler"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:9:5 - warning: "HuaweiIoTDAHandler"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:10:5 - warning: "ThingsCloudHandler"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:11:5 - warning: "ThingsPanelHandler"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\__init__.py:12:5 - warning: "CustomMqttHandler"已在__all__中指定，但在模块中不存在 (reportUnsupportedDunderAll)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\base.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\base.py:144:57 - warning: 无法访问类“PlatformHandler*”的属性“_pub_queue”
+    属性“_pub_queue”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\platform\base.py:145:26 - warning: 无法访问类“PlatformHandler*”的属性“_pub_queue”
+    属性“_pub_queue”未知 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\security\data_masking.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\security\data_masking.py:391:38 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\security\data_masking.py:413:55 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\security\secret_manager.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\security\secret_manager.py:193:40 - warning: “ConvertStringSecurityDescriptorToSDDL”不是模块“win32security”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\security\secret_manager.py:248:44 - warning: “ConvertStringSecurityDescriptorToSDDL”不是模块“win32security”的已知属性 (reportAttributeAccessIssue)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\ai_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\ai_service.py:152:22 - warning: 无法解析导入“edgelite.engine.ai_preprocess” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\ai_service.py:159:22 - warning: 无法解析导入“edgelite.engine.ai_postprocess” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\alarm_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\alarm_service.py:324:18 - warning: 无法解析导入“edgelite.services.alarm_silence” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\alarm_service.py:1012:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\alarm_service.py:1017:9 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\command_approval.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\command_approval.py:98:40 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\command_approval.py:721:52 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\command_approval.py:725:54 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:319:76 - warning: 无法访问类“DeviceRepo”的属性“upsert_bulk”
+    属性“upsert_bulk”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:601:30 - warning: 类型“dict[str, str]”不可分配给返回类型“dict[str, ImportResult]”
+    “str”不可分配给“ImportResult” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:609:30 - warning: 类型“dict[str, str]”不可分配给返回类型“dict[str, ImportResult]”
+    “str”不可分配给“ImportResult” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:620:30 - warning: 类型“dict[str, str]”不可分配给返回类型“dict[str, ImportResult]”
+    “str”不可分配给“ImportResult” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:626:30 - warning: 类型“dict[str, str]”不可分配给返回类型“dict[str, ImportResult]”
+    “str”不可分配给“ImportResult” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:637:86 - warning: 无法访问类“DeviceRepo”的属性“upsert_bulk”
+    属性“upsert_bulk”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1464:45 - warning: 无法将“DeviceRepo | None”类型的参数分配给函数“__init__”中类型为“DeviceRepo”的参数“device_repo”
+    类型“DeviceRepo | None”不可分配给类型“DeviceRepo”
+      “None”不可分配给“DeviceRepo” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1464:58 - warning: 无法将“RuleRepo | None”类型的参数分配给函数“__init__”中类型为“RuleRepo”的参数“rule_repo”
+    类型“RuleRepo | None”不可分配给类型“RuleRepo”
+      “None”不可分配给“RuleRepo” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1464:69 - warning: 无法将“AlarmRepo | None”类型的参数分配给函数“__init__”中类型为“AlarmRepo”的参数“alarm_repo”
+    类型“AlarmRepo | None”不可分配给类型“AlarmRepo”
+      “None”不可分配给“AlarmRepo” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1465:12 - warning: 类型“DataExportService | None”不可分配给返回类型“DataExportService”
+    类型“DataExportService | None”不可分配给类型“DataExportService”
+      “None”不可分配给“DataExportService” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1475:45 - warning: 无法将“DeviceRepo | None”类型的参数分配给函数“__init__”中类型为“DeviceRepo”的参数“device_repo”
+    类型“DeviceRepo | None”不可分配给类型“DeviceRepo”
+      “None”不可分配给“DeviceRepo” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1475:58 - warning: 无法将“RuleRepo | None”类型的参数分配给函数“__init__”中类型为“RuleRepo”的参数“rule_repo”
+    类型“RuleRepo | None”不可分配给类型“RuleRepo”
+      “None”不可分配给“RuleRepo” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\data_import_export.py:1476:12 - warning: 类型“DataImportService | None”不可分配给返回类型“DataImportService”
+    类型“DataImportService | None”不可分配给类型“DataImportService”
+      “None”不可分配给“DataImportService” (reportReturnType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\device_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\device_service.py:208:16 - warning: 类型“tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]”不可分配给返回类型“tuple[list[dict[Unknown, Unknown]], int]”
+    类型“tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]”不可分配给类型“tuple[list[dict[Unknown, Unknown]], int]”
+      “tuple[list[dict[Unknown, Unknown]], int, str | None]”不可分配给“tuple[list[dict[Unknown, Unknown]], int]”
+        Tuple 大小不匹配; 应为 2，但收到 3 (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\device_service.py:319:9 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\device_service.py:1136:9 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\device_service.py:1265:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\device_service.py:1390:17 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:165:64 - warning: 无法将“list[Unknown | None]”类型的参数分配给函数“_calculate_statistics”中类型为“list[float]”的参数“values”
+    “list[Unknown | None]”不可分配给“list[float]”
+      类型参数 "_T@list" 是固定的，但 "Unknown | None" 与 "float" 不同
+      考虑从“list”切换到“Sequence”(协变) (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:260:34 - warning: “BaseException”不可迭代
+    未定义“__iter__”方法 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:371:17 - warning: “sum”的重载与提供的参数不匹配 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:371:21 - warning: 无法将“list[Unknown | None]”类型的参数分配给函数“sum”中类型为“Iterable[_SupportsSumNoDefaultT@sum]”的参数“iterable”
+    “list[Unknown | None]”不可分配给“Iterable[_SupportsSumNoDefaultT@sum]”
+      类型参数 "_T_co@Iterable" 是协变的，但 "Unknown | None" 不是 "_SupportsSumNoDefaultT@sum" 的子类型
+        类型“Unknown | None”不可分配给类型“_SupportsSumWithNoDefaultGiven”
+          类型“Unknown | None”不可分配给类型“_SupportsSumWithNoDefaultGiven”
+            “None”与协议“_SupportsSumWithNoDefaultGiven”不兼容 (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:372:22 - warning: 类型“int”和“Unknown | None”不支持运算符“*”
+    预期类型为“_LiteralInteger | bool”时，类型“int”和“None”不支持运算符“*” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:621:56 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:627:58 - warning: 应为类，但收到“(obj: object, /) -> TypeIs[(...) -> object]” (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:732:12 - warning: 类型“HistoricalDataService | None”不可分配给返回类型“HistoricalDataService”
+    类型“HistoricalDataService | None”不可分配给类型“HistoricalDataService”
+      “None”不可分配给“HistoricalDataService” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\historical_data.py:744:12 - warning: 类型“DeviceShadowService | None”不可分配给返回类型“DeviceShadowService”
+    类型“DeviceShadowService | None”不可分配给类型“DeviceShadowService”
+      “None”不可分配给“DeviceShadowService” (reportReturnType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\mcp_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\mcp_service.py:282:41 - warning: 无法访问类“float”的属性“lower”
+    属性“lower”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\mcp_service.py:358:22 - warning: 无法解析导入“edgelite.engine.inference_scheduler” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notification_impl.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notification_impl.py:227:13 - warning: 无法将“str”类型的参数分配给函数“__setitem__”中类型为“float”的参数“value”
+    “str”不可分配给“float” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notification_impl.py:947:28 - warning: "object" 类型的对象不能与 "async with" 一起使用，因为它未实现 __aenter__
+    属性“__aenter__”未知 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notification_impl.py:947:28 - warning: "object" 类型的对象不能与 "with" 一起使用，因为它未实现 __aexit__
+    属性“__aexit__”未知 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notification_impl.py:1015:24 - warning: "object" 类型的对象不能与 "async with" 一起使用，因为它未实现 __aenter__
+    属性“__aenter__”未知 (reportGeneralTypeIssues)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notification_impl.py:1015:24 - warning: "object" 类型的对象不能与 "with" 一起使用，因为它未实现 __aexit__
+    属性“__aexit__”未知 (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notify_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notify_service.py:136:27 - warning: 类型“str | int”不可分配给声明的类型“str | None”
+    类型“str | int”不可分配给类型“str | None”
+      类型“int”不可分配给类型“str | None”
+        “int”不可分配给“str”
+        “int”不可分配给“None” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notify_service.py:140:23 - warning: 类型“str | int”不可分配给声明的类型“str | None”
+    类型“str | int”不可分配给类型“str | None”
+      类型“int”不可分配给类型“str | None”
+        “int”不可分配给“str”
+        “int”不可分配给“None” (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notify_service.py:144:9 - warning: 无法将“str | None”类型的参数分配给函数“__setitem__”中类型为“str”的参数“value”
+    类型“str | None”不可分配给类型“str”
+      “None”不可分配给“str” (reportArgumentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\notify_service.py:298:58 - warning: 无法将“str | None”类型的参数分配给函数“escape”中类型为“AnyStr@escape”的参数“s”
+    类型“str | None”不可分配给受约束的类型变量“AnyStr” (reportArgumentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:10:6 - warning: 无法解析导入“edgelite.models.north” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:21:6 - warning: 无法解析导入“edgelite.platform.north_base” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:432:18 - warning: 无法解析导入“edgelite.platform.mqtt_utils” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:651:14 - warning: 无法解析导入“edgelite.platform.mqtt_utils” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:833:14 - warning: 无法解析导入“edgelite.platform.mqtt_utils” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:844:14 - warning: 无法解析导入“edgelite.platform.mqtt_utils” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:860:14 - warning: 无法解析导入“edgelite.platform.js_sandbox” (reportMissingImports)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\platform_service.py:866:14 - warning: 无法解析导入“edgelite.platform.js_sandbox” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\rule_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\rule_service.py:48:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\rule_service.py:83:16 - warning: 类型“tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]”不可分配给返回类型“tuple[list[dict[Unknown, Unknown]], int]”
+    类型“tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]”不可分配给类型“tuple[list[dict[Unknown, Unknown]], int]”
+      “tuple[list[dict[Unknown, Unknown]], int, str | None]”不可分配给“tuple[list[dict[Unknown, Unknown]], int]”
+        Tuple 大小不匹配; 应为 2，但收到 3 (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\rule_service.py:165:18 - warning: 无法解析导入“edgelite.services.alarm_silence” (reportMissingImports)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:54:75 - warning: “cpu_percent”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:59:38 - warning: “disk_usage”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:76:36 - warning: 无法访问类“_”的属性“total”
+    属性“total”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:77:35 - warning: 无法访问类“_”的属性“used”
+    属性“used”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:79:38 - warning: 无法访问类“_”的属性“percent”
+    属性“percent”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:80:32 - warning: 无法访问类“_”的属性“total”
+    属性“total”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:81:31 - warning: 无法访问类“_”的属性“used”
+    属性“used”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:83:34 - warning: 无法访问类“_”的属性“percent”
+    属性“percent”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:97:28 - warning: “getloadavg”不是模块“os”的已知属性 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:107:75 - warning: “cpu_percent”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:110:38 - warning: “disk_usage”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:120:9 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:125:9 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:144:9 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:316:56 - warning: 无法访问类“DeviceRepo”的属性“get_by_id”
+    属性“get_by_id”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:331:54 - warning: 无法访问类“RuleRepo”的属性“get_by_id”
+    属性“get_by_id”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:346:54 - warning: 无法访问类“UserRepo”的属性“get_by_id”
+    属性“get_by_id”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:401:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:410:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_service.py:419:13 - warning: 无法将类型为 "tuple[list[dict[Unknown, Unknown]], int] | tuple[list[dict[Unknown, Unknown]], int, str | None]" 的表达式分配给目标 tuple
+    类型 "tuple[list[dict[Unknown, Unknown]], int, str | None]" 与目标 tuple 不兼容
+      Tuple 大小不匹配; 应为 2，但收到 3 (reportAssignmentType)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_services.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_services.py:608:34 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\services\system_services.py:609:32 - warning: “get”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:18:5 - warning: “async_sessionmaker”是未知的导入符号 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:509:50 - warning: 无法访问类“type[DatabaseErrors]”的属性“CONNECTION_FAILED”
+    属性“CONNECTION_FAILED”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:675:32 - warning: “dispose”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1441:24 - warning: 类型“Literal[False]”不可分配给返回类型“None”
+    “Literal[False]”不可分配给“None” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1470:24 - warning: 类型“Literal[False]”不可分配给返回类型“None”
+    “Literal[False]”不可分配给“None” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1480:24 - warning: 类型“Literal[True]”不可分配给返回类型“None”
+    “Literal[True]”不可分配给“None” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1498:20 - warning: 类型“Literal[False]”不可分配给返回类型“None”
+    “Literal[False]”不可分配给“None” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1529:27 - warning: 无法为类“ServiceContainer”的属性“_migration_status”赋值。
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1531:23 - warning: 无法访问类“ServiceContainer”的属性“_migration_status”
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1532:23 - warning: 无法访问类“ServiceContainer”的属性“_migration_status”
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1563:27 - warning: 无法为类“ServiceContainer”的属性“_migration_status”赋值。
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1565:23 - warning: 无法访问类“ServiceContainer”的属性“_migration_status”
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1566:23 - warning: 无法访问类“ServiceContainer”的属性“_migration_status”
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1569:27 - warning: 无法访问类“ServiceContainer”的属性“_migration_status”
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1575:27 - warning: 无法访问类“ServiceContainer”的属性“_migration_status”
+    属性“_migration_status”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\database.py:1776:35 - warning: "None" 并非 awaitable
+    “None”与协议“Awaitable[_T_co@Awaitable]”不兼容
+      “__await__”不存在 (reportGeneralTypeIssues)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:169:29 - warning: 类型“int”和“int | None”不支持运算符“>=”
+    类型“int”和“None”不支持运算符“>=” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:232:23 - warning: 类型“int”和“int | None”不支持运算符“>=”
+    类型“int”和“None”不支持运算符“>=” (reportOperatorIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:590:35 - warning: “_buckets_service”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:624:41 - warning: 未从模块“influxdb_client”导出“DeletePredicateRequest”
+    改为从"influxdb_client.domain.delete_predicate_request"导入 (reportPrivateImportUsage)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:637:19 - warning: 参数 "bucket" 缺少参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:651:19 - warning: 参数 "bucket" 缺少参数 (reportCallIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:797:37 - warning: “write”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\influx_storage.py:1551:61 - warning: “write_api”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:67:30 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:71:24 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:78:31 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:99:24 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:103:24 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:111:24 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:112:24 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:148:30 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:149:24 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:154:31 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:167:24 - warning: “execute”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\offline_queue.py:171:24 - warning: “commit”不是 "None" 的已知属性 (reportOptionalMemberAccess)
+e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1192:27 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1261:38 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1264:43 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1271:38 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1274:43 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1281:37 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1284:42 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1291:38 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1649:31 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:1938:31 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:2209:24 - warning: 类型“dict[tuple[Any, Any], (value: Any, /) -> int]”不可分配给返回类型“dict[tuple[str, str], int]” (reportReturnType)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:2284:31 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:2576:49 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:2808:35 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:3302:44 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:3308:44 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:3320:51 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:3553:34 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:3791:38 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:3798:40 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:4010:34 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:4074:32 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+  e:\硕腾网络\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\storage\sqlite_repo.py:4200:31 - warning: 无法访问类“Result”的属性“rowcount”
+    属性“rowcount”未知 (reportAttributeAccessIssue)
+7 errors, 869 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.409 -> v1.1.411).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+

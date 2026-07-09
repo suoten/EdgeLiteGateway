@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, ConfigDep, PreprocessorDep, require_permission
+from edgelite.api.deps import ConfigDep, PreprocessorDep, require_permission
 from edgelite.api.error_codes import PreprocessErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
@@ -47,7 +47,7 @@ class PreprocessConfigResponse(BaseModel):
 async def get_preprocess_config(
     config: ConfigDep,
     preprocessor: PreprocessorDep,
-    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
 ):
     # FIXED: 整个函数无异常保护
     try:
@@ -84,25 +84,24 @@ async def update_preprocess_config(
     req: PreprocessUpdateRequest,
     config: ConfigDep,
     preprocessor: PreprocessorDep,
-    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
     if not preprocessor:
         raise HTTPException(status_code=503, detail=PreprocessErrors.NOT_INITIALIZED)
 
     # FIXED: 配置更新操作无异常保护
     try:
-        if req.global_config:
-            if hasattr(config, "preprocess") and config.preprocess:
-                if req.global_config.enabled is not None:
-                    config.preprocess.enabled = req.global_config.enabled
-                if req.global_config.default_deadband is not None:
-                    config.preprocess.default_deadband = req.global_config.default_deadband
-                if req.global_config.default_filter_window is not None:
-                    config.preprocess.default_filter_window = req.global_config.default_filter_window
-                if req.global_config.default_aggregate_window_sec is not None:
-                    config.preprocess.default_aggregate_window_sec = (
-                        req.global_config.default_aggregate_window_sec
-                    )
+        if req.global_config and hasattr(config, "preprocess") and config.preprocess:
+            if req.global_config.enabled is not None:
+                config.preprocess.enabled = req.global_config.enabled
+            if req.global_config.default_deadband is not None:
+                config.preprocess.default_deadband = req.global_config.default_deadband
+            if req.global_config.default_filter_window is not None:
+                config.preprocess.default_filter_window = req.global_config.default_filter_window
+            if req.global_config.default_aggregate_window_sec is not None:
+                config.preprocess.default_aggregate_window_sec = (
+                    req.global_config.default_aggregate_window_sec
+                )
 
         for point_key, point_config in req.points.items():
             preprocessor.configure(point_key, point_config)

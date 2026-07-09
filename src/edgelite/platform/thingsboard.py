@@ -15,11 +15,18 @@ import asyncio
 import contextlib
 import json
 import logging
+import random
 import time
 from collections.abc import Callable
 from typing import Any
 
-from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY  # FIXED: 原问题-缺失导入导致NameError
+from edgelite.constants import (  # FIXED-P0: 补充_QUEUE_POLL_TIMEOUT导入
+    _MQTT_KEEPALIVE,
+    _MQTT_QUEUE_MAXSIZE,
+    _MQTT_RECONNECT_DELAY,
+    _NORTH_RETRY_MAX_ATTEMPTS,
+    _QUEUE_POLL_TIMEOUT,
+)
 from edgelite.platform.base import PlatformHandler
 from edgelite.utils import timestamp_ms  # FIXED: 原问题-缺失导入导致NameError
 
@@ -33,18 +40,19 @@ class ThingsBoardHandler(PlatformHandler):
     platform_version = "1.0.0"
 
     def __init__(self):
-        self._connected = False
+        super().__init__()  # FIXED-P2: 调用基类__init__，初始化离线队列和重连退避
         self._config: dict = {}
         self._rpc_callback: Callable | None = None
         self._connect_task: asyncio.Task | None = None
         self._running = False
         self._pub_queue: asyncio.Queue | None = None
+        self._consecutive_failures: int = 0  # FIXED-P2: 原问题-重连固定延迟无退避，添加指数退避计数
 
     async def connect(self, config: dict) -> None:
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
+            raise ImportError("aiomqtt not installed, run: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -61,7 +69,7 @@ class ThingsBoardHandler(PlatformHandler):
             self._connect_loop(broker, port, token, password),
             name="thingsboard-connect",
         )
-        logger.info("ThingsBoard平台对接启动: %s:%d", broker, port)
+        logger.info("ThingsBoard platform started: %s:%d", broker, port)  # FIXED-P3: 中文日志→英文
 
     async def disconnect(self) -> None:
         self._running = False
@@ -71,11 +79,9 @@ class ThingsBoardHandler(PlatformHandler):
             with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
         self._connected = False
-        logger.info("ThingsBoard平台对接已断开")
+        logger.info("ThingsBoard platform disconnected")  # FIXED-P3: 中文日志→英文
 
     async def publish_telemetry(self, device_id: str, data: dict[str, Any]) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = "v1/gateway/telemetry"
         payload = json.dumps(
             {
@@ -90,33 +96,42 @@ class ThingsBoardHandler(PlatformHandler):
             ensure_ascii=False,
             default=str,
         )
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
-            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1, 0))
         except asyncio.QueueFull:
-            logger.warning("ThingsBoard发布队列已满，丢弃消息")
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26: 队列满时入离线队列
+            logger.warning("ThingsBoard pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = "v1/gateway/attributes"
         payload = json.dumps({device_id: attrs}, ensure_ascii=False, default=str)
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
-            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1, 0))
         except asyncio.QueueFull:
-            logger.warning("ThingsBoard发布队列已满，丢弃消息")
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26
+            logger.warning("ThingsBoard pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
     async def on_rpc_request(self, callback: Callable) -> None:
         self._rpc_callback = callback
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = "v1/gateway/connect" if online else "v1/gateway/disconnect"
         payload = json.dumps([device_id])
+        # FIXED-P2#26: 断连时入离线队列而非静默丢弃
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
-            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
+            self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1, 0))
         except asyncio.QueueFull:
-            logger.warning("ThingsBoard发布队列已满，丢弃消息")
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26
+            logger.warning("ThingsBoard pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
     async def _connect_loop(self, broker: str, port: int, token: str, password: str) -> None:
         import aiomqtt
@@ -131,7 +146,11 @@ class ThingsBoardHandler(PlatformHandler):
                     keepalive=_MQTT_KEEPALIVE,  # FIXED: 原问题-keepalive=60魔法数字
                 ) as client:
                     self._connected = True
-                    logger.info("ThingsBoard MQTT连接成功: %s:%d", broker, port)
+                    self._consecutive_failures = 0  # FIXED-P2: 连接成功重置退避计数
+                    logger.info("ThingsBoard MQTT connected: %s:%d", broker, port)  # FIXED-P3: 中文日志→英文
+
+                    # FIXED-P2#26: 重连成功后刷出离线缓存队列
+                    await self._flush_offline_queue()
 
                     await client.subscribe("v1/gateway/rpc", qos=1)
                     await client.subscribe("v1/gateway/attributes/request", qos=1)
@@ -160,9 +179,12 @@ class ThingsBoardHandler(PlatformHandler):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error("ThingsBoard MQTT连接异常: %s，5秒后重试", e)
+                self._consecutive_failures += 1
+                delay = min(5 * (2 ** (self._consecutive_failures - 1)), 60)
+                delay *= 0.5 + random.random() * 0.5  # FIXED-P2: 原问题-重连固定延迟无退避无抖动，改为指数退避+jitter
+                logger.error("ThingsBoard MQTT connection error: %s, retrying in %.1fs (failures=%d)", e, delay, self._consecutive_failures)  # FIXED-P3: 中文日志→英文
                 self._connected = False
-                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
+                await asyncio.sleep(delay)
 
     async def _publish_loop(self, client: Any) -> None:
         try:
@@ -171,13 +193,33 @@ class ThingsBoardHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
+                # 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)
+                if len(item) == 4:
+                    topic, payload, qos, retry_count = item
+                else:
+                    topic, payload, qos = item
+                    retry_count = 0
                 try:
                     await client.publish(topic, payload, qos=qos)
                 except Exception as e:
-                    logger.error("ThingsBoard MQTT发布失败: %s", e)
+                    logger.error("ThingsBoard MQTT publish failed: %s", e)  # FIXED-P3: 中文日志→英文
+                    # 重入队列带重试计数，超过阈值后丢弃
+                    retry_count += 1
+                    if retry_count > _NORTH_RETRY_MAX_ATTEMPTS:
+                        # FIXED-P2: 超过重试上限时写入离线队列而非直接丢弃，原问题-消息直接丢弃无持久化
+                        # 修复方案: 添加_offline_queue引用，publish失败时enqueue，网络恢复后重试
+                        self._enqueue_offline(topic, payload, qos)
+                        logger.warning("ThingsBoard message enqueued offline after %d retries: %s", retry_count, topic)
+                    elif self._pub_queue is not None:
+                        try:
+                            self._pub_queue.put_nowait((topic, payload, qos, retry_count))
+                        except Exception as qe:
+                            # FIXED-P2: 重入队列失败时写入离线队列，避免消息丢失
+                            self._enqueue_offline(topic, payload, qos)
+                            logger.error("ThingsBoard re-enqueue failed, enqueued offline: %s", qe)  # FIXED-P2: 原问题-重入队列失败时pass吞没异常
         except asyncio.CancelledError:
             pass
 
@@ -192,7 +234,7 @@ class ThingsBoardHandler(PlatformHandler):
                     try:
                         payload = json.loads(message.payload.decode("utf-8"))
                     except json.JSONDecodeError as e:
-                        logger.warning("ThingsBoard MQTT消息JSON解析失败: %s", e)
+                        logger.warning("ThingsBoard MQTT JSON parse failed: %s", e)  # FIXED-P3: 中文日志→英文
                         continue
 
                     if topic == "v1/gateway/rpc":
@@ -219,9 +261,9 @@ class ThingsBoardHandler(PlatformHandler):
                             )
 
                     elif topic == "v1/gateway/attributes/request":
-                        logger.info("ThingsBoard属性请求: %s", payload)
+                        logger.info("ThingsBoard attribute request: %s", payload)  # FIXED-P3: 中文日志→英文
 
                 except Exception as e:
-                    logger.error("ThingsBoard消息处理异常: %s", e)
+                    logger.error("ThingsBoard message handler error: %s", e)  # FIXED-P3: 中文日志→英文
         except asyncio.CancelledError:
             pass

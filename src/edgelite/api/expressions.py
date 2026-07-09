@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, require_permission
+from edgelite.api.deps import require_permission
 from edgelite.api.error_codes import ExpressionErrors
 from edgelite.constants import _EXPRESSION_BATCH_LIMIT, _EXPRESSION_MAX_LENGTH
 from edgelite.models.common import ApiResponse
@@ -46,7 +46,7 @@ def _get_engine():
 @router.post("/evaluate", response_model=ApiResponse)
 async def evaluate_expression(
     req: ExpressionTestRequest,
-    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+    user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),  # SEC-FIX: 表达式引擎可执行计算，权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
     engine = _get_engine()
     try:
@@ -60,7 +60,7 @@ async def evaluate_expression(
 @router.post("/evaluate-batch", response_model=ApiResponse)
 async def evaluate_batch(
     req: ExpressionBatchRequest,
-    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+    user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
     engine = _get_engine()
     try:
@@ -74,21 +74,21 @@ async def evaluate_batch(
 @router.post("/validate", response_model=ApiResponse)
 async def validate_expression(
     req: ExpressionTestRequest,
-    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+    user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
     engine = _get_engine()
     try:
         engine._validate_expression(engine._resolve_variables(req.expression, req.variables or {}))
         return ApiResponse(data={"valid": True, "expression": req.expression})
-    except ValueError as e:
-        return ApiResponse(data={"valid": False, "expression": req.expression, "error": str(e)})
-    except Exception as e:
-        return ApiResponse(data={"valid": False, "expression": req.expression, "error": str(e)})
+    except ValueError:
+        return ApiResponse(data={"valid": False, "expression": req.expression, "error": ExpressionErrors.VALIDATE_FAILED}, error_code=ExpressionErrors.VALIDATE_FAILED)  # FIXED-P1: 不暴露异常详情
+    except Exception:
+        return ApiResponse(data={"valid": False, "expression": req.expression, "error": ExpressionErrors.VALIDATE_FAILED}, error_code=ExpressionErrors.VALIDATE_FAILED)  # FIXED-P1: 不暴露异常详情
 
 
 @router.get("/functions", response_model=ApiResponse)
 async def list_available_functions(
-    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
 ):
     functions = [
         {"name": "abs", "description": "Absolute value", "example": "abs(${device.temp})"},  # FIXED-P3: 中文硬编码→英文

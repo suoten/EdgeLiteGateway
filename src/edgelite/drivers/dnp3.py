@@ -96,6 +96,9 @@ APPCONTROL_UNS = 0x10
 
 # DNP3 传输头
 DNP3_HEADER_SIZE = 10
+DNP3_START_BYTES = b"\x05\x64"  # DNP3 起始字节 (同步字)
+DNP3_LINK_CTRL_USER_DATA = 0x44  # 链路层控制字节: User Data (PRM=1, FCB=0, FCV=0, Function=4)
+DNP3_DATA_BLOCK_MAX = 16  # DNP3 数据块最大字节数 (不含 CRC)
 
 
 def _decode_uint16(data: bytes, offset: int) -> int:
@@ -249,35 +252,37 @@ class DNP3Client:
         if not self._connected:
             return False
 
-        seq = self._get_next_sequence()
-
-        if op_type == "sbo":
-            func_code = FC_SELECT
-        else:
-            func_code = FC_DIRECT_OPERATE
-
-        apdu = bytes([APPCONTROL_FIR | APPCONTROL_FIN])
-        apdu += bytes([seq])
-        apdu += bytes([func_code])
-
-        # 对象头: Group 10 (Binary Output), Variation 1
-        apdu += bytes([GROUP_BINARY_OUTPUT])
-        apdu += bytes([VAR_BINARY_INPUT])  # Command
-        apdu += bytes([0x07])  # Qualifier: index
-        apdu += bytes([0x00, index & 0xFF, (index >> 8) & 0xFF])  # Index
-
-        # 控制码: 0xFC = pulse-trip, no hash
-        control = 0xFC if not value else 0xF8  # on/off
-        apdu += bytes([control, 0x00, 0x00, 0x00])  # Control, on-time, off-time
-        apdu += bytes([0x00])  # Status
-
-        frame = self._build_transport_frame(apdu)
+        def _build_apdu(seq: int, func_code: int) -> bytes:
+            apdu = bytes([APPCONTROL_FIR | APPCONTROL_FIN])
+            apdu += bytes([seq])
+            apdu += bytes([func_code])
+            apdu += bytes([GROUP_BINARY_OUTPUT])
+            apdu += bytes([VAR_BINARY_INPUT])
+            apdu += bytes([0x07])
+            apdu += bytes([0x00, index & 0xFF, (index >> 8) & 0xFF])
+            control = 0xFC if not value else 0xF8
+            apdu += bytes([control, 0x00, 0x00, 0x00])
+            apdu += bytes([0x00])
+            return apdu
 
         try:
-            if self._writer:
-                self._writer.write(frame)
-                await self._writer.drain()
-            return True
+            if op_type == "sbo":
+                # SBO: SELECT → 响应 → OPERATE → 响应
+                select_seq = self._get_next_sequence()
+                select_apdu = _build_apdu(select_seq, FC_SELECT)
+                select_resp = await self._send_command_and_wait(select_apdu, select_seq, FC_RESPONSE)
+                if select_resp is None:
+                    return False
+                operate_seq = self._get_next_sequence()
+                operate_apdu = _build_apdu(operate_seq, FC_OPERATE)
+                operate_resp = await self._send_command_and_wait(operate_apdu, operate_seq, FC_RESPONSE)
+                return operate_resp is not None
+            else:
+                # DIRECT_OPERATE: 命令 → 响应
+                seq = self._get_next_sequence()
+                apdu = _build_apdu(seq, FC_DIRECT_OPERATE)
+                resp = await self._send_command_and_wait(apdu, seq, FC_RESPONSE)
+                return resp is not None
         except Exception as e:
             logger.error("DNP3写入失败: %s", e)
             return False
@@ -287,30 +292,34 @@ class DNP3Client:
         if not self._connected:
             return False
 
-        seq = self._get_next_sequence()
-        func_code = FC_DIRECT_OPERATE if op_type == "direct" else FC_SELECT
-
-        apdu = bytes([APPCONTROL_FIR | APPCONTROL_FIN])
-        apdu += bytes([seq])
-        apdu += bytes([func_code])
-
-        # 对象头: Group 40 (Analog Output), Variation 4 (double)
-        apdu += bytes([GROUP_ANALOG_OUTPUT])
-        apdu += bytes([VAR_ANALOG_INPUT_DOUBLE])
-        apdu += bytes([0x07])  # Qualifier: index
-        apdu += bytes([0x00, index & 0xFF, (index >> 8) & 0xFF])
-
-        # 值 (8字节双精度)
-        apdu += struct.pack("<d", value)
-        apdu += bytes([0x00])  # Status
-
-        frame = self._build_transport_frame(apdu)
+        def _build_apdu(seq: int, func_code: int) -> bytes:
+            apdu = bytes([APPCONTROL_FIR | APPCONTROL_FIN])
+            apdu += bytes([seq])
+            apdu += bytes([func_code])
+            apdu += bytes([GROUP_ANALOG_OUTPUT])
+            apdu += bytes([VAR_ANALOG_INPUT_DOUBLE])
+            apdu += bytes([0x07])
+            apdu += bytes([0x00, index & 0xFF, (index >> 8) & 0xFF])
+            apdu += struct.pack("<d", value)
+            apdu += bytes([0x00])
+            return apdu
 
         try:
-            if self._writer:
-                self._writer.write(frame)
-                await self._writer.drain()
-            return True
+            if op_type == "sbo":
+                select_seq = self._get_next_sequence()
+                select_apdu = _build_apdu(select_seq, FC_SELECT)
+                select_resp = await self._send_command_and_wait(select_apdu, select_seq, FC_RESPONSE)
+                if select_resp is None:
+                    return False
+                operate_seq = self._get_next_sequence()
+                operate_apdu = _build_apdu(operate_seq, FC_OPERATE)
+                operate_resp = await self._send_command_and_wait(operate_apdu, operate_seq, FC_RESPONSE)
+                return operate_resp is not None
+            else:
+                seq = self._get_next_sequence()
+                apdu = _build_apdu(seq, FC_DIRECT_OPERATE)
+                resp = await self._send_command_and_wait(apdu, seq, FC_RESPONSE)
+                return resp is not None
         except Exception as e:
             logger.error("DNP3模拟输出写入失败: %s", e)
             return False
@@ -344,40 +353,75 @@ class DNP3Client:
             return False
 
     def _build_transport_frame(self, apdu: bytes) -> bytes:
-        """构建DNP3传输帧"""
-        # 数据链路层头
-        frame = bytes([0x05, 0x64])  # Start bytes
-        length = len(apdu) + 1  # +1 for transport byte
-        frame += struct.pack("<H", length)  # Length
-        frame += struct.pack("<H", self._device_address)  # Destination
-        frame += struct.pack("<H", 0x0000)  # Source (placeholder)
-
-        # CRC16 (简化实现)
-        frame += self._calculate_crc16(frame[2:8])
-
-        # 传输层 + 应用层数据
+        """构建DNP3传输帧 (正确帧结构: START + LEN + CTRL + DST + SRC + HeaderCRC + DataBlocks)"""
         transport_byte = 0xC0  # FIR + FIN
-        for i, byte in enumerate(apdu):
-            if i > 0:
-                transport_byte = byte
-            frame += bytes([byte])
-            if i % 2 == 0:
-                frame += bytes([0x00])  # CRC placeholder
-
+        user_data = bytes([transport_byte]) + apdu
+        length = 5 + len(user_data)  # 5 = CTRL(1) + DST(2) + SRC(2)
+        if length > 0xFF:
+            raise ValueError(f"APDU 过大: user_data {len(user_data)} 字节, LEN {length} 超过 255 上限")
+        # Header body: LEN + CTRL + DST + SRC
+        header_body = bytes([length & 0xFF, DNP3_LINK_CTRL_USER_DATA])
+        header_body += struct.pack("<H", self._device_address)
+        header_body += struct.pack("<H", 0x0000)
+        frame = DNP3_START_BYTES + header_body
+        # Header CRC
+        frame += struct.pack("<H", self._calculate_crc16(header_body))
+        # Data blocks (max 16 bytes each + 2 byte CRC)
+        for i in range(0, len(user_data), DNP3_DATA_BLOCK_MAX):
+            block = user_data[i:i + DNP3_DATA_BLOCK_MAX]
+            frame += block + struct.pack("<H", self._calculate_crc16(block))
         return frame
 
+    def _extract_user_data(self, frame: bytes) -> bytes | None:
+        """从 DNP3 帧中提取 user_data (transport + APDU)，校验 HeaderCRC 和 BlockCRC。
+
+        返回 user_data 字节串；校验失败返回 None。
+        """
+        if len(frame) < DNP3_HEADER_SIZE:
+            return None
+        # 校验起始字节
+        if frame[0:2] != DNP3_START_BYTES:
+            return None
+        # 校验 HeaderCRC (CRC of bytes 2-7: LEN+CTRL+DST+SRC)
+        header_body = frame[2:8]
+        header_crc = struct.unpack_from("<H", frame, 8)[0]
+        if self._calculate_crc16(header_body) != header_crc:
+            return None
+        # 提取数据块
+        user_data = bytearray()
+        offset = DNP3_HEADER_SIZE
+        while offset < len(frame):
+            # 确定块大小 (最大 DNP3_DATA_BLOCK_MAX，最后一块可能更小)
+            remaining = len(frame) - offset
+            if remaining <= 2:
+                # 只剩 CRC 或更少，没有数据
+                break
+            block_size = min(DNP3_DATA_BLOCK_MAX, remaining - 2)  # 留 2 字节给 CRC
+            block = frame[offset:offset + block_size]
+            if len(block) == 0:
+                break
+            # 确保 CRC 字节存在
+            if offset + len(block) + 2 > len(frame):
+                return None
+            block_crc = struct.unpack_from("<H", frame, offset + len(block))[0]
+            if self._calculate_crc16(block) != block_crc:
+                return None
+            user_data.extend(block)
+            offset += len(block) + 2  # block data + CRC
+        return bytes(user_data)
+
     @staticmethod
-    def _calculate_crc16(data: bytes) -> bytes:
-        """计算CRC-16 (DNP3使用)"""
-        crc = 0
+    def _calculate_crc16(data: bytes) -> int:
+        """计算CRC-16/DNP (polynomial 0x3D65, reflected 0xA6BC, init=0x0000, xorout=0xFFFF)"""
+        crc = 0x0000
         for byte in data:
             crc ^= byte
             for _ in range(8):
                 if crc & 1:
-                    crc = (crc >> 1) ^ 0xA001
+                    crc = (crc >> 1) ^ 0xA6BC
                 else:
                     crc >>= 1
-        return struct.pack("<H", crc)
+        return crc ^ 0xFFFF
 
     def _parse_response(self, data: bytes) -> list[DNP3Point]:
         """解析DNP3响应"""
@@ -499,16 +543,93 @@ class DNP3Client:
 
     @staticmethod
     def _decode_quality(flags: int) -> str:
-        """解码质量标志"""
+        """解码质量标志 (位掩码组合)"""
         if flags & QUALITY_ONLINE == 0:
             return "offline"
-        elif flags & QUALITY_RESTART:
-            return "restart"
-        elif flags & QUALITY_COMM_LOST:
-            return "comm_lost"
-        elif flags & QUALITY_REMOTE_FORCED or flags & QUALITY_LOCAL_FORCED:
-            return "forced"
-        return "good"
+        states = []
+        if flags & QUALITY_RESTART:
+            states.append("restart")
+        if flags & QUALITY_COMM_LOST:
+            states.append("comm_lost")
+        if flags & QUALITY_REMOTE_FORCED:
+            states.append("remote_forced")
+        if flags & QUALITY_LOCAL_FORCED:
+            states.append("local_forced")
+        if flags & QUALITY_CHATTER_FILTER:
+            states.append("chatter_filter")
+        if not states:
+            return "good"
+        return ",".join(states)
+
+    async def _read_link_frame(self) -> bytes | None:
+        """读取单个链路层帧，返回 user_data (transport + APDU)；失败返回 None"""
+        if not self._reader:
+            return None
+        try:
+            # 读取起始字节
+            start = await asyncio.wait_for(self._reader.readexactly(2), timeout=self._timeout)
+            if start != DNP3_START_BYTES:
+                return None
+            # 读取长度字节
+            length_byte = await asyncio.wait_for(self._reader.readexactly(1), timeout=self._timeout)
+            length = length_byte[0]
+            # 读取剩余头 (CTRL + DST + SRC + HeaderCRC = 7 bytes)
+            remaining_header = await asyncio.wait_for(self._reader.readexactly(7), timeout=self._timeout)
+            header = start + length_byte + remaining_header
+            # 读取数据块
+            user_data_len = length - 5  # 5 = CTRL(1) + DST(2) + SRC(2)
+            if user_data_len < 0:
+                return None
+            data = bytearray()
+            remaining = user_data_len
+            while remaining > 0:
+                block_size = min(DNP3_DATA_BLOCK_MAX, remaining)
+                block = await asyncio.wait_for(self._reader.readexactly(block_size), timeout=self._timeout)
+                crc_bytes = await asyncio.wait_for(self._reader.readexactly(2), timeout=self._timeout)
+                block_crc = struct.unpack("<H", crc_bytes)[0]
+                if self._calculate_crc16(block) != block_crc:
+                    return None
+                data.extend(block)
+                remaining -= block_size
+            return bytes(data)
+        except (asyncio.IncompleteReadError, asyncio.TimeoutError, Exception):
+            return None
+
+    async def _reassemble_response(self) -> bytes | None:
+        """重组传输层分段响应，返回完整 user_data；失败返回 None"""
+        reassembled = bytearray()
+        first_frame = True
+        while True:
+            user_data = await self._read_link_frame()
+            if user_data is None:
+                return None if first_frame else None
+            if first_frame:
+                if not (user_data[0] & APPCONTROL_FIR):
+                    return None  # 首帧必须 FIR
+                reassembled.extend(user_data)
+                first_frame = False
+            else:
+                # 后续帧去掉传输头
+                reassembled.extend(user_data[1:])
+            # 检查 FIN
+            if user_data[0] & APPCONTROL_FIN:
+                return bytes(reassembled)
+
+    async def _send_command_and_wait(self, apdu: bytes, expected_seq: int, expected_func: int) -> bytes | None:
+        """发送命令帧并等待响应，校验序列号和功能码"""
+        frame = self._build_transport_frame(apdu)
+        if self._writer:
+            self._writer.write(frame)
+            await self._writer.drain()
+        else:
+            return None
+        response = await self._reassemble_response()
+        if response is None or len(response) < 4:
+            return None
+        # user_data[0] = transport, [1] = app_control, [2] = seq, [3] = func_code
+        if response[2] != expected_seq or response[3] != expected_func:
+            return None
+        return response
 
     @staticmethod
     def _advance_offset(group: int, variation: int, offset: int) -> int:

@@ -101,9 +101,6 @@ DeviceStatusEvent → WebSocket device 频道（前端设备状态）
 | FinsDriver | fins | pyfins |
 | AllenBradleyDriver | allen_bradley | pylogix |
 | OpcDaDriver | opc_da | OpenOPC-Python3 |
-| FanucDriver | fanuc | pyfanuc |
-| MTConnectDriver | mtconnect | - |
-| ToledoDriver | toledo | pyserial-asyncio |
 
 ### 5. DriverPlugin 接口
 

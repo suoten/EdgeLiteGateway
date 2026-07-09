@@ -26,6 +26,7 @@ FRAME_TAIL = 0x16
 CTRL_READ_DATA = 0x11
 CTRL_READ_NEXT = 0x14
 MAX_RETRIES = 3
+MAX_CONTINUATION_FRAMES = 32  # 多帧拼接安全上限，防止恶意电表无限续读
 
 DLT645_DI_MAP: dict[str, dict[str, Any]] = {
     "voltage_a": {"di": "02010100", "unit": "V", "decimal": 1, "type": "bcd"},
@@ -215,9 +216,21 @@ class Dlt645Driver(DriverPlugin):
 
                         if all_data is not None:
                             seq = 1
+                            continuation_count = 0
+                            next_resp = response  # 初始化为初始响应
                             while True:
-                                more_flag = self._get_more_flag(response)
+                                # FIXED: 检查最新帧的 more_flag (而非初始响应)
+                                latest_resp = next_resp if seq > 1 else response
+                                more_flag = self._get_more_flag(latest_resp)
                                 if more_flag != 1:
+                                    break
+                                # FIXED: MAX_CONTINUATION_FRAMES 安全上限
+                                if continuation_count >= MAX_CONTINUATION_FRAMES:
+                                    logger.warning(
+                                        "测点 %s 多帧拼接达到上限 %d 帧，终止续读",
+                                        point_name,
+                                        MAX_CONTINUATION_FRAMES,
+                                    )
                                     break
                                 try:
                                     async with self._lock:
@@ -243,6 +256,7 @@ class Dlt645Driver(DriverPlugin):
                                         break
                                     all_data = all_data + next_data
                                     seq += 1
+                                    continuation_count += 1
                                 except Exception:
                                     break
 
@@ -397,8 +411,8 @@ class Dlt645Driver(DriverPlugin):
             if len(frame) < 12:
                 return None
 
-            length = frame[10]
-            data_start = 11
+            length = frame[9]  # FIXED: 数据长度在 frame[9]，不是 frame[10]
+            data_start = 10    # FIXED: 数据起始在 frame[10]，不是 frame[11]
             data_end = data_start + length
 
             if data_end > len(frame) - 2:
@@ -429,7 +443,7 @@ class Dlt645Driver(DriverPlugin):
     @staticmethod
     def _get_more_flag(frame: bytes) -> int:
         try:
-            ctrl = frame[9]
+            ctrl = frame[8]  # FIXED: 控制字节在 frame[8]，不是 frame[9]
             if ctrl & 0x20:
                 return 1
             return 0

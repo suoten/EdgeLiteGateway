@@ -5,9 +5,9 @@
       <n-grid :cols="2" :x-gap="16">
         <n-gi>
           <n-card :title="t('expressionConfig.editor')" size="small">
-            <n-form label-placement="left" label-width="80">
-              <n-form-item :label="t('expressionConfig.expression')">
-                <n-input v-model:value="expression" type="textarea" :rows="3" :placeholder="t('expressionConfig.expressionPlaceholder')" />
+            <n-form ref="exprFormRef" :model="exprForm" :rules="exprFormRules" label-placement="left" label-width="80">
+              <n-form-item :label="t('expressionConfig.expression')" path="expression">
+                <n-input v-model:value="expression" type="textarea" :rows="3" maxlength="2000" :placeholder="t('expressionConfig.expressionPlaceholder')" />
               </n-form-item>
               <n-form-item :label="t('expressionConfig.variables')">
                 <n-dynamic-input v-model:value="variables" :on-create="() => ({ key: '', value: '0' })">
@@ -32,7 +32,7 @@
         </n-gi>
         <n-gi>
           <n-card :title="t('expressionConfig.availableFunctions')" size="small">
-            <n-data-table :columns="funcColumns" :data="functions" size="small" :max-height="300" />
+            <n-data-table :columns="funcColumns" :data="functions" :loading="pageLoading" size="small" :max-height="300" />
           </n-card>
           <n-card :title="t('expressionConfig.availableOperators')" size="small" style="margin-top: 12px">
             <n-space>
@@ -40,7 +40,7 @@
             </n-space>
           </n-card>
           <n-card :title="t('expressionConfig.batchTest')" size="small" style="margin-top: 12px">
-            <n-input v-model:value="batchExpr" type="textarea" :rows="3" placeholder='{"fahrenheit": "${sensor.temp} * 1.8 + 32", "status": "${sensor.temp} > 100"}' />
+            <n-input v-model:value="batchExpr" type="textarea" :rows="3" maxlength="2000" placeholder='{"fahrenheit": "${sensor.temp} * 1.8 + 32", "status": "${sensor.temp} > 100"}' />
             <n-button size="small" style="margin-top: 8px" :loading="calculating" @click="evaluateBatch">{{ t('expressionConfig.batchCalculate') }}</n-button>
             <n-code v-if="batchResult" :code="batchResult" language="json" style="margin-top: 8px" />
           </n-card>
@@ -52,13 +52,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, NSpin, useMessage } from 'naive-ui'
+import { ref, computed, onMounted } from 'vue'
+import { NCard, NButton, NInput, NForm, NFormItem, NSpace, NTag, NDataTable, NDynamicInput, NGrid, NGi, NCode, NSpin } from 'naive-ui'
 import { expressionApi } from '@/api'
 import { t } from '@/i18n'
 import { extractError } from '@/utils/errorCodes'
+import { message } from '@/utils/discreteApi'
+import { useDirtyFormGuard } from '@/composables/useDirtyFormGuard'
 
-const message = useMessage()
 const expression = ref('')
 const variables = ref<{ key: string; value: string }[]>([])
 const evaluating = ref(false)
@@ -70,6 +71,23 @@ const batchExpr = ref('')
 const batchResult = ref('')
 const calculating = ref(false)
 const pageLoading = ref(true)
+const exprFormRef = ref<any>(null)
+
+// [AUDIT-FIX] 严重级-表单未保存离开确认（表达式编辑器无持久化保存，保护用户输入不丢失）
+useDirtyFormGuard({
+  watchSource: () => ({ expr: expression.value, vars: variables.value, batch: batchExpr.value }),
+})
+
+const exprForm = computed(() => ({
+  expression: expression.value,
+}))
+
+const exprFormRules = computed(() => ({
+  expression: [
+    { required: true, message: t('expressionConfig.expressionRequired'), trigger: ['input', 'blur'] },
+    { max: 2000, message: t('expressionConfig.expressionMaxLength'), trigger: ['input', 'blur'] },
+  ],
+}))
 
 const funcColumns = [
   { title: t('expressionConfig.colFunction'), key: 'name', width: 80 },
@@ -89,6 +107,7 @@ function buildVarMap() {
 }
 
 async function evaluate() {
+  try { await exprFormRef.value?.validate() } catch { return }
   evaluating.value = true
   result.value = null
   try {
@@ -105,7 +124,7 @@ async function validate() {
   try {
     const data = await expressionApi.validate(expression.value, buildVarMap())
     if (data) {
-      result.value = data.valid ? t('expressionConfig.syntaxValid') : t('expressionConfig.syntaxError', { error: data.error })
+      result.value = data.valid ? t('expressionConfig.syntaxValid') : t('expressionConfig.syntaxError', { error: data.error ?? '' })
       resultValid.value = data.valid
     }
   } catch (e: any) {
@@ -115,13 +134,21 @@ async function validate() {
 }
 
 async function evaluateBatch() {
+  if (!batchExpr.value.trim()) {
+    message.warning(t('expressionConfig.expressionRequired'))
+    return
+  }
+  if (batchExpr.value.length > 2000) {
+    message.warning(t('expressionConfig.expressionMaxLength'))
+    return
+  }
   calculating.value = true
   try {
     const exprs = JSON.parse(batchExpr.value)
     const data = await expressionApi.evaluateBatch(exprs, buildVarMap())
     batchResult.value = JSON.stringify(data?.results, null, 2)
   } catch (e: any) {
-    batchResult.value = t('expressionConfig.error') + (e.response?.data?.detail || e.message)
+    batchResult.value = t('expressionConfig.error') + extractError(e, '')
   } finally { calculating.value = false }
 }
 

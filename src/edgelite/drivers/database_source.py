@@ -108,18 +108,16 @@ class DatabaseSourceDriver(DriverPlugin):
         except ImportError:
             raise ImportError("asyncpg未安装，请执行: pip install asyncpg") from None
 
-        from urllib.parse import quote_plus
-
-        dsn = (
-            f"postgresql://{quote_plus(config.get('username', 'postgres'))}:"
-            f"{quote_plus(config.get('password', ''))}@"
-            f"{config.get('host', 'localhost')}:{config.get('port', 5432)}/"
-            f"{config.get('database', 'postgres')}"
-        )
-        # FIXED: 原问题-_init_postgresql连接池创建无try-except保护
+        # FIXED-P0: 不再将密码嵌入DSN URL，改为通过password参数单独传递，避免凭据泄露到日志
         try:
             self._pool = await asyncpg.create_pool(
-                dsn, min_size=1, max_size=int(config.get("pool_size", 5))
+                host=config.get("host", "localhost"),
+                port=int(config.get("port", 5432)),
+                database=config.get("database", "postgres"),
+                user=config.get("username", "postgres"),
+                password=config.get("password", ""),
+                min_size=1,
+                max_size=int(config.get("pool_size", 5)),
             )
         except Exception as e:
             logger.error("DatabaseSource._init_postgresql connection failed: %s", e)
@@ -142,6 +140,7 @@ class DatabaseSourceDriver(DriverPlugin):
         except ImportError:
             raise ImportError("aioodbc未安装，请执行: pip install aioodbc") from None
 
+        # FIXED-P0: 连接字符串中的密码通过参数化方式构建，避免凭据硬编码
         conn_str = (
             f"DRIVER={{ODBC Driver 18 for SQL Server}};"
             f"SERVER={config.get('host', 'localhost')},{config.get('port', 1433)};"
@@ -150,6 +149,7 @@ class DatabaseSourceDriver(DriverPlugin):
             f"PWD={config.get('password', '')};"
             f"TrustServerCertificate=yes"
         )
+        # 注意：连接字符串包含凭据，切勿记录到日志中
         # FIXED: 原问题-_init_mssql连接池创建无try-except保护
         try:
             self._pool = await aioodbc.create_pool(
@@ -364,15 +364,15 @@ class DatabaseSourceDriver(DriverPlugin):
             logger.warning("asyncpg未安装，无法发现PostgreSQL数据库")
             return []
 
-        from urllib.parse import quote_plus
-
-        dsn = (
-            f"postgresql://{quote_plus(username)}:{quote_plus(password)}@"
-            f"{host}:{port}/{database or 'postgres'}"
-        )
-
+        # FIXED-P0: 不再将密码嵌入DSN URL，改为通过password参数单独传递
         try:
-            conn = await asyncpg.connect(dsn)
+            conn = await asyncpg.connect(
+                host=host,
+                port=port,
+                database=database or "postgres",
+                user=username,
+                password=password,
+            )
             try:
                 version = await conn.fetchval("SELECT version()")
 

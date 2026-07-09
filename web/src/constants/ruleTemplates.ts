@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { t, useCurrentLocale } from '@/i18n'
+import { SEMANTIC_COLORS } from '@/constants/chartPalette'
 
 export interface RuleTemplate {
   id: string
@@ -117,9 +118,9 @@ export const OPERATOR_OPTIONS = computed(() => [
 ])
 
 export const SEVERITY_OPTIONS = computed(() => [
-  { label: _tc('ruleTemplate.severity.info'), value: 'info', color: '#909399' },
-  { label: _tc('ruleTemplate.severity.warning'), value: 'warning', color: '#E6A23C' },
-  { label: _tc('ruleTemplate.severity.critical'), value: 'critical', color: '#F56C6C' },
+  { label: _tc('ruleTemplate.severity.info'), value: 'info', color: SEMANTIC_COLORS.info },
+  { label: _tc('ruleTemplate.severity.warning'), value: 'warning', color: SEMANTIC_COLORS.warning },
+  { label: _tc('ruleTemplate.severity.critical'), value: 'critical', color: SEMANTIC_COLORS.critical },
 ])
 
 export function getTemplatesByCategory(category: string): RuleTemplate[] {

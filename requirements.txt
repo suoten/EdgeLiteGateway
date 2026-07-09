@@ -1,49 +1,57 @@
 # EdgeLiteGateway 核心依赖
-fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
-pydantic>=2.6.0
-python-dotenv>=1.0.0
-aiosqlite>=0.20.0
-influxdb-client[async]>=1.44.0
-pymodbus>=3.7.0
-httpx>=0.27.0
-pyyaml>=6.0
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-psutil>=5.9.0
-aiomqtt>=2.1.0
-asyncua>=1.1.0
-pyserial>=3.5
-pymcprotocol>=0.3.0
-fins>=1.0.5
-pylogix>=1.1.5
-python-snap7>=1.3.0
-amqtt>=0.11.0b0
-sparkplugb>=0.3.0
-onvif-zeep>=0.2.0
-cryptography>=42.0.0
-pyserial-asyncio>=0.6
-zeroconf>=0.131.0
-aiohttp>=3.9.0
-RestrictedPython>=7.0
-lxml>=5.1.0
+fastapi>=0.110.0,<0.116
+uvicorn[standard]>=0.29.0,<0.35
+pydantic>=2.6.0,<3.0
+python-dotenv>=1.0.0,<2.0
+aiosqlite>=0.20.0,<0.21
+influxdb-client[async]>=1.44.0,<1.46
+pymodbus>=3.7.0,<4.0
+httpx>=0.27.0,<0.29
+pyyaml>=6.0,<7.0
+PyJWT>=2.8.0,<3.0
+bcrypt>=4.1.0,<5.0
+psutil>=5.9.0,<7.0
+aiomqtt>=2.1.0,<3.0
+# pymqtt 在 Windows/GBK 环境下可能因编码问题安装失败（setup.py 读取文件默认编码导致 UnicodeDecodeError）
+# 如需启用 MQTT 5.0 properties，可在 UTF-8 环境单独安装：pip install "aiomqtt[pymqtt]" 或 pip install pymqtt
+# pymqtt>=0.0.14
+asyncua>=1.1.0,<2.0
+pyserial>=3.5,<4.0
+pymcprotocol>=0.3.0,<1.0
+fins>=1.0.5,<2.0
+pylogix>=1.1.5,<2.0
+python-snap7>=1.3.0,<2.0
+# amqtt>=0.11.0b0  # FIXED-P1: beta版+不活跃，移至可选依赖。内置MQTT Server需手动安装: pip install amqtt>=0.11.0b0
+onvif-zeep>=0.2.0,<1.0
+cryptography>=42.0.0,<44.0
+zeroconf>=0.131.0,<1.0
+aiohttp>=3.13.4,<3.14  # FIXED-P0: 3.9.x-3.11.x存在CVE-2026-34520/CVE-2025-69223等多个严重漏洞
+RestrictedPython>=7.0,<8.0
+lxml>=5.3.1,<6.0  # R5-D-003 修复: 5.1.x/5.2.x 存在 XXE/CVE 漏洞，升级到 >=5.3.1
+python-multipart>=0.0.9,<0.1  # FastAPI 表单/文件上传依赖（UploadFile/Form）
+pyserial-asyncio>=0.6,<1.0
+
 
 # ORM与数据库迁移
-sqlalchemy[asyncio]>=2.0.30
-alembic>=1.13.0
+sqlalchemy[asyncio]>=2.0.30,<2.1
+alembic>=1.13.0,<2.0
 
 # 可选依赖（按需安装）
 # aiomysql>=0.2.0         # MySQL/MariaDB 数据源
 # asyncpg>=0.29.0         # PostgreSQL 数据源
 # aioodbc>=0.4.0          # SQL Server 数据源
-# pyfanuc>=0.0.5          # FANUC CNC驱动（依赖fwlipy+FOCAS闭源库，pip无法自动安装，需手动编译FOCAS后pip install --no-deps pyfanuc）
-# pysoem>=0.2.0           # EtherCAT SOEM库Python绑定(需先安装SOEM C库: apt install soem 或 brew install soem)
 
 # AI推理引擎依赖（启用AI功能必须安装）
-numpy>=1.24.0
-onnx>=1.15.0
-onnxruntime>=1.16.0
+numpy>=1.24.0,<3.0
+onnx>=1.16.2,<2.0  # R5-D-004 修复: 1.15.x 存在 CVE 漏洞，升级到 >=1.16.2
+onnxruntime>=1.16.0,<2.0
+opencv-python-headless>=4.8.0,<5.0
 
 # 测试依赖
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
+pytest>=8.0.0,<9.0
+pytest-asyncio>=0.23.0,<1.0
+
+# FIXED(低危): 原问题-无依赖锁定文件，构建不可复现且存在供应链风险;
+# 建议使用 pip-compile 生成 requirements.lock 并使用 pip install --require-hashes 安装
+# 生成锁定文件: pip-compile --generate-hashes --output-file=requirements.lock requirements.txt
+# 安装锁定依赖: pip install --require-hashes -r requirements.lock

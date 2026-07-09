@@ -5,31 +5,62 @@ services:
       dockerfile: docker/Dockerfile
     container_name: edgelite-gateway
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"  # FIXED-P1: 端口绑定到localhost，通过nginx反代访问
     volumes:
       - ../data:/app/data
-      - ../configs:/app/configs
+      - ../configs:/app/configs:ro  # 7#修复: 改为只读挂载，与 read_only: true 的安全加固意图一致，防止容器内篡改配置
       - ../logs:/app/logs
+    # R5-C003/C004 修复(严重): 容器安全加固 - 日志限制 + 只读文件系统 + 最小权限
+    # C-003: 添加日志驱动限制，防止日志无限增长撑满磁盘
+    # C-004: read_only 防止攻击者写入恶意文件；cap_drop 移除所有 Linux capabilities；
+    #        tmpfs 挂载 /tmp 和 /run 供运行时临时写入
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - EDGELITE_INFLUXDB__URL=http://influxdb:8086
-      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-K7mX2pR9vW4yH1jM6cF0gL3pS8tV2wZ5bD9mJ4qR7uX0yA3cE6hK9lN2pR5tV8wB1dG4jM7qS0u}
+      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:?INFLUXDB_TOKEN must be set in docker/.env}
       - EDGELITE_MQTT__BROKER=mosquitto
-      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:-c8nSH3RdgLhrlVIMi0SQOo-9C64wFnDlpE9AxZaf8oI}
+      # P1-1修复: edgelite 服务需配置 MQTT 用户名/密码以匹配 mosquitto.conf 中 allow_anonymous false 的鉴权要求
+      - EDGELITE_MQTT__USERNAME=edgelite
+      - EDGELITE_MQTT__PASSWORD=${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}
+      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in docker/.env}
       - EDGELITE_SERVER__HOST=0.0.0.0
       - EDGELITE_SERVER__PORT=8080
-      - EDGELITE_SERVER__CORS_ORIGINS=http://localhost:8080;http://localhost:3000
+      # 10#修复: 使用推荐字段名 cors_allowed_origins（旧字段 cors_origins 仅作向后兼容读取）
+      - EDGELITE_SERVER__CORS_ALLOWED_ORIGINS=http://localhost:8080;http://localhost:3000
+      - EDGELITE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in docker/.env}
+      - EDGELITE_RESET_ADMIN_PASSWORD=${ADMIN_RESET_PASSWORD:-false}
     depends_on:
       influxdb:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      # FIXED: 使用 /health/live 轻量端点替代 /health 完整检查 [2026-06-29]
+      # /health 执行 DB+InfluxDB+MQTT+Drivers 串行检查（5s 总超时），依赖抖动即触发重启循环
+      # /health/live 仅返回 {"status":"ok"}，适合 liveness 探针
+      test: ["CMD", "python", "-c", "import urllib.request; r=urllib.request.urlopen('http://localhost:8080/health/live'); exit(0 if r.status==200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 60s  # R7-S-16: 与 Dockerfile HEALTHCHECK start_period 一致，避免容器在启动慢时无限重启
     restart: unless-stopped
+    deploy:  # FIXED-P1: 添加资源限制，防止容器无限消耗宿主机资源
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
     networks:
       - edgelite-net
 
@@ -39,7 +70,7 @@ services:
     profiles:
       - nginx
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"  # FIXED-P2: 端口绑定到localhost，通过nginx反代访问
     volumes:
       - ../web/dist:/usr/share/nginx/html:ro
       - ./nginx-frontend.conf:/etc/nginx/conf.d/default.conf:ro
@@ -52,6 +83,11 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    deploy:  # FIXED-P1: 添加资源限制
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
     networks:
       - edgelite-net
 
@@ -64,17 +100,24 @@ services:
       - influxdb-data:/var/lib/influxdb2
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-edgelite-admin-2024}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME:-edgelite}  # FIXED-P2: 用户名从环境变量读取，默认edgelite而非admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:?INFLUXDB_PASSWORD must be set in docker/.env}
       - DOCKER_INFLUXDB_INIT_ORG=edgelite
       - DOCKER_INFLUXDB_INIT_BUCKET=edgelite
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-K7mX2pR9vW4yH1jM6cF0gL3pS8tV2wZ5bD9mJ4qR7uX0yA3cE6hK9lN2pR5tV8wB1dG4jM7qS0u}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:?INFLUXDB_TOKEN must be set in docker/.env}
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      # FIXED: 首次 setup 初始化需时间，无 start_period 会被误判 unhealthy 触发重启循环打断初始化 [2026-06-29]
+      start_period: 30s
     restart: unless-stopped
+    deploy:  # FIXED-P1: 添加资源限制
+      resources:
+        limits:
+          memory: 256m
+          cpus: "1.0"
     networks:
       - edgelite-net
 
@@ -82,22 +125,36 @@ services:
     image: eclipse-mosquitto:2
     container_name: edgelite-mosquitto
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"  # FIXED-P2: MQTT端口绑定到localhost，与InfluxDB一致
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
+      - mosquitto-config:/mosquitto/config  # FIXED-P0: 可写config卷用于存放passwd文件
+    # P1-1修复: entrypoint 引用 MQTT_PASSWORD 生成 passwd，必须在 environment 中显式声明
+    # 使用 :? 语法保证未设置时 compose 启动即失败，避免容器空跑
+    environment:
+      - MQTT_PASSWORD=${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}
+    entrypoint: ["/bin/sh", "-c", "if [ ! -f /mosquitto/config/passwd ]; then touch /mosquitto/config/passwd && echo \"$${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}\" | mosquitto_passwd /mosquitto/config/passwd edgelite; fi && exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf"]  # R7-S-14: 改用 stdin 模式传入密码，避免密码出现在 /proc/*/cmdline 中
     healthcheck:
       test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-W", "3"]
       interval: 10s
       timeout: 5s
       retries: 5
+      # FIXED: entrypoint 生成 passwd 后才启动 broker，无 start_period 可能在 passwd 生成期间被误判 unhealthy [2026-06-29]
+      start_period: 15s
     restart: unless-stopped
+    deploy:  # FIXED-P1: 添加资源限制
+      resources:
+        limits:
+          memory: 64m
+          cpus: "0.25"
     networks:
       - edgelite-net
 
 volumes:
   influxdb-data:
   mosquitto-data:
+  mosquitto-config:  # FIXED-P0: mosquitto配置卷用于存放passwd文件
 
 networks:
   edgelite-net:

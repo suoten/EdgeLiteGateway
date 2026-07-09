@@ -5,16 +5,16 @@ This module provides multi-channel alarm notification capabilities.
 
 from edgelite.services.notification_impl import (
     AlarmNotification,
+    DingTalkChannel,
+    DingTalkConfig,
+    EmailChannel,
+    EmailConfig,
     NotificationChannel,
     NotificationManager,
-    DingTalkChannel,
-    WeComChannel,
-    EmailChannel,
     WebhookChannel,
-    DingTalkConfig,
-    WeComConfig,
-    EmailConfig,
     WebhookConfig,
+    WeComChannel,
+    WeComConfig,
     get_notification_manager,
     init_notification_manager,
 )

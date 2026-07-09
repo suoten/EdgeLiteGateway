@@ -28,8 +28,10 @@ class VideoService:
             self._provider = None
 
     async def close(self) -> None:
+        # FIXED-P2: 原问题-close后未置空_provider，重复调用close会操作已关闭的provider
         if self._provider:
             await self._provider.close()
+            self._provider = None
 
     async def register_video_device(self, device_id: str, config: dict) -> bool:
         """注册视频设备"""
@@ -59,15 +61,22 @@ class VideoService:
         """处理PyGBSentry Webhook回调"""
         if not self._provider:
             return
-        await self._provider.handle_webhook(event_data)
+        # FIXED-P2: 原问题-provider.handle_webhook异常会导致后续告警发布被跳过，应分离处理
+        try:
+            await self._provider.handle_webhook(event_data)
+        except Exception as e:
+            logger.error("视频webhook处理失败: %s", e)
 
         # 如果是告警事件，发布到EventBus
         event_type = event_data.get("type", "")
         if "alarm" in event_type.lower():
             alarm_event = AlarmEvent(
+                alarm_id=event_data.get("alarm_id", f"video_{event_data.get('device_id', '')}_{event_type}"),  # FIXED-P1: 原问题-缺少alarm_id导致告警去重失败
+                rule_id=event_data.get("rule_id", "video_alarm"),  # FIXED-P1: 原问题-缺少rule_id导致告警分类失败
                 device_id=event_data.get("device_id", ""),
                 severity=event_data.get("severity", "warning"),
                 action="firing",
                 trigger_value=event_data,
+                rule_type="video",  # FIXED-P1: 原问题-缺少rule_type导致告警来源无法区分
             )
             await self._event_bus.publish(alarm_event)

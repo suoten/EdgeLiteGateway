@@ -50,8 +50,12 @@ class PyGBSentryProvider(VideoProvider):
     async def close(self) -> None:
         """关闭连接"""
         if self._client:
-            await self._client.aclose()
-            self._client = None
+            try:  # FIXED-P1: 添加异常处理，防止aclose失败导致资源泄漏
+                await self._client.aclose()
+            except Exception as e:
+                logger.warning("关闭PyGBSentry连接失败: %s", e)
+            finally:
+                self._client = None
 
     async def register_device(self, device_id: str, config: dict) -> bool:
         """注册视频设备（验证设备在PyGBSentry中存在）"""
@@ -124,4 +128,7 @@ class PyGBSentryProvider(VideoProvider):
         """处理PyGBSentry Webhook回调"""
         logger.info("收到PyGBSentry Webhook: %s", event_data.get("type", "unknown"))
         if self._alarm_callback:
-            await self._alarm_callback(event_data)
+            try:  # FIXED-P2: 添加异常处理，防止callback失败导致webhook处理中断
+                await self._alarm_callback(event_data)
+            except Exception as e:
+                logger.error("PyGBSentry alarm callback执行失败: %s", e, exc_info=True)

@@ -495,13 +495,6 @@ mqtt_server:
   username: ""                     # 认证用户名
   password: ""                     # 认证密码
 
-# 内置 OPC UA Server（南向仿真）
-opcua_server:
-  enabled: false                   # 是否启用
-  host: "0.0.0.0"                  # 监听地址
-  port: 4840                       # 监听端口
-  namespace: "urn:edgelite:gateway" # 命名空间
-
 # 内置 Modbus Slave（南向仿真）
 modbus_slave:
   enabled: false                   # 是否启用

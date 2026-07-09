@@ -9,6 +9,7 @@ _OP_FUNCS = {
     ">=": lambda a, t: a >= t,
     "<": lambda a, t: a < t,
     "<=": lambda a, t: a <= t,
+    "=": lambda a, t: a == t,
     "==": lambda a, t: a == t,
     "!=": lambda a, t: a != t,
     "gt": lambda a, t: a > t,
@@ -22,10 +23,17 @@ _OP_FUNCS = {
 
 def check_condition_fast(actual: float, operator: str, threshold: float) -> bool:
     """快速条件比较（纯Python版）"""
+    # FIXED-P1: 原问题-actual 或 threshold 为 None 时直接比较会抛 TypeError，导致规则评估中断
+    if actual is None or threshold is None:
+        return False
     func = _OP_FUNCS.get(operator)
     if func is None:
         return False
-    return func(actual, threshold)
+    try:
+        return func(actual, threshold)
+    except TypeError:
+        # FIXED-P1: 非数值类型比较时返回 False 而非抛异常
+        return False
 
 
 def check_conditions_fast(actual: float, conditions: list, logic: str = "AND") -> bool:
@@ -39,15 +47,29 @@ def check_conditions_fast(actual: float, conditions: list, logic: str = "AND") -
     Returns:
         条件组合结果
     """
+    # FIXED-P2: 空条件列表与 rule_service 保持一致，返回 False
+    if not conditions:
+        return False
+    # FIXED-P1: 原问题-actual 为 None 时所有比较都会抛 TypeError
+    if actual is None:
+        return False
     for cond in conditions:
         op = cond.get("operator", cond.get("op", ""))
         threshold = cond.get("threshold", cond.get("value", 0.0))
+        if threshold is None:
+            threshold = 0.0
         func = _OP_FUNCS.get(op)
         if func is None:
             if logic == "OR":
                 continue
             return False
-        result = func(actual, threshold)
+        try:
+            result = func(actual, threshold)
+        except TypeError:
+            # FIXED-P1: 非数值类型比较时视为条件不满足
+            if logic == "AND":
+                return False
+            continue
         if logic == "AND" and not result:
             return False
         if logic == "OR" and result:

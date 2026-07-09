@@ -69,15 +69,20 @@
       <template #header-extra>
         <n-button @click="fetchDashboards" size="small">{{ t('grafana.refresh') }}</n-button>
       </template>
-      <n-data-table :columns="dashboardColumns" :data="dashboards" :bordered="false" size="small" />
-      <n-empty v-if="!dashboards.length" :description="t('grafana.noDashboards')" />
+      <n-data-table :columns="dashboardColumns" :data="dashboards" :bordered="false" size="small">
+        <template #empty>
+          <n-empty :description="t('grafana.noDashboards')" />
+        </template>
+      </n-data-table>
     </n-card>
 
     <n-card v-if="enabled && embedUrl" :title="t('grafana.panel')" :bordered="false">
-      <iframe :src="embedUrl" sandbox="allow-scripts allow-same-origin allow-popups" style="width: 100%; height: 600px; border: none; border-radius: 8px;" />
+      <!-- FIXED-Severe: 移除 allow-same-origin，避免 iframe 内脚本访问父页面 Cookie/sessionStorage -->
+      <!-- allow-scripts + allow-same-origin 同时设置会使 sandbox 保护形同虚设 -->
+      <iframe :src="embedUrl" sandbox="allow-scripts allow-popups" style="width: 100%; height: 600px; border: none; border-radius: 8px;" />
     </n-card>
 
-    <n-modal v-model:show="showInstallProgress" :title="t('grafana.installDeps')" preset="card" style="width: 480px" :closable="false">
+    <n-modal v-model:show="showInstallProgress" :title="t('grafana.installDeps')" preset="card" style="width: 480px; max-width: 95vw" :closable="false" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
       <n-spin :description="installProgress">
         <n-space vertical>
           <p>{{ t('grafana.installing') }}</p>
@@ -93,15 +98,18 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { NButton, useMessage, useDialog } from 'naive-ui'
+import { NButton } from 'naive-ui'
 import { t } from '@/i18n'
 import { extractError } from '@/utils/errorCodes'
 import { serviceApi, grafanaApi } from '@/api'
 import type { ServiceDependency } from '@/api'
+import { message, dialog } from '@/utils/discreteApi'
+// [AUDIT-FIX] 严重级-Grafana 服务的启停/依赖安装/配置保存属敏感写操作，需函数级权限校验
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 // FIXED: 原问题-GrafanaDashboard.vue全部中文硬编码，改为i18n
-const message = useMessage()
-const dialog = useDialog()
 const loading = ref(false)
 const toggleLoading = ref(false)
 const savingConfig = ref(false)
@@ -116,6 +124,7 @@ const dependencies = ref<ServiceDependency[]>([])
 const grafanaConfig = reactive<any>({})
 const dashboards = ref<any[]>([])
 const embedUrl = ref('')
+const configFormRef = ref<any>(null)
 
 const configForm = reactive({
   url: 'http://localhost:3001',
@@ -124,8 +133,9 @@ const configForm = reactive({
 })
 
 const configRules = {
-  url: [{ required: true, message: () => t('grafana.addressRequired'), trigger: 'blur' }],
-  datasource: [{ required: true, message: () => t('grafana.datasourceRequired'), trigger: 'blur' }],
+  url: [{ required: true, message: () => t('grafana.addressRequired'), trigger: ['input', 'blur'] }],
+  api_key: [{ required: true, message: () => t('grafana.apiKeyRequired'), trigger: ['input', 'blur'] }],
+  datasource: [{ required: true, message: () => t('grafana.datasourceRequired'), trigger: ['input', 'blur'] }],
 }
 
 const missingDeps = computed(() => dependencies.value.filter(d => !d.installed))
@@ -163,16 +173,26 @@ const dashboardColumns = computed(() => [
 async function fetchConfig() {
   loading.value = true
   try {
-    const data = await serviceApi.status('grafana')
-    enabled.value = data?.state === 'running'
-    state.value = data.state
-    dependencies.value = data.dependencies || []
-    Object.assign(grafanaConfig, data.current_config || {})
-    configForm.url = data.current_config?.url || 'http://localhost:3001'
-    configForm.api_key = data.current_config?.api_key || ''
-    configForm.datasource = data.current_config?.datasource || 'InfluxDB'
+    // FIX: 原问题-前端调用 serviceApi.status('grafana') 返回的 current_config 永远为空（后端 grafana.py 从 config.grafana 读取但从未正确赋值），
+    // 导致"保存配置"按钮配置无法加载。
+    // 改为直接调用 grafanaApi.config()，后端 grafana.py 会返回 config.grafana 的实际值。
+    const data = await grafanaApi.config()
+    enabled.value = data?.enabled ?? false
+    state.value = data?.state ?? 'disabled'
+    dependencies.value = data?.dependencies ?? []
+    // current_config 字段来自 grafanaApi.config() 的返回，后端会正确填充 config.grafana 的 url/datasource 等值
+    Object.assign(grafanaConfig, data ?? {})
+    configForm.url = data?.url || 'http://localhost:3001'
+    configForm.api_key = data?.api_key && data?.api_key !== '' ? '***configured***' : ''
+    configForm.datasource = data?.datasource || 'InfluxDB'
     if (enabled.value) {
-      await fetchDashboards()
+      // FIXED-P2: 前端先验证api_key是否已配置，避免发无效请求到后端
+      if (!data?.api_key || data.api_key === '') {
+        message.info(t('grafana.apiKeyMissing'))
+        dashboards.value = []
+      } else {
+        await fetchDashboards()
+      }
     }
   } catch (e: any) {
     if (e?.response?.status !== 404) message.error(extractError(e, t('grafana.fetchConfigFailed')))
@@ -182,15 +202,31 @@ async function fetchConfig() {
 }
 
 async function fetchDashboards() {
+  // FIXED-P2: 前端先验证Grafana是否启用且api_key已配置，避免发无效请求
+  if (!enabled.value) {
+    dashboards.value = []
+    return
+  }
+  if (!grafanaConfig.api_key || grafanaConfig.api_key === '') {
+    message.info(t('grafana.apiKeyMissing'))
+    dashboards.value = []
+    return
+  }
   try {
     const data = await grafanaApi.dashboards()
     dashboards.value = data?.dashboards || []
   } catch (e: any) {
-    message.error(extractError(e, t('grafana.fetchDashboardsFailed')))
+    dashboards.value = []
+    if (e?.response?.status === 503) {
+      message.info(t('grafana.notEnabled'))
+    } else {
+      message.error(extractError(e, t('grafana.fetchDashboardsFailed')))
+    }
   }
 }
 
 async function handleOpen(uid?: string) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
   try {
     const data = await grafanaApi.embedUrl(uid)
     embedUrl.value = data?.url ?? ''
@@ -200,6 +236,7 @@ async function handleOpen(uid?: string) {
 }
 
 async function handleToggle(val: boolean) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
   if (!val) {
     dialog.warning({
       title: t('grafana.disableConfirmTitle'),
@@ -237,6 +274,7 @@ async function doToggle(val: boolean) {
 }
 
 async function handleInstallDeps() {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
   installing.value = true
   showInstallProgress.value = true
   installProgress.value = t('grafana.installing')
@@ -256,9 +294,24 @@ async function handleInstallDeps() {
 }
 
 async function handleSaveConfig() {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  try {
+    await configFormRef.value?.validate()
+  } catch {
+    message.error(t('common.checkFormData'))
+    return
+  }
   savingConfig.value = true
   try {
-    await serviceApi.updateConfig('grafana', { ...configForm })
+    const configPayload: Record<string, any> = {
+      url: configForm.url,
+      datasource: configForm.datasource,
+    }
+    // Only send api_key if user entered a new value (not the masked placeholder)
+    if (configForm.api_key && configForm.api_key !== '***configured***') {
+      configPayload.api_key = configForm.api_key
+    }
+    await serviceApi.updateConfig('grafana', configPayload)
     message.success(t('grafana.configSaved'))
     await fetchConfig()
   } catch (e: any) {

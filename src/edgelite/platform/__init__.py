@@ -1,9 +1,9 @@
-"""北向平台对接模块"""
-
 from edgelite.platform.base import PlatformHandler
+from edgelite.platform.north_base import BaseNorthAdapter
 
 __all__ = [
     "PlatformHandler",
+    "BaseNorthAdapter",
     "IoTSharpHandler",
     "ThingsBoardHandler",
     "HuaweiIoTDAHandler",

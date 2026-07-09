@@ -1,0 +1,45 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-secret-key
+        name: Check for hardcoded secret keys
+        entry: python scripts/check_secrets.py
+        language: python
+        types: [file]
+        pass_filenames: true
+      - id: check-env-real-keys
+        name: Check .env files for real (non-placeholder) keys
+        entry: python scripts/check_secrets.py --env-only
+        language: python
+        files: '\.env$'
+        pass_filenames: true
+      - id: check-model-orm-consistency
+        name: "[L1] Pydantic Response <-> ORM column consistency"
+        entry: python scripts/check_model_orm_consistency.py
+        language: python
+        files: '(models/|storage/sqlite_repo\.py)'
+        pass_filenames: false
+      - id: check-frontend-api-consistency
+        name: "[L2] Frontend TS interface <-> API schema consistency"
+        entry: python scripts/check_frontend_api_consistency.py --offline
+        language: python
+        files: '(models/|web/src/api/)'
+        pass_filenames: false
+      - id: check-repo-exception-safety
+        name: "[L3] Repo exception handling pattern (no silent swallow)"
+        entry: python scripts/check_repo_exception_safety.py
+        language: python
+        files: 'storage/sqlite_repo\.py'
+        pass_filenames: false
+      - id: check-form-validation-consistency
+        name: "[L4] Form validation consistency (frontend rules vs Pydantic)"
+        entry: python scripts/check_form_validation_consistency.py
+        language: python
+        files: '(models/|web/src/views/|storage/sqlite_repo\.py)'
+        pass_filenames: false
+      - id: check-dataflow-completeness
+        name: "[L5] Data flow completeness (edit submits all fields)"
+        entry: python scripts/check_dataflow_completeness.py
+        language: python
+        files: '(web/src/views/|web/src/api/)'
+        pass_filenames: false

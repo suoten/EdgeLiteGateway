@@ -61,24 +61,35 @@
       </div>
       <n-form v-if="!showChangePassword" ref="formRef" :model="form" :rules="rules" size="large">
         <n-form-item path="username">
-          <n-input v-model:value="form.username" :placeholder="t('login.username')" @keyup.enter="handleLogin">
+          <n-input v-model:value="form.username" :maxlength="32" aria-label="username" autocomplete="username" :placeholder="t('login.username')" @keyup.enter="handleLogin">
             <template #prefix><n-icon :component="PersonOutline" /></template>
           </n-input>
         </n-form-item>
         <n-form-item path="password">
-          <n-input v-model:value="form.password" type="password" show-password-on="click" :placeholder="t('login.password')" @keyup.enter="handleLogin">
+          <!-- FIXED-UECapsLock: 密码框无大写锁定检测，用户输错密码后才发现。
+               现通过 keyup/keydown 监听 CapsLock 状态，实时提示。 -->
+          <n-input
+            v-model:value="form.password"
+            :maxlength="72"
+            type="password"
+            show-password-on="click"
+            autocomplete="current-password"
+            :placeholder="t('login.password')"
+            @keyup.enter="handleLogin"
+            @keyup="onCapsLockCheck"
+            @keydown="onCapsLockCheck"
+          >
             <template #prefix><n-icon :component="LockClosedOutline" /></template>
           </n-input>
         </n-form-item>
+        <n-alert v-if="capsLockOn" type="warning" :show-icon="true" style="margin: -8px 0 8px; font-size: 13px">
+          {{ t('login.capsLockOn') }}
+        </n-alert>
         <n-button type="primary" block :loading="loading" @click="handleLogin" style="margin-top: 8px">
           {{ t('login.submit') }}
         </n-button>
       </n-form>
-      <n-space justify="space-between" style="margin-top: 8px" v-if="!showChangePassword">
-        <n-button text size="small" @click="showForgotModal = true">
-          {{ t('login.forgotPassword') }}
-        </n-button>
-      </n-space>
+
       <n-text depth="3" style="display:block;text-align:center;margin-top:8px;font-size:13px" v-if="!showChangePassword">
         {{ t('login.firstLoginHint') }}
       </n-text>
@@ -88,13 +99,32 @@
         </n-alert>
         <!-- FIXED: 原问题-表单label/placeholder中文硬编码，现使用t() -->
         <n-form-item path="old_password" :label="t('login.oldPassword')">
-          <n-input v-model:value="changePwdForm.old_password" type="password" show-password-on="click" :placeholder="t('login.oldPassword')" />
+          <n-input v-model:value="changePwdForm.old_password" :maxlength="72" type="password" show-password-on="click" autocomplete="current-password" :placeholder="t('login.oldPassword')" />
         </n-form-item>
         <n-form-item path="new_password" :label="t('login.newPassword')">
-          <n-input v-model:value="changePwdForm.new_password" type="password" show-password-on="click" :placeholder="t('login.passwordPolicy')" />
+          <n-input v-model:value="changePwdForm.new_password" :maxlength="72" type="password" show-password-on="click" autocomplete="new-password" :placeholder="t('login.passwordPolicy')" />
         </n-form-item>
+        <!-- FIXED-UEStrength: 修改密码有4条规则(长度/字母数字/特殊字符)，原实现仅在 blur 时逐条报错，
+             用户需多次提交尝试。现提供实时强度指示器与规则清单，输入时即时反馈。 -->
+        <div v-if="changePwdForm.new_password" class="pwd-strength">
+          <div class="pwd-strength-bar">
+            <div
+              v-for="i in 4"
+              :key="i"
+              class="pwd-strength-seg"
+              :class="{ active: i <= pwdStrength.score, [`s${pwdStrength.score}`]: i <= pwdStrength.score }"
+            />
+          </div>
+          <n-text depth="3" style="font-size:12px; margin-left:8px">{{ pwdStrength.label }}</n-text>
+          <div class="pwd-rules">
+            <div v-for="r in pwdRules" :key="r.key" class="pwd-rule" :class="{ met: r.met }">
+              <n-icon :component="r.met ? CheckmarkCircle : CloseCircle" :color="r.met ? '#52c41a' : '#c0c0c0'" size="14" />
+              <span>{{ r.label }}</span>
+            </div>
+          </div>
+        </div>
         <n-form-item path="confirm_password" :label="t('login.confirmPassword')">
-          <n-input v-model:value="changePwdForm.confirm_password" type="password" show-password-on="click" :placeholder="t('login.confirmPassword')" />
+          <n-input v-model:value="changePwdForm.confirm_password" :maxlength="72" type="password" show-password-on="click" autocomplete="new-password" :placeholder="t('login.confirmPassword')" />
         </n-form-item>
         <n-button type="primary" block :loading="changingPwd" @click="handleChangePassword" style="margin-top: 8px">
           {{ t('login.changePassword') }}
@@ -104,76 +134,93 @@
         <n-text depth="3">{{ appVersion }} Community Edition</n-text>  <!-- FIXED-P3: 版本号硬编码v1.0.0，改用__APP_VERSION__动态获取 -->
       </div>
     </n-card>
-    <!-- Forgot Password Modal -->
-    <n-modal v-model:show="showForgotModal" preset="card" :title="t('login.forgotPassword')" style="width: 400px">
-      <n-form v-if="!resetTokenSent" :model="forgotForm" :rules="forgotRules" ref="forgotFormRef">
-        <n-form-item :label="t('userManage.username')" path="username">
-          <n-input v-model:value="forgotForm.username" :placeholder="t('login.enterUsername')" />
-        </n-form-item>
-      </n-form>
-      <n-result v-else status="success" :title="t('login.resetEmailSent')" />
-      <template #action>
-        <n-space justify="end" v-if="!resetTokenSent">
-          <n-button @click="showForgotModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="sendingReset" @click="handleForgotPassword">{{ t('login.sendResetLink') }}</n-button>
-        </n-space>
-        <n-space justify="end" v-else>
-          <n-button @click="showForgotModal = false; resetTokenSent = false; forgotForm.username = ''">{{ t('common.close') }}</n-button>
-        </n-space>
-      </template>
-    </n-modal>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
-import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5'
-import { useAuthStore } from '@/stores/auth'
+import { PersonOutline, LockClosedOutline, CheckmarkCircle, CloseCircle } from '@vicons/ionicons5'
+import { useAuthStore, _setItem } from '@/stores/auth'
 import { authApi } from '@/api'
 import { t } from '@/i18n'
 import { extractError } from '@/utils/errorCodes'
+import { message } from '@/utils/discreteApi'
 
 declare const __APP_VERSION__: string
 const appVersion = `v${__APP_VERSION__}`
 
 const router = useRouter()
-const message = useMessage()
 const auth = useAuthStore()
 const loading = ref(false)
 const showChangePassword = ref(false)
 const changingPwd = ref(false)
-const showForgotModal = ref(false)
-const resetTokenSent = ref(false)
-const sendingReset = ref(false)
-const forgotForm = reactive({ username: '' })
-const forgotRules = {
-  username: { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
+
+// FIXED-UECapsLock: 大写锁定状态检测
+const capsLockOn = ref(false)
+function onCapsLockCheck(e: KeyboardEvent) {
+  // getModifierState 是标准 API，能准确反映 CapsLock 物理按键状态
+  capsLockOn.value = e.getModifierState && e.getModifierState('CapsLock')
 }
-const forgotFormRef = ref<any>(null)
 
 const form = reactive({ username: '', password: '' })
-const rules = {
-  username: { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
-  password: { required: true, message: t('login.password'), trigger: 'blur' },
-}
+const rules = computed(() => ({
+  username: { required: true, message: t('login.usernameRequired'), trigger: ['input', 'blur'] },
+  // [AUDIT-FIX] 严重级-原代码使用 t('login.password')(请输入密码，实为 placeholder 文案) 当验证消息，
+  // 虽然文案恰好合适但语义错误，现改用专用验证消息键 t('login.passwordRequired')
+  password: { required: true, message: t('login.passwordRequired'), trigger: ['input', 'blur'] },
+}))
 const formRef = ref<any>(null)
 
 const changePwdForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
-const changePwdRules = {
-  old_password: { required: true, message: t('login.oldPassword'), trigger: 'blur' },
+const changePwdRules = computed(() => ({
+  // [AUDIT-FIX] 严重级-原代码使用 t('login.oldPassword')(原密码，label) 当验证消息，改用 t('login.oldPasswordRequired')
+  old_password: { required: true, message: t('login.oldPasswordRequired'), trigger: ['input', 'blur'] },
   new_password: [
-    { required: true, message: t('login.newPassword'), trigger: 'blur' },
-    { min: 8, message: t('login.passwordMinLength'), trigger: 'blur' },
-    { validator: (_rule: Any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: t('login.passwordLetterAndDigit'), trigger: 'blur' },  // FIXED: 原问题-硬编码英文，改用i18n
+    // [AUDIT-FIX] 严重级-原代码使用 t('login.newPassword')(新密码，label) 当验证消息，改用 t('login.newPasswordRequired')
+    { required: true, message: t('login.newPasswordRequired'), trigger: ['input', 'blur'] },
+    { min: 8, max: 72, message: t('login.passwordMinLength'), trigger: ['input', 'blur'] },
+    { validator: (_rule: any, value: string) => /[a-zA-Z]/.test(value) && /\d/.test(value), message: t('login.passwordLetterAndDigit'), trigger: ['input', 'blur'] },
+    { validator: (_rule: any, value: string) => /[!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?`~]/.test(value), message: t('login.passwordNeedSpecial'), trigger: ['input', 'blur'] },
   ],
   confirm_password: [
-    { required: true, message: t('login.confirmPassword'), trigger: 'blur' },
-    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: t('login.passwordMismatch'), trigger: 'blur' },  // FIXED: 原问题-硬编码英文，改用i18n
+    // [AUDIT-FIX] 严重级-原代码使用 t('login.confirmPassword')(确认新密码，label) 当验证消息，改用 t('login.confirmPasswordRequired')
+    { required: true, message: t('login.confirmPasswordRequired'), trigger: ['input', 'blur'] },
+    { validator: (_rule: any, value: string) => value === changePwdForm.new_password, message: t('login.passwordMismatch'), trigger: ['input', 'blur'] },
   ],
-}
+}))
 const changePwdFormRef = ref<any>(null)
+
+// FIXED-UEStrength: 实时密码规则清单与强度计算
+const pwdRules = computed(() => [
+  { key: 'length', label: t('login.ruleLength'), met: changePwdForm.new_password.length >= 8 && changePwdForm.new_password.length <= 72 },
+  { key: 'letterDigit', label: t('login.ruleLetterDigit'), met: /[a-zA-Z]/.test(changePwdForm.new_password) && /\d/.test(changePwdForm.new_password) },
+  { key: 'special', label: t('login.ruleSpecial'), met: /[!@#$%^&*()_+\-=\[\]{}|;':",.\/<>?`~]/.test(changePwdForm.new_password) },
+  { key: 'confirm', label: t('login.ruleConfirm'), met: !!changePwdForm.confirm_password && changePwdForm.confirm_password === changePwdForm.new_password },
+])
+const pwdStrength = computed(() => {
+  const metCount = pwdRules.value.filter(r => r.met && r.key !== 'confirm').length
+  // 4档：弱/中/较强/强
+  if (metCount <= 1) return { score: 1, label: t('login.strengthWeak') }
+  if (metCount === 2) return { score: 2, label: t('login.strengthMedium') }
+  if (metCount === 3) return { score: 3, label: t('login.strengthGood') }
+  return { score: 4, label: t('login.strengthStrong') }
+})
+
+// FIX 4: 提取 setup 重定向检查为辅助函数，避免 handleLogin 和 handleChangePassword 逻辑不一致
+// FIX 2: 校验 redirect 参数，仅允许相对路径，防止开放重定向
+function checkSetupRedirect() {
+  const setupCompleted = localStorage.getItem('edgelite_setup_completed') === 'true'
+  if (!setupCompleted) {
+    router.push('/setup')
+    return
+  }
+  const redirect = router.currentRoute.value.query.redirect
+  // FIX 2: 校验 redirect 参数，仅允许以单个 / 开头的相对路径
+  const safeRedirect = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+  router.push(safeRedirect)
+}
 
 async function handleLogin() {
   try {
@@ -190,8 +237,8 @@ async function handleLogin() {
     } else {
       // FIXED: 原问题-硬编码中文消息，改为i18n
       message.success(t('loginPage.loginSuccess'))
-      const redirect = (router.currentRoute.value.query.redirect as string) || '/'
-      router.push(redirect)
+      // FIX 4: 使用 checkSetupRedirect 辅助函数统一处理重定向逻辑
+      checkSetupRedirect()
     }
   } catch (e: any) {
     // FIXED: 原问题-错误分类依赖中文字符串匹配(detail.includes('频繁'))，
@@ -228,7 +275,7 @@ async function handleChangePassword() {
       changePwdForm.new_password,
     )
     auth.mustChangePassword = false
-    sessionStorage.setItem('edgelite_mustChangePassword', 'false')
+    _setItem('edgelite_mustChangePassword', 'false')
     message.success(t('login.passwordChanged'))
     // FIXED: 原问题-修改密码后未重新获取token，若后端使旧token失效则后续请求401
     // 现在修改密码成功后重新登录获取新token
@@ -236,11 +283,12 @@ async function handleChangePassword() {
       await auth.login(auth.username, changePwdForm.new_password)
     } catch (reLoginError: any) {
       // FIXED: 原问题-重新登录失败时误用passwordChanged(成功语义)作为错误消息
-      message.error(t('login.passwordChangeFailed'))
+      message.error(extractError(reLoginError, t('login.passwordChangeFailed')))
       router.push('/login')
       return
     }
-    router.push('/')
+    // FIX 4: 使用 checkSetupRedirect 辅助函数，检查 setup 向导并校验 redirect
+    checkSetupRedirect()
   } catch (e: any) {
     message.error(extractError(e, t('login.passwordChangeFailed')))
   } finally {
@@ -248,20 +296,7 @@ async function handleChangePassword() {
   }
 }
 
-async function handleForgotPassword() {
-  try {
-    await forgotFormRef.value?.validate()
-  } catch { return }
-  sendingReset.value = true
-  try {
-    await authApi.forgotPassword(forgotForm.username)
-    resetTokenSent.value = true
-  } catch (e: any) {
-    message.error(extractError(e, t('common.failed')))
-  } finally {
-    sendingReset.value = false
-  }
-}
+
 </script>
 
 <style scoped>
@@ -292,6 +327,9 @@ async function handleForgotPassword() {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
   50% { transform: translate(30px, 30px) rotate(180deg); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .bg-shape { animation: none; }
+}
 .login-card {
   width: 400px;
   z-index: 1;
@@ -308,18 +346,63 @@ async function handleForgotPassword() {
 .login-title {
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  /* [AUDIT-FIX] 严重-2: 暗色模式下硬编码 #333 不可见，改用 naive-ui CSS 变量 */
+  color: var(--n-text-color, #333);
   margin: 0 0 8px 0;
 }
 .login-subtitle {
   font-size: 14px;
-  color: #999;
+  /* [AUDIT-FIX] 严重-2: 暗色模式下硬编码 #999 不可见，改用 naive-ui CSS 变量 */
+  color: var(--n-text-color-3, #999);
   margin: 0;
 }
 .login-footer {
   text-align: center;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  /* [AUDIT-FIX] 严重-2: 暗色模式下硬编码 #eee 边框不可见，改用 naive-ui CSS 变量 */
+  border-top: 1px solid var(--n-border-color, #eee);
+}
+/* FIXED-UEStrength: 密码强度指示器样式 */
+.pwd-strength {
+  margin: -8px 0 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pwd-strength-bar {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-width: 120px;
+}
+.pwd-strength-seg {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: #e5e7eb;
+  transition: background 0.2s;
+}
+.pwd-strength-seg.s1 { background: #ff4d4f; }
+.pwd-strength-seg.s2 { background: #faad14; }
+.pwd-strength-seg.s3 { background: #52c41a; }
+.pwd-strength-seg.s4 { background: #52c41a; }
+.pwd-rules {
+  width: 100%;
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+.pwd-rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #909399;
+  transition: color 0.2s;
+}
+.pwd-rule.met {
+  color: #52c41a;
 }
 </style>

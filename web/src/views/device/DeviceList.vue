@@ -1,717 +1,555 @@
 <template>
   <n-space vertical :size="16">
-    <n-space justify="space-between">
+    <!-- Row 1: Search & Filters -->
+    <div class="device-toolbar-row">
       <n-space>
-        <n-input v-model:value="searchText" :placeholder="t('deviceList.searchPlaceholder')" clearable style="width: 200px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
-        <n-select v-model:value="filterStatus" :options="statusOptions" :placeholder="t('deviceList.statusFilter')" clearable style="width: 120px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
-        <n-select v-model:value="filterProtocol" :options="protocolOptions" :placeholder="t('deviceList.protocolFilter')" clearable style="width: 140px" @update:value="() => { pagination.page = 1; fetchDevices() }" />
-        <n-button-group>
-          <n-button :type="collectFilter === 'all' ? 'primary' : 'default'" size="small" @click="collectFilter = 'all'; fetchDevices()">{{ t('common.all') }}</n-button>
-          <n-button :type="collectFilter === 'online' ? 'success' : 'default'" size="small" @click="collectFilter = 'online'; fetchDevices()">{{ t('deviceList.online') }}</n-button>
-          <n-button :type="collectFilter === 'offline' ? 'default' : 'default'" size="small" @click="collectFilter = 'offline'; fetchDevices()">{{ t('deviceList.offline') }}</n-button>
-          <n-button :type="collectFilter === 'error' ? 'error' : 'default'" size="small" @click="collectFilter = 'error'; fetchDevices()">{{ t('deviceList.error') }}</n-button>
+        <!-- FIXED-UEDebounce: 搜索无防抖，每次按键触发 fetchDevices()，造成大量无效请求与列表闪烁。
+             现引入 300ms 防抖：输入停顿后才请求；回车立即触发。 -->
+        <n-input
+          v-model:value="searchText"
+          :placeholder="t('deviceList.searchPlaceholder')"
+          clearable
+          style="width:200px"
+          @update:value="onSearchInput"
+          @keyup.enter="onSearchEnter"
+        />
+        <n-select v-model:value="filterStatus" :options="statusOptions" :placeholder="t('deviceList.filterStatus')" clearable style="width:120px" @update:value="()=>{collectFilter='all';pagination.page=1;fetchDevices()}" />
+        <n-select v-model:value="filterProtocol" :options="protocolOptions" :placeholder="t('deviceList.filterProtocol')" clearable style="width:140px" @update:value="()=>{pagination.page=1;fetchDevices()}" />
+        <!-- 修复3: 标签筛选器（多选，options 从所有设备 tags 去重生成） -->
+        <n-select
+          v-model:value="selectedTags"
+          :options="tagOptions"
+          multiple
+          :placeholder="t('deviceList.filterTag')"
+          clearable
+          size="small"
+          style="width:200px"
+          tag
+        />
+        <n-button-group size="small">
+          <n-button :type="collectFilter==='all'?'primary':'default'" @click="collectFilter='all';filterStatus=null;pagination.page=1;fetchDevices()">{{ t('deviceList.all') }}</n-button>
+          <n-button :type="collectFilter==='collecting'?'primary':'default'" @click="collectFilter='collecting';filterStatus=null;pagination.page=1;fetchDevices()">{{ t('deviceList.collecting') }}</n-button>
+          <n-button :type="collectFilter==='stopped'?'primary':'default'" @click="collectFilter='stopped';filterStatus=null;pagination.page=1;fetchDevices()">{{ t('deviceList.stopped') }}</n-button>
+        </n-button-group>
+        <!-- OPT-UX: 仅在存在生效筛选时显示「重置筛选」+ 徽标，避免常驻噪音 -->
+        <n-button v-if="activeFilterCount" size="small" quaternary type="error" @click="resetFilters">
+          {{ t('deviceList.resetFilter') }}
+          <n-badge :value="activeFilterCount" :max="9" style="margin-left:4px" />
+        </n-button>
+        <n-tag :type="wsConnected?'success':wsReconnecting?'warning':'error'" size="small" round>{{ wsConnected?t('deviceList.wsConnected'):wsReconnecting?t('deviceList.wsReconnecting'):t('deviceList.wsDisconnected') }}</n-tag>
+      </n-space>
+      <n-space>
+        <n-button-group size="small">
+          <n-button :type="viewMode==='table'?'primary':'default'" @click="viewMode='table'">{{ t('deviceList.tableView') }}</n-button>
+          <n-button :type="viewMode==='card'?'primary':'default'" @click="viewMode='card'">{{ t('deviceList.cardView') }}</n-button>
         </n-button-group>
       </n-space>
+    </div>
+
+    <!-- Row 2: Action Buttons (创建类操作；批量操作改为浮动栏，选中时才出现) -->
+    <div class="device-toolbar-row">
       <n-space>
-        <n-button v-if="checkedKeys.length" type="error" @click="handleBatchDelete">{{ t('deviceList.batchDelete') }} ({{ checkedKeys.length }})</n-button>
-        <n-button type="primary" @click="showCreateModal = true">{{ t('deviceList.createDevice') }}</n-button>
-        <n-button @click="showSimModal = true">{{ t('deviceList.createSimulator') }}</n-button>
-        <n-input v-model:value="discoverHost" :placeholder="t('deviceList.ipPlaceholder')" size="small" style="width: 170px" />
-        <n-input-number v-model:value="discoverPort" :min="1" :max="65535" size="small" style="width: 90px" />
-        <n-select v-model:value="discoverProtocol" :options="discoverProtocolOptions" size="small" style="width: 130px" />
-        <n-button @click="handleDiscover" :loading="discovering">{{ t('deviceList.deviceDiscover') }}</n-button>
+        <n-button type="primary" size="small" :disabled="!auth.isOperator" @click="openCreateWithDraft">{{ t('deviceList.create') }}</n-button>
+        <n-button size="small" :disabled="!auth.isOperator" @click="showSimModal=true">{{ t('deviceList.createSim') }}</n-button>
+        <n-button size="small" :disabled="!auth.isOperator" @click="showImportModal=true">{{ t('deviceList.import') }}</n-button>
+        <n-button size="small" @click="showDiscoveryInput=true">{{ t('deviceList.discoverDevice') }}</n-button>
+        <!-- 修复4: 配置对比 -->
+        <n-button size="small" @click="openCompareModal">{{ t('deviceList.configCompare') }}</n-button>
       </n-space>
-    </n-space>
+    </div>
 
-    <n-data-table
-      :columns="columns" :data="devices" :loading="loading"
-      :pagination="pagination" :row-key="(r: Device) => r.device_id"
-      v-model:checked-row-keys="checkedKeys"
-    />
-    <n-empty v-if="!loading && devices.length === 0" :description="t('deviceList.emptyDesc')" style="padding: 40px 0" />
+    <!-- Device Discovery (collapsible, hidden by default) -->
+    <n-collapse-transition :show="showDiscoveryInput">
+      <n-card size="small" style="margin-bottom: 12px">
+        <n-space align="center">
+          <n-text strong>{{ t('deviceList.discoverDevice') }}</n-text>
+          <n-input v-model:value="discoverHost" size="small" style="width:150px" :placeholder="t('deviceList.discoverHost')" />
+          <n-input-number v-model:value="discoverPort" size="small" style="width:100px" :min="1" :max="65535" />
+          <n-select v-model:value="discoverProtocol" :options="discoverProtocolOptions" size="small" style="width:150px" />
+          <n-button size="small" type="primary" :loading="discovering" @click="handleDiscover">{{ t('deviceList.discover') }}</n-button>
+          <n-button size="small" @click="showDiscoveryInput=false">{{ t('common.cancel') }}</n-button>
+        </n-space>
+      </n-card>
+    </n-collapse-transition>
 
-    <n-modal v-model:show="showCreateModal" :title="t('deviceList.createDevice')" preset="card" style="width: 720px">
-      <n-form :model="createForm" label-placement="left" label-width="90" :rules="createRules" ref="createFormRef">
-        <n-grid :cols="2" :x-gap="16">
-          <n-gi>
-            <n-form-item :label="t('deviceList.deviceId')" path="device_id"><n-input v-model:value="createForm.device_id" :placeholder="t('deviceList.deviceIdPlaceholder')" /></n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="createForm.name" :placeholder="t('deviceList.namePlaceholder')" /></n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item :label="t('deviceList.protocol')" path="protocol">
-              <n-select v-model:value="createForm.protocol" :options="protocolOptions.filter(o => o.value !== 'simulator')" @update:value="onProtocolChange" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item :label="t('deviceList.collectInterval')" path="collect_interval">
-              <n-space align="center">
-                <n-input-number v-model:value="createForm.collect_interval" :min="1" :max="3600" />
-                <n-text>{{ t('deviceList.seconds') }}</n-text>
-                <n-tooltip trigger="hover">
-                  <template #trigger><n-text depth="3" style="cursor: help">ⓘ</n-text></template>
-                  {{ t('deviceList.collectIntervalHint') }}
-                </n-tooltip>
-              </n-space>
-            </n-form-item>
-          </n-gi>
-        </n-grid>
-
-        <n-alert v-if="currentProtocolDesc" type="info" :bordered="false" style="margin-bottom: 12px">{{ currentProtocolDesc }}</n-alert>
-
-        <n-divider>{{ t('deviceList.connectionConfig') }}</n-divider>
-        <n-grid :cols="2" :x-gap="16">
-          <template v-for="field in currentProtocolFields" :key="field.name">
-            <n-gi>
-              <n-form-item :label="field.label || field.name" :path="'config.' + field.name">
-                <n-tooltip v-if="field.tooltip" trigger="hover" style="margin-right: 4px">
-                  <template #trigger><n-icon size="16" style="vertical-align: middle; cursor: help">ⓘ</n-icon></template>
-                  {{ field.tooltip }}
-                </n-tooltip>
-                <n-select
-                  v-if="field.options"
-                  v-model:value="createForm.config[field.name]"
-                  :options="field.options.map((o: any) => ({ label: String(o), value: o }))"
-                  :placeholder="field.description || ''"
-                />
-                <n-input-number
-                  v-else-if="field.type === 'integer' || field.type === 'number'"
-                  v-model:value="createForm.config[field.name]"
-                  :placeholder="field.description || ''"
-                  :min="field.name === 'port' ? 1 : undefined"
-                  :max="field.name === 'port' ? 65535 : undefined"
-                />
-                <n-input
-                  v-else
-                  v-model:value="createForm.config[field.name]"
-                  :type="field.secret ? 'password' : 'text'"
-                  :placeholder="field.description || field.default?.toString() || ''"
-                />
-              </n-form-item>
-            </n-gi>
-          </template>
-          <n-gi v-if="currentProtocolFields.length === 0">
-            <n-text depth="3">{{ t('deviceList.noConfigNeeded') }}</n-text>
-          </n-gi>
-        </n-grid>
-
-        <n-divider>{{ t('deviceList.pointDefinition') }}</n-divider>
-        <n-space vertical>
-          <n-space v-for="(pt, i) in createForm.points" :key="i" align="center">
-            <n-input v-model:value="pt.name" :placeholder="t('deviceList.name')" style="width: 100px" />
-            <n-select v-model:value="pt.data_type" :options="dataTypeOptions" style="width: 100px" />
-            <n-input v-model:value="pt.address" :placeholder="t('deviceList.addressPlaceholder')" style="width: 80px" />
-            <n-input v-model:value="pt.unit" :placeholder="t('deviceList.unitPlaceholder')" style="width: 60px" />
-            <n-select v-model:value="pt.access_mode" :options="accessModeOptions" style="width: 80px" />
-            <n-button text type="error" @click="createForm.points.splice(i, 1)">{{ t('common.delete') }}</n-button>
+    <!-- 修复25: 骨架屏加载 -->
+    <template v-if="loading && !filteredDevicesByTag.length">
+      <n-card v-for="i in 5" :key="i" size="small" style="margin-bottom: 8px">
+        <n-skeleton text :repeat="2" />
+      </n-card>
+    </template>
+    <n-data-table v-else-if="viewMode === 'table'" :columns="columns" :data="filteredDevicesByTag" :loading="loading" :pagination="pagination" :row-key="(r:any)=>r.device_id" :row-props="rowProps" v-model:checked-row-keys="checkedKeys" remote virtual-scroll :max-height="600" :scroll-x="1700">
+      <template #empty>
+        <!-- FIXED-UEEmpty: 空状态仅显示"暂无数据"，无引导动作，新用户不知如何开始。
+             现提供分场景空状态：搜索无结果 vs 首次进入无设备。 -->
+        <div class="dl-empty-state">
+          <n-icon :component="HardwareChipOutline" :size="48" depth="3" />
+          <p class="dl-empty-title">
+            {{ searchText || filterStatus || filterProtocol || collectFilter !== 'all'
+                ? t('deviceList.emptySearchTitle')
+                : t('deviceList.emptyTitle') }}
+          </p>
+          <p class="dl-empty-desc">
+            {{ searchText || filterStatus || filterProtocol || collectFilter !== 'all'
+                ? t('deviceList.emptySearchDesc')
+                : t('deviceList.emptyDesc') }}
+          </p>
+          <n-space v-if="!(searchText || filterStatus || filterProtocol || collectFilter !== 'all')" justify="center">
+            <n-button type="primary" size="small" @click="openCreateWithDraft">{{ t('deviceList.create') }}</n-button>
+            <n-button size="small" @click="showImportModal=true">{{ t('deviceList.import') }}</n-button>
           </n-space>
-          <n-button dashed @click="createForm.points.push({ name: '', data_type: 'float32', unit: '', address: '0', access_mode: 'r' })">{{ t('deviceList.addPoint') }}</n-button>
+        </div>
+      </template>
+    </n-data-table>
+
+    <!-- Card View -->
+    <div v-if="viewMode === 'card' && filteredDevicesByTag.length" class="device-card-grid">
+      <n-card v-for="device in filteredDevicesByTag" :key="device.device_id" size="small" hoverable class="device-card" @click="router.push(`/devices/${device.device_id}`)">
+        <template #header>
+          <n-space align="center" :size="8">
+            <span class="dl-status-dot" :class="device.status === 'online' ? 'dl-dot-online' : device.status === 'error' ? 'dl-dot-error' : 'dl-dot-offline'" />
+            <span>{{ device.name }}</span>
+          </n-space>
+        </template>
+        <template #header-extra>
+          <n-tag :type="deviceStatusColor[device.status] || 'default'" size="small">{{ deviceStatusLabel[device.status] || device.status }}</n-tag>
+        </template>
+        <n-descriptions label-placement="left" :column="1" size="small">
+          <n-descriptions-item :label="t('deviceList.deviceId')">{{ device.device_id }}</n-descriptions-item>
+          <n-descriptions-item :label="t('deviceList.protocol')">{{ protocolLabel[device.protocol] || device.protocol }}</n-descriptions-item>
+          <n-descriptions-item :label="t('deviceList.collectInterval')">{{ device.collect_interval }}s</n-descriptions-item>
+        </n-descriptions>
+      </n-card>
+    </div>
+    <!-- FIXED-UEEmpty: 卡片视图同样需要空状态 -->
+    <div v-if="viewMode === 'card' && !filteredDevicesByTag.length && !loading" class="dl-empty-state">
+      <n-icon :component="HardwareChipOutline" :size="48" depth="3" />
+      <p class="dl-empty-title">
+        {{ searchText || filterStatus || filterProtocol || collectFilter !== 'all'
+            ? t('deviceList.emptySearchTitle')
+            : t('deviceList.emptyTitle') }}
+      </p>
+      <p class="dl-empty-desc">
+        {{ searchText || filterStatus || filterProtocol || collectFilter !== 'all'
+            ? t('deviceList.emptySearchDesc')
+            : t('deviceList.emptyDesc') }}
+      </p>
+    </div>
+    <!-- 卡片视图底部添加分页：与表格视图共用同一 pagination 状态（远程分页） -->
+    <div v-if="viewMode === 'card'" style="margin-top: 16px; display: flex; justify-content: center;">
+      <n-pagination
+        v-model:page="pagination.page"
+        :item-count="pagination.itemCount"
+        :page-size="pagination.pageSize"
+        :page-sizes="pagination.pageSizes"
+        :show-size-picker="true"
+        @update:page="pagination.onChange"
+        @update:page-size="pagination.onUpdatePageSize"
+      />
+    </div>
+    <n-modal v-model:show="showCreateModal" preset="card" :title="t('deviceList.createDevice')" style="width:720px;max-width:95vw;max-height:85vh;overflow-y:auto" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-steps :current="createStep + 1" size="small" style="margin-bottom:16px">
+        <n-step :title="t('deviceList.stepBasicInfo')" />
+        <n-step :title="t('deviceList.connectionConfig')" />
+        <n-step :title="t('deviceList.pointDefinition')" />
+      </n-steps>
+      <n-form ref="createFormRef" :model="createForm" :rules="createRules" label-placement="left" label-width="auto">
+        <div v-show="createStep === 0">
+          <n-grid :cols="2" :x-gap="16">
+            <n-gi><n-form-item :label="t('deviceList.deviceId')" path="device_id"><n-input v-model:value="createForm.device_id" /></n-form-item></n-gi>
+            <n-gi><n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="createForm.name" /></n-form-item></n-gi>
+            <n-gi><n-form-item :label="t('deviceList.protocol')" path="protocol"><n-select :value="createForm.protocol" :options="protocolOptions" @update:value="onProtocolChange" /></n-form-item></n-gi>
+            <n-gi><n-form-item :label="t('deviceList.collectInterval')" path="collect_interval"><n-input-number v-model:value="createForm.collect_interval" :min="1" :max="3600" style="width:100%" /></n-form-item></n-gi>
+            <n-gi span="2"><n-form-item :label="t('deviceList.tags')"><n-dynamic-tags v-model:value="createForm.tags" :max="10" /></n-form-item></n-gi>
+          </n-grid>
+        </div>
+        <div v-show="createStep >= 1" ref="protocolPanelWrap">
+          <component v-if="createForm.protocol" :is="protocolCreateComponent" :protocol="createForm.protocol" :config="createForm.config" :points="createForm.points" mode="create" :driver-schemas="driverSchemas" ref="protocolFormRef" />
+          <!-- 修复1: 连通性测试按钮（仅第2步显示） -->
+          <div v-if="createStep === 1" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--n-border-color,#eee)">
+            <n-space align="center" :size="8">
+              <n-button size="small" :loading="testingConnection" @click="handleTestConnection()">
+                {{ t('deviceList.testConnection') }}
+              </n-button>
+              <n-text depth="3" style="font-size:12px">{{ t('deviceList.testConnectionHint') }}</n-text>
+            </n-space>
+            <n-alert
+              v-if="connectionTestResult"
+              :type="connectionTestResult.success ? 'success' : connectionTestResult.supported ? 'error' : 'warning'"
+              :show-icon="true"
+              style="margin-top:8px"
+            >
+              {{ connectionTestResult.message }}
+            </n-alert>
+          </div>
+        </div>
+      </n-form>
+      <template #action>
+        <n-button @click="showCreateModal=false">{{ t('common.cancel') }}</n-button>
+        <n-button v-if="createStep > 0" @click="createStep--">{{ t('deviceList.stepPrev') }}</n-button>
+        <n-button v-if="createStep < 2" type="primary" @click="nextCreateStep">{{ t('deviceList.stepNext') }}</n-button>
+        <n-button v-if="createStep === 2" type="primary" :loading="creating" @click="onCreateClick">{{ t('deviceList.create') }}</n-button>
+      </template>
+    </n-modal>
+    <n-modal v-model:show="showEditModal" preset="card" :title="t('deviceList.editDevice')" style="width:720px;max-width:95vw;max-height:85vh;overflow-y:auto" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-form ref="editFormRef" :model="editForm" :rules="editRules" label-placement="left" label-width="auto">
+        <n-form-item :label="t('deviceList.deviceId')"><n-input :value="editForm.device_id" disabled /></n-form-item>
+        <n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="editForm.name" /></n-form-item>
+        <n-form-item :label="t('deviceList.collectInterval')" path="collect_interval"><n-input-number v-model:value="editForm.collect_interval" :min="1" :max="3600" style="width:100%" /></n-form-item>
+        <n-form-item :label="t('deviceList.tags')"><n-dynamic-tags v-model:value="editForm.tags" :max="10" /></n-form-item>
+        <component v-if="editForm.protocol" :is="protocolEditComponent" :protocol="editForm.protocol" :config="editForm.config" :points="editForm.points" mode="edit" :driver-schemas="driverSchemas" :key="editForm.device_id" ref="protocolEditRef" />
+      </n-form>
+      <template #action><n-button @click="showEditModal=false">{{ t('common.cancel') }}</n-button><n-button type="primary" :loading="editSaving" @click="onEditClick">{{ t('common.save') }}</n-button></template>
+    </n-modal>
+    <n-modal v-model:show="showSimModal" preset="card" :title="t('deviceList.createSim')" style="width:640px;max-width:95vw;max-height:85vh;overflow-y:auto" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-form ref="simFormRef" :model="simForm" :rules="simFormRules" label-placement="left" label-width="auto">
+        <n-form-item :label="t('deviceList.deviceId')" path="device_id"><n-input v-model:value="simForm.device_id" /></n-form-item>
+        <n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="simForm.name" /></n-form-item>
+        <n-form-item :label="t('deviceList.collectInterval')"><n-input-number v-model:value="simForm.collect_interval" :min="1" style="width:100%" /></n-form-item>
+        <n-divider style="margin:4px 0 8px;font-size:13px">{{ t('deviceList.pointDefinition') }}</n-divider>
+        <n-space vertical size="small">
+          <n-space v-for="(pt,idx) in simForm.points" :key="idx" align="center"><n-input v-model:value="pt.name" :placeholder="t('deviceList.pointName')" size="small" style="width:100px" /><n-select v-model:value="pt.data_type" :options="dataTypeOptions" size="small" style="width:100px" /><n-input v-model:value="pt.unit" :placeholder="t('deviceList.unit')" size="small" style="width:50px" /><n-input-number v-model:value="pt.min" size="small" style="width:70px" :placeholder="t('deviceList.min')" /><n-input-number v-model:value="pt.max" size="small" style="width:70px" :placeholder="t('deviceList.max')" /><n-select v-model:value="pt.mode" :options="simModeOptions" size="small" style="width:100px" /><n-button text type="error" @click="simForm.points.splice(idx,1)">{{ t('common.delete') }}</n-button></n-space>
+          <n-button dashed block @click="simForm.points.push({name:'',data_type:'float32',unit:'',address:'0',access_mode:'r',min:0,max:100,mode:'sine'})">{{ t('deviceList.addPoint') }}</n-button>
         </n-space>
       </n-form>
+      <template #action><n-button @click="showSimModal=false">{{ t('common.cancel') }}</n-button><n-button type="primary" :loading="creating" @click="handleCreateSim">{{ t('deviceList.create') }}</n-button></template>
+    </n-modal>
+    <n-modal v-model:show="showDiscoverModal" preset="card" :title="t('deviceList.discoverResult')" style="width:700px;max-width:95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-data-table :columns="discoverColumns" :data="discoverResults" :loading="discovering" :row-key="(r:any)=>r.name" v-model:checked-row-keys="selectedDiscoverKeys" :scroll-x="700" />
+      <template #action><n-button @click="showDiscoverModal=false">{{ t('common.cancel') }}</n-button><n-button type="primary" :loading="addingDevices" :disabled="!selectedDiscoverKeys.length" @click="handleAddDiscovered">{{ t('deviceList.addSelected') }}</n-button></template>
+    </n-modal>
+    <n-modal v-model:show="showImportModal" preset="card" :title="t('deviceList.importDevices')" style="width:700px;max-width:95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-alert type="info" :bordered="false" style="margin-bottom:12px">{{ t('deviceList.importTemplateHint') }}</n-alert>
+      <n-space style="margin-bottom:12px">
+        <n-button size="small" @click="downloadImportTemplate">{{ t('deviceList.downloadTemplate') }}</n-button>
+        <n-upload :max="1" accept=".json,.xlsx,.xls" :show-file-list="false" @change="handleImportFileChange"><n-button>{{ t('deviceList.selectFile') }}</n-button></n-upload>
+      </n-space>
+      <n-alert v-if="importErrors.length" type="error" :show-icon="false" style="margin-top:8px"><ul style="margin:0;padding-left:16px"><li v-for="(e, i) in importErrors" :key="i + '_' + e">{{ e }}</li></ul></n-alert>
+      <n-data-table v-if="importPreview.length" :columns="importPreviewColumns" :data="importPreview" :row-key="(r:any)=>r.device_id" style="margin-top:8px" />
+      <n-progress v-if="importing && !importAtomicMode && importProgress > 0" type="line" :percentage="importProgress" indicator-placement="inside" style="margin-top:12px" />
+      <!-- FIXED-ATOMIC-IMPORT: 事务模式选项 -->
+      <n-checkbox v-model:checked="importAtomicMode" style="margin-top:12px">
+        {{ t('deviceList.atomicMode') }}
+      </n-checkbox>
+      <n-text depth="3" style="font-size:12px;margin-left:20px">
+        {{ importAtomicMode ? t('deviceList.atomicModeHint') : t('deviceList.partialModeHint') }}
+      </n-text>
+      <template #action><n-button @click="showImportModal=false">{{ t('common.cancel') }}</n-button><n-button type="primary" :loading="importing" :disabled="!importPreview.length" @click="handleImportConfirm">{{ t('deviceList.importConfirm') }}</n-button></template>
+    </n-modal>
+    <n-modal v-model:show="showDeployModal" preset="card" :title="t('deviceList.batchDeploy')" style="width:500px;max-width:95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-form :model="deployForm" ref="deployFormRef" :rules="deployRules" label-placement="left" label-width="auto"><n-form-item :label="t('deviceList.deployTemplate')" path="templateId"><n-select v-model:value="deployForm.templateId" :options="deployTemplateOptions" :placeholder="t('deviceList.selectTemplate')" /></n-form-item></n-form>
+      <template #action><n-button @click="showDeployModal=false">{{ t('common.cancel') }}</n-button><n-button type="primary" :loading="deploying" :disabled="!deployForm.templateId" @click="handleBatchDeployWithValidation">{{ t('deviceList.deploy') }}</n-button></template>
+    </n-modal>
+    <!-- 修复4: 设备配置对比弹窗 -->
+    <n-modal v-model:show="showCompareModal" preset="card" :title="t('deviceList.configCompareTitle')" style="width:860px;max-width:95vw;max-height:85vh;overflow-y:auto" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-space align="center" style="margin-bottom:12px">
+        <n-select v-model:value="compareDeviceAId" :options="compareDeviceOptions" :placeholder="t('deviceList.selectDeviceA')" filterable style="width:280px" />
+        <span style="font-weight:600">VS</span>
+        <n-select v-model:value="compareDeviceBId" :options="compareDeviceOptions" :placeholder="t('deviceList.selectDeviceB')" filterable style="width:280px" />
+        <n-button type="primary" :loading="compareLoading" @click="handleCompare">{{ t('deviceList.compare') }}</n-button>
+      </n-space>
+      <n-alert v-if="compareDeviceA && compareDeviceB" :type="compareDiffCount === 0 ? 'success' : 'warning'" :show-icon="true" style="margin-bottom:8px">
+        {{ compareDiffCount === 0 ? t('deviceList.compareIdentical') : t('deviceList.compareDiffCount', { count: compareDiffCount }) }}
+      </n-alert>
+      <n-data-table
+        v-if="compareRows.length"
+        :columns="[
+          { title: t('deviceList.compareField'), key: 'field', width: 200 },
+          { title: t('deviceList.compareValueA'), key: 'a', render: (r:any) => r.diff ? h('span', { style: 'color:#f56c6c;font-weight:600' }, JSON.stringify(r.a)) : JSON.stringify(r.a) },
+          { title: t('deviceList.compareValueB'), key: 'b', render: (r:any) => r.diff ? h('span', { style: 'color:#f56c6c;font-weight:600' }, JSON.stringify(r.b)) : JSON.stringify(r.b) },
+        ]"
+        :data="compareRows"
+        :row-key="(r:any)=>r.field"
+        size="small"
+        :max-height="500"
+      />
+      <n-empty v-else style="padding:32px 0" :description="t('deviceList.compareSelectBoth')" />
+      <template #action><n-button @click="showCompareModal=false">{{ t('common.cancel') }}</n-button></template>
+    </n-modal>
+    <!-- Share Modal -->
+    <n-modal v-model:show="showShareModal" preset="card" :title="t('resourceShare.shareResource')" style="width:480px;max-width:95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-alert type="info" :bordered="false" style="margin-bottom:16px">{{ t('resourceShare.shareDeviceHint') }}</n-alert>
+      <n-form ref="shareFormRef" :model="shareForm" :rules="shareRules" label-placement="left" label-width="100">
+        <n-form-item :label="t('resourceShare.shareWith')" path="shared_with_user_id">
+          <n-select v-model:value="shareForm.shared_with_user_id" :options="userOptions" :placeholder="t('resourceShare.selectUser')" filterable />
+        </n-form-item>
+        <n-form-item :label="t('resourceShare.permission')">
+          <n-select v-model:value="shareForm.permission_level" :options="permissionOptions" />
+        </n-form-item>
+      </n-form>
       <template #action>
-        <n-button @click="showCreateModal = false">{{ t('common.cancel') }}</n-button>
-        <n-button type="primary" :loading="creating" @click="handleCreate">{{ t('deviceList.create') }}</n-button>
+        <n-button @click="showShareModal=false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="sharing" @click="handleShare">{{ t('resourceShare.share') }}</n-button>
       </template>
     </n-modal>
-
-    <n-modal v-model:show="showSimModal" :title="t('deviceList.simulatorTitle')" preset="card" style="width: 600px">
-      <n-form :model="simForm" :rules="simFormRules" ref="simFormRef" label-placement="left" label-width="90">
-        <n-form-item :label="t('deviceList.deviceId')" path="device_id"><n-input v-model:value="simForm.device_id" placeholder="sim-device-01" /></n-form-item>
-        <n-form-item :label="t('deviceList.name')" path="name"><n-input v-model:value="simForm.name" placeholder="sim-device" /></n-form-item>
-        <n-form-item :label="t('deviceList.collectInterval')"><n-input-number v-model:value="simForm.collect_interval" :min="1" /> {{ t('deviceList.seconds') }}</n-form-item>
-        <n-divider>{{ t('deviceList.pointDefinition') }}</n-divider>
-        <n-space vertical>
-          <n-space v-for="(pt, i) in simForm.points" :key="i" align="center">
-            <n-input v-model:value="pt.name" :placeholder="t('deviceList.name')" style="width: 100px" />
-            <n-select v-model:value="pt.data_type" :options="dataTypeOptions" style="width: 100px" />
-            <n-input v-model:value="pt.unit" :placeholder="t('deviceList.unitPlaceholder')" style="width: 60px" />
-            <n-input-number v-model:value="pt.min" :placeholder="t('deviceList.minPlaceholder')" style="width: 80px" />
-            <n-input-number v-model:value="pt.max" :placeholder="t('deviceList.maxPlaceholder')" style="width: 80px" />
-            <n-select v-model:value="pt.mode" :options="simModeOptions" style="width: 110px" />
-            <n-button text type="error" @click="simForm.points.splice(i, 1)">{{ t('common.delete') }}</n-button>
-          </n-space>
-          <n-button dashed @click="simForm.points.push({ name: '', data_type: 'float32', unit: '', address: '0', access_mode: 'r', min: 0, max: 100, mode: 'sine' })">{{ t('deviceList.addPoint') }}</n-button>
+    <!-- Transfer Modal -->
+    <n-modal v-model:show="showTransferModal" preset="card" :title="t('resourceShare.transferOwnership')" style="width:480px;max-width:95vw" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-alert type="warning" :bordered="false" style="margin-bottom:16px">{{ t('resourceShare.transferWarning') }}</n-alert>
+      <n-form ref="transferFormRef" :model="transferForm" :rules="transferRules" label-placement="left" label-width="100">
+        <n-form-item :label="t('resourceShare.resource')">{{ transferForm.device_name }}</n-form-item>
+        <n-form-item :label="t('resourceShare.newOwner')" path="new_owner_id">
+          <n-select v-model:value="transferForm.new_owner_id" :options="userOptions" :placeholder="t('resourceShare.selectNewOwner')" filterable />
+        </n-form-item>
+      </n-form>
+      <template #action>
+        <n-button @click="showTransferModal=false">{{ t('common.cancel') }}</n-button>
+        <n-button type="warning" :loading="transferring" @click="handleTransfer">{{ t('resourceShare.transfer') }}</n-button>
+      </template>
+    </n-modal>
+    <!-- OPT-UX: 浮动批量操作栏，仅在选中行时滑出，替代常驻 disabled 按钮 -->
+    <transition name="dl-slide-up">
+      <div v-if="checkedKeys.length" class="dl-batch-bar">
+        <n-space align="center" :size="8">
+          <n-tag type="info" round :bordered="false">{{ t('deviceList.batchBarSelected', { count: checkedKeys.length }) }}</n-tag>
+          <n-button size="small" :disabled="!auth.isOperator" @click="showDeployModal=true">{{ t('deviceList.batchDeploy') }}</n-button>
+          <n-button type="success" size="small" :disabled="!auth.isOperator" :loading="batchCollectLoading" @click="handleBatchStartCollect">{{ t('deviceList.batchStart') }}</n-button>
+          <n-button type="warning" size="small" :disabled="!auth.isOperator" :loading="batchCollectLoading" @click="handleBatchStopCollect">{{ t('deviceList.batchStop') }}</n-button>
+          <n-button size="small" :disabled="!auth.isOperator" @click="handleExport">{{ t('deviceList.export') }}</n-button>
+          <n-button type="error" size="small" :disabled="!auth.isOperator" :loading="batchDeleteLoading" @click="handleBatchDelete">{{ t('deviceList.batchDelete') }}</n-button>
         </n-space>
-      </n-form>
-      <template #action>
-        <n-button @click="showSimModal = false">{{ t('common.cancel') }}</n-button>
-        <n-button type="primary" :loading="creating" @click="handleCreateSim">{{ t('deviceList.create') }}</n-button>
-      </template>
-    </n-modal>
-
-    <n-modal v-model:show="showDiscoverModal" :title="t('deviceList.discoverTitle')" preset="card" style="width: 600px">
-      <n-empty v-if="discoverResults.length === 0" :description="t('deviceList.noDeviceFound')" />
-      <n-data-table v-else :columns="discoverColumns" :data="discoverResults" :max-height="400" :row-key="(r: any) => r.name" v-model:checked-row-keys="selectedDiscoverKeys" />
-      <template #action>
-        <n-button @click="showDiscoverModal = false">{{ t('deviceList.close') }}</n-button>
-        <n-button type="primary" :disabled="selectedDiscoverKeys.length === 0" :loading="addingDevices" @click="handleAddDiscovered">{{ t('deviceList.addSelected') }} ({{ selectedDiscoverKeys.length }})</n-button>
-      </template>
-    </n-modal>
-
-    <n-modal v-model:show="showEditModal" :title="t('deviceList.editDevice')" preset="card" style="width: 480px">
-      <n-form :model="editForm" :rules="editRules" ref="editFormRef" label-placement="left" label-width="90">
-        <n-form-item :label="t('deviceList.deviceId')">
-          <n-input :value="editForm.device_id" disabled />
-        </n-form-item>
-        <n-form-item :label="t('deviceList.name')" path="name">
-          <n-input v-model:value="editForm.name" :placeholder="t('deviceList.namePlaceholder')" />
-        </n-form-item>
-        <n-form-item :label="t('deviceList.collectInterval')" path="collect_interval">
-          <n-space align="center">
-            <n-input-number v-model:value="editForm.collect_interval" :min="1" :max="3600" />
-            <n-text>{{ t('deviceList.seconds') }}</n-text>
-          </n-space>
-        </n-form-item>
-      </n-form>
-      <template #action>
-        <n-button @click="showEditModal = false">{{ t('common.cancel') }}</n-button>
-        <n-button type="primary" :loading="editSaving" @click="handleEditSubmit">{{ t('common.save') }}</n-button>
-      </template>
-    </n-modal>
+        <n-button text type="primary" @click="checkedKeys=[]">{{ t('deviceList.clearSelection') }}</n-button>
+      </div>
+    </transition>
   </n-space>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
+import { computed, ref, reactive, onUnmounted, nextTick, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NTag, NSpace, NTooltip, NPopconfirm, useMessage, useDialog } from 'naive-ui'
-// FIXED: added i18n support, using project unified i18n import
+import { HardwareChipOutline } from '@vicons/ionicons5'
 import { t } from '@/i18n'
+import { dialog, message } from '@/utils/discreteApi'
 import { extractError } from '@/utils/errorCodes'
-import { deviceApi, driverApi, type Device } from '@/api'
 import { deviceStatusLabel, deviceStatusColor, protocolLabel } from '@/utils/enumLabels'
-import { PROTOCOL_CONFIGS, getProtocolConfig } from '@/constants/protocolConfig'
-import * as ws from '@/api/websocket'
-
+import { useAuthStore } from '@/stores/auth'
+import { useDeviceList } from './composables/useDeviceList'
+import { getProtocolFormComponent } from './protocols/index'
+const {
+  devices,loading,searchText,filterStatus,filterProtocol,collectFilter,wsConnected,wsReconnecting,checkedKeys,pagination,columns,
+  activeFilterCount,
+  showCreateModal,showEditModal,showSimModal,showDiscoverModal,showImportModal,showDeployModal,
+  showShareModal,showTransferModal,
+  createForm,editForm,simForm,shareForm,transferForm,
+  creating,editSaving,discovering,addingDevices,importing,importProgress,deploying,batchCollectLoading,batchDeleteLoading,sharing,transferring,
+  // 修复1: 连通性测试
+  testingConnection, connectionTestResult,
+  discoverHost,discoverPort,discoverProtocol,discoverResults,selectedDiscoverKeys,importPreview,importErrors,importAtomicMode,importPreviewColumns,
+  deployTemplateId,deployTemplateOptions,protocolOptions,statusOptions,discoverProtocolOptions,dataTypeOptions,simModeOptions,userOptions,
+  createFormRef,editFormRef,simFormRef,protocolFormRef,protocolEditRef,shareFormRef,transferFormRef,
+  driverSchemas,
+  createRules,editRules,simFormRules,shareRules,transferRules,discoverColumns,
+  fetchDevices,onProtocolChange,handleCreate,handleEditSubmit,handleEdit,
+  handleShare,openShare,handleTransfer,openTransfer,
+  handleBatchDelete,handleBatchStartCollect,handleBatchStopCollect,handleBatchDeploy,
+  handleDiscover,handleAddDiscovered,handleExport,handleImportFileChange,handleImportConfirm,handleCreateSim,
+  downloadImportTemplate,
+  resetFilters,
+  // 修复1: 连通性测试
+  handleTestConnection,
+  // UX-09: 草稿恢复
+  loadCreateDraft, clearCreateDraft, scheduleDraftSave, resetCreateForm,
+  // 修复3: 设备标签管理
+  selectedTags, tagOptions, filteredDevicesByTag, getDeviceTags,
+  // 修复3: 设备克隆
+  handleCloneDevice,
+  // 修复4: 设备配置对比
+  showCompareModal, compareDeviceAId, compareDeviceBId, compareLoading,
+  compareDeviceA, compareDeviceB, compareDeviceOptions, compareRows, compareDiffCount,
+  openCompareModal, handleCompare,
+} = useDeviceList()
 const router = useRouter()
-const message = useMessage()
-const dialog = useDialog()
+const auth = useAuthStore()
+const viewMode = ref<'table' | 'card'>('table')
+const showDiscoveryInput = ref(false)
 
-const devices = ref<Device[]>([])
-const loading = ref(false)
-const searchText = ref('')
-const filterStatus = ref<string | null>(null)
-const filterProtocol = ref<string | null>(null)
-const collectFilter = ref('all')
-
-// Edit device state
-const showEditModal = ref(false)
-const editSaving = ref(false)
-const editForm = reactive({ device_id: '', name: '', collect_interval: 5 })
-const editFormRef = ref<any>(null)
-const editRules = {
-  name: { required: true, message: t('deviceList.deviceNameRequired'), trigger: 'blur' },
+// [AUDIT-FIX] 部署模板表单添加 templateId 必填校验
+// deployTemplateId 是 composable 返回的独立 ref，此处用本地 reactive 包装以便绑定 :model 与触发校验
+const deployFormRef = ref<any>(null)
+const deployForm = reactive({ templateId: null as string | null })
+const deployRules = computed(() => ({
+  templateId: { required: true, type: 'string' as const, message: t('deviceList.selectTemplate'), trigger: ['change', 'blur'] },
+}))
+watch(showDeployModal, (show) => { if (show) deployForm.templateId = deployTemplateId.value })
+async function handleBatchDeployWithValidation() {
+  try { await deployFormRef.value?.validate() } catch { return }
+  deployTemplateId.value = deployForm.templateId
+  handleBatchDeploy()
 }
 
-async function fetchDevices() {
-  loading.value = true
-  try {
-    const data = await deviceApi.list({
-      page: pagination.page, size: pagination.pageSize,
-      status: filterStatus.value ?? undefined, protocol: filterProtocol.value ?? undefined,
-      search: searchText.value || undefined,
-    })
-    devices.value = data?.data ?? []
-    pagination.itemCount = data?.total ?? 0
-  } catch (e: any) {
-    devices.value = []
-    // FIXED: 原问题-硬编码中文消息，改为i18n
-    message.error(extractError(e, t('deviceList.fetchFailed')))
-  } finally {
-    loading.value = false
-  }
-}
+// 创建向导分步
+const createStep = ref(0)
+const protocolPanelWrap = ref<HTMLElement | null>(null)
+watch(showCreateModal, (v) => { if (!v) createStep.value = 0 })
 
-const showCreateModal = ref(false)
-const showSimModal = ref(false)
-const creating = ref(false)
-const discovering = ref(false)
-const checkedKeys = ref<string[]>([])
-const discoverHost = ref('192.168.1.*')
-const discoverPort = ref(502)
-const discoverProtocol = ref('modbus_tcp')
-const discoverResults = ref<any[]>([])
-const showDiscoverModal = ref(false)
-const selectedDiscoverKeys = ref<string[]>([])
-const addingDevices = ref(false)
-const createFormRef = ref<any>(null)
-
-// FIXED: 添加WebSocket device频道监听，设备列表自动刷新
-let _wsDeviceTimer: ReturnType<typeof setTimeout> | null = null
-function onDeviceWsMessage(data: any) {
-  try {
-    if (data?.device_id) {
-      if (_wsDeviceTimer) clearTimeout(_wsDeviceTimer)
-      _wsDeviceTimer = setTimeout(() => {
-        fetchDevices()
-        _wsDeviceTimer = null
-      }, 500)
+function nextCreateStep() {
+  if (createStep.value === 0) {
+    if (!createForm.device_id || !createForm.name || !createForm.protocol) {
+      message.error(t('deviceList.stepFillRequired'))
+      return
     }
-  } catch { /* ignore */ }
-}
-
-const discoverProtocolOptions = computed(() =>
-  protocolOptions.value.filter(o => o.value !== 'simulator' && o.value !== 'video')
-)
-
-const discoverColumns = [
-  { type: 'selection' as const },
-  { title: t('deviceList.name'), key: 'name', width: 180 },
-  { title: t('deviceList.protocol'), key: 'protocol', width: 120 },
-  { title: t('deviceList.host'), key: 'host', width: 140 },
-  { title: t('deviceList.port'), key: 'port', width: 80 },
-  { title: t('deviceList.slaveId'), key: 'slave_id', width: 80 },
-]
-
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  itemCount: 0,
-  pageSizes: [10, 20, 50, 100],
-  onChange: (p: number) => { pagination.page = p; fetchDevices() },
-  onUpdatePageSize: (s: number) => { pagination.pageSize = s; pagination.page = 1; fetchDevices() },
-})
-
-const statusOptions = [
-  { label: t('dashboard.online'), value: 'online' },
-  { label: t('dashboard.offline'), value: 'offline' },
-  { label: t('common.unknown'), value: 'unknown' },
-]
-
-const protocolOptions = ref<{ label: string; value: string }[]>([])
-
-async function loadProtocols() {
-  try {
-    const res = await driverApi.protocols()
-    const protocols = res?.protocols || []
-    if (Array.isArray(protocols) && protocols.length > 0) {
-      protocolOptions.value = protocols.map((p: any) => ({
-        label: typeof p === 'string' ? p : (p.label || p.name || p),
-        value: typeof p === 'string' ? p : (p.name || p.value || p),
-      }))
+  }
+  createStep.value = Math.min(2, createStep.value + 1)
+  nextTick(() => {
+    const wrap = protocolPanelWrap.value
+    if (!wrap) return
+    const dividers = wrap.querySelectorAll('.n-divider')
+    if (createStep.value === 2 && dividers.length >= 2) {
+      dividers[dividers.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else if (dividers.length >= 1) {
+      dividers[0].scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  } catch {
-    protocolOptions.value = [
-      { label: 'Modbus TCP', value: 'modbus_tcp' },
-      { label: 'OPC-UA', value: 'opcua' },
-      { label: 'MQTT Client', value: 'mqtt' },
-      { label: 'HTTP Webhook', value: 'http' },
-      { label: protocolLabel.value['siemens_s7'] || 'Siemens S7', value: 's7' },
-      { label: protocolLabel.value['mitsubishi_mc'] || 'Mitsubishi MC', value: 'mc' },
-      { label: protocolLabel.value['omron_fins'] || 'Omron FINS', value: 'fins' },
-      { label: 'Allen Bradley', value: 'allen_bradley' },
-      { label: 'OPC DA', value: 'opc_da' },
-      { label: 'FANUC CNC', value: 'fanuc' },
-      { label: 'MTConnect', value: 'mtconnect' },
-      { label: 'Toledo', value: 'toledo' },
-      { label: protocolLabel.value['serial_port'] || 'Serial', value: 'serial_port' },
-      { label: protocolLabel.value['database_source'] || 'Database', value: 'database_source' },
-      { label: protocolLabel.value['barcode_scanner'] || 'Scanner', value: 'barcode_scanner' },
-      { label: protocolLabel.value['simulator'] || 'Simulator', value: 'simulator' },
-      { label: protocolLabel.value['video'] || 'Video', value: 'video' },
-      { label: 'MQTT Sparkplug B', value: 'sparkplug_b' },
-      { label: 'DL/T 645', value: 'dlt645' },
-      { label: 'IEC 104', value: 'iec104' },
-      { label: 'KUKA', value: 'kuka' },
-      { label: 'ABB', value: 'abb_robot' },
-      { label: 'ONVIF', value: 'onvif' },
-    ]
-  }
-}
-
-const dataTypeOptions = [
-  { label: 'BOOL', value: 'bool' },
-  { label: 'INT16', value: 'int16' },
-  { label: 'UINT16', value: 'uint16' },
-  { label: 'FLOAT32', value: 'float32' },
-  { label: 'INT32', value: 'int32' },
-  { label: 'STRING', value: 'string' },
-]
-
-const simModeOptions = [
-  { label: t('common.sineWave'), value: 'sine' },
-  { label: t('common.randomWalk'), value: 'random_walk' },
-  { label: t('common.uniformRandom'), value: 'random' },
-  { label: t('common.fixedValue'), value: 'fixed' },
-]
-
-const accessModeOptions = [
-  { label: t('common.readOnly'), value: 'r' },
-  { label: t('common.writeOnly'), value: 'w' },
-  { label: t('common.readWrite'), value: 'rw' },
-]
-
-const columns = [
-  { type: 'selection' as const },
-  { title: t('deviceList.deviceId'), key: 'device_id', width: 180 },
-  { title: t('deviceList.name'), key: 'name', width: 150, sorter: true },
-  {
-    title: t('deviceList.protocol'), key: 'protocol', width: 120,
-    render: (row: Device) => h(NTag, { size: 'small', bordered: false, type: 'info' }, { default: () => protocolLabel.value[row.protocol] || row.protocol }),
-  },
-  {
-    title: t('deviceList.status'), key: 'status', width: 80,
-    render: (row: Device) => h(NTag, { type: deviceStatusColor[row.status] || 'default', size: 'small' }, { default: () => deviceStatusLabel.value[row.status] || row.status }),
-  },
-  { title: t('deviceList.pointCount'), key: 'points', width: 80, render: (row: Device) => row.points?.length ?? 0 },
-  { title: t('deviceList.collectInterval'), key: 'collect_interval', width: 90, render: (row: Device) => `${row.collect_interval}s` },
-  {
-    title: t('deviceList.collectStatus'), key: 'collect_status', width: 120,
-    render: (row: Device) => {
-      const isOnline = row.status === 'online'
-      const isError = row.status === 'error'
-      const dotClass = isError ? 'dl-dot-error' : isOnline ? 'dl-dot-online' : 'dl-dot-offline'
-      const freqText = isOnline ? `${row.collect_interval}${t('deviceList.collectFrequency')}` : ''
-      return h(NSpace, { align: 'center', size: 6 }, {
-        default: () => [
-          h('span', { class: ['dl-status-dot', dotClass] }),
-          h('span', { style: 'font-size:12px' }, isError ? t('deviceList.error') : isOnline ? freqText || t('dashboard.online') : t('dashboard.offline')),
-        ],
-      })
-    },
-  },
-  {
-    title: t('deviceList.todayData'), key: 'today_data', width: 120,
-    render: (row: Device) => {
-      const pts = (row as any).today_points ?? 0
-      return h(NSpace, { align: 'center', size: 8 }, {
-        default: () => [
-          h('span', { style: 'font-size:12px' }, String(pts)),
-          h('span', { style: 'font-size:12px;color:#909399' }, 'pts'),
-        ],
-      })
-    },
-  },
-  { title: t('deviceList.createTime'), key: 'created_at', width: 180 },
-  {
-    title: t('deviceList.actions'), key: 'actions', width: 250,
-    render: (row: Device) =>
-      h(NSpace, null, {
-        default: () => [
-          h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/devices/${row.device_id}`) }, { default: () => t('deviceList.detail') }),
-          h(NButton, { text: true, type: 'info', onClick: () => handleEdit(row) }, { default: () => t('common.edit') }),
-          h(NButton, { text: true, type: 'info', onClick: () => handleWritePoint(row) }, { default: () => t('deviceList.push') }),
-          h(NPopconfirm as any, { onPositiveClick: () => doDelete(row) }, {
-            trigger: () => h(NButton, { text: true, type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('deviceList.deleteConfirm', { name: row.name }),
-          }),
-        ],
-      }),
-  },
-]
-
-const createRules = {
-  device_id: { required: true, message: t('deviceList.deviceIdRequired'), trigger: 'blur' },
-  name: { required: true, message: t('deviceList.deviceNameRequired'), trigger: 'blur' },
-  protocol: { required: true, message: t('deviceList.protocolRequired'), trigger: 'change' },
-}
-
-const PROTOCOL_KEY_MAP: Record<string, string> = {
-  modbus_tcp: 'modbus-tcp', modbus_rtu: 'modbus-rtu', opcua: 'opcua', mqtt: 'mqtt',
-  s7: 's7', mc: 'mc', fins: 'fins', allen_bradley: 'ab', http: 'http', simulator: 'simulator',
-}
-
-const driverSchemas = ref<Record<string, any>>({})
-
-const currentProtocolFields = computed(() => {
-  const schema = driverSchemas.value[createForm.protocol]
-  if (schema?.fields?.length) return schema.fields
-  const cfgKey = PROTOCOL_KEY_MAP[createForm.protocol]
-  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
-  if (cfg?.configFields?.length) {
-    return cfg.configFields.map(f => ({
-      name: f.key, label: f.label, description: f.placeholder || '', tooltip: f.tooltip || '',
-      type: f.type === 'number' ? 'integer' : (f.type === 'select' ? 'string' : f.type || 'string'),
-      default: f.default, options: f.options?.map(o => o.value), secret: f.key === 'password',
-    }))
-  }
-  return []
-})
-
-const currentProtocolDesc = computed(() => {
-  const cfgKey = PROTOCOL_KEY_MAP[createForm.protocol]
-  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
-  return cfg?.description || ''
-})
-
-async function loadDriverSchemas() {
-  try {
-    // FIXED: 原问题-设备发现硬编码协议列表，改为从driverApi.protocols()动态获取
-    let protocols: string[] = []
-    try {
-      const res = await driverApi.protocols()
-      protocols = res?.protocols || []
-    } catch { /* fallback to empty */ }
-    for (const p of protocols) {
-      try {
-        const data = await driverApi.configSchema(p)
-        if (data?.config_schema) driverSchemas.value[p] = data.config_schema
-      } catch { /* skip */ }
-    }
-  } catch { /* ignore */ }
-}
-
-const defaultConfig: Record<string, any> = {
-  modbus_tcp: { host: '192.168.1.100', port: 502, slave_id: 1, timeout: 3.0 },
-  opcua: { endpoint: 'opc.tcp://localhost:4840', security_mode: 'None', username: '', password: '' },
-  mqtt: { broker: 'localhost', port: 1883, topic: 'device/data/+', username: '', password: '' },
-  http: { path: '/webhook/data', method: 'POST' },
-  s7: { host: '192.168.1.1', rack: 0, slot: 1 },
-  serial_port: { port: 'COM1', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, protocol: 'raw' },
-  database_source: { db_type: 'mysql', host: 'localhost', port: 3306, database: '', username: '', password: '' },
-  barcode_scanner: { port: 'COM1', baudrate: 9600, prefix: '', suffix: '\\r' },
-  video: { endpoint: '', api_key: '' },
-}
-
-function buildConfigFromTemplate(protocol: string): Record<string, any> {
-  const cfgKey = PROTOCOL_KEY_MAP[protocol]
-  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
-  if (cfg?.configFields?.length) {
-    const config: Record<string, any> = {}
-    for (const f of cfg.configFields) {
-      config[f.key] = f.default !== undefined ? f.default : ''
-    }
-    return config
-  }
-  return { ...(defaultConfig[protocol] || {}) }
-}
-
-function buildPointsFromTemplate(protocol: string) {
-  const cfgKey = PROTOCOL_KEY_MAP[protocol]
-  const cfg = cfgKey ? getProtocolConfig(cfgKey) : undefined
-  if (cfg?.pointTemplates?.length) {
-    return cfg.pointTemplates.map(pt => ({
-      name: pt.name, data_type: pt.data_type, unit: pt.unit,
-      address: pt.address, access_mode: pt.access_mode === 'read' ? 'r' : pt.access_mode === 'write' ? 'w' : pt.access_mode,
-    }))
-  }
-  return [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }]
-}
-
-function onProtocolChange(val: string) {
-  const schema = driverSchemas.value[val]
-  if (schema?.fields) {
-    const config: Record<string, any> = {}
-    for (const field of schema.fields) {
-      config[field.name] = field.default !== undefined ? field.default : ''
-    }
-    createForm.config = config
-  } else {
-    createForm.config = buildConfigFromTemplate(val)
-  }
-  createForm.points = buildPointsFromTemplate(val)
-}
-
-const createForm = reactive({
-  device_id: '', name: '', protocol: 'modbus_tcp', collect_interval: 5,
-  config: buildConfigFromTemplate('modbus_tcp'),
-  points: buildPointsFromTemplate('modbus_tcp'),
-})
-
-const simForm = reactive({
-  device_id: '', name: '', collect_interval: 5,
-  points: [{ name: 'temperature', data_type: 'float32', unit: '°C', address: '0', access_mode: 'r', min: 15, max: 35, mode: 'sine' }],
-})
-const simFormRef = ref<any>(null)
-const simFormRules = {
-  device_id: { required: true, message: t('deviceList.deviceIdRequired'), trigger: 'blur' },
-  name: { required: true, message: t('deviceList.deviceNameRequired'), trigger: 'blur' },
-}
-
-async function handleCreate() {
-  try {
-    await createFormRef.value?.validate()
-  } catch { return }
-  const hasEmptyPoint = createForm.points.some((pt: any) => !pt.name || !pt.address)
-  if (hasEmptyPoint) {
-    message.error(t('deviceList.pointNameAddrRequired'))
-    return
-  }
-  creating.value = true
-  try {
-    await deviceApi.create(createForm as any)
-    message.success(t('deviceList.createSuccess'))
-    showCreateModal.value = false
-    createForm.device_id = ''
-    createForm.name = ''
-    createForm.protocol = 'modbus_tcp'
-    createForm.collect_interval = 5
-    createForm.config = buildConfigFromTemplate('modbus_tcp')
-    createForm.points = buildPointsFromTemplate('modbus_tcp')
-    fetchDevices()
-  } catch (e: any) {
-    message.error(extractError(e, t('deviceList.createFailed')))
-  } finally {
-    creating.value = false
-  }
-}
-
-async function handleCreateSim() {
-  try {
-    await simFormRef.value?.validate()
-  } catch { return }
-  const hasEmptyPoint = simForm.points.some((pt: any) => !pt.name)
-  if (hasEmptyPoint) {
-    message.error(t('deviceList.simPointNameRequired'))
-    return
-  }
-  creating.value = true
-  try {
-    await deviceApi.createSimulator(simForm as any)
-    message.success(t('deviceList.simCreateSuccess'))
-    showSimModal.value = false
-    simForm.device_id = ''
-    simForm.name = ''
-    simForm.collect_interval = 5
-    simForm.points = [{ name: 'temperature', data_type: 'float32', unit: '°C', address: '0', access_mode: 'r', min: 15, max: 35, mode: 'sine' }]
-    fetchDevices()
-  } catch (e: any) {
-    message.error(extractError(e, t('deviceList.createFailed')))
-  } finally {
-    creating.value = false
-  }
-}
-
-async function handleDiscover() {
-  discovering.value = true
-  try {
-    const result = await deviceApi.discover({ protocol: discoverProtocol.value, host: discoverHost.value, port: discoverPort.value })
-    discoverResults.value = result || []
-    selectedDiscoverKeys.value = []
-    showDiscoverModal.value = true
-  } catch (e: any) {
-    message.error(extractError(e, t('deviceList.discoverFailed')))
-  } finally {
-    discovering.value = false
-  }
-}
-
-// FIXED: 一键添加发现的设备
-async function handleAddDiscovered() {
-  addingDevices.value = true
-  const selected = discoverResults.value.filter(r => selectedDiscoverKeys.value.includes(r.name))
-  let succeeded = 0
-  let failed = 0
-  try {
-    for (const item of selected) {
-      try {
-        await deviceApi.create({
-          device_id: item.name,
-          name: item.name,
-          protocol: item.protocol || discoverProtocol.value,
-          config: { host: item.host, port: item.port, slave_id: item.slave_id },
-          points: [{ name: 'value', data_type: 'float32', unit: '', address: '0', access_mode: 'r' }],
-        } as any)
-        succeeded++
-      } catch {
-        failed++
-      }
-    }
-    if (failed > 0) {
-      message.warning(t('deviceList.addResult', { success: succeeded, failed }))
-    } else {
-      message.success(t('deviceList.addResultAll', { success: succeeded }))
-    }
-    showDiscoverModal.value = false
-    await fetchDevices()
-  } finally {
-    // FIXED: 原问题-addingDevices未在finally中重置，异常时永久卡住
-    addingDevices.value = false
-  }
-}
-
-function handleWritePoint(row: Device) {
-  router.push({ name: 'DeviceDetail', params: { id: row.device_id }, query: { tab: 'write' } })
-}
-
-function handleEdit(row: Device) {
-  editForm.device_id = row.device_id
-  editForm.name = row.name
-  editForm.collect_interval = row.collect_interval
-  showEditModal.value = true
-}
-
-async function handleEditSubmit() {
-  try {
-    await editFormRef.value?.validate()
-  } catch { return }
-  editSaving.value = true
-  try {
-    await deviceApi.update(editForm.device_id, {
-      name: editForm.name,
-      collect_interval: editForm.collect_interval,
-    })
-    message.success(t('deviceList.editSuccess'))
-    showEditModal.value = false
-    fetchDevices()
-  } catch (e: any) {
-    message.error(extractError(e, t('deviceList.editFailed')))
-  } finally {
-    editSaving.value = false
-  }
-}
-
-async function doDelete(row: Device) {
-  try {
-    await deviceApi.delete(row.device_id)
-    message.success(t('deviceList.deleteSuccess'))
-    fetchDevices()
-  } catch (e: any) {
-    message.error(extractError(e, t('deviceList.deleteFailed')))
-  }
-}
-
-async function handleBatchDelete() {
-  if (!checkedKeys.value.length) return
-  dialog.warning({
-    title: t('deviceList.batchDeleteTitle'),
-    content: t('deviceList.batchDeleteConfirm', { count: checkedKeys.value.length }),
-    positiveText: t('common.delete'),
-    negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
-      const results = await Promise.allSettled(checkedKeys.value.map(id => deviceApi.delete(id)))
-      const succeeded = results.filter(r => r.status === 'fulfilled').length
-      const failed = results.filter(r => r.status === 'rejected').length
-      if (failed > 0) {
-        message.warning(t('deviceList.batchDeletePartial', { succeeded, failed }))  // FIXED: 原问题-硬编码中文，改用i18n
-      } else {
-        message.success(t('deviceList.batchDeleteSuccess', { succeeded }))  // FIXED: 原问题-硬编码中文，改用i18n
-      }
-      checkedKeys.value = []
-      fetchDevices()
-    },
   })
 }
 
-onMounted(() => { fetchDevices(); loadDriverSchemas(); loadProtocols(); ws.connect('device', onDeviceWsMessage) })
-onUnmounted(() => {
-  if (_wsDeviceTimer) clearTimeout(_wsDeviceTimer)
-  ws.disconnect('device', onDeviceWsMessage)
-})
+// UX-09: 打开创建弹窗时检查草稿，提示用户恢复
+async function openCreateWithDraft() {
+  const draft = loadCreateDraft()
+  if (draft && (draft.device_id || draft.name)) {
+    const restore = await dialog.warning({
+      title: t('deviceList.draftFound'),
+      content: t('deviceList.draftRestorePrompt', { time: new Date(draft.savedAt).toLocaleString() }),
+      positiveText: t('deviceList.restoreDraft'),
+      negativeText: t('deviceList.discardDraft'),
+    })
+    if (restore) {
+      // 恢复草稿基础字段（config/points 由 ProtocolFormPanel 按 protocol 重新渲染）
+      createForm.device_id = draft.device_id
+      createForm.name = draft.name
+      createForm.protocol = draft.protocol
+      createForm.collect_interval = draft.collect_interval
+    } else {
+      clearCreateDraft()
+      resetCreateForm()
+    }
+  }
+  showCreateModal.value = true
+}
+// OPT-UX: 表格行可点击进入详情；点击按钮/下拉/复选框等可交互元素时不跳转
+function rowProps(row: any) {
+  return {
+    style: 'cursor: pointer',
+    onClick: (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('.n-button,.n-dropdown,.n-checkbox,.n-input,.n-base-selection')) return
+      router.push(`/devices/${row.device_id}`)
+    },
+  }
+}
+const protocolCreateComponent = computed(() => getProtocolFormComponent(createForm.protocol))
+const protocolEditComponent = computed(() => getProtocolFormComponent(editForm.protocol))
+const permissionOptions = computed(() => [
+  { label: t('resourceShare.readOnly'), value: 'read' },
+  { label: t('resourceShare.readWrite'), value: 'write' },
+])
+async function onCreateClick() { try { await createFormRef.value?.validate() } catch { return }; try { const d = await protocolFormRef.value?.validate(); if (!d) return; await handleCreate(d) } catch (e: any) { console.error('[DeviceList] Create validation failed:', e?.message || e); message.error(extractError(e, t('common.operationFailed'))) } }
+async function onEditClick() { try { await editFormRef.value?.validate() } catch { return }; try { await protocolEditRef.value?.validate(); const c = protocolEditRef.value?.getAssembledConfig(); const p = protocolEditRef.value?.getAssembledPoints(); if (!c) return; await handleEditSubmit(c, p) } catch (e: any) { console.error('[DeviceList] Edit validation failed:', e?.message || e); message.error(extractError(e, t('common.operationFailed'))) } }
+
+// FIXED-UEDebounce: 搜索防抖逻辑。
+// 原实现 @update:value 直接调用 fetchDevices()，输入 "temperature" 会触发 9 次 API 请求，
+// 造成列表闪烁、后端压力与带宽浪费。现采用 300ms 防抖：停顿后请求；回车立即请求。
+let _searchTimer: ReturnType<typeof setTimeout> | null = null
+function _triggerSearch() {
+  pagination.page = 1
+  fetchDevices()
+}
+function onSearchInput() {
+  if (_searchTimer) clearTimeout(_searchTimer)
+  _searchTimer = setTimeout(() => {
+    _searchTimer = null
+    _triggerSearch()
+  }, 300)
+}
+function onSearchEnter() {
+  if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null }
+  _triggerSearch()
+}
+onUnmounted(() => { if (_searchTimer) clearTimeout(_searchTimer) })
 </script>
 
 <style scoped>
-.dl-status-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.dl-status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dl-dot-online{background:#52c41a;box-shadow:0 0 6px #52c41a}
+.dl-dot-offline{background:#c0c0c0}
+.dl-dot-error{background:#ff4d4f;box-shadow:0 0 6px #ff4d4f}
+.device-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.dl-dot-online {
-  background: #67c23a;
-  animation: dl-pulse 2s ease-in-out infinite;
+.device-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
-.dl-dot-offline {
-  background: #909399;
+.device-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
-.dl-dot-error {
-  background: #f56c6c;
-  animation: dl-pulse 1.5s ease-in-out infinite;
+.device-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-@keyframes dl-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(103,194,58,0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(103,194,58,0); }
-  100% { box-shadow: 0 0 0 0 rgba(103,194,58,0); }
+/* FIXED-UEEmpty: 空状态样式，引导新用户开始操作 */
+.dl-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  gap: 8px;
+  color: var(--n-text-color-3, #999);
+}
+.dl-empty-title {
+  margin: 8px 0 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--n-text-color-2, #666);
+}
+.dl-empty-desc {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+}
+/* OPT-UX: 浮动批量操作栏 */
+.dl-batch-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--n-card-color, #fff);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--n-border-color, #eee);
+  max-width: calc(100vw - 32px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.dl-slide-up-enter-active,
+.dl-slide-up-leave-active {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.dl-slide-up-enter-from,
+.dl-slide-up-leave-to {
+  transform: translate(-50%, 16px);
+  opacity: 0;
+}
+@media (max-width: 768px) {
+  .device-toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .device-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .dl-batch-bar {
+    bottom: 12px;
+    padding: 8px 12px;
+  }
 }
 </style>

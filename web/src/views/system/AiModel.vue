@@ -58,6 +58,8 @@
       <template #header-extra>
         <n-space :size="8">
           <n-button size="small" type="primary" @click="openInference">{{ t('ai.inference') }}</n-button>
+          <n-button size="small" @click="showUploadModal = true">{{ t('aiModel.uploadModel') }}</n-button>
+          <n-button size="small" @click="showScheduleModal = true">{{ t('aiModel.scheduleInference') }}</n-button>
           <n-button size="small" @click="fetchModels" :loading="loading">{{ t('common.refresh') }}</n-button>
         </n-space>
       </template>
@@ -75,7 +77,7 @@
               <n-card size="small" :bordered="true" hoverable class="model-card">
                 <template #header>
                   <n-space align="center" :size="8">
-                    <span style="font-size:20px">{{ modelIcon(m.model_type) }}</span>
+                    <component :is="modelIcon(m.model_type)" />
                     <span style="font-weight:600">{{ m.model_name }}</span>
                     <n-tag size="small" :bordered="false" round>{{ m.model_version }}</n-tag>
                   </n-space>
@@ -92,6 +94,8 @@
                     <n-switch
                       :value="m.status === 'active'"
                       @update:value="m.status === 'active' ? handleDisable(m) : handleEnable(m)"
+                      :loading="togglingModelId === m.model_id"
+                      :disabled="!!togglingModelId"
                       size="small"
                     >
                       <template #checked>{{ t('ai.statusActive') }}</template>
@@ -112,7 +116,8 @@
             :bordered="false"
             size="small"
             :row-key="(row: any) => row.model_id"
-            :pagination="customPagination"
+            :pagination="customPaginationProps"
+            :scroll-x="1010"
           >
             <template #empty>
               <n-empty :description="t('ai.noModels')" />
@@ -185,11 +190,28 @@
                 <n-space justify="center" style="margin-top: 12px" v-if="inferenceLogsTotal > 10">
                   <n-pagination
                     v-model:page="inferenceLogsPage"
-                    :page-count="Math.ceil(inferenceLogsTotal / 10)"
+                    :item-count="inferenceLogsTotal"
+                    :page-size="inferenceLogsPageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :show-size-picker="true"
                     size="small"
                     @update:page="(p: number) => fetchInferenceLogs(currentModel?.model_id, p)"
+                    @update:page-size="(s: number) => { inferenceLogsPageSize = s; inferenceLogsPage = 1; fetchInferenceLogs(currentModel?.model_id, 1) }"
                   />
                 </n-space>
+              </n-spin>
+            </n-tab-pane>
+            <n-tab-pane name="versions" :tab="t('aiModel.versionHistory')">
+              <n-spin :show="versionHistoryLoading">
+                <n-data-table
+                  v-if="versionHistory.length > 0"
+                  :columns="versionColumns"
+                  :data="versionHistory"
+                  :bordered="false"
+                  size="small"
+                  :row-key="(row: any) => row.version + row.timestamp"
+                />
+                <n-empty v-else :description="t('aiModel.noVersionHistory')" />
               </n-spin>
             </n-tab-pane>
           </n-tabs>
@@ -197,20 +219,23 @@
       </n-drawer-content>
     </n-drawer>
 
-    <n-modal v-model:show="showInference" preset="card" style="width: 640px" :title="t('ai.inference')">
+    <n-modal v-model:show="showInference" preset="card" style="width: 640px; max-width: 95vw" :title="t('ai.inference')" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
       <n-space vertical :size="16">
         <n-form-item :label="t('ai.modelName')">
           <n-select
             :value="inferenceModelId"
             :options="modelOptions"
-            @update:value="inferenceModelId = $event"
+            @update:value="(v: string) => { inferenceModelId = v; validateInput() }"
             :placeholder="t('ai.modelName')"
           />
         </n-form-item>
-        <n-form-item :label="t('ai.inputData')">
+        <n-form-item :label="t('ai.inputData')" :validation-status="inputValidationStatus" :feedback="inputFeedback">
           <n-space vertical :size="8" style="width:100%">
-            <n-input v-model:value="inferenceInput" type="textarea" :rows="4" placeholder="[1.0, 2.0, 3.0]" />
-            <n-button size="tiny" @click="fillSimulatedData">{{ t('ai.useSimulatedData') }}</n-button>
+            <n-input v-model:value="inferenceInput" type="textarea" :rows="4" placeholder="[1.0, 2.0, 3.0]" @update:value="validateInput" />
+            <n-space :size="8">
+              <n-button size="tiny" @click="fillSimulatedData">{{ t('ai.useSimulatedData') }}</n-button>
+              <n-text v-if="inputHint" depth="3" style="font-size:12px">{{ inputHint }}</n-text>
+            </n-space>
           </n-space>
         </n-form-item>
         <template v-if="inferenceResult">
@@ -242,19 +267,91 @@
         <n-button type="primary" :loading="inferring" @click="handleInference">{{ t('ai.inference') }}</n-button>
       </template>
     </n-modal>
+
+    <!-- Schedule Inference Modal -->
+    <n-modal v-model:show="showScheduleModal" preset="card" style="width: 600px; max-width: 95vw" :title="t('aiModel.scheduleInference')" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-space vertical :size="16">
+        <!-- Active schedules -->
+        <n-card size="small" :bordered="true" v-if="schedules.length > 0">
+          <template #header><span style="font-size:13px;font-weight:600">{{ t('aiModel.scheduleInference') }}</span></template>
+          <n-data-table
+            :columns="scheduleColumns"
+            :data="schedules"
+            :bordered="false"
+            size="small"
+            :row-key="(row: any) => row.model_id"
+          />
+        </n-card>
+        <n-empty v-else :description="t('aiModel.noSchedules')" />
+        <!-- New schedule form -->
+        <n-divider />
+        <n-form-item :label="t('ai.modelName')">
+          <n-select
+            v-model:value="scheduleModelId"
+            :options="modelOptions"
+            :placeholder="t('ai.modelName')"
+          />
+        </n-form-item>
+        <n-form-item :label="t('aiModel.intervalSeconds')">
+          <n-input-number v-model:value="scheduleInterval" :min="5" :max="3600" style="width: 100%" />
+        </n-form-item>
+        <n-form-item :label="t('aiModel.inputWindowSize')">
+          <n-input-number v-model:value="scheduleWindowSize" :min="1" :max="10000" style="width: 100%" />
+        </n-form-item>
+      </n-space>
+      <template #action>
+        <n-button @click="showScheduleModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="scheduleLoading" @click="handleStartSchedule">{{ t('aiModel.startSchedule') }}</n-button>
+      </template>
+    </n-modal>
+
+    <!-- Upload Model Modal -->
+    <n-modal v-model:show="showUploadModal" preset="card" style="width: 500px; max-width: 95vw" :title="t('aiModel.uploadModel')" :close-on-esc="true" :auto-focus="true" :close-on-esc-aria-label="t('common.closeDialog')">
+      <n-space vertical :size="16">
+        <n-form-item :label="t('ai.modelName')">
+          <n-input v-model:value="uploadModelName" :placeholder="t('ai.modelName')" />
+        </n-form-item>
+        <n-form-item :label="t('aiModel.selectFile')">
+          <n-upload
+            :max="1"
+            accept=".onnx,.pt,.pth,.pkl,.h5,.tflite"
+            :default-upload="false"
+            @change="handleFileChange"
+          >
+            <n-button>{{ t('aiModel.selectFile') }}</n-button>
+          </n-upload>
+        </n-form-item>
+      </n-space>
+      <template #action>
+        <n-button @click="showUploadModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="uploadLoading" :disabled="!uploadFile" @click="handleUpload">{{ t('aiModel.uploadModel') }}</n-button>
+      </template>
+    </n-modal>
   </n-space>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h, reactive, watch } from 'vue'
-import { NTag, NButton, NSpace, NPopconfirm, NTooltip, NIcon, useMessage, useDialog } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted, h, reactive, watch, toRaw, markRaw } from 'vue'
+import { NTag, NButton, NSpace, NPopconfirm, NTooltip, NIcon } from 'naive-ui'
 import { SparklesOutline, HardwareChipOutline, AnalyticsOutline, WarningOutline, FlaskOutline, TrendingUpOutline, FlashOutline } from '@vicons/ionicons5'
 import { aiApi } from '@/api'
 import { t } from '@/i18n'
 import { extractError } from '@/utils/errorCodes'
+import { connect as wsConnect, disconnect as wsDisconnect } from '@/api/websocket'
+import { usePageVisibility } from '@/composables/usePageVisibility'
+import { message, dialog } from '@/utils/discreteApi'
+// [AUDIT-FIX] 严重级-敏感操作（启停/删除/回滚/调度）需函数级权限校验，与路由级 RBAC 形成双重防护
+import { useAuthStore } from '@/stores/auth'
 
-const message = useMessage()
-const dialog = useDialog()
+const auth = useAuthStore()
+
+// FIX: 生产构建中 h() 在模板里调用报 "h is not defined"。
+// 原因：Vite 模板编译器生成的代码中，h 的引用在生产构建时与 import 变量名不一致。
+// 解决：所有 h()-created VNode 在 setup 中创建并通过 defineExpose 暴露给模板。
+const _h = h  // 避免模板直接引用 h
+const gaugeIcon = markRaw({ anomaly: _h(NIcon, { component: WarningOutline, size: 14, color: '#f56c6c' }), trend: _h(NIcon, { component: TrendingUpOutline, size: 14, color: '#67c23a' }), threshold: _h(NIcon, { component: FlashOutline, size: 14, color: '#e6a23c' }), custom: _h(NIcon, { component: FlaskOutline, size: 14, color: '#8b5cf6' }), default: _h(NIcon, { component: HardwareChipOutline, size: 14 }) })
+const modelIcon = (type: string) => (gaugeIcon as Record<string, any>)[type] || (gaugeIcon as Record<string, any>).default
+
 const loading = ref(false)
 const models = ref<any[]>([])
 const showDetail = ref(false)
@@ -263,9 +360,14 @@ const showInference = ref(false)
 const inferring = ref(false)
 const inferenceModelId = ref<string | null>(null)
 const inferenceInput = ref('')
+const inputValidationStatus = ref<'error' | 'warning' | undefined>(undefined)
+const inputFeedback = ref('')
+const inputHint = ref('')
 const inferenceResult = ref('')
 const inferenceLatency = ref('')
 const aiEnabled = ref(false)
+// [AUDIT-FIX] 严重级-AI 模型启用/禁用 switch 无 loading，防止并发切换产生竞态
+const togglingModelId = ref<string | null>(null)
 const engineStatusText = computed(() => {
   if (aiEnabled.value) return t('ai.statusActive')
   const hasInactive = models.value.some((m: any) => m.status === 'inactive')
@@ -322,10 +424,56 @@ const inferenceLogs = ref<any[]>([])
 const inferenceLogsLoading = ref(false)
 const inferenceLogsPage = ref(1)
 const inferenceLogsTotal = ref(0)
+// FIXED-P1: 分页大小可调，原硬编码 page-size=10 缺少 pageSizes 选项
+const inferenceLogsPageSize = ref(10)
 const detailTab = ref('info')
+
+const versionHistory = ref<any[]>([])
+const versionHistoryLoading = ref(false)
+
+const versionColumns = computed(() => [
+  { title: t('aiModel.version'), key: 'version', width: 160 },
+  { title: t('ai.status'), key: 'status', width: 80 },
+  { title: t('aiModel.versionTimestamp'), key: 'timestamp', width: 180 },
+  {
+    title: t('common.actions'), key: 'action', width: 100,
+    render: (row: any) => h(NPopconfirm, { onPositiveClick: () => handleRollback(row.version) }, {
+      trigger: () => h(NButton, { text: true, type: 'warning', size: 'small', disabled: row.version === currentModel.value?.model_version }, { default: () => t('aiModel.rollback') }),
+      default: () => t('aiModel.rollbackConfirm'),
+    }),
+  },
+])
 
 // 定时刷新
 let statsTimer: ReturnType<typeof setInterval> | null = null
+let aiWsHandler: ((data: any) => void) | null = null
+
+// Schedule inference state
+const showScheduleModal = ref(false)
+const scheduleModelId = ref<string | null>(null)
+const scheduleInterval = ref(60)
+const scheduleWindowSize = ref(10)
+const scheduleLoading = ref(false)
+const schedules = ref<any[]>([])
+
+const scheduleColumns = computed(() => [
+  { title: t('ai.modelName'), key: 'model_id', width: 180 },
+  { title: t('aiModel.intervalSeconds'), key: 'interval_seconds', width: 100 },
+  { title: t('aiModel.inputWindowSize'), key: 'input_window_size', width: 120 },
+  {
+    title: t('common.actions'), key: 'action', width: 100,
+    render: (row: any) => h(NPopconfirm, { onPositiveClick: () => handleStopSchedule(toRaw(row).model_id) }, {
+      trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('aiModel.stopSchedule') }),
+      default: () => t('aiModel.stopSchedule') + '?',
+    }),
+  },
+])
+
+// Upload model state
+const showUploadModal = ref(false)
+const uploadModelName = ref('')
+const uploadFile = ref<File | null>(null)
+const uploadLoading = ref(false)
 
 const presetModels = computed(() => {
   let list = models.value.filter((m: any) => m.is_preset)
@@ -339,7 +487,6 @@ const customModels = computed(() => {
   if (filterName.value) list = list.filter((m: any) => m.model_name.toLowerCase().includes(filterName.value.toLowerCase()))
   if (filterType.value) list = list.filter((m: any) => m.model_type === filterType.value)
   if (filterStatus.value) list = list.filter((m: any) => m.status === filterStatus.value)
-  customPagination.itemCount = list.length
   return list
 })
 const customModelsPaginated = computed(() => {
@@ -347,6 +494,11 @@ const customModelsPaginated = computed(() => {
   const end = start + customPagination.pageSize
   return customModels.value.slice(start, end)
 })
+// FIXED: 使用 computed 派生分页对象，避免在 customModels computed 中产生副作用
+const customPaginationProps = computed(() => ({
+  ...customPagination,
+  itemCount: customModels.value.length,
+}))
 const activeModelCount = computed(() => models.value.filter((m: any) => m.status === 'active').length)
 
 const activeModelsWithStats = computed(() => {
@@ -374,16 +526,6 @@ const anomalyScorePercent = computed(() => {
     return score != null ? Math.round(Math.min(Math.abs(Number(score)), 1) * 100) : 0
   } catch { return 0 }
 })
-
-function modelIcon(type: string) {
-  const map: Record<string, any> = {
-    anomaly: h(NIcon, { component: WarningOutline, size: 14, color: '#f56c6c' }),
-    trend: h(NIcon, { component: TrendingUpOutline, size: 14, color: '#67c23a' }),
-    threshold: h(NIcon, { component: FlashOutline, size: 14, color: '#e6a23c' }),
-    custom: h(NIcon, { component: FlaskOutline, size: 14, color: '#8b5cf6' }),
-  }
-  return map[type] || h(NIcon, { component: HardwareChipOutline, size: 14 })
-}
 
 function presetDesc(modelId: string) {
   const map: Record<string, string> = {
@@ -437,96 +579,105 @@ const modelOptions = computed(() =>
     .map((m: any) => ({ label: m.model_name, value: m.model_id }))
 )
 
-const columns = [
+const columns = computed(() => [
   { title: t('ai.modelName'), key: 'model_name', width: 180 },
   {
     title: t('ai.modelType'), key: 'model_type', width: 120,
-    render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => modelTypeLabel(row.model_type) }),
+    render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => modelTypeLabel(toRaw(row).model_type) }),
   },
   { title: t('ai.modelVersion'), key: 'model_version', width: 80 },
   {
     title: t('ai.status'), key: 'status', width: 100,
-    render: (row: any) => h(NTag, { size: 'small', type: statusTagType(row.status) }, { default: () => statusLabel(row.status) }),
+    render: (row: any) => h(NTag, { size: 'small', type: statusTagType(toRaw(row).status) }, { default: () => statusLabel(toRaw(row).status) }),
   },
   {
     title: t('ai.isPreset'), key: 'is_preset', width: 100,
-    render: (row: any) => h(NTag, { size: 'small', type: row.is_preset ? 'success' : 'default' }, { default: () => row.is_preset ? t('common.confirm') : t('common.cancel') }),
+    render: (row: any) => h(NTag, { size: 'small', type: toRaw(row).is_preset ? 'success' : 'default' }, { default: () => toRaw(row).is_preset ? t('common.confirm') : t('common.cancel') }),
   },
   {
     title: t('ai.inferenceCount'), key: 'inference_count', width: 100,
-    render: (row: any) => row.inference_count ?? 0,
+    render: (row: any) => toRaw(row).inference_count ?? 0,
   },
   {
     title: t('common.actions'), key: 'action', width: 280,
-    render: (row: any) => h(NSpace, { size: 4 }, {
-      default: () => [
-        row.status === 'active'
-          ? h(NButton, { text: true, type: 'warning', size: 'small', onClick: () => handleDisable(row) }, { default: () => t('ai.disable') })
-          : row.status === 'unavailable'
-            ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }), default: () => t('ai.cannotEnableUnavailable') })
-            : row.status === 'inactive'
-              ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }), default: () => t('ai.installOnnxruntimeTip') })
-              : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }),
-        h(NPopconfirm, { onPositiveClick: () => handleReload(row) }, {
-          trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
-          default: () => t('ai.reloadConfirm'),
-        }),
-        h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(row) }, { default: () => t('ai.detail') }),
-        !row.is_preset
-          ? h(NPopconfirm, { onPositiveClick: () => handleDelete(row) }, {
-              trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('common.delete') }),
-              default: () => t('ai.deleteConfirm'),
-            })
-          : null,
-      ].filter(Boolean),
-    }),
+    render: (row: any) => {
+      const r = toRaw(row)
+      return h(NSpace, { size: 4 }, {
+        default: () => [
+          r.status === 'active'
+            ? h(NButton, { text: true, type: 'warning', size: 'small', onClick: () => handleDisable(toRaw(row)) }, { default: () => t('ai.disable') })
+            : r.status === 'unavailable'
+              ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(toRaw(row)) }, { default: () => t('ai.enable') }), default: () => t('ai.cannotEnableUnavailable') })
+              : r.status === 'inactive'
+                ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(toRaw(row)) }, { default: () => t('ai.enable') }), default: () => t('ai.installOnnxruntimeTip') })
+                : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(toRaw(row)) }, { default: () => t('ai.enable') }),
+          h(NPopconfirm, { onPositiveClick: () => handleReload(toRaw(row)) }, {
+            trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
+            default: () => t('ai.reloadConfirm'),
+          }),
+          h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(toRaw(row)) }, { default: () => t('ai.detail') }),
+          !r.is_preset
+            ? h(NPopconfirm, { onPositiveClick: () => handleDelete(toRaw(row)) }, {
+                trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('common.delete') }),
+                default: () => t('ai.deleteConfirm'),
+              })
+            : null,
+        ].filter(Boolean),
+      })
+    },
   },
-]
+])
 
-const customColumns = [
+const customColumns = computed(() => [
   { title: t('ai.modelName'), key: 'model_name', width: 180 },
   {
     title: t('ai.modelType'), key: 'model_type', width: 120,
-    render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => modelTypeLabel(row.model_type) }),
+    render: (row: any) => h(NTag, { size: 'small', type: 'info' }, { default: () => modelTypeLabel(toRaw(row).model_type) }),
   },
   { title: t('ai.modelVersion'), key: 'model_version', width: 80 },
   {
     title: t('ai.status'), key: 'status', width: 100,
-    render: (row: any) => h(NTag, { size: 'small', type: statusTagType(row.status) }, { default: () => statusLabel(row.status) }),
+    render: (row: any) => h(NTag, { size: 'small', type: statusTagType(toRaw(row).status) }, { default: () => statusLabel(toRaw(row).status) }),
   },
   { title: t('ai.modelPath'), key: 'model_file_path', width: 200, ellipsis: { tooltip: true } },
   {
     title: t('ai.inferenceCount'), key: 'inference_count', width: 100,
-    render: (row: any) => row.inference_count ?? 0,
+    render: (row: any) => toRaw(row).inference_count ?? 0,
   },
   {
     title: t('common.actions'), key: 'action', width: 280,
-    render: (row: any) => h(NSpace, { size: 4 }, {
-      default: () => [
-        row.status === 'active'
-          ? h(NButton, { text: true, type: 'warning', size: 'small', onClick: () => handleDisable(row) }, { default: () => t('ai.disable') })
-          : row.status === 'unavailable'
-            ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }), default: () => t('ai.cannotEnableUnavailable') })
-            : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(row) }, { default: () => t('ai.enable') }),
-        h(NPopconfirm, { onPositiveClick: () => handleReload(row) }, {
-          trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
-          default: () => t('ai.reloadConfirm'),
-        }),
-        h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(row) }, { default: () => t('ai.detail') }),
-        h(NPopconfirm, { onPositiveClick: () => handleDelete(row) }, {
-          trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('common.delete') }),
-          default: () => t('ai.deleteConfirm'),
-        }),
-      ].filter(Boolean),
-    }),
+    render: (row: any) => {
+      const r = toRaw(row)
+      return h(NSpace, { size: 4 }, {
+        default: () => [
+          r.status === 'active'
+            ? h(NButton, { text: true, type: 'warning', size: 'small', onClick: () => handleDisable(toRaw(row)) }, { default: () => t('ai.disable') })
+            : r.status === 'unavailable'
+              ? h(NTooltip, {}, { trigger: () => h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(toRaw(row)) }, { default: () => t('ai.enable') }), default: () => t('ai.cannotEnableUnavailable') })
+              : h(NButton, { text: true, type: 'success', size: 'small', onClick: () => handleEnable(toRaw(row)) }, { default: () => t('ai.enable') }),
+          h(NPopconfirm, { onPositiveClick: () => handleReload(toRaw(row)) }, {
+            trigger: () => h(NButton, { text: true, type: 'info', size: 'small' }, { default: () => t('ai.reload') }),
+            default: () => t('ai.reloadConfirm'),
+          }),
+          h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openDetail(toRaw(row)) }, { default: () => t('ai.detail') }),
+          h(NPopconfirm, { onPositiveClick: () => handleDelete(toRaw(row)) }, {
+            trigger: () => h(NButton, { text: true, type: 'error', size: 'small' }, { default: () => t('common.delete') }),
+            default: () => t('ai.deleteConfirm'),
+          }),
+        ].filter(Boolean),
+      })
+    },
   },
-]
+])
 
 async function fetchModels() {
   loading.value = true
   try {
     const data = await aiApi.listModels()
-    models.value = data?.data ?? []
+    // FIX: API返回数据中的非序列化字段（如类的实例、循环引用）直接赋值给响应式ref，
+    // 会导致 JSON.stringify 循环引用报错。使用结构化克隆创建纯净对象。
+    const rawList = JSON.parse(JSON.stringify(data?.data ?? []))
+    models.value = rawList
     aiEnabled.value = models.value.some((m: any) => m.status === 'active')
     customPagination.page = 1
   } catch (e: any) {
@@ -554,12 +705,38 @@ function openDetail(row: any) {
   detailTab.value = 'info'
   showDetail.value = true
   fetchInferenceLogs(row.model_id)
+  fetchVersionHistory(row.model_id)
+}
+
+async function fetchVersionHistory(modelId: string) {
+  versionHistoryLoading.value = true
+  try {
+    const data = await aiApi.getModelVersions(modelId)
+    versionHistory.value = data || []
+  } catch {
+    versionHistory.value = []
+  } finally {
+    versionHistoryLoading.value = false
+  }
+}
+
+async function handleRollback(targetVersion: string) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  if (!currentModel.value) return
+  try {
+    await aiApi.rollbackModel(currentModel.value.model_id, targetVersion)
+    message.success(t('common.success'))
+    await fetchModels()
+    await fetchVersionHistory(currentModel.value.model_id)
+  } catch (e: any) {
+    message.error(extractError(e, t('common.failed')))
+  }
 }
 
 async function fetchInferenceLogs(modelId?: string, page = 1) {
   inferenceLogsLoading.value = true
   try {
-    const data = await aiApi.getInferenceLogs(modelId, page, 10)
+    const data = await aiApi.getInferenceLogs(modelId, page, inferenceLogsPageSize.value)
     inferenceLogs.value = data?.data ?? []
     inferenceLogsTotal.value = data?.total ?? 0
     inferenceLogsPage.value = page
@@ -572,22 +749,32 @@ async function fetchInferenceLogs(modelId?: string, page = 1) {
 }
 
 async function handleEnable(row: any) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  if (togglingModelId.value) return  // [AUDIT-FIX] 防止并发切换
+  togglingModelId.value = row.model_id
   try {
     await aiApi.enableModel(row.model_id)
     message.success(t('ai.enableSuccess'))
     await fetchModels()
   } catch (e: any) {
     message.error(extractError(e, t('ai.enableFailed')))
+  } finally {
+    togglingModelId.value = null
   }
 }
 
 async function handleDisable(row: any) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  if (togglingModelId.value) return  // [AUDIT-FIX] 防止并发切换
+  togglingModelId.value = row.model_id
   try {
     await aiApi.disableModel(row.model_id)
     message.success(t('common.success'))
     await fetchModels()
   } catch (e: any) {
     message.error(extractError(e, t('common.failed')))
+  } finally {
+    togglingModelId.value = null
   }
 }
 
@@ -602,6 +789,7 @@ async function handleReload(row: any) {
 }
 
 async function handleDelete(row: any) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
   if (row.is_preset) {
     message.warning(t('ai.presetCannotDelete'))
     return
@@ -620,6 +808,9 @@ function openInference() {
   inferenceInput.value = ''
   inferenceResult.value = ''
   inferenceLatency.value = ''
+  inputValidationStatus.value = undefined
+  inputFeedback.value = ''
+  inputHint.value = ''
   showInference.value = true
 }
 
@@ -628,6 +819,9 @@ function quickInference(m: any) {
   inferenceInput.value = ''
   inferenceResult.value = ''
   inferenceLatency.value = ''
+  inputValidationStatus.value = undefined
+  inputFeedback.value = ''
+  inputHint.value = ''
   showInference.value = true
 }
 
@@ -646,9 +840,61 @@ function fillSimulatedData() {
   }
 }
 
+function validateInput() {
+  inputValidationStatus.value = undefined
+  inputFeedback.value = ''
+  inputHint.value = ''
+  const val = inferenceInput.value.trim()
+  if (!val) return false
+  let parsed: any
+  try {
+    parsed = JSON.parse(val)
+  } catch {
+    inputValidationStatus.value = 'error'
+    inputFeedback.value = t('ai.inputInvalidJson')
+    return false
+  }
+  if (!Array.isArray(parsed)) {
+    inputValidationStatus.value = 'error'
+    inputFeedback.value = t('ai.inputMustBeArray')
+    return false
+  }
+  if (parsed.length === 0) {
+    inputValidationStatus.value = 'error'
+    inputFeedback.value = t('ai.inputEmptyArray')
+    return false
+  }
+  for (let i = 0; i < parsed.length; i++) {
+    if (typeof parsed[i] !== 'number' || !isFinite(parsed[i])) {
+      inputValidationStatus.value = 'error'
+      inputFeedback.value = t('ai.inputMustBeNumbers', { index: i })
+      return false
+    }
+  }
+  // 检查与模型schema的匹配
+  const target = models.value.find((m: any) => m.model_id === inferenceModelId.value)
+  if (target) {
+    try {
+      const schema = typeof target.input_schema === 'string' ? JSON.parse(target.input_schema) : target.input_schema
+      const expectedSize = schema?.shape?.[1]
+      if (expectedSize != null && parsed.length !== expectedSize) {
+        inputValidationStatus.value = 'warning'
+        inputFeedback.value = t('ai.inputSizeMismatch', { actual: parsed.length, expected: expectedSize })
+      } else {
+        inputHint.value = t('ai.inputSizeOk', { size: parsed.length })
+      }
+    } catch { /* ignore schema parse error */ }
+  }
+  return true
+}
+
 async function handleInference() {
   if (!inferenceModelId.value) {
-    message.warning(t('ai.modelName'))
+    message.warning(t('ai.modelNameRequired'))
+    return
+  }
+  if (!validateInput()) {
+    message.error(inputFeedback.value || t('ai.inputInvalid'))
     return
   }
   inferring.value = true
@@ -659,26 +905,147 @@ async function handleInference() {
     const start = Date.now()
     const result = await aiApi.inference(inferenceModelId.value, inputData)
     inferenceLatency.value = String(Date.now() - start)
-    inferenceResult.value = JSON.stringify(result, null, 2)
+    // FIX: result可能是Proxy对象，直接JSON.stringify会报循环引用。
+    // 先用结构化克隆剥离Proxy，再序列化显示。
+    try {
+      inferenceResult.value = JSON.stringify(JSON.parse(JSON.stringify(result)), null, 2)
+    } catch {
+      inferenceResult.value = String(result)
+    }
   } catch (e: any) {
     inferenceResult.value = extractError(e, t('common.failed'))
-    message.error(t('common.failed'))
+    message.error(inferenceResult.value)
   } finally {
     inferring.value = false
     fetchStats()
   }
 }
 
-onMounted(() => {
-  fetchModels()
-  fetchStats()
+async function fetchSchedules() {
+  try {
+    const data = await aiApi.listSchedules()
+    schedules.value = Array.isArray(data) ? data : []
+  } catch {
+    schedules.value = []
+  }
+}
+
+async function handleStartSchedule() {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  if (!scheduleModelId.value) {
+    message.warning(t('ai.modelNameRequired'))
+    return
+  }
+  // FIXED: 校验范围与 n-input-number 控件 (min=5, max=3600) 保持一致
+  if (!scheduleInterval.value || scheduleInterval.value < 5 || scheduleInterval.value > 3600) {
+    message.warning(t('ai.intervalRange'))
+    return
+  }
+  // FIXED: 校验范围与 n-input-number 控件 (max=10000) 保持一致
+  if (!scheduleWindowSize.value || scheduleWindowSize.value < 1 || scheduleWindowSize.value > 10000) {
+    message.warning(t('ai.windowSizeRange'))
+    return
+  }
+  scheduleLoading.value = true
+  try {
+    await aiApi.startSchedule(scheduleModelId.value, scheduleInterval.value, scheduleWindowSize.value)
+    message.success(t('common.success'))
+    await fetchSchedules()
+  } catch (e: any) {
+    message.error(extractError(e, t('common.failed')))
+  } finally {
+    scheduleLoading.value = false
+  }
+}
+
+async function handleStopSchedule(modelId: string) {
+  if (!auth.isOperator) { message.warning(t('common.permissionDenied')); return }
+  try {
+    await aiApi.stopSchedule(modelId)
+    message.success(t('common.success'))
+    await fetchSchedules()
+  } catch (e: any) {
+    message.error(extractError(e, t('common.failed')))
+  }
+}
+
+function handleFileChange(data: { file: any }) {
+  const fileListEntry = data?.file
+  uploadFile.value = fileListEntry?.file || null
+}
+
+async function handleUpload() {
+  if (!uploadFile.value) return
+  if (!uploadModelName.value?.trim()) {
+    message.warning(t('ai.modelNameRequired'))
+    return
+  }
+  // FIXED-Severe: 模型上传大小与类型校验，防止超大文件耗尽磁盘或上传恶意文件
+  const MAX_MODEL_SIZE = 500 * 1024 * 1024 // 500MB
+  if (uploadFile.value.size > MAX_MODEL_SIZE) {
+    message.error(t('aiModel.fileTooLarge') || 'File too large (max 500MB)')
+    return
+  }
+  // FIXED: 与 n-upload accept 一致，补充 .pkl 类型
+  const allowedExts = ['.onnx', '.pt', '.pth', '.pkl', '.h5', '.tflite']
+  const ext = uploadFile.value.name.toLowerCase().match(/\.[^.]+$/)?.[0]
+  if (!ext || !allowedExts.includes(ext)) {
+    message.error(t('aiModel.invalidFileType') || 'Invalid file type')
+    return
+  }
+  uploadLoading.value = true
+  try {
+    await aiApi.uploadModel(uploadFile.value, uploadModelName.value || undefined)
+    message.success(t('common.success'))
+    showUploadModal.value = false
+    uploadModelName.value = ''
+    uploadFile.value = null
+    await fetchModels()
+  } catch (e: any) {
+    message.error(extractError(e, t('common.failed')))
+  } finally {
+    uploadLoading.value = false
+  }
+}
+
+// FIX-PERF5: 添加 isMounted 守卫，避免组件卸载后异步回调仍更新状态
+let isMounted = true
+// FIX-PERF12: 页面隐藏时暂停轮询，恢复时立即拉取并重启轮询
+const { isVisible } = usePageVisibility()
+watch(isVisible, (visible) => {
+  if (visible) {
+    fetchStats()
+    if (statsTimer) clearInterval(statsTimer)
+    statsTimer = setInterval(fetchStats, 30000)
+  } else {
+    if (statsTimer) { clearInterval(statsTimer); statsTimer = null }
+  }
+})
+
+onMounted(async () => {
+  await Promise.all([fetchModels(), fetchStats(), fetchSchedules()])
+  if (!isMounted) return
   statsTimer = setInterval(fetchStats, 30000)
+  aiWsHandler = (data: any) => {
+    if (data.type === 'inference_result' || data.model_id) {
+      fetchStats()
+      if (currentModel.value && data.model_id === currentModel.value.model_id) {
+        fetchInferenceLogs(data.model_id, inferenceLogsPage.value)
+      }
+    }
+  }
+  wsConnect('ai', aiWsHandler)
 })
 
 onUnmounted(() => {
+  isMounted = false
   if (statsTimer) {
     clearInterval(statsTimer)
     statsTimer = null
+  }
+  if (aiWsHandler) {
+    wsDisconnect('ai', aiWsHandler)
+    aiWsHandler = null
   }
 })
 </script>

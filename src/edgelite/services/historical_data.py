@@ -11,16 +11,19 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import copy
 import csv
 import io
 import json
 import logging
 import math
+from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
+from edgelite.constants import _EXPORT_MAX_RECORDS
 from edgelite.storage.influx_storage import InfluxDBStorage
 
 logger = logging.getLogger(__name__)
@@ -122,14 +125,28 @@ class HistoricalDataService:
         )
 
         # Perform base query
-        data = await self._influx.query_points(
-            device_id=device_id,
-            point_name=point_name,
-            start=options.start,
-            stop=options.stop if options.stop else None,
-            aggregate=options.aggregate,
-            max_points=options.limit,
-        )
+        # FIXED-P1: 原问题-InfluxDB查询无超时，大范围查询(如90天原始数据)可永久阻塞事件循环
+        # 添加30秒超时保护，超时后返回空结果而非挂起
+        try:
+            data = await asyncio.wait_for(
+                self._influx.query_points(
+                    device_id=device_id,
+                    point_name=point_name,
+                    start=options.start,
+                    stop=options.stop if options.stop else None,
+                    aggregate=options.aggregate,
+                    max_points=options.limit,
+                ),
+                timeout=30.0,
+            )
+        except TimeoutError:
+            logger.warning(
+                "Historical query timeout (30s): device=%s point=%s start=%s",
+                device_id, point_name, options.start,
+            )
+            result.query_ms = (time.time() - start_time) * 1000
+            result.count = 0
+            return result
 
         # Filter by quality if specified
         if options.filter_quality:
@@ -140,7 +157,10 @@ class HistoricalDataService:
 
         # Calculate statistics if we have data
         if data:
-            values = [d["value"] for d in data if d.get("value") is not None]
+            # FIXED(严重): 原问题-非数值value导致sum()抛TypeError;
+            # 修复-过滤非数值类型
+            values = [d.get("value") for d in data
+                      if d.get("value") is not None and isinstance(d.get("value"), (int, float))]
             if values:
                 result.statistics = self._calculate_statistics(values, data)
 
@@ -224,9 +244,20 @@ class HistoricalDataService:
         options = options or QueryOptions()
         results = {}
 
-        # Query each point
-        for point_name in point_names:
+        # FIXED-P1: 原问题-串行查询多点，延迟累加；改为asyncio.gather并发查询
+        async def _query_one(point_name: str) -> tuple[str, QueryResult]:
             result = await self.query(device_id, point_name, options)
+            return point_name, result
+
+        pairs = await asyncio.gather(
+            *(_query_one(p) for p in point_names),
+            return_exceptions=True,
+        )
+        for pair in pairs:
+            if isinstance(pair, Exception):
+                logger.warning("query_multi_point partial failure: %s", pair)
+                continue
+            point_name, result = pair
             results[point_name] = result
 
         return results
@@ -266,7 +297,7 @@ class HistoricalDataService:
         result = await self.query(
             device_id,
             point_name,
-            QueryOptions(start=start, stop=stop, limit=100000),
+            QueryOptions(start=start, stop=stop, limit=_EXPORT_MAX_RECORDS),  # FIXED-P2: 使用_EXPORT_MAX_RECORDS限制最大导出记录数，防止OOM
         )
 
         if format.lower() == "csv":
@@ -327,7 +358,8 @@ class HistoricalDataService:
             return {"trend": "unknown", "slope": 0, "data": []}
 
         # Calculate trend using linear regression
-        values = [d["value"] for d in hourly_data if d.get("value") is not None]
+        # FIXED-P1: 原问题-d["value"]可能KeyError；改为d.get("value")安全访问
+        values = [d.get("value") for d in hourly_data if d.get("value") is not None]
         times = list(range(len(values)))
 
         if len(values) < 2:
@@ -337,14 +369,11 @@ class HistoricalDataService:
         n = len(values)
         sum_x = sum(times)
         sum_y = sum(values)
-        sum_xy = sum(t * v for t, v in zip(times, values))
+        sum_xy = sum(t * v for t, v in zip(times, values, strict=False))
         sum_x2 = sum(t * t for t in times)
 
         denominator = n * sum_x2 - sum_x * sum_x
-        if denominator == 0:
-            slope = 0
-        else:
-            slope = (n * sum_xy - sum_x * sum_y) / denominator
+        slope = 0 if denominator == 0 else (n * sum_xy - sum_x * sum_y) / denominator
 
         # Determine trend direction
         if abs(slope) < 0.001:
@@ -382,16 +411,25 @@ class HistoricalDataService:
             return {"correlation": None, "reason": "insufficient_data"}
 
         # Build time-indexed values
-        values1 = {d["time"]: d["value"] for d in result1.data_points if d.get("value") is not None}
-        values2 = {d["time"]: d["value"] for d in result2.data_points if d.get("value") is not None}
+        # FIXED(严重): 原问题-时间戳作dict key，相同时间戳数据点被覆盖;
+        # 修复-改用列表存储，相同时间戳取均值避免覆盖
+        values1: dict = {}
+        for d in result1.data_points:
+            if d.get("value") is not None and "time" in d:
+                values1.setdefault(d["time"], []).append(d["value"])
+        values2: dict = {}
+        for d in result2.data_points:
+            if d.get("value") is not None and "time" in d:
+                values2.setdefault(d["time"], []).append(d["value"])
 
         # Find common timestamps
         common_times = set(values1.keys()) & set(values2.keys())
         if len(common_times) < 3:
             return {"correlation": None, "reason": "insufficient_common_points"}
 
-        x_values = [values1[t] for t in sorted(common_times)]
-        y_values = [values2[t] for t in sorted(common_times)]
+        # Average values at duplicate timestamps
+        x_values = [sum(values1[t]) / len(values1[t]) for t in sorted(common_times)]
+        y_values = [sum(values2[t]) / len(values2[t]) for t in sorted(common_times)]
 
         # Calculate Pearson correlation coefficient
         n = len(x_values)
@@ -400,17 +438,17 @@ class HistoricalDataService:
 
         sum_x = sum(x_values)
         sum_y = sum(y_values)
-        sum_xy = sum(x * y for x, y in zip(x_values, y_values))
+        sum_xy = sum(x * y for x, y in zip(x_values, y_values, strict=False))
         sum_x2 = sum(x * x for x in x_values)
         sum_y2 = sum(y * y for y in y_values)
 
         numerator = n * sum_xy - sum_x * sum_y
-        denominator = math.sqrt((n * sum_x2 - sum_x ** 2) * (n * sum_y2 - sum_y ** 2))
+        # FIXED(一般): 原问题-浮点误差导致sqrt参数为负时抛ValueError;
+        # 修复-用max(0,...)保护，负值视为0（无相关性）
+        denom_arg = (n * sum_x2 - sum_x ** 2) * (n * sum_y2 - sum_y ** 2)
+        denominator = math.sqrt(max(0, denom_arg))
 
-        if denominator == 0:
-            correlation = 0
-        else:
-            correlation = numerator / denominator
+        correlation = 0 if denominator == 0 else numerator / denominator
 
         # Interpret correlation
         abs_corr = abs(correlation)
@@ -435,17 +473,33 @@ class HistoricalDataService:
 class DeviceShadowService:
     """Device shadow service for caching device state and offline data"""
 
+    # R11-SVC-06: _shadows 字典最大设备数上限，淘汰最久未活跃的设备影子，防止内存无限增长
+    _MAX_SHADOW_DEVICES = 500
+
     def __init__(self, influx_storage: InfluxDBStorage):
         self._influx = influx_storage
-        self._shadows: dict[str, dict] = {}  # device_id -> shadow state
+        # R11-SVC-06: 改用 OrderedDict，支持 LRU 式淘汰最久未写入的设备影子
+        self._shadows: OrderedDict[str, dict] = OrderedDict()  # device_id -> shadow state
         self._offline_cache: dict[str, list[dict]] = {}  # device_id -> pending commands
         self._update_callbacks: list[dict] = []
+        self._lock = asyncio.Lock()  # FIXED-P1: 并发更新保护，防止update_reported_state等竞态
+        # FIXED(严重): 原问题-离线命令缓存无限增长导致OOM; 修复-限制每设备最大缓存数
+        self._max_offline_commands_per_device = 1000
+
+    def _touch_shadow(self, device_id: str) -> None:
+        """R11-SVC-06: 写入 shadow 后更新 LRU 顺序并淘汰超限设备，必须在持有 _lock 时调用"""
+        self._shadows.move_to_end(device_id)
+        while len(self._shadows) > self._MAX_SHADOW_DEVICES:
+            _evicted_id, _ = self._shadows.popitem(last=False)
+            logger.debug("[shadow] Shadow cache full, evicted inactive device: %s", _evicted_id)
 
     async def get_shadow(self, device_id: str) -> dict | None:
         """Get device shadow state"""
         # Try cache first
-        if device_id in self._shadows:
-            return self._shadows[device_id]
+        # FIXED-P1: 加锁保护_shadows并发读写
+        async with self._lock:
+            if device_id in self._shadows:
+                return self._shadows[device_id]
 
         # Query latest values from InfluxDB
         latest = await self._influx.query_latest(device_id)
@@ -473,7 +527,10 @@ class DeviceShadowService:
             "version": 1,
         }
 
-        self._shadows[device_id] = shadow
+        async with self._lock:
+            self._shadows[device_id] = shadow
+            # R11-SVC-06: 更新 LRU 顺序并淘汰超限设备影子
+            self._touch_shadow(device_id)
         return shadow
 
     async def update_reported_state(
@@ -482,40 +539,49 @@ class DeviceShadowService:
         point_values: dict[str, float],
     ) -> dict:
         """Update device's reported state"""
-        shadow = await self.get_shadow(device_id)
-        if not shadow:
-            shadow = {
-                "device_id": device_id,
-                "state": {"reported": {}, "desired": {}, "metadata": {}},
-                "version": 0,
-            }
+        # FIXED-P1: 加锁保护shadow并发更新
+        async with self._lock:
+            shadow = self._shadows.get(device_id)
+            if not shadow:
+                shadow = {
+                    "device_id": device_id,
+                    "state": {"reported": {}, "desired": {}, "metadata": {}},
+                    "version": 0,
+                }
 
-        # Update reported values
-        reported = shadow["state"]["reported"]
-        metadata = shadow["state"]["metadata"]
-        now = datetime.now(UTC).isoformat()
+            # Update reported values
+            reported = shadow["state"]["reported"]
+            metadata = shadow["state"]["metadata"]
+            now = datetime.now(UTC).isoformat()
 
-        for point_name, value in point_values.items():
-            reported[point_name] = value
-            metadata[point_name] = {
-                "timestamp": now,
-                "quality": "reported",
-            }
+            for point_name, value in point_values.items():
+                reported[point_name] = value
+                metadata[point_name] = {
+                    "timestamp": now,
+                    "quality": "reported",
+                }
 
-        shadow["state"]["reported"] = reported
-        shadow["state"]["metadata"] = metadata
-        shadow["timestamp"] = now
-        shadow["version"] = shadow.get("version", 0) + 1
+            shadow["state"]["reported"] = reported
+            shadow["state"]["metadata"] = metadata
+            shadow["timestamp"] = now
+            shadow["version"] = shadow.get("version", 0) + 1
 
-        self._shadows[device_id] = shadow
+            self._shadows[device_id] = shadow
+            # R11-SVC-06: 更新 LRU 顺序并淘汰超限设备影子
+            self._touch_shadow(device_id)
+            # FIXED-P1: 复制callbacks列表，防止回调中修改列表导致迭代异常
+            callbacks_snapshot = list(self._update_callbacks)
 
-        # Trigger callbacks
-        for callback in self._update_callbacks:
+        # Trigger callbacks (outside lock to avoid deadlock)
+        # FIXED(一般): 原问题-回调接收shadow内部对象引用，回调中修改会污染内部状态;
+        # 修复-传递shadow的深拷贝副本
+        shadow_copy = copy.deepcopy(shadow)
+        for callback in callbacks_snapshot:
             try:
                 if asyncio.iscoroutinefunction(callback.get("fn")):
-                    await callback["fn"](device_id, shadow)
+                    await callback["fn"](device_id, shadow_copy)
                 else:
-                    callback["fn"](device_id, shadow)
+                    callback["fn"](device_id, shadow_copy)
             except Exception as e:
                 logger.debug("Shadow update callback error: %s", e)
 
@@ -527,34 +593,42 @@ class DeviceShadowService:
         point_values: dict[str, float],
     ) -> dict:
         """Update device's desired state (for command sending)"""
-        shadow = await self.get_shadow(device_id)
-        if not shadow:
-            shadow = {
-                "device_id": device_id,
-                "state": {"reported": {}, "desired": {}, "metadata": {}},
-                "version": 0,
-            }
+        # FIXED-P1: 加锁保护shadow并发更新
+        async with self._lock:
+            shadow = self._shadows.get(device_id)
+            if not shadow:
+                shadow = {
+                    "device_id": device_id,
+                    "state": {"reported": {}, "desired": {}, "metadata": {}},
+                    "version": 0,
+                }
 
-        desired = shadow["state"]["desired"]
-        now = datetime.now(UTC).isoformat()
+            desired = shadow["state"]["desired"]
+            now = datetime.now(UTC).isoformat()
 
-        for point_name, value in point_values.items():
-            desired[point_name] = value
+            for point_name, value in point_values.items():
+                desired[point_name] = value
 
-        shadow["state"]["desired"] = desired
-        shadow["timestamp"] = now
-        shadow["version"] = shadow.get("version", 0) + 1
+            shadow["state"]["desired"] = desired
+            shadow["timestamp"] = now
+            shadow["version"] = shadow.get("version", 0) + 1
 
-        self._shadows[device_id] = shadow
+            self._shadows[device_id] = shadow
+            # R11-SVC-06: 更新 LRU 顺序并淘汰超限设备影子
+            self._touch_shadow(device_id)
         return shadow
 
-    def register_update_callback(self, callback: callable) -> None:
+    async def register_update_callback(self, callback: callable) -> None:
         """Register callback for shadow updates"""
-        self._update_callbacks.append({"fn": callback})
+        # FIXED(一般): 原问题-修改_update_callbacks无锁保护导致数据竞争; 修复-加锁保护
+        async with self._lock:
+            self._update_callbacks.append({"fn": callback})
 
-    def unregister_update_callback(self, callback: callable) -> None:
+    async def unregister_update_callback(self, callback: callable) -> None:
         """Unregister shadow update callback"""
-        self._update_callbacks = [c for c in self._update_callbacks if c.get("fn") != callback]
+        # FIXED(一般): 原问题-修改_update_callbacks无锁保护导致数据竞争; 修复-加锁保护
+        async with self._lock:
+            self._update_callbacks = [c for c in self._update_callbacks if c.get("fn") != callback]
 
     async def get_delta(self, device_id: str) -> dict | None:
         """Get delta between reported and desired state"""
@@ -582,40 +656,63 @@ class DeviceShadowService:
         command: dict,
     ) -> bool:
         """Cache command for device when offline"""
-        if device_id not in self._offline_cache:
-            self._offline_cache[device_id] = []
+        # FIXED(严重): 原问题-离线命令缓存无锁并发访问导致数据竞争;
+        # 修复-加锁保护并限制每设备最大缓存数，超出时丢弃最旧命令
+        async with self._lock:
+            if device_id not in self._offline_cache:
+                self._offline_cache[device_id] = []
 
-        self._offline_cache[device_id].append({
-            "command": command,
-            "timestamp": datetime.now(UTC).isoformat(),
-            "retries": 0,
-        })
+            cache_list = self._offline_cache[device_id]
+            cache_list.append({
+                "command": command,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "retries": 0,
+            })
+
+            # Enforce size limit: drop oldest commands beyond the cap
+            if len(cache_list) > self._max_offline_commands_per_device:
+                overflow = len(cache_list) - self._max_offline_commands_per_device
+                del cache_list[:overflow]
+                logger.warning(
+                    "Offline cache full for device %s, dropped %d oldest commands",
+                    device_id, overflow,
+                )
 
         logger.info("Command cached for offline device: %s", device_id)
         return True
 
     async def get_pending_commands(self, device_id: str) -> list[dict]:
         """Get pending commands for device"""
-        return list(self._offline_cache.get(device_id, []))
+        # FIXED(严重): 原问题-无锁读取_offline_cache导致数据竞争; 修复-加锁保护
+        async with self._lock:
+            return list(self._offline_cache.get(device_id, []))
 
     async def clear_pending_commands(self, device_id: str) -> int:
         """Clear pending commands for device"""
-        if device_id in self._offline_cache:
-            count = len(self._offline_cache[device_id])
-            del self._offline_cache[device_id]
-            return count
-        return 0
+        # FIXED(严重): 原问题-无锁修改_offline_cache导致数据竞争; 修复-加锁保护
+        async with self._lock:
+            if device_id in self._offline_cache:
+                count = len(self._offline_cache[device_id])
+                del self._offline_cache[device_id]
+                return count
+            return 0
 
-    def get_all_shadows(self) -> list[dict]:
+    async def get_all_shadows(self) -> list[dict]:
         """Get all device shadows"""
-        return list(self._shadows.values())
+        # FIXED(严重): 原问题-同步方法无锁访问_shadows与异步方法锁保护不一致;
+        # 修复-改为async并加锁保护
+        async with self._lock:
+            return list(self._shadows.values())
 
-    def clear_shadow(self, device_id: str) -> bool:
+    async def clear_shadow(self, device_id: str) -> bool:
         """Clear device shadow from cache"""
-        if device_id in self._shadows:
-            del self._shadows[device_id]
-            return True
-        return False
+        # FIXED(严重): 原问题-同步方法无锁修改_shadows与异步方法锁保护不一致;
+        # 修复-改为async并加锁保护
+        async with self._lock:
+            if device_id in self._shadows:
+                del self._shadows[device_id]
+                return True
+            return False
 
 
 # Global instances

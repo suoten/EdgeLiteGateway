@@ -24,6 +24,7 @@ class MqttTlsHelper:
             return None
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # FIXED-P1: 强制最低TLS 1.2，禁用不安全的TLS 1.0/1.1
 
         if cert_reqs == "none":
             import os

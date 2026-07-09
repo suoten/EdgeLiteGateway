@@ -15,6 +15,7 @@ export function setupLocale(locale: string, msgs: LocaleMessages) {
 }
 
 export function setLocale(locale: string) {
+  if (locale !== 'zh-CN' && locale !== 'en-US') return
   if (localeMessages[locale]) {
     currentLocale.value = locale
     localStorage.setItem('edgelite_locale', locale)
@@ -40,7 +41,9 @@ export function initLocale() {
   }
 }
 
-export function t(key: string, params?: Record<string, string | number>): string {
+export function t(key: string, params?: Record<string, string | number> | string): string {
+  const fallbackStr = typeof params === 'string' ? params : undefined
+  const actualParams = typeof params === 'object' ? params : undefined
   const parts = key.split('.')
   let result: string | LocaleMessages = localeMessages[currentLocale.value] || {}
   if (typeof result !== 'object' || result === null || Object.keys(result).length === 0) {
@@ -50,15 +53,30 @@ export function t(key: string, params?: Record<string, string | number>): string
     if (typeof result === 'object' && result !== null && part in result) {
       result = result[part]
     } else {
-      return key
+      const fallback = _resolveFallback(parts, localeMessages['en-US'] || {})
+      if (fallback === undefined) return fallbackStr !== undefined ? fallbackStr : key
+      result = fallback
+      break
     }
   }
-  if (typeof result !== 'string') return key
-  if (!params) return result
-  return Object.entries(params).reduce(
+  if (typeof result !== 'string') return fallbackStr !== undefined ? fallbackStr : key
+  if (!actualParams) return result
+  return Object.entries(actualParams).reduce(
     (s, [k, v]) => s.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v)),
     result,
   )
+}
+
+function _resolveFallback(parts: string[], messages: LocaleMessages): string | undefined {
+  let result: string | LocaleMessages = messages
+  for (const part of parts) {
+    if (typeof result === 'object' && result !== null && part in result) {
+      result = result[part]
+    } else {
+      return undefined
+    }
+  }
+  return typeof result === 'string' ? result : undefined
 }
 
 export { type LocaleMessages }

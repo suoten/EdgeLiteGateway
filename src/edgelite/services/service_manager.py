@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib  # FIXED-P1: install_dependency 超时处理需要 contextlib.suppress
 import importlib
 import logging
+import platform
 import sys
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -15,12 +17,22 @@ from edgelite.config import get_config, update_config_section
 logger = logging.getLogger(__name__)
 
 
-class ServiceErrors(StrEnum):  # FIXED: 原问题-ServiceErrors引用但未定义，导致NameError
+class ServiceErrors(StrEnum):
     START_FAILED = "ERR_SVC_START_FAILED"
     UNKNOWN_SERVICE = "ERR_SVC_UNKNOWN_SERVICE"
     DEPS_INSTALL_FAILED = "ERR_SVC_DEPS_INSTALL_FAILED"
     ALREADY_RUNNING = "ERR_SVC_ALREADY_RUNNING"
     NOT_RUNNING = "ERR_SVC_NOT_RUNNING"
+    CONFIG_UPDATE_FAILED = "ERR_SVC_CONFIG_UPDATE_FAILED"
+    DEPS_MISSING = "ERR_SVC_DEPS_MISSING"
+    PIP_VERIFY_FAILED = "ERR_SVC_PIP_VERIFY_FAILED"
+    SERVICE_ENABLED_STARTED = "ERR_SVC_ENABLED_STARTED"
+    SERVICE_DISABLED = "ERR_SVC_DISABLED"
+    SERVICE_STARTED = "ERR_SVC_STARTED"
+    SERVICE_STOPPED = "ERR_SVC_STOPPED"
+    CONFIG_UPDATED_RESTARTED = "ERR_SVC_CONFIG_UPDATED_RESTARTED"
+    CONFIG_UPDATED_RESTART_FAILED = "ERR_SVC_CONFIG_UPDATED_RESTART_FAILED"
+    CONFIG_UPDATED = "ERR_SVC_CONFIG_UPDATED"
 
 
 class ServiceState(StrEnum):
@@ -60,241 +72,250 @@ class ServiceInfo:
 # pip包名到Python导入名的映射（当两者不一致时需要在此添加）
 _PIP_TO_IMPORT = {
     "pyserial": "serial",
+    "pyserial-asyncio": "serial_asyncio",
+    "onvif-zeep": "onvif",
+    "onvif-zeep-async": "onvif",
+    "pymodbus": "pymodbus",
+    "pymcprotocol": "pymcprotocol",
+    "pylogix": "pylogix",
+    "snap7": "snap7",
+    "asyncua": "asyncua",
+    "fins": "fins",
 }
 
 SERVICE_DEFINITIONS = {
     "mqtt_server": {
-        "display_name": "内置 MQTT Server",
-        "description": "轻量级MQTT Broker服务，支持标准MQTT 3.1.1协议和WebSocket接入",
+        "display_name": "SVC_MQTT_SERVER_DISPLAY_NAME",
+        "description": "SVC_MQTT_SERVER_DESCRIPTION",
         "icon": "radio",
         "category": "builtin",
         "config_section": "mqtt_server",
         "dependencies": ["amqtt"],
         "engine_class": "edgelite.engine.mqtt_server.MqttServer",
         "use_cases": [
-            "本地设备通过MQTT协议接入网关",
-            "作为开发测试用的MQTT Broker",
-            "南向设备模拟数据上报",
+            "SVC_MQTT_SERVER_USE_CASE_1",
+            "SVC_MQTT_SERVER_USE_CASE_2",
+            "SVC_MQTT_SERVER_USE_CASE_3",
         ],
         "related_features": [
-            {"name": "设备管理", "route": "Devices", "hint": "MQTT设备可通过此Broker接入"},
-            {"name": "平台对接", "route": "PlatformConfig", "hint": "北向平台可订阅MQTT数据"},
+            {"name": "SVC_MQTT_SERVER_RELATED_1_NAME", "route": "Devices", "hint": "SVC_MQTT_SERVER_RELATED_1_HINT"},
+            {"name": "SVC_MQTT_SERVER_RELATED_2_NAME", "route": "PlatformConfig", "hint": "SVC_MQTT_SERVER_RELATED_2_HINT"},
         ],
         "setup_guide": [
-            "开启服务开关启用MQTT Server",
-            "如缺少依赖，点击「一键安装」自动安装amqtt",
-            "配置监听端口和认证信息",
-            "启动服务后，设备即可通过MQTT协议连接",
+            "SVC_MQTT_SERVER_GUIDE_1",
+            "SVC_MQTT_SERVER_GUIDE_2",
+            "SVC_MQTT_SERVER_GUIDE_3",
+            "SVC_MQTT_SERVER_GUIDE_4",
         ],
         "config_schema": {
             "host": {
                 "type": "string",
-                "default": "0.0.0.0",
-                "label": "监听地址",
-                "description": "MQTT Broker监听的IP地址，0.0.0.0表示所有网卡",
+                "default": "127.0.0.1",  # FIXED-P3: 默认值改为localhost，与引擎层一致
+                "label": "SVC_MQTT_SERVER_HOST_LABEL",
+                "description": "SVC_MQTT_SERVER_HOST_DESC",
             },
             "port": {
                 "type": "integer",
                 "default": 1888,
-                "label": "TCP端口",
-                "description": "MQTT TCP连接端口，默认1888避免与外部Broker冲突",
+                "label": "SVC_MQTT_SERVER_PORT_LABEL",
+                "description": "SVC_MQTT_SERVER_PORT_DESC",
             },
             "ws_port": {
                 "type": "integer",
                 "default": 8083,
-                "label": "WebSocket端口",
-                "description": "WebSocket连接端口，供浏览器端客户端使用",
+                "label": "SVC_MQTT_SERVER_WS_PORT_LABEL",
+                "description": "SVC_MQTT_SERVER_WS_PORT_DESC",
                 "nullable": True,
             },
             "username": {
                 "type": "string",
                 "default": "",
-                "label": "认证用户名",
-                "description": "留空则允许匿名连接",
+                "label": "SVC_MQTT_SERVER_USERNAME_LABEL",
+                "description": "SVC_MQTT_SERVER_USERNAME_DESC",
             },
             "password": {
                 "type": "string",
                 "default": "",
-                "label": "认证密码",
-                "description": "留空则不需要密码",
+                "label": "SVC_MQTT_SERVER_PASSWORD_LABEL",
+                "description": "SVC_MQTT_SERVER_PASSWORD_DESC",
             },
         },
     },
     "modbus_slave": {
-        "display_name": "内置 Modbus Slave",
-        "description": "Modbus TCP从站模拟器，支持四类寄存器和设备数据映射",
+        "display_name": "SVC_MODBUS_SLAVE_DISPLAY_NAME",
+        "description": "SVC_MODBUS_SLAVE_DESCRIPTION",
         "icon": "power",
         "category": "builtin",
         "config_section": "modbus_slave",
         "dependencies": ["pymodbus"],
         "engine_class": "edgelite.engine.modbus_slave.ModbusSlaveServer",
         "use_cases": [
-            "模拟Modbus从站设备供上位机/PLC读取",
-            "将网关采集的设备数据映射到Modbus寄存器",
-            "开发调试Modbus通信功能",
+            "SVC_MODBUS_SLAVE_USE_CASE_1",
+            "SVC_MODBUS_SLAVE_USE_CASE_2",
+            "SVC_MODBUS_SLAVE_USE_CASE_3",
         ],
         "related_features": [
-            {"name": "设备管理", "route": "Devices", "hint": "设备测点数据可映射到Modbus寄存器"},
-            {"name": "数据查询", "route": "DataQuery", "hint": "查询映射到寄存器的设备数据"},
+            {"name": "SVC_MODBUS_SLAVE_RELATED_1_NAME", "route": "Devices", "hint": "SVC_MODBUS_SLAVE_RELATED_1_HINT"},
+            {"name": "SVC_MODBUS_SLAVE_RELATED_2_NAME", "route": "DataQuery", "hint": "SVC_MODBUS_SLAVE_RELATED_2_HINT"},
         ],
         "setup_guide": [
-            "开启服务开关启用Modbus Slave",
-            "如缺少依赖，点击「一键安装」自动安装pymodbus",
-            "配置监听端口和寄存器数量",
-            "启动服务后，上位机可通过Modbus TCP读取数据",
+            "SVC_MODBUS_SLAVE_GUIDE_1",
+            "SVC_MODBUS_SLAVE_GUIDE_2",
+            "SVC_MODBUS_SLAVE_GUIDE_3",
+            "SVC_MODBUS_SLAVE_GUIDE_4",
         ],
         "config_schema": {
             "host": {
                 "type": "string",
-                "default": "0.0.0.0",
-                "label": "监听地址",
-                "description": "Modbus从站监听的IP地址",
+                "default": "127.0.0.1",  # FIXED-P3: 默认值改为localhost，与引擎层一致
+                "label": "SVC_MODBUS_SLAVE_HOST_LABEL",
+                "description": "SVC_MODBUS_SLAVE_HOST_DESC",
             },
             "port": {
                 "type": "integer",
                 "default": 502,
-                "label": "监听端口",
-                "description": "Modbus TCP标准端口为502",
+                "label": "SVC_MODBUS_SLAVE_PORT_LABEL",
+                "description": "SVC_MODBUS_SLAVE_PORT_DESC",
             },
             "holding_size": {
                 "type": "integer",
                 "default": 1000,
-                "label": "保持寄存器数量",
-                "description": "可读写的保持寄存器数量",
+                "label": "SVC_MODBUS_SLAVE_HOLDING_LABEL",
+                "description": "SVC_MODBUS_SLAVE_HOLDING_DESC",
             },
             "input_size": {
                 "type": "integer",
                 "default": 1000,
-                "label": "输入寄存器数量",
-                "description": "只读的输入寄存器数量",
+                "label": "SVC_MODBUS_SLAVE_INPUT_LABEL",
+                "description": "SVC_MODBUS_SLAVE_INPUT_DESC",
             },
         },
     },
     "serial_bridge": {
-        "display_name": "串口桥接",
-        "description": "串口到TCP的双向数据透传桥接服务",
+        "display_name": "SVC_SERIAL_BRIDGE_DISPLAY_NAME",
+        "description": "SVC_SERIAL_BRIDGE_DESCRIPTION",
         "icon": "swap",
         "category": "builtin",
         "config_section": "serial_bridge",
-        "dependencies": ["pyserial"],
+        "dependencies": ["pyserial", "pyserial-asyncio"],
         "engine_class": "edgelite.engine.serial_bridge.SerialTcpBridge",
         "use_cases": [
-            "远程访问本地串口设备",
-            "通过网络透传串口数据到远程服务器",
-            "多客户端同时访问同一串口设备",
+            "SVC_SERIAL_BRIDGE_USE_CASE_1",
+            "SVC_SERIAL_BRIDGE_USE_CASE_2",
+            "SVC_SERIAL_BRIDGE_USE_CASE_3",
         ],
         "related_features": [
-            {"name": "设备管理", "route": "Devices", "hint": "串口设备可通过桥接远程管理"},
-            {"name": "驱动配置", "route": "DriverConfig", "hint": "配置串口驱动参数"},
+            {"name": "SVC_SERIAL_BRIDGE_RELATED_1_NAME", "route": "Devices", "hint": "SVC_SERIAL_BRIDGE_RELATED_1_HINT"},
+            {"name": "SVC_SERIAL_BRIDGE_RELATED_2_NAME", "route": "DriverConfig", "hint": "SVC_SERIAL_BRIDGE_RELATED_2_HINT"},
         ],
         "setup_guide": [
-            "确保网关已连接串口设备（如USB转串口）",
-            "开启服务开关启用串口桥接",
-            "如缺少依赖，点击「一键安装」自动安装pyserial",
-            "配置串口设备路径、波特率和TCP端口",
-            "启动服务后，远程客户端可通过TCP连接访问串口",
+            "SVC_SERIAL_BRIDGE_GUIDE_1",
+            "SVC_SERIAL_BRIDGE_GUIDE_2",
+            "SVC_SERIAL_BRIDGE_GUIDE_3",
+            "SVC_SERIAL_BRIDGE_GUIDE_4",
+            "SVC_SERIAL_BRIDGE_GUIDE_5",
         ],
         "config_schema": {
             "serial_port": {
                 "type": "string",
-                "default": "/dev/ttyUSB0",
-                "label": "串口设备",
-                "description": "串口设备路径，Linux如/dev/ttyUSB0，Windows如COM3",
+                "default": "COM1" if platform.system() == "Windows" else "/dev/ttyUSB0",
+                "label": "SVC_SERIAL_BRIDGE_SERIAL_PORT_LABEL",
+                "description": "SVC_SERIAL_BRIDGE_SERIAL_PORT_DESC",
             },
             "baud_rate": {
                 "type": "integer",
                 "default": 9600,
-                "label": "波特率",
-                "description": "串口通信波特率，需与设备一致",
+                "label": "SVC_SERIAL_BRIDGE_BAUD_RATE_LABEL",
+                "description": "SVC_SERIAL_BRIDGE_BAUD_RATE_DESC",
             },
             "tcp_port": {
                 "type": "integer",
                 "default": 9000,
-                "label": "TCP监听端口",
-                "description": "远程客户端连接的TCP端口",
+                "label": "SVC_SERIAL_BRIDGE_TCP_PORT_LABEL",
+                "description": "SVC_SERIAL_BRIDGE_TCP_PORT_DESC",
             },
             "ip_whitelist": {
                 "type": "array",
                 "default": [],
-                "label": "IP白名单",
-                "description": "允许连接的IP地址列表，留空则允许所有",
+                "label": "SVC_SERIAL_BRIDGE_IP_WHITELIST_LABEL",
+                "description": "SVC_SERIAL_BRIDGE_IP_WHITELIST_DESC",
             },
             "max_clients": {
                 "type": "integer",
                 "default": 5,
-                "label": "最大客户端数",
-                "description": "同时连接的最大客户端数量",
+                "label": "SVC_SERIAL_BRIDGE_MAX_CLIENTS_LABEL",
+                "description": "SVC_SERIAL_BRIDGE_MAX_CLIENTS_DESC",
             },
         },
     },
     "mcp_server": {
-        "display_name": "MCP Server",
-        "description": "Model Context Protocol服务端，提供AI助手与网关交互的标准协议接口",
+        "display_name": "SVC_MCP_SERVER_DISPLAY_NAME",
+        "description": "SVC_MCP_SERVER_DESCRIPTION",
         "icon": "puzzle",
         "category": "integration",
         "config_section": "mcp_server",
         "dependencies": [],
         "engine_class": None,
         "use_cases": [
-            "让AI助手（如Claude、ChatGPT）直接查询设备状态",
-            "通过AI对话控制设备读写操作",
-            "AI辅助分析告警和规则配置",
+            "SVC_MCP_SERVER_USE_CASE_1",
+            "SVC_MCP_SERVER_USE_CASE_2",
+            "SVC_MCP_SERVER_USE_CASE_3",
         ],
         "related_features": [
-            {"name": "设备管理", "route": "Devices", "hint": "AI可查询和控制设备"},
-            {"name": "告警中心", "route": "Alarms", "hint": "AI可分析活跃告警"},
-            {"name": "规则管理", "route": "Rules", "hint": "AI可查看和辅助配置规则"},
+            {"name": "SVC_MCP_SERVER_RELATED_1_NAME", "route": "Devices", "hint": "SVC_MCP_SERVER_RELATED_1_HINT"},
+            {"name": "SVC_MCP_SERVER_RELATED_2_NAME", "route": "Alarms", "hint": "SVC_MCP_SERVER_RELATED_2_HINT"},
+            {"name": "SVC_MCP_SERVER_RELATED_3_NAME", "route": "Rules", "hint": "SVC_MCP_SERVER_RELATED_3_HINT"},
         ],
         "setup_guide": [
-            "开启服务开关启用MCP Server",
-            "MCP Server无需额外依赖，启用即可使用",
-            "在AI客户端配置SSE端点：http://网关地址:端口/api/v1/mcp/sse",
-            "如需认证，创建API Key并在客户端配置",
+            "SVC_MCP_SERVER_GUIDE_1",
+            "SVC_MCP_SERVER_GUIDE_2",
+            "SVC_MCP_SERVER_GUIDE_3",
+            "SVC_MCP_SERVER_GUIDE_4",
         ],
         "config_schema": {},
     },
     "grafana": {
-        "display_name": "Grafana监控",
-        "description": "Grafana可视化监控集成，支持仪表板嵌入和数据源配置",
+        "display_name": "SVC_GRAFANA_DISPLAY_NAME",
+        "description": "SVC_GRAFANA_DESCRIPTION",
         "icon": "chart",
         "category": "integration",
         "config_section": "grafana",
         "dependencies": ["httpx"],
         "engine_class": None,
         "use_cases": [
-            "在网关界面直接查看Grafana仪表板",
-            "通过Grafana对设备数据进行高级可视化分析",
-            "统一监控大屏展示",
+            "SVC_GRAFANA_USE_CASE_1",
+            "SVC_GRAFANA_USE_CASE_2",
+            "SVC_GRAFANA_USE_CASE_3",
         ],
         "related_features": [
-            {"name": "数据查询", "route": "DataQuery", "hint": "Grafana可查询InfluxDB中的历史数据"},
-            {"name": "系统管理", "route": "System", "hint": "系统状态可同步到Grafana监控"},
+            {"name": "SVC_GRAFANA_RELATED_1_NAME", "route": "DataQuery", "hint": "SVC_GRAFANA_RELATED_1_HINT"},
+            {"name": "SVC_GRAFANA_RELATED_2_NAME", "route": "System", "hint": "SVC_GRAFANA_RELATED_2_HINT"},
         ],
         "setup_guide": [
-            "确保已部署Grafana服务（默认端口3001）",
-            "开启服务开关启用Grafana集成",
-            "如缺少依赖，点击「一键安装」自动安装httpx",
-            "配置Grafana地址和API Key",
-            "在Grafana中配置InfluxDB数据源指向网关的时序数据库",
+            "SVC_GRAFANA_GUIDE_1",
+            "SVC_GRAFANA_GUIDE_2",
+            "SVC_GRAFANA_GUIDE_3",
+            "SVC_GRAFANA_GUIDE_4",
+            "SVC_GRAFANA_GUIDE_5",
         ],
         "config_schema": {
             "url": {
                 "type": "string",
                 "default": "http://localhost:3001",
-                "label": "Grafana地址",
-                "description": "Grafana服务的完整访问地址",
+                "label": "SVC_GRAFANA_URL_LABEL",
+                "description": "SVC_GRAFANA_URL_DESC",
             },
             "api_key": {
                 "type": "string",
                 "default": "",
-                "label": "API Key",
-                "description": "Grafana API密钥，用于访问仪表板接口",
+                "label": "SVC_GRAFANA_API_KEY_LABEL",
+                "description": "SVC_GRAFANA_API_KEY_DESC",
             },
             "datasource": {
                 "type": "string",
                 "default": "InfluxDB",
-                "label": "数据源名称",
-                "description": "Grafana中配置的数据源名称",
+                "label": "SVC_GRAFANA_DATASOURCE_LABEL",
+                "description": "SVC_GRAFANA_DATASOURCE_DESC",
             },
         },
     },
@@ -307,6 +328,10 @@ class ServiceManager:
     def __init__(self):
         self._instances: dict[str, Any] = {}
         self._install_tasks: dict[str, asyncio.Task] = {}
+        # FIX-P1: 串行化 start_service/stop_service/update_service_config，
+        # 避免 start_service 的 is_running 检查与 _start_service_instance 之间
+        # 的 TOCTOU 竞态导致重复启动或状态不一致。
+        self._op_lock = asyncio.Lock()
 
     def _get_app_state(self):
         from edgelite.app import _app_state
@@ -332,6 +357,8 @@ class ServiceManager:
         return all(d.installed for d in self.check_dependencies(service_name))
 
     async def install_dependency(self, package_name: str) -> dict:
+        # FIXED-P1: 原代码无超时控制，pip install 可能长时间运行（网络问题/编译依赖）
+        # 添加 300 秒超时，避免无限等待
         try:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
@@ -342,29 +369,40 @@ class ServiceManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+            except TimeoutError:
+                proc.kill()
+                with contextlib.suppress(Exception):
+                    await proc.wait()
+                logger.error("Dependency install timed out (300s): %s", package_name)
+                return {
+                    "package": package_name,
+                    "success": False,
+                    "error": "Installation timed out after 300 seconds",
+                }
             if proc.returncode == 0:
-                logger.info("依赖安装成功: %s", package_name)
+                logger.info("Dependency installed: %s", package_name)
                 return {
                     "package": package_name,
                     "success": True,
                     "output": stdout.decode(errors="replace"),
                 }
             else:
-                logger.error("依赖安装失败: %s - %s", package_name, stderr.decode(errors="replace"))
+                logger.error("Dependency install failed: %s - %s", package_name, stderr.decode(errors="replace"))
                 return {
                     "package": package_name,
                     "success": False,
                     "error": stderr.decode(errors="replace"),
                 }
         except Exception as e:
-            logger.error("依赖安装异常: %s - %s", package_name, e)
+            logger.error("Dependency install exception: %s - %s", package_name, e)
             return {"package": package_name, "success": False, "error": str(e)}
 
     async def install_service_dependencies(self, service_name: str) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"error": f"Unknown service: {service_name}"}  # FIXED: 原问题-中文硬编码错误消息
+            return {"error": ServiceErrors.UNKNOWN_SERVICE, "detail": service_name}
 
         results = []
         for dep in svc_def["dependencies"]:
@@ -377,10 +415,8 @@ class ServiceManager:
                         result = {
                             "package": dep,
                             "success": False,
-                            "error": (
-                                f"pip安装成功但模块验证失败"
-                                f"(pip包:{dep}, 导入名:{_PIP_TO_IMPORT.get(dep, dep)})"
-                            ),
+                            "error": ServiceErrors.PIP_VERIFY_FAILED,
+                            "detail": f"pip:{dep}, import:{_PIP_TO_IMPORT.get(dep, dep)}",
                         }
                 results.append(result)
             else:
@@ -398,7 +434,7 @@ class ServiceManager:
                 description="",
                 config_section="",
                 state=ServiceState.ERROR,
-                error_message=f"Unknown service: {service_name}",  # FIXED: 原问题-中文硬编码错误消息
+                error_message=ServiceErrors.UNKNOWN_SERVICE,
             )
 
         config = get_config()
@@ -427,7 +463,7 @@ class ServiceManager:
                         "client_count": getattr(stats, "client_count", 0),
                     }
                 except Exception as e:
-                    logger.debug("获取服务 %s 运行信息失败: %s", service_name, e)
+                    logger.debug("Failed to get service %s running info: %s", service_name, e)
             if is_running and service_name == "mqtt_server":
                 try:
                     if hasattr(instance, "get_client_count"):
@@ -450,7 +486,7 @@ class ServiceManager:
                             getattr(sb_stats, "client_count", 0)
                         )
                 except Exception as e:  # FIXED: 原问题-获取串口桥接统计异常静默置零，无日志
-                    logger.debug("获取串口桥接统计失败: %s", e)
+                    logger.debug("Failed to get serial bridge stats: %s", e)
                     running_info["total_connections"] = 0
 
         api_only_services = {"mcp_server", "grafana"}
@@ -504,16 +540,15 @@ class ServiceManager:
     async def enable_service(self, service_name: str, config_values: dict | None = None) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
-            return {"success": False, "error": f"Unknown service: {service_name}"}  # FIXED: 原问题-中文硬编码错误消息
+            return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE, "detail": service_name}
 
         deps = self.check_dependencies(service_name)
         missing = [d.package for d in deps if not d.installed]
         if missing:
             return {
                 "success": False,
-                "error": f"Missing dependencies: {', '.join(missing)}",  # FIXED: 原问题-中文硬编码错误消息
+                "error": ServiceErrors.DEPS_MISSING,
                 "missing_dependencies": missing,
-                "hint": "请先安装依赖后再启用服务",
             }
 
         config_section = svc_def["config_section"]
@@ -524,13 +559,13 @@ class ServiceManager:
         try:
             update_config_section(config_section, values)
         except Exception as e:
-            logger.error("更新配置失败: %s - %s", config_section, e)
-            return {"success": False, "error": f"更新配置失败: {e}"}
+            logger.error("Config update failed: %s - %s", config_section, e)
+            return {"success": False, "error": ServiceErrors.CONFIG_UPDATE_FAILED, "detail": str(e)}
 
         try:
             await self._start_service_instance(service_name, config_values)
         except RuntimeError as e:
-            logger.warning("服务启用但启动失败: %s - %s", service_name, e)
+            logger.warning("Service enabled but start failed: %s - %s", service_name, e)
             update_config_section(config_section, {"enabled": False})
             return {
                 "success": False,
@@ -540,7 +575,7 @@ class ServiceManager:
                 "hint": self._get_start_error_hint(service_name, e),
             }
         except Exception as e:
-            logger.error("启动服务失败: %s - %s", service_name, e)
+            logger.error("Service start failed: %s - %s", service_name, e)
             update_config_section(config_section, {"enabled": False})
             return {
                 "success": False,
@@ -550,7 +585,7 @@ class ServiceManager:
                 "hint": self._get_start_error_hint(service_name, e),
             }
 
-        return {"success": True, "message": f"{svc_def['display_name']}已启用并启动"}
+        return {"success": True, "message": ServiceErrors.SERVICE_ENABLED_STARTED}
 
     async def disable_service(self, service_name: str) -> dict:
         svc_def = SERVICE_DEFINITIONS.get(service_name)
@@ -562,68 +597,80 @@ class ServiceManager:
             try:
                 await self._stop_service_instance(service_name)
             except Exception as e:
-                logger.warning("停止服务异常: %s - %s", service_name, e)
+                logger.warning("Service stop exception: %s - %s", service_name, e)
 
         config_section = svc_def["config_section"]
         try:
             update_config_section(config_section, {"enabled": False})
         except Exception as e:
-            logger.error("更新配置失败: %s - %s", config_section, e)
-            return {"success": False, "error": f"更新配置失败: {e}"}
+            logger.error("Config update failed: %s - %s", config_section, e)
+            return {"success": False, "error": ServiceErrors.CONFIG_UPDATE_FAILED, "detail": str(e)}
 
-        return {"success": True, "message": f"{svc_def['display_name']}已停用"}
+        return {"success": True, "message": ServiceErrors.SERVICE_DISABLED}
 
     async def start_service(self, service_name: str) -> dict:
-        svc_def = SERVICE_DEFINITIONS.get(service_name)
-        if not svc_def:
-            return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
+        # FIX-P1: 使用 _op_lock 串行化，避免 is_running 检查与 _start_service_instance
+        # 之间的 TOCTOU 竞态（并发调用可能重复启动同一服务）。
+        async with self._op_lock:
+            svc_def = SERVICE_DEFINITIONS.get(service_name)
+            if not svc_def:
+                return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
 
-        instance = self._get_instance(service_name)
-        if instance and hasattr(instance, "is_running") and instance.is_running:
-            return {"success": True, "message": "服务已在运行中"}
+            instance = self._get_instance(service_name)
+            if instance and hasattr(instance, "is_running") and instance.is_running:
+                return {"success": True, "message": ServiceErrors.ALREADY_RUNNING}
 
-        if not self.all_dependencies_met(service_name):
-            return {"success": False, "error": ServiceErrors.DEPS_INSTALL_FAILED}
+            if not self.all_dependencies_met(service_name):
+                return {"success": False, "error": ServiceErrors.DEPS_INSTALL_FAILED}
 
-        try:
-            await self._start_service_instance(service_name)
-            return {"success": True, "message": f"{svc_def['display_name']}已启动"}
-        except RuntimeError as e:
-            return {"success": False, "error": ServiceErrors.START_FAILED, "error_type": "runtime", "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
-        except Exception as e:
-            return {"success": False, "error": ServiceErrors.START_FAILED, "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
+            try:
+                await self._start_service_instance(service_name)
+                return {"success": True, "message": ServiceErrors.SERVICE_STARTED}
+            except RuntimeError as e:
+                return {"success": False, "error": ServiceErrors.START_FAILED, "error_type": "runtime", "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
+            except Exception as e:
+                return {"success": False, "error": ServiceErrors.START_FAILED, "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
 
     async def stop_service(self, service_name: str) -> dict:
-        svc_def = SERVICE_DEFINITIONS.get(service_name)
-        if not svc_def:
-            return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
+        # FIX-P1: 使用 _op_lock 串行化，与 start_service/update_service_config 互斥，
+        # 避免 stop 与 start 并发导致状态不一致。
+        async with self._op_lock:
+            svc_def = SERVICE_DEFINITIONS.get(service_name)
+            if not svc_def:
+                return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
 
-        instance = self._get_instance(service_name)
-        if not instance:
-            return {"success": True, "message": "服务未运行"}
+            instance = self._get_instance(service_name)
+            if not instance:
+                return {"success": True, "message": ServiceErrors.NOT_RUNNING}
 
-        try:
-            await self._stop_service_instance(service_name)
-            return {"success": True, "message": f"{svc_def['display_name']}已停止"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+            try:
+                await self._stop_service_instance(service_name)
+                return {"success": True, "message": ServiceErrors.SERVICE_STOPPED}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
 
     def _get_start_error_hint(self, service_name: str, error: Exception) -> str:
         err_msg = str(error).lower()
         hints = {
             "mqtt_server": {
-                "address already in use": "MQTT 端口被占用，请修改监听端口或关闭占用该端口的程序",
-                "permission denied": "端口需要管理员权限，请使用 1024 以上的端口",
+                "address already in use": "ERR_SVC_HINT_MQTT_PORT_IN_USE",
+                "permission denied": "ERR_SVC_HINT_MQTT_PORT_PERMISSION",
             },
             "modbus_slave": {
-                "address already in use": "Modbus 端口被占用，请修改监听端口或关闭占用该端口的程序",
-                "permission denied": "端口 502 需要 root/管理员权限，建议改用 5020 等非特权端口",
-                "'break' outside loop": "代码存在语法错误，请联系开发者修复",
+                "address already in use": "ERR_SVC_HINT_MODBUS_PORT_IN_USE",
+                "permission denied": "ERR_SVC_HINT_MODBUS_PORT_PERMISSION",
+                "'break' outside loop": "ERR_SVC_HINT_CODE_SYNTAX_ERROR",
             },
             "serial_bridge": {
-                "could not open port": "串口设备不存在或被占用，请检查设备路径（如 /dev/ttyUSB0 或 COM3）",
-                "permission denied": "没有串口访问权限，Linux 请执行 sudo usermod -aG dialout $USER",
-                "file not found": "串口设备路径不存在，请确认设备已连接",
+                "could not open port": "ERR_SVC_HINT_SERIAL_NOT_FOUND",
+                "permission denied": "ERR_SVC_HINT_SERIAL_PERMISSION",
+                "permission": "ERR_SVC_HINT_SERIAL_PERMISSION",
+                "file not found": "ERR_SVC_HINT_SERIAL_PATH_NOT_FOUND",
+                "不存在": "ERR_SVC_HINT_SERIAL_PATH_NOT_FOUND",
+                "does not exist": "ERR_SVC_HINT_SERIAL_PATH_NOT_FOUND",
+                "no such file": "ERR_SVC_HINT_SERIAL_PATH_NOT_FOUND",
+                "已被占用": "ERR_SVC_HINT_SERIAL_NOT_FOUND",
+                "already in use": "ERR_SVC_HINT_SERIAL_NOT_FOUND",
             },
         }
         service_hints = hints.get(service_name, {})
@@ -631,20 +678,20 @@ class ServiceManager:
             if pattern in err_msg:
                 return hint
         if "address already in use" in err_msg:
-            return "端口被占用，请修改服务监听端口"
+            return "ERR_SVC_HINT_PORT_IN_USE"
         if "permission denied" in err_msg:
-            return "权限不足，请检查端口或文件访问权限"
+            return "ERR_SVC_HINT_PERMISSION_DENIED"
         if "connection refused" in err_msg:
-            return "连接被拒绝，请检查目标服务是否运行"
+            return "ERR_SVC_HINT_CONNECTION_REFUSED"
         if "timeout" in err_msg:
-            return "连接超时，请检查网络或目标地址是否可达"
-        return "请检查服务配置是否正确，或查看系统日志获取详细信息"
+            return "ERR_SVC_HINT_TIMEOUT"
+        return "ERR_SVC_HINT_CHECK_CONFIG"
 
     async def _start_service_instance(
         self, service_name: str, config_values: dict | None = None
     ) -> None:
         svc_def = SERVICE_DEFINITIONS[service_name]
-        svc_def["engine_class"]
+        # FIXED-P0: 原代码第664行 `svc_def["engine_class"]` 是无效语句（无副作用），已删除
 
         if service_name == "mcp_server":
             return
@@ -660,7 +707,7 @@ class ServiceManager:
 
             instance = MqttServer()
             start_config = {
-                "host": getattr(section_config, "host", "0.0.0.0"),
+                "host": getattr(section_config, "host", "127.0.0.1"),  # FIXED-P2: fallback改为localhost
                 "port": getattr(section_config, "port", 1888),
                 "ws_port": getattr(section_config, "ws_port", None),
                 "username": getattr(section_config, "username", ""),
@@ -676,8 +723,8 @@ class ServiceManager:
 
             instance = ModbusSlaveServer()
             start_config = {
-                "host": getattr(section_config, "host", "0.0.0.0"),
-                "port": getattr(section_config, "port", 502),
+                "host": getattr(section_config, "host", "127.0.0.1"),  # FIXED-P2: fallback改为localhost
+                "port": getattr(section_config, "port", 5020),
                 "holding_size": getattr(section_config, "holding_size", 1000),
                 "input_size": getattr(section_config, "input_size", 1000),
             }
@@ -706,32 +753,47 @@ class ServiceManager:
         if not instance:
             return
 
-        if hasattr(instance, "stop"):
-            await instance.stop()
-
-        self._set_instance(service_name, None)
+        # FIXED-P0: 原代码无异常处理，instance.stop() 抛出异常时
+        # self._set_instance(service_name, None) 不会执行，实例残留导致状态不一致
+        try:
+            if hasattr(instance, "stop"):
+                await instance.stop()
+        except Exception as e:
+            logger.warning("Service %s stop raised exception: %s", service_name, e)
+        finally:
+            self._set_instance(service_name, None)
 
     async def update_service_config(self, service_name: str, config_values: dict) -> dict:
-        svc_def = SERVICE_DEFINITIONS.get(service_name)
-        if not svc_def:
-            return {"success": False, "error": f"未知服务: {service_name}"}
+        # FIX-P1: 使用 _op_lock 串行化，与 start_service/stop_service 互斥，
+        # 避免配置更新时的 stop+start 与并发 start/stop 交错导致状态不一致。
+        async with self._op_lock:
+            svc_def = SERVICE_DEFINITIONS.get(service_name)
+            if not svc_def:
+                return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
 
-        config_section = svc_def["config_section"]
-        try:
-            update_config_section(config_section, config_values)
-        except Exception as e:
-            return {"success": False, "error": f"更新配置失败: {e}"}
-
-        instance = self._get_instance(service_name)
-        if instance and hasattr(instance, "is_running") and instance.is_running:
+            config_section = svc_def["config_section"]
             try:
-                await self._stop_service_instance(service_name)
-                await self._start_service_instance(service_name)
-                return {"success": True, "message": "配置已更新，服务已重启"}
+                update_config_section(config_section, config_values)
             except Exception as e:
-                return {"success": True, "warning": f"配置已更新但服务重启失败: {e}"}
+                return {"success": False, "error": ServiceErrors.CONFIG_UPDATE_FAILED, "detail": str(e)}
 
-        return {"success": True, "message": "配置已更新"}
+            instance = self._get_instance(service_name)
+            if instance and hasattr(instance, "is_running") and instance.is_running:
+                try:
+                    await self._stop_service_instance(service_name)
+                    await self._start_service_instance(service_name)
+                    return {"success": True, "message": ServiceErrors.CONFIG_UPDATED_RESTARTED}
+                except Exception as e:
+                    # FIXED-P1: 原代码返回 success=True 误导调用者，实际服务已停止
+                    # 改为返回 success=False 明确表示重启失败
+                    return {
+                        "success": False,
+                        "error": ServiceErrors.CONFIG_UPDATED_RESTART_FAILED,
+                        "detail": str(e),
+                        "hint": self._get_start_error_hint(service_name, e),
+                    }
+
+            return {"success": True, "message": ServiceErrors.CONFIG_UPDATED}
 
 
 _service_manager: ServiceManager | None = None

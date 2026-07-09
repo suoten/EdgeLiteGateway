@@ -48,14 +48,14 @@ cd docker && docker compose build edgelite && docker compose up -d
 
 ```env
 # InfluxDB 配置
-INFLUXDB_TOKEN=K7mX2pR9vW4yH1jM6cF0gL3pS8tV2wZ5bD9mJ4qR7uX0yA3cE6hK9lN2pR5tV8wB1dG4jM7qS0u
-INFLUXDB_PASSWORD=gH4jK8lP2qR7vX1yA5cE9hJ3lO6pT0wB4dG8jM2qS6u
+INFLUXDB_TOKEN=<your-influxdb-token-here>
+INFLUXDB_PASSWORD=<your-influxdb-password-here>
 
 # EdgeLiteGateway 安全配置
-SECRET_KEY=c8nSH3RdgLhrlVIMi0SQOo-9C64wFnDlpE9AxZaf8oI
+SECRET_KEY=<run: python -c "import secrets; print(secrets.token_urlsafe(32))">
 ```
 
-> ⚠️ **生产环境必须替换为安全随机值！**
+> ⚠️ **生产环境必须替换为安全随机值！** 占位符 `<your-*-here>` 仅为示例，部署前请使用下方命令生成真实密钥并填入 `docker/.env`。
 
 **生成安全密钥**：
 
@@ -77,7 +77,7 @@ Docker Compose 首次启动时自动初始化 InfluxDB，默认配置：
 | DOCKER_INFLUXDB_INIT_PASSWORD | admin123 | 管理员密码（**生产环境必须修改**） |
 | DOCKER_INFLUXDB_INIT_ORG | edgelite | 组织名 |
 | DOCKER_INFLUXDB_INIT_BUCKET | edgelite | 默认 Bucket |
-| DOCKER_INFLUXDB_INIT_ADMIN_TOKEN | edgelite-token-change-me | API Token（**生产环境必须修改**） |
+| DOCKER_INFLUXDB_INIT_ADMIN_TOKEN | <your-influxdb-admin-token-here> | API Token（**生产环境必须修改**） |
 
 初始化完成后，可访问 `http://localhost:8086` 进入 InfluxDB UI 确认配置。
 

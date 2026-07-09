@@ -1,8 +1,12 @@
 FROM node:18-alpine AS frontend-builder
 
+# FIXED-P2: npm 镜像可参数化，国内默认 npmmirror，海外构建可用：
+#   docker build --build-arg NPM_REGISTRY=https://registry.npmjs.org -f docker/Dockerfile .
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
 WORKDIR /build
 COPY web/package.json web/package-lock.json ./
-RUN npm ci --registry https://registry.npmmirror.com
+RUN npm ci --registry $NPM_REGISTRY
 COPY web/ ./
 RUN npm run build
 
@@ -27,17 +31,19 @@ COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
 COPY scripts/init_db.py scripts/
 
-RUN mkdir -p data/backups logs
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser  # FIXED-P0: 先创建用户再chown
+
+RUN mkdir -p data/backups logs && chown -R appuser:appuser data logs \
+    && chown -R appuser:appuser /app
 
 # Verify onnxruntime is available and model files are installed
 RUN python -c "import onnxruntime; print('onnxruntime version:', onnxruntime.__version__)" && \
     python -c "from pathlib import Path; import edgelite; p = Path(edgelite.__file__).parent / 'ai_models'; print('AI models dir:', p, 'files:', list(p.glob('*.onnx')))"
 
-COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-RUN groupadd -r appuser && useradd -r -g appuser appuser \
-    && chown -R appuser:appuser /app
+USER appuser  # FIXED-P2: 切换到非root用户运行
 
 ENV PYTHONPATH=/app
 ENV EDGELITE_CONFIG=configs/config.yaml
@@ -46,30 +52,8 @@ EXPOSE 8080
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
+# FIXED: 使用 /health/live 轻量端点替代 /health [2026-06-29]
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
-    CMD python -c "
-import urllib.request
-import json
-
-try:
-    # Check main health endpoint
-    resp = urllib.request.urlopen('http://localhost:8080/health', timeout=5)
-    if resp.status != 200:
-        exit(1)
-
-    # Check detailed health (optional endpoint)
-    try:
-        resp2 = urllib.request.urlopen('http://localhost:8080/api/v1/system/health', timeout=5)
-        data = json.loads(resp2.read())
-        # Verify key services are healthy
-        if not data.get('data', {}).get('database', False):
-            exit(1)
-    except:
-        pass  # Optional endpoint may not exist
-
-    exit(0)
-except Exception as e:
-    exit(1)
-"
+    CMD python -c "import urllib.request; exit(0 if urllib.request.urlopen('http://localhost:8080/health/live', timeout=5).status == 200 else 1)"
 
 CMD ["python", "-m", "edgelite", "--host", "0.0.0.0", "--port", "8080"]

@@ -5,6 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EdgeLiteGateway</title>
+    <script>
+      // Defensive stubs: prevent errors from browser extensions
+      // (e.g. fullscreen helpers that call window.notice.avoidance())
+      // Using defineProperty to prevent extensions from overwriting
+      if (!window.notice) {
+        Object.defineProperty(window, 'notice', {
+          value: { avoidance: function() {} },
+          writable: false,
+          configurable: false
+        });
+      } else if (typeof window.notice.avoidance !== 'function') {
+        window.notice.avoidance = function() {};
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

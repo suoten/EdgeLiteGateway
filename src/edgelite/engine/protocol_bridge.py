@@ -12,8 +12,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib  # FIXED-P2: 原import在文件末尾(行463)，移至顶部与其他标准库import一起，避免维护混乱
 import logging
 import struct
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -77,10 +79,7 @@ class ProtocolConverter:
                     fvalue -= 65536
                 return fvalue * scale + offset
 
-            elif conversion_type == "uint16_to_float32":
-                return fvalue * scale + offset
-
-            elif conversion_type == "scale":
+            elif conversion_type == "uint16_to_float32" or conversion_type == "scale":
                 return fvalue * scale + offset
 
             elif conversion_type == "offset":
@@ -108,7 +107,8 @@ class ProtocolConverter:
 
         except (ValueError, TypeError, ZeroDivisionError) as e:
             logger.warning("数据转换失败: %s, type=%s, error=%s", value, conversion_type, e)
-            return 0.0
+            # FIXED-P1: 转换失败返回None而非0.0，避免与有效传感器读数0.0混淆
+            return None
 
     @staticmethod
     def reverse_convert(value: Any, conversion_type: str, scale: float = 1.0, offset: float = 0.0) -> int | float:
@@ -125,10 +125,7 @@ class ProtocolConverter:
                     fvalue += 65536
                 return int(fvalue) & 0xFFFF
 
-            elif conversion_type == "uint16_to_float32":
-                return int((fvalue - offset) / scale)
-
-            elif conversion_type == "scale":
+            elif conversion_type == "uint16_to_float32" or conversion_type == "scale":
                 return int((fvalue - offset) / scale)
 
             elif conversion_type == "percent_to_0_27648":
@@ -151,6 +148,8 @@ class ProtocolBridgeManager:
         self._conversion = ProtocolConverter()
         self._task: asyncio.Task | None = None
         self._transform_callbacks: list = []
+        # FIXED-P2: _processed_versions提升为实例变量，update_source_data与_sync_loop共享，避免重复处理同一数据点
+        self._processed_versions: dict[str, float] = {}
 
     async def start(self) -> None:
         """启动桥接管理器"""
@@ -197,10 +196,17 @@ class ProtocolBridgeManager:
         """更新源数据，自动触发转换"""
         if device_id not in self._source_data:
             self._source_data[device_id] = {}
-        self._source_data[device_id][point] = {"value": value, "quality": quality, "timestamp": asyncio.get_event_loop().time()}
+        # FIXED-P3: 原问题-使用已弃用的asyncio.get_event_loop().time()；改为time.monotonic()
+        ts = time.monotonic()
+        self._source_data[device_id][point] = {"value": value, "quality": quality, "timestamp": ts}
+
+        # FIXED-P2: 更新已处理版本，避免_sync_loop重复处理同一数据点
+        version_key = f"{device_id}:{point}"
+        self._processed_versions[version_key] = ts
 
         # 触发所有相关桥接的转换
-        for bridge in self._bridges.values():
+        # R11-ENG-05: 迭代 dict 前取快照，避免 await 期间 dict 被修改导致 RuntimeError
+        for bridge in list(self._bridges.values()):
             if not bridge.enabled:
                 continue
             await self._process_bridge(bridge, device_id, point, value)
@@ -230,7 +236,7 @@ class ProtocolBridgeManager:
                     "target_point": rule.target_point,
                     "original_value": value,
                     "converted_value": converted_value,
-                    "quality": "good",
+                    "quality": "good" if converted_value is not None else "bad",  # FIXED-P2: 转换失败标记quality=bad
                 }
 
                 # 触发转换回调
@@ -252,15 +258,27 @@ class ProtocolBridgeManager:
 
     async def _sync_loop(self) -> None:
         """同步循环 - 定时同步数据"""
+        # FIXED-P2: _processed_versions提升为实例变量，与update_source_data共享
+        last_cleanup = time.monotonic()
         while self._running:
             try:
-                await asyncio.sleep(1.0)  # 1秒同步周期
+                await asyncio.sleep(1.0)
 
-                for bridge in self._bridges.values():
+                # FIXED-P3: 定期清理过期版本（10分钟未更新），防止_processed_versions无限增长
+                now = time.monotonic()
+                if now - last_cleanup >= 600.0:
+                    expired = [k for k, v in self._processed_versions.items() if now - v > 600.0]
+                    for k in expired:
+                        self._processed_versions.pop(k, None)
+                    if expired:
+                        logger.debug("协议桥接清理%d个过期版本记录", len(expired))
+                    last_cleanup = now
+
+                # R11-ENG-05: 迭代 dict 前取快照，避免 await 期间 dict 被修改导致 RuntimeError
+                for bridge in list(self._bridges.values()):
                     if not bridge.enabled:
                         continue
 
-                    # 对每个启用的映射规则
                     for rule in bridge.mapping_rules:
                         if not rule.enabled:
                             continue
@@ -270,6 +288,11 @@ class ProtocolBridgeManager:
 
                         if source_value is not None:
                             value = source_value.get("value") if isinstance(source_value, dict) else source_value
+                            ts = source_value.get("timestamp", 0) if isinstance(source_value, dict) else 0
+                            version_key = f"{rule.source_device}:{rule.source_point}"
+                            if self._processed_versions.get(version_key) == ts:
+                                continue
+                            self._processed_versions[version_key] = ts
                             await self._process_bridge(bridge, rule.source_device, rule.source_point, value)
 
             except asyncio.CancelledError:
@@ -391,11 +414,41 @@ class ModbusToOpcUaConverter:
         return registers[0] if registers else 0
 
     def get_all_nodes(self) -> dict[str, Any]:
-        """获取所有节点当前值"""
+        """获取所有节点当前值（同步版本，基于本地 _modbus_data 缓存）
+
+        适用于周期性轮询场景，返回当前缓存值，无需等待异步操作。
+        若需获取最新值（包含从 Modbus 设备实时读取），请使用 await_all_nodes()。
+        """
         result = {}
         for node_id in self._node_map:
-            result[node_id] = asyncio.create_task(self.read_node(node_id))
-        return result
+            mapping = self._node_map.get(node_id, {})
+            address = mapping.get("address")
+            if address is None:
+                result[node_id] = None
+                continue
+            registers = self._modbus_data.get(address, [])
+            data_type = mapping.get("data_type", "uint16")
+            swap = mapping.get("swap_bytes", False)
+            if data_type == "uint16":
+                result[node_id] = registers[0] if len(registers) >= 1 else 0
+            elif data_type == "int16":
+                val = registers[0] if len(registers) >= 1 else 0
+                if val >= 32768:
+                    val -= 65536
+                result[node_id] = val
+            elif data_type == "float32":
+                if len(registers) >= 2:
+                    high, low = registers[0], registers[1]
+                    if swap:
+                        high, low = low, high
+                    raw = (high << 16) | low
+                    import struct
+                    result[node_id] = struct.unpack(">f", struct.pack(">I", raw))[0]
+                else:
+                    result[node_id] = 0.0
+            else:
+                result[node_id] = registers[0] if registers else 0
+        return result  # FIXED-P0: 同步方法应返回实际值而非Task对象，原实现asyncio.create_task在同步上下文中无法await，导致调用方拿到coroutine而非数据
 
 
 # 全局实例
@@ -408,6 +461,3 @@ def get_bridge_manager() -> ProtocolBridgeManager:
     if _bridge_manager is None:
         _bridge_manager = ProtocolBridgeManager()
     return _bridge_manager
-
-
-import contextlib

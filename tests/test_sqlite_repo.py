@@ -231,7 +231,7 @@ async def test_user_create_and_get(user_repo):
     user = await user_repo.create(
         {
             "username": "testuser",
-            "password": "hashed_password",
+            "password": "Hashed_password123!",
             "role": "viewer",
         }
     )

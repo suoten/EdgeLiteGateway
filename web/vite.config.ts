@@ -19,23 +19,49 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        // FIXED-P0-1: 端口对齐 .env 中的 EDGELITE_SERVER__PORT=8180
+        target: 'http://localhost:8180',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://localhost:8180',
         ws: true,
       },
     },
   },
   build: {
+    // [AUDIT-FIX] 严重级-明确构建目标，避免旧版浏览器因语法不支持白屏
+    // target 设为 es2020 + 支持 await 动态导入的最低版本（Chrome87+/Edge88+/Safari14+/Firefox78+）
+    target: 'es2020',
+    cssTarget: 'chrome87',
+    // [PROD-FIX] 提高 chunk 大小警告阈值：naive-ui/three/echarts 为大型第三方库，
+    // 已通过 manualChunks 拆分为独立 chunk 实现按需缓存，单库体积无法进一步缩减。
+    // 阈值设为 1500kB 抑制误报警告；生产环境经 gzip 压缩后传输体积可接受，
+    // 且独立 chunk 可被浏览器长期缓存，避免业务代码变更导致库文件失效。
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'naive-ui': ['naive-ui'],
-          'vue-vendor': ['vue', 'vue-router', 'pinia'],
-          'echarts': ['echarts', 'vue-echarts'],
-          'three': ['three'],
+        // [PROD-FIX] 函数式 manualChunks：按依赖来源精细拆分，提升缓存命中率
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          // Vue 生态核心
+          if (/[\\/]node_modules[\\/](vue|vue-router|pinia|@vue)[\\/]/.test(id)) {
+            return 'vue-vendor'
+          }
+          // Naive UI 及其运行时依赖（vooks/vueuc/css-render/evtd/async-validator）
+          if (/[\\/]node_modules[\\/](naive-ui|vooks|vueuc|css-render|evtd|async-validator)[\\/]/.test(id)) {
+            return 'naive-ui'
+          }
+          // ECharts 图表库及渲染引擎
+          if (/[\\/]node_modules[\\/](echarts|vue-echarts|zrender)[\\/]/.test(id)) {
+            return 'echarts'
+          }
+          // Three.js 3D 引擎
+          if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) {
+            return 'three'
+          }
+          // 其他第三方依赖归入通用 vendor chunk
+          return 'vendor'
         },
       },
     },

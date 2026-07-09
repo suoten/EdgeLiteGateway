@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +45,17 @@ class CircuitBreakerStats:
     @property
     def failure_rate(self) -> float:
         """失败率 (0-1)"""
-        if self.total_calls == 0:
+        total = self.total_calls + self.rejected_calls
+        if total == 0:
             return 0.0
-        return self.failed_calls / self.total_calls
+        return (self.failed_calls + self.rejected_calls) / total
+
+    def __post_init__(self):  # FIXED-P0: _circuit_state改为实例属性，原类属性导致所有实例共享同一状态
+        self._circuit_state: CircuitState = CircuitState.CLOSED
 
     @property
     def current_state(self) -> CircuitState:
-        return CircuitState.CLOSED
+        return self._circuit_state
 
 
 class CircuitBreaker:
@@ -108,9 +114,18 @@ class CircuitBreaker:
         """是否处于关闭状态（正常）"""
         return self._state == CircuitState.CLOSED
 
+    @property
     def is_open(self) -> bool:
-        """是否处于熔断状态"""
+        """是否处于熔断状态（只读属性）"""
         return self._state == CircuitState.OPEN
+
+    async def record_success(self) -> None:
+        """便捷方法：记录成功"""
+        await self._on_success()
+
+    async def record_failure(self, exception: Exception) -> None:
+        """便捷方法：记录失败"""
+        await self._on_failure(exception)
 
     def is_half_open(self) -> bool:
         """是否处于半开状态"""
@@ -133,8 +148,26 @@ class CircuitBreaker:
         Returns:
             函数执行结果，或 fallback 的返回值，或 None
         """
-        if not await self._can_execute():
-            self._stats.rejected_calls += 1
+        can_run = False
+        async with self._lock:  # FIXED-P2: 合并_can_execute与_execute的锁临界区，消除HALF_OPEN竞态窗口
+            if self._state == CircuitState.CLOSED:
+                can_run = True
+            elif self._state == CircuitState.OPEN:
+                if self._opened_at and (time.time() - self._opened_at) >= self._recovery_timeout:
+                    await self._transition_to_half_open()
+                    self._half_open_calls += 1
+                    can_run = True
+            elif self._state == CircuitState.HALF_OPEN:
+                if self._half_open_calls < self._half_open_max_calls:
+                    self._half_open_calls += 1
+                    can_run = True
+
+            if can_run:
+                self._stats.total_calls += 1
+            else:
+                self._stats.rejected_calls += 1
+
+        if not can_run:
             logger.warning(
                 "Circuit breaker [%s] rejected call (state=%s)",
                 self.name,
@@ -142,7 +175,7 @@ class CircuitBreaker:
             )
             if fallback:
                 try:
-                    if asyncio.iscoroutine_function(fallback):
+                    if asyncio.iscoroutinefunction(fallback):
                         return await fallback(*args, **kwargs)
                     return fallback(*args, **kwargs)
                 except Exception as e:
@@ -150,48 +183,22 @@ class CircuitBreaker:
             return None
 
         try:
-            result = await self._execute(func, *args, **kwargs)
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
             await self._on_success()
             return result
         except Exception as e:
             await self._on_failure(e)
             if fallback:
                 try:
-                    if asyncio.iscoroutine_function(fallback):
+                    if asyncio.iscoroutinefunction(fallback):
                         return await fallback(*args, **kwargs)
                     return fallback(*args, **kwargs)
                 except Exception as fallback_error:
                     logger.error("Fallback failed: %s", fallback_error)
             return None
-
-    async def _can_execute(self) -> bool:
-        """检查是否可以执行请求"""
-        async with self._lock:
-            if self._state == CircuitState.CLOSED:
-                return True
-
-            if self._state == CircuitState.OPEN:
-                # 检查是否超时
-                if self._opened_at and (time.time() - self._opened_at) >= self._recovery_timeout:
-                    await self._transition_to_half_open()
-                    return True
-                return False
-
-            if self._state == CircuitState.HALF_OPEN:
-                # 半开状态限制并发数
-                if self._half_open_calls < self._half_open_max_calls:
-                    self._half_open_calls += 1
-                    return True
-                return False
-
-            return False
-
-    async def _execute(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-        """执行函数"""
-        self._stats.total_calls += 1
-        if asyncio.iscoroutine_function(func):
-            return await func(*args, **kwargs)
-        return func(*args, **kwargs)
 
     async def _on_success(self) -> None:
         """记录成功"""
@@ -238,6 +245,7 @@ class CircuitBreaker:
             return
 
         self._state = CircuitState.OPEN
+        self._stats._circuit_state = CircuitState.OPEN  # FIXED-P0: 同步Stats状态，原代码从未更新导致current_state始终返回CLOSED
         self._opened_at = time.time()
         self._stats.opened_at = datetime.now(UTC)
         self._stats.state_changes += 1
@@ -253,6 +261,7 @@ class CircuitBreaker:
     async def _transition_to_half_open(self) -> None:
         """转换到 HALF_OPEN 状态"""
         self._state = CircuitState.HALF_OPEN
+        self._stats._circuit_state = CircuitState.HALF_OPEN  # FIXED-P0: 同步Stats状态
         self._half_open_calls = 0
         self._success_count = 0
         self._failure_count = 0
@@ -268,6 +277,7 @@ class CircuitBreaker:
     async def _transition_to_closed(self) -> None:
         """转换到 CLOSED 状态"""
         self._state = CircuitState.CLOSED
+        self._stats._circuit_state = CircuitState.CLOSED  # FIXED-P0: 同步Stats状态
         self._failure_count = 0
         self._success_count = 0
         self._half_open_calls = 0
@@ -285,11 +295,17 @@ class CircuitBreaker:
     async def reset(self) -> None:
         """手动重置熔断器"""
         async with self._lock:
+            # FIXED-P2: 累加 OPEN 时长到 total_open_duration，与 _transition_to_closed 一致
+            if self._stats.opened_at:
+                self._stats.total_open_duration += (datetime.now(UTC) - self._stats.opened_at).total_seconds()
+                self._stats.opened_at = None
             self._state = CircuitState.CLOSED
             self._failure_count = 0
             self._success_count = 0
             self._half_open_calls = 0
             self._opened_at = None
+            # FIXED-P1: 同步更新_stats._circuit_state，防止reset后stats与实际状态不一致
+            self._stats._circuit_state = CircuitState.CLOSED
             self._stats.state_changes += 1
             self._stats.last_state_change = datetime.now(UTC)
             logger.info("Circuit breaker [%s] manually reset", self.name)
@@ -321,20 +337,21 @@ class CircuitBreakerManager:
         self._breakers: dict[str, CircuitBreaker] = {}
         self._lock = asyncio.Lock()
 
-    def get_breaker(
+    async def get_breaker(  # FIXED-P2: 改为 async 并使用 _lock 防止并发创建竞态
         self,
         device_id: str,
         failure_threshold: int = 5,
         recovery_timeout: float = 30.0,
     ) -> CircuitBreaker:
         """获取或创建设备的熔断器"""
-        if device_id not in self._breakers:
-            self._breakers[device_id] = CircuitBreaker(
-                name=device_id,
-                failure_threshold=failure_threshold,
-                recovery_timeout=recovery_timeout,
-            )
-        return self._breakers[device_id]
+        async with self._lock:
+            if device_id not in self._breakers:
+                self._breakers[device_id] = CircuitBreaker(
+                    name=device_id,
+                    failure_threshold=failure_threshold,
+                    recovery_timeout=recovery_timeout,
+                )
+            return self._breakers[device_id]
 
     async def call_with_protection(
         self,
@@ -345,48 +362,55 @@ class CircuitBreakerManager:
         **kwargs: Any,
     ) -> T | None:
         """带熔断保护的调用"""
-        breaker = self.get_breaker(device_id)
+        breaker = await self.get_breaker(device_id)
         return await breaker.call(func, *args, fallback=fallback, **kwargs)
 
-    def get_all_status(self) -> list[dict]:
+    async def get_all_status(self) -> list[dict]:
         """获取所有熔断器状态"""
-        return [breaker.get_status() for breaker in self._breakers.values()]
+        async with self._lock:  # FIXED-P2: get_all_status与remove_breaker/get_breaker并发保护
+            return [breaker.get_status() for breaker in self._breakers.values()]
 
-    def get_device_status(self, device_id: str) -> dict | None:
+    async def get_device_status(self, device_id: str) -> dict | None:
         """获取指定设备熔断器状态"""
-        breaker = self._breakers.get(device_id)
-        return breaker.get_status() if breaker else None
+        async with self._lock:  # FIXED-P2: 与remove_breaker/get_breaker并发保护
+            breaker = self._breakers.get(device_id)
+            return breaker.get_status() if breaker else None
 
     async def reset_device(self, device_id: str) -> bool:
         """重置指定设备的熔断器"""
-        breaker = self._breakers.get(device_id)
-        if breaker:
-            await breaker.reset()
-            return True
-        return False
+        async with self._lock:  # FIXED-P2: 与remove_breaker/get_breaker并发保护
+            breaker = self._breakers.get(device_id)
+            if breaker:
+                await breaker.reset()
+                return True
+            return False
 
     async def reset_all(self) -> int:
         """重置所有熔断器，返回重置数量"""
-        count = len(self._breakers)
-        for breaker in self._breakers.values():
-            await breaker.reset()
-        return count
+        async with self._lock:  # FIXED-P2: 与remove_breaker/get_breaker并发保护
+            count = len(self._breakers)
+            for breaker in self._breakers.values():
+                await breaker.reset()
+            return count
 
-    def remove_breaker(self, device_id: str) -> bool:
+    async def remove_breaker(self, device_id: str) -> bool:
         """移除设备的熔断器"""
-        if device_id in self._breakers:
-            del self._breakers[device_id]
-            return True
-        return False
+        async with self._lock:  # FIXED-P2: remove_breaker与get_breaker/get_all_status并发保护
+            if device_id in self._breakers:
+                del self._breakers[device_id]
+                return True
+            return False
 
 
 # 全局熔断器管理器实例
 _circuit_breaker_manager: CircuitBreakerManager | None = None
+_circuit_breaker_manager_lock = threading.Lock()  # FIXED-P2: 全局单例初始化竞态保护
 
 
 def get_circuit_breaker_manager() -> CircuitBreakerManager:
     """获取全局熔断器管理器"""
     global _circuit_breaker_manager
-    if _circuit_breaker_manager is None:
-        _circuit_breaker_manager = CircuitBreakerManager()
-    return _circuit_breaker_manager
+    with _circuit_breaker_manager_lock:  # FIXED-P2: 全局单例初始化竞态保护
+        if _circuit_breaker_manager is None:
+            _circuit_breaker_manager = CircuitBreakerManager()
+        return _circuit_breaker_manager

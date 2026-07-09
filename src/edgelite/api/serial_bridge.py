@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import platform
+from enum import Enum
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from edgelite.api.deps import CurrentUser, SerialBridgeDep, require_permission
+from edgelite.api.deps import SerialBridgeDep, require_permission
 from edgelite.api.error_codes import DriverErrors, ServiceErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
@@ -54,7 +55,7 @@ class SerialBridgeStatusResponse(BaseModel):
 @router.get("/status", response_model=ApiResponse[SerialBridgeStatusResponse])
 async def get_serial_bridge_status(
     bridge: SerialBridgeDep,
-    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
 ):
     from edgelite.services.service_manager import get_service_manager
 
@@ -86,7 +87,7 @@ async def get_serial_bridge_status(
                     "start_time": stats.start_time,
                     "dependencies": [
                         {"package": d.package, "installed": d.installed, "version": d.version}
-                        for d in info.dependencies
+                        for d in (info.dependencies or [])  # FIXED-P1: dependencies可能为None导致迭代崩溃
                     ],
                 }
             )
@@ -101,7 +102,7 @@ async def get_serial_bridge_status(
                 "tcp_port": _cfg.get("tcp_port", 9000),
                 "dependencies": [
                     {"package": d.package, "installed": d.installed, "version": d.version}
-                    for d in info.dependencies
+                    for d in (info.dependencies or [])  # FIXED-P1: dependencies可能为None导致迭代崩溃
                 ],
             }
         )
@@ -114,7 +115,7 @@ async def get_serial_bridge_status(
 
 @router.post("/start", response_model=ApiResponse)
 async def start_serial_bridge(
-    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
     from edgelite.services.service_manager import get_service_manager
 
@@ -122,11 +123,14 @@ async def start_serial_bridge(
         mgr = get_service_manager()
         result = await mgr.start_service("serial_bridge")
         if not result.get("success"):
-            # FIXED: 原问题-硬编码中文"启动失败"，改为error_code
-            error_msg = result.get("error", DriverErrors.START_FAILED)
+            error_code = result.get("error", DriverErrors.START_FAILED)
+            # FIXED: Enum.value 确保JSON序列化正确
+            error_val = error_code.value if isinstance(error_code, Enum) else error_code
+            hint = result.get("hint", "")
             if "error_type" in result and result["error_type"] == "runtime":
-                raise HTTPException(status_code=409, detail=error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
+                detail_obj = {"error": error_val, "hint": hint} if hint else error_val
+                raise HTTPException(status_code=409, detail=detail_obj)
+            raise HTTPException(status_code=500, detail=error_val)
 
         return ApiResponse(data=result)
     except HTTPException:
@@ -136,7 +140,7 @@ async def start_serial_bridge(
         if "could not open port" in error_msg or "No such file" in error_msg:
             raise HTTPException(
                 status_code=409,
-                detail=ServiceErrors.SERIAL_PORT_UNAVAILABLE,
+                detail={"error": ServiceErrors.SERIAL_PORT_UNAVAILABLE, "hint": "ERR_SVC_HINT_SERIAL_NOT_FOUND"},
             ) from e
         logger.error("Start serial bridge failed: %s", e)  # FIXED-P3: 中文日志→英文
         raise HTTPException(status_code=500, detail=ServiceErrors.START_FAILED) from e
@@ -144,7 +148,7 @@ async def start_serial_bridge(
 
 @router.post("/stop", response_model=ApiResponse)
 async def stop_serial_bridge(
-    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
     from edgelite.services.service_manager import get_service_manager
 
@@ -166,7 +170,7 @@ async def stop_serial_bridge(
 @router.put("/config", response_model=ApiResponse)
 async def update_serial_bridge_config(
     config: SerialBridgeConfigModel,
-    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
     from edgelite.services.service_manager import get_service_manager
 

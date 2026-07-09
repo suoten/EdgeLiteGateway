@@ -77,10 +77,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
 import { serviceApi } from '@/api'
 import { extractError } from '@/utils/errorCodes'
 import { t } from '@/i18n'
+import { message as msg, dialog } from '@/utils/discreteApi'
+// [AUDIT-FIX] 严重级-服务启停属高危操作，需权限校验
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 const props = defineProps<{
   serviceName: string
@@ -92,8 +96,6 @@ const emit = defineEmits<{
   (e: 'status-loaded', data: any): void
 }>()
 
-const msg = useMessage()
-const dialog = useDialog()
 const loading = ref(true)
 const toggleLoading = ref(false)
 const installing = ref(false)
@@ -129,6 +131,8 @@ async function fetchStatus() {
 }
 
 async function handleEnable() {
+  // [AUDIT-FIX] 严重级-服务启停需操作员及以上权限
+  if (!auth.isOperator) { msg.warning(t('common.permissionDenied')); return }
   toggleLoading.value = true
   try {
     const result = await serviceApi.enable(props.serviceName)
@@ -143,10 +147,12 @@ async function handleEnable() {
     if (typeof detail === 'object' && detail?.missing_dependencies) {
       msg.warning(t('serviceManager.depMissing'))
     } else if (typeof detail === 'object' && detail !== null) {
-      const errMsg = extractError(e, t('serviceManager.enableFailed'))
-      const hint = detail.hint || ''
-      if (hint) {
-        dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
+      const errCode = detail.error || ''
+      const hintCode = detail.hint || ''
+      const errMsg = errCode ? extractError({ response: { data: { detail: errCode } } } as any, t('serviceManager.enableFailed')) : t('serviceManager.enableFailed')
+      const hintMsg = hintCode ? extractError({ response: { data: { detail: hintCode } } } as any, '') : ''
+      if (hintMsg) {
+        dialog.error({ title: errMsg, content: hintMsg, positiveText: t('common.confirm') })
       } else {
         msg.error(errMsg)
       }
@@ -164,19 +170,31 @@ async function handleEnable() {
 }
 
 async function handleDisable() {
-  toggleLoading.value = true
-  try {
-    await serviceApi.disable(props.serviceName)
-    msg.success(t('serviceManager.disableSuccess'))
-    await fetchStatus()
-  } catch (e: any) {
-    msg.error(t('serviceManager.disableFailed') + (e?.message ? ': ' + e.message : ''))
-  } finally {
-    toggleLoading.value = false
-  }
+  // [AUDIT-FIX] 严重级-禁用服务需权限校验 + 二次确认（可能中断关键服务）
+  if (!auth.isOperator) { msg.warning(t('common.permissionDenied')); return }
+  dialog.warning({
+    title: t('serviceManager.disableConfirmTitle'),
+    content: t('serviceManager.disableConfirmContent', { name: props.displayName }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      toggleLoading.value = true
+      try {
+        await serviceApi.disable(props.serviceName)
+        msg.success(t('serviceManager.disableSuccess'))
+        await fetchStatus()
+      } catch (e: any) {
+        msg.error(extractError(e, t('serviceManager.disableFailed')))
+      } finally {
+        toggleLoading.value = false
+      }
+    },
+  })
 }
 
 async function handleStart() {
+  // [AUDIT-FIX] 严重级-启动服务需权限校验
+  if (!auth.isOperator) { msg.warning(t('common.permissionDenied')); return }
   toggleLoading.value = true
   try {
     await serviceApi.start(props.serviceName)
@@ -185,10 +203,12 @@ async function handleStart() {
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     if (typeof detail === 'object' && detail !== null) {
-      const errMsg = extractError(e, t('serviceManager.startFailed'))
-      const hint = detail.hint || ''
-      if (hint) {
-        dialog.error({ title: errMsg, content: hint, positiveText: t('common.confirm') })
+      const errCode = detail.error || ''
+      const hintCode = detail.hint || ''
+      const errMsg = errCode ? extractError({ response: { data: { detail: errCode } } } as any, t('serviceManager.startFailed')) : t('serviceManager.startFailed')
+      const hintMsg = hintCode ? extractError({ response: { data: { detail: hintCode } } } as any, '') : ''
+      if (hintMsg) {
+        dialog.error({ title: errMsg, content: hintMsg, positiveText: t('common.confirm') })
       } else {
         msg.error(errMsg)
       }
@@ -202,26 +222,38 @@ async function handleStart() {
 }
 
 async function handleStop() {
-  toggleLoading.value = true
-  try {
-    await serviceApi.stop(props.serviceName)
-    msg.success(t('serviceManager.stopSuccess'))
-    await fetchStatus()
-  } catch (e: any) {
-    msg.error(t('serviceManager.stopFailed') + (e?.message ? ': ' + e.message : ''))
-  } finally {
-    toggleLoading.value = false
-  }
+  // [AUDIT-FIX] 严重级-停止服务需权限校验 + 二次确认（可能中断数据采集）
+  if (!auth.isOperator) { msg.warning(t('common.permissionDenied')); return }
+  dialog.warning({
+    title: t('serviceManager.stopConfirmTitle'),
+    content: t('serviceManager.stopConfirmContent', { name: props.displayName }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      toggleLoading.value = true
+      try {
+        await serviceApi.stop(props.serviceName)
+        msg.success(t('serviceManager.stopSuccess'))
+        await fetchStatus()
+      } catch (e: any) {
+        msg.error(extractError(e, t('serviceManager.stopFailed')))
+      } finally {
+        toggleLoading.value = false
+      }
+    },
+  })
 }
 
 async function handleInstallDeps() {
+  // [AUDIT-FIX] 严重级-安装依赖需权限校验
+  if (!auth.isOperator) { msg.warning(t('common.permissionDenied')); return }
   installing.value = true
   try {
     await serviceApi.installDeps(props.serviceName)
     msg.success(t('serviceManager.installSuccess'))
     await fetchStatus()
   } catch (e: any) {
-    msg.error(t('serviceManager.installFailed') + (e?.message ? ': ' + e.message : ''))
+    msg.error(extractError(e, t('serviceManager.installFailed')))
   } finally {
     installing.value = false
   }

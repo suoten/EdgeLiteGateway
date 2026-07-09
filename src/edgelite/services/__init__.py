@@ -53,6 +53,12 @@ from edgelite.services.system_services import (
     get_log_rotation_service,
     get_audit_service,
 )
+from edgelite.services.backup_scheduler import (
+    DatabaseBackupScheduler,
+    BackupResult,
+    ScheduledBackupStatus,
+    get_backup_scheduler,
+)
 
 __all__ = [
     # Alarm
@@ -103,4 +109,9 @@ __all__ = [
     "get_backup_service",
     "get_log_rotation_service",
     "get_audit_service",
+    # Backup Scheduler
+    "DatabaseBackupScheduler",
+    "BackupResult",
+    "ScheduledBackupStatus",
+    "get_backup_scheduler",
 ]

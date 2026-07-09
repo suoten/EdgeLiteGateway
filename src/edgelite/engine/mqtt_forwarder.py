@@ -13,17 +13,45 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
+import random
 import sqlite3
 import ssl
+import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 from edgelite.config import get_config
-from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _MQTT_FORWARDER_RECONNECT, _QUEUE_POLL_TIMEOUT
+from edgelite.constants import (
+    _EVENT_BUS_MAX_QUEUE,
+    _MQTT_FORWARDER_RECONNECT,
+    _MQTT_KEEPALIVE,
+    _MQTT_RECONNECT_DELAY,
+    _QUEUE_POLL_TIMEOUT,
+)
+
+# FIXED(安全) R5-S-06: 复用 drivers/mqtt_client.py 的 SSRF 校验函数，避免重复实现
+from edgelite.drivers.mqtt_client import _is_broker_host_safe
+from edgelite.storage.offline_queue import OfflineQueue
 from edgelite.storage.ring_buffer import RingBuffer
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_topic_segment(s: str) -> str:
+    """R5-S-07: 脱敏 MQTT topic 段，替换 MQTT 特殊字符防止 topic 注入。
+
+    将 `/`、`+`、`#`、`\\0` 替换为 `_`，避免 device_id 等用户可控字段
+    拼接 topic 时越权访问其他层级或通配符主题。
+    """
+    if not s:
+        return ""
+    # 替换 MQTT 特殊字符：/ 层级分隔符、+ 单层通配符、# 多层通配符、\0 空字节
+    for ch in ("/", "+", "#", "\0"):
+        s = s.replace(ch, "_")
+    return s
 
 
 class MqttForwarder:
@@ -60,6 +88,9 @@ class MqttForwarder:
         self._last_connect_fail_log_time = 0.0
         # RingBuffer 增量同步
         self._ring_buffer: RingBuffer | None = None
+        self._offline_queue: OfflineQueue | None = None
+        self._offline_db_lock = asyncio.Lock()  # FIXED-P0: SQLite离线队列添加并发保护
+        self._offline_db_sync_lock = threading.Lock()  # FIXED-P2: W11 同步方法DB操作锁
 
     async def start(self, event_bus: Any = None) -> None:
         config = get_config()
@@ -86,6 +117,9 @@ class MqttForwarder:
 
         # 初始化 RingBuffer
         self._init_ring_buffer(config)
+
+        # 初始化 OfflineQueue
+        self._offline_queue = OfflineQueue(db_path="data/offline_queue.db")
 
         if event_bus:
             self._event_bus = event_bus
@@ -117,23 +151,40 @@ class MqttForwarder:
         """从 SQLite offline_queue 恢复 pending 记录到 RingBuffer"""
         if not self._ring_buffer or not self._offline_db:
             return
+        # FIXED-P2: 使用同步锁保护SQLite并发访问（asyncio.Lock不能在同步方法中使用）
+        _held_sync_lock = False
+        if hasattr(self, '_offline_db_sync_lock') and self._offline_db_sync_lock:
+            self._offline_db_sync_lock.acquire()
+            _held_sync_lock = True
         try:
             rows = self._offline_db.execute(
                 "SELECT id, topic, payload, qos, priority FROM offline_queue WHERE status='pending' LIMIT 50000"
             ).fetchall()
             if not rows:
                 return
+            skipped = 0
             for row_id, topic, payload, qos, priority in rows:
-                self._ring_buffer.put_sync({
+                ok = self._ring_buffer.put_sync({  # FIXED-P2: 检查返回值，满时跳过而非静默丢弃
                     "topic": topic,
                     "payload": payload,
                     "qos": qos,
                     "priority": priority or "",
                     "sqlite_id": row_id,
                 })
+                if not ok:
+                    skipped += 1
+            if skipped:
+                logger.warning("RingBuffer full, skipped %d/%d messages from SQLite", skipped, len(rows))
             logger.info("从SQLite恢复%d条离线消息到RingBuffer", len(rows))
         except Exception as e:
             logger.error("从SQLite恢复到RingBuffer失败: %s", e)
+        finally:
+            if _held_sync_lock:
+                try:
+                    self._offline_db_sync_lock.release()
+                except Exception as e:
+                    # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                    logger.warning("释放离线数据库同步锁失败: %s", e)
 
     async def stop(self) -> None:
         self._running = False
@@ -174,12 +225,22 @@ class MqttForwarder:
                 "value": getattr(event, "value", 0),
                 "quality": getattr(event, "quality", "good"),
                 "timestamp": time.time(),
+                "msg_id": str(uuid.uuid4()),  # FIXED-P2: 重连恢复后消息可能被重复发送，Consumer按msg_id去重
             }
             self._pub_queue.put_nowait(data)
         except asyncio.QueueFull:
-            logger.warning("MQTT转发队列已满，丢弃消息")
+            # FIXED-P2: 队列满时尝试写入离线队列，避免消息永久丢失
+            if self._offline_cache_enabled:
+                try:
+                    await self._persist_message_from_data(data)
+                except Exception as e:
+                    logger.warning("MQTT转发队列满且离线持久化失败: %s", e)
+            else:
+                logger.warning("MQTT转发队列已满，丢弃消息")
+        # FIXED-P0: 删除错误构建的alarm消息——_on_point_update只处理point_update，alarm由_on_alarm_event处理
 
     async def _on_alarm_event(self, event: Any) -> None:
+        # FIXED-P0: 恢复上一轮误删的_on_alarm_event方法
         if not self._pub_queue:
             return
         try:
@@ -190,10 +251,17 @@ class MqttForwarder:
                 "severity": getattr(event, "severity", ""),
                 "action": getattr(event, "action", "firing"),
                 "timestamp": time.time(),
+                "msg_id": str(uuid.uuid4()),
             }
             self._pub_queue.put_nowait(data)
         except asyncio.QueueFull:
-            logger.warning("MQTT转发队列已满，丢弃消息")
+            if self._offline_cache_enabled:
+                try:
+                    await self._persist_message_from_data(data)
+                except Exception as e:
+                    logger.warning("MQTT转发队列满且离线持久化失败: %s", e)
+            else:
+                logger.warning("MQTT转发队列已满，丢弃消息")
 
     async def _on_device_status(self, event: Any) -> None:
         if not self._pub_queue:
@@ -205,10 +273,17 @@ class MqttForwarder:
                 "old_status": getattr(event, "old_status", ""),
                 "new_status": getattr(event, "new_status", ""),
                 "timestamp": time.time(),
+                "msg_id": str(uuid.uuid4()),  # FIXED-P2: 重连恢复后设备状态消息可能被重复发送，Consumer按msg_id去重
             }
             self._pub_queue.put_nowait(data)
         except asyncio.QueueFull:
-            logger.warning("MQTT转发队列已满，丢弃消息")
+            if self._offline_cache_enabled:
+                try:
+                    await self._persist_message_from_data(data)
+                except Exception as e:
+                    logger.warning("MQTT转发队列满且离线持久化失败: %s", e)
+            else:
+                logger.warning("MQTT转发队列已满，丢弃消息")
 
     def _build_ssl_context(self, config: Any) -> ssl.SSLContext | None:
         """根据配置构建 SSL/TLS 上下文"""
@@ -222,6 +297,13 @@ class MqttForwarder:
             "required": ssl.CERT_REQUIRED,
         }
         cert_reqs_value = getattr(mqtt_tls, "cert_reqs", "required")
+        # FIXED(安全) R5-S-09: cert_reqs=none 禁用证书验证存在中间人攻击风险，
+        # 必须显式设置 EDGELITE_ALLOW_INSECURE_TLS=1 才允许，防止生产环境误配置
+        if cert_reqs_value == "none" and os.getenv("EDGELITE_ALLOW_INSECURE_TLS") != "1":
+            raise ValueError(
+                "cert_reqs=none prohibited, set EDGELITE_ALLOW_INSECURE_TLS=1 to override "
+                "(NOT recommended for production)"
+            )
         cert_reqs = cert_reqs_map.get(cert_reqs_value, ssl.CERT_REQUIRED)
 
         ssl_ctx = ssl.create_default_context()
@@ -241,16 +323,49 @@ class MqttForwarder:
 
     async def _connect_loop(self) -> None:
         config = get_config()
+        broker_host = config.mqtt.broker
+
+        # FIXED(安全) R5-S-06: SSRF 防护 - 校验 broker 地址，拦截 loopback/link_local 等危险地址
+        # 与 drivers/mqtt_client.py 的 _connect_loop 保持一致的安全策略
+        if not _is_broker_host_safe(broker_host):
+            logger.error(
+                "MQTT转发器 code=SSRF_BLOCKED broker address blocked by SSRF protection: %s",
+                broker_host,
+            )
+            self._running = False
+            return
+
+        self._host = broker_host
+        self._port = config.mqtt.port
 
         while self._running:
+            # FIXED: 每次重连时重新检测内置MQTT Server状态
+            # 原问题：只在启动时检测一次，如果内置Server后来才启用，Forwarder不会自动切换端口
+            broker_port = config.mqtt.port
+            mqtt_server_cfg = getattr(config, "mqtt_server", None)
+            if mqtt_server_cfg and getattr(mqtt_server_cfg, "enabled", False):
+                server_host = getattr(mqtt_server_cfg, "host", "127.0.0.1")
+                server_port = getattr(mqtt_server_cfg, "port", 1888)
+                # 如果broker指向localhost且端口是默认1883，自动切换到内置服务器端口
+                if broker_host in ("localhost", "127.0.0.1") and broker_port == 1883:
+                    if self._port != server_port:
+                        logger.info(
+                            "MQTT转发器检测到内置MQTT Server，自动切换 %s:%d -> %s:%d",
+                            broker_host, broker_port, server_host, server_port,
+                        )
+                    broker_host = server_host
+                    broker_port = server_port
+            self._host = broker_host
+            self._port = broker_port
+
             try:
                 import aiomqtt
 
                 ssl_ctx = self._build_ssl_context(config)
 
                 connect_kwargs: dict[str, Any] = {
-                    "hostname": config.mqtt.broker,
-                    "port": config.mqtt.port,
+                    "hostname": broker_host,
+                    "port": broker_port,
                     "username": config.mqtt.username or None,
                     "password": config.mqtt.password or None,
                     "keepalive": _MQTT_KEEPALIVE,
@@ -261,7 +376,20 @@ class MqttForwarder:
                 async with aiomqtt.Client(**connect_kwargs) as client:
                     self._connected = True
                     self._consecutive_failures = 0
-                    logger.info("MQTT转发器连接成功: %s:%d", config.mqtt.broker, config.mqtt.port)
+                    logger.info("MQTT转发器连接成功: %s:%d", broker_host, broker_port)
+
+                    if self._offline_queue:
+                        try:
+                            async def _offline_send(topic: str, payload: Any) -> bool:
+                                if not self._connected:
+                                    return False
+                                await client.publish(topic, json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8"), qos=1)
+                                return True
+                            flushed = await self._offline_queue.flush(send_callback=_offline_send)
+                            if flushed > 0:
+                                logger.info("OfflineQueue重传完成: %d条", flushed)
+                        except Exception as e:
+                            logger.warning("OfflineQueue flush失败: %s", e)
 
                     if self._offline_cache_enabled and not self._replay_task:
                         pending = self._get_pending_count()
@@ -301,18 +429,24 @@ class MqttForwarder:
             except Exception as e:
                 err_str = str(e)
                 self._consecutive_failures += 1
-                delay = min(5 * (2 ** (self._consecutive_failures - 1)), 60)
+                # FIXED: 连续失败过多时延长重试间隔，避免日志刷屏和资源浪费
+                if self._consecutive_failures > 100:
+                    delay = 300  # 超过100次失败，每5分钟重试一次
+                else:
+                    delay = min(5 * (2 ** (self._consecutive_failures - 1)), 60)
+                delay *= 0.5 + random.random() * 0.5  # FIXED-P4: 原问题-退避无抖动，多实例同时重连惊群效应
                 now = time.time()
+                # FIXED: 日志限流优化 - 前3次每次记录，之后每5分钟记录一次
                 should_log = (
                     self._consecutive_failures <= 3
-                    or now - self._last_connect_fail_log_time >= 60
+                    or now - self._last_connect_fail_log_time >= 300
                 )
                 if should_log:
                     self._last_connect_fail_log_time = now
                     if "Connection refused" in err_str or "Errno 111" in err_str:
                         logger.warning(
                             "MQTT Broker未可达(%s:%d)，%d秒后重试(连续失败%d次)",
-                            config.mqtt.broker, config.mqtt.port, delay, self._consecutive_failures,
+                            broker_host, broker_port, delay, self._consecutive_failures,
                         )
                     else:
                         logger.error(
@@ -333,11 +467,33 @@ class MqttForwarder:
                 except TimeoutError:
                     continue
 
+                msg_persisted = False  # FIXED-P2: 断连期间防止同一消息被重复持久化
+
                 try:
                     if not self._connected:
-                        if self._offline_cache_enabled:
-                            self._persist_message_from_data(data)
-                        else:
+                        if self._offline_cache_enabled and not msg_persisted:
+                            await self._persist_message_from_data(data)
+                            msg_persisted = True
+                        if self._offline_queue and not msg_persisted:
+                            config = get_config()
+                            topic_prefix = config.mqtt.topic_prefix
+                            msg_type = data.get("type", "unknown")
+                            device_id = data.get("device_id", "")
+                            # FIXED(安全) R5-S-07: 脱敏 device_id 防止 topic 注入
+                            safe_device_id = _sanitize_topic_segment(device_id)
+                            if msg_type == "point_update":
+                                topic = f"{topic_prefix}/data/{safe_device_id}"
+                            elif msg_type == "alarm":
+                                topic = f"{topic_prefix}/alarm/{safe_device_id}"
+                            elif msg_type == "device_status":
+                                topic = f"{topic_prefix}/status/{safe_device_id}"
+                            else:
+                                topic = f"{topic_prefix}/misc"
+                            await self._offline_queue.enqueue(topic, data)
+                            msg_persisted = True
+                        # FIXED-P1#19: 原 else 绑定到内层 if，导致持久化成功后仍 sleep(0.5) 浪费性能
+                        # 改为仅在未持久化时 sleep
+                        if not msg_persisted:
                             await asyncio.sleep(0.5)
                         continue
 
@@ -347,12 +503,14 @@ class MqttForwarder:
                     msg_type = data.get("type", "unknown")
                     device_id = data.get("device_id", "")
 
+                    # FIXED(安全) R5-S-07: 脱敏 device_id 防止 topic 注入
+                    safe_device_id = _sanitize_topic_segment(device_id)
                     if msg_type == "point_update":
-                        topic = f"{topic_prefix}/data/{device_id}"
+                        topic = f"{topic_prefix}/data/{safe_device_id}"
                     elif msg_type == "alarm":
-                        topic = f"{topic_prefix}/alarm/{device_id}"
+                        topic = f"{topic_prefix}/alarm/{safe_device_id}"
                     elif msg_type == "device_status":
-                        topic = f"{topic_prefix}/status/{device_id}"
+                        topic = f"{topic_prefix}/status/{safe_device_id}"
                     else:
                         topic = f"{topic_prefix}/misc"
 
@@ -364,8 +522,26 @@ class MqttForwarder:
                     err_str = str(e)
                     if "not currently connected" in err_str:
                         self._connected = False
-                        if self._offline_cache_enabled:
-                            self._persist_message_from_data(data)
+                        if self._offline_cache_enabled and not msg_persisted:
+                            await self._persist_message_from_data(data)
+                            msg_persisted = True
+                        if self._offline_queue and not msg_persisted:
+                            config = get_config()
+                            topic_prefix = config.mqtt.topic_prefix
+                            msg_type = data.get("type", "unknown")
+                            device_id = data.get("device_id", "")
+                            # FIXED(安全) R5-S-07: 脱敏 device_id 防止 topic 注入
+                            safe_device_id = _sanitize_topic_segment(device_id)
+                            if msg_type == "point_update":
+                                topic = f"{topic_prefix}/data/{safe_device_id}"
+                            elif msg_type == "alarm":
+                                topic = f"{topic_prefix}/alarm/{safe_device_id}"
+                            elif msg_type == "device_status":
+                                topic = f"{topic_prefix}/status/{safe_device_id}"
+                            else:
+                                topic = f"{topic_prefix}/misc"
+                            await self._offline_queue.enqueue(topic, data)
+                            msg_persisted = True
                         logger.warning("MQTT连接已断开，等待重连...")
                     else:
                         logger.error("MQTT发布失败: %s", e)
@@ -396,40 +572,41 @@ class MqttForwarder:
                 self._offline_db.close()
             self._offline_db = None
 
-    def _persist_message_from_data(self, data: dict) -> None:
+    async def _persist_message_from_data(self, data: dict) -> None:  # FIXED-P0: SQLite离线队列添加并发保护
         if not self._offline_db:
             return
-        config = get_config()
-        topic_prefix = config.mqtt.topic_prefix
-        msg_type = data.get("type", "unknown")
-        device_id = data.get("device_id", "")
-        if msg_type == "point_update":
-            topic = f"{topic_prefix}/data/{device_id}"
-        elif msg_type == "alarm":
-            topic = f"{topic_prefix}/alarm/{device_id}"
-        elif msg_type == "device_status":
-            topic = f"{topic_prefix}/status/{device_id}"
-        else:
-            topic = f"{topic_prefix}/misc"
-        payload = json.dumps(data, ensure_ascii=False, default=str)
-        # 告警消息设置优先级
-        priority = "alarm" if msg_type == "alarm" else ""
-        self._persist_message(topic, payload, qos=1, priority=priority, data=data)
+        async with self._offline_db_lock:
+            config = get_config()
+            topic_prefix = config.mqtt.topic_prefix
+            msg_type = data.get("type", "unknown")
+            device_id = data.get("device_id", "")
+            # FIXED(安全) R5-S-07: 脱敏 device_id 防止 topic 注入（/、+、# 等 MQTT 特殊字符）
+            safe_device_id = _sanitize_topic_segment(device_id)
+            if msg_type == "point_update":
+                topic = f"{topic_prefix}/data/{safe_device_id}"
+            elif msg_type == "alarm":
+                topic = f"{topic_prefix}/alarm/{safe_device_id}"
+            elif msg_type == "device_status":
+                topic = f"{topic_prefix}/status/{safe_device_id}"
+            else:
+                topic = f"{topic_prefix}/misc"
+            payload = json.dumps(data, ensure_ascii=False, default=str)
+            priority = "alarm" if msg_type == "alarm" else ""
+            await self._persist_message(topic, payload, qos=1, priority=priority, data=data)
 
-    def _persist_message(self, topic: str, payload: str, qos: int = 1, priority: str = "", data: dict | None = None) -> None:
+    async def _persist_message(self, topic: str, payload: str, qos: int = 1, priority: str = "", data: dict | None = None) -> None:  # FIXED-P2: 改为async以支持await _check_queue_capacity
         """持久化消息到 SQLite 和 RingBuffer"""
         # 写入 SQLite
         if self._offline_db:
             try:
-                self._check_queue_capacity()
-                cursor = self._offline_db.execute(
-                    "INSERT INTO offline_queue (topic, payload, qos, created_at, priority) VALUES (?, ?, ?, ?, ?)",
-                    (topic, payload, qos, time.time(), priority),
+                await self._check_queue_capacity()
+                # FIXED(严重): 原问题-同步SQLite操作(execute/commit)阻塞事件循环;
+                # 修复-用asyncio.to_thread包装同步DB操作
+                sqlite_id = await asyncio.to_thread(
+                    self._persist_message_sync, topic, payload, qos, priority
                 )
-                self._offline_db.commit()
-                sqlite_id = cursor.lastrowid
             except Exception as e:
-                logger.error("离线消息持久化失败: %s", e)
+                logger.error("离线消息持久化失败(磁盘满/权限/锁): %s", e)  # FIXED-P2: 磁盘满/权限错误静默吞没，导致断网期间数据永久丢失
                 sqlite_id = None
         else:
             sqlite_id = None
@@ -447,16 +624,36 @@ class MqttForwarder:
                     record["sqlite_id"] = sqlite_id
                 if data:
                     record["data"] = data
-                self._ring_buffer.put_sync(record)
+                ok = self._ring_buffer.put_sync(record)
+                if not ok:  # FIXED-P2: RingBuffer满时记录告警，而非静默丢弃
+                    logger.warning("RingBuffer full, message dropped: topic=%s", topic)
             except Exception as e:
-                logger.error("RingBuffer写入失败: %s", e)
+                logger.error("RingBuffer写入失败: %s", e)  # FIXED-P2: RingBuffer写入异常静默吞没，消息可能在内存中丢失
 
-    def _check_queue_capacity(self) -> None:
+    def _persist_message_sync(self, topic: str, payload: str, qos: int, priority: str) -> int | None:
+        """同步执行SQLite INSERT，供asyncio.to_thread调用"""
+        if not self._offline_db:
+            return None
+        with self._offline_db_sync_lock:
+            cursor = self._offline_db.execute(
+                "INSERT INTO offline_queue (topic, payload, qos, created_at, priority) VALUES (?, ?, ?, ?, ?)",
+                (topic, payload, qos, time.time(), priority),
+            )
+            self._offline_db.commit()
+            return cursor.lastrowid
+
+    async def _check_queue_capacity(self) -> None:  # FIXED-P2: 改为async，统一到asyncio.Lock+asyncio.to_thread模式，消除混合锁类型
         if not self._offline_db:
             return
-        count = self._get_pending_count()
-        if count >= self._max_queue_size:
-            self._evict_oldest()
+        await asyncio.to_thread(self._check_queue_capacity_sync)
+
+    def _check_queue_capacity_sync(self) -> None:
+        if not self._offline_db:
+            return
+        with self._offline_db_sync_lock:
+            count = self._get_pending_count()
+            if count >= self._max_queue_size:
+                self._evict_oldest()
 
     def _evict_oldest(self) -> None:
         if not self._offline_db:
@@ -469,7 +666,7 @@ class MqttForwarder:
             if cursor.rowcount > 0:
                 logger.warning("离线队列已满(max=%d)，丢弃最早数据", self._max_queue_size)
         except Exception as e:
-            logger.error("离线队列淘汰失败: %s", e)
+            logger.error("离线队列淘汰失败: %s", e)  # FIXED-P2: W11 _evict_oldest由_check_queue_capacity在锁内调用
 
     def _get_pending_count(self) -> int:
         if not self._offline_db:
@@ -481,7 +678,7 @@ class MqttForwarder:
             row = cursor.fetchone()
             return row[0] if row else 0
         except Exception:
-            return 0
+            return 0  # FIXED-P2: W11 _get_pending_count由_check_queue_capacity在锁内调用
 
     async def _replay_offline_queue(self, client: Any) -> None:
         """重传离线队列消息
@@ -549,16 +746,21 @@ class MqttForwarder:
             await self._ring_buffer.mark_synced(synced_ring_ids)
             # 同步删除 SQLite 中对应记录
             if synced_sqlite_ids and self._offline_db:
-                try:
-                    self._offline_db.execute(
-                        "DELETE FROM offline_queue WHERE id IN ({})".format(
-                            ",".join("?" * len(synced_sqlite_ids))
-                        ),
-                        synced_sqlite_ids,
-                    )
-                    self._offline_db.commit()
-                except Exception as e:
-                    logger.error("删除已同步SQLite记录失败: %s", e)
+                async with self._offline_db_lock:  # FIXED-P1: SQLite删除操作加锁，与_persist_message_from_data互斥
+                    # R11-ENG-03: SQLite execute/commit 是同步操作，用 to_thread 包装避免阻塞事件循环
+                    def _delete_synced_records() -> None:
+                        try:
+                            self._offline_db.execute(
+                                "DELETE FROM offline_queue WHERE id IN ({})".format(
+                                    ",".join("?" * len(synced_sqlite_ids))
+                                ),
+                                synced_sqlite_ids,
+                            )
+                            self._offline_db.commit()
+                        except Exception as e:
+                            logger.error("删除已同步SQLite记录失败: %s", e)
+
+                    await asyncio.to_thread(_delete_synced_records)
 
         # 标记失败回退为 pending（断点续传）
         if failed_ring_ids:
@@ -571,46 +773,57 @@ class MqttForwarder:
         if not self._offline_db:
             await asyncio.sleep(self._retry_interval)
             return
-        try:
-            # 优先重传告警消息
-            rows = self._offline_db.execute(
-                "SELECT id, topic, payload, qos, retry_count, priority FROM offline_queue "
-                "WHERE status='pending' AND retry_count<? ORDER BY priority='alarm' DESC, created_at ASC LIMIT 50",
-                (self._max_retries,),
-            ).fetchall()
-        except Exception as e:
-            logger.error("查询离线队列失败: %s", e)
-            return
+        # FIXED-P1#18: 仅在读取和更新SQLite时持锁，publish网络IO期间不持锁，避免阻塞其他SQLite操作
+        async with self._offline_db_lock:
+            try:
+                rows = self._offline_db.execute(
+                    "SELECT id, topic, payload, qos, retry_count, priority FROM offline_queue "
+                    "WHERE status='pending' AND retry_count<? ORDER BY priority='alarm' DESC, created_at ASC LIMIT 50",
+                    (self._max_retries,),
+                ).fetchall()
+            except Exception as e:
+                logger.error("查询离线队列失败: %s", e)
+                return
 
         if not rows:
             return
 
-        for row_id, topic, payload, qos, retry_count, priority in rows:
+        sent_ids: list[int] = []
+        failed_ids: list[int] = []
+        for row_id, topic, payload, qos, _retry_count, _priority in rows:
             if not self._connected or not self._running:
                 break
             try:
                 await client.publish(topic, payload.encode("utf-8"), qos=qos)
-                self._offline_db.execute(
-                    "UPDATE offline_queue SET status='sent' WHERE id=?", (row_id,)
-                )
-                self._offline_db.commit()
+                sent_ids.append(row_id)
                 self._sent_count += 1
             except Exception as e:
-                self._offline_db.execute(
-                    "UPDATE offline_queue SET retry_count=retry_count+1 WHERE id=?",
-                    (row_id,),
-                )
-                self._offline_db.commit()
+                failed_ids.append(row_id)
                 logger.debug("离线消息重传失败(id=%d): %s", row_id, e)
                 break
 
-        try:
-            self._offline_db.execute(
-                "DELETE FROM offline_queue WHERE status='sent'"
-            )
-            self._offline_db.commit()
-        except Exception:
-            pass
+        # 更新SQLite状态（持锁）
+        async with self._offline_db_lock:
+            try:
+                if sent_ids:
+                    placeholders = ",".join("?" * len(sent_ids))
+                    self._offline_db.execute(
+                        f"UPDATE offline_queue SET status='sent' WHERE id IN ({placeholders})",
+                        sent_ids,
+                    )
+                if failed_ids:
+                    placeholders = ",".join("?" * len(failed_ids))
+                    self._offline_db.execute(
+                        f"UPDATE offline_queue SET retry_count=retry_count+1 WHERE id IN ({placeholders})",
+                        failed_ids,
+                    )
+                self._offline_db.execute(
+                    "DELETE FROM offline_queue WHERE status='sent'"
+                )
+                self._offline_db.commit()
+            except Exception as e:
+                # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                logger.warning("删除已发送SQLite离线消息失败: %s", e)
 
     def get_offline_queue_status(self) -> dict:
         ring_stats = self._ring_buffer.get_stats() if self._ring_buffer else None

@@ -45,6 +45,9 @@ except ImportError:
     PYSOEM_AVAILABLE = False
     pysoem = None
 
+# 兼容别名: ethercat.py 导入 SOEM_AVAILABLE
+SOEM_AVAILABLE = PYSOEM_AVAILABLE
+
 # EtherCAT 状态常量
 EC_STATE_INIT = 0x01
 EC_STATE_PRE_OP = 0x02

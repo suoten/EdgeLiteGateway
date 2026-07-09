@@ -1,0 +1,987 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-9.0.3, pluggy-1.6.0
+rootdir: E:\˶������\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community
+configfile: pyproject.toml
+plugins: anyio-4.9.0, asyncio-1.3.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 60.0s
+timeout method: thread
+timeout func_only: False
+collected 141 items
+
+tests\test_acceptance_smoke.py ...............                           [ 10%]
+tests\test_acceptance_functional.py FF..FFFFFFFF.FFFF.FFFF.....          [ 29%]
+tests\test_acceptance_api.py ...........F........EEEEEE......FFFF.FFF.F. [ 60%]
+F...                                                                     [ 63%]
+tests\test_acceptance_security.py F.F..........F..........               [ 80%]
+tests\test_acceptance_performance.py .......F..                          [ 87%]
+tests\test_acceptance_compatibility.py ......FF.F.......F                [100%]
+
+=================================== ERRORS ====================================
+____ ERROR at setup of TestAPI401Unauthorized.test_a3_01_devices_no_token _____
+tests\test_acceptance_api.py:185: in no_auth_app
+    app.dependency_overrides.pop(get_current_user, None)
+                                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'get_current_user' is not defined
+_____ ERROR at setup of TestAPI401Unauthorized.test_a3_02_rules_no_token ______
+tests\test_acceptance_api.py:185: in no_auth_app
+    app.dependency_overrides.pop(get_current_user, None)
+                                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'get_current_user' is not defined
+_____ ERROR at setup of TestAPI401Unauthorized.test_a3_03_alarms_no_token _____
+tests\test_acceptance_api.py:185: in no_auth_app
+    app.dependency_overrides.pop(get_current_user, None)
+                                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'get_current_user' is not defined
+_ ERROR at setup of TestAPI401Unauthorized.test_a3_04_system_config_no_token __
+tests\test_acceptance_api.py:185: in no_auth_app
+    app.dependency_overrides.pop(get_current_user, None)
+                                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'get_current_user' is not defined
+_ ERROR at setup of TestAPI401Unauthorized.test_a3_05_create_device_no_token __
+tests\test_acceptance_api.py:185: in no_auth_app
+    app.dependency_overrides.pop(get_current_user, None)
+                                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'get_current_user' is not defined
+__ ERROR at setup of TestAPI401Unauthorized.test_a3_06_invalid_bearer_token ___
+tests\test_acceptance_api.py:185: in no_auth_app
+    app.dependency_overrides.pop(get_current_user, None)
+                                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'get_current_user' is not defined
+================================== FAILURES ===================================
+___________________ TestDeviceCRUD.test_f1_01_list_devices ____________________
+tests\test_acceptance_functional.py:57: in test_f1_01_list_devices
+    resp = await device_client.get("/api/v1/devices")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1814: in get
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 5 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'config'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'enabled': True, 'status': 'offline'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'points'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'enabled': True, 'status': 'offline'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'collect_interval'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'enabled': True, 'status': 'offline'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'created_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'enabled': True, 'status': 'offline'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'updated_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'enabled': True, 'status': 'offline'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+________________ TestDeviceCRUD.test_f1_02_create_device_valid ________________
+tests\test_acceptance_functional.py:74: in test_f1_02_create_device_valid
+    resp = await device_client.post("/api/v1/devices", json=payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1905: in post
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 7 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 'protocol'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'status'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'config'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'points'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'collect_interval'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'created_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'updated_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+------------------------------ Captured log call ------------------------------
+WARNING  edgelite.drivers.registry:registry.py:390 [registry] Driver opc_da has missing dependencies: ['OpenOPC'], marking as unavailable
+_________________ TestDeviceCRUD.test_f1_05_get_device_by_id __________________
+tests\test_acceptance_functional.py:106: in test_f1_05_get_device_by_id
+    resp = await device_client.get("/api/v1/devices/test-device-01")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1814: in get
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 2 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 'created_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'config': {'host': '127.0.0.1', 'port': 5020, 'slave_id': 1}, 'points': [{'name': 'temperature', 'data_type': 'float32', 'address': '0'}], 'collect_interval': 5, 'enabled': True, 'status': 'offline', 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'updated_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device-01', 'name': '�¶ȴ�����', 'protocol': 'modbus_tcp', 'config': {'host': '127.0.0.1', 'port': 5020, 'slave_id': 1}, 'points': [{'name': 'temperature', 'data_type': 'float32', 'address': '0'}], 'collect_interval': 5, 'enabled': True, 'status': 'offline', 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+_______________ TestDeviceCRUD.test_f1_06_get_device_not_found ________________
+tests\test_acceptance_functional.py:114: in test_f1_06_get_device_not_found
+    device_client.app.state.device_service.get_device = AsyncMock(return_value=None)
+    ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+___________________ TestDeviceCRUD.test_f1_07_update_device ___________________
+tests\test_acceptance_functional.py:121: in test_f1_07_update_device
+    resp = await device_client.put(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1942: in put
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 8 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 'name'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'protocol'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'status'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'config'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'points'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'collect_interval'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'created_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'updated_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+------------------------------ Captured log call ------------------------------
+WARNING  edgelite.api.devices:devices.py:970 update_device rejected unknown keys: {'force'} (user=test-admin)
+___________________ TestDeviceCRUD.test_f1_08_delete_device ___________________
+tests\test_acceptance_functional.py:131: in test_f1_08_delete_device
+    assert resp.status_code == 200
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.api.devices:devices.py:1228 delete_device failed: cannot unpack non-iterable bool object
+_____________________ TestRuleCRUD.test_f2_01_list_rules ______________________
+tests\test_acceptance_functional.py:166: in test_f2_01_list_rules
+    resp = await rule_client.get("/api/v1/rules")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1814: in get
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 6 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'device_id'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'enabled': True, 'severity': 'critical'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'conditions'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'enabled': True, 'severity': 'critical'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'logic'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'enabled': True, 'severity': 'critical'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'duration'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'enabled': True, 'severity': 'critical'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'notify_channels'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'enabled': True, 'severity': 'critical'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'created_at'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'enabled': True, 'severity': 'critical'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+_____________________ TestRuleCRUD.test_f2_02_create_rule _____________________
+tests\test_acceptance_functional.py:181: in test_f2_02_create_rule
+    assert resp.status_code in (200, 201)
+E   assert 422 in (200, 201)
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+______________________ TestRuleCRUD.test_f2_03_get_rule _______________________
+tests\test_acceptance_functional.py:186: in test_f2_03_get_rule
+    resp = await rule_client.get("/api/v1/rules/test-rule-01")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1814: in get
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 5 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 'conditions'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'device_id': 'test-device-01', 'rule_type': 'threshold', 'severity': 'critical', 'enabled': True, 'condition': {'point_name': 'temperature', 'operator': '>', 'threshold': 80}, 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'logic'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'device_id': 'test-device-01', 'rule_type': 'threshold', 'severity': 'critical', 'enabled': True, 'condition': {'point_name': 'temperature', 'operator': '>', 'threshold': 80}, 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'duration'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'device_id': 'test-device-01', 'rule_type': 'threshold', 'severity': 'critical', 'enabled': True, 'condition': {'point_name': 'temperature', 'operator': '>', 'threshold': 80}, 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'notify_channels'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'device_id': 'test-device-01', 'rule_type': 'threshold', 'severity': 'critical', 'enabled': True, 'condition': {'point_name': 'temperature', 'operator': '>', 'threshold': 80}, 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'created_at'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule-01', 'name': '���¸澯', 'device_id': 'test-device-01', 'rule_type': 'threshold', 'severity': 'critical', 'enabled': True, 'condition': {'point_name': 'temperature', 'operator': '>', 'threshold': 80}, 'created_by': 'test-admin'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+_____________________ TestRuleCRUD.test_f2_04_update_rule _____________________
+tests\test_acceptance_functional.py:192: in test_f2_04_update_rule
+    resp = await rule_client.put(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1942: in put
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 9 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 'name'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'device_id'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'conditions'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'logic'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'duration'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'severity'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'enabled'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'notify_channels'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'created_at'), 'msg': 'Field required', 'input': {'rule_id': 'test-rule'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+______________________ TestRuleCRUD.test_f2_06_test_rule ______________________
+tests\test_acceptance_functional.py:217: in test_f2_06_test_rule
+    assert resp.status_code == 200
+E   assert 422 == 200
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+_________________ TestAlarmManagement.test_f3_01_list_alarms __________________
+tests\test_acceptance_functional.py:257: in test_f3_01_list_alarms
+    resp = await alarm_client.get("/api/v1/alarms")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1814: in get
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 4 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'status'), 'msg': 'Field required', 'input': {'alarm_id': 'alarm-001', 'rule_id': 'test-rule-01', 'device_id': 'test-device-01', 'severity': 'critical', 'state': 'firing', 'message': '�¶ȳ���: 85.5 > 80', 'triggered_at': '2026-01-01T00:00:00Z'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'trigger_value'), 'msg': 'Field required', 'input': {'alarm_id': 'alarm-001', 'rule_id': 'test-rule-01', 'device_id': 'test-device-01', 'severity': 'critical', 'state': 'firing', 'message': '�¶ȳ���: 85.5 > 80', 'triggered_at': '2026-01-01T00:00:00Z'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'trigger_count'), 'msg': 'Field required', 'input': {'alarm_id': 'alarm-001', 'rule_id': 'test-rule-01', 'device_id': 'test-device-01', 'severity': 'critical', 'state': 'firing', 'message': '�¶ȳ���: 85.5 > 80', 'triggered_at': '2026-01-01T00:00:00Z'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 0, 'fired_at'), 'msg': 'Field required', 'input': {'alarm_id': 'alarm-001', 'rule_id': 'test-rule-01', 'device_id': 'test-device-01', 'severity': 'critical', 'state': 'firing', 'message': '�¶ȳ���: 85.5 > 80', 'triggered_at': '2026-01-01T00:00:00Z'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+______________ TestAlarmManagement.test_f3_02_acknowledge_alarm _______________
+tests\test_acceptance_functional.py:263: in test_f3_02_acknowledge_alarm
+    resp = await alarm_client.put("/api/v1/alarms/alarm-001/ack")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1942: in put
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 12 validation errors:
+E     {'type': 'string_type', 'loc': ('response', 'data', 'alarm_id'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().alarm_id' id='1823037327168'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'rule_id'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().rule_id' id='1823037412112'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'device_id'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().device_id' id='1823037415904'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'literal_error', 'loc': ('response', 'data', 'severity'), 'msg': "Input should be 'critical', 'major', 'warning', 'minor' or 'info'", 'input': <AsyncMock name='mock.ack_alarm().severity' id='1823037419744'>, 'ctx': {'expected': "'critical', 'major', 'warning', 'minor' or 'info'"}, 'url': 'https://errors.pydantic.dev/2.6/v/literal_error'}
+E     {'type': 'literal_error', 'loc': ('response', 'data', 'status'), 'msg': "Input should be 'firing', 'acknowledged' or 'recovered'", 'input': <AsyncMock name='mock.ack_alarm().status' id='1823037423584'>, 'ctx': {'expected': "'firing', 'acknowledged' or 'recovered'"}, 'url': 'https://errors.pydantic.dev/2.6/v/literal_error'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'message'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().message' id='1823037443920'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'dict_type', 'loc': ('response', 'data', 'trigger_value'), 'msg': 'Input should be a valid dictionary', 'input': <AsyncMock name='mock.ack_alarm().trigger_value' id='1823037447712'>, 'url': 'https://errors.pydantic.dev/2.6/v/dict_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'fired_at'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().fired_at' id='1823037455392'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'acknowledged_at'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().acknowledged_at' id='1823036824064'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'acknowledged_by'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().acknowledged_by' id='1823036827904'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'recovered_at'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.ack_alarm().recovered_at' id='1823036831696'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'literal_error', 'loc': ('response', 'data', 'rule_type'), 'msg': "Input should be 'threshold', 'ai_inference' or 'script'", 'input': <AsyncMock name='mock.ack_alarm().rule_type' id='1823036262160'>, 'ctx': {'expected': "'threshold', 'ai_inference' or 'script'"}, 'url': 'https://errors.pydantic.dev/2.6/v/literal_error'}
+________________ TestAlarmManagement.test_f3_03_recover_alarm _________________
+tests\test_acceptance_functional.py:269: in test_f3_03_recover_alarm
+    resp = await alarm_client.put("/api/v1/alarms/alarm-001/recover")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1942: in put
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 12 validation errors:
+E     {'type': 'string_type', 'loc': ('response', 'data', 'alarm_id'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().alarm_id' id='1823050986320'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'rule_id'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().rule_id' id='1823096315232'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'device_id'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().device_id' id='1823096319072'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'literal_error', 'loc': ('response', 'data', 'severity'), 'msg': "Input should be 'critical', 'major', 'warning', 'minor' or 'info'", 'input': <AsyncMock name='mock.clear_alarm().severity' id='1823096322912'>, 'ctx': {'expected': "'critical', 'major', 'warning', 'minor' or 'info'"}, 'url': 'https://errors.pydantic.dev/2.6/v/literal_error'}
+E     {'type': 'literal_error', 'loc': ('response', 'data', 'status'), 'msg': "Input should be 'firing', 'acknowledged' or 'recovered'", 'input': <AsyncMock name='mock.clear_alarm().status' id='1823096441552'>, 'ctx': {'expected': "'firing', 'acknowledged' or 'recovered'"}, 'url': 'https://errors.pydantic.dev/2.6/v/literal_error'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'message'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().message' id='1823096445392'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'dict_type', 'loc': ('response', 'data', 'trigger_value'), 'msg': 'Input should be a valid dictionary', 'input': <AsyncMock name='mock.clear_alarm().trigger_value' id='1823096449184'>, 'url': 'https://errors.pydantic.dev/2.6/v/dict_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'fired_at'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().fired_at' id='1823094613024'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'acknowledged_at'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().acknowledged_at' id='1823041064448'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'acknowledged_by'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().acknowledged_by' id='1823051389008'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'string_type', 'loc': ('response', 'data', 'recovered_at'), 'msg': 'Input should be a valid string', 'input': <AsyncMock name='mock.clear_alarm().recovered_at' id='1823043227088'>, 'url': 'https://errors.pydantic.dev/2.6/v/string_type'}
+E     {'type': 'literal_error', 'loc': ('response', 'data', 'rule_type'), 'msg': "Input should be 'threshold', 'ai_inference' or 'script'", 'input': <AsyncMock name='mock.clear_alarm().rule_type' id='1823096377456'>, 'ctx': {'expected': "'threshold', 'ai_inference' or 'script'"}, 'url': 'https://errors.pydantic.dev/2.6/v/literal_error'}
+____________________ TestDataQuery.test_f4_02_query_stats _____________________
+tests\test_acceptance_functional.py:313: in test_f4_02_query_stats
+    assert resp.status_code == 200
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.api.data:data.py:234 Failed to get collection stats: 'NoneType' object has no attribute 'get_status_counts'
+______________ TestDataQuery.test_f4_03_query_invalid_time_range ______________
+tests\test_acceptance_functional.py:324: in test_f4_03_query_invalid_time_range
+    assert resp.status_code == 400
+E   assert 200 == 400
+E    +  where 200 = <Response [200 OK]>.status_code
+__________________ TestAIInference.test_f5_01_list_ai_models __________________
+tests\test_acceptance_functional.py:366: in test_f5_01_list_ai_models
+    assert resp.status_code == 200
+E   assert 503 == 200
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+_____________________ TestAIInference.test_f5_02_ai_stats _____________________
+tests\test_acceptance_functional.py:374: in test_f5_02_ai_stats
+    assert resp.status_code == 200
+E   assert 503 == 200
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+__________ TestAPI200Success.test_a1_12_get_system_locks_status_200 ___________
+tests\test_acceptance_api.py:93: in test_a1_12_get_system_locks_status_200
+    assert resp.status_code == 200
+E   assert 503 == 200
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+___________ TestAPI403Forbidden.test_a4_07_viewer_can_read_devices ____________
+tests\test_acceptance_api.py:304: in test_a4_07_viewer_can_read_devices
+    assert resp.status_code == 200
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.api.devices:devices.py:159 list_devices failed: 'NoneType' object has no attribute 'write_lock'
+____________ TestAPI403Forbidden.test_a4_08_viewer_can_read_rules _____________
+tests\test_acceptance_api.py:310: in test_a4_08_viewer_can_read_rules
+    assert resp.status_code == 200
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.api.rules:rules.py:85 list_rules failed: 'NoneType' object has no attribute 'write_lock'
+_______________ TestAPI404NotFound.test_a5_01_device_not_found ________________
+tests\test_acceptance_api.py:328: in test_a5_01_device_not_found
+    client.app.state.device_service.get_device = AsyncMock(return_value=None)
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+________________ TestAPI404NotFound.test_a5_02_rule_not_found _________________
+tests\test_acceptance_api.py:334: in test_a5_02_rule_not_found
+    client.app.state.rule_service.get_rule = AsyncMock(return_value=None)
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+____________ TestAPI500ServerError.test_a6_01_device_service_error ____________
+tests\test_acceptance_api.py:360: in test_a6_01_device_service_error
+    client.app.state.device_service.list_devices = AsyncMock(
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+_____________ TestAPI500ServerError.test_a6_02_rule_service_error _____________
+tests\test_acceptance_api.py:369: in test_a6_02_rule_service_error
+    client.app.state.rule_service.list_rules = AsyncMock(
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+____________ TestAPI500ServerError.test_a6_03_alarm_service_error _____________
+tests\test_acceptance_api.py:378: in test_a6_03_alarm_service_error
+    client.app.state.alarm_service.list_alarms = AsyncMock(
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+_______________ TestAPIPagination.test_a7_02_custom_pagination ________________
+tests\test_acceptance_api.py:413: in test_a7_02_custom_pagination
+    assert data["size"] == 50
+E   assert 20 == 50
+_________________ TestAPIPagination.test_a7_04_oversize_page __________________
+tests\test_acceptance_api.py:425: in test_a7_04_oversize_page
+    assert resp.status_code == 422
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+_________ TestBruteForceProtection.test_sec1_01_multiple_failed_login _________
+tests\test_acceptance_security.py:51: in test_sec1_01_multiple_failed_login
+    assert 429 in statuses or 423 in statuses, (
+E   AssertionError: Expected rate limiting after 10 failed attempts, got statuses: [500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+E   assert (429 in [500, 500, 500, 500, 500, 500, ...] or 423 in [500, 500, 500, 500, 500, 500, ...])
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin: object MagicMock can't be used in 'await' expression
+____ TestBruteForceProtection.test_sec1_03_login_with_weak_password_format ____
+tests\test_acceptance_security.py:75: in test_sec1_03_login_with_weak_password_format
+    assert resp.status_code in (401, 422, 429), (
+E   AssertionError: Weak password 'password' should be rejected, got 500
+E   assert 500 in (401, 422, 429)
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=testuser: object MagicMock can't be used in 'await' expression
+____________ TestSQLInjection.test_sec3_02_sql_injection_in_login _____________
+tests\test_acceptance_security.py:215: in test_sec3_02_sql_injection_in_login
+    assert resp.status_code in (401, 422, 429), (
+E   AssertionError: SQL injection in login should not succeed, got 500
+E   assert 500 in (401, 422, 429)
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+------------------------------ Captured log call ------------------------------
+ERROR    edgelite.storage.sqlite_repo:sqlite_repo.py:2704 UserRepo.get_by_username_with_password failed: object MagicMock can't be used in 'await' expression
+ERROR    edgelite.api.auth:auth.py:390 Login failed: UserRepo.get_by_username_with_password failed for username=admin' --: object MagicMock can't be used in 'await' expression
+_______ TestConcurrentRequests.test_perf2_03_concurrent_create_devices ________
+tests\test_acceptance_performance.py:170: in test_perf2_03_concurrent_create_devices
+    results = await asyncio.gather(*[create_device(i) for i in range(20)])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_acceptance_performance.py:167: in create_device
+    resp = await client.post("/api/v1/devices", json=payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1905: in post
+    return await self.request(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1585: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1674: in send
+    response = await self._send_handling_auth(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1702: in _send_handling_auth
+    response = await self._send_handling_redirects(
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1739: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_client.py:1776: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\httpx\_transports\asgi.py:157: in handle_async_request
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\fastapi\applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\cors.py:83: in __call__
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\middleware\exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:762: in __call__
+    await self.middleware_stack(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:782: in app
+    await route.handle(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:297: in handle
+    await self.app(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:64: in wrapped_app
+    raise exc
+D:\os\Python312\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+D:\os\Python312\Lib\site-packages\starlette\routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:315: in app
+    content = await serialize_response(
+D:\os\Python312\Lib\site-packages\fastapi\routing.py:155: in serialize_response
+    raise ResponseValidationError(
+E   fastapi.exceptions.ResponseValidationError: 7 validation errors:
+E     {'type': 'missing', 'loc': ('response', 'data', 'protocol'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'status'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'config'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'points'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'collect_interval'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'created_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+E     {'type': 'missing', 'loc': ('response', 'data', 'updated_at'), 'msg': 'Field required', 'input': {'device_id': 'test-device', 'name': 'Test'}, 'url': 'https://errors.pydantic.dev/2.6/v/missing'}
+__________ TestContentTypeCompatibility.test_comp2_02_post_with_json __________
+tests\test_acceptance_compatibility.py:113: in test_comp2_02_post_with_json
+    assert resp.status_code in (200, 201)
+E   assert 422 in (200, 201)
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+__________ TestContentTypeCompatibility.test_comp2_03_utf8_response ___________
+tests\test_acceptance_compatibility.py:118: in test_comp2_03_utf8_response
+    client.app.state.device_service.list_devices = AsyncMock(return_value=(
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+_____________ TestHTTPMethodCompliance.test_comp3_02_post_allowed _____________
+tests\test_acceptance_compatibility.py:157: in test_comp3_02_post_allowed
+    assert resp.status_code in (200, 201)
+E   assert 422 in (200, 201)
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+_______ TestErrorHandlingCompatibility.test_comp5_03_500_has_error_body _______
+tests\test_acceptance_compatibility.py:254: in test_comp5_03_500_has_error_body
+    client.app.state.device_service.list_devices = AsyncMock(
+    ^^^^^^^^^^
+E   AttributeError: 'AsyncClient' object has no attribute 'app'
+============================== warnings summary ===============================
+D:\os\Python312\Lib\site-packages\starlette\formparsers.py:10
+  D:\os\Python312\Lib\site-packages\starlette\formparsers.py:10: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_02_create_device_valid
+  D:\os\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.5.0) or chardet (7.4.3)/charset_normalizer (3.4.3) doesn't match a supported version!
+    warnings.warn(
+
+tests/test_acceptance_functional.py::TestAlarmManagement::test_f3_02_acknowledge_alarm
+  E:\˶������\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:280: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if alarm.get("status") == "acknowledged" and alarm.get("acknowledged_by") != user["username"]:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_acceptance_functional.py::TestAlarmManagement::test_f3_03_recover_alarm
+  E:\˶������\PyGBSentry\EdgeLite\EdgeLite-v1.0-Community\src\edgelite\api\alarms.py:315: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if alarm.get("status") == "recovered":
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_01_list_devices
+FAILED tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_02_create_device_valid
+FAILED tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_05_get_device_by_id
+FAILED tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_06_get_device_not_found
+FAILED tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_07_update_device
+FAILED tests/test_acceptance_functional.py::TestDeviceCRUD::test_f1_08_delete_device
+FAILED tests/test_acceptance_functional.py::TestRuleCRUD::test_f2_01_list_rules
+FAILED tests/test_acceptance_functional.py::TestRuleCRUD::test_f2_02_create_rule
+FAILED tests/test_acceptance_functional.py::TestRuleCRUD::test_f2_03_get_rule
+FAILED tests/test_acceptance_functional.py::TestRuleCRUD::test_f2_04_update_rule
+FAILED tests/test_acceptance_functional.py::TestRuleCRUD::test_f2_06_test_rule
+FAILED tests/test_acceptance_functional.py::TestAlarmManagement::test_f3_01_list_alarms
+FAILED tests/test_acceptance_functional.py::TestAlarmManagement::test_f3_02_acknowledge_alarm
+FAILED tests/test_acceptance_functional.py::TestAlarmManagement::test_f3_03_recover_alarm
+FAILED tests/test_acceptance_functional.py::TestDataQuery::test_f4_02_query_stats
+FAILED tests/test_acceptance_functional.py::TestDataQuery::test_f4_03_query_invalid_time_range
+FAILED tests/test_acceptance_functional.py::TestAIInference::test_f5_01_list_ai_models
+FAILED tests/test_acceptance_functional.py::TestAIInference::test_f5_02_ai_stats
+FAILED tests/test_acceptance_api.py::TestAPI200Success::test_a1_12_get_system_locks_status_200
+FAILED tests/test_acceptance_api.py::TestAPI403Forbidden::test_a4_07_viewer_can_read_devices
+FAILED tests/test_acceptance_api.py::TestAPI403Forbidden::test_a4_08_viewer_can_read_rules
+FAILED tests/test_acceptance_api.py::TestAPI404NotFound::test_a5_01_device_not_found
+FAILED tests/test_acceptance_api.py::TestAPI404NotFound::test_a5_02_rule_not_found
+FAILED tests/test_acceptance_api.py::TestAPI500ServerError::test_a6_01_device_service_error
+FAILED tests/test_acceptance_api.py::TestAPI500ServerError::test_a6_02_rule_service_error
+FAILED tests/test_acceptance_api.py::TestAPI500ServerError::test_a6_03_alarm_service_error
+FAILED tests/test_acceptance_api.py::TestAPIPagination::test_a7_02_custom_pagination
+FAILED tests/test_acceptance_api.py::TestAPIPagination::test_a7_04_oversize_page
+FAILED tests/test_acceptance_security.py::TestBruteForceProtection::test_sec1_01_multiple_failed_login
+FAILED tests/test_acceptance_security.py::TestBruteForceProtection::test_sec1_03_login_with_weak_password_format
+FAILED tests/test_acceptance_security.py::TestSQLInjection::test_sec3_02_sql_injection_in_login
+FAILED tests/test_acceptance_performance.py::TestConcurrentRequests::test_perf2_03_concurrent_create_devices
+FAILED tests/test_acceptance_compatibility.py::TestContentTypeCompatibility::test_comp2_02_post_with_json
+FAILED tests/test_acceptance_compatibility.py::TestContentTypeCompatibility::test_comp2_03_utf8_response
+FAILED tests/test_acceptance_compatibility.py::TestHTTPMethodCompliance::test_comp3_02_post_allowed
+FAILED tests/test_acceptance_compatibility.py::TestErrorHandlingCompatibility::test_comp5_03_500_has_error_body
+ERROR tests/test_acceptance_api.py::TestAPI401Unauthorized::test_a3_01_devices_no_token
+ERROR tests/test_acceptance_api.py::TestAPI401Unauthorized::test_a3_02_rules_no_token
+ERROR tests/test_acceptance_api.py::TestAPI401Unauthorized::test_a3_03_alarms_no_token
+ERROR tests/test_acceptance_api.py::TestAPI401Unauthorized::test_a3_04_system_config_no_token
+ERROR tests/test_acceptance_api.py::TestAPI401Unauthorized::test_a3_05_create_device_no_token
+ERROR tests/test_acceptance_api.py::TestAPI401Unauthorized::test_a3_06_invalid_bearer_token
+======= 36 failed, 99 passed, 4 warnings, 6 errors in 201.88s (0:03:21) =======

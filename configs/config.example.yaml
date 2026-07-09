@@ -5,14 +5,15 @@
 # 配置优先级：环境变量 > .env 文件 > config.yaml
 # 推荐使用 .env 文件管理敏感配置，参见 .env.example
 # 环境变量格式：EDGELITE_<SECTION>__<KEY>（双下划线分隔）
-# 示例：EDGELITE_INFLUXDB__TOKEN=your-token
-#       EDGELITE_SECURITY__SECRET_KEY=your-secret
+# 示例：EDGELITE_INFLUXDB__TOKEN=<your-token>
+#       EDGELITE_SECURITY__SECRET_KEY=<your-secret>
 
 # ── 服务配置 ──────────────────────────────────────────────
 server:
-  host: "0.0.0.0"          # 监听地址，0.0.0.0 表示所有网卡
+  host: "127.0.0.1"       # FIXED-P1: 默认仅监听localhost，Docker部署通过环境变量覆盖为0.0.0.0
   port: 8080                # 监听端口，默认 8080
-  cors_origins:             # CORS 允许源列表，生产环境限制为实际域名
+  # FIXED: 使用推荐字段 cors_allowed_origins（旧字段 cors_origins 仅向后兼容读取）[2026-06-29]
+  cors_allowed_origins:      # CORS 允许源列表，生产环境限制为实际域名
     - "http://localhost:3000"  # Vite 开发服务器默认端口
     # - "https://edgelite.example.com"  # 生产环境前端域名
 
@@ -24,7 +25,7 @@ database:
   # host: "localhost"             # 数据库主机（backend非sqlite时必填）
   # port: 3306                    # 数据库端口（MySQL:3306, PostgreSQL:5432, MSSQL:1433）
   # username: ""                  # 数据库用户名
-  # password: ""                  # 数据库密码
+  # password: "${EDGELITE_DB_PASSWORD}"  # 数据库密码（建议通过环境变量配置）
   # database: "edgelite"          # 数据库名
   # pool_size: 5                  # 连接池大小
   # max_overflow: 10              # 连接池最大溢出
@@ -33,7 +34,7 @@ database:
 # ── InfluxDB 时序数据库 ──────────────────────────────────
 influxdb:
   url: "http://localhost:8086"     # InfluxDB 服务地址
-  token: "K7mX2pR9vW4yH1jM6cF0gL3pS8tV2wZ5bD9mJ4qR7uX0yA3cE6hK9lN2pR5tV8wB1dG4jM7qS0u"  # API Token
+  token: "${INFLUXDB_TOKEN}"  # FIXED-P1: 引导使用环境变量，避免占位符被误用
   org: "edgelite"                  # 组织名（需与 InfluxDB 初始化时一致）
   bucket: "edgelite"               # Bucket 名（需与 InfluxDB 初始化时一致）
   batch_size: 1000                 # 批量写入数据点数，增大可提高吞吐量（范围：100-10000）
@@ -45,7 +46,7 @@ mqtt:
   broker: "localhost"              # MQTT Broker 地址
   port: 1883                       # Broker 端口（TCP）
   username: ""                     # 认证用户名（空则不认证）
-  password: ""                     # 认证密码
+  password: "${EDGELITE_MQTT_PASSWORD}"  # 认证密码（通过环境变量配置，空值表示不认证）
   topic_prefix: "edgelite"         # 发布主题前缀，完整主题：{prefix}/{device_id}/{point_name}
   offline_cache_enabled: true      # 是否启用断网缓存（断网时消息持久化到SQLite）
   offline_db_path: "data/mqtt_offline_queue.db"  # 离线缓存数据库路径
@@ -56,16 +57,16 @@ mqtt:
 # ── 内置 MQTT Server（南向仿真）──────────────────────────
 mqtt_server:
   enabled: false                   # 是否启用内置 MQTT Server
-  host: "0.0.0.0"                  # 监听地址
+  host: "127.0.0.1"                # FIXED-P1: 默认仅监听localhost
   port: 1888                       # TCP 监听端口（避免与系统 MQTT Broker 冲突）
   ws_port: null                    # WebSocket 端口，null 表示不启用 WebSocket
   username: ""                     # 客户端认证用户名（空则不认证）
-  password: ""                     # 客户端认证密码
+  password: "${EDGELITE_MQTT_SERVER_PASSWORD}"  # 客户端认证密码（通过环境变量配置，空值表示不认证）
 
 # ── 内置 Modbus Slave（南向仿真）─────────────────────────
 modbus_slave:
   enabled: false                   # 是否启用内置 Modbus Slave
-  host: "0.0.0.0"                  # 监听地址
+  host: "127.0.0.1"                # FIXED-P1: 默认仅监听localhost
   port: 502                        # 监听端口（Modbus TCP 默认端口，需 root 权限）
   holding_size: 1000               # 保持寄存器数量（地址 0-999）
   input_size: 1000                 # 输入寄存器数量（地址 0-999）
@@ -74,12 +75,12 @@ modbus_slave:
 video:
   pygbsentry:
     endpoint: ""  # PyGBSentry 服务地址，如 http://192.168.1.100:8080
-    api_key: ""   # PyGBSentry API Key
+    api_key: "${PYGBSENTRY_API_KEY}"  # FIXED-P1: 引导使用环境变量
     timeout: 10                    # 请求超时（秒）
 
 # ── 安全配置 ─────────────────────────────────────────────
 security:
-  secret_key: "c8nSH3RdgLhrlVIMi0SQOo-9C64wFnDlpE9AxZaf8oI"  # JWT签名密钥
+  secret_key: "${EDGELITE_SECRET_KEY}"  # FIXED-P1: 引导使用环境变量，避免占位符被误用
   access_token_expire_minutes: 30  # access_token 过期时间（分钟）
   refresh_token_expire_days: 7     # refresh_token 过期时间（天）
   algorithm: "HS256"               # JWT 签名算法，可选：HS256 / HS384 / HS512
@@ -91,7 +92,7 @@ logging:
 
 # ── 模拟器配置 ───────────────────────────────────────────
 simulator:
-  auto_create: true                # 启动时是否自动创建 default_devices 中的模拟设备（生产环境建议 false）
+  auto_create: false               # FIXED-P1: 默认关闭，开发环境设为true
   default_devices:                 # 默认模拟设备列表
     - device_id: "sim-temperature-01"  # 设备唯一标识
       name: "温度传感器模拟"            # 设备名称
@@ -118,12 +119,12 @@ simulator:
 notify:
   dingtalk:
     webhook_url: ""                 # 钉钉机器人 Webhook URL（https://oapi.dingtalk.com/robot/send?access_token=xxx）
-    secret: ""                      # 加签密钥（机器人安全设置中的加签密钥）
+    secret: "${EDGELITE_DINGTALK_SECRET}"  # FIXED-P1: 加签密钥改为环境变量引用
   email:
     smtp_host: ""                   # SMTP 服务器地址
     smtp_port: 465                  # SMTP 端口（465=SSL, 587=STARTTLS）
     smtp_user: ""                   # SMTP 认证用户名
-    smtp_password: ""               # SMTP 认证密码
+    smtp_password: "${EDGELITE_SMTP_PASSWORD}"  # FIXED-P1: SMTP密码改为环境变量引用
     use_tls: true                   # 是否使用 TLS/SSL
     from_addr: ""                   # 发件人地址（空则使用 smtp_user）
     to_addrs: []                    # 收件人地址列表
@@ -139,45 +140,11 @@ platforms: {}
 #   iotsharp:                        # IoTSharp 平台
 #     enabled: true
 #     endpoint: "http://your-iotsharp:8080"  # IoTSharp 服务地址
-#     api_key: "your-iotsharp-api-key"       # API Key
+#     api_key: "<your-iotsharp-api-key>"       # API Key
 #   thingsboard:                     # ThingsBoard 平台
 #     enabled: true
 #     endpoint: "http://your-thingsboard:8080"  # ThingsBoard 服务地址
-#     token: "your-thingsboard-token"            # 访问 Token
-
-# ── Sparkplug B 北向协议 ────────────────────────────────
-# sparkplug_b:
-#   group_id: "group1"               # Sparkplug B Group ID
-#   edge_node_id: "edgelite_node"    # Edge Node ID
-#   mqtt_broker: "localhost"         # MQTT Broker 地址
-#   mqtt_port: 1883                  # MQTT Broker 端口
-#   mqtt_username: ""                # MQTT 认证用户名
-#   mqtt_password: ""                # MQTT 认证密码
-#   birth_debounce_ms: 1000          # BIRTH 证书去抖动时间（毫秒），范围 0-10000
-#   tls_enabled: false               # 是否启用 TLS
-#   tls_ca_cert: ""                  # CA 证书路径
-#   tls_client_cert: ""              # 客户端证书路径
-#   tls_client_key: ""               # 客户端私钥路径
-
-# ── DL/T 645 电表规约默认参数 ──────────────────────────
-# dlt645_defaults:
-#   baud_rate: 2400                  # 波特率，范围 300-115200
-#   data_bits: 8                     # 数据位
-#   parity: "E"                      # 校验：E(偶校验) / O(奇校验) / N(无校验)
-#   stop_bits: 1                     # 停止位
-#   timeout: 5.0                     # 超时时间（秒），范围 1.0-30.0
-
-# ── IEC 104 电力远动规约 ───────────────────────────────
-# iec104:
-#   default_port: 2404               # IEC 104 默认端口
-#   asdu_addr_length: 2              # ASDU 地址长度（1 或 2 字节）
-#   cause_of_tx_length: 2            # 传输原因长度（1 或 2 字节）
-#   max_apdu_length: 249             # 最大 APDU 长度，范围 25-65535
-#   clock_sync: true                 # 是否启用时钟同步
-#   heartbeat_interval: 30.0         # 心跳间隔（秒），范围 5.0-300.0
-#   t1_timeout: 15.0                 # T1 超时（秒），范围 1.0-60.0
-#   t2_timeout: 10.0                 # T2 超时（秒），范围 1.0-60.0
-#   t3_timeout: 20.0                 # T3 超时（秒），范围 1.0-120.0
+#     token: "<your-thingsboard-token>"            # 访问 Token
 
 # ── 串口 TCP 透传 ──────────────────────────────────────
 # serial_bridge:
@@ -198,9 +165,9 @@ platforms: {}
 # ── HTTP Webhook 安全认证 ─────────────────────────────
 # webhook_auth:
 #   mode: "none"                     # 认证模式：none / bearer / basic
-#   token: ""                        # Bearer Token（mode=bearer 时使用）
+#   token: "${EDGELITE_WEBHOOK_TOKEN}"        # Bearer Token（mode=bearer 时使用）
 #   username: ""                     # Basic 认证用户名（mode=basic 时使用）
-#   password: ""                     # Basic 认证密码（mode=basic 时使用）
+#   password: "${EDGELITE_WEBHOOK_PASSWORD}"  # Basic 认证密码（mode=basic 时使用）
 
 # ── MQTT TLS/SSL 配置 ─────────────────────────────────
 # mqtt_tls:
@@ -226,7 +193,43 @@ ai_inference:
 # 注：若模型文件缺失，启动时会自动生成预置onnx模型
 # 若onnxruntime未安装，模型将标记为inactive，安装后可通过API启用
 
-# ── 多网关级联发现 ─────────────────────────────────────
+# ── MCP Server（Model Context Protocol）─────────────────
+# FIXED: 补全 example 缺失的顶级 key，与 config.yaml/AppConfig 对齐 [2026-06-29]
+mcp_server:
+  enabled: false                   # 是否启用 MCP Server（默认关闭，按需开启）
+
+# ── Grafana 集成 ────────────────────────────────────────
+grafana:
+  enabled: false                   # 是否启用 Grafana 数据源/仪表盘集成
+  url: "http://localhost:3001"     # Grafana 服务地址
+  api_key: "${GRAFANA_API_KEY}"      # Grafana API Key（通过环境变量配置）
+  datasource: "InfluxDB"           # 默认数据源名称
+
+# ── 自动备份调度 ────────────────────────────────────────
+backup:
+  enabled: false                   # 是否启用定时备份
+  interval_hours: 24               # 备份间隔（小时）
+  retain_days: 7                   # 备份保留天数
+  backup_dir: "data/backups"      # 备份目录
+  min_free_mb: 100                 # 触发备份前最小可用磁盘空间（MB）
+
+# ── 缓存层（环形缓冲/水位线）────────────────────────────
+cache:
+  ring_buffer_capacity: 100000     # 环形缓冲容量（条）
+  ring_buffer_compress: true       # 是否压缩环形缓冲
+  incremental_sync_enabled: true  # 是否启用增量同步
+  high_watermark_pct: 0.8          # 高水位线（触发同步）
+  critical_watermark_pct: 0.9      # 临界水位线（强制同步）
+
+# ── OTA 更新地址 ────────────────────────────────────────
+ota_update_url: ""                 # 固件/应用 OTA 检查地址，空则禁用 OTA 检查
+
+# ── CSRF 密钥（顶级字段，由环境变量 EDGELITE_CSRF_SECRET 读取）──
+# FIXED: 补全 example 缺失文档；生产环境必须配置，否则重启后 CSRF token 失效 [2026-06-29]
+# 生成命令: python -c "import secrets; print(secrets.token_urlsafe(32))"
+csrf_secret: "${EDGELITE_CSRF_SECRET}"
+
+# ── 多网关级联发现（路线图，当前 AppConfig 未接入此字段，配置后不生效）──
 # cascade:
 #   enabled: false                   # 是否启用级联发现
 #   local_id: ""                     # 本网关ID（空则使用主机名）

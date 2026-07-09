@@ -2,28 +2,47 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+
+# FIXED(P3): 原问题-F401未使用导入datetime.datetime; 修复-删除该导入行
 from typing import Any
-from unittest.mock import MagicMock
+
+logger = logging.getLogger(__name__)
+
+# FIXED-P0: 限制 mask_string 输入长度，防止超长输入触发 ReDoS 或性能退化
+_MAX_MASK_STRING_LENGTH = 65536
 
 # 默认敏感字段列表
 DEFAULT_SENSITIVE_PATTERNS = {
-    # 密码类
+    # 密码类 - 引号包裹值
     r"password[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "password=***",
     r"pwd[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "pwd=***",
     r"pass[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "pass=***",
-    # Token类
+    # FIXED-P2: 增加非引号包裹值的脱敏模式，防止攻击者通过构造不含引号的日志绕过脱敏
+    # 之前：仅匹配password="xxx"格式，password=xxx格式不被脱敏
+    # 之后：同时匹配引号和非引号包裹的敏感值
+    r"password[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "password=***",
+    r"pwd[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "pwd=***",
+    # Token类 - 引号包裹值
     r"token[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "token=***",
     r"bearer[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "bearer=***",
     r"authorization[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "authorization=***",
-    # API Key类
+    # Token类 - 非引号包裹值
+    r"token[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "token=***",
+    r"bearer[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "bearer=***",
+    r"authorization[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "authorization=***",
+    # API Key类 - 引号包裹值
     r"api[_-]?key[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "api_key=***",
     r"secret[_-]?key[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "secret_key=***",
     r"access[_-]?key[\"']?\s*[:=]\s*[\"'][^\"']+[\"']": "access_key=***",
+    # API Key类 - 非引号包裹值
+    r"api[_-]?key[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "api_key=***",
+    r"secret[_-]?key[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "secret_key=***",
+    r"access[_-]?key[\"']?\s*[:=]\s*[^\s,\"'}\]]+": "access_key=***",
     # 证书私钥类
     r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----": "[PRIVATE KEY REDACTED]",
     r"-----BEGIN\s+CERTIFICATE-----": "[CERTIFICATE REDACTED]",
@@ -95,13 +114,22 @@ class SensitiveFilter(logging.Filter):
             if record.exc_text:
                 record.exc_text = self.mask_string(record.exc_text)
         except Exception:
-            pass
+            logger.debug("Data masking filter failed, original message retained")  # FIXED-P2: 脱敏失败时记录日志而非静默
         return True
 
     def mask_string(self, text: str) -> str:
         """脱敏字符串"""
         if not text:
             return text
+
+        # FIXED-P0: 限制输入长度，防止超长字符串触发 ReDoS 或导致正则替换性能退化
+        # （所有模式顺序应用，复杂度 O(n * m)，n=文本长度，m=模式数）
+        if len(text) > _MAX_MASK_STRING_LENGTH:
+            logger.debug(
+                "Input too long for masking (%d chars), truncating to %d",
+                len(text), _MAX_MASK_STRING_LENGTH,
+            )
+            text = text[:_MAX_MASK_STRING_LENGTH]
 
         result = text
         for pattern, replacement in self.patterns.items():
@@ -152,13 +180,16 @@ def mask_json(data: dict, sensitive_keys: list[str] | None = None) -> dict:
     if sensitive_keys is None:
         sensitive_keys = list(DEFAULT_MASK_FIELDS)
 
+    # FIXED-P1: 预计算敏感字段集合，避免每次循环重建
+    sensitive_set = {k.lower() for k in sensitive_keys}
+
     # 深拷贝以避免修改原数据
     result = {}
     for key, value in data.items():
         key_lower = key.lower()
 
         # 检查是否是敏感字段
-        is_sensitive = key_lower in {k.lower() for k in sensitive_keys}
+        is_sensitive = key_lower in sensitive_set
 
         if is_sensitive:
             if isinstance(value, str):
@@ -166,7 +197,14 @@ def mask_json(data: dict, sensitive_keys: list[str] | None = None) -> dict:
             elif isinstance(value, dict):
                 result[key] = mask_json(value, sensitive_keys)
             elif isinstance(value, list):
-                result[key] = [mask_json(item, sensitive_keys) if isinstance(item, dict) else item for item in value]
+                # FIXED-P1: 原实现仅处理 dict 项，字符串项未脱敏。
+                # 敏感字段的列表值（如 {"tokens": ["abc", "def"]}）中的字符串也应脱敏
+                result[key] = [
+                    mask_json(item, sensitive_keys) if isinstance(item, dict)
+                    else mask_sensitive(str(item)) if isinstance(item, str)
+                    else "****"
+                    for item in value
+                ]
             else:
                 result[key] = "****"
         elif isinstance(value, dict):
@@ -251,7 +289,7 @@ def redact_ip(ip: str, preserve_subnet: int = 2) -> str:
 
     Args:
         ip: IP 地址
-        preserve_subnet: 保留的子网位数（默认保留前2段）
+        preserve_subnet: 保留的子网位数（默认保留前2段，仅对 IPv4 生效）
 
     Returns:
         脱敏后的 IP
@@ -259,7 +297,28 @@ def redact_ip(ip: str, preserve_subnet: int = 2) -> str:
     示例:
         >>> redact_ip("192.168.1.100")
         '192.168.*.*'
+        >>> redact_ip("2001:db8:abcd:1234:5678:9abc:def0:1234')
+        '2001:db8:abcd:1234:ffff:ffff:ffff:ffff'
     """
+    if not ip:
+        return ip
+
+    # FIXED-P2: 原 redact_ip 仅支持 IPv4，IPv6 直接原样返回不脱敏；
+    # 修复-增加 IPv6 分支，用 ipaddress.IPv6Address 解析后保留前 4 个 hextet（/64 网络前缀），
+    # 其余 hextet 替换为 ffff，避免泄露接口标识符
+    if ":" in ip:
+        try:
+            addr = ipaddress.IPv6Address(ip)
+            # exploded 展开为 8 个 hextet 的标准形式
+            hextets = addr.exploded.split(":")
+            # 保留前 4 个 hextet，其余替换为 ffff
+            redacted = [h if i < 4 else "ffff" for i, h in enumerate(hextets)]
+            return ":".join(redacted)
+        except ValueError:
+            # 非合法 IPv6，降级到 IPv4 分支或原样返回
+            pass
+
+    # IPv4 分支（原逻辑）
     parts = ip.split(".")
     if len(parts) != 4:
         return ip
@@ -287,10 +346,7 @@ def redact_email(email: str) -> str:
         return mask_sensitive(email)
 
     local, domain = email.rsplit("@", 1)
-    if len(local) <= 2:
-        masked_local = local[0] + "*"
-    else:
-        masked_local = local[:2] + "*" * (len(local) - 2)
+    masked_local = local[0] + "*" if len(local) <= 2 else local[:2] + "*" * (len(local) - 2)
 
     return f"{masked_local}@{domain}"
 
@@ -386,7 +442,14 @@ class DataMasker:
             key_lower = key.lower()
 
             if key_lower in self._sensitive_fields:
-                result[key] = self._apply_strategy(key_lower, value)
+                # FIXED-P1: 原实现忽略 strategy 参数，始终调用 _apply_strategy。
+                # 现根据 strategy 选择脱敏强度：
+                # - "full": 完全脱敏（替换为 ****）
+                # - "auto"/"partial": 使用字段策略或默认部分脱敏
+                if strategy == "full":
+                    result[key] = "****"
+                else:
+                    result[key] = self._apply_strategy(key_lower, value)
             elif isinstance(value, dict):
                 result[key] = self._mask_dict(value, strategy)
             elif isinstance(value, list):
@@ -423,12 +486,11 @@ def mask_api_response(response: dict, exclude_fields: list[str] | None = None) -
         脱敏后的响应
     """
     exclude_fields = exclude_fields or ["id", "created_at", "updated_at"]
-    result = {}
-
-    for key, value in response.items():
-        if key.lower() in {f.lower() for f in exclude_fields}:
-            result[key] = value
-        else:
-            result[key] = mask_json({key: value}).get(key, value)
-
-    return result
+    # FIXED-P1: 原实现为每个 key 创建新 dict 并调用 mask_json，效率低（O(n) 次 dict 创建）。
+    # 改为：先整体 mask_json，再恢复排除字段的原始值。
+    exclude_lower = {f.lower() for f in exclude_fields}
+    masked = mask_json(response)
+    for key in response:
+        if key.lower() in exclude_lower:
+            masked[key] = response[key]
+    return masked

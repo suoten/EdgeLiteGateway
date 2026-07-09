@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_KNX_PORT = 3671
 DEFAULT_GATEWAY_HOST = "192.168.1.100"
 CONNECTION_TYPE_TUNNEL = 0x04
+DEFAULT_HEARTBEAT_INTERVAL = 60.0  # 心跳间隔 (秒)
+DEFAULT_HEARTBEAT_MAX_FAILURES = 3  # 心跳最大失败次数
 
 # KNXnet/IP 头
 KNXNETIP_HEADER_SIZE = 6
@@ -96,21 +98,21 @@ def _bytes_to_knx_address(high_byte: int, low_byte: int) -> str:
 
 
 def _encode_value(value: Any, data_type: str) -> bytes:
-    """编码KNX值到字节"""
+    """编码KNX值到字节 (返回 TPDU payload，不含 GroupValue_Write 标志)"""
     if data_type == DATA_TYPE_SWITCH:
-        # 1-bit 开关
+        # 1-bit 开关: TPDU = 0x80 | value (单字节)
         if value in (True, "on", "ON", 1, "1"):
-            return bytes([0x81, 0x00])  # Action=1
+            return bytes([0x81])  # GroupValue_Write + data=1
         else:
-            return bytes([0x81, 0x01])  # Action=0
+            return bytes([0x80])  # GroupValue_Write + data=0
 
     elif data_type in (DATA_TYPE_PERCENT, DATA_TYPE_U8):
-        # 1-byte 无符号
+        # 1-byte 无符号: TPDU = 0x80 + 1 byte data
         val = max(0, min(255, int(value)))
         return bytes([0x80, val])
 
     elif data_type in (DATA_TYPE_U16, DATA_TYPE_TEMPERATURE):
-        # 2-byte 无符号/温度
+        # 2-byte 无符号/温度: TPDU = 0x80 + 2 byte data
         val = max(0, min(65535, int(value)))
         return bytes([0x80, (val >> 8) & 0xFF, val & 0xFF])
 
@@ -146,7 +148,32 @@ def _decode_value(data: bytes, data_type: str) -> Any:
 class KNXClient:
     """KNXnet/IP 客户端封装"""
 
-    def __init__(self, gateway_host: str, gateway_port: int = DEFAULT_KNX_PORT, local_port: int = 0):
+    @staticmethod
+    def _build_cemi_l_data_req(knx_addr: bytes, tpdu: bytes) -> bytes:
+        """构建 cEMI L_Data.req 帧
+
+        结构: MsgCode(1) + AddInfoLen(1) + Ctrl1(1) + Ctrl2(1) + SrcAddr(2) + DstAddr(2) + PayloadLen(1) + TPDU
+        PayloadLen = len(TPDU) - 1 (首字节为 APCI)
+        """
+        cemi = bytes([
+            0x11,  # Message code: L_Data.req
+            0x00,  # Additional info length
+            0xBC,  # Control field 1
+            0x60,  # Control field 2: group addressing
+        ])
+        cemi += bytes([0x00, 0x00])  # Source address (placeholder)
+        cemi += knx_addr             # Destination address
+        cemi += bytes([len(tpdu) - 1])  # Payload length (APCI 占首字节)
+        cemi += tpdu
+        return cemi
+
+    def __init__(
+        self,
+        gateway_host: str,
+        gateway_port: int = DEFAULT_KNX_PORT,
+        local_port: int = 0,
+        heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
+    ):
         self._gateway_host = gateway_host
         self._gateway_port = gateway_port
         self._local_port = local_port
@@ -160,6 +187,13 @@ class KNXClient:
         self._group_value_callback: Callable | None = None
         self._latest_values: dict[str, Any] = {}  # group_addr -> value
         self._pending_reads: dict[str, asyncio.Future] = {}
+        # 心跳保活相关
+        self._heartbeat_interval: float = heartbeat_interval
+        self._heartbeat_timeout: float = 5.0  # 响应超时 (秒)
+        self._heartbeat_max_failures: int = DEFAULT_HEARTBEAT_MAX_FAILURES
+        self._heartbeat_failures: int = 0
+        self._heartbeat_task: asyncio.Task | None = None
+        self._heartbeat_response_future: asyncio.Future | None = None
 
     async def connect(self) -> bool:
         """建立KNXnet/IP隧道连接"""
@@ -350,33 +384,18 @@ class KNXClient:
 
         try:
             knx_addr = _knx_address_to_bytes(group_address)
-            encoded_value = _encode_value(value, data_type)
+            tpdu = _encode_value(value, data_type)
+            cemi = self._build_cemi_l_data_req(knx_addr, tpdu)
 
-            # CEMI L_Data.req
-            cemi = bytes([
-                0x11,  # Message code: L_Data.req
-                0x00, 0xBC,  # Additional info length
-                0xE0,  # Control field 1
-                0xE0,  # Control field 2
-            ])
-            cemi += bytes([0x00]) * 2  # Source address placeholder
-            cemi += bytes([0x0B])  # Source address length
-            cemi += bytes([0x00]) * 2  # Source address
-            cemi += knx_addr
+            # Tunnel Request: channel_id(1) + sequence(1) + reserved(1) + cEMI
+            tunnel_req = bytes([self._channel_id, 0x00, 0x00]) + cemi
 
-            # TPDU: GroupValue_Write
-            tpdu = bytes([0x80]) + encoded_value[1:] if len(encoded_value) > 1 else bytes([0x80, 0x00])
-
-            cemi += tpdu
-
-            # Tunnel Request
-            tunnel_req = struct.pack(">BBH", self._channel_id, 0x00, len(cemi)) + cemi
-
+            # KNXnet/IP header: version(1) + header_len(1) + service_type(2) + total_len(2)
             header = struct.pack(">BBHH",
-                KNXNETIP_VERSION,
-                0x06,
+                KNXNETIP_VERSION,           # KNXnet/IP version (0x10)
+                0x06,                       # Header length
                 SERVICE_TYPE_TUNNEL_REQUEST,
-                6 + len(tunnel_req),
+                6 + len(tunnel_req),        # Total length
             )
 
             frame = header + tunnel_req
@@ -412,49 +431,75 @@ class KNXClient:
                     if future and not future.done():
                         future.set_result(True)
 
+        elif service_type == SERVICE_TYPE_CONNECTIONSTATE_RESPONSE:
+            # 心跳响应: header(6) + ChannelID(1) + Status(1)
+            if len(data) >= 8:
+                status = data[7]
+                future = self._heartbeat_response_future
+                if future is not None and not future.done():
+                    future.set_result(status == 0x00)
+
         elif service_type == SERVICE_TYPE_TUNNEL_INDICATION:
             # 接收组地址值变化
             self._handle_tunnel_indication(data)
 
     def _handle_tunnel_indication(self, data: bytes) -> None:
-        """处理Tunnel Indication消息（组值变化事件）"""
+        """处理Tunnel Indication消息（组值变化事件）
+
+        帧结构: KNXnetIP头(6) + Tunnel体(3: ChannelID, SeqCounter, Status) + cEMI
+        cEMI结构: MsgCode(1) + AddInfoLen(1) + Ctrl1(1) + Ctrl2(1) + SrcAddr(2) + DstAddr(2) + PayloadLen(1) + TPDU
+        """
         try:
             if len(data) < 10:
                 return
 
-            # 解析Tunnel Indication
-            offset = 6  # KNX header
-            channel_id = data[offset]
-            cemi_offset = offset + 1
-            cemi_data = data[cemi_offset:]
+            # 跳过 KNXnet/IP 头(6) + Tunnel体(3) 到达 cEMI
+            cemi_data = data[9:]
 
-            if len(cemi_data) < 8:
+            if len(cemi_data) < 9:  # 最小 cEMI: 9 字节 (头8 + 至少1字节TPDU)
                 return
 
-            # CEMI消息码
+            # cEMI 消息码
             msg_code = cemi_data[0]
             if msg_code == KNX_CEMI_L_BUS_INDICATION:
                 # L_Data.ind - 组地址数据
-                addr_start = 7  # KNX address position in CEMI
-                if len(cemi_data) >= addr_start + 2:
-                    high_byte = cemi_data[addr_start]
-                    low_byte = cemi_data[addr_start + 1]
-                    group_addr = _bytes_to_knx_address(high_byte, low_byte)
+                # DstAddr 位于 cEMI offset 6-7
+                high_byte = cemi_data[6]
+                low_byte = cemi_data[7]
+                group_addr = _bytes_to_knx_address(high_byte, low_byte)
 
-                    # 提取数据
-                    tpdu = cemi_data[addr_start + 2:]
-                    if len(tpdu) >= 1:
-                        data_value = tpdu[0]
+                # PayloadLen 位于 offset 8, TPDU 位于 offset 9+
+                tpdu = cemi_data[9:]
 
-                        # 更新缓存值
-                        self._latest_values[group_addr] = data_value
+                if len(tpdu) < 1:
+                    return
 
-                        # 触发回调
-                        if self._group_value_callback:
-                            try:
-                                self._group_value_callback(group_addr, data_value)
-                            except Exception:
-                                pass
+                apci = tpdu[0]
+
+                # 仅处理 GroupValue_Write (bit7=1)
+                if (apci & 0x80) == 0x80:
+                    if len(tpdu) == 1:
+                        # 1-byte TPDU: 开关 (数据在 bit0)
+                        data_value = apci & 0x01
+                    elif len(tpdu) == 2:
+                        # 2-byte TPDU: 百分比/u8
+                        data_value = tpdu[1]
+                    elif len(tpdu) >= 3:
+                        # 3+ byte TPDU: u16
+                        data_value = (tpdu[1] << 8) | tpdu[2]
+                    else:
+                        return
+
+                    # 更新缓存值
+                    self._latest_values[group_addr] = data_value
+
+                    # 触发回调
+                    if self._group_value_callback:
+                        try:
+                            self._group_value_callback(group_addr, data_value)
+                        except Exception:
+                            pass
+                # GroupValue_Read (bit7=0) 不更新缓存
         except Exception as e:
             logger.debug("KNX Tunnel Indication处理异常: %s", e)
 
@@ -465,6 +510,93 @@ class KNXClient:
     def get_latest_value(self, group_addr: str) -> Any | None:
         """获取最新组地址值"""
         return self._latest_values.get(group_addr)
+
+    # ==================== 心跳保活 (ConnectionStateRequest/Response) ====================
+
+    def _build_connectionstate_request(self) -> bytes:
+        """构建 ConnectionStateRequest 帧
+
+        结构: KNXnetIP头(6) + HPAI(8) + ChannelID(1) + Reserved(1) = 16字节
+        HPAI: structure_length(1) + protocol(1) + IP(4) + port(2) = 8字节
+        """
+        # HPAI (Host Protocol Address Information)
+        hpai = bytes([
+            0x08,  # structure_length
+            0x01,  # host_protocol_code: IPv4 UDP
+            0, 0, 0, 0,  # IP address (0.0.0.0)
+            0, 0,  # Port (0)
+        ])
+        # ChannelID + Reserved
+        body = hpai + bytes([self._channel_id, 0x00])
+        # KNXnet/IP header
+        header = struct.pack(">BBHH",
+            KNXNETIP_VERSION, 0x06,
+            SERVICE_TYPE_CONNECTIONSTATE_REQUEST,
+            6 + len(body),
+        )
+        return header + body
+
+    async def _send_connectionstate_request(self) -> bool:
+        """发送 ConnectionStateRequest 并等待响应
+
+        Returns:
+            True if status=E_NO_ERROR, False on error or timeout
+        """
+        if not self._transport:
+            return False
+
+        loop = asyncio.get_running_loop()
+        self._heartbeat_response_future = loop.create_future()
+
+        frame = self._build_connectionstate_request()
+        self._transport.sendto(frame, (self._gateway_host, self._gateway_port))
+
+        try:
+            result = await asyncio.wait_for(
+                self._heartbeat_response_future,
+                timeout=self._heartbeat_timeout,
+            )
+            return result
+        except asyncio.TimeoutError:
+            return False
+        finally:
+            self._heartbeat_response_future = None
+
+    async def _heartbeat_loop(self) -> None:
+        """心跳循环: 定期发送 ConnectionStateRequest 检测连接状态"""
+        while self._connected:
+            result = await self._send_connectionstate_request()
+            if result:
+                self._heartbeat_failures = 0
+            else:
+                self._heartbeat_failures += 1
+                if self._heartbeat_failures >= self._heartbeat_max_failures:
+                    self._connected = False
+                    logger.warning(
+                        "KNX心跳失败达上限(%d次), 断开连接",
+                        self._heartbeat_max_failures,
+                    )
+                    break
+            await asyncio.sleep(self._heartbeat_interval)
+
+    def _start_heartbeat(self) -> None:
+        """启动心跳后台任务"""
+        if self._heartbeat_interval <= 0:
+            return
+        if self._heartbeat_task is not None and not self._heartbeat_task.done():
+            return  # 已在运行, 幂等
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+    def _stop_heartbeat(self) -> None:
+        """停止心跳后台任务"""
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            self._heartbeat_task = None
+        self._heartbeat_failures = 0
+        if self._heartbeat_response_future is not None:
+            if not self._heartbeat_response_future.done():
+                self._heartbeat_response_future.cancel()
+            self._heartbeat_response_future = None
 
 
 class _KNXProtocol(asyncio.DatagramProtocol):
@@ -507,6 +639,8 @@ class KNXDriver(DriverPlugin):
              "description": "Local UDP port (0=random)", "default": 0},
             {"name": "enable_events", "type": "boolean", "label": "Enable Event Subscription",
              "description": "Enable group address event subscription for real-time updates", "default": True},
+            {"name": "heartbeat_interval", "type": "number", "label": "Heartbeat Interval",
+             "description": "ConnectionState heartbeat interval in seconds (0=disabled)", "default": 60.0},
         ],
     }
 

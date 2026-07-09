@@ -3,6 +3,9 @@
 Revision ID: 002_ai_models
 Revises:
 Create Date: 2026-05-20
+
+This migration is idempotent - it uses try/except blocks to handle
+databases that were previously initialized via Base.metadata.create_all.
 """
 
 from alembic import op
@@ -15,7 +18,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table(
+    _create_table_if_not_exists(
         "ai_models",
         sa.Column("model_id", sa.String(36), primary_key=True),
         sa.Column("model_name", sa.String(128), nullable=False),
@@ -30,7 +33,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_table(
+    _create_table_if_not_exists(
         "ai_inference_logs",
         sa.Column("log_id", sa.String(36), primary_key=True),
         sa.Column("model_id", sa.String(36), nullable=False),
@@ -44,12 +47,39 @@ def upgrade() -> None:
         sa.Column("error_message", sa.String(512), nullable=True),
         sa.Column("timestamp", sa.DateTime, server_default=sa.func.now()),
     )
-    op.create_index("idx_ai_logs_model", "ai_inference_logs", ["model_id"])
-    op.create_index("idx_ai_logs_timestamp", "ai_inference_logs", ["timestamp"])
+    _create_index_idempotent("idx_ai_logs_model", "ai_inference_logs", ["model_id"])
+    _create_index_idempotent("idx_ai_logs_timestamp", "ai_inference_logs", ["timestamp"])
 
 
 def downgrade() -> None:
-    op.drop_index("idx_ai_logs_timestamp", table_name="ai_inference_logs")
-    op.drop_index("idx_ai_logs_model", table_name="ai_inference_logs")
+    _drop_index_if_exists("idx_ai_logs_timestamp", table_name="ai_inference_logs")
+    _drop_index_if_exists("idx_ai_logs_model", table_name="ai_inference_logs")
     op.drop_table("ai_inference_logs")
     op.drop_table("ai_models")
+
+
+# ── Idempotent helper functions ──────────────────────────────────────────────────
+
+
+def _create_table_if_not_exists(table_name: str, *columns, **kw) -> None:
+    """Create a table only if it doesn't already exist."""
+    try:
+        op.create_table(table_name, *columns, **kw)
+    except Exception:
+        pass
+
+
+def _create_index_idempotent(index_name: str, table_name: str, columns: list, **kw) -> None:
+    """Create an index only if it doesn't already exist."""
+    try:
+        op.create_index(index_name, table_name, columns, if_not_exists=True, **kw)
+    except Exception:
+        pass
+
+
+def _drop_index_if_exists(index_name: str, table_name: str = None) -> None:
+    """Drop an index only if it exists."""
+    try:
+        op.drop_index(index_name, table_name=table_name)
+    except Exception:
+        pass

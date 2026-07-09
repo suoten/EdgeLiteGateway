@@ -29,21 +29,21 @@
             <template #header>
               <n-space align="center" :size="8">
                 <n-icon size="20"><component :is="iconComponent(svc.icon)" /></n-icon>
-                <n-text strong>{{ svc.display_name }}</n-text>
+                <n-text strong>{{ t(`serviceOverview.${svc.display_name}`) }}</n-text>
               </n-space>
             </template>
             <template #header-extra>
               <n-tag :type="stateTagType(svc.state)" size="small" round>{{ stateLabel(svc.state) }}</n-tag>
             </template>
 
-            <n-text depth="3" style="font-size: 13px">{{ svc.description }}</n-text>
+            <n-text depth="3" style="font-size: 13px">{{ t(`serviceOverview.${svc.description}`) }}</n-text>
 
             <n-divider style="margin: 12px 0 8px" />
 
             <n-space vertical :size="6">
               <n-text depth="3" style="font-size: 12px; font-weight: 600">{{ t('serviceOverview.useCases') }}</n-text>
               <n-text v-for="(uc, i) in (svc.use_cases ?? []).slice(0, 2)" :key="i" depth="3" style="font-size: 12px; display: block; padding-left: 8px">
-                · {{ uc }}
+                · {{ t(`serviceOverview.${uc}`) }}
               </n-text>
               <n-text v-if="(svc.use_cases ?? []).length > 2" depth="3" style="font-size: 12px; padding-left: 8px">
                 {{ t('serviceOverview.moreScenes', { count: (svc.use_cases ?? []).length }) }}
@@ -92,21 +92,21 @@
             <template #header>
               <n-space align="center" :size="8">
                 <n-icon size="20"><component :is="iconComponent(svc.icon)" /></n-icon>
-                <n-text strong>{{ svc.display_name }}</n-text>
+                <n-text strong>{{ t(`serviceOverview.${svc.display_name}`) }}</n-text>
               </n-space>
             </template>
             <template #header-extra>
               <n-tag :type="stateTagType(svc.state)" size="small" round>{{ stateLabel(svc.state) }}</n-tag>
             </template>
 
-            <n-text depth="3" style="font-size: 13px">{{ svc.description }}</n-text>
+            <n-text depth="3" style="font-size: 13px">{{ t(`serviceOverview.${svc.description}`) }}</n-text>
 
             <n-divider style="margin: 12px 0 8px" />
 
             <n-space vertical :size="6">
               <n-text depth="3" style="font-size: 12px; font-weight: 600">{{ t('serviceOverview.useCases') }}</n-text>
               <n-text v-for="(uc, i) in (svc.use_cases ?? []).slice(0, 2)" :key="i" depth="3" style="font-size: 12px; display: block; padding-left: 8px">
-                · {{ uc }}
+                · {{ t(`serviceOverview.${uc}`) }}
               </n-text>
             </n-space>
 
@@ -146,7 +146,6 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
 import { NIcon } from 'naive-ui'
 import {
   RefreshOutline,
@@ -161,9 +160,11 @@ import type { ServiceInfo } from '@/api'
 import { extractError } from '@/utils/errorCodes'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
+import { message, dialog } from '@/utils/discreteApi'
+import { useAuthStore } from '@/stores/auth'
 
-const message = useMessage()
-const dialog = useDialog()
+const auth = useAuthStore()
+
 const loading = ref(false)
 const services = ref<ServiceInfo[]>([])
 const toggleLoadingMap = reactive<Record<string, boolean>>({})
@@ -242,6 +243,11 @@ async function fetchServices() {
 }
 
 async function handleToggle(name: string, val: boolean) {
+  // [AUDIT-FIX] 一般级-服务启用/禁用属敏感操作，需函数级管理员权限校验
+  if (!auth.isAdmin) {
+    message.warning(t('common.permissionDenied'))
+    return
+  }
   if (!val) {
     dialog.warning({
       title: t('serviceOverview.disableTitle'),

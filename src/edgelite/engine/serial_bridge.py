@@ -8,7 +8,14 @@ import logging
 import time
 from dataclasses import dataclass
 
-from edgelite.constants import _EVENT_BUS_MAX_QUEUE, _SERIAL_READ_TIMEOUT, _QUEUE_POLL_TIMEOUT, _SERIAL_RETRY_DELAY, _SERIAL_BRIDGE_RAW_POLL_INTERVAL, _SERIAL_BRIDGE_ERROR_RECOVERY_DELAY  # FIXED: P2-3
+from edgelite.constants import (  # FIXED: P2-3
+    _EVENT_BUS_MAX_QUEUE,
+    _QUEUE_POLL_TIMEOUT,
+    _SERIAL_BRIDGE_ERROR_RECOVERY_DELAY,
+    _SERIAL_BRIDGE_RAW_POLL_INTERVAL,
+    _SERIAL_READ_TIMEOUT,
+    _SERIAL_RETRY_DELAY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +100,12 @@ class SerialTcpBridge:
         stopbits_map = {1: serial.STOPBITS_ONE, 2: serial.STOPBITS_TWO}
 
         try:
+            import os
+            if serial_port.startswith("/dev/") and not os.path.exists(serial_port):
+                raise RuntimeError(
+                    f"串口设备 '{serial_port}' 不存在。"
+                    f"请检查: 1)USB转串口设备是否已插入 2)驱动是否已加载 3)设备路径是否正确"
+                )
             self._serial = serial.Serial(
                 port=serial_port,
                 baudrate=baudrate,
@@ -112,7 +125,7 @@ class SerialTcpBridge:
             logger.error("串口打开异常: %s - %s", serial_port, e)
             raise RuntimeError(f"串口 '{serial_port}' 初始化异常: {e}") from e
 
-        tcp_host = config.get("tcp_host", "0.0.0.0")
+        tcp_host = config.get("tcp_host", "127.0.0.1")  # FIXED-P4: 默认绑定localhost，防止串口透传对外暴露
         tcp_port = int(config.get("tcp_port", DEFAULT_TCP_PORT))
 
         try:
@@ -233,7 +246,10 @@ class SerialTcpBridge:
 
     async def _serial_read_loop(self) -> None:
         """串口读取循环，将数据放入队列"""
-        buffer_size = int(self._config.get("buffer_size", DEFAULT_BUFFER_SIZE))
+        try:  # FIXED-P2: 原问题-buffer_size转换无ValueError保护，与_tcp_to_serial_loop不一致
+            buffer_size = int(self._config.get("buffer_size", DEFAULT_BUFFER_SIZE))
+        except (ValueError, TypeError):
+            buffer_size = DEFAULT_BUFFER_SIZE
         while self._running:
             try:
                 if self._serial and self._serial.in_waiting > 0:
@@ -262,7 +278,8 @@ class SerialTcpBridge:
             try:
                 data = await asyncio.wait_for(self._serial_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 dead_clients = []
-                for reader, writer in self._clients.items():
+                # FIXED-P0: 复制clients.items()避免迭代期间await writer.drain()让出控制权后_handle_client修改字典导致RuntimeError
+                for reader, writer in list(self._clients.items()):
                     try:
                         writer.write(data)
                         await writer.drain()

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import logging.handlers
+import threading  # FIXED-P2: ContextFilter的_context字典多线程读写需同步保护
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,9 +22,10 @@ from typing import Any
 class StructuredFormatter(logging.Formatter):
     """结构化日志格式器 - 输出JSON格式"""
 
-    def __init__(self, include_context: bool = True):
+    def __init__(self, include_context: bool = True, include_traceback: bool = False):
         super().__init__()
         self.include_context = include_context
+        self.include_traceback = include_traceback  # FIXED-P0: 默认不包含traceback，防止生产环境泄露内部路径
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
@@ -43,13 +45,15 @@ class StructuredFormatter(logging.Formatter):
                     log_entry[key] = value
 
         if record.exc_info and record.exc_info[0]:
-            log_entry["exception"] = {
+            exc_entry = {
                 "type": record.exc_info[0].__name__
                 if hasattr(record.exc_info[0], "__name__")
                 else str(record.exc_info[0]),
                 "message": str(record.exc_info[1]),
-                "traceback": self.formatException(record.exc_info),
             }
+            if self.include_traceback:  # FIXED-P0: 仅在include_traceback=True时包含完整堆栈
+                exc_entry["traceback"] = self.formatException(record.exc_info)
+            log_entry["exception"] = exc_entry
 
         extra = getattr(record, "extra_data", None)
         if extra and isinstance(extra, dict):
@@ -64,15 +68,21 @@ class ContextFilter(logging.Filter):
     def __init__(self):
         super().__init__()
         self._context: dict[str, Any] = {}
+        self._lock = threading.Lock()  # FIXED-P2: 多线程并发调用set_context/filter时保护_context字典
 
     def set_context(self, **kwargs: Any) -> None:
-        self._context.update(kwargs)
+        with self._lock:
+            self._context.update(kwargs)
 
     def clear_context(self) -> None:
-        self._context.clear()
+        with self._lock:
+            self._context.clear()
 
     def filter(self, record: logging.LogRecord) -> bool:
-        for key, value in self._context.items():
+        # FIXED-P2: 复制context快照，避免迭代期间其他线程修改字典导致RuntimeError
+        with self._lock:
+            context_snapshot = dict(self._context)
+        for key, value in context_snapshot.items():
             setattr(record, key, value)
         return True
 

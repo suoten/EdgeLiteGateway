@@ -16,7 +16,14 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from edgelite.constants import _MQTT_QUEUE_MAXSIZE, _MQTT_KEEPALIVE, _MQTT_RECONNECT_DELAY, _QUEUE_POLL_TIMEOUT
+from edgelite.constants import (
+    _MQTT_KEEPALIVE,
+    _MQTT_QUEUE_MAXSIZE,
+    _MQTT_RECONNECT_DELAY,
+    _NORTH_RETRY_MAX_ATTEMPTS,  # FIXED-P1: 导入重试上限常量，用于_publish_loop重试计数
+    _PLATFORM_RECONNECT_MAX_BACKOFF,  # FIXED-P2: 导入退避上限常量
+    _QUEUE_POLL_TIMEOUT,
+)
 from edgelite.platform.base import PlatformHandler
 from edgelite.utils import timestamp_ms  # FIXED: 原问题-缺失导入导致NameError
 
@@ -30,7 +37,7 @@ class IoTSharpHandler(PlatformHandler):
     platform_version = "1.0.0"
 
     def __init__(self):
-        self._connected = False
+        super().__init__()  # FIXED-P2: 调用基类__init__，初始化离线队列和重连退避
         self._config: dict = {}
         self._rpc_callback: Callable | None = None
         self._connect_task: asyncio.Task | None = None
@@ -41,7 +48,7 @@ class IoTSharpHandler(PlatformHandler):
         try:
             import aiomqtt
         except ImportError:
-            raise ImportError("aiomqtt未安装，请执行: pip install aiomqtt") from None
+            raise ImportError("aiomqtt not installed, run: pip install aiomqtt") from None
 
         self._config = config
         self._running = True
@@ -58,7 +65,7 @@ class IoTSharpHandler(PlatformHandler):
             self._connect_loop(broker, port, username, password),
             name="iotsharp-connect",
         )
-        logger.info("IoTSharp平台对接启动: %s:%d", broker, port)
+        logger.info("IoTSharp platform started: %s:%d", broker, port)  # FIXED-P3: 中文日志→英文
 
     async def disconnect(self) -> None:
         self._running = False
@@ -68,43 +75,53 @@ class IoTSharpHandler(PlatformHandler):
             with contextlib.suppress(asyncio.CancelledError):
                 await self._connect_task
         self._connected = False
-        logger.info("IoTSharp平台对接已断开")
+        logger.info("IoTSharp platform disconnected")  # FIXED-P3: 中文日志→英文
 
     async def publish_telemetry(self, device_id: str, data: dict[str, Any]) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = f"devices/{device_id}/telemetry"
         payload = json.dumps(data, ensure_ascii=False, default=str)
+        # FIXED-P1: 断连时入离线队列，避免直接return丢弃数据
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
-            logger.warning("IoTSharp发布队列已满，丢弃消息")
+            logger.warning("IoTSharp pub queue full, dropping message")  # FIXED-P3: 中文日志→英文
 
     async def publish_attributes(self, device_id: str, attrs: dict[str, Any]) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = f"devices/{device_id}/attributes"
         payload = json.dumps(attrs, ensure_ascii=False, default=str)
+        # FIXED-P1: 断连时入离线队列，避免直接return丢弃数据
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
-            logger.warning("IoTSharp发布队列已满，丢弃消息")
+            logger.warning("IoTSharp pub queue full, dropping message")  # FIXED-P3: 中文日志→英文
 
     async def on_rpc_request(self, callback: Callable) -> None:
         self._rpc_callback = callback
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
-        if not self._connected or not self._pub_queue:
-            return
         topic = f"devices/{device_id}/attributes"
         payload = json.dumps({"online": online, "lastActivityTime": timestamp_ms()})  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
+        # FIXED-P1: 断连时入离线队列，避免直接return丢弃数据
+        if not self._connected or not self._pub_queue:
+            self._enqueue_offline(topic, payload.encode("utf-8"), 1)
+            return
         try:
             self._pub_queue.put_nowait((topic, payload.encode("utf-8"), 1))
         except asyncio.QueueFull:
-            logger.warning("IoTSharp发布队列已满，丢弃消息")
+            logger.warning("IoTSharp pub queue full, dropping message")  # FIXED-P3: 中文日志→英文
 
     async def _connect_loop(self, broker: str, port: int, username: str, password: str) -> None:
+        import random  # FIXED-P2: 导入random用于退避抖动
+
         import aiomqtt
+
+        backoff = 1.0  # FIXED-P2: 原问题-使用固定延迟重连，无指数退避，broker压力大时频繁重连
 
         while self._running:
             try:
@@ -116,7 +133,14 @@ class IoTSharpHandler(PlatformHandler):
                     keepalive=_MQTT_KEEPALIVE,  # FIXED: 原问题-keepalive=60魔法数字
                 ) as client:
                     self._connected = True
-                    logger.info("IoTSharp MQTT连接成功: %s:%d", broker, port)
+                    backoff = 1.0  # 连接成功后重置退避
+                    logger.info("IoTSharp MQTT connected: %s:%d", broker, port)  # FIXED-P3: 中文日志→英文
+
+                    # FIXED-P1: 重连成功后刷出离线队列缓存的数据，防止断连期间入队的数据丢失
+                    try:
+                        await self._flush_offline_queue()
+                    except Exception as flush_err:
+                        logger.warning("IoTSharp offline queue flush failed: %s", flush_err)
 
                     await client.subscribe("devices/+/rpc/request", qos=1)
 
@@ -144,9 +168,11 @@ class IoTSharpHandler(PlatformHandler):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error("IoTSharp MQTT连接异常: %s，5秒后重试", e)
+                logger.error("IoTSharp MQTT connection error: %s, retrying in %.1fs", e, backoff)  # FIXED-P3: 中文日志→英文
                 self._connected = False
-                await asyncio.sleep(_MQTT_RECONNECT_DELAY)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, _PLATFORM_RECONNECT_MAX_BACKOFF)  # FIXED-P2: 指数退避+上限
+                backoff *= 0.5 + random.random() * 0.5  # FIXED-P2: 添加抖动
 
     async def _publish_loop(self, client: Any) -> None:
         try:
@@ -155,13 +181,32 @@ class IoTSharpHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
+                # FIXED-P1: 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)两种格式
+                if len(item) == 4:
+                    topic, payload, qos, retry_count = item
+                else:
+                    topic, payload, qos = item
+                    retry_count = 0
                 try:
                     await client.publish(topic, payload, qos=qos)
                 except Exception as e:
-                    logger.error("IoTSharp MQTT发布失败: %s", e)
+                    logger.error("IoTSharp MQTT publish failed: %s", e)  # FIXED-P3: 中文日志→英文
+                    # FIXED-P1: 原问题-publish失败不重试不入离线队列，数据直接丢失
+                    # 修复：重入队列带重试计数，超过_NORTH_RETRY_MAX_ATTEMPTS阈值后写入离线队列，参考thingsboard.py实现
+                    retry_count += 1
+                    if retry_count > _NORTH_RETRY_MAX_ATTEMPTS:
+                        self._enqueue_offline(topic, payload, qos)
+                        logger.warning("IoTSharp message enqueued offline after %d retries: %s", retry_count, topic)
+                    elif self._pub_queue is not None:
+                        try:
+                            self._pub_queue.put_nowait((topic, payload, qos, retry_count))
+                        except Exception as qe:
+                            # FIXED-P1: 重入队列失败时写入离线队列，避免消息丢失
+                            self._enqueue_offline(topic, payload, qos)
+                            logger.error("IoTSharp re-enqueue failed, enqueued offline: %s", qe)
         except asyncio.CancelledError:
             pass
 
@@ -179,7 +224,7 @@ class IoTSharpHandler(PlatformHandler):
                         try:
                             payload = json.loads(message.payload.decode("utf-8"))
                         except json.JSONDecodeError as e:
-                            logger.warning("IoTSharp MQTT消息JSON解析失败: %s", e)
+                            logger.warning("IoTSharp MQTT JSON parse failed: %s", e)  # FIXED-P3: 中文日志→英文
                             continue
                         method = payload.get("method", "")
                         params = payload.get("params", {})
@@ -199,6 +244,6 @@ class IoTSharpHandler(PlatformHandler):
                                 qos=1,
                             )
                 except Exception as e:
-                    logger.error("IoTSharp RPC处理异常: %s", e)
+                    logger.error("IoTSharp RPC handler error: %s", e)  # FIXED-P3: 中文日志→英文
         except asyncio.CancelledError:
             pass

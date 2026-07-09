@@ -1,0 +1,115 @@
+{
+  "start_time": "2026-06-29 01:43:45 UTC",
+  "end_time": "2026-06-29 01:51:37 UTC",
+  "project_root": "E:\\硕腾网络\\PyGBSentry\\EdgeLite\\EdgeLite-v1.0-Community",
+  "summary": {
+    "total_checks": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 1,
+    "total_errors": 0,
+    "total_warnings": 1306,
+    "overall": "PASS"
+  },
+  "results": [
+    {
+      "name": "Ruff 代码规范",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 0.65
+    },
+    {
+      "name": "Pyright 类型检查",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 1306,
+      "duration_sec": 127.08
+    },
+    {
+      "name": "Vue-TSC 类型检查",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 112.15
+    },
+    {
+      "name": "Vite 构建检查",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 165.92
+    },
+    {
+      "name": "Pydantic ↔ ORM 一致性",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 5.82
+    },
+    {
+      "name": "前端 TS ↔ API Schema 一致性",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 3.2
+    },
+    {
+      "name": "错误码对称性",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 0.61
+    },
+    {
+      "name": "i18n 覆盖率与对称性",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 45.91
+    },
+    {
+      "name": "Repo 异常安全",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 1.08
+    },
+    {
+      "name": "密钥泄露扫描",
+      "category": "static",
+      "passed": true,
+      "skipped": false,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 1.01
+    },
+    {
+      "name": "依赖安全漏洞 (pip-audit)",
+      "category": "static",
+      "passed": false,
+      "skipped": true,
+      "error_count": 0,
+      "warning_count": 0,
+      "duration_sec": 0.0
+    }
+  ]
+}

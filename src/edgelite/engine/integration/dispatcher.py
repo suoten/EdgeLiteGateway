@@ -7,6 +7,7 @@
 """
 
 import logging
+import threading
 import time
 from collections.abc import Callable, Coroutine
 from typing import Any
@@ -18,19 +19,28 @@ class MessageDispatcher:
     def __init__(self):
         self._handlers: dict[str, Callable] = {}
         self._services: dict[str, Any] = {}
+        # FIXED(严重): 保护 _handlers/_services 的并发读写
+        # 使用 threading.Lock 而非 asyncio.Lock，因为 register_handler/register_service 是 sync 方法
+        # (bootstrap.py 中以同步方式调用，改为 async 会破坏未提及的调用方)
+        # 在 asyncio 单线程模型中，threading.Lock 仅在极短的 dict.get/set 期间持有，不会阻塞事件循环
+        self._lock = threading.Lock()
 
     def register_handler(self, msg_type: str, handler: Callable) -> None:
-        self._handlers[msg_type] = handler
+        with self._lock:  # FIXED(严重): 写操作加锁，避免与 dispatch 读取并发
+            self._handlers[msg_type] = handler
 
     def register_service(self, name: str, service: Any) -> None:
-        self._services[name] = service
+        with self._lock:  # FIXED(严重): 写操作加锁，避免与各 _handle_* 读取并发
+            self._services[name] = service
 
     async def dispatch(
         self, msg_type: str, payload: dict[str, Any], session_id: str = ""
     ) -> dict[str, Any] | None:
         if not isinstance(payload, dict):
             return {"ok": False, "error": "payload must be a JSON object"}
-        handler = self._handlers.get(msg_type)
+        # FIXED(严重): 读取 _handlers 加锁保护，避免与 register_handler 写入并发
+        with self._lock:
+            handler = self._handlers.get(msg_type)
         if handler:
             try:
                 result = handler(payload, session_id)
@@ -90,7 +100,9 @@ class MessageDispatcher:
         return None  # 校验通过
 
     async def _handle_push_device(self, payload: dict[str, Any]) -> dict[str, Any]:
-        device_service = self._services.get("device_service")
+        # FIXED(严重): 读取 _services 加锁保护，避免与 register_service 写入并发
+        with self._lock:
+            device_service = self._services.get("device_service")
         if not device_service:
             return {"ok": False, "error": "Device service not available"}
 
@@ -135,7 +147,9 @@ class MessageDispatcher:
         通过 DeviceService.delete_device + create_device 实现原子性重建，
         使用 DeviceService 的锁保护，避免竞态条件。
         """
-        scheduler = self._services.get("scheduler")
+        # FIXED(严重): 读取 _services 加锁保护，避免与 register_service 写入并发
+        with self._lock:
+            scheduler = self._services.get("scheduler")
 
         # 1. 停止旧采集（在删除前先停，避免 delete_device 中的采集取消竞争）
         if scheduler:
@@ -145,8 +159,9 @@ class MessageDispatcher:
                 logger.debug("Stop collect for rebuild %s: %s", device_id, e)
 
         # 2. 停止旧驱动（在删除前先停，避免 delete_device 中的驱动停止竞争）
-        driver_instances = getattr(device_service, "_driver_instances", None)
-        old_driver = driver_instances.pop(device_id, None) if driver_instances else None
+        # FIXED-P0: 原问题-直接访问_driver_instances私有属性绕过DeviceService锁保护，
+        # 改为通过公开方法remove_driver_instance访问，确保锁保护。
+        old_driver = await device_service.remove_driver_instance(device_id) if hasattr(device_service, "remove_driver_instance") else None
         if old_driver is not None:
             try:
                 await old_driver.stop()
@@ -154,6 +169,14 @@ class MessageDispatcher:
                 logger.debug("Stop old driver for rebuild %s: %s", device_id, e)
 
         # 3. 通过 DeviceService 删除旧设备（获取锁，原子操作）
+        # FIXED(严重): 原问题-先delete再create，create失败则设备已删除无法回滚;
+        # 修复-先备份设备数据，create失败时恢复旧设备
+        old_device = None
+        try:
+            old_device = await device_service.get_device(device_id)
+        except Exception as e:
+            logger.debug("Backup old device %s for rebuild failed: %s", device_id, e)
+
         try:
             success, error_msg = await device_service.delete_device(device_id)
             if not success:
@@ -169,12 +192,19 @@ class MessageDispatcher:
             return {"ok": True, "updated": True, "rebuilt": True, "device_id": device_id}
         except Exception as e:
             logger.error("Rebuild device %s failed: create_device error: %s", device_id, e)
-            # 创建失败时，旧设备已被删除，无法回滚
-            # 但至少记录了错误信息，调用方可以重试
-            return {"ok": False, "error": f"Rebuild failed (old device deleted): {e}", "device_id": device_id}
+            # 创建失败时，尝试恢复旧设备
+            if old_device:
+                try:
+                    await device_service.create_device(old_device)
+                    logger.info("Restored old device %s after rebuild failure", device_id)
+                except Exception as restore_e:
+                    logger.error("Restore old device %s also failed: %s", device_id, restore_e)
+            return {"ok": False, "error": f"Rebuild failed (old device restored if possible): {e}", "device_id": device_id}
 
     async def _handle_delete_device(self, payload: dict[str, Any]) -> dict[str, Any]:
-        device_service = self._services.get("device_service")
+        # FIXED(严重): 读取 _services 加锁保护，避免与 register_service 写入并发
+        with self._lock:
+            device_service = self._services.get("device_service")
         if not device_service:
             return {"ok": False, "error": "Device service not available"}
         device_id = payload.get("device_id", "")
@@ -189,8 +219,10 @@ class MessageDispatcher:
             return {"ok": False, "error": str(e)}
 
     async def _handle_device_control(self, payload: dict[str, Any]) -> dict[str, Any]:
-        device_service = self._services.get("device_service")
-        scheduler = self._services.get("scheduler")
+        # FIXED(严重): 读取 _services 加锁保护，避免与 register_service 写入并发
+        with self._lock:
+            device_service = self._services.get("device_service")
+            scheduler = self._services.get("scheduler")
         if not device_service:
             return {"ok": False, "error": "Device service not available"}
         device_id = payload.get("device_id", "")
@@ -210,7 +242,12 @@ class MessageDispatcher:
                 driver_instances = getattr(device_service, "_driver_instances", None)
                 if not driver_instances:
                     return {"ok": False, "error": "Driver instances not available"}
-                driver = driver_instances.get(device_id)
+                # FIXED-P0: 原问题-直接访问_driver_instances私有字典绕过锁保护，
+                # 改为通过公开方法get_driver_instance访问，确保锁保护。
+                if hasattr(device_service, "get_driver_instance"):
+                    driver = await device_service.get_driver_instance(device_id)
+                else:
+                    driver = driver_instances.get(device_id)
                 if not driver:
                     return {"ok": False, "error": f"Driver not found for device {device_id}, try push_device first"}
 
@@ -221,21 +258,39 @@ class MessageDispatcher:
                     device.get("collect_interval", 5),
                 )
 
-                lifecycle = getattr(device_service, "_lifecycle", None)
+                # FIXED-P1: 原问题-直接 getattr 访问 _lifecycle/_repo 私有属性绕过封装；
+                # 改为通过公开方法 get_lifecycle()/get_repo() 访问（内部加锁保护）
+                lifecycle = await device_service.get_lifecycle()
                 if lifecycle:
                     await lifecycle.on_device_online(device_id)
-                repo = getattr(device_service, "_repo", None)
+                repo = await device_service.get_repo()
                 if repo:
-                    await repo.update_status(device_id, "online")
+                    try:
+                        await repo.update_status(device_id, "online")
+                    except Exception as status_err:
+                        # FIXED-P2: 原问题-start_collect后update_status失败无回滚；状态更新失败时回滚采集
+                        logger.error("update_status failed after start_collect, rolling back: %s", status_err)
+                        try:
+                            await scheduler.stop_collect(device_id)
+                        except Exception as rollback_err:
+                            logger.error("Rollback stop_collect failed: %s", rollback_err)
+                        if lifecycle:
+                            try:
+                                await lifecycle.on_device_offline(device_id)
+                            # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
+                            except Exception as e:
+                                logger.debug("[dispatcher] lifecycle.on_device_offline failed for device=%s: %s", device_id, e)
+                        return {"ok": False, "error": f"Status update failed, collection rolled back: {status_err}"}
 
             elif action == "stop_collect":
                 if not scheduler:
                     return {"ok": False, "error": "Scheduler not available"}
                 await scheduler.stop_collect(device_id)
-                lifecycle = getattr(device_service, "_lifecycle", None)
+                # FIXED-P1: 改用公开方法 get_lifecycle()/get_repo() 替代直接 getattr 访问私有属性
+                lifecycle = await device_service.get_lifecycle()
                 if lifecycle:
                     await lifecycle.on_device_offline(device_id)
-                repo = getattr(device_service, "_repo", None)
+                repo = await device_service.get_repo()
                 if repo:
                     await repo.update_status(device_id, "offline")
 

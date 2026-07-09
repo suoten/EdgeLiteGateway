@@ -89,7 +89,6 @@ EdgeLiteGateway/
 │   │   └── thingsboard.py     # ThingsBoard
 │   ├── servers/               # 内置服务
 │   │   ├── mqtt_server.py     # MQTT Server
-│   │   ├── opcua_server.py    # OPC UA Server
 │   │   └── modbus_slave.py    # Modbus Slave
 │   └── _cython/               # Cython 加速（可选）
 │       ├── modbus_mapper.pyx  # Modbus 映射加速

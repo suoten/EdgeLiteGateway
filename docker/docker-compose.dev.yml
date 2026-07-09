@@ -5,7 +5,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: edgelite-gateway-dev
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"  # FIXED-P4: 端口绑定到localhost，通过nginx反代访问
     volumes:
       - ../src/edgelite:/app/edgelite
       - ../configs:/app/configs
@@ -13,9 +13,9 @@ services:
       - ../logs:/app/logs
     environment:
       - EDGELITE_INFLUXDB__URL=http://influxdb:8086
-      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
+      - EDGELITE_INFLUXDB__TOKEN=${INFLUXDB_TOKEN:?INFLUXDB_TOKEN must be set in docker/.env}  # FIXED-P4: 移除弱默认值，强制从环境变量读取
       - EDGELITE_MQTT__BROKER=mosquitto
-      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:-dev-secret-key-not-for-production}
+      - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in docker/.env}  # FIXED-P4: 移除弱默认值，强制从环境变量读取
     command: python -m edgelite --host 0.0.0.0 --port 8080 --reload --reload-dir /app/edgelite
     depends_on:
       influxdb:
@@ -35,11 +35,11 @@ services:
       - influxdb-data:/var/lib/influxdb2
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-admin123}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME:-edgelite}  # FIXED-P1: 默认用户名改为edgelite
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:?INFLUXDB_PASSWORD must be set in docker/.env}  # FIXED-P1: 强制从环境变量读取，不使用弱密码默认值
       - DOCKER_INFLUXDB_INIT_ORG=edgelite
       - DOCKER_INFLUXDB_INIT_BUCKET=edgelite
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-edgelite-token-change-me}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:?INFLUXDB_TOKEN must be set in docker/.env}  # FIXED-P4: 移除弱默认值
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 10s
@@ -53,9 +53,17 @@ services:
     image: eclipse-mosquitto:2
     container_name: edgelite-mosquitto-dev
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"  # FIXED-P4: MQTT端口绑定到localhost
+    # P1-2修复: dev 环境不挂载生产版 mosquitto.conf（其中 allow_anonymous false + password_file
+    # 依赖 passwd 文件，但 dev compose 未生成该文件，容器无法启动）
+    # 改由 entrypoint 写出 dev 专用配置：allow_anonymous true、无 password_file，便于本地开发联调
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        printf 'listener 1883\nallow_anonymous true\npersistence true\npersistence_location /mosquitto/data/\nlog_dest stdout\n' > /mosquitto/config/mosquitto.conf
+        exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf
     volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
     healthcheck:
       test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-W", "3"]

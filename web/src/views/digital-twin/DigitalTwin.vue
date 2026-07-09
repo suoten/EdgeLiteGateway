@@ -13,7 +13,7 @@
           v-for="s in sceneOptions" :key="s.value"
           :class="['scene-btn', { active: selectedScene === s.value }]"
           @click="selectedScene = s.value"
-        >{{ s.icon }} {{ s.label }}</div>
+        ><component :is="s.icon" /> {{ s.label }}</div>
       </div>
       <div class="top-actions">
         <div :class="['action-btn', { active: autoRotate }]" @click="toggleAutoRotate" :title="t('digitalTwin.autoRotate')">
@@ -104,9 +104,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, triggerRef, computed, onMounted, onUnmounted, watch, markRaw, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { NTag, NButton, NDivider, NInput, NSpin, NIcon, useMessage } from 'naive-ui'
+import { NTag, NButton, NDivider, NInput, NSpin, NIcon } from 'naive-ui'
 import {
   BusinessOutline, BusinessSharp, FlashOutline, RefreshOutline, GitBranchSharp,
   CameraOutline, ReloadOutline, WarningOutline, FileTrayOutline, CloseOutline,
@@ -115,9 +115,26 @@ import {
 import { deviceApi, alarmApi } from '@/api'
 import { deviceStatusLabel, protocolLabel } from '@/utils/enumLabels'
 import { t } from '@/i18n'
+import { extractError } from '@/utils/errorCodes'
+import { message as msg } from '@/utils/discreteApi'
+import { usePageVisibility } from '@/composables/usePageVisibility'
 
 const router = useRouter()
-const msg = useMessage()
+// FIXED-Critical: 页面可见性检测，隐藏时暂停轮询以减少后台网络/CPU 开销
+const { isVisible } = usePageVisibility()
+const _h = h  // FIX: 生产构建中 h() 在模板里调用报 "h is not defined"，改为模板中使用预创建VNode
+const _markRaw = markRaw
+const sceneIcons = _markRaw({
+  factory: _h(NIcon, { component: BusinessSharp, size: 14 }),
+  park: _h(NIcon, { component: BusinessOutline, size: 14 }),
+  energy: _h(NIcon, { component: FlashOutline, size: 14 }),
+})
+const sceneOptions = computed(() => [
+  { label: t('digitalTwin.sceneFactory'), value: 'factory', icon: sceneIcons.factory },
+  { label: t('digitalTwin.scenePark'), value: 'park', icon: sceneIcons.park },
+  { label: t('digitalTwin.sceneEnergy'), value: 'energy', icon: sceneIcons.energy },
+])
+
 const containerRef = ref<HTMLElement | null>(null)
 const minimapRef = ref<HTMLCanvasElement | null>(null)
 const selectedScene = ref('factory')
@@ -126,7 +143,7 @@ const showLabels = ref(true)
 const showConnections = ref(true)
 const deviceList = ref<any[]>([])
 const selectedDevice = ref<any>(null)
-const pointValues = ref<Record<string, Record<string, any>>>({})
+const pointValues = shallowRef<Record<string, Record<string, any>>>({})
 const deviceSearch = ref('')
 const listExpanded = ref(false)
 const alarmingDevices = ref<Set<string>>(new Set())
@@ -134,12 +151,6 @@ const alarmCount = ref(0)
 const minimapUrl = ref('')
 const pageLoading = ref(true)
 const threeUnavailable = ref(false)  // FIXED: 原问题-three模块加载失败时无标志位，组件无法降级
-
-const sceneOptions = computed(() => [
-  { label: t('digitalTwin.sceneFactory'), value: 'factory', icon: h(NIcon, { component: BusinessSharp, size: 14 }) },
-  { label: t('digitalTwin.scenePark'), value: 'park', icon: h(NIcon, { component: BusinessOutline, size: 14 }) },
-  { label: t('digitalTwin.sceneEnergy'), value: 'energy', icon: h(NIcon, { component: FlashOutline, size: 14 }) },
-])
 
 const onlineCount = computed(() => deviceList.value.filter(d => d.status === 'online').length)
 const offlineCount = computed(() => deviceList.value.filter(d => d.status === 'offline').length)
@@ -174,6 +185,10 @@ let deviceMeshes: Map<string, any> = new Map(), labelSprites: Map<string, any> =
 let connectionLines: any[] = [], flowParticles: any[] = []
 let raycaster: any = null, mouse: any = null, refreshTimer: any = null, alarmTimer: any = null
 let particleSystem: any = null, THREERef: any = null
+let flyAnimationId: number | null = null
+let resizeRafId: number | null = null
+let minimapUpdateTimer: number | null = null
+let isRefreshingPoints = false
 
 function getDeviceColor(device: any): number {
   if (alarmingDevices.value.has(device.device_id)) return 0xff1744
@@ -497,6 +512,14 @@ function onMinimapClick(e: MouseEvent) {
   }
 }
 
+function scheduleMinimapUpdate() {
+  if (minimapUpdateTimer) clearTimeout(minimapUpdateTimer)
+  minimapUpdateTimer = window.setTimeout(() => {
+    updateMinimap()
+    minimapUpdateTimer = null
+  }, 100)
+}
+
 function takeScreenshot() {
   if (!renderer) return
   renderer.render(scene, camera)
@@ -533,7 +556,12 @@ async function loadScene() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.2
-    containerRef.value.innerHTML = ''
+    // FIXED-P3: 使用DOM API替代innerHTML清空容器，避免XSS风险向量
+    // 之前：containerRef.value.innerHTML = ''（innerHTML是危险API）
+    // 之后：逐个移除子节点，语义等价但无XSS风险
+    while (containerRef.value.firstChild) {
+      containerRef.value.removeChild(containerRef.value.firstChild)
+    }
     containerRef.value.appendChild(renderer.domElement)
 
     controls = new OrbitControls(camera, renderer.domElement)
@@ -576,12 +604,16 @@ async function loadScene() {
     addDevicesToScene(THREE)
 
     const onResize = () => {
-      if (!containerRef.value || !camera || !renderer) return
-      const w = containerRef.value.clientWidth
-      const h = containerRef.value.clientHeight
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
-      renderer.setSize(w, h)
+      if (resizeRafId) cancelAnimationFrame(resizeRafId)
+      resizeRafId = requestAnimationFrame(() => {
+        resizeRafId = null
+        if (!containerRef.value || !camera || !renderer) return
+        const w = containerRef.value.clientWidth
+        const h = containerRef.value.clientHeight
+        camera.aspect = w / h
+        camera.updateProjectionMatrix()
+        renderer.setSize(w, h)
+      })
     }
     resizeHandler = onResize
     window.addEventListener('resize', onResize)
@@ -620,12 +652,15 @@ async function loadScene() {
       }
 
       renderer.render(scene, camera)
-      updateMinimap()
     }
     animate()
-  } catch (e) {
-    console.error('3D场景加载失败:', e)
-    msg.error(t('digitalTwin.sceneLoadFailed'))  // FIXED: 原问题-中文硬编码
+  } catch (e: any) {
+    console.error('3D scene load failed:', e)
+    // FIXED-P1: 原问题-加载失败时未设置 threeUnavailable 标志，
+    // 导致模板中预留的 .three-unavailable 降级 UI 永不显示，页面一片空白
+    // 且用户点击"刷新"会反复尝试加载 three.js 并反复失败
+    threeUnavailable.value = true
+    msg.error(extractError(e, t('digitalTwin.sceneLoadFailed')))
   }
 }
 
@@ -658,6 +693,7 @@ function onCanvasClick(event: MouseEvent) {
 
 function flyToPosition(pos: any) {
   if (!camera || !controls) return
+  if (flyAnimationId) cancelAnimationFrame(flyAnimationId)
   const start = { x: camera.position.x, y: camera.position.y, z: camera.position.z }
   const target = { x: pos.x + 5, y: pos.y + 5, z: pos.z + 5 }
   const startTime = performance.now()
@@ -669,7 +705,7 @@ function flyToPosition(pos: any) {
     camera.position.set(start.x + (target.x - start.x) * ease, start.y + (target.y - start.y) * ease, start.z + (target.z - start.z) * ease)
     controls.target.set(pos.x, pos.y + 0.5, pos.z)
     controls.update()
-    if (t < 1) requestAnimationFrame(animateFly)
+    if (t < 1) { flyAnimationId = requestAnimationFrame(animateFly) } else { flyAnimationId = null }
   }
   animateFly()
 }
@@ -690,6 +726,7 @@ function rebuildScene() { fetchDevices().then(() => loadScene()) }
 function goToDeviceDetail() { if (selectedDevice.value) router.push(`/devices/${selectedDevice.value.device_id}`) }
 
 watch([showLabels, selectedScene], () => loadScene())
+watch([deviceList, selectedDevice, alarmingDevices], scheduleMinimapUpdate, { deep: false })
 
 async function fetchDevices() {
   try {
@@ -716,20 +753,33 @@ async function fetchAlarms() {
 async function fetchDevicePoints(deviceId: string) {
   try {
     const data = await deviceApi.getPoints(deviceId)
-    pointValues.value = { ...pointValues.value, [deviceId]: data || {} }
+    pointValues.value[deviceId] = data || {}
+    triggerRef(pointValues)
   } catch {
     msg.warning(t('digitalTwin.fetchDevicePointsFailed'))  // FIXED: 原问题-中文硬编码
   }
 }
 
 async function refreshAllPoints() {
-  for (const device of deviceList.value) {
-    if (device.status === 'online') await fetchDevicePoints(device.device_id)
-  }
+  const onlineDevices = deviceList.value.filter(d => d.status === 'online')
+  await Promise.allSettled(onlineDevices.map(d => fetchDevicePoints(d.device_id)))
+}
+
+function scheduleRefreshPoints() {
+  // FIXED-Critical: 页面不可见时暂停调度，避免后台无意义轮询
+  if (!isVisible.value) return
+  refreshTimer = setTimeout(async () => {
+    refreshTimer = null  // 定时器已触发，标记为无待执行任务，便于可见性恢复时重新调度
+    if (isRefreshingPoints) { scheduleRefreshPoints(); return }
+    isRefreshingPoints = true
+    try { await refreshAllPoints() } finally { isRefreshingPoints = false }
+    scheduleRefreshPoints()
+  }, 10000)
 }
 
 function cleanupScene() {
   if (animationId) cancelAnimationFrame(animationId)
+  if (flyAnimationId) cancelAnimationFrame(flyAnimationId)
   if (scene) {
     scene.traverse((obj: any) => {
       if (obj.geometry) obj.geometry.dispose()
@@ -748,27 +798,53 @@ function cleanupScene() {
   particleSystem = null
 }
 
+// FIXED-Critical: 页面可见性变化时暂停/恢复轮询，避免后台无意义请求
+watch(isVisible, (visible) => {
+  if (visible) {
+    // 页面恢复可见，立即刷新一次并恢复轮询
+    refreshAllPoints()
+    fetchAlarms()
+    if (!refreshTimer) scheduleRefreshPoints()
+    if (!alarmTimer) alarmTimer = setInterval(fetchAlarms, 15000)
+  } else {
+    // 页面隐藏，暂停 alarmTimer 轮询；refreshTimer 由 scheduleRefreshPoints 自行跳过下次调度
+    if (alarmTimer) {
+      clearInterval(alarmTimer)
+      alarmTimer = null
+    }
+  }
+})
+
+// [AUDIT-FIX] 严重级-组件卸载后异步响应仍更新状态，添加 isMounted 守卫
+let isMounted = true
+
 onMounted(async () => {
   await fetchDevices()
+  if (!isMounted) return
   await fetchAlarms()
+  if (!isMounted) return
   pageLoading.value = false
   loadScene()
   minimapUrl.value = 'active'
-  refreshTimer = setInterval(refreshAllPoints, 10000)
+  scheduleRefreshPoints()
   alarmTimer = setInterval(fetchAlarms, 15000)
   try {  // FIXED: 原问题-await import('three')无try-catch，模块加载失败时整个组件挂载崩溃
     ;(window as any).__THREE__ = await import('three')
   } catch (err) {
+    if (!isMounted) return
     console.error('[DigitalTwin] Failed to load three.js module:', err)
     threeUnavailable.value = true
   }
 })
 
 onUnmounted(() => {
+  isMounted = false
   if (resizeHandler) { window.removeEventListener('resize', resizeHandler); resizeHandler = null }
+  if (resizeRafId) cancelAnimationFrame(resizeRafId)
+  if (minimapUpdateTimer) clearTimeout(minimapUpdateTimer)
   cleanupScene()
   if (controls) controls.dispose()
-  if (refreshTimer) clearInterval(refreshTimer)
+  if (refreshTimer) clearTimeout(refreshTimer)
   if (alarmTimer) clearInterval(alarmTimer)
 })
 </script>

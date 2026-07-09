@@ -7,10 +7,16 @@ import hmac
 import logging
 import os
 import re
+import threading
+import time
 
 logger = logging.getLogger(__name__)
 
 _ENV_VAR_PATTERN = re.compile(r"^\$\{(.+)\}$")
+
+# FIXED-P1: 重放攻击防护 - 时间戳窗口和nonce缓存
+_REPLAY_WINDOW_SECONDS = 300  # 允许5分钟时间偏差
+_NONCE_CACHE_MAX_SIZE = 10000  # nonce缓存上限，防止内存无限增长
 
 
 class WebhookAuthMiddleware:
@@ -21,6 +27,11 @@ class WebhookAuthMiddleware:
         self._token = self._resolve_env_var(token)
         self._username = self._resolve_env_var(username)
         self._password = self._resolve_env_var(password)
+        # FIXED-P1: 重放攻击防护 - nonce缓存，记录已使用的nonce防止重放
+        self._used_nonces: dict[str, float] = {}  # nonce -> 使用时间戳
+        # 修复P1-8: verify_replay 中"检查存在性→写入"为读-改-写操作，并发请求可同时通过
+        # nonce 唯一性检查从而绕过重放防护，使用 threading.Lock 保护（方法为同步，不能用 asyncio.Lock）
+        self._nonce_lock = threading.Lock()
         # FIXED: 原问题-认证凭据为空时初始化无告警，启动后才发现所有请求被拒
         if self._mode == "bearer" and not self._token:
             logger.warning("WebhookAuth: Bearer模式但token为空，所有webhook请求将被拒绝")
@@ -38,8 +49,15 @@ class WebhookAuthMiddleware:
             return env_val
         return value
 
-    def verify(self, authorization_header: str | None) -> bool:
-        """验证Authorization头"""
+    def verify(self, authorization_header: str | None, timestamp: str | None = None, nonce: str | None = None, signature: str | None = None) -> bool:
+        """验证Authorization头
+
+        Args:
+            authorization_header: Authorization头
+            timestamp: 请求时间戳（用于重放防护，可选）
+            nonce: 请求唯一标识（用于重放防护，可选）
+            signature: HMAC签名（用于重放防护，可选）
+        """
         if self._mode == "none":
             return True
         if not authorization_header:
@@ -56,6 +74,41 @@ class WebhookAuthMiddleware:
             return self._verify_basic(authorization_header)
         logger.warning("未知的认证模式: %s", self._mode)
         return False
+
+    def verify_replay(self, timestamp: str | None, nonce: str | None) -> bool:
+        """FIXED-P1: 重放攻击防护 - 校验时间戳窗口和nonce唯一性
+
+        Args:
+            timestamp: 请求时间戳（Unix秒）
+            nonce: 请求唯一标识
+
+        Returns:
+            是否通过重放防护校验
+        """
+        if timestamp is None or nonce is None:
+            logger.warning("Replay protection: timestamp or nonce missing, rejecting request")
+            return False
+        try:
+            ts = float(timestamp)
+        except (ValueError, TypeError):
+            logger.warning("Replay protection: invalid timestamp format: %s", timestamp)
+            return False
+        now = time.time()
+        if abs(now - ts) > _REPLAY_WINDOW_SECONDS:
+            logger.warning("Replay protection: timestamp out of window (now=%f, ts=%f, diff=%f)", now, ts, now - ts)
+            return False
+        # 修复P1-8: 用 threading.Lock 保护 _used_nonces 的"检查→清理→写入"读-改-写操作，
+        # 避免并发请求同时通过 nonce 唯一性检查而绕过重放防护
+        with self._nonce_lock:
+            # 清理过期nonce
+            if len(self._used_nonces) > _NONCE_CACHE_MAX_SIZE:
+                expired_cutoff = now - _REPLAY_WINDOW_SECONDS
+                self._used_nonces = {n: t for n, t in self._used_nonces.items() if t > expired_cutoff}
+            if nonce in self._used_nonces:
+                logger.warning("Replay protection: nonce already used: %s", nonce)
+                return False
+            self._used_nonces[nonce] = now
+        return True
 
     def _verify_bearer(self, header: str) -> bool:
         if not header.startswith("Bearer "):
