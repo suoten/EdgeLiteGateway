@@ -28,8 +28,13 @@ class MqttTlsHelper:
 
         if cert_reqs == "none":
             import os
-            if os.getenv("EDGELITE_ALLOW_INSECURE_TLS") != "1":  # FIXED-P2: cert_reqs=none默认禁止，需显式设置环境变量允许，防止生产环境误配置中间人攻击
-                raise ValueError("MQTT TLS: cert_reqs=none is prohibited by default. Set EDGELITE_ALLOW_INSECURE_TLS=1 to override (NOT recommended for production)")
+
+            if (
+                os.getenv("EDGELITE_ALLOW_INSECURE_TLS") != "1"
+            ):  # FIXED-P2: cert_reqs=none默认禁止，需显式设置环境变量允许，防止生产环境误配置中间人攻击
+                raise ValueError(
+                    "MQTT TLS: cert_reqs=none is prohibited by default. Set EDGELITE_ALLOW_INSECURE_TLS=1 to override (NOT recommended for production)"  # noqa: E501
+                )
             logger.warning("MQTT TLS: cert_reqs=none 完全禁用证书验证，存在中间人攻击风险")
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
@@ -47,9 +52,7 @@ class MqttTlsHelper:
                 raise ValueError(f"CA证书文件无效: {ca_cert}")
 
         if client_cert and client_key:
-            if MqttTlsHelper.validate_cert_file(client_cert) and MqttTlsHelper.validate_cert_file(
-                client_key
-            ):
+            if MqttTlsHelper.validate_cert_file(client_cert) and MqttTlsHelper.validate_cert_file(client_key):
                 ctx.load_cert_chain(client_cert, client_key)
             else:
                 raise ValueError(f"客户端证书/密钥文件无效: {client_cert} / {client_key}")

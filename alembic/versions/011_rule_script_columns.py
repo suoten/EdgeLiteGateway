@@ -11,16 +11,16 @@ Create Date: 2026-06-20
 # 默认值分别为 '' 和 'threshold'，并添加 rule_type 取值约束。
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "011_rule_script_columns"
-down_revision: Union[str, None] = "010_rule_versions"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "010_rule_versions"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

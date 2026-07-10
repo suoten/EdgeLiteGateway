@@ -109,7 +109,9 @@ class DriverWatchdog:
         """设置状态变更回调"""
         self._on_status_change = callback
 
-    async def register_driver(self, device_id: str, driver: DriverPlugin, config: dict) -> None:  # FIXED-P0: 改为async，_lock为asyncio.Lock
+    async def register_driver(
+        self, device_id: str, driver: DriverPlugin, config: dict
+    ) -> None:  # FIXED-P0: 改为async，_lock为asyncio.Lock
         """注册驱动"""
         async with self._lock:
             self._drivers[device_id] = driver
@@ -152,7 +154,9 @@ class DriverWatchdog:
             else:
                 healthy = driver.health_check(device_id)
 
-            latency_ms = (asyncio.get_running_loop().time() - start_time) * 1000  # FIXED-P2: 使用get_running_loop替代废弃的get_event_loop
+            latency_ms = (
+                asyncio.get_running_loop().time() - start_time
+            ) * 1000  # FIXED-P2: 使用get_running_loop替代废弃的get_event_loop
 
             if healthy:
                 result = HeartbeatResult(
@@ -175,7 +179,9 @@ class DriverWatchdog:
             return result
 
         except Exception as e:
-            latency_ms = (asyncio.get_running_loop().time() - start_time) * 1000  # FIXED-P1: 使用get_running_loop替代废弃get_event_loop
+            latency_ms = (
+                asyncio.get_running_loop().time() - start_time
+            ) * 1000  # FIXED-P1: 使用get_running_loop替代废弃get_event_loop
             result = HeartbeatResult(
                 device_id=device_id,
                 success=False,
@@ -191,15 +197,14 @@ class DriverWatchdog:
         async with self._lock:  # FIXED-P0: 锁内创建_drivers快照，防止迭代期间register/unregister修改
             device_ids = list(self._drivers.keys())
         results = {}
+
         # FIXED-P1: 原问题-asyncio.gather同时为所有设备发起心跳，设备数多时耗尽连接池。
         # 改为通过_heartbeat_concurrency信号量限制并发心跳检测数量。
         async def _check_with_limit(dev_id: str) -> HeartbeatResult:
             async with self._heartbeat_concurrency:
                 return await self.check_device(dev_id)
-        tasks = [
-            _check_with_limit(device_id)
-            for device_id in device_ids
-        ]
+
+        tasks = [_check_with_limit(device_id) for device_id in device_ids]
         completed = await asyncio.gather(*tasks, return_exceptions=True)
         for device_id, result in zip(device_ids, completed, strict=False):
             if isinstance(result, Exception):
@@ -228,9 +233,7 @@ class DriverWatchdog:
             except Exception as e:
                 logger.error("Watchdog loop error: %s", e)
 
-    async def _on_heartbeat_success(
-        self, device_id: str, result: HeartbeatResult
-    ) -> None:
+    async def _on_heartbeat_success(self, device_id: str, result: HeartbeatResult) -> None:
         """处理心跳成功"""
         async with self._lock:  # FIXED-P2: 共享状态修改加锁，与register/unregister互斥
             driver = self._drivers.get(device_id)
@@ -274,9 +277,7 @@ class DriverWatchdog:
             )
             await self._publish_recovery_event(device_id, stats, old_status=old_status)
 
-    async def _on_heartbeat_failure(
-        self, device_id: str, result: HeartbeatResult
-    ) -> None:
+    async def _on_heartbeat_failure(self, device_id: str, result: HeartbeatResult) -> None:
         """处理心跳失败"""
         should_publish_stale = False
         should_publish_restart = False
@@ -300,10 +301,12 @@ class DriverWatchdog:
 
             stats = driver.get_health_stats(device_id)
             if stats and stats.consecutive_failures == 1:
-                self._offline_history.setdefault(device_id, []).append({
-                    "since": datetime.now(UTC).isoformat(),
-                    "reason": result.error_message,
-                })
+                self._offline_history.setdefault(device_id, []).append(
+                    {
+                        "since": datetime.now(UTC).isoformat(),
+                        "reason": result.error_message,
+                    }
+                )
                 if len(self._offline_history[device_id]) > 100:
                     self._offline_history[device_id] = self._offline_history[device_id][-100:]
                 should_publish_offline = True
@@ -317,6 +320,7 @@ class DriverWatchdog:
                     # FIXED-Bug15: stats is None 的设备进入熔断后也应触发探测，之前永久卡死
                     elif device_id in self._circuit_open:
                         import time as _time
+
                         now = _time.monotonic()
                         last_probe = self._circuit_probe_time.get(device_id, 0)
                         if now - last_probe >= 300:
@@ -325,6 +329,7 @@ class DriverWatchdog:
                 elif stats:
                     if device_id in self._circuit_open:
                         import time as _time
+
                         now = _time.monotonic()
                         last_probe = self._circuit_probe_time.get(device_id, 0)
                         if now - last_probe >= 300:
@@ -339,7 +344,9 @@ class DriverWatchdog:
         if should_publish_restart:
             logger.error(
                 "Device stale cycles exceeded restart threshold: %s (cycles=%d >= %d), triggering restart",
-                device_id, stale_count, self._restart_cycles,
+                device_id,
+                stale_count,
+                self._restart_cycles,
             )
             await self._publish_restart_event(device_id)
 
@@ -405,9 +412,7 @@ class DriverWatchdog:
         if not driver:
             return
 
-        if hasattr(driver, "reconnect_with_backoff") and asyncio.iscoroutinefunction(
-            driver.reconnect_with_backoff
-        ):
+        if hasattr(driver, "reconnect_with_backoff") and asyncio.iscoroutinefunction(driver.reconnect_with_backoff):
             try:
                 success = await driver.reconnect_with_backoff(device_id)
                 if not success:
@@ -433,21 +438,26 @@ class DriverWatchdog:
         重连间隔公式: min(base_interval × 2^attempt, max_interval)
         默认 base=5s, max=60s → 5, 10, 20, 40, 60, 60...
         """
-        backoff = self._reconnect_backoff.setdefault(device_id, {
-            "attempt": 0,
-            "base_interval": base_interval,
-            "max_interval": max_interval,
-        })
+        backoff = self._reconnect_backoff.setdefault(
+            device_id,
+            {
+                "attempt": 0,
+                "base_interval": base_interval,
+                "max_interval": max_interval,
+            },
+        )
 
         attempt = backoff["attempt"]
         base = backoff["base_interval"]
         cap = backoff["max_interval"]
-        delay = min(base * (2 ** attempt), cap)
+        delay = min(base * (2**attempt), cap)
         delay *= 0.5 + random.random() * 0.5  # FIXED-P4: 原问题-退避无抖动，多设备同时重连惊群效应
 
         logger.info(
             "Reconnect with backoff: device=%s, attempt=%d, delay=%.1fs",
-            device_id, attempt, delay,
+            device_id,
+            attempt,
+            delay,
         )
 
         await asyncio.sleep(delay)
@@ -459,14 +469,13 @@ class DriverWatchdog:
             return
 
         try:
-            if hasattr(driver, "reconnect") and asyncio.iscoroutinefunction(
-                driver.reconnect
-            ):
+            if hasattr(driver, "reconnect") and asyncio.iscoroutinefunction(driver.reconnect):
                 success = await driver.reconnect(device_id)
             else:
                 logger.warning(
                     "Driver %s has no reconnect() method, cannot auto-reconnect device %s",
-                    type(driver).__name__, device_id,
+                    type(driver).__name__,
+                    device_id,
                 )
                 success = False
 
@@ -485,22 +494,31 @@ class DriverWatchdog:
                     self._reconnect_attempts[device_id] = self._reconnect_attempts.get(device_id, 0) + 1
                     if self._reconnect_attempts[device_id] >= self._max_reconnect_attempts:
                         import time as _time
+
                         self._circuit_open.add(device_id)
-                        # FIXED-Bug15: 初始化为当前 monotonic 时间，之前为 0 导致系统运行 5 分钟后熔断探测立即触发（300s 冷却失效）
+                        # FIXED-Bug15: 初始化为当前 monotonic 时间，之前为 0 导致系统运行 5 分钟后熔断探测立即触发（300s 冷却失效）  # noqa: E501
                         self._circuit_probe_time[device_id] = _time.monotonic()
-                        logger.warning("Device %s entered circuit-open state after %d reconnect failures", device_id, self._reconnect_attempts[device_id])
+                        logger.warning(
+                            "Device %s entered circuit-open state after %d reconnect failures",
+                            device_id,
+                            self._reconnect_attempts[device_id],
+                        )
                 logger.warning(
                     "Reconnect failed: device=%s, next attempt=%d",
-                    device_id, backoff["attempt"],
+                    device_id,
+                    backoff["attempt"],
                 )
         except Exception as e:
             # FIXED-P0: 原问题-异常处理中修改backoff["attempt"]和_reconnect_attempts在锁外执行，
             # 多协程并发重连同一设备时计数错乱。改为在锁内修改共享状态。
             async with self._lock:
                 backoff["attempt"] = attempt + 1
-                self._reconnect_attempts[device_id] = self._reconnect_attempts.get(device_id, 0) + 1  # FIXED-P0: 看门狗重连使用独立计数器而非consecutive_failures
+                self._reconnect_attempts[device_id] = (
+                    self._reconnect_attempts.get(device_id, 0) + 1
+                )  # FIXED-P0: 看门狗重连使用独立计数器而非consecutive_failures
                 if self._reconnect_attempts[device_id] >= self._max_reconnect_attempts:
                     import time as _time
+
                     self._circuit_open.add(device_id)
                     # FIXED-Bug15: 同上，初始化为当前 monotonic 时间
                     self._circuit_probe_time[device_id] = _time.monotonic()
@@ -611,9 +629,7 @@ class DriverWatchdog:
             except Exception as e:
                 logger.debug("Status change callback error: %s", e)
 
-    async def _publish_long_offline_event(
-        self, device_id: str, duration: float
-    ) -> None:
+    async def _publish_long_offline_event(self, device_id: str, duration: float) -> None:
         """发布超长离线事件"""
         if self._event_bus:
             try:

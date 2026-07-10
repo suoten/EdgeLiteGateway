@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 async def list_users(
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_READ)),
-    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
+    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
 ):
     try:
         async with db.get_session() as session:
@@ -69,21 +69,24 @@ async def create_user(
             # FIXED-M04: Use _get_client_ip for trusted proxy support
             from edgelite.api.auth import _get_client_ip
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request) if request else ""
             await audit_svc.log(
-                    AuditAction.USER_CREATE,
-                    user_id=user["user_id"],
-                    username=user["username"],
-                    resource_type="user",
-                    resource_id=new_user.get("user_id", ""),
-                    ip_address=client_ip,
-                    after_value={"username": body.username, "role": body.role if hasattr(body, "role") else ""},
-                )
+                AuditAction.USER_CREATE,
+                user_id=user["user_id"],
+                username=user["username"],
+                resource_type="user",
+                resource_id=new_user.get("user_id", ""),
+                ip_address=client_ip,
+                after_value={"username": body.username, "role": body.role if hasattr(body, "role") else ""},
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=new_user)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={"error_code": UserErrors.CREATE_FAILED, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=409, detail={"error_code": UserErrors.CREATE_FAILED, "errors": [str(e)], "warnings": []}
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -149,7 +152,10 @@ async def update_user(
                     logger.warning(
                         "Blocked sensitive field modification on protected role '%s' account: "
                         "user=%s target_id=%s attempted_fields=%s",
-                        target_role, user.get("username"), user_id, list(attempted_sensitive)
+                        target_role,
+                        user.get("username"),
+                        user_id,
+                        list(attempted_sensitive),
                     )
                     raise HTTPException(
                         status_code=403,
@@ -181,6 +187,7 @@ async def update_user(
         if target_username and ("role" in data or "enabled" in data):
             try:
                 from edgelite.middleware.token_renewal import _invalidate_user_cache
+
                 _invalidate_user_cache(target_username)
                 logger.info("Token renewal cache invalidated for user %s after role/enabled update", target_username)
             except Exception as e:
@@ -192,6 +199,7 @@ async def update_user(
         if _was_enabled and _now_disabled:
             try:
                 from edgelite.security.token_revocation import revoke_all_tokens_for_user
+
                 revoked = await revoke_all_tokens_for_user(user_id)
                 logger.info("Disabled user %s, revoked %d active token(s)", user_id, revoked)
             except Exception as e:
@@ -204,34 +212,38 @@ async def update_user(
         if "password" in data:
             try:
                 from edgelite.security.token_revocation import revoke_all_tokens_for_user
+
                 revoked = await revoke_all_tokens_for_user(user_id)
                 logger.info(
                     "Password updated by admin for user %s, revoked %d active token(s)",
-                    user_id, revoked,
+                    user_id,
+                    revoked,
                 )
             except Exception as e:
                 logger.warning(
                     "Failed to revoke tokens after admin password update for user %s: %s",
-                    user_id, e,
+                    user_id,
+                    e,
                 )
 
         try:
             # FIXED-M04: Use _get_client_ip for trusted proxy support
             from edgelite.api.auth import _get_client_ip
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request) if request else ""
             before_safe = {k: v for k, v in (before_user or {}).items() if k != "password"} if before_user else None
             after_safe = {k: v for k, v in (updated or {}).items() if k != "password"} if updated else None
             await audit_svc.log(
                 AuditAction.USER_UPDATE,
-                    user_id=user["user_id"],
-                    username=user["username"],
-                    resource_type="user",
-                    resource_id=user_id,
-                    ip_address=client_ip,
-                    before_value=before_safe,
-                    after_value=after_safe,
-                )
+                user_id=user["user_id"],
+                username=user["username"],
+                resource_type="user",
+                resource_id=user_id,
+                ip_address=client_ip,
+                before_value=before_safe,
+                after_value=after_safe,
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=updated)
@@ -299,6 +311,7 @@ async def delete_user(
         if target_username:
             try:
                 from edgelite.middleware.token_renewal import _invalidate_user_cache
+
                 _invalidate_user_cache(target_username)
                 logger.info("Token renewal cache invalidated for deleted user %s", target_username)
             except Exception as e:
@@ -307,6 +320,7 @@ async def delete_user(
         # 第四轮修复: 删除用户时主动撤销其所有活跃 token，防止已签发 token 继续有效
         try:
             from edgelite.security.token_revocation import revoke_all_tokens_for_user
+
             revoked = await revoke_all_tokens_for_user(user_id)
             if revoked:
                 logger.info("Deleted user %s, revoked %d active token(s)", user_id, revoked)
@@ -317,16 +331,17 @@ async def delete_user(
             # FIXED-M04: Use _get_client_ip for trusted proxy support
             from edgelite.api.auth import _get_client_ip
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request) if request else ""
             await audit_svc.log(
                 AuditAction.USER_DELETE,
-                    user_id=user["user_id"],
-                    username=user["username"],
-                    resource_type="user",
-                    resource_id=user_id,
-                    ip_address=client_ip,
-                    before_value=before_safe,
-                )
+                user_id=user["user_id"],
+                username=user["username"],
+                resource_type="user",
+                resource_id=user_id,
+                ip_address=client_ip,
+                before_value=before_safe,
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
         return ApiResponse()

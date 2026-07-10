@@ -67,7 +67,9 @@ class MCPToolService:
                 "description": "Get the running status of a specific device",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"device_id": {"type": "string", "description": "Device ID"}},  # FIXED: 原问题-中文硬编码description
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device ID"}
+                    },  # FIXED: 原问题-中文硬编码description
                     "required": ["device_id"],
                 },
             },
@@ -76,7 +78,9 @@ class MCPToolService:
                 "description": "Read current values of device points",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"device_id": {"type": "string", "description": "Device ID"}},  # FIXED: 原问题-中文硬编码description
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device ID"}
+                    },  # FIXED: 原问题-中文硬编码description
                     "required": ["device_id"],
                 },
             },
@@ -98,7 +102,9 @@ class MCPToolService:
                 "description": "Get current active alarms list",  # FIXED: 原问题-中文硬编码description
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"severity": {"type": "string", "description": "Filter by alarm severity"}},  # FIXED: 原问题-中文硬编码description
+                    "properties": {
+                        "severity": {"type": "string", "description": "Filter by alarm severity"}
+                    },  # FIXED: 原问题-中文硬编码description
                     "required": [],
                 },
             },
@@ -118,7 +124,10 @@ class MCPToolService:
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "model_id": {"type": "string", "description": "Model ID (elg-anomaly-v1, elg-trend-v1, elg-threshold-v1)"},
+                        "model_id": {
+                            "type": "string",
+                            "description": "Model ID (elg-anomaly-v1, elg-trend-v1, elg-threshold-v1)",
+                        },
                         "input_data": {"type": "array", "items": {"type": "number"}, "description": "Input data array"},
                     },
                     "required": ["model_id", "input_data"],
@@ -138,7 +147,10 @@ class MCPToolService:
                 "description": "Get recent anomaly detection results",
                 "inputSchema": {
                     "type": "object",
-                    "properties": {"device_id": {"type": "string", "description": "Filter by device ID"}, "limit": {"type": "integer", "description": "Max results (default 20)"}},
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Filter by device ID"},
+                        "limit": {"type": "integer", "description": "Max results (default 20)"},
+                    },
                     "required": [],
                 },
             },
@@ -149,7 +161,10 @@ class MCPToolService:
                     "type": "object",
                     "properties": {
                         "model_id": {"type": "string", "description": "Model ID"},
-                        "feedback_type": {"type": "string", "description": "Feedback type (confirmed/ignored/too_sensitive/too_insensitive)"},
+                        "feedback_type": {
+                            "type": "string",
+                            "description": "Feedback type (confirmed/ignored/too_sensitive/too_insensitive)",
+                        },
                     },
                     "required": ["model_id", "feedback_type"],
                 },
@@ -202,14 +217,22 @@ class MCPToolService:
                 "name": "analyze_device",
                 "description": "Analyze device running status and anomalies",  # FIXED: 原问题-中文硬编码description
                 "arguments": [
-                    {"name": "device_id", "description": "Device ID to analyze", "required": True}  # FIXED: 原问题-中文硬编码description
+                    {
+                        "name": "device_id",
+                        "description": "Device ID to analyze",
+                        "required": True,
+                    }  # FIXED: 原问题-中文硬编码description
                 ],
             },
             "alarm_summary": {
                 "name": "alarm_summary",
                 "description": "Generate alarm summary report",  # FIXED: 原问题-中文硬编码description
                 "arguments": [
-                    {"name": "severity", "description": "Filter by alarm severity", "required": False}  # FIXED: 原问题-中文硬编码description
+                    {
+                        "name": "severity",
+                        "description": "Filter by alarm severity",
+                        "required": False,
+                    }  # FIXED: 原问题-中文硬编码description
                 ],
             },
         }
@@ -244,27 +267,41 @@ class MCPToolService:
         try:
             if name == "list_devices":
                 if not device_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
-                devices, total = await device_service.list_devices(page=1, size=_MCP_QUERY_SIZE)  # FIXED: 原问题-size=200魔法数字
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
+                devices, total = await device_service.list_devices(
+                    page=1, size=_MCP_QUERY_SIZE
+                )  # FIXED: 原问题-size=200魔法数字
                 return {"devices": devices, "total": total}
 
             elif name == "get_device_status":
                 device_id = args.get("device_id", "")
                 if not device_id:
-                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_DEVICE_ID)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=400, detail=McpErrors.MISSING_DEVICE_ID
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 device = await device_service.get_device(device_id)
                 if device is None:
-                    raise HTTPException(status_code=404, detail=McpErrors.DEVICE_NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=404, detail=McpErrors.DEVICE_NOT_FOUND
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 return device
 
             elif name == "read_device_points":
                 device_id = args.get("device_id", "")
                 if not device_id:
-                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_DEVICE_ID)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=400, detail=McpErrors.MISSING_DEVICE_ID
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 points = await device_service.read_points(device_id)
                 return {"device_id": device_id, "points": points}
 
@@ -280,16 +317,28 @@ class MCPToolService:
                             value = int(value)
                     except (ValueError, TypeError) as exc:  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from exc
                         low_val = value.lower()
-                        if low_val in ("true", "on", "yes", "1"):  # FIXED-P2: 字符串值转换失败时pass保留原始字符串传给驱动，现添加bool值识别
+                        if low_val in (
+                            "true",
+                            "on",
+                            "yes",
+                            "1",
+                        ):  # FIXED-P2: 字符串值转换失败时pass保留原始字符串传给驱动，现添加bool值识别
                             value = True
                         elif low_val in ("false", "off", "no", "0"):
                             value = False
                         else:
-                            raise HTTPException(status_code=400, detail=f"Invalid value type: cannot convert '{value}' to number or boolean") from exc
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Invalid value type: cannot convert '{value}' to number or boolean",
+                            ) from exc
                 if not device_id or not point_name:
-                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_PARAMS)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=400, detail=McpErrors.MISSING_PARAMS
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 if not device_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.DEVICE_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 # SEC-FIX: MCP 写入必须遵守驱动写保护策略，不得绕过 check_write_allowed
                 driver = getattr(device_service, "_driver_instances", {}).get(device_id)
                 if driver is not None and hasattr(driver, "check_write_allowed"):
@@ -314,9 +363,11 @@ class MCPToolService:
                 try:
                     if audit_svc is None:
                         from edgelite.app import _app_state
+
                         audit_svc = getattr(_app_state, "audit_service", None)
                     if audit_svc is not None:
                         from edgelite.services.audit_service import AuditAction
+
                         await audit_svc.log(
                             action=AuditAction.DEVICE_WRITE_POINT,
                             user_id=user.get("user_id", "mcp") if user else "mcp",
@@ -332,30 +383,45 @@ class MCPToolService:
             elif name == "list_alarms":
                 severity = args.get("severity")
                 if not alarm_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.ALARM_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
-                alarms, total = await alarm_service.list_alarms(page=1, size=_MCP_QUERY_SIZE, severity=severity)  # FIXED: 原问题-size=200魔法数字
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.ALARM_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
+                alarms, total = await alarm_service.list_alarms(
+                    page=1, size=_MCP_QUERY_SIZE, severity=severity
+                )  # FIXED: 原问题-size=200魔法数字
                 return {"alarms": alarms, "total": total}
 
             elif name == "get_system_status":
                 if not system_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.SYSTEM_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.SYSTEM_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
                 return await system_service.get_status()
 
             elif name == "list_rules":
                 if not rule_service:
-                    raise HTTPException(status_code=503, detail=McpErrors.RULE_SERVICE_UNAVAILABLE)  # FIXED: 原问题-中文硬编码detail，改为error_code
-                rules, total = await rule_service.list_rules(page=1, size=_MCP_QUERY_SIZE)  # FIXED: 原问题-size=200魔法数字
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.RULE_SERVICE_UNAVAILABLE
+                    )  # FIXED: 原问题-中文硬编码detail，改为error_code
+                rules, total = await rule_service.list_rules(
+                    page=1, size=_MCP_QUERY_SIZE
+                )  # FIXED: 原问题-size=200魔法数字
                 return {"rules": rules, "total": total}
 
             elif name == "ai_inference":
                 model_id = args.get("model_id", "")
                 input_data = args.get("input_data", [])
                 if not model_id:
-                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_MODEL_ID)  # FIXED-P2: 原问题-硬编码字符串，改为错误码
+                    raise HTTPException(
+                        status_code=400, detail=McpErrors.MISSING_MODEL_ID
+                    )  # FIXED-P2: 原问题-硬编码字符串，改为错误码
                 ai_scheduler = getattr(self, "_ai_scheduler", None)
                 if not ai_scheduler:
-                    raise HTTPException(status_code=503, detail=McpErrors.AI_SCHEDULER_UNAVAILABLE)  # FIXED-P2: 原问题-硬编码字符串，改为错误码
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.AI_SCHEDULER_UNAVAILABLE
+                    )  # FIXED-P2: 原问题-硬编码字符串，改为错误码
                 from edgelite.engine.inference_scheduler import InferencePriority
+
                 result = await ai_scheduler.submit_and_wait(model_id, input_data, InferencePriority.USER_QUERY)
                 output = result
                 if hasattr(result, "__dict__"):
@@ -366,11 +432,15 @@ class MCPToolService:
                 model_id = args.get("model_id", "")
                 ai_scheduler = getattr(self, "_ai_scheduler", None)
                 if not ai_scheduler:
-                    raise HTTPException(status_code=503, detail=McpErrors.AI_SCHEDULER_UNAVAILABLE)  # FIXED-P2: 原问题-硬编码字符串，改为错误码
+                    raise HTTPException(
+                        status_code=503, detail=McpErrors.AI_SCHEDULER_UNAVAILABLE
+                    )  # FIXED-P2: 原问题-硬编码字符串，改为错误码
                 if model_id:
                     metrics = await ai_scheduler.get_model_metrics(model_id)
                     if not metrics:
-                        raise HTTPException(status_code=404, detail=McpErrors.MODEL_NOT_FOUND)  # FIXED-P2: 原问题-硬编码字符串，改为错误码
+                        raise HTTPException(
+                            status_code=404, detail=McpErrors.MODEL_NOT_FOUND
+                        )  # FIXED-P2: 原问题-硬编码字符串，改为错误码
                     return metrics
                 return await ai_scheduler.get_stats()
 
@@ -390,7 +460,9 @@ class MCPToolService:
                 model_id = args.get("model_id", "")
                 feedback_type = args.get("feedback_type", "")
                 if not model_id or not feedback_type:
-                    raise HTTPException(status_code=400, detail=McpErrors.MISSING_FEEDBACK_PARAMS)  # FIXED-P2: 原问题-硬编码字符串，改为错误码
+                    raise HTTPException(
+                        status_code=400, detail=McpErrors.MISSING_FEEDBACK_PARAMS
+                    )  # FIXED-P2: 原问题-硬编码字符串，改为错误码
                 learner = None
                 anomaly_learner = getattr(self, "_anomaly_learner", None)
                 threshold_learner = getattr(self, "_threshold_learner", None)
@@ -399,7 +471,9 @@ class MCPToolService:
                 elif model_id == "elg-threshold-v1" and threshold_learner:
                     learner = threshold_learner
                 if not learner:
-                    raise HTTPException(status_code=404, detail=McpErrors.MODEL_NOT_FOUND)  # FIXED-P2: 原问题-硬编码字符串，改为错误码
+                    raise HTTPException(
+                        status_code=404, detail=McpErrors.MODEL_NOT_FOUND
+                    )  # FIXED-P2: 原问题-硬编码字符串，改为错误码
                 if model_id == "elg-anomaly-v1":
                     result = await learner.submit_feedback(value=0, score=0, is_anomaly=False, feedback=feedback_type)
                 else:
@@ -407,7 +481,9 @@ class MCPToolService:
                 return {"status": "ok", "result": result}
 
             else:
-                raise HTTPException(status_code=400, detail=McpErrors.UNKNOWN_TOOL)  # FIXED: 原问题-中文硬编码detail，改为error_code
+                raise HTTPException(
+                    status_code=400, detail=McpErrors.UNKNOWN_TOOL
+                )  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         except HTTPException:
             raise
@@ -419,7 +495,9 @@ class MCPToolService:
         from fastapi import HTTPException
 
         if name not in self._tools:
-            raise HTTPException(status_code=400, detail=McpErrors.UNKNOWN_TOOL)  # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(
+                status_code=400, detail=McpErrors.UNKNOWN_TOOL
+            )  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         tool_def = self._tools[name]
         input_schema = tool_def.get("inputSchema") if isinstance(tool_def, dict) else None
@@ -478,6 +556,7 @@ class MCPAuthManager:
                 safe_v = dict(v)
                 if "key" in safe_v:
                     import hashlib
+
                     safe_v["key_hash"] = hashlib.sha256(safe_v.pop("key").encode()).hexdigest()
                 safe_keys[k] = safe_v
             with open(self._STORE_FILE, "w", encoding="utf-8") as f:
@@ -538,6 +617,7 @@ class MCPAuthManager:
 
     def verify_key(self, api_key: str) -> dict[str, Any] | None:
         import hashlib
+
         # R8-S-07: 锁内快照后释放锁，避免迭代时与 create/delete 竞态
         with self._lock:
             items = list(self._keys.items())
@@ -546,7 +626,7 @@ class MCPAuthManager:
             scopes = key_data.get("scopes")
             if name is None or scopes is None:
                 continue
-            # FIXED-P0: 原问题-_save将key哈希为key_hash存盘，但verify_key仅比对明文key。重启后从文件加载的keys只有key_hash无key，导致所有API密钥验证失败
+            # FIXED-P0: 原问题-_save将key哈希为key_hash存盘，但verify_key仅比对明文key。重启后从文件加载的keys只有key_hash无key，导致所有API密钥验证失败  # noqa: E501
             # 情况1: 内存中的明文key（创建后未重启）
             stored_key = key_data.get("key", "")
             if stored_key and hmac.compare_digest(stored_key, api_key):

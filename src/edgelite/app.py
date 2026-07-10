@@ -59,6 +59,7 @@ async def lifespan(app: FastAPI):
     if os.environ.get("EDGELITE_CHECK_CONSISTENCY", "").lower() in ("1", "true", "yes"):
         try:
             from scripts.audit.check_model_orm_consistency import run_all as check_l1
+
             _err_count, issues = check_l1()  # FIXED(P3): 原问题-解包变量err_count未使用; 修复-改为_err_count前缀
             if issues:
                 for _category, _field, msg in issues:
@@ -83,18 +84,21 @@ async def lifespan(app: FastAPI):
     try:
         # FIXED-H03: Start rate limit cleanup task for persistent storage
         from edgelite.storage.sqlite_repo import RateLimitRepo
+
         RateLimitRepo.start_cleanup_task()
         _post_bootstrap_resources.append(("rate_limit_repo", RateLimitRepo))
 
         # FIXED-AUTO-BACKUP: Start the database backup scheduler
         # Start config backup service (JSON-based)
         from edgelite.services.system_services import get_backup_service
+
         backup_svc = get_backup_service(auto_start=False)
         await backup_svc.start_scheduler()
         _post_bootstrap_resources.append(("backup_svc", backup_svc))
 
         # Start database backup scheduler (SQLite files)
         from edgelite.services.backup_scheduler import get_backup_scheduler
+
         db_scheduler = get_backup_scheduler(
             backup_dir=config.backup.backup_dir,
             interval_seconds=config.backup.interval_hours * 3600,
@@ -114,7 +118,9 @@ async def lifespan(app: FastAPI):
                 elif name == "db_scheduler":
                     await res.stop()
             except Exception as e:
-                logger.warning("Post-bootstrap cleanup of %s failed: %s", name, e)  # FIXED-P2: 原问题-清理异常被pass吞没，改为记录日志
+                logger.warning(
+                    "Post-bootstrap cleanup of %s failed: %s", name, e
+                )  # FIXED-P2: 原问题-清理异常被pass吞没，改为记录日志
         await teardown(_app_state)
         raise
 
@@ -167,7 +173,9 @@ async def lifespan(app: FastAPI):
         logger.info("Application shutdown complete")
 
 
-def _register_routes(app: FastAPI, config: object = None) -> None:  # FIXED-P0: 传入config参数，修复闭包变量作用域NameError
+def _register_routes(
+    app: FastAPI, config: object = None
+) -> None:  # FIXED-P0: 传入config参数，修复闭包变量作用域NameError
     from edgelite.api import (
         alarms,
         auth,
@@ -250,6 +258,7 @@ def _register_routes(app: FastAPI, config: object = None) -> None:  # FIXED-P0: 
     for label, module_path, attr in _optional_routers:
         try:
             import importlib
+
             mod = importlib.import_module(module_path)
             _router = getattr(mod, attr)
             app.include_router(_router)
@@ -264,7 +273,10 @@ def _register_routes(app: FastAPI, config: object = None) -> None:  # FIXED-P0: 
         except Exception as e:
             logger.error(
                 "%s route registration failed: %s: %s",
-                label, type(e).__name__, e, exc_info=True,
+                label,
+                type(e).__name__,
+                e,
+                exc_info=True,
             )
             raise  # FIXED: P0-1 其他异常（配置错误/循环依赖）不应静默降级
 
@@ -277,6 +289,7 @@ def _register_routes(app: FastAPI, config: object = None) -> None:  # FIXED-P0: 
     if _debug_api_enabled:
         try:
             from edgelite.api.debug import router as debug_router
+
             app.include_router(debug_router)
             logger.info("Registered Debug route (debug_api_enabled=true)")
         except ImportError:
@@ -287,6 +300,7 @@ def _register_routes(app: FastAPI, config: object = None) -> None:  # FIXED-P0: 
         for label, module_path, attr in _debug_routers:
             try:
                 import importlib
+
                 mod = importlib.import_module(module_path)
                 _router = getattr(mod, attr)
                 app.include_router(_router)
@@ -301,6 +315,7 @@ def _register_routes(app: FastAPI, config: object = None) -> None:  # FIXED-P0: 
     # Register root-level /metrics endpoint for Prometheus scraping compatibility
     try:
         from edgelite.api.metrics import _root_metrics_router
+
         app.include_router(_root_metrics_router)
         logger.info("Registered root-level /metrics route for Prometheus scraping")
     except Exception as e:
@@ -337,9 +352,7 @@ def _register_websocket_routes(app: FastAPI) -> None:
     async def ws_realtime(websocket: WebSocket):
         await _app_state.ws_manager.connect(websocket, "realtime")
         token = await _recv_auth_token(websocket)
-        if not token or not await _app_state.ws_manager.authenticate(
-            websocket, "realtime", token
-        ):
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "realtime", token):
             # FIXED-P0: connect(token=None)已将websocket加入_connections，authenticate失败时必须disconnect清理
             await _app_state.ws_manager.disconnect(websocket, "realtime")
             return
@@ -403,9 +416,7 @@ def _register_websocket_routes(app: FastAPI) -> None:
     async def ws_device(websocket: WebSocket):
         await _app_state.ws_manager.connect(websocket, "device")
         token = await _recv_auth_token(websocket)
-        if not token or not await _app_state.ws_manager.authenticate(
-            websocket, "device", token
-        ):
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "device", token):
             # FIXED-P0: 同ws_realtime，authenticate失败时必须disconnect清理
             await _app_state.ws_manager.disconnect(websocket, "device")
             return  # FIXED-P0: connect已accept, authenticate已close, 端点不再double-accept/double-close
@@ -458,6 +469,7 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
         session_id = None
         import json as _json
+
         _last_msg_type = None
         try:
             handshake_msg = await asyncio.wait_for(websocket.receive_text(), timeout=300.0)
@@ -468,33 +480,23 @@ def _register_websocket_routes(app: FastAPI) -> None:
             try:
                 handshake_data = _json.loads(handshake_msg)
             except _json.JSONDecodeError:
-                await websocket.send_text(
-                    _json.dumps({"type": "error", "message": "Invalid JSON"})
-                )
+                await websocket.send_text(_json.dumps({"type": "error", "message": "Invalid JSON"}))
                 return
             if not isinstance(handshake_data, dict):
                 await websocket.send_text(
-                    _json.dumps({
-                        "type": "error",
-                        "message": "Handshake must be a JSON object",
-                    })
+                    _json.dumps(
+                        {
+                            "type": "error",
+                            "message": "Handshake must be a JSON object",
+                        }
+                    )
                 )
                 return
             if handshake_data.get("type") == "handshake":
-                response = (
-                    await _app_state.integration_endpoint.handle_handshake(
-                        handshake_data
-                    )
-                )
-                session_id = (
-                    response.get("session_id", "")
-                    if isinstance(response, dict)
-                    else ""
-                )
+                response = await _app_state.integration_endpoint.handle_handshake(handshake_data)
+                session_id = response.get("session_id", "") if isinstance(response, dict) else ""
                 await websocket.send_text(_json.dumps(response))
-                await _app_state.integration_endpoint.register_connection(
-                    session_id, websocket
-                )
+                await _app_state.integration_endpoint.register_connection(session_id, websocket)
             while True:
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=300.0)
                 # FIXED(安全): 限制消息大小为1MB，防止超大消息耗尽内存
@@ -503,26 +505,19 @@ def _register_websocket_routes(app: FastAPI) -> None:
                     break
                 try:
                     data_parsed = _json.loads(data)
-                    _last_msg_type = (
-                        data_parsed.get("type")
-                        if isinstance(data_parsed, dict)
-                        else None
-                    )
+                    _last_msg_type = data_parsed.get("type") if isinstance(data_parsed, dict) else None
                     # FIXED: 处理客户端 pong 响应，更新心跳记录，防止60秒后心跳超时误杀连接
                     if isinstance(data_parsed, dict) and data_parsed.get("type") == "pong":
                         _app_state.ws_manager.record_pong(websocket)
                 except _json.JSONDecodeError:
                     _last_msg_type = "(invalid JSON)"
-                result = await _app_state.integration_endpoint.handle_message(
-                    session_id or "", data
-                )
+                result = await _app_state.integration_endpoint.handle_message(session_id or "", data)
                 if result:
                     if isinstance(result, dict):
                         await websocket.send_text(_json.dumps(result))
                     else:
                         logger.warning(
-                            "Integration handle_message returned non-dict"
-                            " type %s, skipping",
+                            "Integration handle_message returned non-dict type %s, skipping",
                             type(result).__name__,
                         )
         except WebSocketDisconnect:
@@ -532,9 +527,11 @@ def _register_websocket_routes(app: FastAPI) -> None:
         except Exception as e:
             # #[AUDIT-FIX] 改用 logger.exception 捕获完整堆栈，便于定位 TypeError 根因
             logger.exception(
-                "Integration WebSocket error [%s]"
-                " (msg_type=%r, session=%r): %s",
-                type(e).__name__, _last_msg_type, session_id, e,
+                "Integration WebSocket error [%s] (msg_type=%r, session=%r): %s",
+                type(e).__name__,
+                _last_msg_type,
+                session_id,
+                e,
             )
         finally:
             if session_id:
@@ -546,9 +543,7 @@ def _register_websocket_routes(app: FastAPI) -> None:
     async def ws_ai(websocket: WebSocket):
         await _app_state.ws_manager.connect(websocket, "ai")
         token = await _recv_auth_token(websocket)
-        if not token or not await _app_state.ws_manager.authenticate(
-            websocket, "ai", token
-        ):
+        if not token or not await _app_state.ws_manager.authenticate(websocket, "ai", token):
             # FIXED-P2: 同ws_realtime，authenticate失败时必须disconnect清理
             await _app_state.ws_manager.disconnect(websocket, "ai")
             return
@@ -597,14 +592,16 @@ def create_app() -> FastAPI:
     # - 生产环境：仅允许通过 EDGELITE_SERVER__CORS_ALLOWED_ORIGINS 配置的精确域名
     # - 开发环境：设置 DEV_MODE=true 可启用本地开发配置（localhost + 127.0.0.1）
     # 常见前端开发端口：3000-3010 (React/Vue), 5173-5180 (Vite), 4200 (Angular), 8080-8081
-    DEV_PORT_RANGES = "|".join([
-        r"300[0-9]",      # 3000-3009
-        r"3010",          # 3010
-        r"517[3-9]",      # 5173-5179
-        r"5180",          # 5180
-        r"42[0-9]{2}",     # 4200-4299 (Angular)
-        r"808[01]",       # 8080-8081
-    ])
+    DEV_PORT_RANGES = "|".join(
+        [
+            r"300[0-9]",  # 3000-3009
+            r"3010",  # 3010
+            r"517[3-9]",  # 5173-5179
+            r"5180",  # 5180
+            r"42[0-9]{2}",  # 4200-4299 (Angular)
+            r"808[01]",  # 8080-8081
+        ]
+    )
 
     # FIXED(安全): 合并读取 cors_allowed_origins 和遗留的 cors_origins，防止 Docker 环境变量名不匹配导致 CORS 失效
     allowed_origins = config.server.cors_allowed_origins or getattr(config.server, "cors_origins", []) or []
@@ -646,9 +643,7 @@ def create_app() -> FastAPI:
             allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token", "X-Requested-With"],
             expose_headers=["X-CSRF-Token"],
         )
-        logger.warning(
-            "CORS disabled by default. Set EDGELITE_SERVER__CORS_ALLOWED_ORIGINS or DEV_MODE=true"
-        )
+        logger.warning("CORS disabled by default. Set EDGELITE_SERVER__CORS_ALLOWED_ORIGINS or DEV_MODE=true")
 
     # Register security middlewares (order matters: last added = first executed)
     from edgelite.middleware.csrf import CSRFMiddleware
@@ -680,18 +675,22 @@ def create_app() -> FastAPI:
                 if "response" in locals() and response is not None:
                     response.headers["X-Response-Time"] = f"{_elapsed_ms:.2f}"
             except Exception as header_err:
-                # R11-DRV-11: 原问题-except Exception: pass 完全静默吞没异常；改为 debug 日志记录，便于排查响应头注入失败
+                # R11-DRV-11: 原问题-except Exception: pass 完全静默吞没异常；改为 debug 日志记录，便于排查响应头注入失败  # noqa: E501
                 logger.debug("Response header injection failed: %s", header_err)
             # 慢请求 warning，正常请求 debug，避免日志噪音
             if _elapsed_ms > 1000.0:
                 logger.warning(
                     "Slow request: %s %s %.2fms",
-                    request.method, request.url.path, _elapsed_ms,
+                    request.method,
+                    request.url.path,
+                    _elapsed_ms,
                 )
             else:
                 logger.debug(
                     "Request: %s %s %.2fms",
-                    request.method, request.url.path, _elapsed_ms,
+                    request.method,
+                    request.url.path,
+                    _elapsed_ms,
                 )
 
     # FIXED(G-02): 注册 RequestIdFilter 到根 logger，将 contextvar 中的 request_id
@@ -742,6 +741,7 @@ def create_app() -> FastAPI:
         from fastapi.responses import JSONResponse
 
         from edgelite.models.common import ApiResponse
+
         content_length = request.headers.get("content-length")
         if content_length:
             try:
@@ -767,6 +767,7 @@ def create_app() -> FastAPI:
             # 将非统一格式的 404 响应转换为 {code, message, data} 格式
             if response.status_code == 404:
                 from edgelite.models.common import ApiResponse as _ApiResponse
+
                 body = b""
                 async for chunk in response.body_iterator:
                     body += chunk
@@ -776,17 +777,22 @@ def create_app() -> FastAPI:
                         return JSONResponse(
                             status_code=404,
                             content=_ApiResponse(
-                                code=404, message=data.get("detail", "Not Found"),
-                                data=None, error_code="ERR_COMMON_NOT_FOUND"
+                                code=404,
+                                message=data.get("detail", "Not Found"),
+                                data=None,
+                                error_code="ERR_COMMON_NOT_FOUND",
                             ).model_dump(),
                         )
                 except Exception:  # FIXED-P2: 原问题-bare except吞没KeyboardInterrupt/SystemExit；改为except Exception
                     pass
                 # 如果已经是统一格式或解析失败，重新构造原始响应
                 from starlette.responses import Response as _Response
+
                 return _Response(
-                    content=body, status_code=response.status_code,
-                    headers=dict(response.headers), media_type=response.media_type,
+                    content=body,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type,
                 )
             return response
         finally:
@@ -812,9 +818,7 @@ def create_app() -> FastAPI:
         logger.warning("Validation error: %s %s -> %s", request.method, request.url.path, detail)
         return JSONResponse(
             status_code=422,
-            content=ApiResponse(
-                code=422, message=detail, data=None, error_code="ERR_COMMON_VALIDATION"
-            ).model_dump(),
+            content=ApiResponse(code=422, message=detail, data=None, error_code="ERR_COMMON_VALIDATION").model_dump(),
         )
 
     from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -859,9 +863,7 @@ def create_app() -> FastAPI:
         logger.warning("HTTPException: %s %s -> %s %s", request.method, request.url.path, status_code, message)
         return JSONResponse(
             status_code=status_code,
-            content=ApiResponse(
-                code=status_code, message=message, data=None, error_code=error_code
-            ).model_dump(),
+            content=ApiResponse(code=status_code, message=message, data=None, error_code=error_code).model_dump(),
         )
 
     @app.exception_handler(Exception)
@@ -871,14 +873,15 @@ def create_app() -> FastAPI:
         else:
             logger.error(
                 "Unhandled exception: %s %s -> %s: [%s]",
-                request.method, request.url.path, exc, type(exc).__name__,
+                request.method,
+                request.url.path,
+                exc,
+                type(exc).__name__,
             )
 
         return JSONResponse(
             status_code=500,
-            content=ApiResponse(
-                code=500, message=CommonErrors.INTERNAL_ERROR, data=None
-            ).model_dump(),
+            content=ApiResponse(code=500, message=CommonErrors.INTERNAL_ERROR, data=None).model_dump(),
         )
 
     _register_routes(app, config)  # FIXED-P0: 传入config参数
@@ -886,6 +889,7 @@ def create_app() -> FastAPI:
 
     try:
         from edgelite.api.health import router as health_router
+
         app.include_router(health_router)
         logger.info("Registered aggregated /health endpoint")
     except Exception as e:
@@ -901,11 +905,7 @@ def _mount_frontend(app: FastAPI) -> None:
 
     from fastapi.staticfiles import StaticFiles
 
-    frontend_dist = Path(
-        __import__("os").environ.get(
-            "EDGELITE_FRONTEND_DIST", "/app/frontend/dist"
-        )
-    )
+    frontend_dist = Path(__import__("os").environ.get("EDGELITE_FRONTEND_DIST", "/app/frontend/dist"))
     if not frontend_dist.is_dir():
         frontend_dist = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
 
@@ -920,6 +920,7 @@ def _mount_frontend(app: FastAPI) -> None:
         async def serve_spa(path: str):
             if path.startswith(("api/", "docs", "redoc", "openapi.json", "ws/")):
                 from fastapi.responses import JSONResponse
+
                 return JSONResponse(status_code=404, content={"detail": "Not Found"})
             file_path = frontend_dist / path
             # 防止路径遍历

@@ -132,9 +132,7 @@ async def list_backups(
         return ApiResponse(data=backups)
     except Exception as e:
         logger.error("list_backups failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.BACKUP_LIST_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.BACKUP_LIST_FAILED) from e
 
 
 @router.post("/backup", response_model=ApiResponse, status_code=201)
@@ -181,9 +179,7 @@ async def create_backup(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED) from e
 
 
 @router.post("/restore", response_model=ApiResponse)
@@ -199,9 +195,7 @@ async def restore_backup(
     if not confirm:
         raise HTTPException(status_code=400, detail="请确认操作")
     if not re.match(r"^[a-zA-Z0-9_-]+$", backup_id):
-        raise HTTPException(
-            status_code=400, detail=SystemErrors.INVALID_BACKUP_ID
-        )
+        raise HTTPException(status_code=400, detail=SystemErrors.INVALID_BACKUP_ID)
     # 第三轮审计修复: 记录系统恢复审计日志
     from edgelite.api.auth import _get_client_ip
     from edgelite.services.audit_service import AuditAction
@@ -225,9 +219,7 @@ async def restore_backup(
                 )
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
-            raise HTTPException(
-                status_code=404, detail=SystemErrors.BACKUP_NOT_FOUND
-            )
+            raise HTTPException(status_code=404, detail=SystemErrors.BACKUP_NOT_FOUND)
         try:
             await audit_svc.log(
                 AuditAction.BACKUP_RESTORE,
@@ -260,9 +252,7 @@ async def restore_backup(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.RESTORE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.RESTORE_FAILED) from e
 
 
 @router.delete("/backup/{backup_id}", response_model=ApiResponse)
@@ -278,9 +268,7 @@ async def delete_backup(
     链式安全：删除全量备份时会一并删除以其为基线的增量备份。
     """
     if not re.match(r"^[a-zA-Z0-9_-]+$", backup_id):
-        raise HTTPException(
-            status_code=400, detail=SystemErrors.INVALID_BACKUP_ID
-        )
+        raise HTTPException(status_code=400, detail=SystemErrors.INVALID_BACKUP_ID)
     # 第三轮审计修复: 记录备份删除审计日志
     from edgelite.api.auth import _get_client_ip
     from edgelite.services.audit_service import AuditAction
@@ -304,9 +292,7 @@ async def delete_backup(
                 )
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
-            raise HTTPException(
-                status_code=404, detail=SystemErrors.BACKUP_NOT_FOUND
-            )
+            raise HTTPException(status_code=404, detail=SystemErrors.BACKUP_NOT_FOUND)
         logger.info("Backup deleted by user %s: %s", getattr(user, "username", "?"), backup_id)
         try:
             await audit_svc.log(
@@ -340,9 +326,7 @@ async def delete_backup(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED) from e
 
 
 # ── 自动备份调度器 API ──
@@ -378,9 +362,7 @@ async def get_backup_schedule(
         return ApiResponse(data=status_dict)
     except Exception as e:
         logger.error("get_backup_schedule failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED) from e
 
 
 @router.post("/backup/schedule/trigger", response_model=ApiResponse)
@@ -411,13 +393,15 @@ async def trigger_backup(
         # Convert results to dict
         results_dict = []
         for r in results:
-            results_dict.append({
-                "component": r.component,
-                "success": r.success,
-                "backup_path": r.backup_path,
-                "error": r.error,
-                "duration_ms": r.duration_ms,
-            })
+            results_dict.append(
+                {
+                    "component": r.component,
+                    "success": r.success,
+                    "backup_path": r.backup_path,
+                    "error": r.error,
+                    "duration_ms": r.duration_ms,
+                }
+            )
 
         try:
             await audit_svc.log(
@@ -427,15 +411,20 @@ async def trigger_backup(
                 resource_type="backup_schedule",
                 ip_address=client_ip,
                 user_agent=user_agent,
-                after_value={"triggered_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "results": results_dict},
+                after_value={
+                    "triggered_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "results": results_dict,
+                },
             )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
-        return ApiResponse(data={
-            "triggered_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "results": results_dict,
-        })
+        return ApiResponse(
+            data={
+                "triggered_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "results": results_dict,
+            }
+        )
     except ValueError as e:
         logger.warning("trigger_backup validation error: %s", e)
         # FIXED(严重): 原问题-detail=str(e) 直接暴露异常内部信息，可能泄露数据库表名、SQL 语句、文件路径
@@ -453,9 +442,7 @@ async def trigger_backup(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=422, detail=SystemErrors.BACKUP_CREATE_FAILED
-        ) from e
+        raise HTTPException(status_code=422, detail=SystemErrors.BACKUP_CREATE_FAILED) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -473,9 +460,7 @@ async def trigger_backup(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.BACKUP_CREATE_FAILED) from e
 
 
 # ── 级联管理 API ──
@@ -490,38 +475,39 @@ async def get_cascade_topology(
     返回当前网关在级联拓扑中的角色、父节点、子节点和邻居信息。
     """
     try:
-
         manager = _get_cascade_manager()
         if manager is None:
-            return ApiResponse(data={
-                "status": "standalone",
-                "parent_id": None,
-                "children": [],
-                "peers": [],
-            })
-        topology = manager.build_topology()
-        return ApiResponse(data={
-            "local_id": topology.local_id,
-            "status": topology.status,
-            "parent_id": topology.parent_id,
-            "children": topology.children,
-            "peers": [
-                {
-                    "neighbor_id": n.neighbor_id,
-                    "host": n.host,
-                    "port": n.port,
-                    "role": n.role,
-                    "last_seen": n.last_seen,
+            return ApiResponse(
+                data={
+                    "status": "standalone",
+                    "parent_id": None,
+                    "children": [],
+                    "peers": [],
                 }
-                for n in topology.peers
-            ],
-            "updated_at": topology.updated_at,
-        })
+            )
+        topology = manager.build_topology()
+        return ApiResponse(
+            data={
+                "local_id": topology.local_id,
+                "status": topology.status,
+                "parent_id": topology.parent_id,
+                "children": topology.children,
+                "peers": [
+                    {
+                        "neighbor_id": n.neighbor_id,
+                        "host": n.host,
+                        "port": n.port,
+                        "role": n.role,
+                        "last_seen": n.last_seen,
+                    }
+                    for n in topology.peers
+                ],
+                "updated_at": topology.updated_at,
+            }
+        )
     except Exception as e:
         logger.error("get_cascade_topology failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=CascadeErrors.TOPOLOGY_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=CascadeErrors.TOPOLOGY_FAILED) from e
 
 
 @router.get("/cascade/neighbors", response_model=ApiResponse)
@@ -537,28 +523,29 @@ async def get_cascade_neighbors(
         if manager is None:
             return ApiResponse(data=[])
         neighbors = manager.neighbors
-        return ApiResponse(data=[
-            {
-                "neighbor_id": n.neighbor_id,
-                "host": n.host,
-                "port": n.port,
-                "role": n.role,
-                "properties": n.properties,
-                "last_seen": n.last_seen,
-            }
-            for n in neighbors
-        ])
+        return ApiResponse(
+            data=[
+                {
+                    "neighbor_id": n.neighbor_id,
+                    "host": n.host,
+                    "port": n.port,
+                    "role": n.role,
+                    "properties": n.properties,
+                    "last_seen": n.last_seen,
+                }
+                for n in neighbors
+            ]
+        )
     except Exception as e:
         logger.error("get_cascade_neighbors failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=CascadeErrors.NEIGHBORS_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=CascadeErrors.NEIGHBORS_FAILED) from e
 
 
 # R11-API-09: 定义 CascadeConfigUpdate Pydantic 模型替代 dict = Body(...)
 # 字段全部可选以支持部分更新，extra=forbid 拒绝未知字段
 class CascadeConfigUpdate(BaseModel):
     """级联配置更新请求模型"""
+
     parent_host: str | None = Field(default=None, max_length=255, description="父节点地址")
     parent_port: int | None = Field(default=None, ge=1, le=65535, description="父节点端口")
     role: Literal["parent", "child", "standalone"] | None = Field(default=None, description="节点角色")
@@ -596,9 +583,7 @@ async def update_cascade_config(
         raise
     except Exception as e:
         logger.error("update_cascade_config failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=CascadeErrors.CONFIG_UPDATE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=CascadeErrors.CONFIG_UPDATE_FAILED) from e
 
 
 @router.delete("/cascade/neighbors/{neighbor_id}", response_model=ApiResponse)
@@ -623,9 +608,7 @@ async def remove_cascade_neighbor(
         raise
     except Exception as e:
         logger.error("remove_cascade_neighbor failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=CascadeErrors.REMOVE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=CascadeErrors.REMOVE_FAILED) from e
 
 
 def _get_cascade_manager():
@@ -636,6 +619,7 @@ def _get_cascade_manager():
     """
     try:
         from edgelite.app import _app_state
+
         return getattr(_app_state, "cascade_manager", None)
     except ImportError:
         # 级联管理器模块不存在，功能未启用
@@ -735,12 +719,15 @@ async def reload_config(
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
-        return ApiResponse(data={
-            "config_version": config._config_version,
-            "changed_sensitive_keys": changed_keys,
-            "message": "Config reloaded successfully" if not changed_keys
-                       else f"Config reloaded, {len(changed_keys)} sensitive key(s) changed",
-        })
+        return ApiResponse(
+            data={
+                "config_version": config._config_version,
+                "changed_sensitive_keys": changed_keys,
+                "message": "Config reloaded successfully"
+                if not changed_keys
+                else f"Config reloaded, {len(changed_keys)} sensitive key(s) changed",
+            }
+        )
     except Exception as e:
         logger.error("reload_config failed: %s", e)
         try:
@@ -756,9 +743,7 @@ async def reload_config(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=ConfigErrors.RELOAD_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=ConfigErrors.RELOAD_FAILED) from e
 
 
 @router.get("/config", response_model=ApiResponse)
@@ -776,9 +761,7 @@ async def get_current_config(
         return ApiResponse(data=sanitized)
     except Exception as e:
         logger.error("get_current_config failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=ConfigErrors.LOAD_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=ConfigErrors.LOAD_FAILED) from e
 
 
 @router.put("/config/{section}", response_model=ApiResponse)
@@ -821,7 +804,9 @@ async def update_config_section(
         before_value = None
         if before_section is not None:
             try:
-                before_value = before_section.model_dump() if hasattr(before_section, "model_dump") else dict(before_section)
+                before_value = (
+                    before_section.model_dump() if hasattr(before_section, "model_dump") else dict(before_section)
+                )
             except Exception:
                 before_value = {"section": section}
 
@@ -832,6 +817,7 @@ async def update_config_section(
 
         # 第三轮审计修复: 敏感字段脱敏
         _SENSITIVE_KEYS = {"password", "token", "secret", "api_key", "secret_key", "auth_key"}
+
         def _sanitize(obj):
             if not isinstance(obj, dict):
                 return obj
@@ -871,9 +857,7 @@ async def update_config_section(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=ConfigErrors.UPDATE_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=ConfigErrors.UPDATE_FAILED) from e
 
 
 # ── 标准化健康检查端点 ──
@@ -883,6 +867,7 @@ def _get_app_state():
     """获取应用状态容器（延迟导入）"""
     try:
         from edgelite.app import _app_state
+
         return _app_state
     except Exception:
         return None
@@ -905,11 +890,16 @@ async def _check_database(state) -> dict:
         t0 = time.monotonic()
         async with db.get_session() as session:
             from sqlalchemy import text
+
             await session.execute(text("SELECT 1"))
         latency_ms = round((time.monotonic() - t0) * 1000, 2)
         return {"status": "up", "backend": config.database.backend, "latency_ms": latency_ms}
     except Exception:
-        return {"status": "down", "error": "database_error", "backend": config.database.backend}  # FIXED-P1: 不暴露异常详情
+        return {
+            "status": "down",
+            "error": "database_error",
+            "backend": config.database.backend,
+        }  # FIXED-P1: 不暴露异常详情
 
 
 async def _check_influxdb(state) -> dict:
@@ -919,6 +909,7 @@ async def _check_influxdb(state) -> dict:
         return {"status": "down", "error": "influx_storage not initialized"}
 
     from edgelite.config import get_config
+
     config = get_config()
     url = config.influxdb.url
 
@@ -1027,6 +1018,7 @@ async def get_device_quality(
     """获取设备数据质量评分"""
     if user["role"] != "admin":
         from edgelite.app import _app_state
+
         device_svc = _app_state.device_service
         device = await device_svc.get_device(device_id)
         if device is None:
@@ -1034,6 +1026,7 @@ async def get_device_quality(
         if device.get("created_by") != user["user_id"]:
             # FIXED-P2: 检查共享访问权限，与devices.py保持一致
             from edgelite.storage.sqlite_repo import ResourceShareRepo
+
             share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
             has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
             if not has_access:
@@ -1053,6 +1046,7 @@ async def get_circuit_breaker_status(
     if user["role"] != "admin" and statuses:
         from edgelite.app import _app_state
         from edgelite.storage.sqlite_repo import ResourceShareRepo
+
         device_svc = getattr(_app_state, "device_service", None)
         if device_svc:
             owned_ids = set(await device_svc.list_device_ids_by_owner(user["user_id"]))
@@ -1080,6 +1074,7 @@ async def reset_circuit_breaker(
     if user["role"] != "admin":
         from edgelite.app import _app_state
         from edgelite.storage.sqlite_repo import ResourceShareRepo
+
         device_svc = getattr(_app_state, "device_service", None)
         if device_svc:
             device = await device_svc.get_device(device_id)
@@ -1149,6 +1144,7 @@ async def health_check_basic():  # FIXED-P0: 重命名避免覆盖行508的完�
 
     try:
         import psutil  # FIXED-P2: 原问题-import在try块外，psutil不可用时抛出未捕获ImportError导致500
+
         # FIXED-BugR4X: 原问题-psutil.cpu_percent(interval=0.1)阻塞事件循环100ms，
         # 修复-改为interval=None非阻塞返回上次调用以来的平均值
         cpu = psutil.cpu_percent(interval=None)
@@ -1156,9 +1152,25 @@ async def health_check_basic():  # FIXED-P0: 重命名避免覆盖行508的完�
         disk = psutil.disk_usage("/")
 
         # FIXED-P1: 无认证端点不暴露具体资源百分比，仅返回healthy/degraded状态
-        components.append(ComponentHealth(name="cpu", status="healthy" if cpu < 90 else "degraded", message="ok" if cpu < 90 else "high"))
-        components.append(ComponentHealth(name="memory", status="healthy" if mem.percent < 90 else "degraded", message="ok" if mem.percent < 90 else "high"))
-        components.append(ComponentHealth(name="disk", status="healthy" if disk.percent < 90 else "degraded", message="ok" if disk.percent < 90 else "high"))
+        components.append(
+            ComponentHealth(
+                name="cpu", status="healthy" if cpu < 90 else "degraded", message="ok" if cpu < 90 else "high"
+            )
+        )
+        components.append(
+            ComponentHealth(
+                name="memory",
+                status="healthy" if mem.percent < 90 else "degraded",
+                message="ok" if mem.percent < 90 else "high",
+            )
+        )
+        components.append(
+            ComponentHealth(
+                name="disk",
+                status="healthy" if disk.percent < 90 else "degraded",
+                message="ok" if disk.percent < 90 else "high",
+            )
+        )
     except Exception:
         components.append(ComponentHealth(name="system", status="unknown", message="unavailable"))
 
@@ -1234,15 +1246,15 @@ async def get_retention_policy(user: dict[str, str] = Depends(require_permission
         history_retention_days = getattr(config.influxdb, "retention_days", 30)
         # 告警数据保留天数：配置中暂无对应字段，使用默认值 365
         alarm_retention_days = 365
-        return ApiResponse(data={
-            "history_retention_days": history_retention_days,
-            "alarm_retention_days": alarm_retention_days,
-        })
+        return ApiResponse(
+            data={
+                "history_retention_days": history_retention_days,
+                "alarm_retention_days": alarm_retention_days,
+            }
+        )
     except Exception as e:
         logger.error("get_retention_policy failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.STATUS_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e
 
 
 @router.put("/retention", response_model=ApiResponse[dict])
@@ -1271,6 +1283,7 @@ async def update_retention_policy(
 
         # 记录更新前的值
         from edgelite.config import get_config
+
         config = get_config()
         before_value = {"history_retention_days": getattr(config.influxdb, "retention_days", 30)}
 
@@ -1303,11 +1316,13 @@ async def update_retention_policy(
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
-        return ApiResponse(data={
-            "history_retention_days": history_days if history_days is not None else 30,
-            "alarm_retention_days": alarm_days if alarm_days is not None else 365,
-            "message": "Retention policy updated",
-        })
+        return ApiResponse(
+            data={
+                "history_retention_days": history_days if history_days is not None else 30,
+                "alarm_retention_days": alarm_days if alarm_days is not None else 365,
+                "message": "Retention policy updated",
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -1325,9 +1340,7 @@ async def update_retention_policy(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.STATUS_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e
 
 
 @router.get("/cert", response_model=ApiResponse[dict])
@@ -1366,16 +1379,16 @@ async def get_cert_info(user: dict[str, str] = Depends(require_permission(Permis
             except Exception:
                 expiry = None
 
-        return ApiResponse(data={
-            "has_cert": has_cert,
-            "cert_path": ssl_cert if has_cert else None,
-            "expiry": expiry,
-        })
+        return ApiResponse(
+            data={
+                "has_cert": has_cert,
+                "cert_path": ssl_cert if has_cert else None,
+                "expiry": expiry,
+            }
+        )
     except Exception as e:
         logger.error("get_cert_info failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.STATUS_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e
 
 
 @router.post("/cert/rotate", response_model=ApiResponse[dict])
@@ -1437,9 +1450,7 @@ async def rotate_cert(user: dict[str, str] = Depends(require_permission(Permissi
 import pathlib as _pathlib
 from datetime import UTC
 
-_NTP_CONFIG_FILE = str(
-    _pathlib.Path(__file__).resolve().parent.parent.parent.parent / "data" / "ntp_config.json"
-)
+_NTP_CONFIG_FILE = str(_pathlib.Path(__file__).resolve().parent.parent.parent.parent / "data" / "ntp_config.json")
 
 
 def _read_file_sync(path: str) -> bytes:
@@ -1487,6 +1498,7 @@ async def _get_ntp_sync_status() -> str:
     修复-改为 async 函数，使用 asyncio.create_subprocess_exec 异步执行子进程，
     并用 asyncio.wait_for 将单次命令超时控制在 10 秒内，超时后终止子进程避免僵尸进程。
     """
+
     async def _run_cmd(args: list[str]) -> tuple[int, str]:
         """异步执行命令并返回 (returncode, stdout)；失败或超时返回 (-1, "")"""
         try:
@@ -1551,17 +1563,17 @@ async def get_ntp_config(user: dict[str, str] = Depends(require_permission(Permi
         from datetime import datetime
 
         current_time = datetime.now(UTC).isoformat()
-        return ApiResponse(data={
-            "enabled": config["enabled"],
-            "server": config["server"],
-            "sync_status": sync_status,
-            "current_time": current_time,
-        })
+        return ApiResponse(
+            data={
+                "enabled": config["enabled"],
+                "server": config["server"],
+                "sync_status": sync_status,
+                "current_time": current_time,
+            }
+        )
     except Exception as e:
         logger.error("get_ntp_config failed: %s", e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.STATUS_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e
 
 
 @router.put("/ntp", response_model=ApiResponse[dict])
@@ -1633,11 +1645,13 @@ async def update_ntp_config(
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
-        return ApiResponse(data={
-            "enabled": enabled,
-            "server": server,
-            "message": "NTP config updated",
-        })
+        return ApiResponse(
+            data={
+                "enabled": enabled,
+                "server": server,
+                "message": "NTP config updated",
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -1655,9 +1669,7 @@ async def update_ntp_config(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(
-            status_code=500, detail=SystemErrors.STATUS_FAILED
-        ) from e
+        raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e
 
 
 # ── Database Migration Status API ──
@@ -1677,11 +1689,13 @@ async def get_migration_status(
 
         container = _app_state
         if container is None:
-            return ApiResponse(data={
-                "current_status": "unknown",
-                "last_updated": None,
-                "error": None,
-            })
+            return ApiResponse(
+                data={
+                    "current_status": "unknown",
+                    "last_updated": None,
+                    "error": None,
+                }
+            )
 
         migration_status = getattr(container, "_migration_status", {})
 
@@ -1700,7 +1714,9 @@ async def get_migration_status(
                 # Non-admin sees only timestamp and truncated error
                 result["last_failure"] = {
                     "timestamp": failure.get("timestamp"),
-                    "error": (failure.get("error") or "")[:200] + "..." if failure.get("error") and len(failure.get("error", "")) > 200 else failure.get("error"),
+                    "error": (failure.get("error") or "")[:200] + "..."
+                    if failure.get("error") and len(failure.get("error", "")) > 200
+                    else failure.get("error"),
                 }
 
         return ApiResponse(data=result)
@@ -1765,10 +1781,12 @@ async def retry_migration(
                     )
                 except Exception as e:
                     logger.warning("Audit log failed: %s", e)
-                return ApiResponse(data={
-                    "status": "success",
-                    "message": "Migration completed successfully",
-                })
+                return ApiResponse(
+                    data={
+                        "status": "success",
+                        "message": "Migration completed successfully",
+                    }
+                )
             else:
                 raise RuntimeError("Migration returned False")
 
@@ -1826,7 +1844,9 @@ async def retry_migration(
                 )
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
-            raise HTTPException(status_code=500, detail=SystemErrors.MIGRATION_FAILED) from migration_err  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from migration_err
+            raise HTTPException(
+                status_code=500, detail=SystemErrors.MIGRATION_FAILED
+            ) from migration_err  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from migration_err
 
     except HTTPException:
         raise
@@ -1863,21 +1883,27 @@ async def get_migration_history(
 
         # Add current status to history
         if "last_updated" in migration_status:
-            history.append({
-                "timestamp": migration_status["last_updated"],
-                "status": migration_status.get("current_status", "unknown"),
-                "message": "Last migration attempt",
-            })
+            history.append(
+                {
+                    "timestamp": migration_status["last_updated"],
+                    "status": migration_status.get("current_status", "unknown"),
+                    "message": "Last migration attempt",
+                }
+            )
 
         # Add failure details if present
         if "last_failure" in migration_status:
             failure = migration_status["last_failure"]
-            history.append({
-                "timestamp": failure.get("timestamp"),
-                "status": "failed",
-                "message": "Migration failed",
-                "error_preview": (failure.get("error") or "")[:100] + "..." if failure.get("error") and len(failure.get("error", "")) > 100 else failure.get("error"),
-            })
+            history.append(
+                {
+                    "timestamp": failure.get("timestamp"),
+                    "status": "failed",
+                    "message": "Migration failed",
+                    "error_preview": (failure.get("error") or "")[:100] + "..."
+                    if failure.get("error") and len(failure.get("error", "")) > 100
+                    else failure.get("error"),
+                }
+            )
 
         # Sort by timestamp descending
         history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -1953,22 +1979,26 @@ async def get_network_info(
                         # 跳过回环地址（IPv4/IPv6）
                         if addr.address in ("127.0.0.1", "::1"):
                             continue
-                        interfaces.append({
-                            "name": name,
-                            "family": addr.family.name,
-                            "address": addr.address,
-                            "netmask": addr.netmask or "",
-                            "broadcast": addr.broadcast or "",
-                            "isup": bool(stats.get(name) and stats[name].isup),
-                        })
+                        interfaces.append(
+                            {
+                                "name": name,
+                                "family": addr.family.name,
+                                "address": addr.address,
+                                "netmask": addr.netmask or "",
+                                "broadcast": addr.broadcast or "",
+                                "isup": bool(stats.get(name) and stats[name].isup),
+                            }
+                        )
         except Exception as e:
             logger.debug("psutil net_if_addrs unavailable: %s", e)
 
-        return ApiResponse(data={
-            "hostname": hostname,
-            "local_ip": local_ip,
-            "interfaces": interfaces,
-        })
+        return ApiResponse(
+            data={
+                "hostname": hostname,
+                "local_ip": local_ip,
+                "interfaces": interfaces,
+            }
+        )
     except Exception as e:
         logger.error("get_network_info failed: %s", e)
         raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e

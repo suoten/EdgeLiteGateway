@@ -15,23 +15,20 @@ from typing import Any
 sys.path.insert(0, "src")
 
 from edgelite.drivers.dnp3 import (
-    APPCONTROL_FIR,
     APPCONTROL_FIN,
-    DNP3Client,
+    APPCONTROL_FIR,
     DNP3_DATA_BLOCK_MAX,
     DNP3_HEADER_SIZE,
     DNP3_LINK_CTRL_USER_DATA,
     DNP3_START_BYTES,
-    FC_DIRECT_OPERATE,
-    FC_OPERATE,
     FC_RESPONSE,
-    FC_SELECT,
     QUALITY_CHATTER_FILTER,
     QUALITY_COMM_LOST,
     QUALITY_LOCAL_FORCED,
     QUALITY_ONLINE,
-    QUALITY_RESTART,
     QUALITY_REMOTE_FORCED,
+    QUALITY_RESTART,
+    DNP3Client,
 )
 
 

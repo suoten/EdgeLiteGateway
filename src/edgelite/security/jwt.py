@@ -146,8 +146,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         max_ttl = timedelta(days=config.security.max_token_ttl_days)
         if expires_delta > max_ttl:
             logger.warning(
-                "Token TTL (%.1f days) exceeds maximum allowed (%.1f days), "
-                "truncating to max TTL for token type: %s",
+                "Token TTL (%.1f days) exceeds maximum allowed (%.1f days), truncating to max TTL for token type: %s",
                 expires_delta.total_seconds() / 86400,
                 config.security.max_token_ttl_days,
                 data.get("type", "access"),
@@ -259,10 +258,7 @@ def decode_token(
 
     config = get_config()
     if not verify_exp:
-        warnings.warn(
-            "decode_token(verify_exp=False) 仅用于调试，生产环境请勿使用",
-            stacklevel=2
-        )
+        warnings.warn("decode_token(verify_exp=False) 仅用于调试，生产环境请勿使用", stacklevel=2)
 
     # FIXED-L01: 根据 key_type 选择密钥，不再回退
     if key_type == "reset":
@@ -284,8 +280,6 @@ def decode_token(
     if token_type is not None:
         actual_type = payload.get("type")
         if actual_type != token_type:
-            raise JWTError(
-                f"Token type mismatch: expected '{token_type}', got '{actual_type}'"
-            )
+            raise JWTError(f"Token type mismatch: expected '{token_type}', got '{actual_type}'")
 
     return payload

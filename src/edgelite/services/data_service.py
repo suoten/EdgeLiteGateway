@@ -41,6 +41,7 @@ class DataService:
         """Lazy-load HistoricalDataService"""
         if self._historical_svc is None:
             from edgelite.services.historical_data import HistoricalDataService
+
             self._historical_svc = HistoricalDataService(self._influx)
         return self._historical_svc
 
@@ -68,9 +69,7 @@ class DataService:
             data = data[offset:]
         return data
 
-    async def get_latest_points(
-        self, device_id: str, point_names: list[str] | None = None
-    ) -> dict[str, Any]:
+    async def get_latest_points(self, device_id: str, point_names: list[str] | None = None) -> dict[str, Any]:
         """获取设备最新测点值"""
         return await self._influx.query_latest(device_id, point_names)
 
@@ -143,7 +142,10 @@ class DataService:
             current_batch = min(batch_size, remaining)
             # 分批查询，使用 offset 实现分页
             data = await self._influx.query_points(
-                device_id, point_name, start, stop,
+                device_id,
+                point_name,
+                start,
+                stop,
                 max_points=current_batch,
                 offset=offset,
             )
@@ -206,7 +208,11 @@ class DataService:
     ) -> dict[str, Any]:
         """Query data trend with linear regression analysis"""
         return await self.historical_service.query_trend(
-            device_id, point_name, start=start, stop=stop or "", bucket_size=bucket_size,
+            device_id,
+            point_name,
+            start=start,
+            stop=stop or "",
+            bucket_size=bucket_size,
         )
 
     async def query_correlation(
@@ -219,7 +225,11 @@ class DataService:
     ) -> dict[str, Any]:
         """Calculate correlation between two data points"""
         return await self.historical_service.query_correlation(
-            device_id, point1, point2, start=start, stop=stop or "",
+            device_id,
+            point1,
+            point2,
+            start=start,
+            stop=stop or "",
         )
 
     async def get_statistics(
@@ -232,6 +242,7 @@ class DataService:
     ) -> dict[str, Any]:
         """Get statistical summary of data points"""
         from edgelite.services.historical_data import QueryOptions
+
         options = QueryOptions(start=start, stop=stop or "", aggregate=aggregate or "")
         result = await self.historical_service.query(device_id, point_name, options)
         return {
@@ -255,14 +266,18 @@ class DataService:
         if len(point_names) > max_points:
             logger.warning(
                 "query_multi_point: point_names count %d exceeds limit %d, truncating",
-                len(point_names), max_points,
+                len(point_names),
+                max_points,
             )
             point_names = point_names[:max_points]
 
         from edgelite.services.historical_data import QueryOptions
+
         options = QueryOptions(start=start, stop=stop or "", aggregate=aggregate or "")
         results = await self.historical_service.query_multi_point(
-            device_id, point_names, options,
+            device_id,
+            point_names,
+            options,
         )
         return {
             name: {

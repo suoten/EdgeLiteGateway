@@ -82,12 +82,12 @@ def _ensure_secret_key(config) -> None:
         raise RuntimeError(
             "JWT secret key is not configured! "
             "Set EDGELITE_SECURITY__SECRET_KEY environment variable in .env file. "
-            "Generate a random key: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            'Generate a random key: python -c "import secrets; print(secrets.token_urlsafe(32))"'
         )
     if len(config.security.secret_key) < 32:
         raise RuntimeError(
             f"JWT secret key too short ({len(config.security.secret_key)} chars, minimum 32). "
-            "Generate a random key: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            'Generate a random key: python -c "import secrets; print(secrets.token_urlsafe(32))"'
         )
     # FIXED-P0: 检测默认占位符密钥，防止用户使用 .env 模板中的示例值部署
     _key_lower = config.security.secret_key.lower()
@@ -96,7 +96,7 @@ def _ensure_secret_key(config) -> None:
             raise RuntimeError(
                 f"JWT secret key appears to be a default placeholder (contains '{pattern}'). "
                 "For security, replace EDGELITE_SECURITY__SECRET_KEY in .env with a real random key. "
-                "Generate: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                'Generate: python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
 
 
@@ -152,6 +152,7 @@ async def bootstrap_storage(c: ServiceContainer, config) -> None:
     # FIXED(严重): 从 SQLite 恢复用户会话状态，消除 session_manager 重启后 fail-open 窗口
     try:
         from edgelite.security.session_manager import restore_sessions
+
         restored = restore_sessions()
         if restored:
             logger.info("Restored %d user session(s) from SQLite", restored)
@@ -173,7 +174,9 @@ async def bootstrap_engine(c: ServiceContainer, config) -> None:
     # best-effort: DB 初始化失败仅记录日志，不阻塞启动；replay 在 bootstrap_ws 后执行（订阅者就绪）
     try:
         _eb_cfg = getattr(config, "event_bus", None)
-        outbox_path = str(getattr(_eb_cfg, "alarm_outbox_path", "data/alarm_outbox.db")) if _eb_cfg else "data/alarm_outbox.db"
+        outbox_path = (
+            str(getattr(_eb_cfg, "alarm_outbox_path", "data/alarm_outbox.db")) if _eb_cfg else "data/alarm_outbox.db"
+        )
         event_bus.enable_alarm_persistence(outbox_path)
     except Exception as e:
         logger.warning("Alarm outbox persistence init failed (best-effort): %s", e)
@@ -211,9 +214,7 @@ async def bootstrap_services(c: ServiceContainer, config) -> None:
     alarm_repo = c._repos["alarm"]
     user_repo = c._repos["user"]
 
-    c.device_service = DeviceService(
-        device_repo, rule_repo, c.scheduler, c.lifecycle, c._repos["template"]
-    )
+    c.device_service = DeviceService(device_repo, rule_repo, c.scheduler, c.lifecycle, c._repos["template"])
     c.track("device_service", c.device_service)  # FIXED: P0-2 device_service需追踪
     c.rule_service = RuleService(rule_repo, device_repo)
     c.track("rule_service", c.rule_service)  # FIXED: P0-2 rule_service需追踪
@@ -223,6 +224,7 @@ async def bootstrap_services(c: ServiceContainer, config) -> None:
         def __init__(self, rule_repo, device_repo):
             self._rule_repo = rule_repo
             self._device_repo = device_repo
+
         async def resolve(self, rule_id: str, device_id: str) -> tuple[str, str]:
             rule_name = ""
             device_name = ""
@@ -258,8 +260,13 @@ async def bootstrap_services(c: ServiceContainer, config) -> None:
     c.notify_service = NotifyService()
     c.track("notify_service", c.notify_service)  # FIXED: P0-2 notify_service需追踪
     c.system_service = SystemService(
-        c.database, device_repo, rule_repo, alarm_repo, user_repo,
-        c.scheduler, c.start_time,
+        c.database,
+        device_repo,
+        rule_repo,
+        alarm_repo,
+        user_repo,
+        c.scheduler,
+        c.start_time,
     )
     c.track("system_service", c.system_service)
 
@@ -275,8 +282,11 @@ async def bootstrap_evaluator(c: ServiceContainer, config) -> None:
     ai_engine = getattr(c, "ai_engine", None)
     device_repo = c._repos.get("device")
     evaluator = RuleEvaluator(
-        c.event_bus, c._repos["rule"], c._repos["alarm"],
-        ai_engine=ai_engine, device_repo=device_repo,
+        c.event_bus,
+        c._repos["rule"],
+        c._repos["alarm"],
+        ai_engine=ai_engine,
+        device_repo=device_repo,
     )
     c.evaluator = evaluator
     await evaluator.start()
@@ -325,11 +335,7 @@ async def bootstrap_drivers(c: ServiceContainer, config) -> None:
     c.driver_registry = driver_registry
 
     c.plugin_manager = PluginManager(driver_registry)
-    custom_dir = (
-        config.drivers.custom_dir
-        if hasattr(config, "drivers") and config.drivers.custom_dir
-        else ""
-    )
+    custom_dir = config.drivers.custom_dir if hasattr(config, "drivers") and config.drivers.custom_dir else ""
     if custom_dir:
         c.plugin_manager.discover_custom_drivers(custom_dir)
 
@@ -357,13 +363,12 @@ async def bootstrap_mqtt(c: ServiceContainer, config) -> None:
                     "Set mqtt_server.username and mqtt_server.password for production use."
                 )
                 # 强制绑定 localhost，防止外部无认证连接
-                if not hasattr(mqtt_server_config, '_original_host'):
+                if not hasattr(mqtt_server_config, "_original_host"):
                     mqtt_server_config._original_host = getattr(mqtt_server_config, "host", "0.0.0.0")
                 mqtt_server_config.host = "127.0.0.1"
             else:
                 logger.warning(
-                    "SECURITY: MQTT Server running without authentication (allow_no_auth=true). "
-                    "Anyone can connect!"
+                    "SECURITY: MQTT Server running without authentication (allow_no_auth=true). Anyone can connect!"
                 )
 
         from edgelite.engine.mqtt_server import MqttServer
@@ -478,9 +483,7 @@ async def bootstrap_integration(c: ServiceContainer, config) -> None:
         # 使 RPC 反向控制 API 和缓冲区刷新功能可用
         integration_endpoint._device_service = c.device_service
 
-        backhaul_manager = BackhaulManager(
-            event_bus=c.event_bus, endpoint=integration_endpoint, buffer_size=1000
-        )
+        backhaul_manager = BackhaulManager(event_bus=c.event_bus, endpoint=integration_endpoint, buffer_size=1000)
         c.backhaul_manager = backhaul_manager
 
         # FIX: 回填 backhaul_manager 引用（必须在创建后赋值）
@@ -544,18 +547,14 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
         c.track("ai_service", ai_service)
 
         models = ai_engine.get_loaded_models()
-        active_count = sum(
-            1 for w in models.values() if w.status == "active"
-        )
-        inactive_count = sum(
-            1 for w in models.values() if w.status == "inactive"
-        )
-        unavailable_count = sum(
-            1 for w in models.values() if w.status == "unavailable"
-        )
+        active_count = sum(1 for w in models.values() if w.status == "active")
+        inactive_count = sum(1 for w in models.values() if w.status == "inactive")
+        unavailable_count = sum(1 for w in models.values() if w.status == "unavailable")
         logger.info(
             "AI inference engine initialized: %d active, %d inactive, %d unavailable",
-            active_count, inactive_count, unavailable_count,
+            active_count,
+            inactive_count,
+            unavailable_count,
         )
         if inactive_count > 0 and not _check_onnxruntime():
             logger.warning(
@@ -568,6 +567,7 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
         # 原 _ai_scheduler 从未被注入，ai_inference/ai_model_status 工具永远返回 503
         try:
             from edgelite.engine.inference_scheduler import InferenceScheduler
+
             scheduler = InferenceScheduler()
             await scheduler.start()
             c.inference_scheduler = scheduler
@@ -575,16 +575,22 @@ async def bootstrap_ai(c: ServiceContainer, config) -> None:
             # 注册所有已加载的 active 模型到调度器
             for model_id, wrapper in models.items():
                 if wrapper.status == "active" and hasattr(wrapper, "predict"):
+
                     async def _make_infer_fn(mid=model_id, w=wrapper):
                         async def _infer(input_data):
                             return await w.predict(input_data)
+
                         return _infer
+
                     infer_fn = await _make_infer_fn()
                     await scheduler.register_model(model_id, infer_fn)
             # 注入到 MCPToolService 单例
             from edgelite.api.mcp import _mcp_tools
+
             _mcp_tools.set_ai_dependencies(ai_scheduler=scheduler)
-            logger.info("InferenceScheduler injected into MCPToolService (%d models registered)", len(scheduler._model_infer_fn))
+            logger.info(
+                "InferenceScheduler injected into MCPToolService (%d models registered)", len(scheduler._model_infer_fn)
+            )
         except Exception as e:
             logger.warning("InferenceScheduler init failed (MCP AI tools may be unavailable): %s", e)
     except ImportError as e:
@@ -599,6 +605,7 @@ async def bootstrap_video(c: ServiceContainer, config) -> None:
 
 async def bootstrap_driver_watchdog(c: ServiceContainer, config) -> None:
     from edgelite.engine.driver_watchdog import get_driver_watchdog
+
     watchdog = get_driver_watchdog()
     watchdog.set_event_bus(c.event_bus)
     await watchdog.start()
@@ -646,6 +653,7 @@ async def bootstrap_log_rotation(c: ServiceContainer, config) -> None:
             try:
                 await asyncio.sleep(6 * 3600)  # 6 小时
                 from edgelite.engine.tls_security import CertManager
+
                 cert_mgr = CertManager()
                 _cfg = config
                 # 检查 MQTT TLS 证书
@@ -660,7 +668,9 @@ async def bootstrap_log_rotation(c: ServiceContainer, config) -> None:
                                 if days is not None and days < 30:
                                     logger.warning(
                                         "TLS certificate %s expiring soon: %s (days_remaining=%d)",
-                                        label, path, days,
+                                        label,
+                                        path,
+                                        days,
                                     )
                             except Exception as e:
                                 logger.debug("Cert check failed for %s: %s", path, e)
@@ -673,6 +683,7 @@ async def bootstrap_log_rotation(c: ServiceContainer, config) -> None:
     class _TaskWrapper:
         def __init__(self, task):
             self._task = task
+
         async def stop(self):
             if not self._task.done():
                 self._task.cancel()
@@ -701,6 +712,7 @@ async def _verify_startup_chain(c: ServiceContainer, config) -> list[tuple[str, 
         try:
             async with db.get_session() as session:
                 from sqlalchemy import text
+
                 await session.execute(text("SELECT 1"))
             results.append(("database", True, "ok"))
         except Exception as e:
@@ -780,7 +792,6 @@ async def _auto_install_deps() -> None:
         "pyserial-asyncio": "serial_asyncio",
         # sparkplugb: PyPI 上不存在该包名，自动安装会持续失败产生噪音日志。
         # 如需 SparkPlug B 支持，请参考官方文档手动安装依赖。
-
         "sqlalchemy": "sqlalchemy",
         "alembic": "alembic",
         "numpy": "numpy",
@@ -830,6 +841,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     # FIXED-P0: 注册 SensitiveFilter 到根 logger，自动脱敏日志中的密码/Token/密钥
     try:
         from edgelite.security.data_masking import SensitiveFilter
+
         _sensitive_filter = SensitiveFilter()
         logging.getLogger().addFilter(_sensitive_filter)
     except Exception as _sf_err:
@@ -851,6 +863,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     if _use_json:
         try:
             from edgelite.engine.structured_logger import StructuredFormatter
+
             _log_formatter = StructuredFormatter()
         except Exception as e:
             logger.warning("StructuredFormatter unavailable, falling back to plain format: %s", e)
@@ -859,10 +872,10 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
         _log_formatter = logging.Formatter(config.logging.format)
 
     file_handler = RotatingFileHandler(
-        log_dir / 'edgelite.log',
+        log_dir / "edgelite.log",
         maxBytes=_cfg_max_bytes,
         backupCount=_cfg_backup_count,
-        encoding='utf-8',
+        encoding="utf-8",
     )
     # FIXED-P1: 原问题-getattr(logging, "info")返回函数而非级别常量；改为大写后取值并校验类型
     _log_level = getattr(logging, str(config.logging.level).upper(), None)
@@ -873,10 +886,10 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     logging.getLogger().addHandler(file_handler)
 
     error_handler = RotatingFileHandler(
-        log_dir / 'edgelite-error.log',
+        log_dir / "edgelite-error.log",
         maxBytes=_cfg_max_bytes,
         backupCount=_cfg_backup_count,
-        encoding='utf-8',
+        encoding="utf-8",
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(_log_formatter)
@@ -887,6 +900,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     # 初始化日志聚合器 — 注册Handler到root logger，自动收集所有日志到内存
     try:
         from edgelite.engine.log_aggregator import get_log_aggregator
+
         _log_agg = get_log_aggregator()
         logger.info("Log aggregator initialized (max_entries=%d)", _log_agg._max_entries)
     except Exception as _la_err:
@@ -895,6 +909,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     logger.info("EdgeLiteGateway starting...")
 
     from edgelite.engine.graceful_restarter import GracefulRestarter
+
     restart_info = GracefulRestarter.check_and_cleanup_marker()
     if restart_info:
         logger.info(
@@ -910,6 +925,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     # 主密钥来源优先级：显式参数 > EDGELITE_MASTER_KEY 环境变量 > data/.master_key 文件
     # 未配置主密钥时：开发模式（DEV_MODE=true）警告继续，生产模式拒绝启动
     from edgelite.security.secret_manager import init_secret_manager
+
     init_secret_manager()
     logger.info("SecretManager initialized")
 
@@ -971,10 +987,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
             error_detail.append(f"step[{name}]: {exc}")
         for ve in _verification_errors:
             error_detail.append(f"verify: {ve}")
-        raise RuntimeError(
-            f"EdgeLite startup failed, {len(error_detail)} error(s): "
-            + "; ".join(error_detail)
-        )
+        raise RuntimeError(f"EdgeLite startup failed, {len(error_detail)} error(s): " + "; ".join(error_detail))
 
     logger.info("EdgeLiteGateway startup complete (port=%d)", config.server.port)
 
@@ -1073,18 +1086,13 @@ async def teardown(c: ServiceContainer) -> None:
                     return True
         return False
 
-    pending = [
-        t for t in asyncio.all_tasks()
-        if t is not current and not _is_system_task(t)
-    ]
+    pending = [t for t in asyncio.all_tasks() if t is not current and not _is_system_task(t)]
     if pending:
         logger.info("Waiting for %d pending async task(s) to complete...", len(pending))
         try:
             await asyncio.wait_for(asyncio.gather(*pending, return_exceptions=True), timeout=5.0)
         except TimeoutError:  # FIXED-P1: 原问题-Python<3.11中asyncio.TimeoutError不是TimeoutError子类，需同时捕获
-            logger.warning(
-                "%d task(s) did not complete within 5s, force cancelling", len(pending)
-            )
+            logger.warning("%d task(s) did not complete within 5s, force cancelling", len(pending))
             for t in pending:
                 t.cancel(msg="shutdown timeout")
 

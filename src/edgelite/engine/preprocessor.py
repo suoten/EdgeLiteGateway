@@ -54,9 +54,7 @@ def interpolate_average(values: list[float], idx: int, window: int = 3) -> float
 
 def interpolate_spline(values: list[float], idx: int) -> float | None:
     """分段线性插值（非三次样条，保留函数名以兼容调用方）"""
-    valid_pairs: list[tuple[int, float]] = [
-        (i, v) for i, v in enumerate(values) if v is not None and not math.isnan(v)
-    ]
+    valid_pairs: list[tuple[int, float]] = [(i, v) for i, v in enumerate(values) if v is not None and not math.isnan(v)]
     if len(valid_pairs) < 2:
         return None
     xs = [p[0] for p in valid_pairs]
@@ -190,9 +188,7 @@ def transform_scale(value: float, scale: float, offset: float) -> float:
     return value * scale + offset
 
 
-def transform_linearize(
-    value: float, table: list[tuple[float, float]]
-) -> float:
+def transform_linearize(value: float, table: list[tuple[float, float]]) -> float:
     """分段线性化：查表插值"""
     if not table:
         return value
@@ -262,9 +258,7 @@ class SlidingWindowAggregator:
         window = state[window_type]
 
         if window_type == "session":
-            if state["session_last_ts"] > 0 and (
-                timestamp - state["session_last_ts"]
-            ) > session_gap_sec:
+            if state["session_last_ts"] > 0 and (timestamp - state["session_last_ts"]) > session_gap_sec:
                 window.clear()
             state["session_last_ts"] = timestamp
 
@@ -375,9 +369,7 @@ class DataPreprocessor:
     # ──────────────────────────────────────────────────────
     # 主处理入口
     # ──────────────────────────────────────────────────────
-    def process(
-        self, point_key: str, value: float, timestamp: float | None = None
-    ) -> tuple[float | None, bool]:
+    def process(self, point_key: str, value: float, timestamp: float | None = None) -> tuple[float | None, bool]:
         """处理数据值，返回(处理后的值, 是否应上报)
         如果死区过滤判定不需要上报，返回(None, False)
         异常容错：每个步骤try/except包裹，异常时跳过当前步骤继续流转
@@ -386,7 +378,9 @@ class DataPreprocessor:
         if not config:
             return value, True
 
-        ts = time.time() if timestamp is None else timestamp  # FIXED-P2: 原代码 `timestamp or time.time()` 会将合法的 0 时间戳误判为 falsy
+        ts = (
+            time.time() if timestamp is None else timestamp
+        )  # FIXED-P2: 原代码 `timestamp or time.time()` 会将合法的 0 时间戳误判为 falsy
         processed = value
 
         # 1. Kalman filter (先验滤波)
@@ -466,7 +460,9 @@ class DataPreprocessor:
         if len(values) != len(timestamps):
             logger.error(
                 "Preprocessor process_batch 输入长度不一致(point=%s): values=%d, timestamps=%d",
-                point_key, len(values), len(timestamps),
+                point_key,
+                len(values),
+                len(timestamps),
             )
             return []
 
@@ -479,9 +475,7 @@ class DataPreprocessor:
     # ──────────────────────────────────────────────────────
     # 插值
     # ──────────────────────────────────────────────────────
-    def _interpolate_missing(
-        self, point_key: str, values: list[float], config: dict
-    ) -> list[float]:
+    def _interpolate_missing(self, point_key: str, values: list[float], config: dict) -> list[float]:
         """对批量数据进行缺失值插值"""
         interp_method = config.get("interpolate")
         if not interp_method or not values:
@@ -526,9 +520,7 @@ class DataPreprocessor:
     # ──────────────────────────────────────────────────────
     # 滑动窗口
     # ──────────────────────────────────────────────────────
-    def _apply_sliding_window(
-        self, point_key: str, value: float, ts: float, config: dict
-    ) -> float | None:
+    def _apply_sliding_window(self, point_key: str, value: float, ts: float, config: dict) -> float | None:
         """滑动窗口聚合"""
         window_sec = config.get("sliding_window_sec", 0)
         if not window_sec or window_sec <= 0:
@@ -693,9 +685,7 @@ class DataPreprocessor:
     # ──────────────────────────────────────────────────────
     MAX_AGGREGATE_POINTS = _PREPROCESSOR_MAX_POINTS
 
-    def _apply_aggregation(
-        self, point_key: str, value: float, ts: float, config: dict
-    ) -> float | None:
+    def _apply_aggregation(self, point_key: str, value: float, ts: float, config: dict) -> float | None:
         """时间窗口聚合"""
         agg = config.get("aggregate")
         agg_window = config.get("aggregate_window_sec")
@@ -803,5 +793,3 @@ class DataPreprocessor:
             "has_kalman_state": point_key in self._kalman_state,
             "sliding_stats": self._sliding_aggregator.get_stats(point_key),
         }
-
-

@@ -29,7 +29,7 @@ BROADCAST_ADDRESS = "255.255.255.255"
 # BACnet 功能码
 PRIORITY_ARRAY_DEFAULT = 0
 SERVICE_CONFIRMED_READ_PROPERTY = 12
-SERVICE_CONFIRMED_WRITE_PROPERTY = 14
+SERVICE_CONFIRMED_WRITE_PROPERTY = 15  # WriteProperty (ASHRAE 135)
 SERVICE_CONFIRMED_READ_PROPERTY_MULTIPLE = 14  # ReadPropertyMultiple
 SERVICE_UNCONFIRMED_WHO_IS = 8
 SERVICE_UNCONFIRMED_I_AM = 0
@@ -193,7 +193,8 @@ def _decode_application_data(tag_byte: int, data: bytes) -> Any:
         return ""
     elif tag_number == APPLICATION_TAG_BIT_STRING:
         if length > 0 and len(data) > 0:
-            unused_bits = data[0]
+            # unused_bits 必须在 0-7 范围内，无效值用掩码截断到合法范围
+            unused_bits = data[0] & 0x07
             bit_bytes = data[1:length]
             val = int.from_bytes(bit_bytes, "big", signed=False)
             if unused_bits > 0:
@@ -219,18 +220,24 @@ def _decode_application_data(tag_byte: int, data: bytes) -> Any:
             weekday = data[3]
             # year=255表示未指定, month=255表示未指定
             year_val = year + 1900 if year < 255 else None
-            return {"year": year_val, "month": month if month < 255 else None,
-                    "day": day if day < 255 else None, "weekday": weekday if weekday < 255 else None}
+            return {
+                "year": year_val,
+                "month": month if month < 255 else None,
+                "day": day if day < 255 else None,
+                "weekday": weekday if weekday < 255 else None,
+            }
     elif tag_number == APPLICATION_TAG_TIME:
         if length >= 4:
             hour = data[0]
             minute = data[1]
             second = data[2]
             hundredths = data[3]
-            return {"hour": hour if hour < 255 else None,
-                    "minute": minute if minute < 255 else None,
-                    "second": second if second < 255 else None,
-                    "hundredths": hundredths if hundredths < 255 else None}
+            return {
+                "hour": hour if hour < 255 else None,
+                "minute": minute if minute < 255 else None,
+                "second": second if second < 255 else None,
+                "hundredths": hundredths if hundredths < 255 else None,
+            }
     elif tag_number == APPLICATION_TAG_OBJECT_IDENTIFIER:
         if length == 4 and len(data) >= 4:
             obj_id = struct.unpack(">I", data[:4])[0]
@@ -241,13 +248,81 @@ def _decode_application_data(tag_byte: int, data: bytes) -> Any:
     return data[:length] if length > 0 else data
 
 
+def _parse_tagged_unsigned(data: bytes, offset: int) -> tuple[int | None, int]:
+    """解析标签化的无符号整数值
+
+    跳过标签字节，根据长度字段提取值。
+    用于 Error PDU 中 error_class 和 error_code 的顺序解析。
+
+    标签字节格式 (BACnet TLV):
+    - bits7-4: 标签号
+    - bit3: 标签类别 (0=应用, 1=上下文)
+    - bits2-0: 长度 (0-4=直接长度, 5=1字节扩展, 6/7=扩展或开/闭标签)
+
+    Args:
+        data: 数据字节
+        offset: 起始偏移
+
+    Returns:
+        (值, 下一个偏移) - 值为 None 表示解析失败 (数据不足或非值标签)
+    """
+    if offset >= len(data):
+        return None, offset
+
+    tag_byte = data[offset]
+    length = tag_byte & 0x07
+    tag_class = (tag_byte >> 3) & 0x01
+
+    # 上下文标签的 length=6/7 是 opening/closing tag，不是值标签
+    if tag_class == 1 and length in (6, 7):
+        return None, offset
+
+    offset += 1
+
+    # 扩展长度编码 (5=1字节, 6=2字节[仅应用标签], 7=4字节[仅应用标签])
+    if length == 5:
+        if offset >= len(data):
+            return None, offset
+        length = data[offset]
+        offset += 1
+    elif length == 6:
+        if offset + 1 >= len(data):
+            return None, offset
+        length = struct.unpack(">H", data[offset : offset + 2])[0]
+        offset += 2
+    elif length == 7:
+        if offset + 3 >= len(data):
+            return None, offset
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        offset += 4
+
+    # length=0 表示值为 0
+    if length == 0:
+        return 0, offset
+
+    # 检查值数据是否足够
+    if offset + length > len(data):
+        return None, offset
+
+    value = int.from_bytes(data[offset : offset + length], "big", signed=False)
+    return value, offset + length
+
+
 def _parse_apdu_response(data: bytes) -> dict[str, Any]:
     """解析BACnet APDU响应
 
     Returns:
         解析结果字典，包含 type/invoke_id/service/data 等字段
+        complex_ack 类型还包含 segmented/more_follows/sequence_number/window_size
     """
-    result: dict[str, Any] = {"type": None, "invoke_id": None, "data": None, "error": None}
+    result: dict[str, Any] = {
+        "type": None,
+        "invoke_id": None,
+        "data": None,
+        "error": None,
+        "segmented": False,
+        "more_follows": False,
+    }
 
     if len(data) < 2:
         return result
@@ -255,13 +330,27 @@ def _parse_apdu_response(data: bytes) -> dict[str, Any]:
     pdu_type = (data[0] >> 4) & 0x0F
 
     if pdu_type == PDU_TYPE_CONFIRMED_REQUEST:
-        # Confirmed Request: segmentation|reserved|max_resp|invoke_id|service
+        # Confirmed Request:
+        # 非分段: [flags, invoke_id, service_choice, service_request...]
+        # 分段:   [flags, seq, window, invoke_id, service_choice, service_request...]
         result["type"] = "confirmed_request"
-        if len(data) >= 3:
-            result["invoke_id"] = data[2]
-            if len(data) >= 4:
-                result["service"] = data[3]
-                result["data"] = data[4:]
+        segmented = bool(data[0] & 0x08)
+        more_follows = bool(data[0] & 0x04)
+        result["segmented"] = segmented
+        result["more_follows"] = more_follows
+        if len(data) >= 2:
+            result["invoke_id"] = data[1]
+            if segmented:
+                if len(data) >= 4:
+                    result["sequence_number"] = data[2]
+                    result["window_size"] = data[3]
+                    if len(data) >= 5:
+                        result["service"] = data[4]
+                        result["data"] = data[5:]
+            else:
+                if len(data) >= 3:
+                    result["service"] = data[2]
+                    result["data"] = data[3:]
     elif pdu_type == PDU_TYPE_UNCONFIRMED_REQUEST:
         # Unconfirmed Request: service_choice
         result["type"] = "unconfirmed_request"
@@ -276,20 +365,55 @@ def _parse_apdu_response(data: bytes) -> dict[str, Any]:
             result["service"] = data[2]
             result["data"] = True
     elif pdu_type == PDU_TYPE_COMPLEX_ACK:
-        # ComplexAck: segmentation|reserved|invoke_id|service_ack|data
+        # ComplexAck:
+        # 非分段: [flags, invoke_id, service_ack, data...]
+        # 分段首段: [flags, seq, window, invoke_id, service_ack, data...]
+        # 分段后续: [flags, seq, window, invoke_id, data...] (无 service_ack)
         result["type"] = "complex_ack"
-        if len(data) >= 3:
-            result["invoke_id"] = data[2]
+        segmented = bool(data[0] & 0x08)
+        more_follows = bool(data[0] & 0x04)
+        result["segmented"] = segmented
+        result["more_follows"] = more_follows
+        if not segmented:
+            # 非分段: invoke_id 在 data[1], service 在 data[2], data 从 data[3] 开始
+            if len(data) >= 2:
+                result["invoke_id"] = data[1]
+            if len(data) >= 3:
+                result["service"] = data[2]
+                result["data"] = data[3:]
+        else:
+            # 分段: seq 在 data[1], window 在 data[2], invoke_id 在 data[3]
             if len(data) >= 4:
-                result["service"] = data[3]
-                result["data"] = data[4:]
+                result["sequence_number"] = data[1]
+                result["window_size"] = data[2]
+                result["invoke_id"] = data[3]
+                if data[1] == 0:
+                    # 首段: service 在 data[4], data 从 data[5] 开始
+                    if len(data) >= 5:
+                        result["service"] = data[4]
+                        result["data"] = data[5:]
+                else:
+                    # 后续段: 无 service, data 从 data[4] 开始
+                    result["service"] = None
+                    result["data"] = data[4:]
     elif pdu_type == PDU_TYPE_ERROR:
-        # Error: invoke_id | service | error_class | error_code
+        # Error: [type, invoke_id, service, error_class(ctx tag 0), error_code(ctx tag 1)]
         result["type"] = "error"
-        if len(data) >= 4:
+        if len(data) >= 3:
             result["invoke_id"] = data[1]
             result["service"] = data[2]
-            result["error"] = {"class": data[3], "code": data[4] if len(data) > 4 else -1}
+            # 顺序解析 error_class 和 error_code (各自带标签字节)
+            error_class, next_off = _parse_tagged_unsigned(data, 3)
+            if error_class is None:
+                result["error"] = {"class": -1, "code": -1}
+            else:
+                error_code, _ = _parse_tagged_unsigned(data, next_off)
+                result["error"] = {
+                    "class": error_class,
+                    "code": error_code if error_code is not None else -1,
+                }
+        else:
+            result["error"] = {"class": -1, "code": -1}
     elif pdu_type == PDU_TYPE_REJECT:
         result["type"] = "reject"
         if len(data) >= 3:
@@ -322,7 +446,7 @@ def _parse_i_am(data: bytes, source_addr: tuple) -> dict | None:
         if data[offset] != 0x0C:  # context tag 0, length 4
             return None
         offset += 1
-        obj_id = struct.unpack(">I", data[offset:offset + 4])[0]
+        obj_id = struct.unpack(">I", data[offset : offset + 4])[0]
         device_instance = obj_id & 0x3FFFFF
         offset += 4
 
@@ -356,7 +480,7 @@ def _parse_i_am(data: bytes, source_addr: tuple) -> dict | None:
                 if vendor_len == 1:
                     vendor_id = data[offset]
                 elif vendor_len == 2:
-                    vendor_id = struct.unpack(">H", data[offset:offset + 2])[0]
+                    vendor_id = struct.unpack(">H", data[offset : offset + 2])[0]
 
         return {
             "device_id": device_instance,
@@ -394,18 +518,18 @@ def _parse_read_property_response(data: bytes) -> Any:
 
         # 解析应用层数据标签
         tag_byte = data[offset]
-        tag_number = (tag_byte >> 4) & 0x0F
+        (tag_byte >> 4) & 0x0F
         tag_class = (tag_byte >> 3) & 0x01
         length = tag_byte & 0x07
 
         if tag_class == 0:  # Application tag
             offset += 1
-            value_data = data[offset:offset + length]
+            value_data = data[offset : offset + length]
             return _decode_application_data(tag_byte, value_data)
         else:
             # Context-tagged data - 尝试提取原始数据
             offset += 1
-            return data[offset:offset + length] if length > 0 else data[offset:]
+            return data[offset : offset + length] if length > 0 else data[offset:]
 
     except Exception as e:
         logger.debug("BACnet ReadProperty响应解析异常: %s", e)
@@ -437,7 +561,7 @@ def _parse_cov_notification(data: bytes) -> dict | None:
         # Monitored Object Identifier (context tag 2)
         if offset < len(data) and data[offset] == 0x2C:
             offset += 1
-            obj_id = struct.unpack(">I", data[offset:offset + 4])[0]
+            obj_id = struct.unpack(">I", data[offset : offset + 4])[0]
             obj_type = (obj_id >> 22) & 0x3FF
             obj_inst = obj_id & 0x3FFFFF
             result["object"] = {"type": obj_type, "instance": obj_inst}
@@ -470,7 +594,7 @@ def _parse_cov_notification(data: bytes) -> dict | None:
                             tag_class = (tag_byte >> 3) & 0x01
                             if tag_class == 0:
                                 offset += 1
-                                value_data = data[offset:offset + tag_len]
+                                value_data = data[offset : offset + tag_len]
                                 result["values"][prop_id] = _decode_application_data(tag_byte, value_data)
                                 offset += tag_len
                             else:
@@ -485,6 +609,103 @@ def _parse_cov_notification(data: bytes) -> dict | None:
     except Exception as e:
         logger.debug("BACnet COV通知解析异常: %s", e)
         return None
+
+
+class _SegmentReassembler:
+    """BACnet 分段响应重组器
+
+    负责将多个分段的 ComplexAck 响应重新组装成完整数据。
+    每个分段通过 invoke_id 标识所属请求，sequence_number 标识分段顺序。
+    首段 (seq=0) 携带 service choice，后续段不携带。
+
+    线程安全性: 本类非线程安全，需在单线程事件循环中使用。
+    """
+
+    def __init__(self, max_segments: int = 64):
+        """初始化重组器
+
+        Args:
+            max_segments: 单个 invoke_id 允许的最大分段数，超过则丢弃缓冲区
+        """
+        self._max_segments = max_segments
+        # invoke_id -> {"service": int|None, "segments": {seq: bytes}}
+        self._buffers: dict[int, dict[str, Any]] = {}
+
+    def add_segment(
+        self,
+        invoke_id: int,
+        sequence_number: int,
+        more_follows: bool,
+        service: int | None,
+        data: bytes,
+    ) -> dict | None:
+        """添加一个分段到重组缓冲区
+
+        Args:
+            invoke_id: BACnet invoke ID，标识所属请求
+            sequence_number: 分段序号 (0=首段)
+            more_follows: 是否还有后续分段
+            service: 服务码 (仅首段有，后续段为 None)
+            data: 本分段的数据载荷
+
+        Returns:
+            重组完成时返回 {"data": bytes, "service": int|None}，
+            未完成或缓冲区被丢弃时返回 None
+        """
+        # 获取或创建缓冲区
+        if invoke_id not in self._buffers:
+            self._buffers[invoke_id] = {
+                "service": None,
+                "segments": {},
+            }
+
+        buf = self._buffers[invoke_id]
+
+        # 首段 (seq=0) 设置 service
+        if sequence_number == 0 and service is not None:
+            buf["service"] = service
+
+        # 重复分段检查: 已存在的序号不重复添加
+        if sequence_number not in buf["segments"]:
+            buf["segments"][sequence_number] = data
+
+        # 检查是否超过最大分段数
+        if len(buf["segments"]) > self._max_segments:
+            # 超过上限，丢弃缓冲区防止内存泄漏
+            del self._buffers[invoke_id]
+            return None
+
+        # 如果没有后续分段，完成重组
+        if not more_follows:
+            # 按序号排序拼接所有分段数据
+            ordered_data = b"".join(buf["segments"][seq] for seq in sorted(buf["segments"].keys()))
+            result = {
+                "data": ordered_data,
+                "service": buf["service"],
+            }
+            # 清理已完成的缓冲区
+            del self._buffers[invoke_id]
+            return result
+
+        return None
+
+    def cancel(self, invoke_id: int) -> None:
+        """取消指定 invoke_id 的重组缓冲区
+
+        用于响应超时或放弃等待时清理不完整的分段缓冲区。
+
+        Args:
+            invoke_id: 要取消的 BACnet invoke ID
+        """
+        self._buffers.pop(invoke_id, None)
+
+    def get_pending_count(self) -> int:
+        """返回当前待重组的 invoke_id 数量
+
+        Returns:
+            正在等待更多分段的 invoke_id 数量
+        """
+        return len(self._buffers)
 
 
 class BACnetClient:
@@ -520,7 +741,7 @@ class BACnetClient:
             self._transport.close()
             self._transport = None
         # 清理所有pending future
-        for invoke_id, future in self._pending.items():
+        for _invoke_id, future in self._pending.items():
             if not future.done():
                 future.cancel()
         self._pending.clear()
@@ -586,9 +807,14 @@ class BACnetClient:
 
             result = await asyncio.wait_for(future, timeout=self._timeout)
             return result
-        except asyncio.TimeoutError:
-            logger.warning("BACnet读取超时: device=%d, object=%d/%d, property=%d",
-                         device_instance, object_type, object_instance, property_id)
+        except TimeoutError:
+            logger.warning(
+                "BACnet读取超时: device=%d, object=%d/%d, property=%d",
+                device_instance,
+                object_type,
+                object_instance,
+                property_id,
+            )
             return None
         except Exception as e:
             logger.error("BACnet读取失败: %s", e)
@@ -717,9 +943,14 @@ class BACnetClient:
             result = await asyncio.wait_for(future, timeout=self._timeout)
             # SimpleAck返回True，Error返回False
             return result is True
-        except asyncio.TimeoutError:
-            logger.warning("BACnet写入超时: device=%d, object=%d/%d, property=%d",
-                         device_instance, object_type, object_instance, property_id)
+        except TimeoutError:
+            logger.warning(
+                "BACnet写入超时: device=%d, object=%d/%d, property=%d",
+                device_instance,
+                object_type,
+                object_instance,
+                property_id,
+            )
             return False
         except Exception as e:
             logger.error("BACnet写入失败: %s", e)
@@ -763,7 +994,7 @@ class BACnetClient:
         # 等待I-Am响应收集
         try:
             await asyncio.wait_for(self._discovery_event.wait(), timeout=self._timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass  # 超时后返回已收集的设备
 
         return self._discovered_devices
@@ -836,9 +1067,8 @@ class BACnetClient:
 
             result = await asyncio.wait_for(future, timeout=self._timeout)
             return result is True
-        except asyncio.TimeoutError:
-            logger.warning("BACnet COV订阅超时: device=%d, object=%d/%d",
-                         device_instance, object_type, object_instance)
+        except TimeoutError:
+            logger.warning("BACnet COV订阅超时: device=%d, object=%d/%d", device_instance, object_type, object_instance)
             return False
         except Exception as e:
             logger.error("BACnet COV订阅失败: %s", e)
@@ -905,7 +1135,7 @@ class BACnetClient:
             if isinstance(raw_result, bytes):
                 return self._parse_rpm_response(raw_result)
             return {}
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("BACnet批量读取超时: device=%d", device_instance)
             return {}
         except Exception as e:
@@ -926,7 +1156,7 @@ class BACnetClient:
                 offset += 1
                 if offset + 4 > len(data):
                     break
-                obj_id = struct.unpack(">I", data[offset:offset + 4])[0]
+                obj_id = struct.unpack(">I", data[offset : offset + 4])[0]
                 obj_inst = obj_id & 0x3FFFFF
                 offset += 4
                 results[obj_inst] = {}
@@ -968,10 +1198,8 @@ class BACnetClient:
                                     tag_class = (tag_byte >> 3) & 0x01
                                     if tag_class == 0:  # application tag
                                         offset += 1
-                                        value_data = data[offset:offset + tag_len]
-                                        results[obj_inst][prop_id] = _decode_application_data(
-                                            tag_byte, value_data
-                                        )
+                                        value_data = data[offset : offset + tag_len]
+                                        results[obj_inst][prop_id] = _decode_application_data(tag_byte, value_data)
                                         offset += tag_len
                                     else:
                                         offset += 1 + tag_len
@@ -1039,7 +1267,7 @@ class _BACnetProtocol(asyncio.DatagramProtocol):
             if version != 0x81:
                 return
             bvll_function = data[1]
-            bvll_length = struct.unpack(">H", data[2:4])[0]
+            struct.unpack(">H", data[2:4])[0]
 
             # BVLL Result / ACK 等控制消息
             if bvll_function in (0x00, 0x01, 0x02, 0x03):
@@ -1058,7 +1286,7 @@ class _BACnetProtocol(asyncio.DatagramProtocol):
             if npdu_control & 0x20:  # DNET present
                 if offset + 2 > len(npdu):
                     return
-                dnet = struct.unpack(">H", npdu[offset:offset + 2])[0]
+                struct.unpack(">H", npdu[offset : offset + 2])[0]
                 offset += 2
                 if offset < len(npdu):
                     dlen = npdu[offset]
@@ -1094,7 +1322,10 @@ class _BACnetProtocol(asyncio.DatagramProtocol):
                         self._client.handle_i_am(device_info)
                 return
 
-            if parsed["type"] == "unconfirmed_request" and parsed.get("service") == SERVICE_UNCONFIRMED_COV_NOTIFICATION:
+            if (
+                parsed["type"] == "unconfirmed_request"
+                and parsed.get("service") == SERVICE_UNCONFIRMED_COV_NOTIFICATION
+            ):
                 # COV通知
                 cov_data = parsed.get("data", b"")
                 if cov_data:
@@ -1125,16 +1356,21 @@ class _BACnetProtocol(asyncio.DatagramProtocol):
                 invoke_id = parsed.get("invoke_id")
                 if invoke_id is not None:
                     error = parsed.get("error", {})
-                    logger.warning("BACnet错误响应: invoke_id=%d, class=%s, code=%s",
-                                 invoke_id, error.get("class"), error.get("code"))
+                    logger.warning(
+                        "BACnet错误响应: invoke_id=%d, class=%s, code=%s",
+                        invoke_id,
+                        error.get("class"),
+                        error.get("code"),
+                    )
                     self._client.handle_response(invoke_id, None)
                 return
 
             if parsed["type"] == "reject":
                 invoke_id = parsed.get("invoke_id")
                 if invoke_id is not None:
-                    logger.warning("BACnet拒绝响应: invoke_id=%d, reason=%s",
-                                 invoke_id, parsed.get("error", {}).get("reason"))
+                    logger.warning(
+                        "BACnet拒绝响应: invoke_id=%d, reason=%s", invoke_id, parsed.get("error", {}).get("reason")
+                    )
                     self._client.handle_response(invoke_id, None)
                 return
 
@@ -1162,16 +1398,41 @@ class BACnetDriver(DriverPlugin):
     config_schema = {
         "description": "BACnet/IP building automation protocol, supports HVAC/Lighting/Access control",
         "fields": [
-            {"name": "host", "type": "string", "label": "BACnet Device IP",
-             "description": "BACnet device or broadcast address", "default": "192.168.1.255"},
-            {"name": "port", "type": "integer", "label": "Port",
-             "description": "BACnet/IP port (default 47808)", "default": 47808},
-            {"name": "device_instance", "type": "integer", "label": "Device Instance",
-             "description": "BACnet device instance number", "default": 100},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)",
-             "description": "Communication timeout in seconds", "default": 5.0},
-            {"name": "enable_cov", "type": "boolean", "label": "Enable COV Subscription",
-             "description": "Enable Change-of-Value subscription for real-time updates", "default": True},
+            {
+                "name": "host",
+                "type": "string",
+                "label": "BACnet Device IP",
+                "description": "BACnet device or broadcast address",
+                "default": "192.168.1.255",
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "BACnet/IP port (default 47808)",
+                "default": 47808,
+            },
+            {
+                "name": "device_instance",
+                "type": "integer",
+                "label": "Device Instance",
+                "description": "BACnet device instance number",
+                "default": 100,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "Communication timeout in seconds",
+                "default": 5.0,
+            },
+            {
+                "name": "enable_cov",
+                "type": "boolean",
+                "label": "Enable COV Subscription",
+                "description": "Enable Change-of-Value subscription for real-time updates",
+                "default": True,
+            },
         ],
     }
 
@@ -1336,7 +1597,7 @@ class BACnetDriver(DriverPlugin):
             rpm_results = await self._client.read_property_multiple(device_instance, rpm_requests)
 
             # 将RPM结果映射回point_addr
-            for point_addr, (obj_type, obj_inst, prop_id) in point_to_obj.items():
+            for point_addr, (_obj_type, obj_inst, prop_id) in point_to_obj.items():
                 obj_result = rpm_results.get(obj_inst, {})
                 result[point_addr] = obj_result.get(prop_id)
         except Exception as e:
@@ -1344,7 +1605,7 @@ class BACnetDriver(DriverPlugin):
             logger.debug("BACnet ReadPropertyMultiple失败，回退并发读取: %s", e)
             batch_size = 5
             for i in range(0, len(points), batch_size):
-                batch = points[i:i + batch_size]
+                batch = points[i : i + batch_size]
                 tasks = [self._read_point(device_config, p) for p in batch]
                 batch_results = await asyncio.gather(*tasks, return_exceptions=True)
                 for j, res in enumerate(batch_results):
@@ -1390,9 +1651,7 @@ class BACnetDriver(DriverPlugin):
         object_type, instance, property_id = parsed
         device_instance = device_config.get("device_instance", 100)
 
-        return await self._client.read_property(
-            device_instance, object_type, instance, property_id
-        )
+        return await self._client.read_property(device_instance, object_type, instance, property_id)
 
     @staticmethod
     def _get_object_type(type_str: str) -> int:
@@ -1449,8 +1708,6 @@ class BACnetDriver(DriverPlugin):
             "maximumvalue": 65,
             "resolution": 96,
             "statetext": 110,
-            # 通用属性
-            "outofservice": 81,
             "eventstate": 36,
             "notificationclass": 17,
             "highlimit": 45,
@@ -1524,10 +1781,22 @@ class BACnetDriver(DriverPlugin):
         try:
             rpm_result = await self._client.read_property_multiple(
                 device_instance,
-                [(OBJECT_TYPE_DEVICE, device_instance,
-                  [PROP_OBJECT_NAME, PROP_VENDOR_NAME, PROP_VENDOR_IDENTIFIER,
-                   PROP_MODEL_NAME, PROP_FIRMWARE_REVISION, PROP_DESCRIPTION,
-                   PROP_PROTOCOL_VERSION, PROP_PROTOCOL_REVISION])],
+                [
+                    (
+                        OBJECT_TYPE_DEVICE,
+                        device_instance,
+                        [
+                            PROP_OBJECT_NAME,
+                            PROP_VENDOR_NAME,
+                            PROP_VENDOR_IDENTIFIER,
+                            PROP_MODEL_NAME,
+                            PROP_FIRMWARE_REVISION,
+                            PROP_DESCRIPTION,
+                            PROP_PROTOCOL_VERSION,
+                            PROP_PROTOCOL_REVISION,
+                        ],
+                    )
+                ],
             )
             props = rpm_result.get(device_instance, {})
             info["object_name"] = props.get(PROP_OBJECT_NAME)
@@ -1610,7 +1879,7 @@ class BACnetDriver(DriverPlugin):
         points = device_info.get("points", {})
         success_count = 0
 
-        for point_name in points.keys():
+        for point_name in points:
             if await self.subscribe_cov_point(device_id, point_name, lifetime):
                 success_count += 1
 
@@ -1634,8 +1903,7 @@ class BACnetDriver(DriverPlugin):
 
             # 查找对应的device_id和point_addr
             for point_addr, sub_info in self._cov_subscriptions.items():
-                if (sub_info.get("object_type") == obj_type and
-                        sub_info.get("object_instance") == obj_inst):
+                if sub_info.get("object_type") == obj_type and sub_info.get("object_instance") == obj_inst:
                     device_id = sub_info.get("device_id", "")
                     # 提取presentValue
                     present_value = values.get(PROP_PRESENT_VALUE)
@@ -1646,8 +1914,7 @@ class BACnetDriver(DriverPlugin):
             async def _update_cache():
                 async with self._values_lock:
                     for point_addr, sub_info in self._cov_subscriptions.items():
-                        if (sub_info.get("object_type") == obj_type and
-                                sub_info.get("object_instance") == obj_inst):
+                        if sub_info.get("object_type") == obj_type and sub_info.get("object_instance") == obj_inst:
                             device_id = sub_info.get("device_id", "")
                             if device_id not in self._latest_values:
                                 self._latest_values[device_id] = {}
@@ -1711,9 +1978,7 @@ class BACnetDriver(DriverPlugin):
         for point_addr, sub_info in resubscribe_list:
             device_id = sub_info.get("device_id", "")
             try:
-                result = await self.subscribe_cov_point(
-                    device_id, point_addr, sub_info.get("lifetime", 300)
-                )
+                result = await self.subscribe_cov_point(device_id, point_addr, sub_info.get("lifetime", 300))
                 if result:
                     success += 1
             except Exception as e:

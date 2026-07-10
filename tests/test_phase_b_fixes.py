@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import sqlite3
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -23,7 +22,6 @@ from edgelite.storage.sqlite_pragmas import (
     apply_standard_pragmas,
     check_and_convert_to_wal,
 )
-
 
 # ── 1. sqlite_pragmas 模块测试 ──────────────────────────────────────────────
 
@@ -305,7 +303,7 @@ def test_toledo_protocol_dispatch_unsupported_raises():
 @pytest_asyncio.fixture
 async def influx_storage_with_mock_write():
     """构造一个不连接真实 InfluxDB 的 InfluxDBStorage 实例，write_api 为 mock。"""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from edgelite.storage.influx_storage import InfluxDBStorage
 
@@ -378,7 +376,8 @@ async def test_influx_write_retry_exhausted_raises(influx_storage_with_mock_writ
 
 def test_ensure_indexes_creates_missing_index_on_existing_table(tmp_path):
     """S-10 回归: 已存在的 users 表缺少 idx_users_created_at 时应被补建。"""
-    from sqlalchemy import create_engine, inspect as sa_inspect, text
+    from sqlalchemy import create_engine, text
+    from sqlalchemy import inspect as sa_inspect
 
     from edgelite.storage.database import Database
 
@@ -415,7 +414,8 @@ def test_ensure_indexes_creates_missing_index_on_existing_table(tmp_path):
 
 def test_ensure_indexes_idempotent(tmp_path):
     """S-10 回归: 重复调用 _ensure_indexes 应幂等无副作用。"""
-    from sqlalchemy import create_engine, inspect as sa_inspect, text
+    from sqlalchemy import create_engine, text
+    from sqlalchemy import inspect as sa_inspect
 
     from edgelite.storage.database import Database
 
@@ -594,7 +594,6 @@ def test_opcua_server_set_endpoint_called_before_start():
 def test_opcua_client_load_server_certificate_awaited():
     """P1 回归: opcua.py 的 client.load_server_certificate 必须 await。
     未 await 导致 CA 证书未加载，TLS 校验失效（MITM 风险）。"""
-    from pathlib import Path
 
     # opcua.py 顶层导入了未实现的 edge_rule_engine 等模块，无法直接 import，
     # 改为读取源码文件进行静态检查

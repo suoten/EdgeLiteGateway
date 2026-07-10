@@ -234,9 +234,7 @@ class DatabaseBackupScheduler:
         self._status.last_backup_duration_ms = int(duration_s * 1000)
         self._status.backups = self.get_backup_list()
         self._status.backup_count = len(self._status.backups)
-        self._status.total_backup_size_bytes = sum(
-            b.get("size_bytes", 0) for b in self._status.backups
-        )
+        self._status.total_backup_size_bytes = sum(b.get("size_bytes", 0) for b in self._status.backups)
 
     # ── 查询 ──
     @property

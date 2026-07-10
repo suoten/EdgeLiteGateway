@@ -178,9 +178,7 @@ class FinsConfigVersionManager:
             for row in rows
         ]
 
-    async def get_version_config(
-        self, device_id: str, version: int
-    ) -> dict[str, Any] | None:
+    async def get_version_config(self, device_id: str, version: int) -> dict[str, Any] | None:
         """获取指定版本的完整配置，不存在返回 None。"""
         db = await self._ensure_db()
         cursor = await db.execute(
@@ -201,9 +199,7 @@ class FinsConfigVersionManager:
             "created_at": datetime.fromtimestamp(row["created_at"], tz=UTC).isoformat(),
         }
 
-    async def rollback(
-        self, device_id: str, target_version: int, operator: str
-    ) -> dict[str, Any] | None:
+    async def rollback(self, device_id: str, target_version: int, operator: str) -> dict[str, Any] | None:
         """回滚到目标版本，返回该版本配置；目标版本不存在返回 None。
 
         回滚操作在审计轨迹中记录一条 rollback 记录，但不删除后续版本
@@ -249,9 +245,7 @@ class FinsConfigVersionManager:
             for row in rows
         ]
 
-    async def diff_versions(
-        self, device_id: str, version_a: int, version_b: int
-    ) -> dict[str, Any]:
+    async def diff_versions(self, device_id: str, version_a: int, version_b: int) -> dict[str, Any]:
         """对比两个版本的配置差异（async 方法）。
 
         Returns:

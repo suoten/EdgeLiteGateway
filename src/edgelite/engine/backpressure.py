@@ -137,7 +137,9 @@ class BackpressureController:
         self._acquired_count = 0
         logger.info("Backpressure controller stopped")
 
-    async def register_queue(self, queue_id: str, max_size: int | None = None) -> None:  # FIXED-P2: 改为async加锁保护_queues/_metrics
+    async def register_queue(
+        self, queue_id: str, max_size: int | None = None
+    ) -> None:  # FIXED-P2: 改为async加锁保护_queues/_metrics
         """注册队列"""
         async with self._state_lock:
             if queue_id not in self._queues:
@@ -355,7 +357,9 @@ class BackpressureController:
                     "dequeued_total": metrics.dequeued_total,
                     "dropped_total": metrics.dropped_total,
                     "backpressure_triggered": metrics.backpressure_triggered,
-                    "last_backpressure_at": metrics.last_backpressure_at.isoformat() if metrics.last_backpressure_at else None,
+                    "last_backpressure_at": metrics.last_backpressure_at.isoformat()
+                    if metrics.last_backpressure_at
+                    else None,
                 }
 
         async with self._state_lock:
@@ -425,7 +429,6 @@ class BackpressureController:
                 old_state = None
 
         if old_state is not None:
-
             logger.info(
                 "Backpressure state changed: %s -> %s (ratio=%.2f)",
                 old_state.value,
@@ -491,14 +494,8 @@ class BackpressureLimit:
         """
 
         def decorator(func: Callable):
-            semaphore = (
-                asyncio.Semaphore(max_concurrent) if max_concurrent > 0 else None
-            )
-            rate_limiter = (
-                asyncio.Semaphore(int(requests_per_second))
-                if requests_per_second > 0
-                else None
-            )
+            semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent > 0 else None
+            rate_limiter = asyncio.Semaphore(int(requests_per_second)) if requests_per_second > 0 else None
             last_call = [0.0]
             rate_lock = asyncio.Lock()  # FIXED-P0: 原问题-last_call无锁保护，并发调用都读取相同值并sleep，实际QPS超限
 

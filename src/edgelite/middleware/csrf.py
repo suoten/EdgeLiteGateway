@@ -52,6 +52,7 @@ def _get_secret() -> str:
     """从配置获取 CSRF 签名密钥"""
     try:
         from edgelite.config import get_config
+
         return get_config().security.secret_key or "edgelite-csrf-default-do-not-use-in-prod"
     except Exception:
         return "edgelite-csrf-default-do-not-use-in-prod"
@@ -120,9 +121,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 "Set EDGELITE_SECURITY__SECRET_KEY for production."
             )
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         method = request.method.upper()
         path = request.url.path
 

@@ -5,15 +5,11 @@
 
 from __future__ import annotations
 
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-
-from test_acceptance_smoke import _build_test_app, _TEST_USER
-
+from test_acceptance_smoke import _build_test_app
 
 # ═══════════════════════════════════════════════════════════════
 # 模块 2: 功能测试 (FUNCTIONAL)

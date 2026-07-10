@@ -30,7 +30,9 @@ class PreprocessPointConfigModel(BaseModel):
 
 class PreprocessUpdateRequest(BaseModel):
     global_config: PreprocessGlobalModel | None = Field(default=None, alias="global")
-    points: dict[str, dict] = Field(default_factory=dict)  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
+    points: dict[str, dict] = Field(
+        default_factory=dict
+    )  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
 
     model_config = {"populate_by_name": True}
 
@@ -60,15 +62,11 @@ async def get_preprocess_config(
         return ApiResponse(
             data={
                 "enabled": getattr(preprocess_config, "enabled", False) if preprocess_config else False,
-                "default_deadband": getattr(preprocess_config, "default_deadband", 0.0)
-                if preprocess_config
-                else 0.0,
+                "default_deadband": getattr(preprocess_config, "default_deadband", 0.0) if preprocess_config else 0.0,
                 "default_filter_window": getattr(preprocess_config, "default_filter_window", 3)
                 if preprocess_config
                 else 3,
-                "default_aggregate_window_sec": getattr(
-                    preprocess_config, "default_aggregate_window_sec", 0
-                )
+                "default_aggregate_window_sec": getattr(preprocess_config, "default_aggregate_window_sec", 0)
                 if preprocess_config
                 else 0,
                 "point_configs": point_configs,
@@ -99,9 +97,7 @@ async def update_preprocess_config(
             if req.global_config.default_filter_window is not None:
                 config.preprocess.default_filter_window = req.global_config.default_filter_window
             if req.global_config.default_aggregate_window_sec is not None:
-                config.preprocess.default_aggregate_window_sec = (
-                    req.global_config.default_aggregate_window_sec
-                )
+                config.preprocess.default_aggregate_window_sec = req.global_config.default_aggregate_window_sec
 
         for point_key, point_config in req.points.items():
             preprocessor.configure(point_key, point_config)

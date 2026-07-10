@@ -45,14 +45,35 @@ class MTConnectDriver(DriverPlugin):
     config_schema = {
         "description": "MTConnect standard protocol for CNC equipment, retrieve CNC runtime data via HTTP",
         "fields": [
-            {"name": "url", "type": "string", "label": "Agent URL",
-             "description": "MTConnect agent HTTP URL, e.g. http://192.168.1.100:5000", "default": "http://127.0.0.1:5000", "required": True},
-            {"name": "device", "type": "string", "label": "Device Name",
-             "description": "Device name to read (optional, for multi-device agents)", "default": ""},
-            {"name": "poll_interval", "type": "integer", "label": "Poll Interval (s)",
-             "description": "Polling interval in seconds", "default": 1},
-            {"name": "enable_availability", "type": "boolean", "label": "Enable Availability",
-             "description": "Monitor device availability status", "default": True},
+            {
+                "name": "url",
+                "type": "string",
+                "label": "Agent URL",
+                "description": "MTConnect agent HTTP URL, e.g. http://192.168.1.100:5000",
+                "default": "http://127.0.0.1:5000",
+                "required": True,
+            },
+            {
+                "name": "device",
+                "type": "string",
+                "label": "Device Name",
+                "description": "Device name to read (optional, for multi-device agents)",
+                "default": "",
+            },
+            {
+                "name": "poll_interval",
+                "type": "integer",
+                "label": "Poll Interval (s)",
+                "description": "Polling interval in seconds",
+                "default": 1,
+            },
+            {
+                "name": "enable_availability",
+                "type": "boolean",
+                "label": "Enable Availability",
+                "description": "Monitor device availability status",
+                "default": True,
+            },
         ],
     }
 
@@ -178,7 +199,9 @@ class MTConnectDriver(DriverPlugin):
                 result[point] = self._latest_values.get(point)
         return result
 
-    def _parse_mtconnect_response(self, xml_text: str, extract_sequence: bool = False) -> dict[str, Any] | tuple[dict[str, Any], int | None]:
+    def _parse_mtconnect_response(
+        self, xml_text: str, extract_sequence: bool = False
+    ) -> dict[str, Any] | tuple[dict[str, Any], int | None]:
         """解析MTConnect XML响应"""
         try:
             root = ET.fromstring(xml_text)
@@ -349,13 +372,15 @@ class MTConnectDriver(DriverPlugin):
             for elem in root.iter():
                 tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
                 if tag == "DataItem":
-                    items.append({
-                        "name": elem.get("name", ""),
-                        "id": elem.get("dataItemId", ""),
-                        "type": elem.get("type", ""),
-                        "category": elem.get("category", ""),
-                        "subType": elem.get("subType", ""),
-                    })
+                    items.append(
+                        {
+                            "name": elem.get("name", ""),
+                            "id": elem.get("dataItemId", ""),
+                            "type": elem.get("type", ""),
+                            "category": elem.get("category", ""),
+                            "subType": elem.get("subType", ""),
+                        }
+                    )
 
             return items
         except Exception as e:
@@ -368,4 +393,3 @@ class MTConnectDriver(DriverPlugin):
         self._offline_since.pop(device_id, None)
         self._latest_values.clear()
         logger.info("MTConnect device removed: %s", device_id)
-

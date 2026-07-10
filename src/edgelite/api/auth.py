@@ -77,18 +77,39 @@ def _clear_token_cookies(response: Response) -> None:
     response.delete_cookie(key=_AUTH_COOKIE_ACCESS, path="/")
     response.delete_cookie(key=_AUTH_COOKIE_REFRESH, path="/api/v1/auth")
 
+
 # FIXED-H03: 使用 SQLite 持久化存储替代内存存储，支持多 worker 部署
 _login_window_seconds = 300
 _MAX_LOGIN_attempts = _AUTH_MAX_ATTEMPTS
 _MIN_PASSWORD_LENGTH = 8
 _MAX_PASSWORD_LENGTH = _AUTH_PASSWORD_MAX_LENGTH
 _WEAK_PASSWORDS = {  # FIXED-P0: 补充常见极弱密码
-    "password", "123456", "12345678", "123456789", "1234567890",
-    "admin", "admin123", "admin888", "root", "root123",
-    "test", "test123", "guest", "guest123",
-    "qwerty", "qwerty12", "abc123", "abc12345",
-    "password1", "iloveyou", "sunshine1", "welcome1",
-    "letmein", "master", "monkey", "dragon",
+    "password",
+    "123456",
+    "12345678",
+    "123456789",
+    "1234567890",
+    "admin",
+    "admin123",
+    "admin888",
+    "root",
+    "root123",
+    "test",
+    "test123",
+    "guest",
+    "guest123",
+    "qwerty",
+    "qwerty12",
+    "abc123",
+    "abc12345",
+    "password1",
+    "iloveyou",
+    "sunshine1",
+    "welcome1",
+    "letmein",
+    "master",
+    "monkey",
+    "dragon",
 }
 
 
@@ -229,8 +250,11 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
         global_failure_count = await RateLimitRepo.check_global_failure_rate()
         config = get_config()
         if global_failure_count >= config.security.global_failure_rate_threshold:
-            logger.warning("Global login failure rate exceeded: %d/min (threshold: %d)",
-                         global_failure_count, config.security.global_failure_rate_threshold)
+            logger.warning(
+                "Global login failure rate exceeded: %d/min (threshold: %d)",
+                global_failure_count,
+                config.security.global_failure_rate_threshold,
+            )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"{AuthErrors.RATE_LIMITED}:global_rate_exceeded",
@@ -267,7 +291,10 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
             await _record_lockout_failure(req.username, client_ip)
             try:
                 from edgelite.services.audit_service import AuditAction
-                await audit_svc.log(AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="failed")
+
+                await audit_svc.log(
+                    AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="failed"
+                )
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.INVALID_CREDENTIALS)
@@ -279,7 +306,10 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
             await _record_lockout_failure(req.username, client_ip)
             try:
                 from edgelite.services.audit_service import AuditAction
-                await audit_svc.log(AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="failed")
+
+                await audit_svc.log(
+                    AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="failed"
+                )
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.INVALID_CREDENTIALS)
@@ -290,7 +320,10 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
             await RateLimitRepo.record_global_account_failure(req.username)
             try:
                 from edgelite.services.audit_service import AuditAction
-                await audit_svc.log(AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="disabled")
+
+                await audit_svc.log(
+                    AuditAction.LOGIN_FAILED, username=req.username, ip_address=client_ip, status="disabled"
+                )
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.INVALID_CREDENTIALS)
@@ -312,7 +345,8 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
                     "Failed to remove initial admin password file %s: %s. "
                     "Refusing login to prevent plaintext password leak. "
                     "Remove the file manually or fix permissions before retrying.",
-                    _pw_file, e,
+                    _pw_file,
+                    e,
                 )
                 # R6-F-01 修复(致命): 原清理块引用 new_jtis（在下方 token 签发后才定义），
                 # 导致 NameError 被 except Exception: pass 静默吞没。
@@ -349,24 +383,30 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
                 logger.warning("LP-09: Failed to revoke old sessions for user %s: %s", user["user_id"], e)
                 # 即使撤销旧session失败，也要确保新jti已注册
                 from edgelite.security.session_manager import register_session
+
                 for jti in new_jtis:
                     try:
                         register_session(user["user_id"], jti)
                     except Exception as exc:  # FIXED(P2): 原问题-B904异常链丢失; 修复-添加as exc与from exc
-                        logger.error("LP-09: Failed to register new session, login will fail for user %s", user["user_id"])
+                        logger.error(
+                            "LP-09: Failed to register new session, login will fail for user %s", user["user_id"]
+                        )
                         raise HTTPException(status_code=500, detail="Session registration failed") from exc
-
 
         config = get_config()
 
         try:
             from edgelite.services.audit_service import AuditAction
-            await audit_svc.log(AuditAction.LOGIN, user_id=user["user_id"], username=user["username"], ip_address=client_ip)
+
+            await audit_svc.log(
+                AuditAction.LOGIN, user_id=user["user_id"], username=user["username"], ip_address=client_ip
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
         # Generate CSRF token for this session
         from edgelite.middleware.csrf import generate_csrf_token
+
         csrf_token = generate_csrf_token(user["user_id"])
 
         from fastapi.responses import JSONResponse
@@ -397,15 +437,11 @@ async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(N
     if not refresh:
         refresh = request.cookies.get(_AUTH_COOKIE_REFRESH)
     if not refresh:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID)
     try:
         payload = verify_token(refresh, token_type="refresh")
     except (JWTError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID
-        ) from None
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID) from None
 
     # R5-F-01 修复(致命): refresh_token 端点未校验 jti 是否已撤销，登出/管理员撤销后
     # 旧 refresh token 仍可换发新 access token，形成会话绕过链。
@@ -414,6 +450,7 @@ async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(N
     if old_jti:
         try:
             from edgelite.security.token_revocation import is_token_revoked
+
             if is_token_revoked(old_jti):
                 logger.warning("Refresh token rejected (revoked jti=%s)", old_jti)
                 raise HTTPException(
@@ -444,6 +481,7 @@ async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(N
         if password_changed_at:
             token_iat = payload.get("iat", 0)
             from datetime import datetime
+
             if isinstance(password_changed_at, str):
                 try:
                     pwd_changed_ts = datetime.fromisoformat(password_changed_at).timestamp()
@@ -467,12 +505,8 @@ async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(N
         if not sub or not username:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AuthErrors.REFRESH_TOKEN_INVALID)
 
-        access_token = create_access_token(
-            data={"sub": sub, "username": username, "role": current_role}
-        )
-        new_refresh = create_refresh_token(
-            data={"sub": sub, "username": username, "role": current_role}
-        )
+        access_token = create_access_token(data={"sub": sub, "username": username, "role": current_role})
+        new_refresh = create_refresh_token(data={"sub": sub, "username": username, "role": current_role})
 
         old_exp = payload.get("exp")
         # 注: old_jti 已在上方 R5-F-01 修复中提前获取并校验撤销状态
@@ -493,19 +527,24 @@ async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(N
                 register_session(sub, new_refresh_payload["jti"])
         except Exception as e:
             logger.error("LP-09: Failed to register new session on refresh for user %s: %s", sub, e, exc_info=True)
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=AuthErrors.REFRESH_TOKEN_INVALID) from e  # FIXED-B904
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=AuthErrors.REFRESH_TOKEN_INVALID
+            ) from e  # FIXED-B904
 
         # 新 session 注册成功后，安全地撤销旧 token 和移除旧 session
         if old_jti:
             from edgelite.security.token_revocation import revoke_token
+
             revoke_token(old_jti, old_exp)
             from edgelite.security.session_manager import remove_session
+
             remove_session(sub, old_jti)
 
         config = get_config()
 
         # 生成新的CSRF token，防止token刷新后CSRF token丢失
         from edgelite.middleware.csrf import generate_csrf_token
+
         new_csrf_token = generate_csrf_token(sub)
 
         from fastapi.responses import JSONResponse
@@ -596,23 +635,15 @@ async def change_password(
 
         # Validate new password policy
         if len(new_password) < _MIN_PASSWORD_LENGTH:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_POLICY
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_POLICY)
         if len(new_password) > _MAX_PASSWORD_LENGTH:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_TOO_LONG
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_TOO_LONG)
         if old_password == new_password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_SAME_AS_OLD
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_SAME_AS_OLD)
         has_letter = any(c.isalpha() for c in new_password)
         has_digit = any(c.isdigit() for c in new_password)
         if not (has_letter and has_digit):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_LETTER_AND_DIGIT
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_LETTER_AND_DIGIT)
         has_special = any(c in "!@#$%^&*()_+-=[]{}|;':\",./<>?`~" for c in new_password)
         if not has_special:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=AuthErrors.PASSWORD_NEED_SPECIAL)
@@ -626,9 +657,7 @@ async def change_password(
         # succeed or both roll back — no intermediate inconsistent state.
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
-            success = await repo.update_password_and_clear_flag(
-                user["username"], hash_password(new_password)
-            )
+            success = await repo.update_password_and_clear_flag(user["username"], hash_password(new_password))
             if not success:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=AuthErrors.USER_NOT_FOUND)
 
@@ -639,6 +668,7 @@ async def change_password(
 
             from edgelite.security.session_manager import clear_user_sessions
             from edgelite.security.token_revocation import revoke_token_async
+
             removed_jtis = clear_user_sessions(user["user_id"])
             for old_jti in removed_jtis:
                 try:
@@ -652,12 +682,19 @@ async def change_password(
 
         try:
             from edgelite.services.audit_service import AuditAction
+
             if audit_svc:
                 # 补充ip_address和user_agent用于审计追溯
                 # FIX-EL-GENERAL: 改用 _get_client_ip 走可信代理逻辑，与 login/logout/forgot_password 保持一致
                 ip_address = _get_client_ip(request) if request else None
                 user_agent = request.headers.get("User-Agent") if request else None
-                await audit_svc.log(AuditAction.PASSWORD_CHANGE, user_id=user["user_id"], username=user["username"], ip_address=ip_address, user_agent=user_agent)
+                await audit_svc.log(
+                    AuditAction.PASSWORD_CHANGE,
+                    user_id=user["user_id"],
+                    username=user["username"],
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data={"message": "password_changed"})
@@ -714,6 +751,7 @@ async def forgot_password(
             return
         try:
             from edgelite.services.audit_service import AuditAction
+
             await audit_svc.log(
                 AuditAction.FORGOT_PASSWORD_RATE_LIMITED,
                 resource_type="password_reset",
@@ -728,8 +766,7 @@ async def forgot_password(
     allowed, retry_after = await _check_rate_limits()
     if not allowed:
         logger.warning(
-            "Password reset rate limited: ip=%s username=%s retry_after=%ds",
-            client_ip, username, retry_after
+            "Password reset rate limited: ip=%s username=%s retry_after=%ds", client_ip, username, retry_after
         )
         await _log_rate_limit_audit("ip_or_user", retry_after)
         return JSONResponse(
@@ -747,18 +784,12 @@ async def forgot_password(
     # This prevents username enumeration through timing differences
     ip_count = await RateLimitRepo.record_password_reset_ip_attempt(client_ip)
     if ip_count >= 5:  # From _AUTH_RESET_IP_MAX constant
-        logger.warning(
-            "Password reset IP rate limit warning: ip=%s count=%d",
-            client_ip, ip_count
-        )
+        logger.warning("Password reset IP rate limit warning: ip=%s count=%d", client_ip, ip_count)
         await _log_rate_limit_audit("ip", 3600)
 
     user_count = await RateLimitRepo.record_password_reset_user_attempt(username)
     if user_count >= 3:  # From _AUTH_RESET_USER_MAX constant
-        logger.warning(
-            "Password reset user rate limit warning: username=%s count=%d",
-            username, user_count
-        )
+        logger.warning("Password reset user rate limit warning: username=%s count=%d", username, user_count)
         await _log_rate_limit_audit("username", 3600)
 
     async def _log_audit(action: str, error_detail: str | None = None) -> None:
@@ -766,6 +797,7 @@ async def forgot_password(
             return
         try:
             from edgelite.services.audit_service import AuditAction
+
             details = {"username": username}
             if error_detail:
                 details["error"] = error_detail
@@ -793,6 +825,7 @@ async def forgot_password(
             # 修复-对不存在用户执行等耗时 dummy 操作（hash 计算 + 随机延迟），模糊时序差异。
             import hashlib
             import secrets as _secrets
+
             _dummy = hashlib.pbkdf2_hmac("sha256", _secrets.token_bytes(32), _secrets.token_bytes(16), 100000)
             await asyncio.sleep(0.3 + _secrets.randbelow(200) / 1000.0)  # 模拟 SMTP 发送耗时
             return ApiResponse(message=_UNIFIED_MESSAGE)
@@ -810,13 +843,13 @@ async def forgot_password(
         logger.info("Password reset token generated for user: %s", username)
 
         config = get_config()
-        email_cfg = getattr(config, 'notify', None)
-        email_cfg = getattr(email_cfg, 'email', None) if email_cfg else None
-        smtp_host = getattr(email_cfg, 'smtp_host', '') if email_cfg else ''
-        smtp_port = getattr(email_cfg, 'smtp_port', 465) if email_cfg else 465
-        smtp_user = getattr(email_cfg, 'smtp_user', '') if email_cfg else ''
-        smtp_password = getattr(email_cfg, 'smtp_password', '') if email_cfg else ''
-        from_addr = getattr(email_cfg, 'from_addr', '') if email_cfg else ''
+        email_cfg = getattr(config, "notify", None)
+        email_cfg = getattr(email_cfg, "email", None) if email_cfg else None
+        smtp_host = getattr(email_cfg, "smtp_host", "") if email_cfg else ""
+        smtp_port = getattr(email_cfg, "smtp_port", 465) if email_cfg else 465
+        smtp_user = getattr(email_cfg, "smtp_user", "") if email_cfg else ""
+        smtp_password = getattr(email_cfg, "smtp_password", "") if email_cfg else ""
+        from_addr = getattr(email_cfg, "from_addr", "") if email_cfg else ""
 
         if not smtp_host or not from_addr:
             logger.error("Email service not configured for password reset: user=%s", username)
@@ -835,16 +868,27 @@ async def forgot_password(
             # FIX-EL-SEVERE: 原 ApiResponse(success=False, ...) 使用了不存在的 success 字段，
             # Pydantic extra='ignore' 会静默丢弃，导致 code 默认为 0(成功)，
             # 客户端误认为密码重置邮件已发送。
-            return ApiResponse(code=500, message=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED, data=None, error_code=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED)
+            return ApiResponse(
+                code=500,
+                message=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED,
+                data=None,
+                error_code=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED,
+            )
         # FIXED(安全): 强制 HTTPS - 防止密码重置 token 明文传输
         from urllib.parse import urlparse
+
         _parsed_frontend = urlparse(frontend_base)
         if _parsed_frontend.scheme != "https":
             # 允许 localhost 用于开发环境
             _host = _parsed_frontend.hostname or ""
             if _host not in ("localhost", "127.0.0.1", "::1"):
                 logger.error("EDGELITE_FRONTEND_URL must use HTTPS in production: %s", frontend_base)
-                return ApiResponse(code=500, message=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED, data=None, error_code=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED)
+                return ApiResponse(
+                    code=500,
+                    message=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED,
+                    data=None,
+                    error_code=AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED,
+                )
         # FIXED-M01: 使用 hash fragment 传递 token，避免出现在 URL 参数中
         # Hash fragment (#...) 不会发送到服务器日志，不会出现在 Referer 头中
         reset_link = f"{frontend_base}/reset-password#token={reset_token}"
@@ -858,8 +902,14 @@ async def forgot_password(
 </body></html>"""
 
         def _send_reset_email_sync(
-            smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
-            from_addr: str, user_email: str, msg_body: str, use_starttls: bool,
+            smtp_host: str,
+            smtp_port: int,
+            smtp_user: str,
+            smtp_password: str,
+            from_addr: str,
+            user_email: str,
+            msg_body: str,
+            use_starttls: bool,
         ) -> None:
             """同步发送密码重置邮件（在独立线程中执行，避免阻塞事件循环）"""
             import smtplib
@@ -888,9 +938,14 @@ async def forgot_password(
         try:
             await asyncio.to_thread(
                 _send_reset_email_sync,
-                smtp_host, smtp_port, smtp_user, smtp_password,
-                from_addr, user_email, html_body,
-                getattr(email_cfg, 'use_starttls', False) if email_cfg else False,
+                smtp_host,
+                smtp_port,
+                smtp_user,
+                smtp_password,
+                from_addr,
+                user_email,
+                html_body,
+                getattr(email_cfg, "use_starttls", False) if email_cfg else False,
             )
             logger.info("Password reset email sent to user: %s", username)
             await _log_audit("FORGOT_PASSWORD_REQUEST")
@@ -900,9 +955,7 @@ async def forgot_password(
             await _log_audit("FORGOT_PASSWORD_EMAIL_ERROR", str(email_err))
             return ApiResponse(message=_UNIFIED_MESSAGE)
 
-        return ApiResponse(
-            message=AuthErrors.PASSWORD_RESET_SENT
-        )
+        return ApiResponse(message=AuthErrors.PASSWORD_RESET_SENT)
 
     except Exception as e:
         # FIXED: 数据库或其他错误也记录审计日志
@@ -934,13 +987,11 @@ async def reset_password(
 
     ip_count, ip_retry = await RateLimitRepo.check_reset_usage_ip_rate(client_ip)
     if ip_count == -1:
-        logger.warning(
-            "Password reset rate limited: ip=%s retry_after=%ds",
-            client_ip, ip_retry
-        )
+        logger.warning("Password reset rate limited: ip=%s retry_after=%ds", client_ip, ip_retry)
         if audit_svc:
             try:
                 from edgelite.services.audit_service import AuditAction
+
                 await audit_svc.log(
                     AuditAction.PASSWORD_RESET_RATELIMITED,
                     resource_type="password_reset",
@@ -987,13 +1038,11 @@ async def reset_password(
         # FIXED-H03: Check if token has already been used (one-time use)
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         if await RateLimitRepo.is_password_reset_token_used(token_hash):
-            logger.warning(
-                "Password reset token already used: username=%s ip=%s",
-                username, client_ip
-            )
+            logger.warning("Password reset token already used: username=%s ip=%s", username, client_ip)
             if audit_svc:
                 try:
                     from edgelite.services.audit_service import AuditAction
+
                     await audit_svc.log(
                         AuditAction.PASSWORD_RESET_REUSED,
                         resource_type="password_reset",
@@ -1030,14 +1079,8 @@ async def reset_password(
 
         # FIXED-H03: Atomically mark token as used BEFORE updating password
         if not await RateLimitRepo.mark_password_reset_token_used(token_hash, username):
-            logger.error(
-                "Failed to mark reset token as used, rejecting reset: username=%s",
-                username
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=AuthErrors.TOKEN_PROCESSING_FAILED
-            )
+            logger.error("Failed to mark reset token as used, rejecting reset: username=%s", username)
+            raise HTTPException(status_code=500, detail=AuthErrors.TOKEN_PROCESSING_FAILED)
 
         # Update password
         async with db.get_session() as session:
@@ -1049,10 +1092,7 @@ async def reset_password(
 
         # FIXED-P0: Check if account is disabled before allowing password reset
         if not db_user.get("enabled"):
-            logger.warning(
-                "Password reset blocked for disabled account: username=%s",
-                username
-            )
+            logger.warning("Password reset blocked for disabled account: username=%s", username)
             # Return success message to prevent username enumeration
             return ApiResponse(message=AuthErrors.PASSWORD_RESET_SENT)
 
@@ -1067,6 +1107,7 @@ async def reset_password(
         if jti:
             try:
                 from edgelite.security.token_revocation import revoke_token
+
                 revoke_token(jti, exp)
             except Exception as e:
                 # Log but don't fail - token is already marked as used
@@ -1078,6 +1119,7 @@ async def reset_password(
         if audit_svc:
             try:
                 from edgelite.services.audit_service import AuditAction
+
                 await audit_svc.log(
                     AuditAction.PASSWORD_RESET_USED,
                     resource_type="password_reset",
@@ -1105,8 +1147,11 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
 
         try:
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request)
-            await audit_svc.log(AuditAction.LOGOUT, user_id=user.get("user_id"), username=user.get("username"), ip_address=client_ip)
+            await audit_svc.log(
+                AuditAction.LOGOUT, user_id=user.get("user_id"), username=user.get("username"), ip_address=client_ip
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
@@ -1127,6 +1172,7 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
                     revoke_token(jti, exp)
                     # LP-09: 从活跃 session 中移除
                     from edgelite.security.session_manager import remove_session
+
                     remove_session(user.get("user_id", ""), jti)
             except Exception as e:
                 logger.warning("Access token revocation failed: %s", e)  # FIXED-P3: 中文日志→英文
@@ -1152,6 +1198,7 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
                     revoke_token(jti, exp)
                     # LP-09: 从活跃 session 中移除
                     from edgelite.security.session_manager import remove_session
+
                     remove_session(user.get("user_id", ""), jti)
             except Exception as e:
                 logger.warning("Refresh token revocation failed: %s", e)  # FIXED-P3: 中文日志→英文
@@ -1159,6 +1206,7 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
         from fastapi.responses import JSONResponse
 
         from edgelite.middleware.csrf import remove_csrf_token
+
         remove_csrf_token(user["user_id"])
 
         response = JSONResponse(content=ApiResponse().model_dump())

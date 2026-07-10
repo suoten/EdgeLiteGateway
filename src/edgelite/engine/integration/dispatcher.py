@@ -33,9 +33,7 @@ class MessageDispatcher:
         with self._lock:  # FIXED(严重): 写操作加锁，避免与各 _handle_* 读取并发
             self._services[name] = service
 
-    async def dispatch(
-        self, msg_type: str, payload: dict[str, Any], session_id: str = ""
-    ) -> dict[str, Any] | None:
+    async def dispatch(self, msg_type: str, payload: dict[str, Any], session_id: str = "") -> dict[str, Any] | None:
         if not isinstance(payload, dict):
             return {"ok": False, "error": "payload must be a JSON object"}
         # FIXED(严重): 读取 _handlers 加锁保护，避免与 register_handler 写入并发
@@ -72,6 +70,7 @@ class MessageDispatcher:
             return {"ok": False, "error": "Missing required field: device_id", "error_type": "validation_error"}
 
         import re
+
         if not re.match(r"^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$", device_id):
             return {
                 "ok": False,
@@ -91,7 +90,11 @@ class MessageDispatcher:
 
         points = payload.get("points", [])
         if not isinstance(points, list) or len(points) == 0:
-            return {"ok": False, "error": "Missing required field: points (must be non-empty list)", "error_type": "validation_error"}
+            return {
+                "ok": False,
+                "error": "Missing required field: points (must be non-empty list)",
+                "error_type": "validation_error",
+            }
 
         collect_interval = payload.get("collect_interval", 5)
         if not isinstance(collect_interval, (int, float)) or collect_interval < 1:
@@ -136,9 +139,7 @@ class MessageDispatcher:
                     return {"ok": False, "error": f"Rebuild device failed: {ue}"}
             return {"ok": False, "error": error_str}
 
-    async def _rebuild_device(
-        self, device_service: Any, device_id: str, payload: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _rebuild_device(self, device_service: Any, device_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         """重建设备：停止旧驱动 → 删除旧设备 → 重新创建。
 
         解决原问题：update_device() 仅更新数据库记录，不重建驱动/重启采集，
@@ -161,7 +162,11 @@ class MessageDispatcher:
         # 2. 停止旧驱动（在删除前先停，避免 delete_device 中的驱动停止竞争）
         # FIXED-P0: 原问题-直接访问_driver_instances私有属性绕过DeviceService锁保护，
         # 改为通过公开方法remove_driver_instance访问，确保锁保护。
-        old_driver = await device_service.remove_driver_instance(device_id) if hasattr(device_service, "remove_driver_instance") else None
+        old_driver = (
+            await device_service.remove_driver_instance(device_id)
+            if hasattr(device_service, "remove_driver_instance")
+            else None
+        )
         if old_driver is not None:
             try:
                 await old_driver.stop()
@@ -199,7 +204,11 @@ class MessageDispatcher:
                     logger.info("Restored old device %s after rebuild failure", device_id)
                 except Exception as restore_e:
                     logger.error("Restore old device %s also failed: %s", device_id, restore_e)
-            return {"ok": False, "error": f"Rebuild failed (old device restored if possible): {e}", "device_id": device_id}
+            return {
+                "ok": False,
+                "error": f"Rebuild failed (old device restored if possible): {e}",
+                "device_id": device_id,
+            }
 
     async def _handle_delete_device(self, payload: dict[str, Any]) -> dict[str, Any]:
         # FIXED(严重): 读取 _services 加锁保护，避免与 register_service 写入并发
@@ -230,7 +239,11 @@ class MessageDispatcher:
         if not device_id:
             return {"ok": False, "error": "Missing required field: device_id", "error_type": "validation_error"}
         if action not in ("start_collect", "stop_collect"):
-            return {"ok": False, "error": f"Invalid action: {action!r}, must be 'start_collect' or 'stop_collect'", "error_type": "validation_error"}
+            return {
+                "ok": False,
+                "error": f"Invalid action: {action!r}, must be 'start_collect' or 'stop_collect'",
+                "error_type": "validation_error",
+            }
         try:
             if action == "start_collect":
                 if not scheduler:
@@ -279,7 +292,9 @@ class MessageDispatcher:
                                 await lifecycle.on_device_offline(device_id)
                             # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
                             except Exception as e:
-                                logger.debug("[dispatcher] lifecycle.on_device_offline failed for device=%s: %s", device_id, e)
+                                logger.debug(
+                                    "[dispatcher] lifecycle.on_device_offline failed for device=%s: %s", device_id, e
+                                )
                         return {"ok": False, "error": f"Status update failed, collection rolled back: {status_err}"}
 
             elif action == "stop_collect":

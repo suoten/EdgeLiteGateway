@@ -26,13 +26,15 @@ async def get_offline_queue_status(
     try:
         forwarder = getattr(request.app.state, "mqtt_forwarder", None)
         if not forwarder:
-            return ApiResponse(data={
-                "enabled": False,
-                "pending_count": 0,
-                "sent_count": 0,
-                "oldest_timestamp": None,
-                "db_size_bytes": 0,
-            })
+            return ApiResponse(
+                data={
+                    "enabled": False,
+                    "pending_count": 0,
+                    "sent_count": 0,
+                    "oldest_timestamp": None,
+                    "db_size_bytes": 0,
+                }
+            )
         return ApiResponse(data=forwarder.get_offline_queue_status())
     except HTTPException:
         raise

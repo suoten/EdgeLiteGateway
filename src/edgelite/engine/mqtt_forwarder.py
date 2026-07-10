@@ -153,7 +153,7 @@ class MqttForwarder:
             return
         # FIXED-P2: 使用同步锁保护SQLite并发访问（asyncio.Lock不能在同步方法中使用）
         _held_sync_lock = False
-        if hasattr(self, '_offline_db_sync_lock') and self._offline_db_sync_lock:
+        if hasattr(self, "_offline_db_sync_lock") and self._offline_db_sync_lock:
             self._offline_db_sync_lock.acquire()
             _held_sync_lock = True
         try:
@@ -164,13 +164,15 @@ class MqttForwarder:
                 return
             skipped = 0
             for row_id, topic, payload, qos, priority in rows:
-                ok = self._ring_buffer.put_sync({  # FIXED-P2: 检查返回值，满时跳过而非静默丢弃
-                    "topic": topic,
-                    "payload": payload,
-                    "qos": qos,
-                    "priority": priority or "",
-                    "sqlite_id": row_id,
-                })
+                ok = self._ring_buffer.put_sync(
+                    {  # FIXED-P2: 检查返回值，满时跳过而非静默丢弃
+                        "topic": topic,
+                        "payload": payload,
+                        "qos": qos,
+                        "priority": priority or "",
+                        "sqlite_id": row_id,
+                    }
+                )
                 if not ok:
                     skipped += 1
             if skipped:
@@ -351,7 +353,10 @@ class MqttForwarder:
                     if self._port != server_port:
                         logger.info(
                             "MQTT转发器检测到内置MQTT Server，自动切换 %s:%d -> %s:%d",
-                            broker_host, broker_port, server_host, server_port,
+                            broker_host,
+                            broker_port,
+                            server_host,
+                            server_port,
                         )
                     broker_host = server_host
                     broker_port = server_port
@@ -380,11 +385,15 @@ class MqttForwarder:
 
                     if self._offline_queue:
                         try:
+
                             async def _offline_send(topic: str, payload: Any) -> bool:
                                 if not self._connected:
                                     return False
-                                await client.publish(topic, json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8"), qos=1)
+                                await client.publish(
+                                    topic, json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8"), qos=1
+                                )
                                 return True
+
                             flushed = await self._offline_queue.flush(send_callback=_offline_send)
                             if flushed > 0:
                                 logger.info("OfflineQueue重传完成: %d条", flushed)
@@ -396,15 +405,17 @@ class MqttForwarder:
                         ring_pending = self._ring_buffer.get_stats()["pending"] if self._ring_buffer else 0
                         total_pending = pending + ring_pending
                         if total_pending > 0:
-                            logger.info("离线队列有%d条待重传数据(RingBuffer=%d, SQLite=%d)，启动重传",
-                                       total_pending, ring_pending, pending)
+                            logger.info(
+                                "离线队列有%d条待重传数据(RingBuffer=%d, SQLite=%d)，启动重传",
+                                total_pending,
+                                ring_pending,
+                                pending,
+                            )
                         self._replay_task = asyncio.create_task(
                             self._replay_offline_queue(client), name="mqtt-replay-offline"
                         )
 
-                    pub_task = asyncio.create_task(
-                        self._publish_loop(client), name="mqtt-forward-publish"
-                    )
+                    pub_task = asyncio.create_task(self._publish_loop(client), name="mqtt-forward-publish")
 
                     try:
                         while self._running:
@@ -437,21 +448,23 @@ class MqttForwarder:
                 delay *= 0.5 + random.random() * 0.5  # FIXED-P4: 原问题-退避无抖动，多实例同时重连惊群效应
                 now = time.time()
                 # FIXED: 日志限流优化 - 前3次每次记录，之后每5分钟记录一次
-                should_log = (
-                    self._consecutive_failures <= 3
-                    or now - self._last_connect_fail_log_time >= 300
-                )
+                should_log = self._consecutive_failures <= 3 or now - self._last_connect_fail_log_time >= 300
                 if should_log:
                     self._last_connect_fail_log_time = now
                     if "Connection refused" in err_str or "Errno 111" in err_str:
                         logger.warning(
                             "MQTT Broker未可达(%s:%d)，%d秒后重试(连续失败%d次)",
-                            broker_host, broker_port, delay, self._consecutive_failures,
+                            broker_host,
+                            broker_port,
+                            delay,
+                            self._consecutive_failures,
                         )
                     else:
                         logger.error(
                             "MQTT转发器连接异常: %s，%d秒后重试(连续失败%d次)",
-                            e, delay, self._consecutive_failures,
+                            e,
+                            delay,
+                            self._consecutive_failures,
                         )
                 self._connected = False
                 await asyncio.sleep(delay)
@@ -594,7 +607,9 @@ class MqttForwarder:
             priority = "alarm" if msg_type == "alarm" else ""
             await self._persist_message(topic, payload, qos=1, priority=priority, data=data)
 
-    async def _persist_message(self, topic: str, payload: str, qos: int = 1, priority: str = "", data: dict | None = None) -> None:  # FIXED-P2: 改为async以支持await _check_queue_capacity
+    async def _persist_message(
+        self, topic: str, payload: str, qos: int = 1, priority: str = "", data: dict | None = None
+    ) -> None:  # FIXED-P2: 改为async以支持await _check_queue_capacity
         """持久化消息到 SQLite 和 RingBuffer"""
         # 写入 SQLite
         if self._offline_db:
@@ -602,11 +617,11 @@ class MqttForwarder:
                 await self._check_queue_capacity()
                 # FIXED(严重): 原问题-同步SQLite操作(execute/commit)阻塞事件循环;
                 # 修复-用asyncio.to_thread包装同步DB操作
-                sqlite_id = await asyncio.to_thread(
-                    self._persist_message_sync, topic, payload, qos, priority
-                )
+                sqlite_id = await asyncio.to_thread(self._persist_message_sync, topic, payload, qos, priority)
             except Exception as e:
-                logger.error("离线消息持久化失败(磁盘满/权限/锁): %s", e)  # FIXED-P2: 磁盘满/权限错误静默吞没，导致断网期间数据永久丢失
+                logger.error(
+                    "离线消息持久化失败(磁盘满/权限/锁): %s", e
+                )  # FIXED-P2: 磁盘满/权限错误静默吞没，导致断网期间数据永久丢失
                 sqlite_id = None
         else:
             sqlite_id = None
@@ -642,7 +657,9 @@ class MqttForwarder:
             self._offline_db.commit()
             return cursor.lastrowid
 
-    async def _check_queue_capacity(self) -> None:  # FIXED-P2: 改为async，统一到asyncio.Lock+asyncio.to_thread模式，消除混合锁类型
+    async def _check_queue_capacity(
+        self,
+    ) -> None:  # FIXED-P2: 改为async，统一到asyncio.Lock+asyncio.to_thread模式，消除混合锁类型
         if not self._offline_db:
             return
         await asyncio.to_thread(self._check_queue_capacity_sync)
@@ -672,9 +689,7 @@ class MqttForwarder:
         if not self._offline_db:
             return 0
         try:
-            cursor = self._offline_db.execute(
-                "SELECT COUNT(*) FROM offline_queue WHERE status='pending'"
-            )
+            cursor = self._offline_db.execute("SELECT COUNT(*) FROM offline_queue WHERE status='pending'")
             row = cursor.fetchone()
             return row[0] if row else 0
         except Exception:
@@ -720,7 +735,9 @@ class MqttForwarder:
         for rec in records:
             if not self._connected or not self._running:
                 # 中断时将已取出的 syncing 记录回退为 pending（断点续传）
-                failed_ring_ids.extend(r.get("_id") for r in records if r.get("_id") is not None and r.get("_id") not in synced_ring_ids)
+                failed_ring_ids.extend(
+                    r.get("_id") for r in records if r.get("_id") is not None and r.get("_id") not in synced_ring_ids
+                )
                 break
             try:
                 topic = rec.get("topic", "")
@@ -817,9 +834,7 @@ class MqttForwarder:
                         f"UPDATE offline_queue SET retry_count=retry_count+1 WHERE id IN ({placeholders})",
                         failed_ids,
                     )
-                self._offline_db.execute(
-                    "DELETE FROM offline_queue WHERE status='sent'"
-                )
+                self._offline_db.execute("DELETE FROM offline_queue WHERE status='sent'")
                 self._offline_db.commit()
             except Exception as e:
                 # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -838,9 +853,7 @@ class MqttForwarder:
             }
         try:
             pending = self._get_pending_count()
-            cursor = self._offline_db.execute(
-                "SELECT MIN(created_at) FROM offline_queue WHERE status='pending'"
-            )
+            cursor = self._offline_db.execute("SELECT MIN(created_at) FROM offline_queue WHERE status='pending'")
             row = cursor.fetchone()
             oldest = row[0] if row and row[0] else None
             db_size = Path(self._offline_db_path).stat().st_size if Path(self._offline_db_path).exists() else 0

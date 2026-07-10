@@ -1,0 +1,110 @@
+# Default values for EdgeLite Gateway Helm chart.
+# Override these via --set or -f custom-values.yaml.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/edgelite/edgelite
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: edgelite.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "1000m"
+
+# EdgeLite application configuration (passed as env vars)
+edgelite:
+  server:
+    host: "0.0.0.0"
+    port: "8080"
+    corsAllowedOrigins: "http://localhost:8080;http://localhost:3000"
+  influxdb:
+    url: "http://influxdb:8086"
+    token: "CHANGE_ME"
+    username: "edgelite"
+    password: "CHANGE_ME"
+  mqtt:
+    broker: "mosquitto"
+    port: "1883"
+    username: "edgelite"
+    password: "CHANGE_ME"
+  security:
+    secretKey: "CHANGE_ME_to_a_32byte_random_secret_key!"
+  adminPassword: "CHANGE_ME"
+  dbPath: "/app/data/edgelite.db"
+
+# Persistence for SQLite database and data files
+persistence:
+  enabled: true
+  storageClass: "standard"
+  accessMode: ReadWriteOnce
+  size: 5Gi
+
+# Health probes
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Autoscaling (disabled by default; EdgeLite is typically single-replica stateful)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -61,7 +61,9 @@ class SerialTcpBridge:
         self._tcp_server: asyncio.AbstractServer | None = None
         self._clients: dict[asyncio.StreamReader, asyncio.StreamWriter] = {}
         self._stats = BridgeStats()
-        self._serial_queue: asyncio.Queue = asyncio.Queue(maxsize=_EVENT_BUS_MAX_QUEUE)  # FIXED: 原问题-maxsize=10000魔法数字
+        self._serial_queue: asyncio.Queue = asyncio.Queue(
+            maxsize=_EVENT_BUS_MAX_QUEUE
+        )  # FIXED: 原问题-maxsize=10000魔法数字
         self._relay_task: asyncio.Task | None = None
         self._serial_read_task: asyncio.Task | None = None
 
@@ -101,6 +103,7 @@ class SerialTcpBridge:
 
         try:
             import os
+
             if serial_port.startswith("/dev/") and not os.path.exists(serial_port):
                 raise RuntimeError(
                     f"串口设备 '{serial_port}' 不存在。"
@@ -118,8 +121,7 @@ class SerialTcpBridge:
         except serial.SerialException as e:
             logger.error("串口打开失败: %s - %s", serial_port, e)
             raise RuntimeError(
-                f"串口 '{serial_port}' 打开失败: {e}。"
-                f"请检查: 1)串口设备是否存在 2)是否有访问权限 3)是否被其他程序占用"
+                f"串口 '{serial_port}' 打开失败: {e}。请检查: 1)串口设备是否存在 2)是否有访问权限 3)是否被其他程序占用"
             ) from None
         except Exception as e:
             logger.error("串口打开异常: %s - %s", serial_port, e)
@@ -147,12 +149,8 @@ class SerialTcpBridge:
             raise RuntimeError(f"TCP服务器启动异常: {e}") from e
 
         self._running = True
-        self._serial_read_task = asyncio.create_task(
-            self._serial_read_loop(), name="serial-bridge-read"
-        )
-        self._relay_task = asyncio.create_task(
-            self._serial_to_tcp_relay(), name="serial-bridge-relay"
-        )
+        self._serial_read_task = asyncio.create_task(self._serial_read_loop(), name="serial-bridge-read")
+        self._relay_task = asyncio.create_task(self._serial_to_tcp_relay(), name="serial-bridge-relay")
 
     async def stop(self) -> None:
         """停止桥接"""
@@ -188,9 +186,7 @@ class SerialTcpBridge:
         self._serial = None
         logger.info("串口TCP透传桥接已停止")
 
-    async def _handle_client(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ) -> None:
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """处理TCP客户端连接"""
         peer = writer.get_extra_info("peername")
         client_ip = peer[0] if peer else "unknown"
@@ -276,9 +272,11 @@ class SerialTcpBridge:
         """串口→TCP数据转发（从队列取数据广播给所有客户端）"""
         while self._running:
             try:
-                data = await asyncio.wait_for(self._serial_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                data = await asyncio.wait_for(
+                    self._serial_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                )  # FIXED: 原问题-timeout=1.0魔法数字
                 dead_clients = []
-                # FIXED-P0: 复制clients.items()避免迭代期间await writer.drain()让出控制权后_handle_client修改字典导致RuntimeError
+                # FIXED-P0: 复制clients.items()避免迭代期间await writer.drain()让出控制权后_handle_client修改字典导致RuntimeError  # noqa: E501
                 for reader, writer in list(self._clients.items()):
                     try:
                         writer.write(data)

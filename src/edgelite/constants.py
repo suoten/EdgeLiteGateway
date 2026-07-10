@@ -165,7 +165,13 @@ _OBS_K8S_READY_TIMEOUT_SECONDS = 10
 _TB_HTTP_POOL_SIZE = 50
 _TB_RPC_TIMEOUT = 30.0
 _TB_DEVICE_CACHE_TTL = 300
-_TB_ALARM_SEVERITY_MAP = {"critical": "CRITICAL", "major": "MAJOR", "minor": "MINOR", "warning": "WARNING", "indeterminate": "INDETERMINATE"}
+_TB_ALARM_SEVERITY_MAP = {
+    "critical": "CRITICAL",
+    "major": "MAJOR",
+    "minor": "MINOR",
+    "warning": "WARNING",
+    "indeterminate": "INDETERMINATE",
+}
 
 _SQLITE_BUSY_TIMEOUT = 5000
 _SQLITE_WAL_MODE = "wal"
@@ -194,22 +200,24 @@ _LOG_BACKUP_COUNT = 10  # FIXED: P4-47 magic number 10
 # protocol validation across sqlite_repo, system_services, and Alembic migrations.
 # Naming convention: underscore (modbus_tcp, opc_ua, ethernet_ip).
 # Backward compatibility: old hyphen-style names (modbus-tcp, opcua) are mapped on read.
-VALID_DEVICE_PROTOCOLS = frozenset({
-    "modbus_tcp",
-    "modbus_rtu",
-    "simulator",
-    "mqtt_client",
-    "http_webhook",
-    "opc_ua",
-    "siemens_s7",
-    "mitsubishi_mc",
-    "omron_fins",
-    "allen_bradley",
-    "opc_da",
-    "onvif",
-    "video_ai",
-    "modbus_slave",
-})
+VALID_DEVICE_PROTOCOLS = frozenset(
+    {
+        "modbus_tcp",
+        "modbus_rtu",
+        "simulator",
+        "mqtt_client",
+        "http_webhook",
+        "opc_ua",
+        "siemens_s7",
+        "mitsubishi_mc",
+        "omron_fins",
+        "allen_bradley",
+        "opc_da",
+        "onvif",
+        "video_ai",
+        "modbus_slave",
+    }
+)
 
 # Legacy name → canonical name mapping (hyphen-style → underscore-style)
 # R11-DRV-07: 作为协议别名的单一数据源，protocol_keys.py 直接复用本表，避免两套并行系统不一致

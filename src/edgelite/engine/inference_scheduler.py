@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 class InferencePriority(IntEnum):
     """推理请求优先级（数值越大优先级越高）"""
 
-    BACKGROUND = 0      # 后台批量推理
-    SCHEDULED = 1       # 定时调度推理
-    USER_QUERY = 2      # 用户实时查询（最高优先级）
+    BACKGROUND = 0  # 后台批量推理
+    SCHEDULED = 1  # 定时调度推理
+    USER_QUERY = 2  # 用户实时查询（最高优先级）
 
 
 @dataclass
@@ -85,12 +85,11 @@ class InferenceScheduler:
             logger.warning("InferenceScheduler already started")
             return
         self._running = True
-        self._dispatcher_task = asyncio.create_task(
-            self._dispatch_loop(), name="inference-dispatcher"
-        )
+        self._dispatcher_task = asyncio.create_task(self._dispatch_loop(), name="inference-dispatcher")
         logger.info(
             "InferenceScheduler started (max_concurrent=%d, max_queue=%d)",
-            self._max_concurrent, self._max_queue_size,
+            self._max_concurrent,
+            self._max_queue_size,
         )
 
     async def stop(self) -> None:
@@ -99,6 +98,7 @@ class InferenceScheduler:
         if self._dispatcher_task and not self._dispatcher_task.done():
             self._dispatcher_task.cancel()
             import contextlib
+
             with contextlib.suppress(asyncio.CancelledError):
                 await self._dispatcher_task
         # 拒绝所有待处理请求
@@ -106,12 +106,13 @@ class InferenceScheduler:
             while self._pending_queue:
                 req = self._pending_queue.popleft()
                 if not req.future.done():
-                    req.future.set_exception(
-                        RuntimeError("InferenceScheduler shutting down")
-                    )
+                    req.future.set_exception(RuntimeError("InferenceScheduler shutting down"))
         logger.info(
             "InferenceScheduler stopped (submitted=%d, completed=%d, errors=%d, rejected=%d)",
-            self._total_submitted, self._total_completed, self._total_errors, self._total_rejected,
+            self._total_submitted,
+            self._total_completed,
+            self._total_errors,
+            self._total_rejected,
         )
 
     async def register_model(self, model_id: str, infer_fn: Any) -> None:
@@ -165,8 +166,7 @@ class InferenceScheduler:
             if len(self._pending_queue) >= self._max_queue_size:
                 self._total_rejected += 1
                 raise RuntimeError(
-                    f"Inference queue full (max={self._max_queue_size}), "
-                    f"rejecting request for model {model_id}"
+                    f"Inference queue full (max={self._max_queue_size}), rejecting request for model {model_id}"
                 )
 
         loop = asyncio.get_running_loop()
@@ -185,9 +185,7 @@ class InferenceScheduler:
         try:
             return await asyncio.wait_for(future, timeout=timeout)
         except TimeoutError:
-            raise TimeoutError(
-                f"Inference request timed out after {timeout}s for model {model_id}"
-            ) from None
+            raise TimeoutError(f"Inference request timed out after {timeout}s for model {model_id}") from None
 
     async def _dispatch_loop(self) -> None:
         """调度循环：从队列取请求，通过 Semaphore 限制并发执行"""
@@ -198,9 +196,7 @@ class InferenceScheduler:
                 async with self._queue_lock:
                     if self._pending_queue:
                         # 按 priority 排序（高优先级先出队）
-                        self._pending_queue = deque(
-                            sorted(self._pending_queue, key=lambda r: -r.priority)
-                        )
+                        self._pending_queue = deque(sorted(self._pending_queue, key=lambda r: -r.priority))
                         req = self._pending_queue.popleft()
 
                 if req is None:
@@ -210,9 +206,7 @@ class InferenceScheduler:
                 # 获取信号量限制并发
                 await self._semaphore.acquire()
                 # 启动推理任务（不等待完成，立即处理下一个请求）
-                asyncio.create_task(
-                    self._execute_inference(req), name=f"infer-{req.model_id}"
-                )
+                asyncio.create_task(self._execute_inference(req), name=f"infer-{req.model_id}")
 
             except asyncio.CancelledError:
                 raise
@@ -241,7 +235,9 @@ class InferenceScheduler:
 
             logger.debug(
                 "Inference completed: model=%s, priority=%s, latency=%dms, queue_wait=%dms",
-                req.model_id, req.priority.name, latency_ms,
+                req.model_id,
+                req.priority.name,
+                latency_ms,
                 int((start - req.enqueue_time) * 1000),
             )
         except Exception as e:
@@ -254,7 +250,9 @@ class InferenceScheduler:
 
             logger.error(
                 "Inference failed: model=%s, latency=%dms, error=%s",
-                req.model_id, latency_ms, e,
+                req.model_id,
+                latency_ms,
+                e,
             )
         finally:
             self._semaphore.release()
@@ -296,14 +294,8 @@ class InferenceScheduler:
 
     async def get_stats(self) -> dict:
         """获取调度器全局统计"""
-        avg_latency = (
-            self._total_latency_ms // self._total_completed
-            if self._total_completed > 0
-            else 0
-        )
-        model_distribution = {
-            mid: s["call_count"] for mid, s in self._per_model_stats.items()
-        }
+        avg_latency = self._total_latency_ms // self._total_completed if self._total_completed > 0 else 0
+        model_distribution = {mid: s["call_count"] for mid, s in self._per_model_stats.items()}
         return {
             "total_submitted": self._total_submitted,
             "total_completed": self._total_completed,

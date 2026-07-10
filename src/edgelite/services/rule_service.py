@@ -46,13 +46,12 @@ class RuleService:
         async with await self._get_create_lock(device_id):
             # FIXED(严重): 校验单设备规则数量上限，超限时拒绝创建，防止评估超时和告警风暴
             _, existing_count = await self._repo.list_all(
-                page=1, size=1, device_id=device_id,
+                page=1,
+                size=1,
+                device_id=device_id,
             )
             if existing_count >= _MAX_RULES_PER_DEVICE:
-                raise ValueError(
-                    f"Rule limit reached for device {device_id}: "
-                    f"{existing_count}/{_MAX_RULES_PER_DEVICE}"
-                )
+                raise ValueError(f"Rule limit reached for device {device_id}: {existing_count}/{_MAX_RULES_PER_DEVICE}")
             result = await self._repo.create(data, created_by=created_by)
         # FIXED-P0: invalidate_cache是async方法，必须await；原代码缺少await导致协程从未执行，规则热更新失效
         try:
@@ -153,7 +152,8 @@ class RuleService:
                             except Exception as e:
                                 logger.warning(
                                     "Publish recovery event failed for alarm %s: %s",
-                                    alarm.get("alarm_id"), e,
+                                    alarm.get("alarm_id"),
+                                    e,
                                 )
         except (ImportError, AttributeError):
             logger.debug("Orphan alarm cleanup skipped (module not available)")
@@ -294,8 +294,11 @@ class RuleService:
 
         if evaluator and point_values:
             matched = await evaluator._check_conditions(
-                conditions, point_values, logic,
-                rule.get("device_id", ""), rule_id,
+                conditions,
+                point_values,
+                logic,
+                rule.get("device_id", ""),
+                rule_id,
             )
             return {
                 "rule_id": rule_id,

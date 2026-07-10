@@ -115,8 +115,11 @@ class LinkRedundancyManager:
             self._devices[device_id] = _DeviceState(config=config)
         logger.info(
             "[redundancy] device=%s code=REGISTERED msg=primary=%s:%d backup=%s:%d threshold=%d",
-            device_id, config.primary_host, config.primary_port,
-            config.backup_host or "(none)", config.backup_port,
+            device_id,
+            config.primary_host,
+            config.primary_port,
+            config.backup_host or "(none)",
+            config.backup_port,
             config.failover_threshold,
         )
 
@@ -163,9 +166,11 @@ class LinkRedundancyManager:
                 return
             state.fail_count += 1
             state.last_fail_time = time.monotonic()
-            if (state.active_role == LinkRole.PRIMARY
-                    and state.fail_count >= state.config.failover_threshold
-                    and state.config.backup_host):
+            if (
+                state.active_role == LinkRole.PRIMARY
+                and state.fail_count >= state.config.failover_threshold
+                and state.config.backup_host
+            ):
                 self._switch_to_backup_locked(device_id, state)
 
     def get_active_role(self, device_id: str) -> LinkRole:
@@ -262,7 +267,10 @@ class LinkRedundancyManager:
         state.total_failovers += 1
         logger.warning(
             "[redundancy] device=%s code=FAILOVER msg=%s -> %s (failover #%d)",
-            device_id, old_host, new_host, state.total_failovers,
+            device_id,
+            old_host,
+            new_host,
+            state.total_failovers,
         )
         self._notify_switch(device_id, old_host, new_host)
 
@@ -276,7 +284,9 @@ class LinkRedundancyManager:
         state.last_switch_time = time.monotonic()
         logger.info(
             "[redundancy] device=%s code=REVERT msg=%s -> %s (auto_revert)",
-            device_id, old_host, new_host,
+            device_id,
+            old_host,
+            new_host,
         )
         self._notify_switch(device_id, old_host, new_host)
 
@@ -290,10 +300,13 @@ class LinkRedundancyManager:
         # 发布事件到 EventBus (如有)
         if self._event_bus is not None:
             try:
-                self._event_bus.publish("redundancy.switch", {
-                    "device_id": device_id,
-                    "old_host": old_host,
-                    "new_host": new_host,
-                })
+                self._event_bus.publish(
+                    "redundancy.switch",
+                    {
+                        "device_id": device_id,
+                        "old_host": old_host,
+                        "new_host": new_host,
+                    },
+                )
             except Exception as e:
                 logger.debug("[redundancy] event publish failed: %s", e)

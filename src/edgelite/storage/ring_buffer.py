@@ -47,6 +47,7 @@ class RingBuffer:
 
     async def put(self, record: dict) -> bool:
         """添加记录到缓冲区。缓冲区满时自动覆盖最旧数据并告警。"""
+
         # FIXED-P1: 原问题-async方法直接with threading.Lock，若锁被线程池持有则阻塞事件循环；
         # 改为asyncio.to_thread与get_pending/mark_synced等一致
         def _put_sync():
@@ -71,8 +72,10 @@ class RingBuffer:
                     elif oldest.get("_status") == "syncing":
                         self._syncing_count = max(0, self._syncing_count - 1)
                     logger.warning(
-                        "[ring_buffer] code=BUFFER_FULL_OVERWRITE msg=Buffer full (%d/%d), overwriting oldest record, dropped_total=%d",
-                        len(self._buffer), self._capacity, self._total_dropped,
+                        "[ring_buffer] code=BUFFER_FULL_OVERWRITE msg=Buffer full (%d/%d), overwriting oldest record, dropped_total=%d",  # noqa: E501
+                        len(self._buffer),
+                        self._capacity,
+                        self._total_dropped,
                     )
 
                 self._buffer.append(record_copy)
@@ -83,14 +86,19 @@ class RingBuffer:
                 if usage >= self._critical_watermark:
                     logger.warning(
                         "[ring_buffer] code=CRITICAL_WATERMARK msg=Usage %.1f%% (%d/%d)",
-                        usage * 100, len(self._buffer), self._capacity,
+                        usage * 100,
+                        len(self._buffer),
+                        self._capacity,
                     )
                 elif usage >= self._high_watermark:
                     logger.warning(
                         "[ring_buffer] code=HIGH_WATERMARK msg=Usage %.1f%% (%d/%d)",
-                        usage * 100, len(self._buffer), self._capacity,
+                        usage * 100,
+                        len(self._buffer),
+                        self._capacity,
                     )
                 return True
+
         return await asyncio.to_thread(_put_sync)
 
     async def get_pending(self, limit: int = 500, priority: str | None = None) -> list[dict]:
@@ -98,6 +106,7 @@ class RingBuffer:
 
         返回的记录状态会被标记为 syncing。
         """
+
         def _get_pending_sync():
             with self._lock:
                 result = []
@@ -110,15 +119,19 @@ class RingBuffer:
                         self._pending_count = max(0, self._pending_count - 1)
                         self._syncing_count += 1
                         item = copy.deepcopy(record)  # FIXED-P2: 原问题-浅拷贝导致嵌套dict被调用方意外修改；改为深拷贝
-                        self._decompress_record(item)  # FIXED-P0: 原问题-压缩模式下get_pending返回_payload_compressed(bytes)而非payload(dict)，下游无法解析
+                        self._decompress_record(
+                            item
+                        )  # FIXED-P0: 原问题-压缩模式下get_pending返回_payload_compressed(bytes)而非payload(dict)，下游无法解析  # noqa: E501
                         result.append(item)
                         if len(result) >= limit:
                             break
                 return result
+
         return await asyncio.to_thread(_get_pending_sync)  # FIXED-P2: O(n)操作移至线程池，避免阻塞事件循环
 
     async def mark_synced(self, record_ids: list[int]) -> int:
         """将记录标记为已同步，并从缓冲区移除"""
+
         def _mark_synced_sync():
             with self._lock:
                 id_set = set(record_ids)
@@ -141,10 +154,12 @@ class RingBuffer:
                 self._buffer.clear()
                 self._buffer.extend(retained)
                 return count
+
         return await asyncio.to_thread(_mark_synced_sync)  # FIXED-P2: O(n)操作移至线程池，避免阻塞事件循环
 
     async def mark_failed(self, record_ids: list[int]) -> int:
         """将 syncing 状态的记录回退为 pending（同步失败）"""
+
         def _mark_failed_sync():
             with self._lock:
                 id_set = set(record_ids)
@@ -157,13 +172,17 @@ class RingBuffer:
                         self._pending_count += 1
                         count += 1
                 return count
-        return await asyncio.to_thread(_mark_failed_sync)  # FIXED-P2: 原问题-mark_failed同步O(n)遍历阻塞事件循环，改为asyncio.to_thread与get_pending/mark_synced一致
+
+        return await asyncio.to_thread(
+            _mark_failed_sync
+        )  # FIXED-P2: 原问题-mark_failed同步O(n)遍历阻塞事件循环，改为asyncio.to_thread与get_pending/mark_synced一致
 
     async def load_from_records(self, records: list[dict]) -> int:
         """从外部记录列表恢复到缓冲区（如从 SQLite 恢复）
 
         用于进程重启后从持久化存储恢复数据。
         """
+
         # FIXED-P2: 原问题-O(n)遍历+threading.Lock在async方法中直接使用，恢复大量记录时阻塞事件循环；
         # 改为asyncio.to_thread与get_pending/mark_synced一致
         def _load_sync():
@@ -174,7 +193,9 @@ class RingBuffer:
                     if len(self._buffer) >= self._capacity:
                         logger.warning(
                             "[ring_buffer] load_from_records buffer full (%d/%d), stopping load at %d records",
-                            len(self._buffer), self._capacity, loaded,
+                            len(self._buffer),
+                            self._capacity,
+                            loaded,
                         )
                         break
                     rec_copy = dict(rec)
@@ -186,6 +207,7 @@ class RingBuffer:
                     self._pending_count += 1
                     loaded += 1
                 return loaded
+
         return await asyncio.to_thread(_load_sync)
 
     def put_sync(self, record: dict) -> bool:
@@ -204,7 +226,9 @@ class RingBuffer:
                     "[ring_buffer] code=BUFFER_FULL_OVERWRITE "
                     "msg=Buffer full (%d/%d), overwriting oldest, "
                     "dropped_total=%d",
-                    len(self._buffer), self._capacity, self._total_dropped,
+                    len(self._buffer),
+                    self._capacity,
+                    self._total_dropped,
                 )
 
             # FIXED-P1: 复制record避免修改传入字典
@@ -226,7 +250,9 @@ class RingBuffer:
             if usage >= self._critical_watermark:
                 logger.warning(
                     "[ring_buffer] code=CRITICAL_WATERMARK msg=Usage %.1f%% (%d/%d)",
-                    usage * 100, len(self._buffer), self._capacity,
+                    usage * 100,
+                    len(self._buffer),
+                    self._capacity,
                 )
             return True
 
@@ -249,8 +275,6 @@ class RingBuffer:
     def _decompress_record(self, record: dict) -> dict:
         """解压缩 payload（如果已压缩）"""
         if "_payload_compressed" in record:
-            record["payload"] = json.loads(
-                gzip.decompress(record["_payload_compressed"]).decode("utf-8")
-            )
+            record["payload"] = json.loads(gzip.decompress(record["_payload_compressed"]).decode("utf-8"))
             del record["_payload_compressed"]
         return record

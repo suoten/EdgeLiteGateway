@@ -51,10 +51,7 @@ def _validate_tls_path(field_name: str, raw_path: str) -> None:
 
     # resolve() 后必须位于允许的证书目录内
     resolved = Path(raw_path).resolve()
-    if not any(
-        resolved == allowed or allowed in resolved.parents
-        for allowed in _ALLOWED_CERT_DIRS
-    ):
+    if not any(resolved == allowed or allowed in resolved.parents for allowed in _ALLOWED_CERT_DIRS):
         raise ValueError(
             f"{field_name} must be within allowed cert directories "
             f"({', '.join(str(p) for p in _ALLOWED_CERT_DIRS)}): {raw_path}"
@@ -62,9 +59,7 @@ def _validate_tls_path(field_name: str, raw_path: str) -> None:
 
     # 扩展名必须为 .pem/.crt/.key
     if resolved.suffix.lower() not in _ALLOWED_CERT_EXTS:
-        raise ValueError(
-            f"{field_name} extension must be one of {sorted(_ALLOWED_CERT_EXTS)}: {raw_path}"
-        )
+        raise ValueError(f"{field_name} extension must be one of {sorted(_ALLOWED_CERT_EXTS)}: {raw_path}")
 
 
 def _is_loopback(host: str) -> bool:
@@ -121,9 +116,7 @@ class MqttServerConfigModel(BaseModel):
             )
         # TLS 启用但缺少证书
         if self.tls_enabled and not (self.tls_cert_path and self.tls_key_path):
-            raise ValueError(
-                "tls_enabled=true requires both tls_cert_path and tls_key_path"
-            )
+            raise ValueError("tls_enabled=true requires both tls_cert_path and tls_key_path")
         # R5-S-05: 校验 TLS 证书/密钥/CA 路径，防止路径遍历
         _validate_tls_path("tls_cert_path", self.tls_cert_path)
         _validate_tls_path("tls_key_path", self.tls_key_path)
@@ -138,7 +131,8 @@ class MqttServerConfigModel(BaseModel):
             logger.warning(
                 "[mqtt_server] code=NON_LOOPBACK_EXPOSED host=%s tls=%s "
                 "msg=MQTT Server exposed to non-loopback address",
-                self.host, self.tls_enabled,
+                self.host,
+                self.tls_enabled,
             )
         return self
 

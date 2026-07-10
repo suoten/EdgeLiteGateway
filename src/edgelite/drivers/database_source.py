@@ -41,13 +41,56 @@ class DatabaseSourceDriver(DriverPlugin):
     config_schema = {
         "description": "Database integration, maps database table fields to data points via SQL queries",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "db_type", "type": "string", "label": "Database Type", "description": "Target database type", "default": "mysql", "required": True, "options": ["mysql", "postgresql", "sqlite", "mssql"]},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "host", "type": "string", "label": "Host", "description": "Database server IP or hostname", "default": "localhost"},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "port", "type": "integer", "label": "Port", "description": "Database port, MySQL default 3306, PostgreSQL default 5432", "default": 3306},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "database", "type": "string", "label": "Database", "description": "Database name to connect to", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "username", "type": "string", "label": "Username", "description": "Database login username"},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "password", "type": "string", "label": "Password", "description": "Database login password", "secret": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "pool_size", "type": "integer", "label": "Pool Size", "description": "Maximum connection pool size", "default": 5},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "db_type",
+                "type": "string",
+                "label": "Database Type",
+                "description": "Target database type",
+                "default": "mysql",
+                "required": True,
+                "options": ["mysql", "postgresql", "sqlite", "mssql"],
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "host",
+                "type": "string",
+                "label": "Host",
+                "description": "Database server IP or hostname",
+                "default": "localhost",
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "Database port, MySQL default 3306, PostgreSQL default 5432",
+                "default": 3306,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "database",
+                "type": "string",
+                "label": "Database",
+                "description": "Database name to connect to",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "username",
+                "type": "string",
+                "label": "Username",
+                "description": "Database login username",
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "password",
+                "type": "string",
+                "label": "Password",
+                "description": "Database login password",
+                "secret": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "pool_size",
+                "type": "integer",
+                "label": "Pool Size",
+                "description": "Maximum connection pool size",
+                "default": 5,
+            },  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -152,9 +195,7 @@ class DatabaseSourceDriver(DriverPlugin):
         # 注意：连接字符串包含凭据，切勿记录到日志中
         # FIXED: 原问题-_init_mssql连接池创建无try-except保护
         try:
-            self._pool = await aioodbc.create_pool(
-                dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5))
-            )
+            self._pool = await aioodbc.create_pool(dsn=conn_str, minsize=1, maxsize=int(config.get("pool_size", 5)))
         except Exception as e:
             logger.error("DatabaseSource._init_mssql connection failed: %s", e)
             raise
@@ -190,9 +231,7 @@ class DatabaseSourceDriver(DriverPlugin):
                 rows = await self._execute_query(sql)
                 if rows:
                     if len(rows) == 1 and len(rows[0]) == 1:
-                        result[point] = (
-                            list(rows[0].values())[0] if isinstance(rows[0], dict) else rows[0][0]
-                        )
+                        result[point] = list(rows[0].values())[0] if isinstance(rows[0], dict) else rows[0][0]
                     elif len(rows) == 1:
                         result[point] = rows[0]
                     else:
@@ -316,9 +355,14 @@ class DatabaseSourceDriver(DriverPlugin):
 
         try:
             async with await aiomysql.create_pool(
-                host=host, port=port, user=username, password=password,
+                host=host,
+                port=port,
+                user=username,
+                password=password,
                 db=database or "information_schema",
-                minsize=1, maxsize=1, autocommit=True,
+                minsize=1,
+                maxsize=1,
+                autocommit=True,
             ) as pool:
                 async with pool.acquire() as conn, conn.cursor() as cur:
                     # 获取服务器版本
@@ -329,8 +373,11 @@ class DatabaseSourceDriver(DriverPlugin):
                     # 获取可访问的数据库列表
                     if not database:
                         await cur.execute("SHOW DATABASES")
-                        databases = [r[0] for r in await cur.fetchall()
-                                     if r[0] not in ("information_schema", "mysql", "performance_schema", "sys")]
+                        databases = [
+                            r[0]
+                            for r in await cur.fetchall()
+                            if r[0] not in ("information_schema", "mysql", "performance_schema", "sys")
+                        ]
                     else:
                         databases = [database]
 
@@ -356,7 +403,9 @@ class DatabaseSourceDriver(DriverPlugin):
             logger.debug("MySQL发现: 连接 %s:%d 失败 - %s", host, port, e)
             return []
 
-    async def _discover_postgresql(self, host: str, port: int, username: str, password: str, database: str) -> list[dict]:
+    async def _discover_postgresql(
+        self, host: str, port: int, username: str, password: str, database: str
+    ) -> list[dict]:
         """发现PostgreSQL数据库"""
         try:
             import asyncpg
@@ -377,9 +426,7 @@ class DatabaseSourceDriver(DriverPlugin):
                 version = await conn.fetchval("SELECT version()")
 
                 if not database:
-                    rows = await conn.fetch(
-                        "SELECT datname FROM pg_database WHERE datistemplate = false"
-                    )
+                    rows = await conn.fetch("SELECT datname FROM pg_database WHERE datistemplate = false")
                     databases = [r["datname"] for r in rows]
                 else:
                     databases = [database]
@@ -429,30 +476,31 @@ class DatabaseSourceDriver(DriverPlugin):
         for db_file in db_files:
             try:
                 import aiosqlite
+
                 async with aiosqlite.connect(str(db_file)) as conn:
                     cursor = await conn.execute("SELECT sqlite_version()")
                     row = await cursor.fetchone()
                     version = row[0] if row else ""
                     tables = []
-                    cursor = await conn.execute(
-                        "SELECT name FROM sqlite_master WHERE type='table'"
-                    )
+                    cursor = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
                     tables = [r[0] for r in await cursor.fetchall()]
 
-                discovered.append({
-                    "device_id": f"sqlite_{db_file.stem}",
-                    "name": f"SQLite ({db_file.name})",
-                    "protocol": "sqlite",
-                    "config": {
-                        "db_type": "sqlite",
-                        "database": str(db_file),
-                    },
-                    "points": [],
-                    "details": {
-                        "version": version,
-                        "tables": tables,
-                    },
-                })
+                discovered.append(
+                    {
+                        "device_id": f"sqlite_{db_file.stem}",
+                        "name": f"SQLite ({db_file.name})",
+                        "protocol": "sqlite",
+                        "config": {
+                            "db_type": "sqlite",
+                            "database": str(db_file),
+                        },
+                        "points": [],
+                        "details": {
+                            "version": version,
+                            "tables": tables,
+                        },
+                    }
+                )
             except Exception as e:
                 logger.debug("SQLite发现: %s 失败 - %s", db_file, e)
 
@@ -484,9 +532,7 @@ class DatabaseSourceDriver(DriverPlugin):
                     version = row[0] if row else ""
 
                     if not database:
-                        cursor = await conn.execute(
-                            "SELECT name FROM sys.databases WHERE database_id > 4"
-                        )
+                        cursor = await conn.execute("SELECT name FROM sys.databases WHERE database_id > 4")
                         databases = [r[0] for r in await cursor.fetchall()]
                     else:
                         databases = [database]

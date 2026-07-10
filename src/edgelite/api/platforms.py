@@ -86,10 +86,12 @@ async def connect_platform(
     user_agent = request.headers.get("user-agent", "")
     # 敏感字段脱敏
     _SENSITIVE_KEYS = {"password", "token", "secret", "api_key", "secret_key", "auth_key", "access_token"}
+
     def _sanitize(obj):
         if not isinstance(obj, dict):
             return obj
         return {k: "***" if any(s in k.lower() for s in _SENSITIVE_KEYS) else v for k, v in obj.items()}
+
     safe_config = _sanitize(req.config)
     try:
         svc = _get_service(handlers)
@@ -124,7 +126,9 @@ async def connect_platform(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(status_code=400, detail=PlatformErrors.MISSING_CONFIG) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=PlatformErrors.MISSING_CONFIG
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("connect_platform failed: %s", e)
         try:
@@ -190,7 +194,9 @@ async def disconnect_platform(
             )
         except Exception as audit_e:
             logger.warning("Audit log failed: %s", audit_e)
-        raise HTTPException(status_code=404, detail=PlatformErrors.CONNECT_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=404, detail=PlatformErrors.CONNECT_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("disconnect_platform failed: %s", e)
         try:
@@ -221,7 +227,9 @@ async def test_connection(
     request: Request,
     handlers: PlatformHandlersDep,
     audit_svc: AuditServiceDep,
-    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),  # FIXED-P2: test_connection可被用于SSRF探测，权限从SYSTEM_READ提升为SYSTEM_MANAGE
+    user: dict[str, str] = Depends(
+        require_permission(Permission.SYSTEM_MANAGE)
+    ),  # FIXED-P2: test_connection可被用于SSRF探测，权限从SYSTEM_READ提升为SYSTEM_MANAGE
 ):
     # 第三轮审计修复: 记录平台连接测试审计日志
     from edgelite.api.auth import _get_client_ip
@@ -247,7 +255,9 @@ async def test_connection(
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=PlatformErrors.MISSING_CONFIG) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=PlatformErrors.MISSING_CONFIG
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except TimeoutError as e:
         try:
             await audit_svc.log(
@@ -317,7 +327,9 @@ async def get_platform_dashboard(
 @router.get("/metrics", response_class=PlainTextResponse)
 async def get_north_metrics(
     handlers: PlatformHandlersDep,
-    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),  # FIXED-P1: 端点无认证，任何人可访问北向指标
+    user: dict[str, str] = Depends(
+        require_permission(Permission.SYSTEM_READ)
+    ),  # FIXED-P1: 端点无认证，任何人可访问北向指标
 ):
     try:
         svc = _get_service(handlers)
@@ -328,7 +340,9 @@ async def get_north_metrics(
         )
     except Exception as e:
         logger.error("Failed to get north metrics: %s", e)
-        return PlainTextResponse(content="# Error: internal server error", status_code=500)  # FIXED-P1: 原问题-f"# Error: {e}"泄漏内部异常详情到响应体
+        return PlainTextResponse(
+            content="# Error: internal server error", status_code=500
+        )  # FIXED-P1: 原问题-f"# Error: {e}"泄漏内部异常详情到响应体
 
 
 @router.post("/reload/{platform_name}", response_model=ApiResponse)
@@ -348,10 +362,12 @@ async def reload_platform_config(
     user_agent = request.headers.get("user-agent", "")
     # 敏感字段脱敏
     _SENSITIVE_KEYS = {"password", "token", "secret", "api_key", "secret_key", "auth_key", "access_token"}
+
     def _sanitize(obj):
         if not isinstance(obj, dict):
             return obj
         return {k: "***" if any(s in k.lower() for s in _SENSITIVE_KEYS) else v for k, v in obj.items()}
+
     safe_config = _sanitize(req.config)
     try:
         svc = _get_service(handlers)
@@ -371,9 +387,13 @@ async def reload_platform_config(
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=result)
     except KeyError as e:
-        raise HTTPException(status_code=404, detail=PlatformErrors.CONNECT_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=404, detail=PlatformErrors.CONNECT_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=PlatformErrors.MISSING_CONFIG) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=PlatformErrors.MISSING_CONFIG
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("Failed to reload platform config: %s", e)
         try:
@@ -610,7 +630,9 @@ class MqttTestPublishRequest(BaseModel):
 async def export_platform_config(
     platform_name: Annotated[str, Path(max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")],
     handlers: PlatformHandlersDep,
-    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),  # FIXED(安全): 导出配置含敏感信息，权限从 SYSTEM_READ 提升到 SYSTEM_MANAGE（仅ADMIN），防止 VIEWER 获取凭据
+    user: dict[str, str] = Depends(
+        require_permission(Permission.SYSTEM_MANAGE)
+    ),  # FIXED(安全): 导出配置含敏感信息，权限从 SYSTEM_READ 提升到 SYSTEM_MANAGE（仅ADMIN），防止 VIEWER 获取凭据
 ):
     try:
         svc = _get_service(handlers)
@@ -633,7 +655,9 @@ async def import_platform_config(
         result = svc.import_config(platform_name, req.config_data)
         return ApiResponse(data=result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=PlatformErrors.MISSING_CONFIG) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=PlatformErrors.MISSING_CONFIG
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("Failed to import config: %s", e)
         raise HTTPException(status_code=500, detail=PlatformErrors.IMPORT_FAILED) from e
@@ -664,7 +688,9 @@ async def validate_advanced_template(
         result = svc.validate_advanced_template(req.template, req.template_type)
         return ApiResponse(data=result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=PlatformErrors.TEMPLATE_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=422, detail=PlatformErrors.TEMPLATE_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("Failed to validate advanced template: %s", e)
         raise HTTPException(status_code=500, detail=PlatformErrors.TEMPLATE_FAILED) from e
@@ -680,7 +706,9 @@ async def preview_template(
         result = svc.preview_template(req.template, req.test_data, req.template_type)
         return ApiResponse(data=result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=PlatformErrors.TEMPLATE_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=422, detail=PlatformErrors.TEMPLATE_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("Failed to preview template: %s", e)
         raise HTTPException(status_code=500, detail=PlatformErrors.TEMPLATE_FAILED) from e
@@ -696,7 +724,9 @@ async def validate_script(
         result = svc.validate_script(req.script)
         return ApiResponse(data=result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=PlatformErrors.TEMPLATE_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=422, detail=PlatformErrors.TEMPLATE_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("Failed to validate script: %s", e)
         raise HTTPException(status_code=500, detail=PlatformErrors.TEMPLATE_FAILED) from e
@@ -705,14 +735,18 @@ async def validate_script(
 @router.post("/test-script", response_model=ApiResponse)
 async def test_script(
     req: ScriptTestRequest,
-    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),  # FIXED(严重): 原为 SYSTEM_READ，viewer 可执行任意 JS 代码，提升为 SYSTEM_MANAGE 与 scripts.py 保持一致
+    user: dict[str, str] = Depends(
+        require_permission(Permission.SYSTEM_MANAGE)
+    ),  # FIXED(严重): 原为 SYSTEM_READ，viewer 可执行任意 JS 代码，提升为 SYSTEM_MANAGE 与 scripts.py 保持一致
 ):
     try:
         svc = PlatformService()
         result = await svc.test_script(req.script, req.test_payload, req.test_context)
         return ApiResponse(data=result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=PlatformErrors.TEMPLATE_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=422, detail=PlatformErrors.TEMPLATE_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("Failed to test script: %s", e)
         raise HTTPException(status_code=500, detail=PlatformErrors.TEMPLATE_FAILED) from e

@@ -70,9 +70,7 @@ class _FocasClient:
             self._reader.readexactly(_FOCAS_HEADER_SIZE),
             timeout=self._timeout,
         )
-        r_id, r_size, r_reqh, r_reql, r_resh, r_resl = struct.unpack(
-            _FOCAS_HEADER_FMT, resp_header
-        )
+        r_id, r_size, r_reqh, r_reql, r_resh, r_resl = struct.unpack(_FOCAS_HEADER_FMT, resp_header)
         result_code = (r_resh << 16) | r_resl
         if result_code != 0:
             raise RuntimeError(f"FOCAS错误: function=({r_reqh},{r_reql}) result={result_code}")
@@ -150,10 +148,12 @@ class _FocasClient:
         for i in range(min(len(body) - offset, max_alarms * alarm_size) // alarm_size):
             alm_no, alm_msg = struct.unpack_from("<h4s", body, offset + i * alarm_size)
             if alm_no != 0:
-                alarms.append({
-                    "number": alm_no,
-                    "message": alm_msg.decode("ascii", errors="replace").strip(),
-                })
+                alarms.append(
+                    {
+                        "number": alm_no,
+                        "message": alm_msg.decode("ascii", errors="replace").strip(),
+                    }
+                )
         return alarms
 
 
@@ -173,10 +173,35 @@ class FanucCncDriver(DriverPlugin):
     config_schema = {
         "description": "FANUC CNC FOCAS2 protocol (native socket, no fwlipy required)",
         "fields": [
-            {"name": "host", "type": "string", "label": "IP Address", "description": "CNC controller IP address", "default": "192.168.1.1", "required": True},
-            {"name": "port", "type": "integer", "label": "Port", "description": "FOCAS2 Ethernet port, default 8193", "default": 8193},
-            {"name": "timeout", "type": "integer", "label": "Timeout (s)", "description": "Connection and read timeout", "default": 5},
-            {"name": "max_axes", "type": "integer", "label": "Max Axes", "description": "Maximum number of axes to read", "default": 8},
+            {
+                "name": "host",
+                "type": "string",
+                "label": "IP Address",
+                "description": "CNC controller IP address",
+                "default": "192.168.1.1",
+                "required": True,
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "FOCAS2 Ethernet port, default 8193",
+                "default": 8193,
+            },
+            {
+                "name": "timeout",
+                "type": "integer",
+                "label": "Timeout (s)",
+                "description": "Connection and read timeout",
+                "default": 5,
+            },
+            {
+                "name": "max_axes",
+                "type": "integer",
+                "label": "Max Axes",
+                "description": "Maximum number of axes to read",
+                "default": 8,
+            },
         ],
     }
 

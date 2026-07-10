@@ -28,10 +28,8 @@
 from __future__ import annotations
 
 import asyncio
-import sqlite3
 import sys
 import threading
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -40,7 +38,6 @@ sys.path.insert(0, "src")
 
 from edgelite.engine.event_bus import DeviceStatusEvent
 from edgelite.engine.lifecycle import DeviceLifecycleManager
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Fixture
@@ -233,7 +230,6 @@ class TestPersistFailureRollback:
         await manager.on_device_online("dev1")
 
         # mock _persist_status 失败
-        original_persist = manager._persist_status
         manager._persist_status = AsyncMock(side_effect=Exception("DB write failed"))
 
         with pytest.raises(Exception, match="DB write failed"):
@@ -247,9 +243,9 @@ class TestPersistFailureRollback:
         await manager.on_device_online("dev1")
         event_bus.publish.reset_mock()
 
-        manager._persist_status = AsyncMock(side_effect=Exception("DB write failed"))
+        manager._persist_status = AsyncMock(side_effect=RuntimeError("DB write failed"))
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             await manager.on_device_offline("dev1")
 
         # 应发布 2 个事件: 正常事件 (已被 _transition_status 跳过) + 修正事件
@@ -266,9 +262,9 @@ class TestPersistFailureRollback:
         """回滚恢复正确的 old_status (从 unknown 回滚到 offline)"""
         # 设备初始为 offline (默认)
         # 尝试转为 unknown，但 persist 失败
-        manager._persist_status = AsyncMock(side_effect=Exception("fail"))
+        manager._persist_status = AsyncMock(side_effect=RuntimeError("fail"))
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             await manager.on_device_unknown("dev1")
 
         # 应回滚到 offline (初始状态)

@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 class RuleEvaluator:
     """规则评估器，订阅PointUpdateEvent评估规则"""
 
-    def __init__(self, event_bus: EventBus, rule_repo: RuleRepo, alarm_repo: AlarmRepo, ai_engine=None, device_repo=None):
+    def __init__(
+        self, event_bus: EventBus, rule_repo: RuleRepo, alarm_repo: AlarmRepo, ai_engine=None, device_repo=None
+    ):
         self._event_bus = event_bus
         self._rule_repo = rule_repo
         self._alarm_repo = alarm_repo
@@ -39,7 +41,9 @@ class RuleEvaluator:
         self._rule_cache: dict[str, list] = {}
         self._cache_time: float = 0.0
         self._cache_ttl: float = _RULE_CACHE_TTL
-        self._cache_generation: int = 0  # FIXED-BugR4X: 缓存世代标记，invalidate_cache递增，回填时校验以避免in-flight查询回填陈旧数据
+        self._cache_generation: int = (
+            0  # FIXED-BugR4X: 缓存世代标记，invalidate_cache递增，回填时校验以避免in-flight查询回填陈旧数据
+        )
         self._task: asyncio.Task | None = None
         self._point_value_cache: dict[str, tuple[float, float]] = {}
         self._point_cache_ttl: float = _POINT_VALUE_CACHE_TTL
@@ -50,7 +54,7 @@ class RuleEvaluator:
         self._min_firing_interval: float = 5.0  # 同一规则两次触发的最小间隔秒数
         self._last_values: dict[str, float] = {}  # 死区过滤: point_key -> last_value
         self._condition_first_met: dict[str, float] = {}  # 条件持续时间追踪: condition_key -> first_met_time
-        self._state_lock = asyncio.Lock()  # FIXED-P1: 共享状态并发保护（_duration_tracker/_rule_cache/_recent_firings/_last_values/_condition_first_met/_point_value_cache）
+        self._state_lock = asyncio.Lock()  # FIXED-P1: 共享状态并发保护（_duration_tracker/_rule_cache/_recent_firings/_last_values/_condition_first_met/_point_value_cache）  # noqa: E501
 
     # FIXED(一般): 原问题-同步版_get_device_name是死代码且实现有缺陷（同步上下文无法await）;
     # 修复-删除同步版，统一使用异步版_resolve_device_name
@@ -89,7 +93,7 @@ class RuleEvaluator:
 
             if cache_key in self._rule_cache:
                 return self._rule_cache[cache_key]
-            # FIXED-BugR4X: 原问题-invalidate_cache后已in-flight的DB查询结果会回填陈旧数据；修复-记录当前世代，回填时校验世代是否变化
+            # FIXED-BugR4X: 原问题-invalidate_cache后已in-flight的DB查询结果会回填陈旧数据；修复-记录当前世代，回填时校验世代是否变化  # noqa: E501
             generation = self._cache_generation
 
         try:
@@ -117,7 +121,9 @@ class RuleEvaluator:
         self._point_value_cache.clear()  # FIXED-P2: 清理point_value_cache
         logger.info("Rule evaluator stopped")  # FIXED-P3: 中文日志→英文
 
-    async def cleanup_duration_tracker(self, rule_id: str) -> None:  # FIXED-P1: 改为async加锁，_duration_tracker并发修改保护
+    async def cleanup_duration_tracker(
+        self, rule_id: str
+    ) -> None:  # FIXED-P1: 改为async加锁，_duration_tracker并发修改保护
         async with self._state_lock:
             keys_to_remove = [k for k in self._duration_tracker if k[0] == rule_id]
             for k in keys_to_remove:
@@ -128,9 +134,11 @@ class RuleEvaluator:
             for k in cond_keys_to_remove:
                 del self._condition_first_met[k]
 
-    async def invalidate_cache(self, device_id: str | None = None, point_name: str | None = None) -> None:  # FIXED-P1: 改为async加锁，_rule_cache并发修改保护
+    async def invalidate_cache(
+        self, device_id: str | None = None, point_name: str | None = None
+    ) -> None:  # FIXED-P1: 改为async加锁，_rule_cache并发修改保护
         async with self._state_lock:
-            # FIXED-BugR4X: 原问题-invalidate_cache后已in-flight的DB查询结果会回填陈旧数据；修复-递增缓存世代，使回填时校验失败而丢弃
+            # FIXED-BugR4X: 原问题-invalidate_cache后已in-flight的DB查询结果会回填陈旧数据；修复-递增缓存世代，使回填时校验失败而丢弃  # noqa: E501
             self._cache_generation += 1
             if device_id and point_name:
                 cache_key = f"{device_id}:{point_name}"
@@ -199,7 +207,8 @@ class RuleEvaluator:
         except TimeoutError:
             logger.warning(
                 "[evaluator] code=EVAL_TIMEOUT msg=Rule evaluation timed out after 5.0s for device=%s point=%s",
-                event.device_id, event.point_name,
+                event.device_id,
+                event.point_name,
             )
 
     async def _evaluate_inner(self, event: PointUpdateEvent) -> None:
@@ -214,7 +223,9 @@ class RuleEvaluator:
             try:
                 await self._evaluate_rule(rule, event)
             except Exception as e:
-                logger.error("Rule eval failed: %s - %s", rule.get("rule_id", "?"), e)  # FIXED: 原问题-rule["rule_id"]硬访问
+                logger.error(
+                    "Rule eval failed: %s - %s", rule.get("rule_id", "?"), e
+                )  # FIXED: 原问题-rule["rule_id"]硬访问
 
     async def _evaluate_rule(self, rule: dict, event: PointUpdateEvent) -> None:
         """评估单条规则"""
@@ -228,7 +239,9 @@ class RuleEvaluator:
         script = rule.get("script", "")
 
         if not rule_id or not device_id or not conditions:
-            logger.warning("Incomplete rule data, skipping: rule_id=%s, device_id=%s", rule_id, device_id)  # FIXED-P3: 中文日志→英文
+            logger.warning(
+                "Incomplete rule data, skipping: rule_id=%s, device_id=%s", rule_id, device_id
+            )  # FIXED-P3: 中文日志→英文
             return
 
         now = time.time()
@@ -238,10 +251,7 @@ class RuleEvaluator:
         async with self._state_lock:  # FIXED-P1: _point_value_cache并发修改保护
             self._point_value_cache[cache_key] = (event.value, now)
             if len(self._point_value_cache) > self._point_cache_max_size:
-                expired_keys = [
-                    k for k, (_, t) in self._point_value_cache.items()
-                    if (now - t) > self._point_cache_ttl
-                ]
+                expired_keys = [k for k, (_, t) in self._point_value_cache.items() if (now - t) > self._point_cache_ttl]
                 for k in expired_keys:
                     del self._point_value_cache[k]
                 if len(self._point_value_cache) > self._point_cache_max_size:
@@ -325,13 +335,19 @@ class RuleEvaluator:
             if firing_alarm:
                 alarm_id = firing_alarm.get("alarm_id")  # FIXED: 原问题-硬访问alarm_id可能KeyError
                 if alarm_id is None:
-                    logger.warning("Firing alarm missing alarm_id, skip recovery: %s", firing_alarm)  # FIXED-P3: 中文日志→英文
+                    logger.warning(
+                        "Firing alarm missing alarm_id, skip recovery: %s", firing_alarm
+                    )  # FIXED-P3: 中文日志→英文
                     return
                 await self._recover_alarm(alarm_id, rule)
 
     async def _check_conditions(
-        self, conditions: list[dict], point_values: dict[str, float], logic: str,
-        device_id: str = "", rule_id: str = "",
+        self,
+        conditions: list[dict],
+        point_values: dict[str, float],
+        logic: str,
+        device_id: str = "",
+        rule_id: str = "",
     ) -> bool:
         """检查条件组合
 
@@ -352,7 +368,11 @@ class RuleEvaluator:
                     all_available = False
                     break
                 # AI推理/死区/持续时间条件需要异步处理，跳过Cython快速路径
-                if cond.get("source") == "ai_inference" or cond.get("dead_zone", 0) > 0 or cond.get("duration_seconds", 0) > 0:
+                if (
+                    cond.get("source") == "ai_inference"
+                    or cond.get("dead_zone", 0) > 0
+                    or cond.get("duration_seconds", 0) > 0
+                ):
                     all_available = False
                     break
                 value = point_values.get(point)
@@ -396,9 +416,7 @@ class RuleEvaluator:
                 value = ai_result.get(cond.get("field", "anomaly_score"), 0)
             # 窗口聚合条件：从流计算引擎或InfluxDB获取聚合值
             elif window_seconds > 0 and aggregate and device_id:
-                value = await self._get_window_aggregate(
-                    device_id, point, window_seconds, aggregate
-                )
+                value = await self._get_window_aggregate(device_id, point, window_seconds, aggregate)
                 if value is None:
                     results.append(False)
                     continue
@@ -415,7 +433,7 @@ class RuleEvaluator:
                 point_key = f"{device_id}:{point}"
                 async with self._state_lock:  # FIXED-P1: _last_values并发读写保护
                     last_value = self._last_values.get(point_key)
-                    # FIXED-BugR4X: 原问题-死区内results.append(False)并continue，导致稳定超限值(如温度持续105°C阈值100°C死区5)第二次评估差值0<5被误判为条件不满足；修复-死区内只跳过last_value更新，仍正常评估条件
+                    # FIXED-BugR4X: 原问题-死区内results.append(False)并continue，导致稳定超限值(如温度持续105°C阈值100°C死区5)第二次评估差值0<5被误判为条件不满足；修复-死区内只跳过last_value更新，仍正常评估条件  # noqa: E501
                     if last_value is None or abs(value - last_value) >= dead_zone:
                         self._last_values[point_key] = value
 
@@ -425,7 +443,7 @@ class RuleEvaluator:
             if result:
                 duration_seconds = cond.get("duration_seconds", 0)
                 if duration_seconds > 0 and rule_id:
-                    condition_key = f"{rule_id}:{point}:{operator}:{threshold}"  # FIXED-BugR4X: 原问题-用下标i作key，条件顺序变更后防抖状态错乱；修复-改用point:operator:threshold作key
+                    condition_key = f"{rule_id}:{point}:{operator}:{threshold}"  # FIXED-BugR4X: 原问题-用下标i作key，条件顺序变更后防抖状态错乱；修复-改用point:operator:threshold作key  # noqa: E501
                     async with self._state_lock:  # FIXED-P1: _condition_first_met并发修改保护
                         first_met = self._condition_first_met.get(condition_key)
                         if first_met is None:
@@ -434,7 +452,7 @@ class RuleEvaluator:
                         elif time.monotonic() - first_met < duration_seconds:
                             result = False
             elif rule_id:
-                condition_key = f"{rule_id}:{point}:{operator}:{threshold}"  # FIXED-BugR4X: 原问题-用下标i作key，条件顺序变更后防抖状态错乱；修复-改用point:operator:threshold作key
+                condition_key = f"{rule_id}:{point}:{operator}:{threshold}"  # FIXED-BugR4X: 原问题-用下标i作key，条件顺序变更后防抖状态错乱；修复-改用point:operator:threshold作key  # noqa: E501
                 async with self._state_lock:  # FIXED-P1: _condition_first_met并发修改保护
                     self._condition_first_met.pop(condition_key, None)
 
@@ -452,7 +470,11 @@ class RuleEvaluator:
             return any(results)
 
     async def _evaluate_ai_conditions(
-        self, conditions: list[dict], point_values: dict[str, float], logic: str, device_id: str,
+        self,
+        conditions: list[dict],
+        point_values: dict[str, float],
+        logic: str,
+        device_id: str,
     ) -> bool:
         """评估AI推理条件"""
         if not self._ai_engine:
@@ -543,7 +565,11 @@ class RuleEvaluator:
         return False
 
     async def _get_window_aggregate(
-        self, device_id: str, point_name: str, window_seconds: int, aggregate: str,
+        self,
+        device_id: str,
+        point_name: str,
+        window_seconds: int,
+        aggregate: str,
     ) -> float | None:
         """获取窗口聚合值（优先从流计算引擎缓存，回退到InfluxDB）
 
@@ -559,6 +585,7 @@ class RuleEvaluator:
         # 优先从流计算引擎获取缓存结果
         try:
             from edgelite.engine.stream_compute import get_stream_engine
+
             engine = get_stream_engine()
             result = engine.get_window_result(device_id, point_name, window_seconds, aggregate)
             if result is not None:
@@ -570,6 +597,7 @@ class RuleEvaluator:
         # 回退到InfluxDB查询
         try:
             from edgelite.app import _app_state
+
             if _app_state.influx_storage:
                 data = await _app_state.influx_storage.query_points(
                     device_id=device_id,
@@ -585,7 +613,9 @@ class RuleEvaluator:
         except Exception as e:
             logger.debug(
                 "Failed to get window aggregate from InfluxDB %s.%s: %s",
-                device_id, point_name, e,
+                device_id,
+                point_name,
+                e,
             )
 
         return None
@@ -624,7 +654,9 @@ class RuleEvaluator:
         severity = rule.get("severity", "warning")
 
         if not rule_id or not device_id:
-            logger.warning("Alarm fire failed: incomplete rule data rule_id=%s, device_id=%s", rule_id, device_id)  # FIXED-P3: 中文日志→英文
+            logger.warning(
+                "Alarm fire failed: incomplete rule data rule_id=%s, device_id=%s", rule_id, device_id
+            )  # FIXED-P3: 中文日志→英文
             return
 
         # FIXED-P0: 规则循环触发保护，同一规则在最小间隔内不重复触发
@@ -647,7 +679,9 @@ class RuleEvaluator:
                 existing_alarm_id = existing.get("alarm_id")
                 if existing_alarm_id:
                     await self._alarm_repo.update_trigger_count(existing_alarm_id, trigger_value)
-                    logger.debug("Alarm dedup: %s already has firing alarm, updating trigger count", rule_id)  # FIXED-P3: 中文日志→英文
+                    logger.debug(
+                        "Alarm dedup: %s already has firing alarm, updating trigger count", rule_id
+                    )  # FIXED-P3: 中文日志→英文
                 return
 
             alarm = await self._alarm_repo.create(
@@ -704,9 +738,7 @@ class RuleEvaluator:
         try:
             await self._event_bus.publish(alarm_event)
         except asyncio.CancelledError:
-            logger.warning(
-                "Evaluator cancelled after alarm %s created, shielded publish attempt", alarm_id
-            )
+            logger.warning("Evaluator cancelled after alarm %s created, shielded publish attempt", alarm_id)
             # FIXED(严重): 原问题-contextlib.suppress(Exception) 吞掉所有异常，
             # shield 内 publish 失败时形成孤儿告警（DB 有记录但无通知/无升级/无统计）
             # 修复：记录错误日志便于后续补偿，不再静默吞没
@@ -716,7 +748,9 @@ class RuleEvaluator:
                 logger.error(
                     "Shielded publish also failed for alarm %s, orphan alarm risk "
                     "(manual intervention may be required): %s",
-                    alarm_id, shield_err, exc_info=True,
+                    alarm_id,
+                    shield_err,
+                    exc_info=True,
                 )
             raise
         logger.info(

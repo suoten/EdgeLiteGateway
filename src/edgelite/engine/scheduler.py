@@ -76,6 +76,7 @@ class _ConcurrencyGate:
 
 class DevicePriority(enum.Enum):
     """Device collection priority levels"""
+
     P0 = 0  # Emergency: interval halved
     P1 = 1  # High: interval reduced by 25%
     P2 = 2  # Normal: default
@@ -163,13 +164,20 @@ class CollectScheduler:
 
         try:
             from edgelite.config import get_config
+
             cfg = get_config()
             sc = getattr(cfg, "scheduler", None)
         except Exception:
             sc = None
 
-        self._max_concurrent_collects = getattr(sc, "max_concurrent_collects", self._DEFAULT_MAX_CONCURRENT) if sc else self._DEFAULT_MAX_CONCURRENT
-        self._error_rate_threshold = getattr(sc, "error_rate_threshold", self._DEFAULT_ERROR_RATE_THRESHOLD) if sc else self._DEFAULT_ERROR_RATE_THRESHOLD
+        self._max_concurrent_collects = (
+            getattr(sc, "max_concurrent_collects", self._DEFAULT_MAX_CONCURRENT) if sc else self._DEFAULT_MAX_CONCURRENT
+        )
+        self._error_rate_threshold = (
+            getattr(sc, "error_rate_threshold", self._DEFAULT_ERROR_RATE_THRESHOLD)
+            if sc
+            else self._DEFAULT_ERROR_RATE_THRESHOLD
+        )
         self._WATCHDOG_INTERVAL = getattr(sc, "watchdog_interval", 30) if sc else 30
         self._WATCHDOG_STALE_CYCLES = getattr(sc, "watchdog_stale_cycles", 3) if sc else 3
         self._WATCHDOG_RESTART_CYCLES = getattr(sc, "watchdog_restart_cycles", 10) if sc else 10
@@ -179,6 +187,7 @@ class CollectScheduler:
         self._priority_semaphores: dict[DevicePriority, _ConcurrencyGate] = {}
 
         from edgelite.engine.circuit_breaker import get_circuit_breaker_manager
+
         self._circuit_breaker_manager = get_circuit_breaker_manager()
 
     async def start_collect(
@@ -259,7 +268,11 @@ class CollectScheduler:
             raise
         logger.info(
             "Collection task started: %s (interval=%ds, effective=%ds, priority=%s, points=%d)",
-            device_id, collect_interval, effective_interval, parsed_priority.name, len(points),
+            device_id,
+            collect_interval,
+            effective_interval,
+            parsed_priority.name,
+            len(points),
         )
 
     async def stop_collect(self, device_id: str) -> None:
@@ -371,12 +384,15 @@ class CollectScheduler:
             except Exception as migrate_e:
                 logger.warning(
                     "信号量迁移: 唤醒旧信号量等待者失败 (priority=%s): %s",
-                    p.name, migrate_e,
+                    p.name,
+                    migrate_e,
                 )
         # S-05 FIX: 记录信号量重建事件日志
         logger.info(
             "优先级信号量重建完成: old_max=%d, new_max=%d, 已迁移 %d 个旧信号量",
-            old_max, new_max, len(old_semaphores),
+            old_max,
+            new_max,
+            len(old_semaphores),
         )
 
     def set_error_rate_threshold(self, threshold: float) -> None:
@@ -426,8 +442,7 @@ class CollectScheduler:
             device_ids_to_stop = [
                 device_id
                 for device_id, info in self._device_info.items()
-                if info[0].plugin_name == protocol
-                or protocol in getattr(info[0], "supported_protocols", [])
+                if info[0].plugin_name == protocol or protocol in getattr(info[0], "supported_protocols", [])
             ]
         for device_id in device_ids_to_stop:
             await self.stop_collect(device_id)
@@ -440,7 +455,9 @@ class CollectScheduler:
             return True
         return False
 
-    async def calculate_quality_score(self, device_id: str) -> dict[str, Any]:  # FIXED-P1: 改为async加锁保护共享状态读取
+    async def calculate_quality_score(
+        self, device_id: str
+    ) -> dict[str, Any]:  # FIXED-P1: 改为async加锁保护共享状态读取
         """计算设备数据质量评分
 
         评分维度:
@@ -526,7 +543,9 @@ class CollectScheduler:
                         # S-06 FIX: gate 可能在使用期间被替换导致引用失效，捕获异常并重新获取当前 gate
                         logger.warning(
                             "gate acquire 异常 %s (priority=%s): %s, 尝试重新获取当前 gate",
-                            device_id, priority.name, gate_e,
+                            device_id,
+                            priority.name,
+                            gate_e,
                         )
                         async with self._state_lock:
                             gate = self._priority_semaphores.get(priority) or self._concurrency_gate
@@ -542,13 +561,15 @@ class CollectScheduler:
                             # S-06 FIX: 记录 gate 切换事件日志
                             logger.info(
                                 "gate 切换 %s (priority=%s): 旧 gate 已被替换，迁移到新 gate",
-                                device_id, priority.name,
+                                device_id,
+                                priority.name,
                             )
                             await gate.release()
                             gate = current_gate
                             if gate:
                                 await gate.acquire()
                 try:
+
                     async def _read_with_timeout():
                         return await asyncio.wait_for(
                             driver.read_points(device_id, point_names),
@@ -607,7 +628,9 @@ class CollectScheduler:
                             quality = "good"
                         pt_def = point_defs_map.get(point_name, {})
 
-                        async with self._state_lock:  # FIXED-P2: _last_values读取+写入在同一锁临界区，消除跳变检测竞态窗口
+                        async with (
+                            self._state_lock
+                        ):  # FIXED-P2: _last_values读取+写入在同一锁临界区，消除跳变检测竞态窗口
                             last_vals = self._last_values.setdefault(device_id, {})
                             last_v = last_vals.get(point_name)
                             if isinstance(v, (int, float)):
@@ -618,7 +641,11 @@ class CollectScheduler:
                                 quality = "suspect"
                                 logger.warning(
                                     "Data jump %s.%s: %.6f -> %.6f (threshold=%.4f)",
-                                    device_id, point_name, last_v, v, jump_threshold,
+                                    device_id,
+                                    point_name,
+                                    last_v,
+                                    v,
+                                    jump_threshold,
                                 )
 
                         min_value = pt_def.get("min_value")
@@ -628,13 +655,15 @@ class CollectScheduler:
                                 quality = "out_of_range"
                                 logger.warning(
                                     "Data out of range %s.%s: %.6f (range=[%.4f, %.4f])",
-                                    device_id, point_name, v, min_value, max_value,
+                                    device_id,
+                                    point_name,
+                                    v,
+                                    min_value,
+                                    max_value,
                                 )
 
                         if self._preprocessor:
-                            processed_value, should_report = self._preprocessor.process(
-                                f"{device_id}.{point_name}", v
-                            )
+                            processed_value, should_report = self._preprocessor.process(f"{device_id}.{point_name}", v)
                             if not should_report:
                                 continue
                             if processed_value is not None:
@@ -681,7 +710,9 @@ class CollectScheduler:
                             except Exception as cache_e:
                                 logger.error(
                                     "add_to_cache failed for %s/%s: %s",
-                                    dev_id, pt_name, cache_e,
+                                    dev_id,
+                                    pt_name,
+                                    cache_e,
                                 )
 
                     await self._run_ai_inference(device_id, values)
@@ -706,7 +737,9 @@ class CollectScheduler:
                         except Exception as publish_e:
                             logger.warning(
                                 "publish failed (queue full?) for %s.%s: %s",
-                                device_id, point_name, publish_e,
+                                device_id,
+                                point_name,
+                                publish_e,
                             )
                             break
                 else:
@@ -721,7 +754,8 @@ class CollectScheduler:
                     except Exception as publish_e:
                         logger.warning(
                             "publish failed (queue full?) for %s.__summary__: %s",
-                            device_id, publish_e,
+                            device_id,
+                            publish_e,
                         )
 
             except asyncio.CancelledError:
@@ -743,7 +777,9 @@ class CollectScheduler:
                     except Exception as publish_e:
                         logger.warning(
                             "publish failed (queue full?) for %s.%s: %s",
-                            device_id, point_name, publish_e,
+                            device_id,
+                            point_name,
+                            publish_e,
                         )
                         break
 
@@ -795,17 +831,22 @@ class CollectScheduler:
         if should_alarm:
             logger.warning(
                 "设备帧错误率超阈值: %s (%.1f%% > %.1f%%)",
-                device_id, alarm_error_rate * 100, self._error_rate_threshold * 100,
+                device_id,
+                alarm_error_rate * 100,
+                self._error_rate_threshold * 100,
             )
             try:
                 from edgelite.app import _app_state
+
                 if _app_state.event_bus:
                     from edgelite.engine.event_bus import DeviceStatusEvent
+
                     event = DeviceStatusEvent(
                         device_id=device_id,
                         old_status="healthy",
                         new_status="degraded",
                     )
+
                     # FIXED(一般): 原问题-lambda吞没异常，t.exception()仅返回不记录;
                     # 修复-改为命名函数记录日志
                     def _on_evt_done(t: asyncio.Task) -> None:
@@ -859,7 +900,9 @@ class CollectScheduler:
                 if new_interval != current_interval:
                     logger.info(
                         "Adaptive interval: %s speed up %ds -> %ds (3+ consecutive successes)",
-                        device_id, current_interval, new_interval,
+                        device_id,
+                        current_interval,
+                        new_interval,
                     )
                     state["effective_interval"] = new_interval
                 state["consecutive_successes"] = 0
@@ -870,7 +913,9 @@ class CollectScheduler:
                 if new_interval != current_interval:
                     logger.info(
                         "Adaptive interval: %s slow down %ds -> %ds (3+ consecutive failures)",
-                        device_id, current_interval, new_interval,
+                        device_id,
+                        current_interval,
+                        new_interval,
                     )
                     state["effective_interval"] = new_interval
                 state["consecutive_failures"] = 0
@@ -878,7 +923,9 @@ class CollectScheduler:
             elif state["consecutive_successes"] > 0 and current_interval > priority_base:
                 logger.info(
                     "Adaptive interval: %s reset to base %ds -> %ds (recovered)",
-                    device_id, current_interval, priority_base,
+                    device_id,
+                    current_interval,
+                    priority_base,
                 )
                 state["effective_interval"] = priority_base
 
@@ -906,7 +953,9 @@ class CollectScheduler:
                     if stale_cycles >= self._WATCHDOG_RESTART_CYCLES:
                         logger.warning(
                             "Watchdog: %s no data for %d cycles (%.0fs), restarting collection task",
-                            device_id, self._WATCHDOG_RESTART_CYCLES, elapsed,
+                            device_id,
+                            self._WATCHDOG_RESTART_CYCLES,
+                            elapsed,
                         )
                         old_task = task_map.get(device_id)
                         if old_task and not old_task.done():
@@ -946,7 +995,9 @@ class CollectScheduler:
                     elif stale_cycles >= self._WATCHDOG_STALE_CYCLES:
                         logger.warning(
                             "Watchdog: %s marked stale (%.0fs / %d cycles)",
-                            device_id, elapsed, self._WATCHDOG_STALE_CYCLES,
+                            device_id,
+                            elapsed,
+                            self._WATCHDOG_STALE_CYCLES,
                         )
             except asyncio.CancelledError:
                 raise
@@ -1016,13 +1067,15 @@ class CollectScheduler:
             else:
                 timestamp = datetime.now(UTC)
 
-            batch.append({
-                "device_id": device_id,
-                "point_name": point_name,
-                "value": value,
-                "timestamp": timestamp,
-                "quality": tags.get("quality", "unknown"),
-            })
+            batch.append(
+                {
+                    "device_id": device_id,
+                    "point_name": point_name,
+                    "value": value,
+                    "timestamp": timestamp,
+                    "quality": tags.get("quality", "unknown"),
+                }
+            )
             rec_index.append((rec.get("_id"), rec.get("sqlite_id")))
 
         if not batch:
@@ -1069,13 +1122,15 @@ class CollectScheduler:
             else:
                 timestamp = datetime.now(UTC)
 
-            batch.append({
-                "device_id": device_id,
-                "point_name": point_name,
-                "value": value,
-                "timestamp": timestamp,
-                "quality": tags.get("quality", "unknown"),
-            })
+            batch.append(
+                {
+                    "device_id": device_id,
+                    "point_name": point_name,
+                    "value": value,
+                    "timestamp": timestamp,
+                    "quality": tags.get("quality", "unknown"),
+                }
+            )
             rec_id = rec.get("id")
             if rec_id is not None:
                 rec_ids.append(rec_id)
@@ -1127,17 +1182,11 @@ class CollectScheduler:
                 self._last_ai_inference_time[device_id] = now
 
             loaded_models = ai_engine.get_loaded_models()
-            active_models = [
-                (mid, mw) for mid, mw in loaded_models.items()
-                if mw.status == "active"
-            ]
+            active_models = [(mid, mw) for mid, mw in loaded_models.items() if mw.status == "active"]
             if not active_models:
                 return
 
-            input_data = [
-                v for v in values.values()
-                if isinstance(v, (int, float)) and not isinstance(v, bool)
-            ]
+            input_data = [v for v in values.values() if isinstance(v, (int, float)) and not isinstance(v, bool)]
             if not input_data:
                 return
 
@@ -1153,15 +1202,25 @@ class CollectScheduler:
                         output_data = result.get("output_data", {})
                         latency_ms = result.get("latency_ms", 0)
                         await self._publish_ai_virtual_points(
-                            model_id, model_wrapper.model_name, device_id, output_data, latency_ms,
+                            model_id,
+                            model_wrapper.model_name,
+                            device_id,
+                            output_data,
+                            latency_ms,
                         )
                         await self._check_ai_anomaly(
-                            model_id, model_wrapper.model_name, device_id, output_data, latency_ms,
+                            model_id,
+                            model_wrapper.model_name,
+                            device_id,
+                            output_data,
+                            latency_ms,
                         )
                 except Exception as e:
                     logger.error(
                         "AI inference failed for model %s on device %s: %s",
-                        model_id, device_id, e,
+                        model_id,
+                        device_id,
+                        e,
                     )
         except Exception as e:
             logger.error("AI inference scheduler error for device %s: %s", device_id, e)
@@ -1181,11 +1240,7 @@ class CollectScheduler:
         for _output_key, output_value in output_data.items():
             point_value = None
             if isinstance(output_value, list) and len(output_value) > 0:
-                point_value = (
-                    float(output_value[0])
-                    if isinstance(output_value[0], (int, float))
-                    else 0.0
-                )
+                point_value = float(output_value[0]) if isinstance(output_value[0], (int, float)) else 0.0
             elif isinstance(output_value, (int, float)):
                 point_value = float(output_value)
             else:
@@ -1239,11 +1294,7 @@ class CollectScheduler:
             if alarm_service is None:
                 return
 
-            severity = (
-                "critical" if anomaly_score > 0.95
-                else "major" if anomaly_score > 0.85
-                else "minor"
-            )
+            severity = "critical" if anomaly_score > 0.95 else "major" if anomaly_score > 0.85 else "minor"
             await alarm_service.trigger_alarm(
                 rule_id=f"ai_anomaly_{model_id}",
                 rule_name=f"AI Anomaly: {model_name}",
@@ -1251,8 +1302,7 @@ class CollectScheduler:
                 device_name=device_id,
                 severity=severity,
                 message=(
-                    f"AI model {model_name} detected anomaly on device {device_id}, "
-                    f"anomaly score: {anomaly_score:.4f}"
+                    f"AI model {model_name} detected anomaly on device {device_id}, anomaly score: {anomaly_score:.4f}"
                 ),
                 trigger_value={
                     "model_id": model_id,
@@ -1264,7 +1314,10 @@ class CollectScheduler:
             )
             logger.warning(
                 "AI anomaly alarm triggered: model=%s, device=%s, score=%.4f, severity=%s",
-                model_id, device_id, anomaly_score, severity,
+                model_id,
+                device_id,
+                anomaly_score,
+                severity,
             )
         except Exception as e:
             logger.error("AI anomaly alarm check failed: %s", e)

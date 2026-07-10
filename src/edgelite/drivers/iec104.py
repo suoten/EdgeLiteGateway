@@ -68,7 +68,7 @@ def _cp56time2a_to_datetime(data: bytes, offset: int) -> datetime:
     hour = data[offset + 3] & 0x1F
     _res3 = (data[offset + 3] >> 5) & 0x07  # 保留
     day = data[offset + 4] & 0x1F
-    day_with_dow = (data[offset + 4] >> 5) & 0x07  # bit7-5 星期 (1=周一...7=周日)
+    (data[offset + 4] >> 5) & 0x07  # bit7-5 星期 (1=周一...7=周日)
     month = data[offset + 5] & 0x0F
     year = data[offset + 6] & 0x7F
     year += 2000 if year < 70 else 1900
@@ -88,10 +88,42 @@ class Iec104Driver(DriverPlugin):
     config_schema = {
         "description": "IEC 60870-5-104 telecontrol protocol for communication with power SCADA systems",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP Address", "description": "SCADA or protection device IP address", "default": "127.0.0.1", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "port", "type": "integer", "label": "Port", "description": "IEC 104 default port 2404", "default": 2404},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "asdu_addr", "type": "integer", "label": "ASDU Address", "description": "ASDU common address", "default": 1},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "heartbeat_interval", "type": "number", "label": "Heartbeat Interval (s)", "description": "T3 timeout, heartbeat send interval", "default": 30.0},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "host",
+                "type": "string",
+                "label": "IP Address",
+                "description": "SCADA or protection device IP address",
+                "default": "127.0.0.1",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "IEC 104 default port 2404",
+                "default": 2404,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "asdu_addr",
+                "type": "integer",
+                "label": "ASDU Address",
+                "description": "ASDU common address",
+                "default": 1,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "heartbeat_interval",
+                "type": "number",
+                "label": "Heartbeat Interval (s)",
+                "description": "T3 timeout, heartbeat send interval",
+                "default": 30.0,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "testfr_max_retries",
+                "type": "integer",
+                "label": "TESTFR Max Retries",
+                "description": "Max TESTFR retry attempts before disconnect (T1 timeout)",
+                "default": 3,
+            },
         ],
     }
 
@@ -121,16 +153,23 @@ class Iec104Driver(DriverPlugin):
         self._reconnect_delay: float = 1.0
         self._max_reconnect_delay: float = 60.0
         self._testfr_sent: bool = False
+        self._testfr_retry_count: int = 0
+        self._testfr_max_retries: int = 3
+        self._testfr_sent_time: float = 0.0
         self._last_received_ssn: int = 0
         self._s_frame_needed: bool = False
         self._connected: bool = False
         self._startdt_confirmed: bool = False
         self._startdt_event: asyncio.Event = asyncio.Event()  # FIXED: P1-2 STARTDT握手超时等待事件
         self._sbo_select_timeout: float = 10.0
-        self._sbo_execute_timeout: float = 15.0  # FIXED: P1-2 原_sbo_execute_timeout未定义，execute超时复用select超时参数
+        self._sbo_execute_timeout: float = (
+            15.0  # FIXED: P1-2 原_sbo_execute_timeout未定义，execute超时复用select超时参数
+        )
         self._sbo_selected_ioa: int | None = None
         self._sbo_select_event: asyncio.Event = asyncio.Event()
         self._sbo_execute_event: asyncio.Event = asyncio.Event()
+        self._sbo_select_result: bool | None = None
+        self._sbo_execute_result: bool | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
         self._devices: dict[str, dict] = {}
 
@@ -142,7 +181,7 @@ class Iec104Driver(DriverPlugin):
         iec_cfg = config.get("iec104", config)
         self._host = config.get("host", self._host)
         self._port = config.get("port", iec_cfg.get("default_port", 2404))
-        
+
         # FIXED: P2-1 ASDU地址校验，1字节范围1-254，2字节范围1-65534
         raw_asdu_addr = config.get("asdu_addr", iec_cfg.get("asdu_addr", 1))
         asdu_addr_len = iec_cfg.get("asdu_addr_length", 2)
@@ -150,13 +189,14 @@ class Iec104Driver(DriverPlugin):
             self._asdu_addr = max(1, min(254, int(raw_asdu_addr)))
         else:
             self._asdu_addr = max(1, min(65534, int(raw_asdu_addr)))
-        
+
         self._asdu_addr_length = asdu_addr_len
         self._cause_of_tx_length = iec_cfg.get("cause_of_tx_length", 2)
         self._heartbeat_interval = iec_cfg.get("heartbeat_interval", 30.0)
         self._t1_timeout = iec_cfg.get("t1_timeout", 15.0)
         self._t2_timeout = iec_cfg.get("t2_timeout", 10.0)
         self._t3_timeout = iec_cfg.get("t3_timeout", 20.0)
+        self._testfr_max_retries = iec_cfg.get("testfr_max_retries", 3)
         self._clock_sync = iec_cfg.get("clock_sync", True)
         self._device_id = config.get("device_id", "")
         self._event_bus = config.get("event_bus")
@@ -278,9 +318,7 @@ class Iec104Driver(DriverPlugin):
         length = len(payload)
         return struct.pack("=BB", START_BYTE, length) + payload
 
-    def _build_asdu_header(
-        self, ti: int, sq: int, num_obj: int, cot: int, oa: int, asdu_addr: int
-    ) -> bytes:
+    def _build_asdu_header(self, ti: int, sq: int, num_obj: int, cot: int, oa: int, asdu_addr: int) -> bytes:
         header = struct.pack("BBB", ti, (sq << 7) | (num_obj & 0x7F), cot & 0x3F)
         if self._cause_of_tx_length == 2:
             header += struct.pack("B", (cot >> 8) & 0x03)
@@ -323,8 +361,9 @@ class Iec104Driver(DriverPlugin):
     async def _send_testfr(self) -> None:
         frame = self._build_u_frame(U_FRAME_TESTFR_ACT)
         self._testfr_sent = True
+        self._testfr_sent_time = asyncio.get_running_loop().time()
         await self._send_frame(frame)
-        logger.debug("发送TESTFR ACT")
+        logger.debug("发送TESTFR ACT (retry_count=%d)", self._testfr_retry_count)
 
     async def _send_s_frame(self) -> None:
         frame = self._build_s_frame()
@@ -402,10 +441,11 @@ class Iec104Driver(DriverPlugin):
         frame = self._build_i_frame(asdu)
         self._sbo_select_event.clear()
         self._sbo_selected_ioa = ioa
+        self._sbo_select_result = None  # FIXED-P1: 重置选择结果
         await self._send_frame(frame)
         try:
             await asyncio.wait_for(self._sbo_select_event.wait(), timeout=self._sbo_select_timeout)
-            return True
+            return self._sbo_select_result is True  # FIXED-P1: 返回实际确认结果
         except TimeoutError:
             logger.warning("SBO选择超时: IOA=%d", ioa)
             self._sbo_selected_ioa = None
@@ -432,10 +472,11 @@ class Iec104Driver(DriverPlugin):
         asdu = asdu_header + ioa_bytes + ioc
         frame = self._build_i_frame(asdu)
         self._sbo_execute_event.clear()
+        self._sbo_execute_result = None  # FIXED-P1: 重置执行结果
         await self._send_frame(frame)
         try:
             await asyncio.wait_for(self._sbo_execute_event.wait(), timeout=self._sbo_execute_timeout)
-            return True
+            return self._sbo_execute_result is True  # FIXED-P1: 返回实际确认结果
         except TimeoutError:
             logger.warning("SBO execute timeout: IOA=%d", ioa)
             return False
@@ -513,14 +554,14 @@ class Iec104Driver(DriverPlugin):
         if ti == TI_M_SP_NA:
             siq = data[offset]
             value = siq & 0x01
-            quality = self._decode_quality(siq >> 1)
+            quality = self._decode_quality(siq & 0xFE)
             result.update(value=value, quality=quality, data_type="bool")
             result["_next_offset"] = offset + 1
 
         elif ti == TI_M_SP_TB:
             siq = data[offset]
             value = siq & 0x01
-            quality = self._decode_quality(siq >> 1)
+            quality = self._decode_quality(siq & 0xFE)
             ts = _cp56time2a_to_datetime(data, offset + 1)
             result.update(value=value, quality=quality, timestamp=ts.isoformat(), data_type="bool")
             result["_next_offset"] = offset + 8
@@ -528,14 +569,14 @@ class Iec104Driver(DriverPlugin):
         elif ti == TI_M_DP_NA:
             diq = data[offset]
             value = diq & 0x03
-            quality = self._decode_quality(diq >> 2)
+            quality = self._decode_quality((diq & 0xFC) >> 1)
             result.update(value=value, quality=quality, data_type="int")
             result["_next_offset"] = offset + 1
 
         elif ti == TI_M_DP_TB:
             diq = data[offset]
             value = diq & 0x03
-            quality = self._decode_quality(diq >> 2)
+            quality = self._decode_quality((diq & 0xFC) >> 1)
             ts = _cp56time2a_to_datetime(data, offset + 1)
             result.update(value=value, quality=quality, timestamp=ts.isoformat(), data_type="int")
             result["_next_offset"] = offset + 8
@@ -544,28 +585,28 @@ class Iec104Driver(DriverPlugin):
             nva = struct.unpack_from("<h", data, offset)[0]
             value = nva / 32768.0
             qds = data[offset + 2]
-            quality = self._decode_quality(qds >> 1)
+            quality = self._decode_quality(qds)
             result.update(value=value, quality=quality, data_type="float")
             result["_next_offset"] = offset + 3
 
         elif ti == TI_M_ME_NB:
             sva = struct.unpack_from("<i", data, offset)[0]
             qds = data[offset + 3]
-            quality = self._decode_quality(qds >> 1)
+            quality = self._decode_quality(qds)
             result.update(value=float(sva), quality=quality, data_type="float")
             result["_next_offset"] = offset + 4
 
         elif ti == TI_M_ME_NC:
             fval = struct.unpack_from("<f", data, offset)[0]
             qds = data[offset + 4]
-            quality = self._decode_quality(qds >> 1)
+            quality = self._decode_quality(qds)
             result.update(value=fval, quality=quality, data_type="float")
             result["_next_offset"] = offset + 5
 
         elif ti == TI_M_ME_TD:
             fval = struct.unpack_from("<f", data, offset)[0]
             qds = data[offset + 4]
-            quality = self._decode_quality(qds >> 1)
+            quality = self._decode_quality(qds)
             ts = _cp56time2a_to_datetime(data, offset + 5)
             result.update(value=fval, quality=quality, timestamp=ts.isoformat(), data_type="float")
             result["_next_offset"] = offset + 12
@@ -603,16 +644,30 @@ class Iec104Driver(DriverPlugin):
 
     @staticmethod
     def _decode_quality(qds: int) -> str:
+        """Decode a raw QDS byte per IEC 60870-5-4.
+
+        QDS bit layout:
+            bit 0: reserved
+            bit 1: OV (overflow)
+            bit 2: BL (blocked)
+            bit 3: SB (substituted)
+            bit 4: NT (not topical)
+            bit 5: IV (invalid)
+            bits 6-7: reserved
+
+        Callers must normalize SIQ/DIQ quality bits to QDS positions before
+        calling this method (SIQ: mask value bit; DIQ: mask value bits + shift).
+        """
         parts = []
-        if qds & (QUALITY_OV >> 1):
+        if qds & QUALITY_OV:
             parts.append("overflow")
-        if qds & (QUALITY_BL >> 1):
+        if qds & QUALITY_BL:
             parts.append("blocked")
-        if qds & (QUALITY_SB >> 1):
+        if qds & QUALITY_SB:
             parts.append("substituted")
-        if qds & (QUALITY_NT >> 1):
+        if qds & QUALITY_NT:
             parts.append("not_topical")
-        if qds & (QUALITY_IV >> 1):
+        if qds & QUALITY_IV:
             parts.append("invalid")
         return ",".join(parts) if parts else "good"
 
@@ -681,7 +736,7 @@ class Iec104Driver(DriverPlugin):
             delay = min(delay * 2, self._max_reconnect_delay)
 
     async def _heartbeat_loop(self) -> None:
-        last_send_time = asyncio.get_running_loop().time()
+        last_activity_time = asyncio.get_running_loop().time()
         while self._running and self._connected:
             try:
                 await asyncio.sleep(min(self._t3_timeout, self._heartbeat_interval) / 2)
@@ -691,16 +746,33 @@ class Iec104Driver(DriverPlugin):
                 if self._s_frame_needed:
                     await self._send_s_frame()
                     self._s_frame_needed = False
-                    last_send_time = now
+                    last_activity_time = now
                     continue
-                elapsed = now - last_send_time
-                if elapsed >= self._t3_timeout:
-                    if self._testfr_sent:
-                        logger.warning("TESTFR超时未收到确认，触发重连")
-                        await self._close_connection()
-                        return
-                    await self._send_testfr()
-                    last_send_time = now
+                if self._testfr_sent:
+                    # Waiting for TESTFR_CON — check T1 timeout for retry
+                    elapsed_since_testfr = now - self._testfr_sent_time
+                    if elapsed_since_testfr > self._t1_timeout:
+                        self._testfr_retry_count += 1
+                        if self._testfr_retry_count > self._testfr_max_retries:
+                            logger.warning(
+                                "TESTFR重试达到上限(%d次)，触发断连",
+                                self._testfr_max_retries,
+                            )
+                            await self._close_connection()
+                            return
+                        logger.warning(
+                            "TESTFR T1超时，重试 %d/%d",
+                            self._testfr_retry_count,
+                            self._testfr_max_retries,
+                        )
+                        await self._send_testfr()
+                else:
+                    # Normal idle — check T3 timeout
+                    elapsed = now - last_activity_time
+                    if elapsed >= self._t3_timeout:
+                        self._testfr_retry_count = 0
+                        await self._send_testfr()
+                        last_activity_time = now
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -750,11 +822,16 @@ class Iec104Driver(DriverPlugin):
             asdu_data = frame[6:]
             points = self._parse_asdu(asdu_data)
             for pt in points:
+                # FIXED-P1: SBO 命令确认路由到 _handle_sbo_confirmation 而非数据发布
+                if pt.get("ti") in (TI_C_SC_NA, TI_C_DC_NA) and pt.get("sbo_command") in (SBO_SELECT, SBO_EXECUTE):
+                    self._handle_sbo_confirmation([pt])
+                    continue
                 await self._publish_point(pt)
         elif frame_type == 0x03:
             u_type = ctrl_byte1
             if u_type == U_FRAME_TESTFR_CON:
                 self._testfr_sent = False
+                self._testfr_retry_count = 0  # FIXED-P1: TESTFR确认后重置重试计数器
                 logger.debug("收到TESTFR确认")
             elif u_type == U_FRAME_STARTDT_CON:
                 self._startdt_confirmed = True
@@ -773,6 +850,35 @@ class Iec104Driver(DriverPlugin):
             rsn_raw = struct.unpack_from("<H", frame, 4)[0]
             acked_ssn = rsn_raw >> 1
             logger.debug("收到S帧, 确认SSN=%d", acked_ssn)
+
+    def _handle_sbo_confirmation(self, points: list[dict]) -> None:
+        """处理 SBO 命令确认响应，唤醒 select/execute 等待方。
+
+        FIXED-P1: 原 _sbo_select_event / _sbo_execute_event 从未被 set()，
+        导致 SBO 遥控必定超时失败。收到命令确认时根据 COT 判断成功/失败并唤醒等待方。
+
+        Args:
+            points: 解析后的命令确认点列表，每个点含 ioa/ti/cot/sbo_command 字段
+        """
+        if self._sbo_selected_ioa is None:
+            logger.debug("无 SBO 选中 IOA，忽略命令确认")
+            return
+        for pt in points:
+            ioa = pt.get("ioa")
+            if ioa != self._sbo_selected_ioa:
+                logger.debug("SBO 确认 IOA 不匹配: 期望=%d 收到=%d", self._sbo_selected_ioa, ioa)
+                continue
+            cot = pt.get("cot", 0)
+            sbo_cmd = pt.get("sbo_command")
+            success = cot == COT_ACTIVATION_CON
+            if sbo_cmd == SBO_SELECT:
+                self._sbo_select_result = success
+                self._sbo_select_event.set()
+                logger.info("SBO 选择确认: IOA=%d, success=%s", ioa, success)
+            elif sbo_cmd == SBO_EXECUTE:
+                self._sbo_execute_result = success
+                self._sbo_execute_event.set()
+                logger.info("SBO 执行确认: IOA=%d, success=%s", ioa, success)
 
     async def _publish_point(self, point: dict) -> None:
         ioa = point.get("ioa", 0)
@@ -816,6 +922,9 @@ class Iec104Driver(DriverPlugin):
     async def _close_connection(self) -> None:
         self._connected = False
         self._startdt_confirmed = False
+        # FIXED-P1: 重置 TESTFR 心跳状态，避免重连后残留旧状态
+        self._testfr_sent = False
+        self._testfr_retry_count = 0
         if self._writer is not None:
             try:
                 self._writer.close()

@@ -32,6 +32,7 @@ class _MqttAuthPlugin(_BaseAuthPlugin if _AMQTT_AVAILABLE else object):
     @dataclass
     class Config:
         """认证配置。"""
+
         username: str = ""
         password: str = ""
 
@@ -88,7 +89,9 @@ class MqttServer:
         try:
             from amqtt.broker import Broker
         except ImportError:
-            logger.warning("amqtt not installed, built-in MQTT Server unavailable. Run: pip install amqtt")  # FIXED-P3: 中文日志→英文
+            logger.warning(
+                "amqtt not installed, built-in MQTT Server unavailable. Run: pip install amqtt"
+            )  # FIXED-P3: 中文日志→英文
             return
 
         config = config or {}
@@ -130,18 +133,20 @@ class MqttServer:
             # 修复-配置了认证但无法启用时拒绝启动，避免匿名访问
             logger.error(
                 "MQTT Server auth configured (username=%s) but aMQTT 0.11.x requires custom auth plugin. "
-                "Refusing to start with anonymous access.", username,
+                "Refusing to start with anonymous access.",
+                username,
             )
             raise RuntimeError(
-                "MQTT authentication configured but cannot be enabled. "
-                "Disable auth config or upgrade aMQTT."
+                "MQTT authentication configured but cannot be enabled. Disable auth config or upgrade aMQTT."
             )
 
         try:
             self._broker = Broker(broker_config)
             self._task = asyncio.create_task(self._broker.start(), name="mqtt-server")
 
-            def _on_broker_done(task: asyncio.Task) -> None:  # FIXED-P1: broker启动任务异常处理，原实现任务异常被静默丢失
+            def _on_broker_done(
+                task: asyncio.Task,
+            ) -> None:  # FIXED-P1: broker启动任务异常处理，原实现任务异常被静默丢失
                 if task.cancelled():
                     return
                 exc = task.exception()

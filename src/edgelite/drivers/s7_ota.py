@@ -130,24 +130,28 @@ class S7OtaManager:
                 self._progress.progress = 1.0
                 self._progress.completed_at = datetime.now(UTC).isoformat()
                 self._progress.message = f"Upgraded {old_version} -> {target_version}"
-                self._history.append(OtaHistoryEntry(
-                    timestamp=self._progress.completed_at,
-                    package=target_version,
-                    status=OtaStatus.COMPLETED.value,
-                    message=self._progress.message,
-                ))
+                self._history.append(
+                    OtaHistoryEntry(
+                        timestamp=self._progress.completed_at,
+                        package=target_version,
+                        status=OtaStatus.COMPLETED.value,
+                        message=self._progress.message,
+                    )
+                )
             logger.info("[s7_ota] OTA completed: %s -> %s", old_version, target_version)
             return {"success": True, "message": self._progress.message, "progress": 1.0}
         except Exception as e:
             with self._lock:
                 self._progress.status = OtaStatus.FAILED
                 self._progress.message = f"OTA failed: {e}"
-                self._history.append(OtaHistoryEntry(
-                    timestamp=datetime.now(UTC).isoformat(),
-                    package=target_version,
-                    status=OtaStatus.FAILED.value,
-                    message=str(e),
-                ))
+                self._history.append(
+                    OtaHistoryEntry(
+                        timestamp=datetime.now(UTC).isoformat(),
+                        package=target_version,
+                        status=OtaStatus.FAILED.value,
+                        message=str(e),
+                    )
+                )
             logger.error("[s7_ota] OTA failed: %s", e)
             return {"success": False, "message": str(e), "progress": self._progress.progress}
 
@@ -164,12 +168,14 @@ class S7OtaManager:
         with self._lock:
             self._progress.status = OtaStatus.ROLLED_BACK
             self._progress.message = "OTA rolled back"
-            self._history.append(OtaHistoryEntry(
-                timestamp=datetime.now(UTC).isoformat(),
-                package=self._current_version,
-                status=OtaStatus.ROLLED_BACK.value,
-                message="Manual rollback",
-            ))
+            self._history.append(
+                OtaHistoryEntry(
+                    timestamp=datetime.now(UTC).isoformat(),
+                    package=self._current_version,
+                    status=OtaStatus.ROLLED_BACK.value,
+                    message="Manual rollback",
+                )
+            )
         logger.info("[s7_ota] OTA rolled back")
         return {"success": True, "message": self._progress.message}
 
@@ -190,7 +196,5 @@ class S7OtaManager:
         with self._lock:
             entries = self._history[-limit:]
         return [
-            {"timestamp": e.timestamp, "package": e.package,
-             "status": e.status, "message": e.message}
-            for e in entries
+            {"timestamp": e.timestamp, "package": e.package, "status": e.status, "message": e.message} for e in entries
         ]

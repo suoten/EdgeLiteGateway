@@ -53,7 +53,7 @@ async def _check_rule_access(rule: dict, user) -> None:
 async def list_rules(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_READ)),
-    pagination: PaginationDep = None,  # FIXED: 原问题：默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
+    pagination: PaginationDep = None,  # FIXED: 原问题：默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
     device_id: str | None = None,
     search: str | None = None,
     # FIXED(一般): 枚举值未校验，恶意用户可传任意字符串绕过过滤；改为 Literal 校验
@@ -61,7 +61,9 @@ async def list_rules(
 ):
     try:
         created_by = None if user["role"] == "admin" else user["user_id"]
-        rules, total = await svc.list_rules(pagination.page, pagination.size, device_id, search, severity, created_by=created_by)
+        rules, total = await svc.list_rules(
+            pagination.page, pagination.size, device_id, search, severity, created_by=created_by
+        )
         if user["role"] != "admin":
             from edgelite.app import _app_state
             from edgelite.storage.sqlite_repo import ResourceShareRepo
@@ -83,7 +85,9 @@ async def list_rules(
         raise
     except Exception as e:
         logger.error("list_rules failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.LIST_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
 
 
 @router.post("", response_model=ApiResponse[RuleResponse], status_code=201)
@@ -95,11 +99,14 @@ async def create_rule(
     request: Request = None,
 ):
     try:
-        logger.info("Creating rule: name=%s, device_id=%s, user=%s", body.name, body.device_id, user.get("user_id", "?"))
+        logger.info(
+            "Creating rule: name=%s, device_id=%s, user=%s", body.name, body.device_id, user.get("user_id", "?")
+        )
         rule = await svc.create_rule(body.model_dump(), created_by=user["user_id"])
         logger.info("Rule created successfully: rule_id=%s", rule.get("rule_id", "?"))
         try:
             from edgelite.services.audit_service import AuditAction
+
             # 补充ip_address和user_agent用于审计追溯
             ip_address = request.client.host if request and request.client else None
             user_agent = request.headers.get("User-Agent") if request else None
@@ -117,7 +124,9 @@ async def create_rule(
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=rule)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail={"error_code": RuleErrors.CONDITION_INVALID, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=422, detail={"error_code": RuleErrors.CONDITION_INVALID, "errors": [str(e)], "warnings": []}
+        ) from e
     except Exception as e:
         logger.error("create_rule failed: %s", e)
         raise HTTPException(status_code=500, detail=RuleErrors.CREATE_FAILED) from e
@@ -133,7 +142,9 @@ async def test_rule_definition(
         conditions = [c.model_dump() for c in body.conditions]
         triggered: list[dict] = []
         for cond in body.conditions:
-            triggered.append({"point": cond.point, "operator": cond.operator, "threshold": cond.threshold, "type": cond.type})
+            triggered.append(
+                {"point": cond.point, "operator": cond.operator, "threshold": cond.threshold, "type": cond.type}
+            )
 
         result = {
             "rule_name": body.name,
@@ -191,10 +202,12 @@ async def batch_delete_rules(
                     logger.warning("Rule batch delete audit failed for %s: %s", rid, e)
             else:
                 failed[rid] = RuleErrors.NOT_FOUND
-        return ApiResponse(data={
-            "success_count": success_count,
-            "failed": failed,
-        })
+        return ApiResponse(
+            data={
+                "success_count": success_count,
+                "failed": failed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -240,10 +253,12 @@ async def batch_enable_rules(
                     logger.warning("Rule batch enable audit failed for %s: %s", rid, e)
             else:
                 failed[rid] = RuleErrors.NOT_FOUND
-        return ApiResponse(data={
-            "success_count": success_count,
-            "failed": failed,
-        })
+        return ApiResponse(
+            data={
+                "success_count": success_count,
+                "failed": failed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -289,10 +304,12 @@ async def batch_disable_rules(
                     logger.warning("Rule batch disable audit failed for %s: %s", rid, e)
             else:
                 failed[rid] = RuleErrors.NOT_FOUND
-        return ApiResponse(data={
-            "success_count": success_count,
-            "failed": failed,
-        })
+        return ApiResponse(
+            data={
+                "success_count": success_count,
+                "failed": failed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -316,7 +333,9 @@ async def get_rule(
         raise
     except Exception as e:
         logger.error("get_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.GET_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.GET_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
 
 
 @router.put("/{rule_id}", response_model=ApiResponse[RuleResponse])
@@ -343,6 +362,7 @@ async def update_rule(
             raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)
         try:
             from edgelite.services.audit_service import AuditAction
+
             # 补充ip_address和user_agent用于审计追溯
             ip_address = request.client.host if request and request.client else None
             user_agent = request.headers.get("User-Agent") if request else None
@@ -367,7 +387,9 @@ async def update_rule(
         raise HTTPException(status_code=409, detail=RepoErrors.STALE_DATA_ERROR) from e
     except Exception as e:
         logger.error("update_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.UPDATE_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.UPDATE_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
 
 
 @router.delete("/{rule_id}", response_model=ApiResponse)
@@ -387,6 +409,7 @@ async def delete_rule(
         # 先审计后业务：先写审计日志（status=pending），审计失败则不执行删除（fail-safe）
         try:
             from edgelite.services.audit_service import AuditAction
+
             # 补充ip_address和user_agent用于审计追溯
             ip_address = request.client.host if request and request.client else None
             user_agent = request.headers.get("User-Agent") if request else None
@@ -438,7 +461,9 @@ async def delete_rule(
         raise
     except Exception as e:
         logger.error("delete_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.DELETE_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.DELETE_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
 
 
 @router.post("/{rule_id}/enable", response_model=ApiResponse[RuleResponse])
@@ -455,7 +480,9 @@ async def enable_rule(
         await _check_rule_access(existing, user)
         rule = await svc.enable_rule(rule_id)
         if rule is None:
-            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题：中文硬编码detail，改为error_code
+            raise HTTPException(
+                status_code=404, detail=RuleErrors.NOT_FOUND
+            )  # FIXED: 原问题：中文硬编码detail，改为error_code
         # SEC-FIX-V10: 规则启用审计日志（原缺失，攻击者可静默启用规则）
         try:
             await audit_svc.log(
@@ -472,7 +499,9 @@ async def enable_rule(
         raise
     except Exception as e:
         logger.error("enable_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.ENABLE_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.ENABLE_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
 
 
 @router.post("/{rule_id}/disable", response_model=ApiResponse[RuleResponse])
@@ -489,7 +518,9 @@ async def disable_rule(
         await _check_rule_access(rule, user)
         rule = await svc.disable_rule(rule_id)
         if rule is None:
-            raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)  # FIXED: 原问题：中文硬编码detail，改为error_code
+            raise HTTPException(
+                status_code=404, detail=RuleErrors.NOT_FOUND
+            )  # FIXED: 原问题：中文硬编码detail，改为error_code
         # SEC-FIX-V10: 规则禁用审计日志（原缺失，攻击者可静默禁用告警）
         try:
             await audit_svc.log(
@@ -506,7 +537,9 @@ async def disable_rule(
         raise
     except Exception as e:
         logger.error("disable_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.DISABLE_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.DISABLE_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
 
 
 @router.post("/{rule_id}/test", response_model=ApiResponse)
@@ -524,8 +557,12 @@ async def test_rule(
         result = await svc.test_rule(rule_id, body.point_values)
     except ValueError as e:
         # FIXED-P2: 原问题-ValueError返回404 NOT_FOUND语义错误，ValueError表示测试输入无效而非规则不存在
-        raise HTTPException(status_code=422, detail={"error_code": RuleErrors.CONDITION_INVALID, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=422, detail={"error_code": RuleErrors.CONDITION_INVALID, "errors": [str(e)], "warnings": []}
+        ) from e
     except Exception as e:
         logger.error("test_rule failed: %s", e)
-        raise HTTPException(status_code=500, detail=RuleErrors.TEST_FAILED) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=RuleErrors.TEST_FAILED
+        ) from e  # FIXED: 原问题：中文硬编码detail，改为error_code
     return ApiResponse(data=result)

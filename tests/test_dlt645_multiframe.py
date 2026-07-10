@@ -12,8 +12,8 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 import struct
+import sys
 
 sys.path.insert(0, "src")
 
@@ -26,7 +26,6 @@ from edgelite.drivers.dlt645 import (
     MAX_CONTINUATION_FRAMES,
     Dlt645Driver,
 )
-
 
 # ──────────────────────────────────────────────────────────────────
 # 辅助: 构造 DL/T 645-2007 响应帧

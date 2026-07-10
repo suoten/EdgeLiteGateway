@@ -199,7 +199,9 @@ class ThingsCloudHandler(PlatformHandler):
                 raise
             except Exception as e:
                 self._connected = False
-                logger.error("ThingsCloud MQTT connection error: %s, retrying in %.1fs", e, backoff)  # FIXED-P3: 中文日志→英文
+                logger.error(
+                    "ThingsCloud MQTT connection error: %s, retrying in %.1fs", e, backoff
+                )  # FIXED-P3: 中文日志→英文
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, max_backoff)
                 backoff *= 0.5 + random.random() * 0.5  # R7-S-01: 随机抖动，避免重连风暴
@@ -211,7 +213,9 @@ class ThingsCloudHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    topic, payload, qos = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    topic, payload, qos = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                    )  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 try:

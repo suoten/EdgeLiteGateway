@@ -17,9 +17,11 @@ import httpx
 
 try:
     import defusedxml.ElementTree as _ET
+
     _XML_SAFE_PARSER = True
 except ImportError:
     import xml.etree.ElementTree as _ET
+
     _XML_SAFE_PARSER = False
 
 import contextlib
@@ -40,6 +42,7 @@ class _NonceCountingWsse:
         self._token_cls = None
         try:
             from zeep.wsse.username import UsernameToken
+
             self._token_cls = UsernameToken
         except ImportError as e:
             logger.debug("[onvif] _init__ failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -51,8 +54,10 @@ class _NonceCountingWsse:
         raw_nonce = f"edgelite-{counter}-{time.time()}".encode()
         nonce = hashlib.sha256(raw_nonce).digest()
         token = self._token_cls(
-            self._username, self._password,
-            use_digest=True, nonce=nonce,
+            self._username,
+            self._password,
+            use_digest=True,
+            nonce=nonce,
         )
         return token.apply(envelope, headers)
 
@@ -78,27 +83,130 @@ class OnvifDriver(DriverPlugin):
     config_schema = {
         "description": "ONVIF video device protocol, supports device discovery/RTSP stream/PTZ control",  # FIXED: 原问题-中文硬编码description
         "required": ["ip", "username", "password"],
-        "properties": {"ip": {"type": "string", "description": "ONVIF device IP", "format": "ipv4"}, "port": {"type": "integer", "description": "ONVIF service port", "minimum": 1, "maximum": 65535}, "username": {"type": "string", "description": "Device auth username"}, "password": {"type": "string", "description": "Device auth password"}},
+        "properties": {
+            "ip": {"type": "string", "description": "ONVIF device IP", "format": "ipv4"},
+            "port": {"type": "integer", "description": "ONVIF service port", "minimum": 1, "maximum": 65535},
+            "username": {"type": "string", "description": "Device auth username"},
+            "password": {"type": "string", "description": "Device auth password"},
+        },
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP Address", "description": "ONVIF device IP address", "default": "", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "port", "type": "integer", "label": "Port", "description": "ONVIF service port, default 80", "default": 80, "min": 1, "max": 65535},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "username", "type": "string", "label": "Username", "description": "Device authentication username", "default": ""},  # FIXED-P2: 默认用户名从admin改为空，防止使用默认凭据连接设备
-            {"name": "password", "type": "string", "label": "Password", "description": "Device authentication password", "secret": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "auth_type", "type": "string", "label": "Auth Type", "description": "Authentication method: Basic or Digest", "default": "Basic", "options": ["Basic", "Digest"]},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "ONVIF communication timeout in seconds", "default": 10.0, "min": 1, "max": 60},
-            {"name": "connect_timeout", "type": "number", "label": "Connect Timeout (s)", "description": "SOAP connection timeout in seconds", "default": 5.0, "min": 1, "max": 30},
-            {"name": "read_timeout", "type": "number", "label": "Read Timeout (s)", "description": "SOAP read/response timeout in seconds", "default": 10.0, "min": 1, "max": 60},
-            {"name": "ptz_timeout", "type": "number", "label": "PTZ Timeout (s)", "description": "PTZ operation timeout in seconds", "default": 5.0, "min": 1, "max": 30},
-            {"name": "wsdl_dir", "type": "string", "label": "WSDL Directory", "description": "Path to ONVIF WSDL files (optional)", "default": ""},
-            {"name": "allow_private_rtsp", "type": "boolean", "label": "Allow Private RTSP", "description": "Allow RTSP URLs pointing to private/internal IP addresses", "default": False},
-            {"name": "deadband", "type": "object", "label": "Deadband", "description": "Deadband filter config: {type, threshold}", "default": None},
-            {"name": "scaling", "type": "object", "label": "Scaling", "description": "Linear scaling config: {ratio, offset}", "default": None},
-            {"name": "clamp", "type": "object", "label": "Clamp", "description": "Clamp range config: {min, max}", "default": None},
+            {
+                "name": "ip",
+                "type": "string",
+                "label": "IP Address",
+                "description": "ONVIF device IP address",
+                "default": "",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "ONVIF service port, default 80",
+                "default": 80,
+                "min": 1,
+                "max": 65535,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "username",
+                "type": "string",
+                "label": "Username",
+                "description": "Device authentication username",
+                "default": "",
+            },  # FIXED-P2: 默认用户名从admin改为空，防止使用默认凭据连接设备
+            {
+                "name": "password",
+                "type": "string",
+                "label": "Password",
+                "description": "Device authentication password",
+                "secret": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "auth_type",
+                "type": "string",
+                "label": "Auth Type",
+                "description": "Authentication method: Basic or Digest",
+                "default": "Basic",
+                "options": ["Basic", "Digest"],
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "ONVIF communication timeout in seconds",
+                "default": 10.0,
+                "min": 1,
+                "max": 60,
+            },
+            {
+                "name": "connect_timeout",
+                "type": "number",
+                "label": "Connect Timeout (s)",
+                "description": "SOAP connection timeout in seconds",
+                "default": 5.0,
+                "min": 1,
+                "max": 30,
+            },
+            {
+                "name": "read_timeout",
+                "type": "number",
+                "label": "Read Timeout (s)",
+                "description": "SOAP read/response timeout in seconds",
+                "default": 10.0,
+                "min": 1,
+                "max": 60,
+            },
+            {
+                "name": "ptz_timeout",
+                "type": "number",
+                "label": "PTZ Timeout (s)",
+                "description": "PTZ operation timeout in seconds",
+                "default": 5.0,
+                "min": 1,
+                "max": 30,
+            },
+            {
+                "name": "wsdl_dir",
+                "type": "string",
+                "label": "WSDL Directory",
+                "description": "Path to ONVIF WSDL files (optional)",
+                "default": "",
+            },
+            {
+                "name": "allow_private_rtsp",
+                "type": "boolean",
+                "label": "Allow Private RTSP",
+                "description": "Allow RTSP URLs pointing to private/internal IP addresses",
+                "default": False,
+            },
+            {
+                "name": "deadband",
+                "type": "object",
+                "label": "Deadband",
+                "description": "Deadband filter config: {type, threshold}",
+                "default": None,
+            },
+            {
+                "name": "scaling",
+                "type": "object",
+                "label": "Scaling",
+                "description": "Linear scaling config: {ratio, offset}",
+                "default": None,
+            },
+            {
+                "name": "clamp",
+                "type": "object",
+                "label": "Clamp",
+                "description": "Clamp range config: {min, max}",
+                "default": None,
+            },
         ],
     }
 
     experimental = True
-    capabilities = DriverCapabilities(discover=False, read=True, write=True, subscribe=False, batch_read=False, batch_write=False)
+    capabilities = DriverCapabilities(
+        discover=False, read=True, write=True, subscribe=False, batch_read=False, batch_write=False
+    )
     constraints = ()  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     _MAX_RECONNECT_ATTEMPTS = 3
@@ -170,7 +278,7 @@ class OnvifDriver(DriverPlugin):
         try:
             profiles = await asyncio.wait_for(asyncio.to_thread(media.GetProfiles), timeout=self._get_read_timeout())
             result = []
-            for p in (profiles or []):
+            for p in profiles or []:
                 result.append({"token": p.token, "name": getattr(p, "Name", "")})
             self._profiles_cache[device_id] = result
             return result
@@ -221,11 +329,14 @@ class OnvifDriver(DriverPlugin):
         try:
             import ipaddress
             from urllib.parse import urlparse
+
             parsed = urlparse(uri)
             hostname = parsed.hostname or ""
             ip_obj = ipaddress.ip_address(hostname)
             if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved:
-                self._log_error(device_id, "ERR_ONVIF_SNAPSHOT_SSRF_BLOCKED", f"Snapshot URI points to private IP: {hostname}")
+                self._log_error(
+                    device_id, "ERR_ONVIF_SNAPSHOT_SSRF_BLOCKED", f"Snapshot URI points to private IP: {hostname}"
+                )
                 return None
         except ValueError:
             # FIXED-P0: hostname不是IP格式（可能是域名），异步解析DNS后检查解析结果是否为私有IP
@@ -233,28 +344,55 @@ class OnvifDriver(DriverPlugin):
             # 之后：使用asyncio.to_thread()将DNS解析移入线程池，不阻塞事件循环
             try:
                 import socket as _socket
+
                 def _resolve_dns(hostname):
                     return _socket.getaddrinfo(hostname, None, _socket.AF_INET, _socket.SOCK_STREAM)
+
                 resolved_ips = await asyncio.to_thread(_resolve_dns, hostname)
                 for _, _, _, _, addr in resolved_ips:
                     resolved_ip = ipaddress.ip_address(addr[0])
-                    if resolved_ip.is_private or resolved_ip.is_loopback or resolved_ip.is_link_local or resolved_ip.is_reserved:
-                        self._log_error(device_id, "ERR_ONVIF_SNAPSHOT_SSRF_BLOCKED", f"Snapshot URI domain {hostname} resolves to private IP: {addr[0]}")
+                    if (
+                        resolved_ip.is_private
+                        or resolved_ip.is_loopback
+                        or resolved_ip.is_link_local
+                        or resolved_ip.is_reserved
+                    ):
+                        self._log_error(
+                            device_id,
+                            "ERR_ONVIF_SNAPSHOT_SSRF_BLOCKED",
+                            f"Snapshot URI domain {hostname} resolves to private IP: {addr[0]}",
+                        )
                         return None
             except Exception:
                 # FIXED-P2: DNS解析失败时拒绝请求，防止DNS rebinding攻击绕过SSRF防护
-                self._log_error(device_id, "ERR_ONVIF_SNAPSHOT_DNS_FAILED", f"Snapshot URI domain {hostname} DNS resolution failed, request rejected")
+                self._log_error(
+                    device_id,
+                    "ERR_ONVIF_SNAPSHOT_DNS_FAILED",
+                    f"Snapshot URI domain {hostname} DNS resolution failed, request rejected",
+                )
                 return None
         config = self._devices.get(device_id, {}).get("config", self._config)
         username = config.get("username", "")  # FIXED-P1: 默认空字符串与config_schema一致，避免使用硬编码凭据
         password = config.get("password", "")
-        auth = httpx.DigestAuth(username, password) if config.get("auth_type") == "Digest" else (username, password) if username else None
+        auth = (
+            httpx.DigestAuth(username, password)
+            if config.get("auth_type") == "Digest"
+            else (username, password)
+            if username
+            else None
+        )
         try:
-            async with httpx.AsyncClient(timeout=self._get_read_timeout(), verify=self._config.get("verify_ssl", True), follow_redirects=False) as client:  # FIXED-P0: 禁止重定向防止绕过IP校验
+            async with httpx.AsyncClient(
+                timeout=self._get_read_timeout(), verify=self._config.get("verify_ssl", True), follow_redirects=False
+            ) as client:  # FIXED-P0: 禁止重定向防止绕过IP校验
                 resp = await client.get(uri, auth=auth)
                 resp.raise_for_status()
                 if len(resp.content) > self._MAX_SNAPSHOT_SIZE:
-                    self._log_error(device_id, "ERR_ONVIF_SNAPSHOT_TOO_LARGE", f"Snapshot size {len(resp.content)} exceeds limit {self._MAX_SNAPSHOT_SIZE}")
+                    self._log_error(
+                        device_id,
+                        "ERR_ONVIF_SNAPSHOT_TOO_LARGE",
+                        f"Snapshot size {len(resp.content)} exceeds limit {self._MAX_SNAPSHOT_SIZE}",
+                    )
                     return None
                 return resp.content
         except Exception as e:
@@ -270,7 +408,7 @@ class OnvifDriver(DriverPlugin):
             return {}
         try:
             configs = await asyncio.wait_for(asyncio.to_thread(ptz.GetConfigurations), timeout=self._get_read_timeout())
-            for cfg in (configs if isinstance(configs, list) else [configs]):
+            for cfg in configs if isinstance(configs, list) else [configs]:
                 token = getattr(cfg, "token", "")
                 if token != profile_token:
                     continue
@@ -298,7 +436,9 @@ class OnvifDriver(DriverPlugin):
             self._log_error(device_id, "ERR_ONVIF_SOAP_ERROR", f"GetConfigurations failed: {e}")
             return {}
 
-    def _validate_ptz_range(self, limits: dict[str, tuple[float, float]], pan: float, tilt: float, zoom: float) -> str | None:
+    def _validate_ptz_range(
+        self, limits: dict[str, tuple[float, float]], pan: float, tilt: float, zoom: float
+    ) -> str | None:
         # 协议边界校验: NaN 与任何数比较均返回 False 会绕过范围校验，需显式拦截
         if any(math.isnan(v) or math.isinf(v) for v in (pan, tilt, zoom)):
             return "ERR_ONVIF_PTZ_INVALID_VALUE"
@@ -338,7 +478,12 @@ class OnvifDriver(DriverPlugin):
 
         logger.info(
             "[onvif] audit device=%s action=%s pan=%.3f tilt=%.3f zoom=%.3f result=%s",
-            device_id, action, pan, tilt, zoom, result,
+            device_id,
+            action,
+            pan,
+            tilt,
+            zoom,
+            result,
         )
 
     async def start(self, config: dict) -> None:
@@ -349,7 +494,9 @@ class OnvifDriver(DriverPlugin):
 
         try:
             # 启动时的 config 作为默认设备，建立独立相机实例
-            cam = await asyncio.wait_for(asyncio.to_thread(self._create_camera, config), timeout=30.0)  # FIXED-P1: 添加超时保护，防止ONVIF相机创建无限阻塞
+            cam = await asyncio.wait_for(
+                asyncio.to_thread(self._create_camera, config), timeout=30.0
+            )  # FIXED-P1: 添加超时保护，防止ONVIF相机创建无限阻塞
             self._setup_digest_nonce(cam, "_default")
             self._cams["_default"] = cam
             self._medias["_default"] = None
@@ -401,8 +548,10 @@ class OnvifDriver(DriverPlugin):
         try:
             username = getattr(cam, "user", "") or ""
             password = getattr(cam, "password", "") or ""
+
             def counter_func(did=device_id):
                 return self._increment_nonce(did)
+
             wsse = _NonceCountingWsse(username, password, counter_func)
             cam.wsse = wsse
             for svc_name in ("devicemgmt",):
@@ -428,7 +577,9 @@ class OnvifDriver(DriverPlugin):
                     if cam and hasattr(cam, "devicemgmt") and hasattr(cam.devicemgmt, "soap_client"):
                         try:
                             soap_client = cam.devicemgmt.soap_client
-                            if soap_client is not None and hasattr(soap_client, "get_transport"):  # FIXED-P2: soap_client为None时跳过
+                            if soap_client is not None and hasattr(
+                                soap_client, "get_transport"
+                            ):  # FIXED-P2: soap_client为None时跳过
                                 transport = soap_client.get_transport()
                                 if transport is not None:
                                     await asyncio.to_thread(transport.close)
@@ -483,7 +634,9 @@ class OnvifDriver(DriverPlugin):
             "points": {p.get("name", p.get("address", "")): p for p in points if p.get("name") or p.get("address")},
         }
         try:
-            cam = await asyncio.wait_for(asyncio.to_thread(self._create_camera, config), timeout=30.0)  # FIXED-P1: 添加超时保护，防止ONVIF相机创建无限阻塞
+            cam = await asyncio.wait_for(
+                asyncio.to_thread(self._create_camera, config), timeout=30.0
+            )  # FIXED-P1: 添加超时保护，防止ONVIF相机创建无限阻塞
             self._setup_digest_nonce(cam, device_id)
             self._cams[device_id] = cam
             self._medias[device_id] = None
@@ -545,7 +698,9 @@ class OnvifDriver(DriverPlugin):
             logger.info("[onvif] WS-Discovery fingerprint verified: %d indicators matched: %s", found, matched)
             return True
         if found >= 1:
-            logger.warning("[onvif] WS-Discovery fingerprint weak: only 1 indicator matched: %s, requiring XML validation", matched)
+            logger.warning(
+                "[onvif] WS-Discovery fingerprint weak: only 1 indicator matched: %s, requiring XML validation", matched
+            )
         try:
             root = _ET.fromstring(response)
             ns = {
@@ -559,7 +714,9 @@ class OnvifDriver(DriverPlugin):
                     logger.info("[onvif] WS-Discovery fingerprint verified via XML Types: %s", xml_matched)
                     return True
         except Exception as e:
-            logger.warning("[onvif] verify_onvif_fingerprint failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+            logger.warning(
+                "[onvif] verify_onvif_fingerprint failed: %s", e
+            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
         return False
 
     @staticmethod
@@ -602,7 +759,9 @@ class OnvifDriver(DriverPlugin):
                     response = data.decode("utf-8", errors="replace")
                     if "onvif" in response.lower() and addr[0] not in seen:
                         if not OnvifDriver._verify_onvif_fingerprint(response):
-                            logger.warning("[onvif] WS-Discovery: suspicious response from %s, missing ONVIF fingerprint", addr[0])
+                            logger.warning(
+                                "[onvif] WS-Discovery: suspicious response from %s, missing ONVIF fingerprint", addr[0]
+                            )
                             continue
                         seen.add(addr[0])
                         devices.append(
@@ -611,7 +770,9 @@ class OnvifDriver(DriverPlugin):
                                 "name": f"ONVIF Device @ {addr[0]}",
                                 "ip": addr[0],
                                 "protocol": "onvif",
-                                "details": {"port": addr[1] if len(addr) > 1 else 80},  # FIXED-P2: 发现设备端口硬编码80，改为使用实际响应端口
+                                "details": {
+                                    "port": addr[1] if len(addr) > 1 else 80
+                                },  # FIXED-P2: 发现设备端口硬编码80，改为使用实际响应端口
                             }
                         )
                 except TimeoutError:
@@ -636,8 +797,10 @@ class OnvifDriver(DriverPlugin):
                 self._log_error(device_id, "ERR_ONVIF_RTSP_INVALID_HOST", f"url={url}")
                 return ""
             if not allow_private:
+
                 def _check_ip():
                     import socket as _socket
+
                     for family in (_socket.AF_INET, _socket.AF_INET6):
                         try:
                             resolved = _socket.getaddrinfo(hostname, None, family)
@@ -647,8 +810,11 @@ class OnvifDriver(DriverPlugin):
                                 if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                                     return ip_str
                         except (_socket.gaierror, ValueError) as e:
-                            logger.warning("[onvif] check_ip failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[onvif] check_ip failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                     return None
+
                 blocked_ip = await asyncio.to_thread(_check_ip)
                 if blocked_ip:
                     self._log_error(device_id, "ERR_ONVIF_RTSP_PRIVATE_IP", f"host={hostname} ip={blocked_ip}")
@@ -673,25 +839,29 @@ class OnvifDriver(DriverPlugin):
         }
 
         def _sync_get_url(tok: str) -> str:
-            resp = media.GetStreamUri(
-                {"StreamSetup": stream_setup, "ProfileToken": tok}
-            )
+            resp = media.GetStreamUri({"StreamSetup": stream_setup, "ProfileToken": tok})
             return resp.Uri if hasattr(resp, "Uri") else str(resp)
 
         try:
-            url = await asyncio.wait_for(asyncio.to_thread(_sync_get_url, resolved_token), timeout=self._get_read_timeout())
+            url = await asyncio.wait_for(
+                asyncio.to_thread(_sync_get_url, resolved_token), timeout=self._get_read_timeout()
+            )
             return await self._validate_rtsp_url(url, device_id)
         except Exception as e:
             if not profile_token:
                 profiles = self._profiles_cache.get(device_id, [])
                 for alt in profiles[1:]:
                     try:
-                        url = await asyncio.wait_for(asyncio.to_thread(_sync_get_url, alt["token"]), timeout=self._get_read_timeout())
+                        url = await asyncio.wait_for(
+                            asyncio.to_thread(_sync_get_url, alt["token"]), timeout=self._get_read_timeout()
+                        )
                         validated = await self._validate_rtsp_url(url, device_id)
                         if validated:
                             return validated
                     except Exception as alt_err:
-                        logger.debug("[onvif] device=%s alt profile %s get rtsp failed: %s", device_id, alt.get("token"), alt_err)
+                        logger.debug(
+                            "[onvif] device=%s alt profile %s get rtsp failed: %s", device_id, alt.get("token"), alt_err
+                        )
                         continue
             self._log_error(device_id, "ERR_ONVIF_RTSP_FAILED", str(e))
             return ""
@@ -765,7 +935,10 @@ class OnvifDriver(DriverPlugin):
             return False
 
         try:
-            await asyncio.wait_for(asyncio.to_thread(ptz.Stop, ProfileToken=profile_token, PanTilt=True, Zoom=True), timeout=self._get_ptz_timeout())
+            await asyncio.wait_for(
+                asyncio.to_thread(ptz.Stop, ProfileToken=profile_token, PanTilt=True, Zoom=True),
+                timeout=self._get_ptz_timeout(),
+            )
             return True
         except Exception as e:
             self._log_error(device_id, "ERR_ONVIF_PTZ_STOP_FAILED", str(e))
@@ -775,12 +948,14 @@ class OnvifDriver(DriverPlugin):
         ptz = self._ensure_ptz(device_id)
         if not ptz:
             return None
+
         def _sync() -> str | None:
             kwargs = {"ProfileToken": profile_token}
             if preset_name:
                 kwargs["PresetName"] = preset_name
             resp = ptz.SetPreset(kwargs)
             return resp.token if hasattr(resp, "token") else str(resp)
+
         try:
             return await asyncio.wait_for(asyncio.to_thread(_sync), timeout=self._get_ptz_timeout())
         except Exception as e:
@@ -792,7 +967,10 @@ class OnvifDriver(DriverPlugin):
         if not ptz:
             return False
         try:
-            await asyncio.wait_for(asyncio.to_thread(ptz.GotoPreset, {"ProfileToken": profile_token, "PresetToken": preset_token}), timeout=self._get_ptz_timeout())
+            await asyncio.wait_for(
+                asyncio.to_thread(ptz.GotoPreset, {"ProfileToken": profile_token, "PresetToken": preset_token}),
+                timeout=self._get_ptz_timeout(),
+            )
             return True
         except Exception as e:
             self._log_error(device_id, "ERR_ONVIF_PRESET_GOTO_FAILED", str(e))
@@ -803,7 +981,10 @@ class OnvifDriver(DriverPlugin):
         if not ptz:
             return False
         try:
-            await asyncio.wait_for(asyncio.to_thread(ptz.RemovePreset, {"ProfileToken": profile_token, "PresetToken": preset_token}), timeout=self._get_ptz_timeout())
+            await asyncio.wait_for(
+                asyncio.to_thread(ptz.RemovePreset, {"ProfileToken": profile_token, "PresetToken": preset_token}),
+                timeout=self._get_ptz_timeout(),
+            )
             return True
         except Exception as e:
             self._log_error(device_id, "ERR_ONVIF_PRESET_REMOVE_FAILED", str(e))
@@ -814,7 +995,9 @@ class OnvifDriver(DriverPlugin):
         if not ptz:
             return []
         try:
-            resp = await asyncio.wait_for(asyncio.to_thread(ptz.GetPresets, {"ProfileToken": profile_token}), timeout=self._get_ptz_timeout())
+            resp = await asyncio.wait_for(
+                asyncio.to_thread(ptz.GetPresets, {"ProfileToken": profile_token}), timeout=self._get_ptz_timeout()
+            )
             presets = []
             if hasattr(resp, "Preset"):
                 for p in resp.Preset:
@@ -855,14 +1038,21 @@ class OnvifDriver(DriverPlugin):
                 for alt in profiles[1:]:
                     try:
                         alt_key = f"{device_id}:{alt['token']}"
-                        uri = await asyncio.wait_for(asyncio.to_thread(_sync, alt["token"]), timeout=self._get_read_timeout())
+                        uri = await asyncio.wait_for(
+                            asyncio.to_thread(_sync, alt["token"]), timeout=self._get_read_timeout()
+                        )
                         self._snapshot_uri_cache[alt_key] = (uri, time.monotonic())
                         if len(self._snapshot_uri_cache) > 10000:  # FIXED-P2: 缓存容量限制
                             for k in list(self._snapshot_uri_cache.keys())[:2000]:
                                 self._snapshot_uri_cache.pop(k, None)
                         return uri
                     except Exception as alt_err:
-                        logger.debug("[onvif] device=%s alt profile %s snapshot uri failed: %s", device_id, alt.get("token"), alt_err)
+                        logger.debug(
+                            "[onvif] device=%s alt profile %s snapshot uri failed: %s",
+                            device_id,
+                            alt.get("token"),
+                            alt_err,
+                        )
                         continue
             self._log_error(device_id, "ERR_ONVIF_SNAPSHOT_URI_FAILED", str(e))
             return ""
@@ -873,8 +1063,12 @@ class OnvifDriver(DriverPlugin):
         if not cam:
             return False
         try:
-            event_service = await asyncio.wait_for(asyncio.to_thread(cam.create_events_service), timeout=15.0)  # FIXED-P2: 添加超时保护
-            await asyncio.wait_for(asyncio.to_thread(event_service.CreatePullPointSubscription), timeout=15.0)  # FIXED-P2: 添加超时保护
+            event_service = await asyncio.wait_for(
+                asyncio.to_thread(cam.create_events_service), timeout=15.0
+            )  # FIXED-P2: 添加超时保护
+            await asyncio.wait_for(
+                asyncio.to_thread(event_service.CreatePullPointSubscription), timeout=15.0
+            )  # FIXED-P2: 添加超时保护
             logger.info("[onvif] device=%s code=EVENT_SUBSCRIBED msg=PullPoint subscription created", device_id)
             return True
         except Exception as e:
@@ -923,7 +1117,10 @@ class OnvifDriver(DriverPlugin):
                         token = point.split(":", 1)[1]
                         ptz = self._ensure_ptz(device_id)
                         if ptz:
-                            status_resp = await asyncio.wait_for(asyncio.to_thread(ptz.GetStatus, {"ProfileToken": token}), timeout=self._get_read_timeout())
+                            status_resp = await asyncio.wait_for(
+                                asyncio.to_thread(ptz.GetStatus, {"ProfileToken": token}),
+                                timeout=self._get_read_timeout(),
+                            )
                             raw = self._parse_ptz_status(status_resp)
                         else:
                             raw = None
@@ -1075,7 +1272,9 @@ class OnvifDriver(DriverPlugin):
                 await self._try_reconnect(device_id)
             return False
 
-    async def remove_device(self, device_id: str) -> None:  # FIXED-P0: 改为async，transport.close()通过to_thread避免阻塞事件循环
+    async def remove_device(
+        self, device_id: str
+    ) -> None:  # FIXED-P0: 改为async，transport.close()通过to_thread避免阻塞事件循环
         with self._stats_lock:  # FIXED-P2: 健康统计pop纳入_stats_lock，与写入路径锁保护一致
             self._health_stats.pop(device_id, None)
             self._offline_since.pop(device_id, None)
@@ -1094,7 +1293,9 @@ class OnvifDriver(DriverPlugin):
         self._nonce_counters.pop(device_id, None)
         self._ptz_limits_cache = {k: v for k, v in self._ptz_limits_cache.items() if not k.startswith(f"{device_id}:")}
         # FIXED-P2: 使用精确匹配替代前缀匹配，防止device_id前缀重叠时误删其他设备缓存（如cam1误删cam10）
-        self._snapshot_uri_cache = {k: v for k, v in self._snapshot_uri_cache.items() if k.split(":", 1)[0] != device_id}
+        self._snapshot_uri_cache = {
+            k: v for k, v in self._snapshot_uri_cache.items() if k.split(":", 1)[0] != device_id
+        }
         cam = self._cams.pop(device_id, None)
         if cam:
             try:
@@ -1104,7 +1305,9 @@ class OnvifDriver(DriverPlugin):
                     if soap_client is not None and hasattr(soap_client, "get_transport"):
                         transport = soap_client.get_transport()
                         if transport:
-                            await asyncio.to_thread(transport.close)  # FIXED-P0: 同步transport.close()通过to_thread执行，避免阻塞事件循环
+                            await asyncio.to_thread(
+                                transport.close
+                            )  # FIXED-P0: 同步transport.close()通过to_thread执行，避免阻塞事件循环
             except Exception as e:
                 logger.warning("[onvif] remove_device failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
         self._medias.pop(device_id, None)
@@ -1189,7 +1392,9 @@ class OnvifDriver(DriverPlugin):
             delay = min(self._reconnect_delays.get(device_id, self._RECONNECT_BASE_DELAY), self._RECONNECT_MAX_DELAY)
             logger.warning("[onvif] reconnect in %.1fs (attempt %d) device=%s", delay, count, device_id)
             await asyncio.sleep(delay)
-            new_delay = min(self._reconnect_delays.get(device_id, self._RECONNECT_BASE_DELAY) * 2, self._RECONNECT_MAX_DELAY)
+            new_delay = min(
+                self._reconnect_delays.get(device_id, self._RECONNECT_BASE_DELAY) * 2, self._RECONNECT_MAX_DELAY
+            )
             self._reconnect_delays[device_id] = new_delay
 
             cam = self._cams.get(device_id)
@@ -1220,7 +1425,9 @@ class OnvifDriver(DriverPlugin):
                 self._auth_failed.pop(device_id, None)
                 self._auth_failed_since.pop(device_id, None)
                 self._profiles_cache.pop(device_id, None)
-                self._snapshot_uri_cache = {k: v for k, v in self._snapshot_uri_cache.items() if k.split(":", 1)[0] != device_id}
+                self._snapshot_uri_cache = {
+                    k: v for k, v in self._snapshot_uri_cache.items() if k.split(":", 1)[0] != device_id
+                }
                 ip = config.get("ip", "")
                 logger.info("ONVIF重连成功: %s (device=%s)", ip, device_id)
             except Exception as e:

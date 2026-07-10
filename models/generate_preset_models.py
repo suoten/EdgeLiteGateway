@@ -32,7 +32,7 @@ def main() -> None:
         ("elg-trend-v1", "1.0.0", "trend prediction"),
         ("elg-threshold-v1", "1.0.0", "dynamic threshold"),
     ]
-    for filename, version, desc in presets:
+    for filename, version, _desc in presets:
         data = _make_identity_model(filename, version)
         path = out_dir / f"{filename}.onnx"
         path.write_bytes(data)

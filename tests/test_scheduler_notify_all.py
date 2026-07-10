@@ -34,7 +34,6 @@ sys.path.insert(0, "src")
 
 from edgelite.engine.scheduler import _ConcurrencyGate
 
-
 # ════════════════════════════════════════════════════════════════════════
 # 1. 基础行为测试
 # ════════════════════════════════════════════════════════════════════════
@@ -372,8 +371,8 @@ class TestSetLimitRegression:
             await gate.acquire()
             acquired.append(name)
 
-        t0 = asyncio.create_task(waiter("w0"))
-        t1 = asyncio.create_task(waiter("w1"))
+        asyncio.create_task(waiter("w0"))
+        asyncio.create_task(waiter("w1"))
         await asyncio.sleep(0.05)
 
         # 增大 limit 到 3，应唤醒 2 个等待者
@@ -566,7 +565,7 @@ class TestConcurrentStress:
             async with lock:
                 acquired.append(wid)
 
-        tasks = [asyncio.create_task(waiter(i)) for i in range(5)]
+        [asyncio.create_task(waiter(i)) for i in range(5)]
         await asyncio.sleep(0.05)
 
         # 并发释放 5 个槽位

@@ -67,33 +67,37 @@ class Permission(StrEnum):
 # RBAC权限矩阵
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.ADMIN: frozenset(Permission),  # 全部权限
-    Role.OPERATOR: frozenset({
-        Permission.DEVICE_READ,
-        Permission.DRIVER_READ,
-        Permission.RULE_READ,
-        Permission.RULE_TOGGLE,
-        Permission.ALARM_READ,
-        Permission.ALARM_ACK,
-        Permission.DATA_READ,
-        Permission.DATA_EXPORT,
-        Permission.VIDEO_READ,
-        Permission.VIDEO_CONTROL,
-        Permission.SYSTEM_READ,
-        Permission.CONFIG_EDIT,
-        Permission.CONFIG_VERSION_READ,
-        Permission.CONFIG_VERSION_EDIT,
-    }),
-    Role.VIEWER: frozenset({
-        Permission.DEVICE_READ,
-        Permission.DRIVER_READ,
-        Permission.RULE_READ,
-        Permission.ALARM_READ,
-        Permission.DATA_READ,
-        Permission.DATA_EXPORT,
-        Permission.VIDEO_READ,
-        Permission.SYSTEM_READ,
-        Permission.CONFIG_VERSION_READ,
-    }),
+    Role.OPERATOR: frozenset(
+        {
+            Permission.DEVICE_READ,
+            Permission.DRIVER_READ,
+            Permission.RULE_READ,
+            Permission.RULE_TOGGLE,
+            Permission.ALARM_READ,
+            Permission.ALARM_ACK,
+            Permission.DATA_READ,
+            Permission.DATA_EXPORT,
+            Permission.VIDEO_READ,
+            Permission.VIDEO_CONTROL,
+            Permission.SYSTEM_READ,
+            Permission.CONFIG_EDIT,
+            Permission.CONFIG_VERSION_READ,
+            Permission.CONFIG_VERSION_EDIT,
+        }
+    ),
+    Role.VIEWER: frozenset(
+        {
+            Permission.DEVICE_READ,
+            Permission.DRIVER_READ,
+            Permission.RULE_READ,
+            Permission.ALARM_READ,
+            Permission.DATA_READ,
+            Permission.DATA_EXPORT,
+            Permission.VIDEO_READ,
+            Permission.SYSTEM_READ,
+            Permission.CONFIG_VERSION_READ,
+        }
+    ),
 }
 
 
@@ -180,6 +184,7 @@ def check_permission(role: str, permission: Permission) -> None:
 # API Key 不再隐式授予 admin 角色，而是绑定最小必要权限
 class APIKeyPermission(StrEnum):
     """API Key 可绑定的权限范围（比 Role 更细粒度）"""
+
     METRICS_READ = "metrics:read"  # 仅可访问 /api/metrics 端点
     DEVICE_PUSH = "device:push"  # 仅可推送设备数据
     # 未来可扩展更多细粒度权限...

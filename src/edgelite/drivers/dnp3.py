@@ -128,6 +128,7 @@ def _decode_double(data: bytes, offset: int) -> float:
 @dataclass
 class DNP3Point:
     """DNP3数据点"""
+
     index: int
     group: int
     variation: int
@@ -139,6 +140,7 @@ class DNP3Point:
 @dataclass
 class DNP3Device:
     """DNP3设备信息"""
+
     device_address: int
     name: str = ""
     online: bool = False
@@ -195,9 +197,7 @@ class DNP3Client:
         """读取计数器"""
         return await self._read_points(GROUP_COUNTER, VAR_COUNTER_32BIT, start, count)
 
-    async def _read_points(
-        self, group: int, variation: int, start: int, count: int
-    ) -> list[DNP3Point]:
+    async def _read_points(self, group: int, variation: int, start: int, count: int) -> list[DNP3Point]:
         """读取DNP3数据点"""
         if not self._connected:
             return []
@@ -234,7 +234,7 @@ class DNP3Client:
 
             return self._parse_response(response)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("DNP3读取超时: %s:%d", self._host, self._port)
             return []
         except Exception as e:
@@ -368,7 +368,7 @@ class DNP3Client:
         frame += struct.pack("<H", self._calculate_crc16(header_body))
         # Data blocks (max 16 bytes each + 2 byte CRC)
         for i in range(0, len(user_data), DNP3_DATA_BLOCK_MAX):
-            block = user_data[i:i + DNP3_DATA_BLOCK_MAX]
+            block = user_data[i : i + DNP3_DATA_BLOCK_MAX]
             frame += block + struct.pack("<H", self._calculate_crc16(block))
         return frame
 
@@ -397,7 +397,7 @@ class DNP3Client:
                 # 只剩 CRC 或更少，没有数据
                 break
             block_size = min(DNP3_DATA_BLOCK_MAX, remaining - 2)  # 留 2 字节给 CRC
-            block = frame[offset:offset + block_size]
+            block = frame[offset : offset + block_size]
             if len(block) == 0:
                 break
             # 确保 CRC 字节存在
@@ -442,15 +442,15 @@ class DNP3Client:
         if offset + 4 > len(data):
             return points
 
-        app_control = data[offset]
+        data[offset]
         offset += 1
-        sequence = data[offset]
+        data[offset]
         offset += 1
-        func_code = data[offset]
+        data[offset]
         offset += 1
 
         # 长度
-        data_len = data[offset]
+        data[offset]
         offset += 1
 
         # 解析对象数据
@@ -463,7 +463,7 @@ class DNP3Client:
                 offset += 1
                 variation = data[offset]
                 offset += 1
-                qualifier = data[offset]
+                data[offset]
                 offset += 1
 
                 # 读取范围
@@ -477,13 +477,15 @@ class DNP3Client:
                 for i in range(count):
                     index = range_start + i
                     value, quality = self._decode_object_value(group, variation, data, offset)
-                    points.append(DNP3Point(
-                        index=index,
-                        group=group,
-                        variation=variation,
-                        value=value,
-                        quality=quality,
-                    ))
+                    points.append(
+                        DNP3Point(
+                            index=index,
+                            group=group,
+                            variation=variation,
+                            value=value,
+                            quality=quality,
+                        )
+                    )
                     offset = self._advance_offset(group, variation, offset)
 
             except (IndexError, struct.error):
@@ -505,7 +507,7 @@ class DNP3Client:
                 value = bool(data[offset] & 0x01)
                 offset += 1
 
-        elif group == GROUP_ANALOG_INPUT or group == GROUP_ANALOG_INPUT_16BIT:
+        elif group in (GROUP_ANALOG_INPUT, GROUP_ANALOG_INPUT_16BIT):
             if variation == VAR_ANALOG_INPUT_16BIT:
                 value = _decode_int16(data, offset)
                 offset += 2
@@ -575,7 +577,7 @@ class DNP3Client:
             length = length_byte[0]
             # 读取剩余头 (CTRL + DST + SRC + HeaderCRC = 7 bytes)
             remaining_header = await asyncio.wait_for(self._reader.readexactly(7), timeout=self._timeout)
-            header = start + length_byte + remaining_header
+            start + length_byte + remaining_header
             # 读取数据块
             user_data_len = length - 5  # 5 = CTRL(1) + DST(2) + SRC(2)
             if user_data_len < 0:
@@ -592,7 +594,7 @@ class DNP3Client:
                 data.extend(block)
                 remaining -= block_size
             return bytes(data)
-        except (asyncio.IncompleteReadError, asyncio.TimeoutError, Exception):
+        except (TimeoutError, asyncio.IncompleteReadError, Exception):
             return None
 
     async def _reassemble_response(self) -> bytes | None:
@@ -672,14 +674,35 @@ class DNP3Driver(DriverPlugin):
     config_schema = {
         "description": "DNP3 distributed network protocol for SCADA systems (power/water utility)",
         "fields": [
-            {"name": "host", "type": "string", "label": "IP Address",
-             "description": "DNP3 master/outstation IP address", "default": "192.168.1.1", "required": True},
-            {"name": "port", "type": "integer", "label": "Port",
-             "description": "DNP3 TCP port (default 20000)", "default": 20000},
-            {"name": "device_address", "type": "integer", "label": "Device Address",
-             "description": "DNP3 device address (default 1)", "default": 1},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)",
-             "description": "Communication timeout in seconds", "default": 10.0},
+            {
+                "name": "host",
+                "type": "string",
+                "label": "IP Address",
+                "description": "DNP3 master/outstation IP address",
+                "default": "192.168.1.1",
+                "required": True,
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "DNP3 TCP port (default 20000)",
+                "default": 20000,
+            },
+            {
+                "name": "device_address",
+                "type": "integer",
+                "label": "Device Address",
+                "description": "DNP3 device address (default 1)",
+                "default": 1,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "Communication timeout in seconds",
+                "default": 10.0,
+            },
         ],
     }
 

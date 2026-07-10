@@ -14,7 +14,10 @@ from pathlib import Path
 import httpx
 
 from edgelite.config import get_config
-from edgelite.constants import _OTA_DOWNLOAD_CHUNK, _OTA_DOWNLOAD_TIMEOUT  # FIXED: 原问题-魔法数字timeout=60.0
+from edgelite.constants import (  # FIXED: 原问题-魔法数字timeout=60.0
+    _OTA_DOWNLOAD_CHUNK,
+    _OTA_DOWNLOAD_TIMEOUT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +89,9 @@ class OTAManager:
                 partial_file = self._upgrade_dir / f"update-{version}.zip.part"
                 try:
                     with open(partial_file, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=_OTA_DOWNLOAD_CHUNK):  # FIXED: 原问题-chunk_size=8192魔法数字
+                        async for chunk in response.aiter_bytes(
+                            chunk_size=_OTA_DOWNLOAD_CHUNK
+                        ):  # FIXED: 原问题-chunk_size=8192魔法数字
                             f.write(chunk)
                             downloaded += len(chunk)
                             if total_size:

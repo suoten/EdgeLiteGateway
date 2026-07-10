@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import socket
 import sys
-import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -60,7 +59,7 @@ class _FakeUdpFinsConnection:
         self._execute_call_count += 1
         if self._execute_call_count <= len(self._timeout_sequence):
             if self._timeout_sequence[self._execute_call_count - 1]:
-                raise socket.timeout("simulated UDP packet loss")
+                raise TimeoutError("simulated UDP packet loss")
         return self._response
 
     def set_timeout_sequence(self, *timeouts: bool) -> None:
@@ -229,7 +228,6 @@ class TestUdpRetransmissionBackoff:
         client.set_timeout_sequence(True, True, True, True, True, True)  # 6 次全超时
 
         sleep_calls: list[float] = []
-        original_sleep = time.sleep
 
         def mock_sleep(seconds):
             sleep_calls.append(seconds)

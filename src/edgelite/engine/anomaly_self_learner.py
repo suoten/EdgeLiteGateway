@@ -144,6 +144,7 @@ class AnomalySelfLearner(SelfLearnerBase):
     def _default_weights(self) -> dict[str, Any]:
         """返回默认（未训练）权重：mean=0, std=1, scale=1"""
         import numpy as np
+
         return {
             "mean": np.zeros(INPUT_DIM, dtype=np.float32),
             "std": np.ones(INPUT_DIM, dtype=np.float32),

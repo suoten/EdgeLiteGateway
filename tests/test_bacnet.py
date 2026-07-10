@@ -6,18 +6,15 @@
 
 import asyncio
 import sys
-import struct
 from unittest.mock import MagicMock
-
-import pytest
 
 sys.path.insert(0, "src")
 
 from edgelite.drivers.bacnet import (
-    BACnetClient,
     SERVICE_CONFIRMED_READ_PROPERTY,
     SERVICE_CONFIRMED_READ_PROPERTY_MULTIPLE,
     SERVICE_CONFIRMED_WRITE_PROPERTY,
+    BACnetClient,
 )
 
 
@@ -189,7 +186,7 @@ class TestBacnetBitStringDecoding:
 
     def test_empty_bit_string(self):
         """空 bit string (length=0) 返回 0"""
-        from edgelite.drivers.bacnet import _decode_application_data, APPLICATION_TAG_BIT_STRING
+        from edgelite.drivers.bacnet import _decode_application_data
         # 代码库 tag 编码: bits7-4=tag_number, bit3=class(0=app), bits2-0=length
         # application tag 8 (BIT_STRING), length=0 → 0x80
         result = _decode_application_data(0x80, b"")

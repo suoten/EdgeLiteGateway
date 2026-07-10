@@ -94,6 +94,7 @@ class PersistentPubQueue:
         import os
         import sqlite3
         import threading
+
         self._maxlen = maxlen
         if db_path is None:
             data_dir = os.environ.get("EDGELITE_DATA_DIR", "data")
@@ -106,6 +107,7 @@ class PersistentPubQueue:
 
     def _get_conn(self) -> sqlite3.Connection:
         import sqlite3
+
         if self._conn is None:
             self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
             self._conn.execute("PRAGMA journal_mode=WAL")
@@ -141,7 +143,9 @@ class PersistentPubQueue:
                 # 容量达上限时淘汰最旧条目
                 count = conn.execute("SELECT COUNT(*) FROM mqtt_pub_queue").fetchone()[0]
                 if count >= self._maxlen:
-                    conn.execute("DELETE FROM mqtt_pub_queue WHERE id = (SELECT id FROM mqtt_pub_queue ORDER BY seq ASC LIMIT 1)")
+                    conn.execute(
+                        "DELETE FROM mqtt_pub_queue WHERE id = (SELECT id FROM mqtt_pub_queue ORDER BY seq ASC LIMIT 1)"
+                    )
                 conn.execute(
                     "INSERT INTO mqtt_pub_queue (seq, topic, payload, ts) VALUES (?, ?, ?, ?)",
                     (next_seq, topic, payload, ts),
@@ -164,7 +168,9 @@ class PersistentPubQueue:
                 # 容量达上限时淘汰最旧条目（与 append 一致的容量检查逻辑）
                 count = conn.execute("SELECT COUNT(*) FROM mqtt_pub_queue").fetchone()[0]
                 if count >= self._maxlen:
-                    conn.execute("DELETE FROM mqtt_pub_queue WHERE id = (SELECT id FROM mqtt_pub_queue ORDER BY seq ASC LIMIT 1)")
+                    conn.execute(
+                        "DELETE FROM mqtt_pub_queue WHERE id = (SELECT id FROM mqtt_pub_queue ORDER BY seq ASC LIMIT 1)"
+                    )
                 conn.execute(
                     "INSERT INTO mqtt_pub_queue (seq, topic, payload, ts) VALUES (?, ?, ?, ?)",
                     (prev_seq, topic, payload, ts),
@@ -179,9 +185,7 @@ class PersistentPubQueue:
         with self._lock:
             conn = self._get_conn()
             try:
-                row = conn.execute(
-                    "SELECT topic, payload, ts FROM mqtt_pub_queue ORDER BY seq ASC LIMIT 1"
-                ).fetchone()
+                row = conn.execute("SELECT topic, payload, ts FROM mqtt_pub_queue ORDER BY seq ASC LIMIT 1").fetchone()
                 if row is None:
                     raise IndexError("popleft from an empty queue")
                 conn.execute(
@@ -232,33 +236,145 @@ class MqttClientDriver(DriverPlugin):
     _required_dependencies: tuple[str, ...] = ("aiomqtt",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     # #[AUDIT-FIX] WARNING: 缺失 capabilities 声明，基类默认 write=False/subscribe=False 与实际不符
     # 实际支持 write（write_point 发布消息）和 subscribe（订阅设备主题）
-    capabilities = DriverCapabilities(discover=False, read=True, write=True, subscribe=True, batch_read=False, batch_write=False)
+    capabilities = DriverCapabilities(
+        discover=False, read=True, write=True, subscribe=True, batch_read=False, batch_write=False
+    )
     config_schema = {
         "description": "MQTT client, subscribes to device data topics, supports JSON parsing",
         "fields": [
-            {"name": "broker", "type": "string", "label": "Broker Address", "description": "MQTT server address, e.g. localhost or broker.emqx.io", "default": "localhost", "required": True},
-            {"name": "port", "type": "integer", "label": "Port", "description": "MQTT port, default 1883 (plain) or 8883 (TLS)", "default": 1883},
-            {"name": "username", "type": "string", "label": "Username", "description": "MQTT auth username, leave empty if no auth"},
-            {"name": "password", "type": "string", "label": "Password", "description": "MQTT auth password", "secret": True},
-            {"name": "topic", "type": "string", "label": "Subscribe Topic", "description": "MQTT topic to subscribe, supports wildcards like device/+/data", "required": True},
+            {
+                "name": "broker",
+                "type": "string",
+                "label": "Broker Address",
+                "description": "MQTT server address, e.g. localhost or broker.emqx.io",
+                "default": "localhost",
+                "required": True,
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "MQTT port, default 1883 (plain) or 8883 (TLS)",
+                "default": 1883,
+            },
+            {
+                "name": "username",
+                "type": "string",
+                "label": "Username",
+                "description": "MQTT auth username, leave empty if no auth",
+            },
+            {
+                "name": "password",
+                "type": "string",
+                "label": "Password",
+                "description": "MQTT auth password",
+                "secret": True,
+            },
+            {
+                "name": "topic",
+                "type": "string",
+                "label": "Subscribe Topic",
+                "description": "MQTT topic to subscribe, supports wildcards like device/+/data",
+                "required": True,
+            },
             # ── Last Will ──
-            {"name": "will_topic", "type": "string", "label": "Will Topic", "description": "Last Will topic, leave empty to disable", "default": ""},
-            {"name": "will_message", "type": "string", "label": "Will Message", "description": "Last Will payload, sent when client disconnects unexpectedly", "default": '{"status":"offline"}'},
-            {"name": "will_qos", "type": "integer", "label": "Will QoS", "description": "Last Will QoS level (0/1/2)", "default": 1},
-            {"name": "will_retain", "type": "boolean", "label": "Will Retain", "description": "Whether to retain the Last Will message", "default": True},
+            {
+                "name": "will_topic",
+                "type": "string",
+                "label": "Will Topic",
+                "description": "Last Will topic, leave empty to disable",
+                "default": "",
+            },
+            {
+                "name": "will_message",
+                "type": "string",
+                "label": "Will Message",
+                "description": "Last Will payload, sent when client disconnects unexpectedly",
+                "default": '{"status":"offline"}',
+            },
+            {
+                "name": "will_qos",
+                "type": "integer",
+                "label": "Will QoS",
+                "description": "Last Will QoS level (0/1/2)",
+                "default": 1,
+            },
+            {
+                "name": "will_retain",
+                "type": "boolean",
+                "label": "Will Retain",
+                "description": "Whether to retain the Last Will message",
+                "default": True,
+            },
             # ── Session Persistence ──
-            {"name": "clean_session", "type": "boolean", "label": "Clean Session", "description": "If False, Broker restores subscriptions and undelivered messages on reconnect; requires client_id", "default": True},
-            {"name": "client_id", "type": "string", "label": "Client ID", "description": "MQTT client ID, required when clean_session=False; leave empty for auto-generated", "default": ""},
+            {
+                "name": "clean_session",
+                "type": "boolean",
+                "label": "Clean Session",
+                "description": "If False, Broker restores subscriptions and undelivered messages on reconnect; requires client_id",
+                "default": True,
+            },
+            {
+                "name": "client_id",
+                "type": "string",
+                "label": "Client ID",
+                "description": "MQTT client ID, required when clean_session=False; leave empty for auto-generated",
+                "default": "",
+            },
             # ── TLS Mutual Auth ──
-            {"name": "tls_enabled", "type": "boolean", "label": "Enable TLS", "description": "Enable TLS/SSL connection", "default": False},
-            {"name": "ca_cert", "type": "string", "label": "CA Certificate", "description": "Path to CA certificate file for server verification", "default": ""},
-            {"name": "client_cert", "type": "string", "label": "Client Certificate", "description": "Path to client certificate file for mutual TLS", "default": ""},
-            {"name": "client_key", "type": "string", "label": "Client Key", "description": "Path to client private key file for mutual TLS", "default": ""},
-            {"name": "cert_reqs", "type": "string", "label": "Cert Verify Mode", "description": "Certificate verification mode: required / optional / none", "default": "required"},
+            {
+                "name": "tls_enabled",
+                "type": "boolean",
+                "label": "Enable TLS",
+                "description": "Enable TLS/SSL connection",
+                "default": False,
+            },
+            {
+                "name": "ca_cert",
+                "type": "string",
+                "label": "CA Certificate",
+                "description": "Path to CA certificate file for server verification",
+                "default": "",
+            },
+            {
+                "name": "client_cert",
+                "type": "string",
+                "label": "Client Certificate",
+                "description": "Path to client certificate file for mutual TLS",
+                "default": "",
+            },
+            {
+                "name": "client_key",
+                "type": "string",
+                "label": "Client Key",
+                "description": "Path to client private key file for mutual TLS",
+                "default": "",
+            },
+            {
+                "name": "cert_reqs",
+                "type": "string",
+                "label": "Cert Verify Mode",
+                "description": "Certificate verification mode: required / optional / none",
+                "default": "required",
+            },
             # ── Topic Routing ──
-            {"name": "topic_routes", "type": "array", "label": "Topic Routes", "description": "Topic-to-point mapping rules, e.g. [{\"topic\":\"device/+/temperature\",\"point\":\"temperature\"}]", "default": []},
+            {
+                "name": "topic_routes",
+                "type": "array",
+                "label": "Topic Routes",
+                "description": 'Topic-to-point mapping rules, e.g. [{"topic":"device/+/temperature","point":"temperature"}]',
+                "default": [],
+            },
             # ── Payload Limits ──
-            {"name": "max_payload_size", "type": "integer", "label": "Max Payload Size (bytes)", "description": "Maximum payload size in bytes to prevent memory exhaustion (default 256KB)", "default": 262144, "min": 1024, "max": 10485760},
+            {
+                "name": "max_payload_size",
+                "type": "integer",
+                "label": "Max Payload Size (bytes)",
+                "description": "Maximum payload size in bytes to prevent memory exhaustion (default 256KB)",
+                "default": 262144,
+                "min": 1024,
+                "max": 10485760,
+            },
         ],
     }
 
@@ -359,7 +475,9 @@ class MqttClientDriver(DriverPlugin):
         if self._reconnect_exhausted:
             self._reconnect_count = 0
             self._reconnect_exhausted = False
-            logger.info("[mqtt] code=RECONNECT_RESET msg=Reconnect state reset for device=%s, will retry immediately", device_id)
+            logger.info(
+                "[mqtt] code=RECONNECT_RESET msg=Reconnect state reset for device=%s, will retry immediately", device_id
+            )
         else:
             logger.info("[mqtt] code=RECONNECT_RESET msg=Reconnect state already active for device=%s", device_id)
 
@@ -393,7 +511,9 @@ class MqttClientDriver(DriverPlugin):
         # FIXED-P2: 发布前校验载荷大小，防止超限消息导致Broker断连死循环
         encoded = message.encode("utf-8")
         if len(encoded) > self._max_payload_size:
-            logger.warning("[mqtt] publish payload too large: %d bytes (max %d), dropping", len(encoded), self._max_payload_size)
+            logger.warning(
+                "[mqtt] publish payload too large: %d bytes (max %d), dropping", len(encoded), self._max_payload_size
+            )
             return False
         try:
             self._pub_queue.put_nowait((publish_topic, encoded))
@@ -423,7 +543,7 @@ class MqttClientDriver(DriverPlugin):
             if self._long_retry_mode == "stop":
                 return None
             return self._reconnect_max * 60
-        delay = min(self._reconnect_base * (2 ** self._reconnect_count), self._reconnect_max)
+        delay = min(self._reconnect_base * (2**self._reconnect_count), self._reconnect_max)
         jitter = random.uniform(0, 1.0)
         return delay + jitter
 
@@ -483,7 +603,9 @@ class MqttClientDriver(DriverPlugin):
                 clean_session = bool(self._driver_config.get("clean_session", True))
                 client_id = self._driver_config.get("client_id", "")
                 if not clean_session and not client_id:
-                    logger.warning("[mqtt] device= code=AUTH_FAILED clean_session=False requires a client_id, falling back to clean_session=True")
+                    logger.warning(
+                        "[mqtt] device= code=AUTH_FAILED clean_session=False requires a client_id, falling back to clean_session=True"
+                    )
                     clean_session = True
 
                 client_kwargs: dict[str, Any] = {
@@ -551,7 +673,9 @@ class MqttClientDriver(DriverPlugin):
                             ssl_context.check_hostname = False
 
                         client_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_context)
-                        logger.info("[mqtt] device= code=TLS_OK TLS enabled, cert_reqs=%s", cert_reqs_str)  # FIXED-P2: TLS成功时code应为TLS_OK
+                        logger.info(
+                            "[mqtt] device= code=TLS_OK TLS enabled, cert_reqs=%s", cert_reqs_str
+                        )  # FIXED-P2: TLS成功时code应为TLS_OK
                     except asyncio.CancelledError:
                         raise
                     except Exception as e:
@@ -563,8 +687,15 @@ class MqttClientDriver(DriverPlugin):
                             if not self._reconnect_exhausted:
                                 self._long_retry_start = _time.time()
                             self._reconnect_exhausted = True
-                            if self._long_retry_start > 0 and (_time.time() - self._long_retry_start) > self._long_retry_max_duration:
-                                self._log_error("", "RECONNECT_DURATION_EXCEEDED", f"TLS config failed, long retry exceeded max duration ({self._long_retry_max_duration:.0f}s)")
+                            if (
+                                self._long_retry_start > 0
+                                and (_time.time() - self._long_retry_start) > self._long_retry_max_duration
+                            ):
+                                self._log_error(
+                                    "",
+                                    "RECONNECT_DURATION_EXCEEDED",
+                                    f"TLS config failed, long retry exceeded max duration ({self._long_retry_max_duration:.0f}s)",
+                                )
                                 return
                         backoff = self._compute_backoff_delay()
                         if backoff is None:
@@ -586,7 +717,9 @@ class MqttClientDriver(DriverPlugin):
                             )
                             if ssl_context:
                                 client_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_context)
-                                logger.info("[mqtt] device= code=TLS_OK TLS enabled (global config)")  # FIXED-P2: TLS成功时code应为TLS_OK
+                                logger.info(
+                                    "[mqtt] device= code=TLS_OK TLS enabled (global config)"
+                                )  # FIXED-P2: TLS成功时code应为TLS_OK
                         except asyncio.CancelledError:
                             raise
                         except Exception as e:
@@ -611,7 +744,9 @@ class MqttClientDriver(DriverPlugin):
                     # FIXED-P1: 遍历前快照，原问题：遍历_device_configs期间add_device/remove_device可能并发修改字典导致RuntimeError；
                     # 修复：使用list()创建快照，避免迭代过程中字典大小改变
                     for device_id, dev_config in list(self._device_configs.items()):
-                        topic = dev_config.get("topic") or dev_config.get("subscribe_topic", f"edgelite/{device_id}/data")
+                        topic = dev_config.get("topic") or dev_config.get(
+                            "subscribe_topic", f"edgelite/{device_id}/data"
+                        )
                         try:
                             await client.subscribe(topic)
                             self._subscribed_topics.add(topic)
@@ -653,11 +788,10 @@ class MqttClientDriver(DriverPlugin):
                         )
 
                     msg_task = asyncio.create_task(
-                        self._message_loop(client), name="mqtt-client-msg"  # #[AUDIT-FIX] _message_loop requires client arg, was missing causing TypeError
+                        self._message_loop(client),
+                        name="mqtt-client-msg",  # #[AUDIT-FIX] _message_loop requires client arg, was missing causing TypeError
                     )
-                    pub_task = asyncio.create_task(
-                        self._publish_loop(client), name="mqtt-client-publish"
-                    )
+                    pub_task = asyncio.create_task(self._publish_loop(client), name="mqtt-client-publish")
 
                     try:
                         while self._running:
@@ -679,7 +813,9 @@ class MqttClientDriver(DriverPlugin):
                     try:
                         await asyncio.wait_for(client.__aexit__(None, None, None), timeout=5.0)
                     except TimeoutError:
-                        logger.warning("[mqtt] code=DISCONNECT_TIMEOUT msg=Client __aexit__ timed out after 5s, forcing close")
+                        logger.warning(
+                            "[mqtt] code=DISCONNECT_TIMEOUT msg=Client __aexit__ timed out after 5s, forcing close"
+                        )
                     # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
                     except Exception as e:
                         logger.debug("[mqtt] client.__aexit__ failed: %s", e)
@@ -694,13 +830,20 @@ class MqttClientDriver(DriverPlugin):
                 if backoff is None:
                     return
                 await asyncio.sleep(backoff)
-            except Exception as e:  # FIXED-P2: 用通用Exception替代aiomqtt.exceptions.MqttError，防止aiomqtt版本不兼容时NameError
+            except (
+                Exception
+            ) as e:  # FIXED-P2: 用通用Exception替代aiomqtt.exceptions.MqttError，防止aiomqtt版本不兼容时NameError
                 if hasattr(e, "__module__") and "aiomqtt" in str(getattr(e, "__module__", "")):
                     self._on_disconnect(reason="mqtt error")
                 else:
                     self._on_disconnect(reason="connection error")
                 error_str = str(e).lower()
-                if "auth" in error_str or "credential" in error_str or "unauthorized" in error_str or "reject" in error_str:
+                if (
+                    "auth" in error_str
+                    or "credential" in error_str
+                    or "unauthorized" in error_str
+                    or "reject" in error_str
+                ):
                     self._log_error("", "AUTH_FAILED", f"Auth failed: {e}")
                 else:
                     self._log_error("", "CONN_LOST", f"Connection lost: {e}")
@@ -710,19 +853,45 @@ class MqttClientDriver(DriverPlugin):
                         self._long_retry_start = _time.time()
                     self._reconnect_exhausted = True
                     # FIXED-P1: MQTT-01 长重试超时检查，超过最大持续时间后停止自动重连
-                    if self._long_retry_start > 0 and (_time.time() - self._long_retry_start) > self._long_retry_max_duration:
-                        self._log_error("", "RECONNECT_DURATION_EXCEEDED", f"Long retry exceeded max duration ({self._long_retry_max_duration:.0f}s), stopping auto-reconnect")
+                    if (
+                        self._long_retry_start > 0
+                        and (_time.time() - self._long_retry_start) > self._long_retry_max_duration
+                    ):
+                        self._log_error(
+                            "",
+                            "RECONNECT_DURATION_EXCEEDED",
+                            f"Long retry exceeded max duration ({self._long_retry_max_duration:.0f}s), stopping auto-reconnect",
+                        )
                         if self._data_callback:
                             try:
-                                self._data_callback(device_id="", data={"event": "reconnect_stopped", "reason": "duration_exceeded", "max_duration": self._long_retry_max_duration})
+                                self._data_callback(
+                                    device_id="",
+                                    data={
+                                        "event": "reconnect_stopped",
+                                        "reason": "duration_exceeded",
+                                        "max_duration": self._long_retry_max_duration,
+                                    },
+                                )
                             except Exception as exc:
-                                logger.warning("[mqtt] code=CALLBACK_ERROR msg=reconnect_stopped callback failed: %s", exc)
+                                logger.warning(
+                                    "[mqtt] code=CALLBACK_ERROR msg=reconnect_stopped callback failed: %s", exc
+                                )
                         return
-                    logger.warning("[mqtt] code=RECONNECT_EXHAUSTED msg=Max reconnect attempts (%d) reached, long_retry_mode=%s", self._reconnect_max_attempts, self._long_retry_mode)
+                    logger.warning(
+                        "[mqtt] code=RECONNECT_EXHAUSTED msg=Max reconnect attempts (%d) reached, long_retry_mode=%s",
+                        self._reconnect_max_attempts,
+                        self._long_retry_mode,
+                    )
                     if self._long_retry_mode == "interval":
-                        self._log_error("", "RECONNECT_EXHAUSTED", "Max reconnect attempts reached, will retry in 1-hour intervals")
+                        self._log_error(
+                            "", "RECONNECT_EXHAUSTED", "Max reconnect attempts reached, will retry in 1-hour intervals"
+                        )
                     else:
-                        self._log_error("", "RECONNECT_STOPPED", "Max reconnect attempts reached, stopping auto-reconnect (await manual recovery)")
+                        self._log_error(
+                            "",
+                            "RECONNECT_STOPPED",
+                            "Max reconnect attempts reached, stopping auto-reconnect (await manual recovery)",
+                        )
                 # FIXED: 先设置 _reconnect_exhausted 标志再计算 backoff，确保首次超限时 _compute_backoff_delay 能检测到标志使用长重试间隔
                 backoff = self._compute_backoff_delay()
                 # MQTT-001: backoff 为 None 表示停止重连（stop 模式）
@@ -730,7 +899,9 @@ class MqttClientDriver(DriverPlugin):
                     self._log_error("", "RECONNECT_WAITING_MANUAL", "Waiting for manual recovery or restart")
                     if self._data_callback:
                         try:
-                            self._data_callback(device_id="", data={"event": "reconnect_stopped", "reason": "manual_recovery_required"})
+                            self._data_callback(
+                                device_id="", data={"event": "reconnect_stopped", "reason": "manual_recovery_required"}
+                            )
                         except Exception as exc:
                             logger.warning("[mqtt] code=CALLBACK_ERROR msg=reconnect_stopped callback failed: %s", exc)
                     return
@@ -804,12 +975,18 @@ class MqttClientDriver(DriverPlugin):
                     logger.warning("[mqtt] overflow file rotated: %s -> %s", overflow_path, overflow_path + ".1")
             except OSError as rot_err:
                 logger.warning("[mqtt] overflow file rotation check failed: %s", rot_err)
-            payload_str = payload.decode("utf-8", errors="replace") if isinstance(payload, (bytes, bytearray)) else str(payload)
+            payload_str = (
+                payload.decode("utf-8", errors="replace") if isinstance(payload, (bytes, bytearray)) else str(payload)
+            )
             with open(overflow_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"topic": topic, "payload": payload_str, "ts": _time.time()}, ensure_ascii=False) + "\n")
+                f.write(
+                    json.dumps({"topic": topic, "payload": payload_str, "ts": _time.time()}, ensure_ascii=False) + "\n"
+                )
             self._pub_queue_drops += 1
             if self._pub_queue_drops % 100 == 1:
-                logger.warning("[mqtt] local_pub_queue full, %d messages persisted to overflow file", self._pub_queue_drops)
+                logger.warning(
+                    "[mqtt] local_pub_queue full, %d messages persisted to overflow file", self._pub_queue_drops
+                )
         except Exception as e:
             logger.error("[mqtt] failed to persist overflow message: %s", e)
             self._pub_queue_drops += 1
@@ -838,8 +1015,14 @@ class MqttClientDriver(DriverPlugin):
                             # 修复：将溢出消息写入磁盘overflow文件，确保不丢失
                             await asyncio.to_thread(self._persist_overflow_message, topic, payload)
                         else:
-                            self._local_pub_queue.append((topic, payload, _time.time()))  # FIXED-P2: 缓冲消息增加时间戳，用于TTL过滤
-                            logger.debug("[mqtt] local_pub_queue buffered: topic=%s queue_size=%d", topic, len(self._local_pub_queue))
+                            self._local_pub_queue.append(
+                                (topic, payload, _time.time())
+                            )  # FIXED-P2: 缓冲消息增加时间戳，用于TTL过滤
+                            logger.debug(
+                                "[mqtt] local_pub_queue buffered: topic=%s queue_size=%d",
+                                topic,
+                                len(self._local_pub_queue),
+                            )
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -848,7 +1031,12 @@ class MqttClientDriver(DriverPlugin):
     async def _handle_message(self, message: Any) -> None:
         try:
             if len(message.payload) > self._max_payload_size:
-                logger.warning("[mqtt] payload too large: %d bytes (max %d) from topic %s, dropping", len(message.payload), self._max_payload_size, message.topic)
+                logger.warning(
+                    "[mqtt] payload too large: %d bytes (max %d) from topic %s, dropping",
+                    len(message.payload),
+                    self._max_payload_size,
+                    message.topic,
+                )
                 return
             topic = str(message.topic)
 
@@ -859,10 +1047,16 @@ class MqttClientDriver(DriverPlugin):
                 try:
                     data = json.loads(payload)  # FIXED-P1: Python默认递归限制约1000层已足够防护深嵌套JSON
                 except json.JSONDecodeError as json_err:
-                    logger.warning("[mqtt] code=MESSAGE_PARSE_ERROR msg=JSON parse failed for topic=%s: %s", topic, json_err)
+                    logger.warning(
+                        "[mqtt] code=MESSAGE_PARSE_ERROR msg=JSON parse failed for topic=%s: %s", topic, json_err
+                    )
                     return
             except UnicodeDecodeError as decode_err:
-                logger.warning("[mqtt] code=PAYLOAD_DECODE_ERROR msg=UTF-8 decode failed for topic=%s, using base64", topic, decode_err)
+                logger.warning(
+                    "[mqtt] code=PAYLOAD_DECODE_ERROR msg=UTF-8 decode failed for topic=%s, using base64",
+                    topic,
+                    decode_err,
+                )
                 # MQTT-003: UTF-8 解码失败，使用 base64 编码作为值
                 payload = base64.b64encode(message.payload).decode("ascii")
                 data = payload
@@ -884,7 +1078,9 @@ class MqttClientDriver(DriverPlugin):
                     if not device_id:
                         # 回退：遍历设备配置匹配
                         for did, dev_config in list(self._device_configs.items()):  # FIXED-P1: 快照遍历防止竞态
-                            sub_topic = dev_config.get("topic") or dev_config.get("subscribe_topic", f"edgelite/{did}/data")
+                            sub_topic = dev_config.get("topic") or dev_config.get(
+                                "subscribe_topic", f"edgelite/{did}/data"
+                            )
                             if topic == sub_topic or topic.endswith(sub_topic):
                                 device_id = did
                                 break
@@ -894,7 +1090,9 @@ class MqttClientDriver(DriverPlugin):
 
                     # FIXED-P2: _latest_values外层字典无设备数量限制，仅处理已注册设备
                     if device_id not in self._device_configs:
-                        logger.debug("[mqtt] Ignoring message for unregistered device=%s from topic=%s", device_id, topic)
+                        logger.debug(
+                            "[mqtt] Ignoring message for unregistered device=%s from topic=%s", device_id, topic
+                        )
                         continue
 
                     # 构建测点数据
@@ -927,15 +1125,20 @@ class MqttClientDriver(DriverPlugin):
                         # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用默认参数绑定当前 device_id 和 point_data 的值
                         async def _safe_callback(device_id=device_id, point_data=point_data):
                             try:
-                                await self._data_callback(device_id=device_id, data=point_data)  # FIXED-P1: 统一回调签名为关键字参数
+                                await self._data_callback(
+                                    device_id=device_id, data=point_data
+                                )  # FIXED-P1: 统一回调签名为关键字参数
                             except Exception as e:
                                 logger.error("[mqtt_client] Data callback error for device=%s: %s", device_id, e)
+
                         self._register_task(_safe_callback())
                     return  # 路由匹配成功，结束处理
 
             # ── 回退到原有设备主题匹配逻辑 ──
             for device_id, dev_config in list(self._device_configs.items()):  # FIXED-P1: 快照遍历防止竞态
-                subscribe_topic = dev_config.get("topic") or dev_config.get("subscribe_topic", f"edgelite/{device_id}/data")
+                subscribe_topic = dev_config.get("topic") or dev_config.get(
+                    "subscribe_topic", f"edgelite/{device_id}/data"
+                )
                 if topic == subscribe_topic or topic.endswith(subscribe_topic):
                     async with self._values_lock:
                         point_values = self._latest_values.setdefault(device_id, {})
@@ -956,9 +1159,12 @@ class MqttClientDriver(DriverPlugin):
                         # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用默认参数绑定当前 device_id 和 data 的值
                         async def _safe_callback(device_id=device_id, data=data):
                             try:
-                                await self._data_callback(device_id=device_id, data=data)  # FIXED-P1: 统一回调签名为关键字参数
+                                await self._data_callback(
+                                    device_id=device_id, data=data
+                                )  # FIXED-P1: 统一回调签名为关键字参数
                             except Exception as e:
                                 logger.error("[mqtt_client] Data callback error for device=%s: %s", device_id, e)
+
                         self._register_task(_safe_callback())
                     break
 

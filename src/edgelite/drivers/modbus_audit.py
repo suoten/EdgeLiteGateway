@@ -61,27 +61,43 @@ class ModbusAudit:
         with self._lock:
             self._records.append(record)
             if len(self._records) > self._MAX_RECORDS:
-                self._records = self._records[-self._MAX_RECORDS:]
+                self._records = self._records[-self._MAX_RECORDS :]
 
-    async def log_write(self, device_id: str, point: str, value: Any,
-                        operator: str = "", status: str = "") -> None:
+    async def log_write(self, device_id: str, point: str, value: Any, operator: str = "", status: str = "") -> None:
         """记录写操作"""
-        self._add(device_id, ModbusAuditAction.WRITE, {
-            "point": point, "value": value, "operator": operator, "status": status,
-        })
+        self._add(
+            device_id,
+            ModbusAuditAction.WRITE,
+            {
+                "point": point,
+                "value": value,
+                "operator": operator,
+                "status": status,
+            },
+        )
 
-    async def log_config_change(self, device_id: str, keys: list[str],
-                                old_config: dict, new_config: dict) -> None:
+    async def log_config_change(self, device_id: str, keys: list[str], old_config: dict, new_config: dict) -> None:
         """记录配置变更"""
-        self._add(device_id, ModbusAuditAction.CONFIG_CHANGE, {
-            "keys": keys, "old": old_config, "new": new_config,
-        })
+        self._add(
+            device_id,
+            ModbusAuditAction.CONFIG_CHANGE,
+            {
+                "keys": keys,
+                "old": old_config,
+                "new": new_config,
+            },
+        )
 
     async def log_failover(self, device_id: str, from_host: str, to_host: str) -> None:
         """记录故障转移"""
-        self._add(device_id, ModbusAuditAction.FAILOVER, {
-            "from": from_host, "to": to_host,
-        })
+        self._add(
+            device_id,
+            ModbusAuditAction.FAILOVER,
+            {
+                "from": from_host,
+                "to": to_host,
+            },
+        )
 
     async def log_reconnect(self, device_id: str, success: bool = True) -> None:
         """记录重连事件"""

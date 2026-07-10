@@ -138,41 +138,191 @@ class AllenBradleyDriver(DriverPlugin):
 
     plugin_name = "allen_bradley"
     plugin_version = "1.0.0"
-    supported_protocols = ("allen_bradley", "ab", "ab_cip", "ab_pccc")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    supported_protocols = (
+        "allen_bradley",
+        "ab",
+        "ab_cip",
+        "ab_pccc",
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     _required_dependencies: tuple[str, ...] = ("pylogix",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "Allen-Bradley PLC protocol (pylogix), supports ControlLogix/CompactLogix",
         "required": ["ip"],
-        "properties": {"ip": {"type": "string", "description": "AB PLC IP", "format": "ipv4"}, "port": {"type": "integer", "description": "CIP/PCCC port", "minimum": 1, "maximum": 65535}},
+        "properties": {
+            "ip": {"type": "string", "description": "AB PLC IP", "format": "ipv4"},
+            "port": {"type": "integer", "description": "CIP/PCCC port", "minimum": 1, "maximum": 65535},
+        },
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP Address", "description": "AB PLC IP address", "default": "", "required": True},  # FIXED-P1: 默认IP改为空，避免暴露内网网段
-            {"name": "port", "type": "integer", "label": "Port", "description": "CIP port (default 44818), PCCC/MicroLogix uses 2222", "default": 44818, "min": 1, "max": 65535},
-            {"name": "slot", "type": "integer", "label": "Slot", "description": "CPU slot position, ControlLogix default 0, CompactLogix default 0", "default": 0, "min": 0, "max": 31},
+            {
+                "name": "ip",
+                "type": "string",
+                "label": "IP Address",
+                "description": "AB PLC IP address",
+                "default": "",
+                "required": True,
+            },  # FIXED-P1: 默认IP改为空，避免暴露内网网段
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "CIP port (default 44818), PCCC/MicroLogix uses 2222",
+                "default": 44818,
+                "min": 1,
+                "max": 65535,
+            },
+            {
+                "name": "slot",
+                "type": "integer",
+                "label": "Slot",
+                "description": "CPU slot position, ControlLogix default 0, CompactLogix default 0",
+                "default": 0,
+                "min": 0,
+                "max": 31,
+            },
             {"name": "timeout", "type": "number", "default": 5, "description": "Connection timeout in seconds"},
-            {"name": "connection_timeout", "type": "number", "label": "CIP Connection Timeout (s)", "description": "CIP session connection timeout in seconds (default 5.0)", "default": 5.0},
-            {"name": "connection_type", "type": "string", "label": "Connection Type", "description": "CIP (ControlLogix/CompactLogix) or PCCC (MicroLogix/SLC)", "default": "CIP", "options": ["CIP", "PCCC"]},
-            {"name": "plc_model", "type": "string", "label": "PLC Model", "description": "PLC model type", "default": "ControlLogix", "options": ["MicroLogix", "ControlLogix", "CompactLogix"]},
-            {"name": "large_forward_open", "type": "boolean", "label": "Large Forward Open", "description": "Enable Large Forward Open for connections >448 bytes (ControlLogix/CompactLogix)", "default": False},
-            {"name": "cip_username", "type": "string", "label": "CIP Username", "description": "CIP Security username (for firmware 21+)", "default": ""},
-            {"name": "cip_password", "type": "string", "label": "CIP Password", "description": "CIP Security password", "default": "", "secret": True},
-            {"name": "default_tag", "type": "string", "label": "Default Tag/Address", "description": "Default tag for health check, '@cpu' reads controller info, e.g. 'Program:Main.TagName' or 'N7:0'", "default": "@cpu"},
-            {"name": "watchdog_interval", "type": "number", "label": "Watchdog Interval (s)", "description": "Connection watchdog interval in seconds", "default": 10.0},
-            {"name": "watchdog_check_mode", "type": "string", "label": "Watchdog Check Mode", "description": "Health check mode: ping=CIP identity (no tag), tag=specific tag, auto=ping then fallback tag", "default": "auto", "options": ["ping", "tag", "auto"]},
-            {"name": "backup_ip", "type": "string", "label": "Backup IP", "description": "Backup PLC IP for redundancy failover", "default": ""},
-            {"name": "backup_port", "type": "integer", "label": "Backup Port", "description": "Backup PLC port (default same as primary)", "default": None},
-            {"name": "failover_threshold", "type": "integer", "label": "Failover Threshold", "description": "Primary failure count before switching to backup", "default": 3, "min": 1, "max": 10},
-            {"name": "auto_revert", "type": "boolean", "label": "Auto Revert", "description": "Auto revert to primary IP when recovered", "default": True},
-            {"name": "deadband", "type": "number", "label": "Deadband", "description": "Deadband threshold (absolute or percent), suppress unchanged values", "default": None},
-            {"name": "scaling_ratio", "type": "number", "label": "Scaling Ratio", "description": "Linear scaling ratio (value * ratio + offset)", "default": 1.0},
-            {"name": "scaling_offset", "type": "number", "label": "Scaling Offset", "description": "Linear scaling offset", "default": 0.0},
-            {"name": "clamp_min", "type": "number", "label": "Clamp Min", "description": "Minimum valid value, values below are marked bad quality", "default": None},
-            {"name": "clamp_max", "type": "number", "label": "Clamp Max", "description": "Maximum valid value, values above are marked bad quality", "default": None},
+            {
+                "name": "connection_timeout",
+                "type": "number",
+                "label": "CIP Connection Timeout (s)",
+                "description": "CIP session connection timeout in seconds (default 5.0)",
+                "default": 5.0,
+            },
+            {
+                "name": "connection_type",
+                "type": "string",
+                "label": "Connection Type",
+                "description": "CIP (ControlLogix/CompactLogix) or PCCC (MicroLogix/SLC)",
+                "default": "CIP",
+                "options": ["CIP", "PCCC"],
+            },
+            {
+                "name": "plc_model",
+                "type": "string",
+                "label": "PLC Model",
+                "description": "PLC model type",
+                "default": "ControlLogix",
+                "options": ["MicroLogix", "ControlLogix", "CompactLogix"],
+            },
+            {
+                "name": "large_forward_open",
+                "type": "boolean",
+                "label": "Large Forward Open",
+                "description": "Enable Large Forward Open for connections >448 bytes (ControlLogix/CompactLogix)",
+                "default": False,
+            },
+            {
+                "name": "cip_username",
+                "type": "string",
+                "label": "CIP Username",
+                "description": "CIP Security username (for firmware 21+)",
+                "default": "",
+            },
+            {
+                "name": "cip_password",
+                "type": "string",
+                "label": "CIP Password",
+                "description": "CIP Security password",
+                "default": "",
+                "secret": True,
+            },
+            {
+                "name": "default_tag",
+                "type": "string",
+                "label": "Default Tag/Address",
+                "description": "Default tag for health check, '@cpu' reads controller info, e.g. 'Program:Main.TagName' or 'N7:0'",
+                "default": "@cpu",
+            },
+            {
+                "name": "watchdog_interval",
+                "type": "number",
+                "label": "Watchdog Interval (s)",
+                "description": "Connection watchdog interval in seconds",
+                "default": 10.0,
+            },
+            {
+                "name": "watchdog_check_mode",
+                "type": "string",
+                "label": "Watchdog Check Mode",
+                "description": "Health check mode: ping=CIP identity (no tag), tag=specific tag, auto=ping then fallback tag",
+                "default": "auto",
+                "options": ["ping", "tag", "auto"],
+            },
+            {
+                "name": "backup_ip",
+                "type": "string",
+                "label": "Backup IP",
+                "description": "Backup PLC IP for redundancy failover",
+                "default": "",
+            },
+            {
+                "name": "backup_port",
+                "type": "integer",
+                "label": "Backup Port",
+                "description": "Backup PLC port (default same as primary)",
+                "default": None,
+            },
+            {
+                "name": "failover_threshold",
+                "type": "integer",
+                "label": "Failover Threshold",
+                "description": "Primary failure count before switching to backup",
+                "default": 3,
+                "min": 1,
+                "max": 10,
+            },
+            {
+                "name": "auto_revert",
+                "type": "boolean",
+                "label": "Auto Revert",
+                "description": "Auto revert to primary IP when recovered",
+                "default": True,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband",
+                "description": "Deadband threshold (absolute or percent), suppress unchanged values",
+                "default": None,
+            },
+            {
+                "name": "scaling_ratio",
+                "type": "number",
+                "label": "Scaling Ratio",
+                "description": "Linear scaling ratio (value * ratio + offset)",
+                "default": 1.0,
+            },
+            {
+                "name": "scaling_offset",
+                "type": "number",
+                "label": "Scaling Offset",
+                "description": "Linear scaling offset",
+                "default": 0.0,
+            },
+            {
+                "name": "clamp_min",
+                "type": "number",
+                "label": "Clamp Min",
+                "description": "Minimum valid value, values below are marked bad quality",
+                "default": None,
+            },
+            {
+                "name": "clamp_max",
+                "type": "number",
+                "label": "Clamp Max",
+                "description": "Maximum valid value, values above are marked bad quality",
+                "default": None,
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=True, read=True, write=True, subscribe=False, batch_read=True, batch_write=True)
-    constraints = ({"type": "feature_gap", "message": "Program Tags vs Controller Tags distinction not fully supported"}, {"type": "feature_gap", "message": "UDT/Array/Structure types have limited support"})  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    capabilities = DriverCapabilities(
+        discover=True, read=True, write=True, subscribe=False, batch_read=True, batch_write=True
+    )
+    constraints = (
+        {"type": "feature_gap", "message": "Program Tags vs Controller Tags distinction not fully supported"},
+        {"type": "feature_gap", "message": "UDT/Array/Structure types have limited support"},
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     _MAX_RECONNECT_ATTEMPTS = 3
     _RECONNECT_BASE_DELAY = 1.0
@@ -186,9 +336,11 @@ class AllenBradleyDriver(DriverPlugin):
     _READ_TIMEOUT = 30  # FIXED-P1: 定义读取超时常量，防止AttributeError
     _DEFAULT_TAG = "@cpu"
     # AB-MED-001: watchdog 健康检查模式
-    _WATCHDOG_CHECK_MODE_TAG = "tag"       # 读取特定 tag
-    _WATCHDOG_CHECK_MODE_PING = "ping"     # 使用 CIP Identity 查询（不依赖 tag）
-    _WATCHDOG_CHECK_MODE_AUTO = "auto"     # 优先 ping，失败则回退 tag
+    _WATCHDOG_CHECK_MODE_TAG = "tag"  # 读取特定 tag
+    _WATCHDOG_CHECK_MODE_PING = "ping"  # 使用 CIP Identity 查询（不依赖 tag）
+    _WATCHDOG_CHECK_MODE_AUTO = "auto"  # 优先 ping，失败则回退 tag
+    # Task #15: watchdog 连续失败达阈值触发自动重连（避免无读写时连接永久不可恢复）
+    _WATCHDOG_RECONNECT_THRESHOLD = 3
 
     def __init__(self):
         super().__init__()
@@ -209,6 +361,8 @@ class AllenBradleyDriver(DriverPlugin):
         self._watchdog_task: asyncio.Task | None = None
         self._watchdog_interval: float = 10.0
         self._watchdog_check_mode: str = self._WATCHDOG_CHECK_MODE_AUTO  # AB-MED-001
+        # Task #15: watchdog 连续失败计数器，达 _WATCHDOG_RECONNECT_THRESHOLD 触发自动重连
+        self._watchdog_fail_count: int = 0
         self._event_bus: Any = None
         self._cip_security_enabled: bool = False
         # _offline_since inherited from base class (dict[str, datetime])  # FIXED-P2: 删除遮蔽基类的覆盖初始化
@@ -227,7 +381,9 @@ class AllenBradleyDriver(DriverPlugin):
         self._last_failover_time: str = ""
         self._last_failover_duration_ms: float = 0.0
         self._failover_probe_task: asyncio.Task | None = None
-        self._failover_mode_lock = asyncio.Lock()  # FIXED-P1: 模式切换(CAS/EIP failover/revert)锁保护，防止并发切换导致状态不一致
+        self._failover_mode_lock = (
+            asyncio.Lock()
+        )  # FIXED-P1: 模式切换(CAS/EIP failover/revert)锁保护，防止并发切换导致状态不一致
         self._auto_revert: bool = True
         self._large_forward_open_auto: bool = False
         self._point_stats: dict[str, PointHealthStats] = {}
@@ -263,7 +419,9 @@ class AllenBradleyDriver(DriverPlugin):
         # FIXED-P0: 线程池饱和检测，防止饥饿导致驱动永久卡死
         self._thread_pool_semaphore: asyncio.Semaphore | None = None
 
-    async def _run_in_thread(self, func, *args, timeout: float = 30.0, **kwargs):  # FIXED-P1: 添加超时参数，防止同步调用永久阻塞
+    async def _run_in_thread(
+        self, func, *args, timeout: float = 30.0, **kwargs
+    ):  # FIXED-P1: 添加超时参数，防止同步调用永久阻塞
         """AB-001: 在独立线程池中执行同步函数，避免阻塞全局线程池"""
         async with self._thread_pool_lock:  # FIXED-P1: 线程池重建+submit原子性保护
             if self._thread_pool_failed:
@@ -278,7 +436,9 @@ class AllenBradleyDriver(DriverPlugin):
                     try:
                         old_pool.shutdown(wait=False, cancel_futures=True)
                     except Exception as e:
-                        logger.warning("[ab] run_in_thread failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                        logger.warning(
+                            "[ab] run_in_thread failed: %s", e
+                        )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 logger.warning("[ab] code=THREAD_POOL_REBUILT msg=AB thread pool rebuilt after timeout")
             if self._thread_pool is None:
                 self._thread_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ab-worker-")
@@ -366,9 +526,11 @@ class AllenBradleyDriver(DriverPlugin):
 
             # 方法2: 尝试使用 GetDeviceProperties (pylogix 的 CIP identity)
             try:
-                if hasattr(self._client, 'GetDeviceProperties'):
-                    props = self._client.GetDeviceProperties()  # FIXED-P1: GetDeviceProperties是方法而非属性，需方法调用
-                    if props and hasattr(props, 'Value') and props.Value is not None:
+                if hasattr(self._client, "GetDeviceProperties"):
+                    props = (
+                        self._client.GetDeviceProperties()
+                    )  # FIXED-P1: GetDeviceProperties是方法而非属性，需方法调用
+                    if props and hasattr(props, "Value") and props.Value is not None:
                         return True
             except AttributeError:
                 return False  # client is None, not a connection issue  # FIXED-P2: 区分AttributeError和其他异常，避免None client误触发重连
@@ -394,7 +556,7 @@ class AllenBradleyDriver(DriverPlugin):
         if not self._client:
             return
         try:
-            if hasattr(self._client, 'ForwardClose'):
+            if hasattr(self._client, "ForwardClose"):
                 try:
                     await asyncio.wait_for(self._run_in_thread(self._sync_forward_close_client), timeout=5.0)
                 except TimeoutError:
@@ -417,7 +579,9 @@ class AllenBradleyDriver(DriverPlugin):
             logger.warning("[ab] code=FORWARD_CLOSE_FAILED ForwardClose failed: %s", e)
 
     def _set_conn_state(self, new_state: str, device_id: str = "", reason: str = "") -> None:
-        with self._ab_conn_state_lock:  # #[AUDIT-FIX] use AB-specific lock (base class _conn_state_lock is asyncio.Lock)
+        with (
+            self._ab_conn_state_lock
+        ):  # #[AUDIT-FIX] use AB-specific lock (base class _conn_state_lock is asyncio.Lock)
             valid_transitions = {
                 AbConnState.DISCONNECTED.value: {AbConnState.CONNECTING.value},
                 AbConnState.CONNECTING.value: {
@@ -470,12 +634,12 @@ class AllenBradleyDriver(DriverPlugin):
         if has_backup:
             delay = self._FAILOVER_FAST_DELAY
         else:
-            delay = min(self._RECONNECT_BASE_DELAY * (2 ** self._reconnect_count), self._RECONNECT_MAX_DELAY)
+            delay = min(self._RECONNECT_BASE_DELAY * (2**self._reconnect_count), self._RECONNECT_MAX_DELAY)
         jitter_ms = random.randint(0, 200 if has_backup else self._JITTER_MAX_MS)
         return delay + jitter_ms / 1000.0
 
     def _calc_retry_delay(self, attempt: int) -> float:
-        base = self._RETRY_BASE_DELAY * (2 ** attempt)
+        base = self._RETRY_BASE_DELAY * (2**attempt)
         jitter = base * self._RETRY_JITTER_FACTOR
         return base + random.uniform(-jitter, jitter)
 
@@ -500,7 +664,9 @@ class AllenBradleyDriver(DriverPlugin):
 
     def _check_degradation(self, device_id: str) -> None:
         now = time.monotonic()
-        stale_points = [p for p, s in self._point_stats.items() if s.last_access_time > 0 and (now - s.last_access_time) > 3600]
+        stale_points = [
+            p for p, s in self._point_stats.items() if s.last_access_time > 0 and (now - s.last_access_time) > 3600
+        ]
         for p in stale_points:
             del self._point_stats[p]
         if not self._degrade_window:
@@ -610,7 +776,14 @@ class AllenBradleyDriver(DriverPlugin):
 
     # FIXED(严重): 已知但未在_AB_TYPE_RANGES中定义范围的AB类型，用于区分"已知类型"与"完全未知类型"
     _AB_KNOWN_NON_RANGE_TYPES: set[str] = {
-        "STRING", "TIMER", "COUNTER", "UDT", "BYTE", "WORD", "DWORD", "LWORD",
+        "STRING",
+        "TIMER",
+        "COUNTER",
+        "UDT",
+        "BYTE",
+        "WORD",
+        "DWORD",
+        "LWORD",
     }
 
     # FIXED(严重): AB PLC字符串默认最大长度82字符
@@ -637,7 +810,7 @@ class AllenBradleyDriver(DriverPlugin):
     def _validate_cip_data_length(self, resp: Any, point: str = "") -> bool:
         if resp is None:
             return False
-        value = getattr(resp, 'Value', None)
+        value = getattr(resp, "Value", None)
         if value is None:
             return True
         data_type = ""
@@ -655,16 +828,20 @@ class AllenBradleyDriver(DriverPlugin):
             return True
         if isinstance(value, bytes):
             if len(value) < expected_size:
-                self._log_error("", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} expected>={expected_size} got={len(value)}")
+                self._log_error(
+                    "", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} expected>={expected_size} got={len(value)}"
+                )
                 return False
         if isinstance(value, list):
             if len(value) == 0:
                 return True
             elem_size = expected_size
             total_expected = len(value) * elem_size
-            raw_size = getattr(resp, 'DataLength', None)
+            raw_size = getattr(resp, "DataLength", None)
             if raw_size is not None and raw_size < total_expected:
-                self._log_error("", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} array expected>={total_expected} got={raw_size}")
+                self._log_error(
+                    "", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} array expected>={total_expected} got={raw_size}"
+                )
                 return False
         range_info = self._AB_TYPE_RANGES.get(base_type)
         if range_info:
@@ -675,19 +852,33 @@ class AllenBradleyDriver(DriverPlugin):
                         for v in value:
                             casted = expected_type(v)
                             if casted < min_val or casted > max_val:
-                                self._log_error("", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} value={casted} out of range [{min_val},{max_val}]")
+                                self._log_error(
+                                    "",
+                                    "ERR_AB_DATA_LENGTH_MISMATCH",
+                                    f"point={point} value={casted} out of range [{min_val},{max_val}]",
+                                )
                                 return False
                     else:
                         casted = expected_type(value)
                         if casted < min_val or casted > max_val:
-                            self._log_error("", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} value={casted} out of range [{min_val},{max_val}]")
+                            self._log_error(
+                                "",
+                                "ERR_AB_DATA_LENGTH_MISMATCH",
+                                f"point={point} value={casted} out of range [{min_val},{max_val}]",
+                            )
                             return False
                 except (ValueError, TypeError):
-                    self._log_error("", "ERR_AB_DATA_LENGTH_MISMATCH", f"point={point} type mismatch expected={expected_type.__name__}")
+                    self._log_error(
+                        "",
+                        "ERR_AB_DATA_LENGTH_MISMATCH",
+                        f"point={point} type mismatch expected={expected_type.__name__}",
+                    )
                     return False
         return True
 
-    def _validate_write_value(self, point: str, value: Any, data_type: str = "", device_id: str = "") -> tuple[Any, str]:
+    def _validate_write_value(
+        self, point: str, value: Any, data_type: str = "", device_id: str = ""
+    ) -> tuple[Any, str]:
         if data_type:
             dt_upper = data_type.upper()
             range_info = self._AB_TYPE_RANGES.get(dt_upper)
@@ -709,7 +900,11 @@ class AllenBradleyDriver(DriverPlugin):
                     except (ValueError, TypeError):
                         return None, "ERR_AB_WRITE_VALUE_INVALID"
                 if len(value) > self._AB_STRING_MAX_LEN:
-                    self._log_error("", "ERR_AB_WRITE_VALUE_INVALID", f"point={point} string length={len(value)} exceeds max={self._AB_STRING_MAX_LEN}")
+                    self._log_error(
+                        "",
+                        "ERR_AB_WRITE_VALUE_INVALID",
+                        f"point={point} string length={len(value)} exceeds max={self._AB_STRING_MAX_LEN}",
+                    )
                     return None, "ERR_AB_WRITE_VALUE_INVALID"
             else:
                 # FIXED(严重): 对未在_AB_TYPE_RANGES中的类型(TIMER/COUNTER/UDT/BYTE/WORD等)至少校验基本数据类型匹配
@@ -718,7 +913,11 @@ class AllenBradleyDriver(DriverPlugin):
                     return None, "ERR_AB_WRITE_VALUE_INVALID"
                 # FIXED(严重): 完全不认识的类型记录WARNING但仍放行，避免阻断合法操作
                 if base_dt not in self._AB_KNOWN_NON_RANGE_TYPES:
-                    logger.warning("[ab] unknown data type '%s' for point=%s, value passed through without range validation", data_type, point)
+                    logger.warning(
+                        "[ab] unknown data type '%s' for point=%s, value passed through without range validation",
+                        data_type,
+                        point,
+                    )
         if isinstance(value, list):
             max_array_len = 500
             if len(value) > max_array_len:
@@ -759,7 +958,9 @@ class AllenBradleyDriver(DriverPlugin):
             logger.warning("[ab] write verify failed: %s", e)  # FIXED-P1: 原问题-写入验证异常返回False无日志
             return False
 
-    def _record_write_audit(self, device_id: str, point: str, old_value: Any, new_value: Any, result: bool, error_code: str = "") -> None:
+    def _record_write_audit(
+        self, device_id: str, point: str, old_value: Any, new_value: Any, result: bool, error_code: str = ""
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "device_id": device_id,
@@ -845,6 +1046,7 @@ class AllenBradleyDriver(DriverPlugin):
             try:
                 import socket as _socket
                 import ssl as _ssl
+
                 test_sock = _socket.create_connection((ip, port), timeout=self._connection_timeout)
                 ctx = _ssl.create_default_context()
                 ca_cert = config.get("ca_cert", "")
@@ -870,12 +1072,14 @@ class AllenBradleyDriver(DriverPlugin):
                         test_sock.close()
                     except Exception as e:
                         logger.warning("[ab] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                logger.warning("AB driver: TLS connection failed for %s, falling back to non-encrypted connection", device_id)
+                logger.warning(
+                    "AB driver: TLS connection failed for %s, falling back to non-encrypted connection", device_id
+                )
 
         try:
             new_client = PLC(ip=ip, port=port, slot=slot)
             self._client = new_client  # FIXED-P0: 先赋值到局部变量再赋值到self，构造异常时self._client保持原值
-            if hasattr(self._client, 'SocketTimeout'):
+            if hasattr(self._client, "SocketTimeout"):
                 self._client.SocketTimeout = self._connection_timeout
 
             self._cip_security_enabled = False
@@ -895,9 +1099,9 @@ class AllenBradleyDriver(DriverPlugin):
 
             large_forward_open = config.get("large_forward_open", False)
             self._large_forward_open_auto = False
-            if large_forward_open and hasattr(self._client, 'LargeForwardOpen'):
+            if large_forward_open and hasattr(self._client, "LargeForwardOpen"):
                 self._client.LargeForwardOpen = True
-            elif not micrologix and hasattr(self._client, 'LargeForwardOpen'):
+            elif not micrologix and hasattr(self._client, "LargeForwardOpen"):
                 try:
                     self._client.LargeForwardOpen = True
                     self._large_forward_open_auto = True
@@ -913,9 +1117,30 @@ class AllenBradleyDriver(DriverPlugin):
             self._init_ts_storage(config)
             # FIXED-P1: PLC()惰性连接，标记CONNECTED前验证连接是否真正可用
             ping_ok = await asyncio.to_thread(self._sync_ping)
+            # Task #15: Large Forward Open 降级 — 自动启用 LFO 后若 ping 失败，回退到普通 Forward Open 重试
+            # 原问题: LFO 自动启用后不测试是否可用，旧固件 PLC 不支持 LFO 会导致连接失败且无降级
+            # 修复: ping 失败 + LFO auto → 禁用 LFO 并重试 ping (与 _try_reconnect 路径一致)
+            if not ping_ok and self._large_forward_open_auto and hasattr(self._client, "LargeForwardOpen"):
+                self._log_error(
+                    device_id, "ERR_AB_LFO_FALLBACK", f"LFO ping failed for {ip}, falling back to standard Forward Open"
+                )
+                try:
+                    self._client.LargeForwardOpen = False
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.debug("[ab] failed to disable LargeForwardOpen: %s", e)
+                self._large_forward_open_auto = False
+                ping_ok = await asyncio.to_thread(self._sync_ping)
             if not ping_ok:
-                self._set_conn_state(AbConnState.DISCONNECTED.value, device_id, "ping verification failed after PLC() construction")
-                logger.warning("[ab] code=PING_FAILED ip=%s slot=%d, connection verification failed, marking DISCONNECTED", ip, slot)
+                self._set_conn_state(
+                    AbConnState.DISCONNECTED.value, device_id, "ping verification failed after PLC() construction"
+                )
+                logger.warning(
+                    "[ab] code=PING_FAILED ip=%s slot=%d, connection verification failed, marking DISCONNECTED",
+                    ip,
+                    slot,
+                )
                 # FIXED-P1: 原问题-isolated client创建后未关闭，ping验证失败时self._client仍持有CIP连接
                 #           修复-在finally块中关闭isolated client，防止CIP连接泄漏
                 try:
@@ -925,17 +1150,29 @@ class AllenBradleyDriver(DriverPlugin):
                 self._client = None
             else:
                 self._running = True
+                # Task #15: 连接成功后重置 watchdog 失败计数
+                self._watchdog_fail_count = 0
                 self._set_conn_state(AbConnState.CONNECTED.value, device_id, ip)
                 # FIXED-P2: watchdog和failover探测仅在ping成功后启动
                 if self._watchdog_task is None or self._watchdog_task.done():
                     self._watchdog_task = asyncio.create_task(self._watchdog_loop())
-                if self._backup_ip and self._auto_revert and (self._failover_probe_task is None or self._failover_probe_task.done()):
+                if (
+                    self._backup_ip
+                    and self._auto_revert
+                    and (self._failover_probe_task is None or self._failover_probe_task.done())
+                ):
                     self._failover_probe_task = asyncio.create_task(self._failover_probe_loop())
                 logger.info(
                     "[ab] code=CONNECTED ip=%s slot=%d micrologix=%s plc_model=%s "
                     "cip_security=%s large_fwd_open=%s(auto=%s) backup=%s",
-                    ip, slot, micrologix, plc_model, self._cip_security_enabled,
-                    large_forward_open, self._large_forward_open_auto, self._backup_ip or "none",
+                    ip,
+                    slot,
+                    micrologix,
+                    plc_model,
+                    self._cip_security_enabled,
+                    large_forward_open,
+                    self._large_forward_open_auto,
+                    self._backup_ip or "none",
                 )
         except asyncio.CancelledError:
             raise
@@ -943,7 +1180,6 @@ class AllenBradleyDriver(DriverPlugin):
             self._log_error(device_id, "ERR_AB_CONN_FAILED", f"ip={ip} error={e}")
             self._set_conn_state(AbConnState.DISCONNECTED.value, device_id, str(e))
             raise
-
 
     async def stop(self) -> None:
         if self._watchdog_task and not self._watchdog_task.done():
@@ -1043,12 +1279,22 @@ class AllenBradleyDriver(DriverPlugin):
                 await self._try_reconnect(device_id)
                 new_quality = self.get_connection_quality(device_id)
                 if new_quality > 80:
-                    logger.info("[ab] device=%s code=QUALITY_RECOVERED quality=%.1f->%.1f", device_id, quality, new_quality)
+                    logger.info(
+                        "[ab] device=%s code=QUALITY_RECOVERED quality=%.1f->%.1f", device_id, quality, new_quality
+                    )
                 else:
-                    await self._set_connection_state(device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold after reconnect")
-                    logger.warning("[ab] device=%s code=QUALITY_DEGRADED quality=%.1f after reconnect", device_id, new_quality)
+                    await self._set_connection_state(
+                        device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold after reconnect"
+                    )
+                    logger.warning(
+                        "[ab] device=%s code=QUALITY_DEGRADED quality=%.1f after reconnect", device_id, new_quality
+                    )
             else:
-                await self._set_connection_state(device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold, reconnect rate limited")
+                await self._set_connection_state(
+                    device_id,
+                    ConnectionState.DEGRADED.value,
+                    "Connection quality below threshold, reconnect rate limited",
+                )
 
         if not self._running or not self._client:
             # FIXED-P0: 重连速率限制，距上次重连不到30秒则跳过
@@ -1108,7 +1354,9 @@ class AllenBradleyDriver(DriverPlugin):
                             timeout=self._READ_TIMEOUT,
                         )
                     except TimeoutError:
-                        self._log_error(device_id, "ERR_AB_FALLBACK_READ_TIMEOUT", f"fallback read timeout ({self._READ_TIMEOUT}s)")
+                        self._log_error(
+                            device_id, "ERR_AB_FALLBACK_READ_TIMEOUT", f"fallback read timeout ({self._READ_TIMEOUT}s)"
+                        )
                         for point in tag_list:
                             batch_result[point] = None
                         return batch_result
@@ -1157,7 +1405,7 @@ class AllenBradleyDriver(DriverPlugin):
                     if attempt < 2:
                         await asyncio.sleep(self._calc_retry_delay(attempt))
         else:
-            chunks = [points[i:i + batch_size] for i in range(0, len(points), batch_size)]
+            chunks = [points[i : i + batch_size] for i in range(0, len(points), batch_size)]
             for chunk in chunks:
                 try:
                     t0 = time.monotonic()
@@ -1223,10 +1471,15 @@ class AllenBradleyDriver(DriverPlugin):
                 client = self._device_clients.get(device_id, self._client)
             if client:
                 try:
-                    probe_resp = await asyncio.wait_for(self._run_in_thread(client.Read, self._config.get("default_tag", self._DEFAULT_TAG)), timeout=10.0)
-                    probe_status = getattr(probe_resp, 'Status', None)
+                    probe_resp = await asyncio.wait_for(
+                        self._run_in_thread(client.Read, self._config.get("default_tag", self._DEFAULT_TAG)),
+                        timeout=10.0,
+                    )
+                    probe_status = getattr(probe_resp, "Status", None)
                     if probe_status == 0x01:
-                        logger.warning("[ab] code=CIP_CONN_FAILURE device=%s status=0x01, triggering reconnect", device_id)
+                        logger.warning(
+                            "[ab] code=CIP_CONN_FAILURE device=%s status=0x01, triggering reconnect", device_id
+                        )
                         await self._try_reconnect(device_id)
                 except asyncio.CancelledError:
                     raise
@@ -1240,13 +1493,15 @@ class AllenBradleyDriver(DriverPlugin):
         if any(isinstance(v, PointValue) and v.quality == "bad" for v in result.values()):
             self._record_read_failure(device_id)
         else:
-            await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+            await self._record_read_success(
+                device_id
+            )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
         return result
 
     def _parse_response_value(self, resp: Any, point: str = "") -> Any:
         if resp is None:
             return None
-        status = getattr(resp, 'Status', None) or getattr(resp, 'status', None) or 0
+        status = getattr(resp, "Status", None) or getattr(resp, "status", None) or 0
         if status != 0:
             cip_err = self._parse_cip_status(status)
             if point:
@@ -1257,39 +1512,39 @@ class AllenBradleyDriver(DriverPlugin):
             if point:
                 self._record_point_failure(point)
             return None
-        value = getattr(resp, 'Value', None)
+        value = getattr(resp, "Value", None)
         if value is None:  # FIXED-P1: 使用is None而非or，避免0值被跳过
-            value = getattr(resp, 'value', None)
+            value = getattr(resp, "value", None)
         if value is None:
             return None
         try:
-            if hasattr(value, '_dict'):
+            if hasattr(value, "_dict"):
                 try:
                     return dict(value._dict)
                 except Exception:
                     partial = {}
                     for k in dir(value):
-                        if k.startswith('_'):
+                        if k.startswith("_"):
                             continue
                         try:
                             partial[k] = getattr(value, k)
                         except Exception:
                             continue
                     return partial if partial else None
-            if hasattr(value, '__dict__') and not isinstance(value, (int, float, str, bool, list, bytes)):
+            if hasattr(value, "__dict__") and not isinstance(value, (int, float, str, bool, list, bytes)):
                 try:
-                    return {k: v for k, v in value.__dict__.items() if not k.startswith('_')}
+                    return {k: v for k, v in value.__dict__.items() if not k.startswith("_")}
                 except Exception:
                     partial = {}
                     for k in dir(value):
-                        if k.startswith('_'):
+                        if k.startswith("_"):
                             continue
                         try:
                             partial[k] = getattr(value, k)
                         except Exception:
                             continue
                     return partial if partial else None
-            if hasattr(value, 'tobytes'):
+            if hasattr(value, "tobytes"):
                 try:
                     return value.tobytes().hex()
                 except Exception:
@@ -1313,8 +1568,13 @@ class AllenBradleyDriver(DriverPlugin):
         # SEC-FIX(修复2): 驱动层写入权限检查，防止内部服务绕过 API 层鉴权直接写入
         if hasattr(self, "check_permission"):
             from edgelite.security.rbac import Permission
+
             if not await self.check_permission(Permission.DEVICE_WRITE_POINT):
-                self._log_error(device_id, "ERR_AB_RBAC_DENIED", f"role={self._current_user_role} lacks device:write_point, point={point}")
+                self._log_error(
+                    device_id,
+                    "ERR_AB_RBAC_DENIED",
+                    f"role={self._current_user_role} lacks device:write_point, point={point}",
+                )
                 return False
         if not self._running or not self._client:
             now_mono = time.monotonic()  # FIXED-P0: write路径重连速率限制
@@ -1359,7 +1619,9 @@ class AllenBradleyDriver(DriverPlugin):
                     current_write_client = self._device_clients.get(device_id, self._client)
                 try:
                     async with write_lock:
-                        response = await asyncio.wait_for(self._run_in_thread(current_write_client.Write, point, value), timeout=30.0)
+                        response = await asyncio.wait_for(
+                            self._run_in_thread(current_write_client.Write, point, value), timeout=30.0
+                        )
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
@@ -1367,15 +1629,19 @@ class AllenBradleyDriver(DriverPlugin):
                     async with self._device_clients_lock:
                         fallback_client = self._client
                     if fallback_client:
-                        response = await asyncio.wait_for(self._run_in_thread(self._sync_write_tag, point, value), timeout=30.0)
+                        response = await asyncio.wait_for(
+                            self._run_in_thread(self._sync_write_tag, point, value), timeout=30.0
+                        )
                     else:
                         raise
-                status = getattr(response, 'Status', 1)
+                status = getattr(response, "Status", 1)
                 if status == 0:
                     verified = await self._write_verify(point, value)
                     if not verified:
                         self._log_error(device_id, "ERR_AB_WRITE_VERIFY_FAILED", f"point={point}")
-                        self._record_write_audit(device_id, point, old_value, value, False, "ERR_AB_WRITE_VERIFY_FAILED")
+                        self._record_write_audit(
+                            device_id, point, old_value, value, False, "ERR_AB_WRITE_VERIFY_FAILED"
+                        )
                         self._record_write_failure(device_id)
                         return False
                     self._record_write_success(device_id)
@@ -1384,7 +1650,9 @@ class AllenBradleyDriver(DriverPlugin):
                     return True
                 else:
                     cip_err = self._parse_cip_status(status)
-                    self._log_error(device_id, "ERR_AB_WRITE_FAILED", f"point={point} cip={cip_err} status=0x{status:02X}")
+                    self._log_error(
+                        device_id, "ERR_AB_WRITE_FAILED", f"point={point} cip={cip_err} status=0x{status:02X}"
+                    )
                     self._record_write_audit(device_id, point, old_value, value, False, cip_err)
                     self._record_write_failure(device_id)
                     record_packet("rx", "ab", device_id, f"CIP Write Response: Status=0x{status:02X}")
@@ -1446,7 +1714,7 @@ class AllenBradleyDriver(DriverPlugin):
                 for i, point in enumerate(tags):
                     if i < len(response):
                         item = response[i]
-                        status = getattr(item, 'Status', 1)
+                        status = getattr(item, "Status", 1)
                         ok = status == 0
                         result[point] = ok
                         if ok:
@@ -1459,7 +1727,7 @@ class AllenBradleyDriver(DriverPlugin):
                     else:
                         result[point] = False
             else:
-                ok = getattr(response, 'Status', 1) == 0
+                ok = getattr(response, "Status", 1) == 0
                 for point in tags:
                     result[point] = ok
                 if ok:
@@ -1480,7 +1748,7 @@ class AllenBradleyDriver(DriverPlugin):
                         if not write_ref:
                             return False
                         resp = await self._run_in_thread(self._sync_write_tag, point, value)
-                        status = getattr(resp, 'Status', 1)
+                        status = getattr(resp, "Status", 1)
                         if status == 0:
                             verified = await self._write_verify(point, value)
                             return verified
@@ -1505,11 +1773,12 @@ class AllenBradleyDriver(DriverPlugin):
 
     def _validate_bool_array_offset(self, tag: str) -> bool:
         import re
-        match = re.search(r'\.(\d+)$', tag)
+
+        match = re.search(r"\.(\d+)$", tag)
         if not match:
             return True
         bit_offset = int(match.group(1))
-        base_tag = tag[:match.start()]
+        base_tag = tag[: match.start()]
         for dev_info in list(self._devices.values()):  # FIXED-P1: 使用list()快照，防止迭代中dict被修改
             pts = dev_info.get("points", {})
             pinfo = pts.get(tag, pts.get(base_tag, {}))
@@ -1518,7 +1787,9 @@ class AllenBradleyDriver(DriverPlugin):
                 if dims:
                     max_bits = dims[0] * 32 if len(dims) == 1 else dims[0]
                     if bit_offset >= max_bits:
-                        self._log_error("", "ERR_AB_BOOL_OFFSET_OUT_OF_BOUNDS", f"tag={tag} offset={bit_offset} max={max_bits}")
+                        self._log_error(
+                            "", "ERR_AB_BOOL_OFFSET_OUT_OF_BOUNDS", f"tag={tag} offset={bit_offset} max={max_bits}"
+                        )
                         return False
                 break
         return True
@@ -1531,9 +1802,13 @@ class AllenBradleyDriver(DriverPlugin):
         async with self._reconnect_lock:
             self._reconnect_count += 1
             if self._reconnect_count > self._MAX_RECONNECT_ATTEMPTS:
-                self._log_error(device_id, "ERR_AB_RECONNECT_FAILED", f"abandoned after {self._reconnect_count} attempts")
+                self._log_error(
+                    device_id, "ERR_AB_RECONNECT_FAILED", f"abandoned after {self._reconnect_count} attempts"
+                )
                 self._set_conn_state(AbConnState.OFFLINE.value, device_id, "max reconnect attempts reached")
-                self._reconnect_cooldown_until = time.time() + 3600  # FIXED-P1: 达到上限后设置1小时冷却期，而非重置计数器允许立即重试
+                self._reconnect_cooldown_until = (
+                    time.time() + 3600
+                )  # FIXED-P1: 达到上限后设置1小时冷却期，而非重置计数器允许立即重试
                 self._reconnect_count = 0
                 return
 
@@ -1543,7 +1818,13 @@ class AllenBradleyDriver(DriverPlugin):
 
             delay = self._calc_backoff_delay()
             self._set_conn_state(AbConnState.CONNECTING.value, device_id, f"reconnect attempt={self._reconnect_count}")
-            logger.warning("[ab] code=CONNECTION_LOST device=%s delay=%.3fs attempt=%d backup=%s", device_id, delay, self._reconnect_count, has_backup)
+            logger.warning(
+                "[ab] code=CONNECTION_LOST device=%s delay=%.3fs attempt=%d backup=%s",
+                device_id,
+                delay,
+                self._reconnect_count,
+                has_backup,
+            )
 
         # FIXED-P1: 将sleep移到锁外执行，避免持锁期间阻塞其他协程
         await asyncio.sleep(delay)
@@ -1573,11 +1854,15 @@ class AllenBradleyDriver(DriverPlugin):
                     self._failover_start_mono = 0.0
                     self._last_failover_duration_ms = failover_dur
                     self._last_failover_time = datetime.now(UTC).isoformat()
-                    self._log_error(device_id, "ERR_AB_FAILOVER_TRIGGERED", f"primary->{self._backup_ip} dur={failover_dur:.0f}ms")
+                    self._log_error(
+                        device_id, "ERR_AB_FAILOVER_TRIGGERED", f"primary->{self._backup_ip} dur={failover_dur:.0f}ms"
+                    )
                     if self._audit:
                         self._audit.log_failover(device_id, self._primary_ip, self._backup_ip)
                     if failover_dur > 3000:
-                        self._log_error(device_id, "ERR_AB_FAILOVER_FAST", f"failover took {failover_dur:.0f}ms > 3000ms target")
+                        self._log_error(
+                            device_id, "ERR_AB_FAILOVER_FAST", f"failover took {failover_dur:.0f}ms > 3000ms target"
+                        )
 
             slot = int(self._config.get("slot", 0))
             if not target_ip:
@@ -1591,13 +1876,17 @@ class AllenBradleyDriver(DriverPlugin):
                     logger.debug("[ab] operation failed: %s", e)
             try:
                 from pylogix import PLC
+
                 tls_enabled = bool(self._config.get("tls_enabled", False))
                 if tls_enabled:
                     test_sock = None  # FIXED-P1: 确保TLS测试socket在异常路径也被关闭
                     try:
                         import socket as _socket
                         import ssl as _ssl
-                        test_sock = _socket.create_connection((target_ip, target_port), timeout=self._connection_timeout)
+
+                        test_sock = _socket.create_connection(
+                            (target_ip, target_port), timeout=self._connection_timeout
+                        )
                         ctx = _ssl.create_default_context()
                         ca_cert = self._config.get("ca_cert", "")
                         if ca_cert:
@@ -1614,24 +1903,31 @@ class AllenBradleyDriver(DriverPlugin):
                             try:
                                 test_sock.close()
                             except Exception as e:
-                                logger.warning("[ab] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                                logger.warning(
+                                    "[ab] operation failed: %s", e
+                                )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                         raise
                     except Exception:
                         if test_sock is not None:  # FIXED-P1: wrap_socket异常时关闭原始socket
                             try:
                                 test_sock.close()
                             except Exception as e:
-                                logger.warning("[ab] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                        logger.warning("AB driver: TLS connection failed for %s, falling back to non-encrypted connection", device_id)
+                                logger.warning(
+                                    "[ab] operation failed: %s", e
+                                )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                        logger.warning(
+                            "AB driver: TLS connection failed for %s, falling back to non-encrypted connection",
+                            device_id,
+                        )
                 self._set_conn_state(AbConnState.CIP_NEGOTIATING.value, device_id, f"connecting to {target_ip}")
                 with self._sync_lock:  # FIXED-P1: client赋值需在_sync_lock保护下，与读取方法一致
                     self._client = PLC(ip=target_ip, port=target_port, slot=slot)
-                if hasattr(self._client, 'SocketTimeout'):
+                if hasattr(self._client, "SocketTimeout"):
                     self._client.SocketTimeout = self._connection_timeout
                 large_forward_open = self._config.get("large_forward_open", False)
-                if large_forward_open and hasattr(self._client, 'LargeForwardOpen'):
+                if large_forward_open and hasattr(self._client, "LargeForwardOpen"):
                     self._client.LargeForwardOpen = True
-                elif not self._using_backup and hasattr(self._client, 'LargeForwardOpen'):
+                elif not self._using_backup and hasattr(self._client, "LargeForwardOpen"):
                     try:
                         self._client.LargeForwardOpen = True
                         self._large_forward_open_auto = True
@@ -1651,9 +1947,32 @@ class AllenBradleyDriver(DriverPlugin):
                         self._log_error(device_id, "ERR_AB_CIP_SECURITY_FAILED", f"reconnect error={e}")
                 # FIXED-P1: 重连后验证连接可用性，PLC()是惰性连接，ping失败则不标记CONNECTED
                 ping_ok = await asyncio.to_thread(self._sync_ping)
+                # Task #15: Large Forward Open 降级 — 自动启用 LFO 后若 ping 失败，回退到普通 Forward Open 重试
+                # 原问题: LFO 自动启用后不测试是否可用，旧固件 PLC 不支持 LFO 会导致连接失败且无降级
+                # 修复: ping 失败 + LFO auto → 禁用 LFO 并重试 ping
+                if not ping_ok and self._large_forward_open_auto and hasattr(self._client, "LargeForwardOpen"):
+                    self._log_error(
+                        device_id,
+                        "ERR_AB_LFO_FALLBACK",
+                        f"LFO ping failed for {target_ip}, falling back to standard Forward Open",
+                    )
+                    try:
+                        self._client.LargeForwardOpen = False
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        logger.debug("[ab] failed to disable LargeForwardOpen: %s", e)
+                    self._large_forward_open_auto = False
+                    ping_ok = await asyncio.to_thread(self._sync_ping)
                 if not ping_ok:
-                    self._log_error(device_id, "ERR_AB_RECONNECT_PING_FAILED", f"ping verification failed after reconnect to {target_ip}")
-                    self._set_conn_state(AbConnState.DISCONNECTED.value, device_id, "ping verification failed after reconnect")
+                    self._log_error(
+                        device_id,
+                        "ERR_AB_RECONNECT_PING_FAILED",
+                        f"ping verification failed after reconnect to {target_ip}",
+                    )
+                    self._set_conn_state(
+                        AbConnState.DISCONNECTED.value, device_id, "ping verification failed after reconnect"
+                    )
                     # FIXED-P1: 原问题-isolated client创建后未关闭，ping验证失败时self._client仍持有CIP连接
                     #           修复-在finally块中关闭isolated client，防止CIP连接泄漏
                     try:
@@ -1666,6 +1985,8 @@ class AllenBradleyDriver(DriverPlugin):
                 self._reconnect_count = 0
                 self._reconnect_cooldown_until = 0.0  # FIXED-P2: 重连成功后重置冷却期，允许后续自动重连
                 self._reconnect_delay = self._RECONNECT_BASE_DELAY
+                # Task #15: 重连成功后重置 watchdog 失败计数，避免历史失败计数再次触发重连
+                self._watchdog_fail_count = 0
                 self._set_conn_state(AbConnState.CONNECTED.value, device_id, target_ip)
                 async with self._device_clients_lock:
                     for did, old_dev_client in list(self._device_clients.items()):
@@ -1681,7 +2002,7 @@ class AllenBradleyDriver(DriverPlugin):
                         dev_slot = int(dev_config.get("slot", slot))
                         try:
                             new_dev_client = PLC(ip=dev_ip, port=dev_port, slot=dev_slot)
-                            if hasattr(new_dev_client, 'SocketTimeout'):
+                            if hasattr(new_dev_client, "SocketTimeout"):
                                 new_dev_client.SocketTimeout = self._connection_timeout
                             self._device_clients[did] = new_dev_client
                         except asyncio.CancelledError:
@@ -1689,7 +2010,13 @@ class AllenBradleyDriver(DriverPlugin):
                         except Exception as e:
                             logger.warning("[ab] operation failed: %s", e, exc_info=True)
                             self._device_clients.pop(did, None)
-                logger.info("[ab] code=RECONNECTED ip=%s:%d slot=%d using_backup=%s", target_ip, target_port, slot, self._using_backup)
+                logger.info(
+                    "[ab] code=RECONNECTED ip=%s:%d slot=%d using_backup=%s",
+                    target_ip,
+                    target_port,
+                    slot,
+                    self._using_backup,
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -1707,25 +2034,36 @@ class AllenBradleyDriver(DriverPlugin):
         await self._failover_mode_lock.acquire()
         try:
             from pylogix import PLC
+
             primary_port = int(self._config.get("port", 44818))
             primary_slot = int(self._config.get("slot", 0))
             new_client = PLC(ip=self._primary_ip, port=primary_port, slot=primary_slot)
-            if hasattr(new_client, 'SocketTimeout'):
+            if hasattr(new_client, "SocketTimeout"):
                 new_client.SocketTimeout = self._connection_timeout
             # 验证新连接可用性
             ping_ok = False
             try:
-                resp = await self._run_in_thread(new_client.Read, "@cpu", timeout=5.0)  # FIXED-P2: 同步Read移入线程池，避免阻塞事件循环
-                ping_ok = (getattr(resp, 'Status', None) == 0)
+                resp = await self._run_in_thread(
+                    new_client.Read, "@cpu", timeout=5.0
+                )  # FIXED-P2: 同步Read移入线程池，避免阻塞事件循环
+                ping_ok = getattr(resp, "Status", None) == 0
             except Exception:
                 ping_ok = False
             if not ping_ok:
                 # 新连接失败，关闭新client，保持备用连接不变
                 try:
-                    await self._run_in_thread(new_client.Close)  # FIXED-P1: Close()移入线程池，避免同步CIP ForwardClose阻塞事件循环
+                    await self._run_in_thread(
+                        new_client.Close
+                    )  # FIXED-P1: Close()移入线程池，避免同步CIP ForwardClose阻塞事件循环
                 except Exception as e:
-                    logger.warning("[ab] try_revert_primary failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                self._log_error(device_id, "ERR_AB_FAILOVER_REVERT_FAILED", f"primary {self._primary_ip} ping failed, staying on backup")
+                    logger.warning(
+                        "[ab] try_revert_primary failed: %s", e
+                    )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                self._log_error(
+                    device_id,
+                    "ERR_AB_FAILOVER_REVERT_FAILED",
+                    f"primary {self._primary_ip} ping failed, staying on backup",
+                )
                 return
             # FIXED-P1: client替换使用compare-and-swap模式，防止_try_revert_primary与_try_reconnect并发替换导致连接泄漏
             with self._sync_lock:
@@ -1762,14 +2100,17 @@ class AllenBradleyDriver(DriverPlugin):
                 probe_client = None  # FIXED-P0: 初始化probe_client，防止CancelledError时引用未定义变量
                 try:
                     from pylogix import PLC
+
                     probe_port = int(self._config.get("port", 44818))
                     probe_slot = int(self._config.get("slot", 0))
                     probe_client = PLC(ip=self._primary_ip, port=probe_port, slot=probe_slot)
                     try:
                         default_tag = self._config.get("default_tag", self._DEFAULT_TAG)
                         resp = await asyncio.wait_for(self._run_in_thread(probe_client.Read, default_tag), timeout=10.0)
-                        if getattr(resp, 'Status', None) == 0:
-                            await self._try_revert_primary(next(iter(self._devices), ""))  # FIXED-P1: _try_revert_primary改为async，需await
+                        if getattr(resp, "Status", None) == 0:
+                            await self._try_revert_primary(
+                                next(iter(self._devices), "")
+                            )  # FIXED-P1: _try_revert_primary改为async，需await
                     finally:
                         try:
                             await asyncio.wait_for(self._run_in_thread(probe_client.Close), timeout=5.0)
@@ -1780,9 +2121,13 @@ class AllenBradleyDriver(DriverPlugin):
                 except asyncio.CancelledError:
                     if probe_client is not None:  # FIXED-P2: CancelledError时也关闭probe_client，防止CIP连接泄漏
                         try:
-                            await asyncio.wait_for(self._run_in_thread(probe_client.Close), timeout=5.0)  # FIXED-P1: 同步Close改为异步执行，避免阻塞事件循环
+                            await asyncio.wait_for(
+                                self._run_in_thread(probe_client.Close), timeout=5.0
+                            )  # FIXED-P1: 同步Close改为异步执行，避免阻塞事件循环
                         except Exception as e:
-                            logger.warning("[ab] failover_probe_loop failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[ab] failover_probe_loop failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                     raise
                 except Exception as e:
                     logger.warning("[ab] code=PROBE_READ_FAILED probe read failed: %s", e)
@@ -1839,8 +2184,10 @@ class AllenBradleyDriver(DriverPlugin):
             from edgelite.drivers.edge_rule_engine import ModbusEdgeRuleEngine
             from edgelite.drivers.edge_triggers import EdgeTriggerExecutor
             from edgelite.drivers.rule_store import RuleStore
+
             try:
                 from edgelite.engine.event_bus import EventBus
+
                 event_bus = EventBus()
             except asyncio.CancelledError:
                 raise
@@ -1915,6 +2262,7 @@ class AllenBradleyDriver(DriverPlugin):
         if not self._rule_engine or not self._rule_store:
             return False
         from edgelite.drivers.edge_rule_engine import EdgeRule, EdgeRuleOperator, EdgeRuleType
+
         try:
             rule = EdgeRule(
                 rule_id=rule_dict["rule_id"],
@@ -1977,6 +2325,7 @@ class AllenBradleyDriver(DriverPlugin):
             return
         try:
             from edgelite.drivers.ab_ts_store import AbOfflineSyncManager, AbTsStore
+
             ts_retention = int(config.get("ts_retention_days", 7))
             self._ts_store = AbTsStore(retention_days=ts_retention)
             self._offline_sync = AbOfflineSyncManager(
@@ -2027,12 +2376,15 @@ class AllenBradleyDriver(DriverPlugin):
         self._device_configs[device_id] = config
         self._devices[device_id] = {
             "config": config,
-            "points": {p.get("name", p.get("address", "")): p for p in (points or []) if p.get("name") or p.get("address")},
+            "points": {
+                p.get("name", p.get("address", "")): p for p in (points or []) if p.get("name") or p.get("address")
+            },
         }
         self._device_points[device_id] = points or []  # FIXED-P1: 存储设备测点列表，供remove_device清理使用
         self._device_locks.setdefault(device_id, asyncio.Lock())
         try:
             from pylogix import PLC
+
             dev_ip = config.get("ip", self._config.get("ip", ""))
             dev_port = int(config.get("port", self._config.get("port", 44818)))
             dev_slot = int(config.get("slot", self._config.get("slot", 0)))
@@ -2041,12 +2393,16 @@ class AllenBradleyDriver(DriverPlugin):
                     old_client = self._device_clients.get(device_id)  # FIXED-P2: 关闭旧客户端防止连接泄漏
                     if old_client is not None:
                         try:
-                            await self._run_in_thread(old_client.Close)  # FIXED-P2: 同步Close改为线程池执行，防止阻塞事件循环
+                            await self._run_in_thread(
+                                old_client.Close
+                            )  # FIXED-P2: 同步Close改为线程池执行，防止阻塞事件循环
                         except Exception as e:
-                            logger.warning("[ab] add_device failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[ab] add_device failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 dev_client = PLC(ip=dev_ip, port=dev_port, slot=dev_slot)
-                if hasattr(dev_client, 'SocketTimeout'):
-                    dev_client.SocketTimeout = self._connection_timeout if hasattr(self, '_connection_timeout') else 5.0
+                if hasattr(dev_client, "SocketTimeout"):
+                    dev_client.SocketTimeout = self._connection_timeout if hasattr(self, "_connection_timeout") else 5.0
                 try:  # FIXED-P0: 客户端注册异常时关闭新客户端防止泄漏
                     async with self._device_clients_lock:
                         self._device_clients[device_id] = dev_client
@@ -2056,7 +2412,9 @@ class AllenBradleyDriver(DriverPlugin):
                     except Exception as e:
                         logger.warning("[ab] add_device failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                     raise
-                logger.info("[ab] device=%s isolated CIP session created: %s:%d slot=%d", device_id, dev_ip, dev_port, dev_slot)
+                logger.info(
+                    "[ab] device=%s isolated CIP session created: %s:%d slot=%d", device_id, dev_ip, dev_port, dev_slot
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -2070,7 +2428,10 @@ class AllenBradleyDriver(DriverPlugin):
                 if "deadband" in p and p["deadband"] is not None:
                     pcfg["deadband"] = p["deadband"]
                 if "scaling_ratio" in p or "scaling_offset" in p:
-                    pcfg["scaling"] = {"ratio": float(p.get("scaling_ratio", 1.0)), "offset": float(p.get("scaling_offset", 0.0))}
+                    pcfg["scaling"] = {
+                        "ratio": float(p.get("scaling_ratio", 1.0)),
+                        "offset": float(p.get("scaling_offset", 0.0)),
+                    }
                 if "clamp_min" in p or "clamp_max" in p:
                     clamp = {}
                     if p.get("clamp_min") is not None:
@@ -2130,16 +2491,18 @@ class AllenBradleyDriver(DriverPlugin):
         # 如果是ControlLogix，添加每个程序作为子设备
         if plc_model == "ControlLogix" and programs:
             for prog in programs:
-                results.append({
-                    "device_id": f"ab_{ip.replace('.', '_')}_{prog}",
-                    "name": f"AB Program ({prog})",
-                    "ip": ip,
-                    "slot": slot,
-                    "model": "Program",
-                    "program_name": prog,
-                    "protocol": "allen_bradley",
-                    "cip_security": self._cip_security_enabled,
-                })
+                results.append(
+                    {
+                        "device_id": f"ab_{ip.replace('.', '_')}_{prog}",
+                        "name": f"AB Program ({prog})",
+                        "ip": ip,
+                        "slot": slot,
+                        "model": "Program",
+                        "program_name": prog,
+                        "protocol": "allen_bradley",
+                        "cip_security": self._cip_security_enabled,
+                    }
+                )
 
         return results
 
@@ -2151,10 +2514,10 @@ class AllenBradleyDriver(DriverPlugin):
         try:
             # GetTagList with empty program returns controller tags
             # Call GetProgramList if available
-            if hasattr(self._client, 'GetProgramList'):
+            if hasattr(self._client, "GetProgramList"):
                 response = await self._run_in_thread(self._sync_get_program_list)
                 if response and response.Value:
-                    return [p.ProgramName for p in response.Value if hasattr(p, 'ProgramName')]
+                    return [p.ProgramName for p in response.Value if hasattr(p, "ProgramName")]
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -2205,9 +2568,9 @@ class AllenBradleyDriver(DriverPlugin):
             for tag in raw_tags:
                 if tag is None:
                     continue
-                tag_name = getattr(tag, 'TagName', str(tag))
-                data_type = getattr(tag, 'DataType', 'unknown')
-                array_dims_raw = getattr(tag, 'ArrayDimensions', None)
+                tag_name = getattr(tag, "TagName", str(tag))
+                data_type = getattr(tag, "DataType", "unknown")
+                array_dims_raw = getattr(tag, "ArrayDimensions", None)
                 dimensions: list[int] = []
                 if array_dims_raw:
                     if isinstance(array_dims_raw, (list, tuple)):
@@ -2215,24 +2578,39 @@ class AllenBradleyDriver(DriverPlugin):
                     else:
                         dimensions = [int(array_dims_raw)]
                 is_array = len(dimensions) > 0
-                is_struct = data_type.lower() not in (
-                    'bool', 'sint', 'int', 'dint', 'lint',
-                    'usint', 'uint', 'udint', 'ulint',
-                    'real', 'lreal', 'string',
-                ) and not is_array
+                is_struct = (
+                    data_type.lower()
+                    not in (
+                        "bool",
+                        "sint",
+                        "int",
+                        "dint",
+                        "lint",
+                        "usint",
+                        "uint",
+                        "udint",
+                        "ulint",
+                        "real",
+                        "lreal",
+                        "string",
+                    )
+                    and not is_array
+                )
                 prefix = f"Program:{program}." if program else ""
-                tags.append({
-                    "name": tag_name,
-                    "tag_name": prefix + tag_name,
-                    "type": data_type,
-                    "dimensions": dimensions,
-                    "is_array": is_array,
-                    "is_struct": is_struct,
-                    "member_count": 0,  # Set to 0 for controller tags; for program tags see browse_struct_members
-                    "path": prefix + tag_name,
-                    "program": program or "<controller>",
-                    "device_id": device_id,
-                })
+                tags.append(
+                    {
+                        "name": tag_name,
+                        "tag_name": prefix + tag_name,
+                        "type": data_type,
+                        "dimensions": dimensions,
+                        "is_array": is_array,
+                        "is_struct": is_struct,
+                        "member_count": 0,  # Set to 0 for controller tags; for program tags see browse_struct_members
+                        "path": prefix + tag_name,
+                        "program": program or "<controller>",
+                        "device_id": device_id,
+                    }
+                )
         except TimeoutError:
             logger.warning("[ab] code=TAG_DISCOVERY_TIMEOUT program=%s timeout=%ss", program, self._browse_timeout)
         except asyncio.CancelledError:
@@ -2263,7 +2641,9 @@ class AllenBradleyDriver(DriverPlugin):
                 tag_name = parts[1]
 
             raw_list = await asyncio.wait_for(
-                self._run_in_thread(self._sync_get_tag_list, program) if program else self._run_in_thread(self._sync_get_tag_list, ""),
+                self._run_in_thread(self._sync_get_tag_list, program)
+                if program
+                else self._run_in_thread(self._sync_get_tag_list, ""),
                 timeout=self._browse_timeout,
             )
             raw_tags = raw_list.Value if raw_list else []
@@ -2271,7 +2651,7 @@ class AllenBradleyDriver(DriverPlugin):
             # 找到目标结构体标签
             target = None
             for tag in raw_tags:
-                if getattr(tag, 'TagName', '') == tag_name:
+                if getattr(tag, "TagName", "") == tag_name:
                     target = tag
                     break
 
@@ -2290,34 +2670,40 @@ class AllenBradleyDriver(DriverPlugin):
             value = resp.Value
             members: list[dict] = []
 
-            if hasattr(value, '_dict'):
+            if hasattr(value, "_dict"):
                 for idx, (k, v) in enumerate(value._dict.items()):
-                    members.append({
-                        "name": k,
-                        "type": type(v).__name__,
-                        "offset": idx * 4,
-                        "bit_length": 0,
-                        "value": v,
-                    })
-            elif hasattr(value, '__dict__'):
-                for idx, (k, v) in enumerate(value.__dict__.items()):
-                    if not k.startswith('_'):
-                        members.append({
+                    members.append(
+                        {
                             "name": k,
                             "type": type(v).__name__,
                             "offset": idx * 4,
                             "bit_length": 0,
                             "value": v,
-                        })
+                        }
+                    )
+            elif hasattr(value, "__dict__"):
+                for idx, (k, v) in enumerate(value.__dict__.items()):
+                    if not k.startswith("_"):
+                        members.append(
+                            {
+                                "name": k,
+                                "type": type(v).__name__,
+                                "offset": idx * 4,
+                                "bit_length": 0,
+                                "value": v,
+                            }
+                        )
             elif isinstance(value, dict):
                 for idx, (k, v) in enumerate(value.items()):
-                    members.append({
-                        "name": k,
-                        "type": type(v).__name__,
-                        "offset": idx * 4,
-                        "bit_length": 0,
-                        "value": v,
-                    })
+                    members.append(
+                        {
+                            "name": k,
+                            "type": type(v).__name__,
+                            "offset": idx * 4,
+                            "bit_length": 0,
+                            "value": v,
+                        }
+                    )
 
             return members
         except TimeoutError:
@@ -2379,7 +2765,9 @@ class AllenBradleyDriver(DriverPlugin):
         # FIXED-P1: 使用_device_points获取该设备的测点名来清理，之前用device_id前缀匹配永远不命中
         device_points = self._device_points.pop(device_id, [])  # FIXED-P1: pop并清理_device_points，防止内存泄漏
         # FIXED-P2: 键推导逻辑需与add_device一致（name优先，fallback到address），否则无name的测点配置不会被清理
-        point_keys = {pt.get("name", pt.get("address", "")) for pt in device_points if pt.get("name") or pt.get("address")}
+        point_keys = {
+            pt.get("name", pt.get("address", "")) for pt in device_points if pt.get("name") or pt.get("address")
+        }
         for pk in point_keys:
             self._point_configs.pop(pk, None)
         keys_to_del_ts = [k for k in self._last_timestamps if k in point_keys]
@@ -2426,8 +2814,8 @@ class AllenBradleyDriver(DriverPlugin):
                     default_tag = self._config.get("default_tag", self._DEFAULT_TAG)
                     try:
                         resp = await self._run_in_thread(self._sync_read_tag, default_tag)
-                        status = getattr(resp, 'Status', None)
-                        connected = (status == 0)
+                        status = getattr(resp, "Status", None)
+                        connected = status == 0
                     except Exception:
                         connected = False
 
@@ -2443,12 +2831,14 @@ class AllenBradleyDriver(DriverPlugin):
                         default_tag = self._config.get("default_tag", self._DEFAULT_TAG)
                         try:
                             resp = await self._run_in_thread(self._sync_read_tag, default_tag)
-                            status = getattr(resp, 'Status', None)
-                            connected = (status == 0)
+                            status = getattr(resp, "Status", None)
+                            connected = status == 0
                         except Exception:
                             connected = False
 
                 if connected:
+                    # Task #15: ping 成功 → 重置连续失败计数，避免历史失败累积误触发重连
+                    self._watchdog_fail_count = 0
                     for did in list(self._devices.keys()):
                         self._offline_since.pop(did, None)
                         if self._conn_state != AbConnState.CONNECTED.value:
@@ -2460,6 +2850,14 @@ class AllenBradleyDriver(DriverPlugin):
                     did = next(iter(self._devices), "") if self._devices else ""  # FIXED-P0: 空字典时安全获取第一个key
                     if self._conn_state == AbConnState.CONNECTED.value:
                         self._set_conn_state(AbConnState.DEGRADED.value, did, "watchdog check failed")
+                    # Task #15: CIP 会话续期 — 连续失败达阈值触发自动重连
+                    # 原问题: watchdog 仅标记 DEGRADED，不触发重连；若无读写操作则连接永久不可恢复
+                    # 修复: 新增 _watchdog_fail_count 计数器，达阈值后调度 _try_reconnect 并重置计数
+                    self._watchdog_fail_count += 1
+                    if self._watchdog_fail_count >= self._WATCHDOG_RECONNECT_THRESHOLD:
+                        if did:  # 安全防护: did 为空字符串时不触发重连
+                            asyncio.create_task(self._try_reconnect(did))
+                        self._watchdog_fail_count = 0
 
             except asyncio.CancelledError:
                 break
@@ -2474,7 +2872,7 @@ class AllenBradleyDriver(DriverPlugin):
         try:
             tag = self._config.get("default_tag", self._DEFAULT_TAG)
             resp = await self._run_in_thread(self._sync_read_tag, tag)
-            status = getattr(resp, 'Status', 1)
+            status = getattr(resp, "Status", 1)
             return status == 0
         except asyncio.CancelledError:
             raise
@@ -2485,6 +2883,7 @@ class AllenBradleyDriver(DriverPlugin):
         from edgelite.drivers.ab_audit import AbAudit
         from edgelite.drivers.ab_config_version import AbConfigVersionManager
         from edgelite.drivers.ab_ota import AbOtaManager
+
         self._config_version_mgr = AbConfigVersionManager()
         self._ota_mgr = AbOtaManager()
         self._audit = AbAudit(audit_service)
@@ -2493,6 +2892,7 @@ class AllenBradleyDriver(DriverPlugin):
     def check_rbac(self, role: str, permission: str, device_id: str = "") -> bool:
         try:
             from edgelite.security.rbac import Permission, has_permission
+
             perm = Permission(permission)
         except (ImportError, ValueError):
             return False
@@ -2503,11 +2903,15 @@ class AllenBradleyDriver(DriverPlugin):
             self._log_error(device_id, "ERR_AB_RBAC_DENIED", f"role={role} permission={permission}")
         return granted
 
-    async def set_user_role(self, role: str) -> None:  # FIXED-P0: 改为async并使用_role_lock，防止多协程并发写入 _current_user_role 导致权限竞态（对齐 modbus_tcp/modbus_rtu/mc 驱动）
+    async def set_user_role(
+        self, role: str
+    ) -> None:  # FIXED-P0: 改为async并使用_role_lock，防止多协程并发写入 _current_user_role 导致权限竞态（对齐 modbus_tcp/modbus_rtu/mc 驱动）
         async with self._role_lock:
             self._current_user_role = role
 
-    async def save_config_version(self, device_id: str, config: dict, change_summary: str = "", operator: str = "system") -> int:
+    async def save_config_version(
+        self, device_id: str, config: dict, change_summary: str = "", operator: str = "system"
+    ) -> int:
         if not self._config_version_mgr:
             return 0
         if not self.check_rbac(operator, "config:edit", device_id):
@@ -2542,7 +2946,9 @@ class AllenBradleyDriver(DriverPlugin):
             return None
         config = await self._config_version_mgr.rollback(device_id, target_version, operator)
         if config and self._audit:
-            self._audit.log_config_version(device_id, "rollback", from_version=0, to_version=target_version, operator=operator)
+            self._audit.log_config_version(
+                device_id, "rollback", from_version=0, to_version=target_version, operator=operator
+            )
         self._log_error(device_id, "ERR_AB_CONFIG_VERSION_ROLLBACK", f"to_version={target_version} operator={operator}")
         return config
 
@@ -2551,7 +2957,9 @@ class AllenBradleyDriver(DriverPlugin):
             return []
         return await self._config_version_mgr.get_audit_trail(device_id, limit)
 
-    async def diff_config_versions(self, device_id: str, version_a: int, version_b: int) -> dict:  # FIXED-P1: 改为async并await，与FINS驱动一致
+    async def diff_config_versions(
+        self, device_id: str, version_a: int, version_b: int
+    ) -> dict:  # FIXED-P1: 改为async并await，与FINS驱动一致
         if not self._config_version_mgr:
             return {"changes": []}
         return await self._config_version_mgr.diff_versions(device_id, version_a, version_b)

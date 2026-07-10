@@ -66,13 +66,24 @@ class RuleCreate(BaseModel):
     logic: Literal["AND", "OR", "NOT"] = "AND"
     duration: int = Field(default=0, ge=0, le=3600)
     severity: Literal["critical", "major", "warning", "minor", "info"]
+    # FIXED: 原问题-min_length=1 拒绝空列表，但 DB 默认 '[]' 允许空列表（表示不通知）。
+    # 移除 min_length=1，允许显式传入空列表。
     notify_channels: list[Literal["dingtalk", "email", "wechat", "webhook"]] = Field(
-        min_length=1, default=["dingtalk"]
+        default=["dingtalk"]
     )
     # SEC-FIX(修复4): 显式声明 script 与 rule_type 字段并校验，防止通过数据导入绕过脚本校验
     # evaluator.py 读取 rule.get("script")/rule.get("rule_type")，原模型缺失这两个字段导致无校验
     script: str | None = None
     rule_type: str | None = None
+
+    @field_validator("logic", mode="before")
+    @classmethod
+    def _normalize_logic(cls, v):
+        # FIXED: 原问题-logic 为 Literal["AND","OR","NOT"]，拒绝小写 "and"/"or"/"not"。
+        # DB CHECK 约束与 evaluator 均使用大写，此处统一归一化为大写，兼容大小写输入。
+        if isinstance(v, str):
+            return v.upper()
+        return v
 
     @field_validator("script")
     @classmethod
@@ -116,6 +127,14 @@ class RuleUpdate(BaseModel):
     # SEC-FIX(修复4): 显式声明 script 与 rule_type 字段并校验，与 RuleCreate 保持一致
     script: str | None = None
     rule_type: str | None = None
+
+    @field_validator("logic", mode="before")
+    @classmethod
+    def _normalize_logic(cls, v):
+        # FIXED: 与 RuleCreate 保持一致，logic 归一化为大写以兼容大小写输入。
+        if isinstance(v, str):
+            return v.upper()
+        return v
 
     @field_validator("script")
     @classmethod

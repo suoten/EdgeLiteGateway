@@ -16,16 +16,16 @@ Create Date: 2026-06-19
 本迁移在主数据库中创建 alarm_silences 表，与 ORM 模型定义一致。
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "008_alarm_silences_table"
-down_revision: Union[str, None] = "007_rules_add_updated_at"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "007_rules_add_updated_at"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

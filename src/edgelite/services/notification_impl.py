@@ -75,6 +75,7 @@ def _interpolate_template(template: str, notification: AlarmNotification) -> str
 
 class _SafeDict(dict):
     """字典子类：缺失键返回占位符原样，避免 KeyError 中断通知发送"""
+
     def __missing__(self, key: str) -> str:
         return "{" + key + "}"
 
@@ -100,6 +101,7 @@ def _check_wecom_host(url: str) -> bool:
 @dataclass
 class AlarmNotification:
     """Alarm notification payload"""
+
     alarm_id: str
     rule_id: str
     rule_name: str
@@ -121,6 +123,7 @@ class AlarmNotification:
 @dataclass
 class NotificationChannelConfig:
     """Base configuration for notification channels"""
+
     enabled: bool = True
     name: str = ""
     # Rate limiting
@@ -133,6 +136,7 @@ class NotificationChannelConfig:
 @dataclass
 class DingTalkConfig(NotificationChannelConfig):
     """DingTalk webhook configuration"""
+
     webhook_url: str = ""
     secret: str = ""  # For signature
     at_mobiles: list[str] = field(default_factory=list)
@@ -142,6 +146,7 @@ class DingTalkConfig(NotificationChannelConfig):
 @dataclass
 class WeComConfig(NotificationChannelConfig):
     """WeCom (Enterprise WeChat) webhook configuration"""
+
     webhook_url: str = ""
     corp_id: str = ""
     agent_id: str = ""
@@ -150,6 +155,7 @@ class WeComConfig(NotificationChannelConfig):
 @dataclass
 class EmailConfig(NotificationChannelConfig):
     """Email SMTP configuration"""
+
     smtp_host: str = "localhost"
     smtp_port: int = 587
     smtp_user: str = ""
@@ -163,6 +169,7 @@ class EmailConfig(NotificationChannelConfig):
 @dataclass
 class WebhookConfig(NotificationChannelConfig):
     """Generic webhook configuration"""
+
     url: str = ""
     method: str = "POST"  # POST or PUT
     headers: dict[str, str] = field(default_factory=dict)
@@ -228,10 +235,7 @@ class NotificationChannel(ABC):
             # R6-S-07: 清理 _last_sent 中过期的 per-key 条目，防止内存无限增长
             # 保留 _minute 键；移除已超过 cooldown_seconds 的条目（冷却已过，不再需要判断）
             cooldown = self._config.cooldown_seconds
-            expired_keys = [
-                k for k, ts in self._last_sent.items()
-                if k != "_minute" and (now - ts) > cooldown
-            ]
+            expired_keys = [k for k, ts in self._last_sent.items() if k != "_minute" and (now - ts) > cooldown]
             for k in expired_keys:
                 del self._last_sent[k]
             # R6-S-07: 上限保护，防止极端情况下 _last_sent 仍无限增长（淘汰最旧条目）
@@ -298,23 +302,29 @@ class NotificationChannel(ABC):
                 last_error = e
                 logger.warning(
                     "[%s] Attempt %d/%d failed: %s",
-                    self.name, attempt + 1, self._notify_retry_count, e,
+                    self.name,
+                    attempt + 1,
+                    self._notify_retry_count,
+                    e,
                 )
             # 最后一次尝试不再等待
             if attempt < self._notify_retry_count - 1:
                 # 指数退避 + 抖动，避免多实例惊群
-                delay = self._notify_retry_base_delay * (2 ** attempt) * (0.5 + random.random() * 0.5)
+                delay = self._notify_retry_base_delay * (2**attempt) * (0.5 + random.random() * 0.5)
                 await asyncio.sleep(delay)
 
         if last_error:
             logger.error(
                 "[%s] All %d retry attempts failed: %s",
-                self.name, self._notify_retry_count, last_error,
+                self.name,
+                self._notify_retry_count,
+                last_error,
             )
         else:
             logger.error(
                 "[%s] All %d retry attempts failed (send returned False)",
-                self.name, self._notify_retry_count,
+                self.name,
+                self._notify_retry_count,
             )
         return False
 
@@ -344,7 +354,8 @@ class DingTalkChannel(NotificationChannel):
         # 修复23: 应用自定义消息模板
         notification_message = (
             _interpolate_template(self._message_template, notification)
-            if self._message_template else notification.message
+            if self._message_template
+            else notification.message
         )
 
         # Build message based on severity
@@ -485,7 +496,8 @@ class WeComChannel(NotificationChannel):
         # 修复23: 应用自定义消息模板
         notification_message = (
             _interpolate_template(self._message_template, notification)
-            if self._message_template else notification.message
+            if self._message_template
+            else notification.message
         )
 
         # Build message based on action
@@ -590,7 +602,8 @@ class EmailChannel(NotificationChannel):
         # 修复23: 应用自定义消息模板
         notification_message = (
             _interpolate_template(self._message_template, notification)
-            if self._message_template else notification.message
+            if self._message_template
+            else notification.message
         )
 
         # Build email content
@@ -640,7 +653,7 @@ class EmailChannel(NotificationChannel):
                         <td style="padding: 8px;">{notification.timestamp}</td>
                     </tr>
                 </table>
-        """
+        """  # noqa: E501
 
         if notification_message:
             html_content += f"""
@@ -648,7 +661,7 @@ class EmailChannel(NotificationChannel):
                     <strong>Message:</strong><br/>
                     {html.escape(str(notification_message))}
                 </div>
-            """
+            """  # noqa: E501
 
         if notification.trigger_value:
             html_content += """
@@ -661,7 +674,7 @@ class EmailChannel(NotificationChannel):
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">{html.escape(str(k))}</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd; font-family: monospace;">{html.escape(str(v))}</td>
                     </tr>
-                """
+                """  # noqa: E501
             html_content += "</table>"
 
         if notification.action == "escalated":
@@ -670,7 +683,7 @@ class EmailChannel(NotificationChannel):
                     <strong>Escalation Notice:</strong><br/>
                     Level {notification.escalation_level} escalation - Original severity: {notification.original_severity.upper()}
                 </div>
-            """
+            """  # noqa: E501
 
         if notification.action == "recovered" and notification.duration_seconds > 0:
             duration_str = self._format_duration(notification.duration_seconds)
@@ -679,7 +692,7 @@ class EmailChannel(NotificationChannel):
                     <strong>Recovery Info:</strong><br/>
                     Duration: {duration_str}
                 </div>
-            """
+            """  # noqa: E501
 
         html_content += """
                 <hr style="margin: 20px 0;"/>
@@ -695,7 +708,7 @@ class EmailChannel(NotificationChannel):
         # Plain text version
         text_content = f"""
 {action}
-{'=' * 50}
+{"=" * 50}
 
 Alarm ID: {notification.alarm_id}
 Rule: {notification.rule_name}
@@ -855,10 +868,16 @@ class WebhookChannel(NotificationChannel):
             new_netloc = f"[{resolved_ip}]:{parsed.port}" if parsed.port else f"[{resolved_ip}]"
         else:
             new_netloc = f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip
-        request_url = urlunparse((
-            parsed.scheme, new_netloc, parsed.path or "/",
-            parsed.params, parsed.query, parsed.fragment,
-        ))
+        request_url = urlunparse(
+            (
+                parsed.scheme,
+                new_netloc,
+                parsed.path or "/",
+                parsed.params,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
         # Host 头保持原域名；HTTPS 通过 server_hostname 保持 SNI
         server_hostname = hostname if parsed.scheme == "https" else None
         return request_url, hostname, server_hostname
@@ -880,7 +899,8 @@ class WebhookChannel(NotificationChannel):
         # 修复23: 应用自定义消息模板
         notification_message = (
             _interpolate_template(self._message_template, notification)
-            if self._message_template else notification.message
+            if self._message_template
+            else notification.message
         )
 
         # Build payload
@@ -961,7 +981,9 @@ class WebhookChannel(NotificationChannel):
                 logger.warning("[Webhook] Attempt %d failed: %s", attempt + 1, e)
 
             if attempt < self._retry_count - 1:
-                await asyncio.sleep(self._retry_delay * (attempt + 1) * (0.5 + random.random() * 0.5))  # FIXED-P2: 原问题-重试退避无抖动，多实例惊群
+                await asyncio.sleep(
+                    self._retry_delay * (attempt + 1) * (0.5 + random.random() * 0.5)
+                )  # FIXED-P2: 原问题-重试退避无抖动，多实例惊群
 
         logger.error("[Webhook] All retry attempts failed: %s", last_error)
         return False
@@ -1030,10 +1052,10 @@ class NotificationManager:
         self._escalation_timers: dict[str, asyncio.Task] = {}
         # Severity escalation thresholds (seconds)
         self._escalation_thresholds: dict[str, int] = {
-            "critical": 300,   # 5 minutes
-            "major": 900,      # 15 minutes
-            "minor": 1800,     # 30 minutes
-            "warning": 3600,   # 1 hour
+            "critical": 300,  # 5 minutes
+            "major": 900,  # 15 minutes
+            "minor": 1800,  # 30 minutes
+            "warning": 3600,  # 1 hour
         }
 
     def register_channel(self, channel_id: str, channel: NotificationChannel) -> None:
@@ -1279,7 +1301,10 @@ class NotificationManager:
 
         logger.warning(
             "Alarm escalated: %s (level %d, %s -> %s)",
-            alarm_id, escalation_level, notification.severity, escalated_severity
+            alarm_id,
+            escalation_level,
+            notification.severity,
+            escalated_severity,
         )
 
         await self.send_notification(escalated_notification)
@@ -1334,7 +1359,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
         if cfg.get("enabled"):
             channel_config = DingTalkConfig(
                 enabled=True,
-                name=cfg.get("name", f"DingTalk-{i+1}"),
+                name=cfg.get("name", f"DingTalk-{i + 1}"),
                 webhook_url=cfg.get("webhook_url", ""),
                 secret=cfg.get("secret", ""),
                 at_mobiles=cfg.get("at_mobiles", []),
@@ -1352,7 +1377,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
         if cfg.get("enabled"):
             channel_config = WeComConfig(
                 enabled=True,
-                name=cfg.get("name", f"WeCom-{i+1}"),
+                name=cfg.get("name", f"WeCom-{i + 1}"),
                 webhook_url=cfg.get("webhook_url", ""),
                 max_per_minute=cfg.get("max_per_minute", 10),
                 cooldown_seconds=cfg.get("cooldown_seconds", 60.0),
@@ -1367,7 +1392,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
         if cfg.get("enabled"):
             channel_config = EmailConfig(
                 enabled=True,
-                name=cfg.get("name", f"Email-{i+1}"),
+                name=cfg.get("name", f"Email-{i + 1}"),
                 smtp_host=cfg.get("smtp_host", "localhost"),
                 smtp_port=cfg.get("smtp_port", 587),
                 smtp_user=cfg.get("smtp_user", ""),
@@ -1389,7 +1414,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
         if cfg.get("enabled"):
             channel_config = WebhookConfig(
                 enabled=True,
-                name=cfg.get("name", f"Webhook-{i+1}"),
+                name=cfg.get("name", f"Webhook-{i + 1}"),
                 url=cfg.get("url", ""),
                 method=cfg.get("method", "POST"),
                 headers=cfg.get("headers", {}),

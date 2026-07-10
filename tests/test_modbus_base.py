@@ -29,15 +29,14 @@ from edgelite.drivers.modbus_base import (
     _MODBUS_EXCEPTION_CODES,
     _PYMODBUS_MAJOR,
     _PYMODBUS_MINOR,
+    DATA_TYPE_REGS,
+    REGISTER_TYPES,
     _detect_slave_kwarg_name,
     _parse_modbus_exception,
     _read_kwargs,
     _set_client_slave_id,
     _slave_kwarg,
-    DATA_TYPE_REGS,
-    REGISTER_TYPES,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # 1. _MODBUS_EXCEPTION_CODES 完整性
@@ -397,7 +396,7 @@ class TestConstantDictionaries:
             assert name in _BYTE_ORDER_FMT
 
     def test_byte_order_fmt_values_are_tuples(self):
-        for name, (reg_pack, val_unpack) in _BYTE_ORDER_FMT.items():
+        for _name, (reg_pack, val_unpack) in _BYTE_ORDER_FMT.items():
             assert reg_pack in (">", "<")
             assert val_unpack in (">", "<")
 
@@ -473,14 +472,14 @@ class TestTcpRtuIntegration:
     def test_tcp_rtu_no_duplicate_modbus_exception_codes(self):
         """FIXED-P2: 确认 _MODBUS_EXCEPTION_CODES 不再在 TCP/RTU 中重复定义,
         而是统一引用 modbus_base 的同一字典对象"""
-        from edgelite.drivers import modbus_tcp, modbus_rtu
+        from edgelite.drivers import modbus_rtu, modbus_tcp
         # 三个模块引用同一个字典对象 (is 同一性检查)
         assert modbus_tcp._MODBUS_EXCEPTION_CODES is modbus_rtu._MODBUS_EXCEPTION_CODES
         assert modbus_tcp._MODBUS_EXCEPTION_CODES is modbus_base._MODBUS_EXCEPTION_CODES
 
     def test_tcp_rtu_no_duplicate_register_types(self):
         """FIXED-P2: REGISTER_TYPES / DATA_TYPE_REGS / _BYTE_ORDER_FMT 也不重复定义"""
-        from edgelite.drivers import modbus_tcp, modbus_rtu
+        from edgelite.drivers import modbus_rtu, modbus_tcp
         assert modbus_tcp.REGISTER_TYPES is modbus_rtu.REGISTER_TYPES
         assert modbus_tcp.DATA_TYPE_REGS is modbus_rtu.DATA_TYPE_REGS
         assert modbus_tcp._BYTE_ORDER_FMT is modbus_rtu._BYTE_ORDER_FMT

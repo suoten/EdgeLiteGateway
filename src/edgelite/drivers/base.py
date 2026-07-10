@@ -155,7 +155,9 @@ class DriverHealthStats:
     total_reconnects: int = 0
     avg_latency_ms: float = 0.0
     degradation_reason: str = ""
-    _latency_samples: deque = field(default_factory=lambda: deque(maxlen=100))  # FIXED-P2: 使用deque替代列表切片，避免频繁内存分配
+    _latency_samples: deque = field(
+        default_factory=lambda: deque(maxlen=100)
+    )  # FIXED-P2: 使用deque替代列表切片，避免频繁内存分配
     _MOVING_AVG_WINDOW = 20
 
     @property
@@ -370,8 +372,7 @@ class DriverPlugin(ABC):
         self._executor_shutting_down = False
         self._shutdown_requested.clear()
         return concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._executor_max_workers,
-            thread_name_prefix=f"{self._executor_name_prefix}_"
+            max_workers=self._executor_max_workers, thread_name_prefix=f"{self._executor_name_prefix}_"
         )
 
     def _register_task(self, coro, name: str | None = None) -> asyncio.Task:
@@ -449,18 +450,20 @@ class DriverPlugin(ABC):
                         logger.warning(
                             "[driver] BASE-MED-001: executor_futures size=%d exceeds threshold=%d, "
                             "possible future leak (func=%s)",
-                            len(self._executor_futures), self._executor_futures_warn_threshold,
-                            func.__name__ if hasattr(func, '__name__') else str(func),
+                            len(self._executor_futures),
+                            self._executor_futures_warn_threshold,
+                            func.__name__ if hasattr(func, "__name__") else str(func),
                         )
                 try:
                     result = await asyncio.wait_for(future, timeout=timeout)
                     return result
                 except TimeoutError:
-                    func_name = func.__name__ if hasattr(func, '__name__') else str(func)
+                    func_name = func.__name__ if hasattr(func, "__name__") else str(func)
                     logger.warning(
                         "[driver] BASE-MED-001: executor timeout after %.1fs, "
                         "rebuilding executor to prevent deadlock: func=%s",
-                        timeout, func_name
+                        timeout,
+                        func_name,
                     )
                     # FIXED-P2: 超时后重建executor，不再设置_shutdown_requested以避免并发任务被静默丢弃
                     # 原问题：set()后并发协程的_wrapped_func检测到is_set()直接return None
@@ -482,8 +485,9 @@ class DriverPlugin(ABC):
                         logger.warning(
                             "[driver] BASE-MED-001: executor_futures size=%d exceeds threshold=%d, "
                             "possible future leak (func=%s)",
-                            len(self._executor_futures), self._executor_futures_warn_threshold,
-                            func.__name__ if hasattr(func, '__name__') else str(func),
+                            len(self._executor_futures),
+                            self._executor_futures_warn_threshold,
+                            func.__name__ if hasattr(func, "__name__") else str(func),
                         )
                 result = await future
                 return result
@@ -598,35 +602,45 @@ class DriverPlugin(ABC):
             recent_count = len(self._watchdog_exception_history)
 
         # 检查是否是已知的连接类异常
-        known_connection_errors = (ConnectionError, ConnectionRefusedError,
-                                   ConnectionResetError, BrokenPipeError,
-                                   TimeoutError, OSError)
+        known_connection_errors = (
+            ConnectionError,
+            ConnectionRefusedError,
+            ConnectionResetError,
+            BrokenPipeError,
+            TimeoutError,
+            OSError,
+        )
 
         if isinstance(exc, known_connection_errors):
             if recent_count >= 10:
                 logger.critical(
                     "[driver] %s: too many connection errors (%d in last 60s), driver may be unhealthy: %s",
-                    context, recent_count, exc
+                    context,
+                    recent_count,
+                    exc,
                 )
                 self._record_driver_failure(context)
             else:
-                logger.warning(
-                    "[driver] %s: connection error (count=%d in 60s): %s",
-                    context, recent_count, exc
-                )
+                logger.warning("[driver] %s: connection error (count=%d in 60s): %s", context, recent_count, exc)
             return True
 
         # 未知异常 - 记录错误并包含堆栈
         if recent_count >= 10:
             logger.critical(
                 "[driver] %s: too many exceptions (%d in last 60s), driver may be unhealthy:\n%s\n%s",
-                context, recent_count, exc, traceback.format_exc()
+                context,
+                recent_count,
+                exc,
+                traceback.format_exc(),
             )
             self._record_driver_failure(context)
         else:
             logger.error(
                 "[driver] %s: unexpected error (count=%d in 60s): %s\n%s",
-                context, recent_count, exc, traceback.format_exc()
+                context,
+                recent_count,
+                exc,
+                traceback.format_exc(),
             )
             self._record_driver_failure(context)
 
@@ -637,7 +651,7 @@ class DriverPlugin(ABC):
         # FIXED-P1: 与_record_read_success/failure锁保护一致
         with self._stats_lock:
             # FIXED-P1: context可能是设备ID或描述字符串，若不是设备ID则递增所有设备
-            if hasattr(self, '_health_stats'):
+            if hasattr(self, "_health_stats"):
                 device_id = context
                 if device_id in self._health_stats:
                     stats = self._health_stats[device_id]
@@ -657,9 +671,7 @@ class DriverPlugin(ABC):
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         """写入测点值"""
 
-    async def write_points_batch(
-        self, device_id: str, points: dict[str, Any]
-    ) -> dict[str, bool]:
+    async def write_points_batch(self, device_id: str, points: dict[str, Any]) -> dict[str, bool]:
         """批量写入多个测点（可选实现）。
 
         默认实现：逐点调用 write_point()，子类可覆盖优化。
@@ -679,7 +691,9 @@ class DriverPlugin(ABC):
                 # FIXED-P2: 不吞没取消和系统中断异常
                 if isinstance(e, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
                     raise
-                logger.warning("write_points_batch failed for %s: %s", point_name, e)  # FIXED-P2: debug→warning，写入失败应可观测
+                logger.warning(
+                    "write_points_batch failed for %s: %s", point_name, e
+                )  # FIXED-P2: debug→warning，写入失败应可观测
                 results[point_name] = False
         return results
 
@@ -689,9 +703,7 @@ class DriverPlugin(ABC):
 
     # FIXED: 原问题-add_device使用NotImplementedError而非@abstractmethod，子类未实现时不在实例化阶段报错
     # add_device 保持为可选方法（非 abstractmethod），但改用更明确的文档说明
-    async def add_device(
-        self, device_id: str, config: dict, points: list[dict] | None = None
-    ) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         """添加设备到驱动实例（可选实现）。未实现时抛出 NotImplementedError。"""
         raise NotImplementedError(f"{self.__class__.__name__} does not implement add_device")
 
@@ -867,9 +879,9 @@ class DriverPlugin(ABC):
             True 表示重连成功，False 表示重连失败
         """
         logger.warning(
-            "reconnect() not implemented by %s for device %s; "
-            "subclass should implement device-specific reconnect",
-            self.__class__.__name__, device_id,
+            "reconnect() not implemented by %s for device %s; subclass should implement device-specific reconnect",
+            self.__class__.__name__,
+            device_id,
         )
         return False
 
@@ -904,26 +916,38 @@ class DriverPlugin(ABC):
         """
         # FIXED-P0: 将 sleep 移到锁外，避免一个设备退避等待阻塞所有设备重连
         async with self._reconnect_lock:
-            state = self._reconnect_state.setdefault(device_id, {
-                "attempt": 0, "base": base, "max_delay": max_delay,
-            })
+            state = self._reconnect_state.setdefault(
+                device_id,
+                {
+                    "attempt": 0,
+                    "base": base,
+                    "max_delay": max_delay,
+                },
+            )
             attempt = state["attempt"]
 
             if attempt >= max_attempts:
                 logger.warning(
                     "Max reconnect attempts reached for device %s (%d), marking offline",
-                    device_id, max_attempts,
+                    device_id,
+                    max_attempts,
                 )
-                await self._set_connection_state(device_id, ConnectionState.OFFLINE.value, "max reconnect attempts reached")
+                await self._set_connection_state(
+                    device_id, ConnectionState.OFFLINE.value, "max reconnect attempts reached"
+                )
                 return False
 
-            delay = min(state["base"] * (2 ** attempt), state["max_delay"])
-            delay *= (1.0 - _RC_JITTER_FACTOR) + random.random() * _RC_JITTER_FACTOR  # FIXED-P4: 原问题-退避无抖动，多设备同时重连惊群效应；添加jitter分散重试时间
+            delay = min(state["base"] * (2**attempt), state["max_delay"])
+            delay *= (
+                (1.0 - _RC_JITTER_FACTOR) + random.random() * _RC_JITTER_FACTOR
+            )  # FIXED-P4: 原问题-退避无抖动，多设备同时重连惊群效应；添加jitter分散重试时间
             # 预递增尝试计数，防止并发重入重复计数
             state["attempt"] = attempt + 1
             logger.info(
                 "Reconnect with backoff: device=%s, attempt=%d, delay=%.1fs",
-                device_id, attempt, delay,
+                device_id,
+                attempt,
+                delay,
             )
 
         # 退避等待在锁外执行，允许其他设备并发重连
@@ -949,6 +973,7 @@ class DriverPlugin(ABC):
         Returns:
             True 表示允许通过，False 表示熔断器打开拒绝请求
         """
+
         # FIXED-P0: 原问题-async方法中直接with threading.Lock，若锁被线程池持有则阻塞事件循环；
         # 改为asyncio.to_thread执行锁内操作，避免事件循环阻塞
         def _check_sync():
@@ -975,10 +1000,12 @@ class DriverPlugin(ABC):
                         return True
                     return False
                 return True
+
         return await asyncio.to_thread(_check_sync)
 
     async def _record_circuit_success(self, device_id: str = "") -> None:
         """记录熔断器成功调用"""
+
         # FIXED-P0: 同_check_circuit_breaker，async方法中threading.Lock改为asyncio.to_thread
         def _success_sync():
             with self._circuit_lock:
@@ -987,6 +1014,7 @@ class DriverPlugin(ABC):
                     self._circuit_states[device_id] = "closed"
                     self._circuit_open_sinces[device_id] = None
                     logger.info("Circuit breaker closed after successful call for device %s", device_id)
+
         await asyncio.to_thread(_success_sync)
 
     async def _record_circuit_failure(self, device_id: str = "") -> None:
@@ -995,6 +1023,7 @@ class DriverPlugin(ABC):
         with self._stats_lock:
             stats = self._health_stats.get(device_id)
             consecutive_failures = stats.consecutive_failures if stats else 0
+
         # FIXED-P0: 同_check_circuit_breaker，async方法中threading.Lock改为asyncio.to_thread
         def _failure_sync():
             with self._circuit_lock:
@@ -1009,8 +1038,10 @@ class DriverPlugin(ABC):
                     self._circuit_open_sinces[device_id] = datetime.now(UTC)
                     logger.warning(
                         "Circuit breaker opened for device %s after %d consecutive failures",
-                        device_id, self._failure_threshold,
+                        device_id,
+                        self._failure_threshold,
                     )
+
         await asyncio.to_thread(_failure_sync)
 
     def _evaluate_degradation(self, device_id: str) -> None:
@@ -1040,9 +1071,13 @@ class DriverPlugin(ABC):
         if target_state:
             try:
                 loop = asyncio.get_running_loop()
-                task = loop.create_task(self._set_connection_state(
-                    device_id, target_state, degradation_reason,
-                ))
+                task = loop.create_task(
+                    self._set_connection_state(
+                        device_id,
+                        target_state,
+                        degradation_reason,
+                    )
+                )
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             except RuntimeError:
@@ -1110,9 +1145,7 @@ class DriverPlugin(ABC):
         state = ConnectionState.CONNECTED.value if connected else ConnectionState.DISCONNECTED.value
         return ConnectionStatus(state=state, since=datetime.now(UTC))
 
-    async def _set_connection_state(
-        self, device_id: str, state: str, reason: str = ""
-    ) -> bool:
+    async def _set_connection_state(self, device_id: str, state: str, reason: str = "") -> bool:
         with self._conn_state_lock:  # FIXED-P1: RLock保护_connection_statuses原子更新（临界区无await）
             existing = self._connection_statuses.get(device_id)
             current_state = existing.state if existing else None
@@ -1121,14 +1154,21 @@ class DriverPlugin(ABC):
                 if allowed is not None and state not in allowed:
                     logger.warning(
                         "Invalid state transition for device %s: %s -> %s, rejected",
-                        device_id, current_state, state,
+                        device_id,
+                        current_state,
+                        state,
                     )
                     return False
-            last_error = reason if state in (
-                ConnectionState.DISCONNECTED.value,
-                ConnectionState.OFFLINE.value,
-                ConnectionState.DEGRADED.value,
-            ) else (existing.last_error if existing else "")
+            last_error = (
+                reason
+                if state
+                in (
+                    ConnectionState.DISCONNECTED.value,
+                    ConnectionState.OFFLINE.value,
+                    ConnectionState.DEGRADED.value,
+                )
+                else (existing.last_error if existing else "")
+            )
             self._connection_statuses[device_id] = ConnectionStatus(
                 state=state,
                 reason=reason,

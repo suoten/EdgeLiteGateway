@@ -23,8 +23,16 @@ logger = logging.getLogger(__name__)
 _FAULT_MODES = ("timeout", "disconnect", "data_error")
 
 _WAVE_MODES = [
-    "random", "sine", "square", "triangle", "sawtooth",
-    "random_walk", "ramp", "step", "formula", "fixed",
+    "random",
+    "sine",
+    "square",
+    "triangle",
+    "sawtooth",
+    "random_walk",
+    "ramp",
+    "step",
+    "formula",
+    "fixed",
 ]
 
 
@@ -49,31 +57,169 @@ class SimulatorDriver(DriverPlugin):
         "required": [],
         "properties": {},
         "fields": [
-            {"name": "update_interval", "type": "number", "label": "Update Interval (s)", "description": "Data update interval in seconds", "default": 1.0, "min": 0.1, "max": 3600},
-            {"name": "value_range_min", "type": "number", "label": "Min Value", "description": "Minimum simulated value", "default": 0.0},
-            {"name": "value_range_max", "type": "number", "label": "Max Value", "description": "Maximum simulated value", "default": 100.0},
-            {"name": "noise_amplitude", "type": "number", "label": "Noise Amplitude", "description": "Random noise amplitude overlaid on waveform", "default": 0.0, "min": 0},
-            {"name": "trend_drift", "type": "number", "label": "Trend Drift/s", "description": "Linear drift per second added to base waveform", "default": 0.0},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "Operation timeout in seconds", "default": 5.0, "min": 0, "max": 60},
-            {"name": "sim_mode", "type": "string", "label": "Simulation Mode", "description": "Default simulation mode for new points", "default": "random", "options": _WAVE_MODES},
-            {"name": "period", "type": "number", "label": "Period (s)", "description": "Wave period in seconds for periodic modes", "default": 60.0, "min": 1, "max": 3600},
-            {"name": "formula", "type": "string", "label": "Custom Formula", "description": "Custom formula using t (time), min, max, math functions", "default": "t"},
-            {"name": "fault_simulation", "type": "string", "label": "Fault Simulation", "description": "Simulate device faults: none, timeout, disconnect, data_error, random", "default": "none", "options": ["none", "timeout", "disconnect", "data_error", "random"]},
-            {"name": "fault_rate", "type": "number", "label": "Fault Rate (%)", "description": "Probability of fault occurrence (0-100%)", "default": 0, "min": 0, "max": 100},
-            {"name": "deadband", "type": "number", "label": "Deadband", "description": "Deadband filter threshold (0=disabled)", "default": 0, "min": 0},
-            {"name": "deadband_type", "type": "string", "label": "Deadband Type", "description": "Deadband type: absolute or percent", "default": "absolute", "options": ["absolute", "percent"]},
-            {"name": "scaling_ratio", "type": "number", "label": "Scaling Ratio", "description": "Linear scaling ratio (1.0=disabled)", "default": 1.0},
-            {"name": "scaling_offset", "type": "number", "label": "Scaling Offset", "description": "Linear scaling offset (0.0=disabled)", "default": 0.0},
-            {"name": "clamp_min", "type": "number", "label": "Clamp Min", "description": "Minimum allowed value (empty=no limit)"},
-            {"name": "clamp_max", "type": "number", "label": "Clamp Max", "description": "Maximum allowed value (empty=no limit)"},
-            {"name": "rate_of_change_threshold", "type": "number", "label": "Rate of Change Threshold", "description": "Mark quality=uncertain when change exceeds this per second (0=disabled)", "default": 0, "min": 0},
-            {"name": "frozen_threshold", "type": "integer", "label": "Frozen Detection Count", "description": "Consecutive identical readings to detect frozen value (0=disabled)", "default": 0, "min": 0, "max": 1000},
-            {"name": "write_hold_seconds", "type": "number", "label": "Write Hold (s)", "description": "Seconds to hold written value before resuming waveform (0=hold forever)", "default": 10.0, "min": 0, "max": 3600},
+            {
+                "name": "update_interval",
+                "type": "number",
+                "label": "Update Interval (s)",
+                "description": "Data update interval in seconds",
+                "default": 1.0,
+                "min": 0.1,
+                "max": 3600,
+            },
+            {
+                "name": "value_range_min",
+                "type": "number",
+                "label": "Min Value",
+                "description": "Minimum simulated value",
+                "default": 0.0,
+            },
+            {
+                "name": "value_range_max",
+                "type": "number",
+                "label": "Max Value",
+                "description": "Maximum simulated value",
+                "default": 100.0,
+            },
+            {
+                "name": "noise_amplitude",
+                "type": "number",
+                "label": "Noise Amplitude",
+                "description": "Random noise amplitude overlaid on waveform",
+                "default": 0.0,
+                "min": 0,
+            },
+            {
+                "name": "trend_drift",
+                "type": "number",
+                "label": "Trend Drift/s",
+                "description": "Linear drift per second added to base waveform",
+                "default": 0.0,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "Operation timeout in seconds",
+                "default": 5.0,
+                "min": 0,
+                "max": 60,
+            },
+            {
+                "name": "sim_mode",
+                "type": "string",
+                "label": "Simulation Mode",
+                "description": "Default simulation mode for new points",
+                "default": "random",
+                "options": _WAVE_MODES,
+            },
+            {
+                "name": "period",
+                "type": "number",
+                "label": "Period (s)",
+                "description": "Wave period in seconds for periodic modes",
+                "default": 60.0,
+                "min": 1,
+                "max": 3600,
+            },
+            {
+                "name": "formula",
+                "type": "string",
+                "label": "Custom Formula",
+                "description": "Custom formula using t (time), min, max, math functions",
+                "default": "t",
+            },
+            {
+                "name": "fault_simulation",
+                "type": "string",
+                "label": "Fault Simulation",
+                "description": "Simulate device faults: none, timeout, disconnect, data_error, random",
+                "default": "none",
+                "options": ["none", "timeout", "disconnect", "data_error", "random"],
+            },
+            {
+                "name": "fault_rate",
+                "type": "number",
+                "label": "Fault Rate (%)",
+                "description": "Probability of fault occurrence (0-100%)",
+                "default": 0,
+                "min": 0,
+                "max": 100,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband",
+                "description": "Deadband filter threshold (0=disabled)",
+                "default": 0,
+                "min": 0,
+            },
+            {
+                "name": "deadband_type",
+                "type": "string",
+                "label": "Deadband Type",
+                "description": "Deadband type: absolute or percent",
+                "default": "absolute",
+                "options": ["absolute", "percent"],
+            },
+            {
+                "name": "scaling_ratio",
+                "type": "number",
+                "label": "Scaling Ratio",
+                "description": "Linear scaling ratio (1.0=disabled)",
+                "default": 1.0,
+            },
+            {
+                "name": "scaling_offset",
+                "type": "number",
+                "label": "Scaling Offset",
+                "description": "Linear scaling offset (0.0=disabled)",
+                "default": 0.0,
+            },
+            {
+                "name": "clamp_min",
+                "type": "number",
+                "label": "Clamp Min",
+                "description": "Minimum allowed value (empty=no limit)",
+            },
+            {
+                "name": "clamp_max",
+                "type": "number",
+                "label": "Clamp Max",
+                "description": "Maximum allowed value (empty=no limit)",
+            },
+            {
+                "name": "rate_of_change_threshold",
+                "type": "number",
+                "label": "Rate of Change Threshold",
+                "description": "Mark quality=uncertain when change exceeds this per second (0=disabled)",
+                "default": 0,
+                "min": 0,
+            },
+            {
+                "name": "frozen_threshold",
+                "type": "integer",
+                "label": "Frozen Detection Count",
+                "description": "Consecutive identical readings to detect frozen value (0=disabled)",
+                "default": 0,
+                "min": 0,
+                "max": 1000,
+            },
+            {
+                "name": "write_hold_seconds",
+                "type": "number",
+                "label": "Write Hold (s)",
+                "description": "Seconds to hold written value before resuming waveform (0=hold forever)",
+                "default": 10.0,
+                "min": 0,
+                "max": 3600,
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=False)
+    capabilities = DriverCapabilities(
+        discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=False
+    )
     constraints = ()  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     def __init__(self):
@@ -96,9 +242,7 @@ class SimulatorDriver(DriverPlugin):
         environment = config.get("environment", "")
         # #[AUDIT-FIX] WARNING: 生产环境检查大小写敏感，"Production"/"PRODUCTION" 会绕过保护
         if environment and environment.lower() == "production" and not self._production_safe:
-            raise RuntimeError(
-                "SimulatorDriver is not production-safe and must not run in production environment"
-            )
+            raise RuntimeError("SimulatorDriver is not production-safe and must not run in production environment")
         self._auth_token = config.get("auth_token")
         self._running = True
         logger.info("模拟器驱动启动")
@@ -129,9 +273,15 @@ class SimulatorDriver(DriverPlugin):
         async with self._lock:
             self._devices.pop(device_id, None)
             prefix = f"{device_id}:"
-            for d in (self._walk_state, self._phase_state, self._last_values,
-                      self._last_timestamp, self._frozen_count, self._drift_accumulator,
-                      self._write_overrides):
+            for d in (
+                self._walk_state,
+                self._phase_state,
+                self._last_values,
+                self._last_timestamp,
+                self._frozen_count,
+                self._drift_accumulator,
+                self._write_overrides,
+            ):
                 keys_to_remove = [k for k in d if k.startswith(prefix)]
                 for k in keys_to_remove:
                     del d[k]
@@ -140,7 +290,11 @@ class SimulatorDriver(DriverPlugin):
         i18n_msg = _t(error_code)
         logger.error(
             "[%s] device=%s code=%s i18n=%s msg=%s",
-            self.plugin_name, device_id, error_code, i18n_msg, message,
+            self.plugin_name,
+            device_id,
+            error_code,
+            i18n_msg,
+            message,
         )
 
     def _resolve_fault_mode(self, device_id: str) -> str | None:
@@ -169,7 +323,9 @@ class SimulatorDriver(DriverPlugin):
             return None
         return override.value
 
-    def _record_write_audit(self, device_id: str, point: str, old_value: Any, new_value: Any, result: bool, user: str = "") -> None:
+    def _record_write_audit(
+        self, device_id: str, point: str, old_value: Any, new_value: Any, result: bool, user: str = ""
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "user": user,
@@ -239,7 +395,9 @@ class SimulatorDriver(DriverPlugin):
                     trend_drift = pt_config.get("trend_drift", 0.0)
                     if trend_drift != 0.0:
                         collect_interval = pt_config.get("collect_interval", 1.0)
-                        self._drift_accumulator[key] = self._drift_accumulator.get(key, 0.0) + trend_drift * collect_interval
+                        self._drift_accumulator[key] = (
+                            self._drift_accumulator.get(key, 0.0) + trend_drift * collect_interval
+                        )
                         # FIXED-P4: 漂移累加器超过数据范围时重置，防止无限增长
                         acc = self._drift_accumulator[key]
                         max_range = pt_config.get("max", 100) - pt_config.get("min", 0)
@@ -253,7 +411,12 @@ class SimulatorDriver(DriverPlugin):
                 if rate_threshold and rate_threshold > 0:
                     last_v = self._last_values.get(key)
                     last_ts = self._last_timestamp.get(key)
-                    if last_v is not None and last_ts is not None and isinstance(value, (int, float)) and isinstance(last_v, (int, float)):
+                    if (
+                        last_v is not None
+                        and last_ts is not None
+                        and isinstance(value, (int, float))
+                        and isinstance(last_v, (int, float))
+                    ):
                         dt = now_ts - last_ts
                         if dt > 0:
                             roc = abs(value - last_v) / dt
@@ -281,7 +444,10 @@ class SimulatorDriver(DriverPlugin):
                 scaling_ratio = pt_config.get("scaling_ratio")
                 scaling_offset = pt_config.get("scaling_offset")
                 if scaling_ratio is not None or scaling_offset is not None:
-                    scaling = {"ratio": scaling_ratio if scaling_ratio is not None else 1.0, "offset": scaling_offset if scaling_offset is not None else 0.0}
+                    scaling = {
+                        "ratio": scaling_ratio if scaling_ratio is not None else 1.0,
+                        "offset": scaling_offset if scaling_offset is not None else 0.0,
+                    }
                     value = self._apply_scaling(value, scaling)
 
                 clamp_min = pt_config.get("clamp_min")
@@ -294,7 +460,11 @@ class SimulatorDriver(DriverPlugin):
                         clamp["max"] = clamp_max
                     clamped, in_range = self._apply_clamp(value, clamp)
                     if not in_range:
-                        self._log_error(device_id, SimulatorDriverErrors.VALUE_OUT_OF_RANGE, f"{point_name}: value {value} out of clamp {clamp}")
+                        self._log_error(
+                            device_id,
+                            SimulatorDriverErrors.VALUE_OUT_OF_RANGE,
+                            f"{point_name}: value {value} out of clamp {clamp}",
+                        )
                         result[point_name] = PointValue(value=None, timestamp=now, quality="bad", source="simulated")
                         self._last_values[key] = None
                         self._last_timestamp[key] = now_ts
@@ -309,13 +479,20 @@ class SimulatorDriver(DriverPlugin):
         record_packet("rx", "simulator", device_id, f"Result: {list(result.keys())}")
         return result
 
-    async def write_point(self, device_id: str, point: str, value: Any, user: str = "", auth_token: str | None = None) -> bool:
+    async def write_point(
+        self, device_id: str, point: str, value: Any, user: str = "", auth_token: str | None = None
+    ) -> bool:
         # SEC-FIX(修复2): 驱动层写入权限检查，保持与其他驱动一致；模拟器无角色锁时放行
         if hasattr(self, "check_permission"):
             from edgelite.security.rbac import Permission
+
             if not await self.check_permission(Permission.DEVICE_WRITE_POINT):
-                logger.warning("[simulator] write denied: role=%s lacks device:write_point, device=%s point=%s",
-                               getattr(self, "_current_user_role", "unknown"), device_id, point)
+                logger.warning(
+                    "[simulator] write denied: role=%s lacks device:write_point, device=%s point=%s",
+                    getattr(self, "_current_user_role", "unknown"),
+                    device_id,
+                    point,
+                )
                 return False
         if self._auth_token is not None:
             if auth_token != self._auth_token:
@@ -325,7 +502,12 @@ class SimulatorDriver(DriverPlugin):
             logger.warning("[simulator] write_point rejected: value is None for device=%s point=%s", device_id, point)
             return False
         if isinstance(value, (int, float)) and (math.isnan(value) or math.isinf(value)):
-            logger.warning("[simulator] write_point rejected: invalid numeric value %s for device=%s point=%s", value, device_id, point)
+            logger.warning(
+                "[simulator] write_point rejected: invalid numeric value %s for device=%s point=%s",
+                value,
+                device_id,
+                point,
+            )
             return False
         record_packet("tx", "simulator", device_id, f"Write: {point}={value}")
         # FIXED-P1: 检查设备是否存在，防止KeyError（write_point未校验device_id）
@@ -466,6 +648,7 @@ class SimulatorDriver(DriverPlugin):
                 from edgelite.drivers.edge_triggers import (
                     _safe_eval_expr,  # FIXED-P2: eval→AST安全求值，防止属性链逃逸
                 )
+
                 result = _safe_eval_expr(formula, {"t": t, "min": min_val, "max": max_val, "pi": math.pi})
                 return float(result)
             except Exception as e:

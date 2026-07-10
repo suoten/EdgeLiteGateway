@@ -86,10 +86,17 @@ class S7TsStore:
                     dq.popleft()
                 self._write_count += 1
 
-    async def query(self, device_id: str, point_name: str,
-                    start_time: str | None = None, end_time: str | None = None,
-                    quality: str | None = None, aggregate: str | None = None,
-                    window_seconds: int | None = None, limit: int = 1000) -> list[dict[str, Any]]:
+    async def query(
+        self,
+        device_id: str,
+        point_name: str,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        quality: str | None = None,
+        aggregate: str | None = None,
+        window_seconds: int | None = None,
+        limit: int = 1000,
+    ) -> list[dict[str, Any]]:
         """查询时序数据
 
         Args:
@@ -119,8 +126,7 @@ class S7TsStore:
         if aggregate and window_seconds:
             points = self._aggregate(points, aggregate, window_seconds)
         # 限制返回数量
-        return [{"timestamp": p.timestamp, "value": p.value, "quality": p.quality}
-                for p in points[-limit:]]
+        return [{"timestamp": p.timestamp, "value": p.value, "quality": p.quality} for p in points[-limit:]]
 
     async def query_latest(self, device_id: str, point_names: list[str]) -> dict[str, Any]:
         """查询最新值"""
@@ -131,18 +137,22 @@ class S7TsStore:
                 dq = self._data.get(key, deque())
                 if dq:
                     latest = dq[-1]
-                    result[pn] = {"value": latest.value, "timestamp": latest.timestamp,
-                                  "quality": latest.quality}
+                    result[pn] = {"value": latest.value, "timestamp": latest.timestamp, "quality": latest.quality}
                 else:
                     result[pn] = None
         return result
 
-    async def query_by_quality(self, device_id: str, point_name: str,
-                               start_time: str | None, end_time: str | None,
-                               quality: str, limit: int = 1000) -> list[dict[str, Any]]:
+    async def query_by_quality(
+        self,
+        device_id: str,
+        point_name: str,
+        start_time: str | None,
+        end_time: str | None,
+        quality: str,
+        limit: int = 1000,
+    ) -> list[dict[str, Any]]:
         """按质量过滤查询"""
-        return await self.query(device_id, point_name, start_time, end_time,
-                                quality=quality, limit=limit)
+        return await self.query(device_id, point_name, start_time, end_time, quality=quality, limit=limit)
 
     def get_stats(self) -> dict[str, Any]:
         """获取存储统计"""
@@ -160,8 +170,7 @@ class S7TsStore:
         }
 
     @staticmethod
-    def _aggregate(points: list[TimeSeriesPoint], aggregate: str,
-                   window_seconds: int) -> list[TimeSeriesPoint]:
+    def _aggregate(points: list[TimeSeriesPoint], aggregate: str, window_seconds: int) -> list[TimeSeriesPoint]:
         """按时序窗口聚合数据点 (简化实现)"""
         if not points:
             return []
@@ -182,13 +191,15 @@ class S7TsStore:
             agg_val = len(values)
         else:
             return points
-        return [TimeSeriesPoint(
-            device_id=points[0].device_id,
-            point_name=points[0].point_name,
-            value=agg_val,
-            timestamp=points[-1].timestamp,
-            quality="aggregated",
-        )]
+        return [
+            TimeSeriesPoint(
+                device_id=points[0].device_id,
+                point_name=points[0].point_name,
+                value=agg_val,
+                timestamp=points[-1].timestamp,
+                quality="aggregated",
+            )
+        ]
 
 
 class S7OfflineSyncManager:
@@ -200,8 +211,9 @@ class S7OfflineSyncManager:
     3. force_sync() 手动触发同步
     """
 
-    def __init__(self, ts_store: S7TsStore, sync_interval: float = 30.0,
-                 batch_size: int = 1000, compress: str = "gzip") -> None:
+    def __init__(
+        self, ts_store: S7TsStore, sync_interval: float = 30.0, batch_size: int = 1000, compress: str = "gzip"
+    ) -> None:
         self._ts_store = ts_store
         self._sync_interval = sync_interval
         self._batch_size = batch_size
@@ -216,8 +228,12 @@ class S7OfflineSyncManager:
     async def start(self) -> None:
         """启动同步管理器"""
         self._running = True
-        logger.info("[s7_offline_sync] started (interval=%.1fs, batch=%d, compress=%s)",
-                    self._sync_interval, self._batch_size, self._compress)
+        logger.info(
+            "[s7_offline_sync] started (interval=%.1fs, batch=%d, compress=%s)",
+            self._sync_interval,
+            self._batch_size,
+            self._compress,
+        )
 
     async def stop(self) -> None:
         """停止同步管理器"""

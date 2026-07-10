@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StreamEvent:
     """流事件"""
+
     device_id: str
     point_name: str
     value: float
@@ -46,6 +47,7 @@ class StreamEvent:
 @dataclass
 class WindowResult:
     """窗口计算结果"""
+
     window_id: str
     window_type: str  # tumbling/sliding/session
     start_time: datetime
@@ -59,6 +61,7 @@ class WindowResult:
 @dataclass
 class PatternMatch:
     """模式匹配结果"""
+
     pattern_id: str
     matched: bool
     confidence: float
@@ -70,7 +73,9 @@ class TumblingWindow:
 
     def __init__(self, size_seconds: float):
         self._size = size_seconds
-        self._buffer: deque[StreamEvent] = deque(maxlen=int(size_seconds * 1000))  # FIXED-P2: W15 提高maxlen倍率到1000点/秒
+        self._buffer: deque[StreamEvent] = deque(
+            maxlen=int(size_seconds * 1000)
+        )  # FIXED-P2: W15 提高maxlen倍率到1000点/秒
         self._window_start: float | None = None
         self._maxlen_warned: bool = False
 
@@ -99,16 +104,23 @@ class TumblingWindow:
 class SlidingWindow:
     """滑动窗口 - 数据可重叠，支持移动平均等"""
 
-    def __init__(self, size_seconds: float, slide_seconds: float,
-                 agg_func: str = "avg", min_count: int = 1,
-                 allowed_lateness: float = 5.0):
+    def __init__(
+        self,
+        size_seconds: float,
+        slide_seconds: float,
+        agg_func: str = "avg",
+        min_count: int = 1,
+        allowed_lateness: float = 5.0,
+    ):
         self._size = size_seconds
         self._slide = slide_seconds
         self._agg_func = agg_func
         self._min_count = min_count
         self._allowed_lateness = allowed_lateness  # FIXED-P1: 允许迟到阈值（秒）
         self._watermark: float | None = None  # FIXED-P1: 水位线（基于已见最大事件时间戳）
-        self._buffer: deque[StreamEvent] = deque(maxlen=max(1000, int(size_seconds * 1000)))  # FIXED-P2: W14 SlidingWindow._buffer无界增长，添加maxlen
+        self._buffer: deque[StreamEvent] = deque(
+            maxlen=max(1000, int(size_seconds * 1000))
+        )  # FIXED-P2: W14 SlidingWindow._buffer无界增长，添加maxlen
         self._last_emit: float | None = None
 
     def add(self, event: StreamEvent) -> dict | None:
@@ -165,7 +177,7 @@ class SlidingWindow:
         elif agg == "std":
             mean = sum(values) / len(values)
             variance = sum((x - mean) ** 2 for x in values) / len(values)
-            result = variance ** 0.5
+            result = variance**0.5
         else:
             result = values[-1]
 
@@ -223,6 +235,7 @@ class StreamProcessor:
 
     def filter(self, predicate: Callable[[StreamEvent], bool]) -> StreamProcessor:
         """添加过滤算子"""
+
         def _filter(event: StreamEvent) -> StreamEvent | None:
             try:
                 return event if predicate(event) else None
@@ -235,6 +248,7 @@ class StreamProcessor:
 
     def map(self, transform: Callable[[StreamEvent], Any]) -> StreamProcessor:
         """添加映射算子"""
+
         def _map(event: StreamEvent) -> StreamEvent | None:
             try:
                 result = transform(event)
@@ -291,7 +305,7 @@ class StreamProcessor:
             elif agg_func == "std":
                 mean = sum(values) / len(values)
                 variance = sum((x - mean) ** 2 for x in values) / len(values)
-                result = variance ** 0.5
+                result = variance**0.5
             else:
                 result = values[-1]
 
@@ -416,7 +430,7 @@ class StreamProcessor:
 
             # 总体方差（与原实现 sum((x-mean)**2)/len(h) 语义一致）
             variance = m2 / count if count > 0 else 0.0
-            std = variance ** 0.5
+            std = variance**0.5
 
             if std > 0 and abs(event.value - mean) > std_multiplier * std:
                 return StreamEvent(
@@ -537,7 +551,9 @@ class StreamComputeEngine:
                         device_id=event.device_id,
                         point_name=event.point_name,
                         value=event.value if event.value is not None else 0.0,
-                        timestamp=datetime.fromisoformat(event.timestamp) if isinstance(event.timestamp, str) else event.timestamp,
+                        timestamp=datetime.fromisoformat(event.timestamp)
+                        if isinstance(event.timestamp, str)
+                        else event.timestamp,
                         quality=event.quality,
                     )
                     await self.submit_event(stream_event)
@@ -594,25 +610,19 @@ class StreamComputeEngine:
         """注册结果回调"""
         self._callbacks.append(callback)
 
-    async def create_tumbling_window(
-        self, window_id: str, size_seconds: float
-    ) -> TumblingWindow:
+    async def create_tumbling_window(self, window_id: str, size_seconds: float) -> TumblingWindow:
         """创建滚动窗口"""
         window = TumblingWindow(size_seconds)
         self._windows[window_id] = window
         return window
 
-    async def create_sliding_window(
-        self, window_id: str, size_seconds: float, slide_seconds: float
-    ) -> SlidingWindow:
+    async def create_sliding_window(self, window_id: str, size_seconds: float, slide_seconds: float) -> SlidingWindow:
         """创建滑动窗口"""
         window = SlidingWindow(size_seconds, slide_seconds)
         self._windows[window_id] = window
         return window
 
-    async def create_session_window(
-        self, window_id: str, timeout_seconds: float
-    ) -> SessionWindow:
+    async def create_session_window(self, window_id: str, timeout_seconds: float) -> SessionWindow:
         """创建会话窗口"""
         window = SessionWindow(timeout_seconds)
         self._windows[window_id] = window
@@ -653,8 +663,7 @@ class StreamComputeEngine:
                 # 记录输入事件
                 if record_packet:
                     try:
-                        record_packet("rx", "stream_compute", event.device_id,
-                                      f"{event.point_name}={event.value}")
+                        record_packet("rx", "stream_compute", event.device_id, f"{event.point_name}={event.value}")
                     except Exception as e:
                         # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                         logger.debug("记录调试数据包失败: %s", e)
@@ -735,16 +744,18 @@ class StreamComputeEngine:
                 results.append(agg_event)
 
                 # 发布窗口聚合结果到EventBus
-                await self._publish_result(WindowResult(
-                    window_id=rule_id,
-                    window_type="sliding",
-                    start_time=datetime.now(UTC),
-                    end_time=datetime.now(UTC),
-                    point_name=event.point_name,
-                    aggregate=agg_func,
-                    value=agg_result["value"],
-                    count=agg_result["count"],
-                ))
+                await self._publish_result(
+                    WindowResult(
+                        window_id=rule_id,
+                        window_type="sliding",
+                        start_time=datetime.now(UTC),
+                        end_time=datetime.now(UTC),
+                        point_name=event.point_name,
+                        aggregate=agg_func,
+                        value=agg_result["value"],
+                        count=agg_result["count"],
+                    )
+                )
 
                 # 发布到 EventBus
                 if self._event_bus:
@@ -780,13 +791,15 @@ class StreamComputeEngine:
                 match = self._detect_3sigma(values)
                 if match:
                     await self._publish_result(match)
-                    results.append(StreamEvent(
-                        device_id=event.device_id,
-                        point_name=f"{event.point_name}_3sigma",
-                        value=match.confidence,
-                        timestamp=event.timestamp,
-                        quality="suspect",
-                    ))
+                    results.append(
+                        StreamEvent(
+                            device_id=event.device_id,
+                            point_name=f"{event.point_name}_3sigma",
+                            value=match.confidence,
+                            timestamp=event.timestamp,
+                            quality="suspect",
+                        )
+                    )
             else:
                 # 获取或创建 Processor 实例
                 proc_key = f"_pattern_{rule_id}"
@@ -802,12 +815,14 @@ class StreamComputeEngine:
                 results = self._processors[proc_key].process(event)
                 # 发布模式匹配结果
                 for r in results:
-                    await self._publish_result(PatternMatch(
-                        pattern_id=pattern,
-                        matched=True,
-                        confidence=1.0,
-                        details={"point_name": r.point_name, "value": r.value},
-                    ))
+                    await self._publish_result(
+                        PatternMatch(
+                            pattern_id=pattern,
+                            matched=True,
+                            confidence=1.0,
+                            details={"point_name": r.point_name, "value": r.value},
+                        )
+                    )
 
         elif rule_type == "anomaly":
             std_multiplier = rule.get("std_multiplier", 3.0)
@@ -821,12 +836,14 @@ class StreamComputeEngine:
             results = self._processors[proc_key].process(event)
             # 发布异常检测结果
             for r in results:
-                await self._publish_result(PatternMatch(
-                    pattern_id="anomaly",
-                    matched=True,
-                    confidence=1.0,
-                    details={"point_name": r.point_name, "value": r.value, "std_multiplier": std_multiplier},
-                ))
+                await self._publish_result(
+                    PatternMatch(
+                        pattern_id="anomaly",
+                        matched=True,
+                        confidence=1.0,
+                        details={"point_name": r.point_name, "value": r.value, "std_multiplier": std_multiplier},
+                    )
+                )
 
         return results
 
@@ -835,6 +852,7 @@ class StreamComputeEngine:
         if len(values) < 10:
             return None
         import statistics
+
         mean = statistics.mean(values)
         try:
             std = statistics.stdev(values)
@@ -859,11 +877,19 @@ class StreamComputeEngine:
         if record_packet:
             try:
                 if isinstance(result, WindowResult):
-                    record_packet("tx", "stream_compute", result.point_name,
-                                  f"window:{result.window_id}:{result.aggregate}={result.value}")
+                    record_packet(
+                        "tx",
+                        "stream_compute",
+                        result.point_name,
+                        f"window:{result.window_id}:{result.aggregate}={result.value}",
+                    )
                 elif isinstance(result, PatternMatch):
-                    record_packet("tx", "stream_compute", result.pattern_id,
-                                  f"pattern:{result.pattern_id}:matched={result.matched}:conf={result.confidence}")
+                    record_packet(
+                        "tx",
+                        "stream_compute",
+                        result.pattern_id,
+                        f"pattern:{result.pattern_id}:matched={result.matched}:conf={result.confidence}",
+                    )
             except Exception as e:
                 # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 logger.debug("记录输出结果调试包失败: %s", e)
@@ -900,13 +926,14 @@ class StreamComputeEngine:
         try:
             # FIXED-P2: 使用re精确匹配操作符，避免"=="误匹配"!="中的子串
             import re
-            match = re.match(r'^(.+?)\s*(!=|==|>=|<=|>|<)\s*(.+)$', predicate.strip())
+
+            match = re.match(r"^(.+?)\s*(!=|==|>=|<=|>|<)\s*(.+)$", predicate.strip())
             if match:
                 left_expr = match.group(1).strip()
                 symbol = match.group(2)
                 right_expr = match.group(3).strip()
                 threshold = float(right_expr)
-                # FIXED-BugR4X: 原问题-left_expr.replace('.','').replace('-','').isdigit()对科学计数法(1e5)和多小数点(1.2.3)误判；修复-改用try/except float()解析，仅当left_expr为合法数字字面量时覆盖value
+                # FIXED-BugR4X: 原问题-left_expr.replace('.','').replace('-','').isdigit()对科学计数法(1e5)和多小数点(1.2.3)误判；修复-改用try/except float()解析，仅当left_expr为合法数字字面量时覆盖value  # noqa: E501
                 try:
                     value = float(left_expr)
                 except ValueError:
@@ -925,7 +952,9 @@ class StreamComputeEngine:
                     return value >= threshold
             return True
         except Exception as e:
-            logger.warning("Predicate eval failed: %s", e)  # FIXED-P1: 原问题-谓词求值异常默认返回True(放行)可能误触发告警；改为记录日志
+            logger.warning(
+                "Predicate eval failed: %s", e
+            )  # FIXED-P1: 原问题-谓词求值异常默认返回True(放行)可能误触发告警；改为记录日志
             return False  # FIXED-P1: 异常时拒绝(安全侧)而非放行
 
     async def _emit_result(self, event: StreamEvent) -> None:
@@ -939,8 +968,7 @@ class StreamComputeEngine:
             except Exception as e:
                 logger.error("流计算回调执行失败: %s", e)
 
-    def get_window_result(self, device_id: str, point_name: str,
-                          window_seconds: int, aggregate: str) -> float | None:
+    def get_window_result(self, device_id: str, point_name: str, window_seconds: int, aggregate: str) -> float | None:
         """获取当前窗口聚合结果
 
         Args:

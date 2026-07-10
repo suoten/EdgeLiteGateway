@@ -245,7 +245,9 @@ class CircuitBreaker:
             return
 
         self._state = CircuitState.OPEN
-        self._stats._circuit_state = CircuitState.OPEN  # FIXED-P0: 同步Stats状态，原代码从未更新导致current_state始终返回CLOSED
+        self._stats._circuit_state = (
+            CircuitState.OPEN
+        )  # FIXED-P0: 同步Stats状态，原代码从未更新导致current_state始终返回CLOSED
         self._opened_at = time.time()
         self._stats.opened_at = datetime.now(UTC)
         self._stats.state_changes += 1

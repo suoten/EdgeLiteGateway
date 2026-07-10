@@ -5,18 +5,13 @@
 
 from __future__ import annotations
 
-import os
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from test_acceptance_smoke import _build_test_app
 
 from edgelite.api.deps import get_current_user
-
-from test_acceptance_smoke import _build_test_app, _TEST_USER, _VIEWER_USER
-
 
 # ═══════════════════════════════════════════════════════════════
 # 模块 4: 安全测试 (SECURITY)

@@ -27,8 +27,13 @@ def _safe_filename(name: str) -> str:
 # 支持相对时间（-1h/-30m/-2d 等）和绝对时间（RFC3339/ISO8601），纯数字按纳秒处理
 _REL_TIME_RE = re.compile(r"^-(\d+)([smhdwMy])$")
 _REL_UNIT_SECONDS = {
-    "s": 1, "m": 60, "h": 3600, "d": 86400,
-    "w": 604800, "M": 2592000, "y": 31536000,
+    "s": 1,
+    "m": 60,
+    "h": 3600,
+    "d": 86400,
+    "w": 604800,
+    "M": 2592000,
+    "y": 31536000,
 }
 
 
@@ -62,6 +67,7 @@ async def _check_device_owner(device_id: str, user) -> None:
     if user["role"] == "admin":
         return
     from edgelite.app import _app_state
+
     device_svc = _app_state.device_service
     device = await device_svc.get_device(device_id)
     if device is None:
@@ -74,6 +80,7 @@ async def _check_device_owner(device_id: str, user) -> None:
     from edgelite.storage.sqlite_repo import (
         ResourceShareRepo,  # FIXED-P1: 检查resource_shares共享权限
     )
+
     share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
     has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
     if has_access:
@@ -90,7 +97,9 @@ async def query_timeseries(
     stop: str | None = None,
     aggregate: str | None = None,
     interval: str | None = Query(None, description="Aggregation window e.g. 5m, 1h (required when aggregate is set)"),
-    limit: int = Query(10000, ge=1, le=50000, description="Max records to return"),  # FIXED-P4: 降低单次查询上限从100000到50000，防止OOM
+    limit: int = Query(
+        10000, ge=1, le=50000, description="Max records to return"
+    ),  # FIXED-P4: 降低单次查询上限从100000到50000，防止OOM
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     user: dict[str, str] = Depends(require_permission(Permission.DATA_READ)),
 ):
@@ -136,19 +145,21 @@ async def query_timeseries(
     await _check_device_owner(device_id, user)
     try:
         data = await svc.query_timeseries(
-            device_id, point_name, start, stop,
+            device_id,
+            point_name,
+            start,
+            stop,
             aggregate=interval if interval else None,
             agg_fn=aggregate if aggregate else None,
-            limit=limit, offset=offset,
+            limit=limit,
+            offset=offset,
         )
         return ApiResponse(data=data)
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Timeseries query failed: %s", e)  # FIXED-P1: 原问题-500异常无日志，生产环境无法排查
-        raise HTTPException(
-            status_code=500, detail=DataErrors.QUERY_FAILED
-        ) from None
+        raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from None
     # FIXED-P2: 时序数据查询添加分页限制
 
 
@@ -160,7 +171,9 @@ async def export_data(
     start: str = Query(...),
     stop: str | None = None,
     _format: str = Query("csv", pattern="^(csv|json)$", alias="format"),
-    limit: int = Query(50000, ge=1, le=50000, description="Max records to export"),  # FIXED(严重): 原问题-export_data无limit参数,service层默认100000,大范围导出可致OOM;修复-API层添加limit参数,上限50000
+    limit: int = Query(
+        50000, ge=1, le=50000, description="Max records to export"
+    ),  # FIXED(严重): 原问题-export_data无limit参数,service层默认100000,大范围导出可致OOM;修复-API层添加limit参数,上限50000  # noqa: E501
     user: dict[str, str] = Depends(require_permission(Permission.DATA_EXPORT)),
 ):
     _fmt = _format
@@ -206,6 +219,7 @@ async def get_collect_stats(
             # 非admin: 先获取可访问设备ID(拥有+共享)，再按ID范围聚合统计
             from edgelite.app import _app_state
             from edgelite.storage.sqlite_repo import ResourceShareRepo
+
             _dsvc = _app_state.device_service
             owned_ids_list = await _dsvc.list_device_ids_by_owner(user["user_id"])
             owned_ids = set(owned_ids_list)
@@ -237,6 +251,7 @@ async def get_collect_stats(
 
 def _get_device_service():
     from edgelite.app import _app_state
+
     return _app_state.device_service
 
 
@@ -332,7 +347,9 @@ async def query_multi_point(
     try:
         names = [n.strip() for n in point_names.split(",") if n.strip()]
         if not names:
-            raise HTTPException(status_code=400, detail=DataErrors.POINT_NAME_REQUIRED)  # FIXED-P2: 原问题-空point_names返回UNSUPPORTED_AGGREGATE错误码，语义不匹配
+            raise HTTPException(
+                status_code=400, detail=DataErrors.POINT_NAME_REQUIRED
+            )  # FIXED-P2: 原问题-空point_names返回UNSUPPORTED_AGGREGATE错误码，语义不匹配
         # FIXED-P2: 原问题-point_names无数量上限，可传超长逗号列表导致查询性能退化/OOM;
         # 修复-限制单次最多查询100个点位
         if len(names) > 100:

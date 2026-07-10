@@ -18,8 +18,6 @@
 import asyncio
 import sys
 
-import pytest
-
 sys.path.insert(0, "src")
 
 from edgelite.drivers.abb_robot import AbbRobotDriver
@@ -180,9 +178,11 @@ class TestEmergencyStop:
     def test_emergency_stop_calls_stop_motion_when_connected(self):
         """emergency_stop() 在已连接时调用 stop_motion (通过 RWS 停止)"""
         driver = _make_driver()
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(202),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(202),
+            }
+        )
         driver._client = fake_client
         driver._connected = True
 
@@ -204,8 +204,10 @@ class TestEmergencyStop:
         class _BrokenClient:
             async def post(self, url, **kwargs):
                 await _failing_post()
+
             async def get(self, url, **kwargs):
                 pass
+
             async def aclose(self):
                 pass
 
@@ -260,9 +262,11 @@ class TestWriteBlockOnSafetyStop:
         driver._safety_stop_active = False
         driver._running = True
         driver._connected = True
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/rapid/symbol/data": _FakeResponse(204),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/rapid/symbol/data": _FakeResponse(204),
+            }
+        )
         driver._client = fake_client
 
         async def _run():
@@ -278,9 +282,11 @@ class TestWriteBlockOnSafetyStop:
         driver._enable_safety_guard = False  # 禁用安全保护
         driver._running = True
         driver._connected = True
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/rapid/symbol/data": _FakeResponse(204),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/rapid/symbol/data": _FakeResponse(204),
+            }
+        )
         driver._client = fake_client
 
         async def _run():
@@ -317,9 +323,11 @@ class TestResetSafetyStop:
         driver._safety_stop_active = True
         driver._running = True
         driver._connected = True
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/rapid/symbol/data": _FakeResponse(204),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/rapid/symbol/data": _FakeResponse(204),
+            }
+        )
         driver._client = fake_client
 
         # 重置前写入被阻止
@@ -341,9 +349,11 @@ class TestStopMotion:
     def test_stop_motion_returns_true_on_success(self):
         """stop_motion() 成功返回 True"""
         driver = _make_driver()
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(202),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(202),
+            }
+        )
         driver._client = fake_client
         driver._connected = True
 
@@ -372,9 +382,11 @@ class TestStopMotion:
     def test_stop_motion_returns_false_on_http_error(self):
         """HTTP 错误时 stop_motion() 返回 False"""
         driver = _make_driver()
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(500, text="Internal Error"),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(500, text="Internal Error"),
+            }
+        )
         driver._client = fake_client
         driver._connected = True
 
@@ -391,8 +403,10 @@ class TestStopMotion:
         class _ErrorClient:
             async def post(self, url, **kwargs):
                 raise ConnectionError("network unreachable")
+
             async def get(self, url, **kwargs):
                 pass
+
             async def aclose(self):
                 pass
 
@@ -424,9 +438,13 @@ class TestGetSafetyState:
     def test_returns_state_on_success(self):
         """成功读取安全状态"""
         driver = _make_driver()
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/panel/safety_state": _FakeResponse(200, {"payload": [{"safety_stop_state": "inactive"}]}),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/panel/safety_state": _FakeResponse(
+                    200, {"payload": [{"safety_stop_state": "inactive"}]}
+                ),
+            }
+        )
         driver._client = fake_client
         driver._connected = True
 
@@ -440,9 +458,13 @@ class TestGetSafetyState:
         """控制器返回 active 状态时同步设置内部标志"""
         driver = _make_driver()
         driver._safety_stop_active = False
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/panel/safety_state": _FakeResponse(200, {"payload": [{"safety_stop_state": "active"}]}),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/panel/safety_state": _FakeResponse(
+                    200, {"payload": [{"safety_stop_state": "active"}]}
+                ),
+            }
+        )
         driver._client = fake_client
         driver._connected = True
 
@@ -459,9 +481,11 @@ class TestStopOnDisconnect:
     def test_stop_calls_stop_motion_when_enabled(self):
         """stop() 在 stop_on_disconnect=True 时调用 stop_motion"""
         driver = _make_driver()
-        fake_client = _FakeAsyncClient({
-            "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(202),
-        })
+        fake_client = _FakeAsyncClient(
+            {
+                "http://192.168.1.100:80/rw/motionctrl": _FakeResponse(202),
+            }
+        )
         driver._client = fake_client
         driver._connected = True
         driver._running = True

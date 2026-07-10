@@ -20,7 +20,9 @@ router = APIRouter(prefix="/api/v1/services", tags=["Services"])
 
 
 class EnableServiceRequest(BaseModel):
-    config: dict | None = None  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
+    config: dict | None = (
+        None  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
+    )
 
 
 class UpdateServiceConfigRequest(BaseModel):
@@ -94,8 +96,7 @@ async def get_service_status(
                 "category": svc_def.get("category", ""),
                 "state": info.state.value,
                 "dependencies": [
-                    {"package": d.package, "installed": d.installed, "version": d.version}
-                    for d in info.dependencies
+                    {"package": d.package, "installed": d.installed, "version": d.version} for d in info.dependencies
                 ],
                 "use_cases": svc_def.get("use_cases", []),
                 "related_features": svc_def.get("related_features", []),
@@ -132,10 +133,12 @@ async def enable_service(
     user_agent = request.headers.get("user-agent", "")
     # 敏感字段脱敏
     _SENSITIVE_KEYS = {"password", "token", "secret", "api_key", "secret_key", "auth_key"}
+
     def _sanitize(obj):
         if not isinstance(obj, dict):
             return obj
         return {k: "***" if any(s in k.lower() for s in _SENSITIVE_KEYS) else v for k, v in obj.items()}
+
     try:
         mgr = get_service_manager()
     except Exception as e:
@@ -511,6 +514,7 @@ async def install_service_dependencies(
 ):
     # FIXED-P1: 生产环境禁止远程安装依赖，防止供应链攻击
     from edgelite.config import get_config
+
     config = get_config()
     if not getattr(config.server, "debug_api_enabled", False):
         raise HTTPException(status_code=403, detail="ERR_INSTALL_DEPS_DISABLED_IN_PRODUCTION")

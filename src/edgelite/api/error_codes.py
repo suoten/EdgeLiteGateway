@@ -485,6 +485,7 @@ class ModbusDriverErrors:
     WRITE_FAILED = "ERR_MODBUS_WRITE_FAILED"
     WRITE_TIMEOUT = "ERR_MODBUS_WRITE_TIMEOUT"
     BCAST_WRITE_FAILED = "ERR_MODBUS_BCAST_WRITE_FAILED"
+    BCAST_NOT_ENABLED = "ERR_MODBUS_BCAST_NOT_ENABLED"  # FIXED-BCAST: slave_id=0 但 broadcast 未启用，拒绝广播写入
     VALUE_OUT_OF_RANGE = "ERR_MODBUS_VALUE_OUT_OF_RANGE"
     DECODE_FAILED = "ERR_MODBUS_DECODE_FAILED"
     CONFIG_INVALID = "ERR_MODBUS_CONFIG_INVALID"
@@ -1004,47 +1005,87 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     AuthErrors.INVALID_CREDENTIALS: ErrorCodeDetail(AuthErrors.INVALID_CREDENTIALS, 401, "Invalid credentials"),
     AuthErrors.USER_DISABLED: ErrorCodeDetail(AuthErrors.USER_DISABLED, 403, "User account is disabled"),
     AuthErrors.LOGIN_FAILED: ErrorCodeDetail(AuthErrors.LOGIN_FAILED, 401, "Login failed"),
-    AuthErrors.REFRESH_TOKEN_INVALID: ErrorCodeDetail(AuthErrors.REFRESH_TOKEN_INVALID, 401, "Refresh token is invalid"),
+    AuthErrors.REFRESH_TOKEN_INVALID: ErrorCodeDetail(
+        AuthErrors.REFRESH_TOKEN_INVALID, 401, "Refresh token is invalid"
+    ),
     AuthErrors.USER_NOT_FOUND: ErrorCodeDetail(AuthErrors.USER_NOT_FOUND, 404, "User not found"),
     AuthErrors.OLD_PASSWORD_WRONG: ErrorCodeDetail(AuthErrors.OLD_PASSWORD_WRONG, 400, "Current password is incorrect"),
     AuthErrors.PASSWORD_POLICY: ErrorCodeDetail(AuthErrors.PASSWORD_POLICY, 400, "Password does not meet policy"),
     AuthErrors.PASSWORD_TOO_LONG: ErrorCodeDetail(AuthErrors.PASSWORD_TOO_LONG, 400, "Password is too long"),
-    AuthErrors.PASSWORD_SAME_AS_OLD: ErrorCodeDetail(AuthErrors.PASSWORD_SAME_AS_OLD, 400, "New password must differ from old"),
-    AuthErrors.PASSWORD_LETTER_AND_DIGIT: ErrorCodeDetail(AuthErrors.PASSWORD_LETTER_AND_DIGIT, 400, "Password must contain letters and digits"),
-    AuthErrors.PASSWORD_NEED_SPECIAL: ErrorCodeDetail(AuthErrors.PASSWORD_NEED_SPECIAL, 400, "Password must contain at least one special character"),
-    AuthErrors.PASSWORD_CHANGE_FAILED: ErrorCodeDetail(AuthErrors.PASSWORD_CHANGE_FAILED, 500, "Password change failed"),
+    AuthErrors.PASSWORD_SAME_AS_OLD: ErrorCodeDetail(
+        AuthErrors.PASSWORD_SAME_AS_OLD, 400, "New password must differ from old"
+    ),
+    AuthErrors.PASSWORD_LETTER_AND_DIGIT: ErrorCodeDetail(
+        AuthErrors.PASSWORD_LETTER_AND_DIGIT, 400, "Password must contain letters and digits"
+    ),
+    AuthErrors.PASSWORD_NEED_SPECIAL: ErrorCodeDetail(
+        AuthErrors.PASSWORD_NEED_SPECIAL, 400, "Password must contain at least one special character"
+    ),
+    AuthErrors.PASSWORD_CHANGE_FAILED: ErrorCodeDetail(
+        AuthErrors.PASSWORD_CHANGE_FAILED, 500, "Password change failed"
+    ),
     AuthErrors.TOKEN_INVALID: ErrorCodeDetail(AuthErrors.TOKEN_INVALID, 401, "Token is invalid"),
     AuthErrors.TOKEN_EXPIRED: ErrorCodeDetail(AuthErrors.TOKEN_EXPIRED, 401, "Token has expired"),
     AuthErrors.TOKEN_REVOKED: ErrorCodeDetail(AuthErrors.TOKEN_REVOKED, 401, "Token has been revoked"),
-    AuthErrors.TOKEN_LEGACY_FORMAT: ErrorCodeDetail(AuthErrors.TOKEN_LEGACY_FORMAT, 401, "Token format is deprecated. Please log in again."),
+    AuthErrors.TOKEN_LEGACY_FORMAT: ErrorCodeDetail(
+        AuthErrors.TOKEN_LEGACY_FORMAT, 401, "Token format is deprecated. Please log in again."
+    ),
     AuthErrors.PERMISSION_DENIED: ErrorCodeDetail(AuthErrors.PERMISSION_DENIED, 403, "Permission denied"),
     AuthErrors.ACCOUNT_DISABLED: ErrorCodeDetail(AuthErrors.ACCOUNT_DISABLED, 403, "Account is disabled"),
     AuthErrors.PASSWORD_EXPIRED: ErrorCodeDetail(AuthErrors.PASSWORD_EXPIRED, 403, "Password has expired"),
     AuthErrors.LOGOUT_FAILED: ErrorCodeDetail(AuthErrors.LOGOUT_FAILED, 500, "Logout failed"),
-    AuthErrors.ACCOUNT_LOCKED: ErrorCodeDetail(AuthErrors.ACCOUNT_LOCKED, 423, "Account is temporarily locked due to too many failed login attempts"),
+    AuthErrors.ACCOUNT_LOCKED: ErrorCodeDetail(
+        AuthErrors.ACCOUNT_LOCKED, 423, "Account is temporarily locked due to too many failed login attempts"
+    ),
     AuthErrors.CSRF_FAILED: ErrorCodeDetail(AuthErrors.CSRF_FAILED, 403, "CSRF token validation failed"),
-    AuthErrors.MUST_CHANGE_PASSWORD: ErrorCodeDetail(AuthErrors.MUST_CHANGE_PASSWORD, 403, "Password must be changed before continuing"),
-    AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED: ErrorCodeDetail(AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED, 500, "Password reset email not sent: frontend URL not configured"),
-    AuthErrors.PASSWORD_RESET_SENT: ErrorCodeDetail(AuthErrors.PASSWORD_RESET_SENT, 200, "If the account exists, a password reset link has been sent to your registered email"),
-    AuthErrors.TOKEN_ALREADY_USED: ErrorCodeDetail(AuthErrors.TOKEN_ALREADY_USED, 410, "This reset link has already been used"),
-    AuthErrors.TOKEN_PROCESSING_FAILED: ErrorCodeDetail(AuthErrors.TOKEN_PROCESSING_FAILED, 500, "Token processing failed, please request a new reset link"),
-    AuthErrors.PASSWORD_RESET_SUCCESS: ErrorCodeDetail(AuthErrors.PASSWORD_RESET_SUCCESS, 200, "Password reset successful. Please login with your new password."),
-    AuthErrors.TOKEN_PASSWORD_CHANGED: ErrorCodeDetail(AuthErrors.TOKEN_PASSWORD_CHANGED, 401, "Token issued before password change. Please login again."),
+    AuthErrors.MUST_CHANGE_PASSWORD: ErrorCodeDetail(
+        AuthErrors.MUST_CHANGE_PASSWORD, 403, "Password must be changed before continuing"
+    ),
+    AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED: ErrorCodeDetail(
+        AuthErrors.PASSWORD_RESET_URL_NOT_CONFIGURED, 500, "Password reset email not sent: frontend URL not configured"
+    ),
+    AuthErrors.PASSWORD_RESET_SENT: ErrorCodeDetail(
+        AuthErrors.PASSWORD_RESET_SENT,
+        200,
+        "If the account exists, a password reset link has been sent to your registered email",
+    ),
+    AuthErrors.TOKEN_ALREADY_USED: ErrorCodeDetail(
+        AuthErrors.TOKEN_ALREADY_USED, 410, "This reset link has already been used"
+    ),
+    AuthErrors.TOKEN_PROCESSING_FAILED: ErrorCodeDetail(
+        AuthErrors.TOKEN_PROCESSING_FAILED, 500, "Token processing failed, please request a new reset link"
+    ),
+    AuthErrors.PASSWORD_RESET_SUCCESS: ErrorCodeDetail(
+        AuthErrors.PASSWORD_RESET_SUCCESS, 200, "Password reset successful. Please login with your new password."
+    ),
+    AuthErrors.TOKEN_PASSWORD_CHANGED: ErrorCodeDetail(
+        AuthErrors.TOKEN_PASSWORD_CHANGED, 401, "Token issued before password change. Please login again."
+    ),
     AuthErrors.AUTH_REQUIRED: ErrorCodeDetail(AuthErrors.AUTH_REQUIRED, 401, "Authentication required"),
     AuthErrors.AUTH_FAILED: ErrorCodeDetail(AuthErrors.AUTH_FAILED, 401, "Authentication failed"),
     # --- USER ---
     UserErrors.LIST_FAILED: ErrorCodeDetail(UserErrors.LIST_FAILED, 500, "Failed to list users"),
     UserErrors.USERNAME_EXISTS: ErrorCodeDetail(UserErrors.USERNAME_EXISTS, 409, "Username already exists"),
     UserErrors.CREATE_FAILED: ErrorCodeDetail(UserErrors.CREATE_FAILED, 500, "Failed to create user"),
-    UserErrors.CANNOT_REMOVE_LAST_ADMIN: ErrorCodeDetail(UserErrors.CANNOT_REMOVE_LAST_ADMIN, 409, "Cannot remove last admin role"),
+    UserErrors.CANNOT_REMOVE_LAST_ADMIN: ErrorCodeDetail(
+        UserErrors.CANNOT_REMOVE_LAST_ADMIN, 409, "Cannot remove last admin role"
+    ),
     UserErrors.USER_NOT_FOUND: ErrorCodeDetail(UserErrors.USER_NOT_FOUND, 404, "User not found"),
     UserErrors.UPDATE_FAILED: ErrorCodeDetail(UserErrors.UPDATE_FAILED, 500, "Failed to update user"),
     UserErrors.CANNOT_DELETE_SELF: ErrorCodeDetail(UserErrors.CANNOT_DELETE_SELF, 409, "Cannot delete yourself"),
-    UserErrors.CANNOT_DELETE_ADMIN: ErrorCodeDetail(UserErrors.CANNOT_DELETE_ADMIN, 409, "Cannot delete user with protected role"),
-    UserErrors.CANNOT_DELETE_LAST_ADMIN: ErrorCodeDetail(UserErrors.CANNOT_DELETE_LAST_ADMIN, 409, "Cannot delete last admin"),
+    UserErrors.CANNOT_DELETE_ADMIN: ErrorCodeDetail(
+        UserErrors.CANNOT_DELETE_ADMIN, 409, "Cannot delete user with protected role"
+    ),
+    UserErrors.CANNOT_DELETE_LAST_ADMIN: ErrorCodeDetail(
+        UserErrors.CANNOT_DELETE_LAST_ADMIN, 409, "Cannot delete last admin"
+    ),
     UserErrors.DELETE_FAILED: ErrorCodeDetail(UserErrors.DELETE_FAILED, 500, "Failed to delete user"),
-    UserErrors.SENSITIVE_FIELD_DENIED: ErrorCodeDetail(UserErrors.SENSITIVE_FIELD_DENIED, 403, "Cannot modify sensitive fields for protected role users"),
-    UserErrors.HAS_RESOURCES: ErrorCodeDetail(UserErrors.HAS_RESOURCES, 409, "User owns resources. Please transfer or delete them first."),
+    UserErrors.SENSITIVE_FIELD_DENIED: ErrorCodeDetail(
+        UserErrors.SENSITIVE_FIELD_DENIED, 403, "Cannot modify sensitive fields for protected role users"
+    ),
+    UserErrors.HAS_RESOURCES: ErrorCodeDetail(
+        UserErrors.HAS_RESOURCES, 409, "User owns resources. Please transfer or delete them first."
+    ),
     # --- SERVICE ---
     ServiceErrors.LIST_FAILED: ErrorCodeDetail(ServiceErrors.LIST_FAILED, 500, "Failed to list services"),
     ServiceErrors.UNKNOWN_SERVICE: ErrorCodeDetail(ServiceErrors.UNKNOWN_SERVICE, 404, "Unknown service"),
@@ -1055,20 +1096,32 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     ServiceErrors.START_FAILED: ErrorCodeDetail(ServiceErrors.START_FAILED, 500, "Failed to start service"),
     ServiceErrors.STOP_FAILED: ErrorCodeDetail(ServiceErrors.STOP_FAILED, 500, "Failed to stop service"),
     ServiceErrors.INSTALL_FAILED: ErrorCodeDetail(ServiceErrors.INSTALL_FAILED, 500, "Failed to install service"),
-    ServiceErrors.CONFIG_UPDATE_FAILED: ErrorCodeDetail(ServiceErrors.CONFIG_UPDATE_FAILED, 500, "Failed to update service config"),
-    ServiceErrors.DEPS_INSTALL_FAILED: ErrorCodeDetail(ServiceErrors.DEPS_INSTALL_FAILED, 500, "Failed to install dependencies"),
-    ServiceErrors.SERIAL_PORT_UNAVAILABLE: ErrorCodeDetail(ServiceErrors.SERIAL_PORT_UNAVAILABLE, 400, "Serial port unavailable"),
-    ServiceErrors.CIRCUIT_BREAKER_OPEN: ErrorCodeDetail(ServiceErrors.CIRCUIT_BREAKER_OPEN, 503, "Circuit breaker open, service temporarily unavailable"),
+    ServiceErrors.CONFIG_UPDATE_FAILED: ErrorCodeDetail(
+        ServiceErrors.CONFIG_UPDATE_FAILED, 500, "Failed to update service config"
+    ),
+    ServiceErrors.DEPS_INSTALL_FAILED: ErrorCodeDetail(
+        ServiceErrors.DEPS_INSTALL_FAILED, 500, "Failed to install dependencies"
+    ),
+    ServiceErrors.SERIAL_PORT_UNAVAILABLE: ErrorCodeDetail(
+        ServiceErrors.SERIAL_PORT_UNAVAILABLE, 400, "Serial port unavailable"
+    ),
+    ServiceErrors.CIRCUIT_BREAKER_OPEN: ErrorCodeDetail(
+        ServiceErrors.CIRCUIT_BREAKER_OPEN, 503, "Circuit breaker open, service temporarily unavailable"
+    ),
     # --- DEVICE ---
     DeviceErrors.NOT_FOUND: ErrorCodeDetail(DeviceErrors.NOT_FOUND, 404, "Device not found"),
     DeviceErrors.ALREADY_EXISTS: ErrorCodeDetail(DeviceErrors.ALREADY_EXISTS, 409, "Device already exists"),
     DeviceErrors.OFFLINE: ErrorCodeDetail(DeviceErrors.OFFLINE, 503, "Device is offline"),
     DeviceErrors.CONFIG_INVALID: ErrorCodeDetail(DeviceErrors.CONFIG_INVALID, 400, "Device configuration is invalid"),
-    DeviceErrors.DRIVER_UNAVAILABLE: ErrorCodeDetail(DeviceErrors.DRIVER_UNAVAILABLE, 503, "Device driver is unavailable"),
+    DeviceErrors.DRIVER_UNAVAILABLE: ErrorCodeDetail(
+        DeviceErrors.DRIVER_UNAVAILABLE, 503, "Device driver is unavailable"
+    ),
     DeviceErrors.PUSH_EMPTY: ErrorCodeDetail(DeviceErrors.PUSH_EMPTY, 400, "Push data is empty"),
     DeviceErrors.PUSH_INVALID_ID: ErrorCodeDetail(DeviceErrors.PUSH_INVALID_ID, 400, "Invalid device ID"),
     DeviceErrors.PUSH_INVALID_KEY: ErrorCodeDetail(DeviceErrors.PUSH_INVALID_KEY, 401, "Invalid API key"),
-    DeviceErrors.WEBHOOK_AUTH_FAILED: ErrorCodeDetail(DeviceErrors.WEBHOOK_AUTH_FAILED, 401, "Webhook authentication failed"),
+    DeviceErrors.WEBHOOK_AUTH_FAILED: ErrorCodeDetail(
+        DeviceErrors.WEBHOOK_AUTH_FAILED, 401, "Webhook authentication failed"
+    ),
     DeviceErrors.PUSH_FAILED: ErrorCodeDetail(DeviceErrors.PUSH_FAILED, 500, "Device push failed"),
     DeviceErrors.LIST_FAILED: ErrorCodeDetail(DeviceErrors.LIST_FAILED, 500, "Failed to list devices"),
     DeviceErrors.CREATE_FAILED: ErrorCodeDetail(DeviceErrors.CREATE_FAILED, 500, "Failed to create device"),
@@ -1078,35 +1131,67 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     DeviceErrors.POINTS_FAILED: ErrorCodeDetail(DeviceErrors.POINTS_FAILED, 500, "Failed to get device points"),
     DeviceErrors.WRITE_FAILED: ErrorCodeDetail(DeviceErrors.WRITE_FAILED, 500, "Failed to write device point"),
     DeviceErrors.API_KEY_INVALID: ErrorCodeDetail(DeviceErrors.API_KEY_INVALID, 401, "Device API key is invalid"),
-    DeviceErrors.API_KEY_NOT_CONFIGURED: ErrorCodeDetail(DeviceErrors.API_KEY_NOT_CONFIGURED, 401, "Device API key not configured"),
+    DeviceErrors.API_KEY_NOT_CONFIGURED: ErrorCodeDetail(
+        DeviceErrors.API_KEY_NOT_CONFIGURED, 401, "Device API key not configured"
+    ),
     DeviceErrors.SIMULATOR_FAILED: ErrorCodeDetail(DeviceErrors.SIMULATOR_FAILED, 500, "Simulator failed"),
     DeviceErrors.DISCOVER_FAILED: ErrorCodeDetail(DeviceErrors.DISCOVER_FAILED, 500, "Device discovery failed"),
-    DeviceErrors.PUSH_DRIVER_NOT_READY: ErrorCodeDetail(DeviceErrors.PUSH_DRIVER_NOT_READY, 503, "Push driver not ready"),
-    DeviceErrors.TEMPLATE_CREATE_FAILED: ErrorCodeDetail(DeviceErrors.TEMPLATE_CREATE_FAILED, 500, "Failed to create device template"),
+    DeviceErrors.PUSH_DRIVER_NOT_READY: ErrorCodeDetail(
+        DeviceErrors.PUSH_DRIVER_NOT_READY, 503, "Push driver not ready"
+    ),
+    DeviceErrors.TEMPLATE_CREATE_FAILED: ErrorCodeDetail(
+        DeviceErrors.TEMPLATE_CREATE_FAILED, 500, "Failed to create device template"
+    ),
     DeviceErrors.TEMPLATE_NOT_FOUND: ErrorCodeDetail(DeviceErrors.TEMPLATE_NOT_FOUND, 404, "Device template not found"),
-    DeviceErrors.TEMPLATE_DELETE_FAILED: ErrorCodeDetail(DeviceErrors.TEMPLATE_DELETE_FAILED, 500, "Failed to delete device template"),
-    DeviceErrors.TEMPLATE_LIST_FAILED: ErrorCodeDetail(DeviceErrors.TEMPLATE_LIST_FAILED, 500, "Failed to list device templates"),
-    DeviceErrors.FROM_TEMPLATE_FAILED: ErrorCodeDetail(DeviceErrors.FROM_TEMPLATE_FAILED, 500, "Failed to create device from template"),
+    DeviceErrors.TEMPLATE_DELETE_FAILED: ErrorCodeDetail(
+        DeviceErrors.TEMPLATE_DELETE_FAILED, 500, "Failed to delete device template"
+    ),
+    DeviceErrors.TEMPLATE_LIST_FAILED: ErrorCodeDetail(
+        DeviceErrors.TEMPLATE_LIST_FAILED, 500, "Failed to list device templates"
+    ),
+    DeviceErrors.FROM_TEMPLATE_FAILED: ErrorCodeDetail(
+        DeviceErrors.FROM_TEMPLATE_FAILED, 500, "Failed to create device from template"
+    ),
     DeviceErrors.EXPORT_FAILED: ErrorCodeDetail(DeviceErrors.EXPORT_FAILED, 500, "Failed to export devices"),
     DeviceErrors.IMPORT_FAILED: ErrorCodeDetail(DeviceErrors.IMPORT_FAILED, 500, "Failed to import devices"),
-    DeviceErrors.IMPORT_VALIDATION_FAILED: ErrorCodeDetail(DeviceErrors.IMPORT_VALIDATION_FAILED, 400, "Device import validation failed"),
-    DeviceErrors.BATCH_DELETE_FAILED: ErrorCodeDetail(DeviceErrors.BATCH_DELETE_FAILED, 500, "Failed to batch delete devices"),
-    DeviceErrors.BATCH_START_COLLECT_FAILED: ErrorCodeDetail(DeviceErrors.BATCH_START_COLLECT_FAILED, 500, "Failed to batch start collect"),
-    DeviceErrors.BATCH_STOP_COLLECT_FAILED: ErrorCodeDetail(DeviceErrors.BATCH_STOP_COLLECT_FAILED, 500, "Failed to batch stop collect"),
-    DeviceErrors.WRITE_NOT_ALLOWED: ErrorCodeDetail(DeviceErrors.WRITE_NOT_ALLOWED, 403, "Write not allowed for this point (check write policy/whitelist)"),
-    DeviceErrors.CAPABILITY_NOT_SUPPORTED: ErrorCodeDetail(DeviceErrors.CAPABILITY_NOT_SUPPORTED, 400, "Device capability not supported"),
-    DeviceErrors.CONFIG_VALIDATION_FAILED: ErrorCodeDetail(DeviceErrors.CONFIG_VALIDATION_FAILED, 422, "Device config validation failed"),
+    DeviceErrors.IMPORT_VALIDATION_FAILED: ErrorCodeDetail(
+        DeviceErrors.IMPORT_VALIDATION_FAILED, 400, "Device import validation failed"
+    ),
+    DeviceErrors.BATCH_DELETE_FAILED: ErrorCodeDetail(
+        DeviceErrors.BATCH_DELETE_FAILED, 500, "Failed to batch delete devices"
+    ),
+    DeviceErrors.BATCH_START_COLLECT_FAILED: ErrorCodeDetail(
+        DeviceErrors.BATCH_START_COLLECT_FAILED, 500, "Failed to batch start collect"
+    ),
+    DeviceErrors.BATCH_STOP_COLLECT_FAILED: ErrorCodeDetail(
+        DeviceErrors.BATCH_STOP_COLLECT_FAILED, 500, "Failed to batch stop collect"
+    ),
+    DeviceErrors.WRITE_NOT_ALLOWED: ErrorCodeDetail(
+        DeviceErrors.WRITE_NOT_ALLOWED, 403, "Write not allowed for this point (check write policy/whitelist)"
+    ),
+    DeviceErrors.CAPABILITY_NOT_SUPPORTED: ErrorCodeDetail(
+        DeviceErrors.CAPABILITY_NOT_SUPPORTED, 400, "Device capability not supported"
+    ),
+    DeviceErrors.CONFIG_VALIDATION_FAILED: ErrorCodeDetail(
+        DeviceErrors.CONFIG_VALIDATION_FAILED, 422, "Device config validation failed"
+    ),
     # --- PREPROCESS ---
     PreprocessErrors.GET_FAILED: ErrorCodeDetail(PreprocessErrors.GET_FAILED, 500, "Failed to get preprocess config"),
-    PreprocessErrors.NOT_INITIALIZED: ErrorCodeDetail(PreprocessErrors.NOT_INITIALIZED, 503, "Preprocessor not initialized"),
-    PreprocessErrors.UPDATE_FAILED: ErrorCodeDetail(PreprocessErrors.UPDATE_FAILED, 500, "Failed to update preprocess config"),
+    PreprocessErrors.NOT_INITIALIZED: ErrorCodeDetail(
+        PreprocessErrors.NOT_INITIALIZED, 503, "Preprocessor not initialized"
+    ),
+    PreprocessErrors.UPDATE_FAILED: ErrorCodeDetail(
+        PreprocessErrors.UPDATE_FAILED, 500, "Failed to update preprocess config"
+    ),
     # --- COMMON ---
     CommonErrors.SERVICE_NOT_READY: ErrorCodeDetail(CommonErrors.SERVICE_NOT_READY, 503, "Service not ready"),
     CommonErrors.DB_NOT_READY: ErrorCodeDetail(CommonErrors.DB_NOT_READY, 503, "Database not ready"),
     CommonErrors.INTERNAL_ERROR: ErrorCodeDetail(CommonErrors.INTERNAL_ERROR, 500, "Internal error"),
     CommonErrors.NOT_FOUND: ErrorCodeDetail(CommonErrors.NOT_FOUND, 404, "Resource not found"),
     # R11-API-27: 高风险操作二次确认错误码映射
-    CommonErrors.CONFIRM_REQUIRED: ErrorCodeDetail(CommonErrors.CONFIRM_REQUIRED, 400, "Operation confirmation required"),
+    CommonErrors.CONFIRM_REQUIRED: ErrorCodeDetail(
+        CommonErrors.CONFIRM_REQUIRED, 400, "Operation confirmation required"
+    ),
     # FIXED: 新增校验失败错误码详情 [2026-06-29]
     CommonErrors.VALIDATION_FAILED: ErrorCodeDetail(CommonErrors.VALIDATION_FAILED, 422, "Validation failed"),
     # --- REPO ---
@@ -1115,17 +1200,31 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     RepoErrors.ALARM_EXISTS: ErrorCodeDetail(RepoErrors.ALARM_EXISTS, 409, "Alarm already exists"),
     RepoErrors.USERNAME_EXISTS: ErrorCodeDetail(RepoErrors.USERNAME_EXISTS, 409, "Username already exists"),
     RepoErrors.TEMPLATE_EXISTS: ErrorCodeDetail(RepoErrors.TEMPLATE_EXISTS, 409, "Device template already exists"),
-    RepoErrors.DB_MODE_SESSION_REQUIRED: ErrorCodeDetail(RepoErrors.DB_MODE_SESSION_REQUIRED, 500, "DB mode session required"),
+    RepoErrors.DB_MODE_SESSION_REQUIRED: ErrorCodeDetail(
+        RepoErrors.DB_MODE_SESSION_REQUIRED, 500, "DB mode session required"
+    ),
     RepoErrors.NO_SESSION_AVAILABLE: ErrorCodeDetail(RepoErrors.NO_SESSION_AVAILABLE, 500, "No session available"),
-    RepoErrors.STALE_DATA_ERROR: ErrorCodeDetail(RepoErrors.STALE_DATA_ERROR, 409, "Data has been modified by another user, please refresh and try again"),
+    RepoErrors.STALE_DATA_ERROR: ErrorCodeDetail(
+        RepoErrors.STALE_DATA_ERROR, 409, "Data has been modified by another user, please refresh and try again"
+    ),
     # --- DATABASE ---
-    DatabaseErrors.UNSUPPORTED_BACKEND: ErrorCodeDetail(DatabaseErrors.UNSUPPORTED_BACKEND, 500, "Unsupported database backend"),
+    DatabaseErrors.UNSUPPORTED_BACKEND: ErrorCodeDetail(
+        DatabaseErrors.UNSUPPORTED_BACKEND, 500, "Unsupported database backend"
+    ),
     DatabaseErrors.DRIVER_REQUIRED: ErrorCodeDetail(DatabaseErrors.DRIVER_REQUIRED, 500, "Database driver required"),
     DatabaseErrors.NOT_CONNECTED: ErrorCodeDetail(DatabaseErrors.NOT_CONNECTED, 503, "Database not connected"),
-    DatabaseErrors.SESSION_NOT_INIT: ErrorCodeDetail(DatabaseErrors.SESSION_NOT_INIT, 500, "Database session not initialized"),
-    DatabaseErrors.INTEGRITY_CHECK_FAILED: ErrorCodeDetail(DatabaseErrors.INTEGRITY_CHECK_FAILED, 500, "Database integrity check failed"),
-    DatabaseErrors.SLOW_QUERY_FAILED: ErrorCodeDetail(DatabaseErrors.SLOW_QUERY_FAILED, 500, "Failed to query slow queries"),
-    DatabaseErrors.POOL_STATS_FAILED: ErrorCodeDetail(DatabaseErrors.POOL_STATS_FAILED, 500, "Failed to query DB pool stats"),
+    DatabaseErrors.SESSION_NOT_INIT: ErrorCodeDetail(
+        DatabaseErrors.SESSION_NOT_INIT, 500, "Database session not initialized"
+    ),
+    DatabaseErrors.INTEGRITY_CHECK_FAILED: ErrorCodeDetail(
+        DatabaseErrors.INTEGRITY_CHECK_FAILED, 500, "Database integrity check failed"
+    ),
+    DatabaseErrors.SLOW_QUERY_FAILED: ErrorCodeDetail(
+        DatabaseErrors.SLOW_QUERY_FAILED, 500, "Failed to query slow queries"
+    ),
+    DatabaseErrors.POOL_STATS_FAILED: ErrorCodeDetail(
+        DatabaseErrors.POOL_STATS_FAILED, 500, "Failed to query DB pool stats"
+    ),
     # --- CONFIG ---
     ConfigErrors.LOAD_FAILED: ErrorCodeDetail(ConfigErrors.LOAD_FAILED, 500, "Failed to load config"),
     ConfigErrors.SAVE_FAILED: ErrorCodeDetail(ConfigErrors.SAVE_FAILED, 500, "Failed to save config"),
@@ -1136,24 +1235,36 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     # --- DRIVER ---
     DriverErrors.START_FAILED: ErrorCodeDetail(DriverErrors.START_FAILED, 500, "Failed to start driver"),
     DriverErrors.NOT_FOUND: ErrorCodeDetail(DriverErrors.NOT_FOUND, 404, "Driver not found"),
-    DriverErrors.REGISTRY_NOT_INIT: ErrorCodeDetail(DriverErrors.REGISTRY_NOT_INIT, 500, "Driver registry not initialized"),
+    DriverErrors.REGISTRY_NOT_INIT: ErrorCodeDetail(
+        DriverErrors.REGISTRY_NOT_INIT, 500, "Driver registry not initialized"
+    ),
     DriverErrors.LIST_FAILED: ErrorCodeDetail(DriverErrors.LIST_FAILED, 500, "Failed to list drivers"),
     DriverErrors.GET_FAILED: ErrorCodeDetail(DriverErrors.GET_FAILED, 500, "Failed to get driver"),
     DriverErrors.DISCOVER_FAILED: ErrorCodeDetail(DriverErrors.DISCOVER_FAILED, 500, "Device discovery failed"),
     DriverErrors.SELF_TEST_FAILED: ErrorCodeDetail(DriverErrors.SELF_TEST_FAILED, 200, "Self-test failed"),
     # --- DATA ---
-    DataErrors.UNSUPPORTED_AGGREGATE: ErrorCodeDetail(DataErrors.UNSUPPORTED_AGGREGATE, 400, "Unsupported aggregate type"),
+    DataErrors.UNSUPPORTED_AGGREGATE: ErrorCodeDetail(
+        DataErrors.UNSUPPORTED_AGGREGATE, 400, "Unsupported aggregate type"
+    ),
     DataErrors.QUERY_FAILED: ErrorCodeDetail(DataErrors.QUERY_FAILED, 500, "Data query failed"),
     DataErrors.EXPORT_FAILED: ErrorCodeDetail(DataErrors.EXPORT_FAILED, 500, "Data export failed"),
     DataErrors.NO_DATA: ErrorCodeDetail(DataErrors.NO_DATA, 404, "No data available"),
-    DataErrors.DOWNSAMPLE_INFLUXDB_REQUIRED: ErrorCodeDetail(DataErrors.DOWNSAMPLE_INFLUXDB_REQUIRED, 503, "Downsample requires InfluxDB, which is currently unavailable"),
-    DataErrors.INVALID_TIME_RANGE: ErrorCodeDetail(DataErrors.INVALID_TIME_RANGE, 400, "Invalid time range: start must be before stop"),
+    DataErrors.DOWNSAMPLE_INFLUXDB_REQUIRED: ErrorCodeDetail(
+        DataErrors.DOWNSAMPLE_INFLUXDB_REQUIRED, 503, "Downsample requires InfluxDB, which is currently unavailable"
+    ),
+    DataErrors.INVALID_TIME_RANGE: ErrorCodeDetail(
+        DataErrors.INVALID_TIME_RANGE, 400, "Invalid time range: start must be before stop"
+    ),
     # --- VIDEO ---
     VideoErrors.PTZ_FAILED: ErrorCodeDetail(VideoErrors.PTZ_FAILED, 500, "PTZ control failed"),
     VideoErrors.WEBHOOK_FAILED: ErrorCodeDetail(VideoErrors.WEBHOOK_FAILED, 500, "Video webhook failed"),
     VideoErrors.API_KEY_INVALID: ErrorCodeDetail(VideoErrors.API_KEY_INVALID, 401, "Video API key is invalid"),
-    VideoErrors.API_KEY_NOT_CONFIGURED: ErrorCodeDetail(VideoErrors.API_KEY_NOT_CONFIGURED, 401, "Video API key not configured"),
-    VideoErrors.STREAM_NOT_AVAILABLE: ErrorCodeDetail(VideoErrors.STREAM_NOT_AVAILABLE, 503, "Video stream not available"),
+    VideoErrors.API_KEY_NOT_CONFIGURED: ErrorCodeDetail(
+        VideoErrors.API_KEY_NOT_CONFIGURED, 401, "Video API key not configured"
+    ),
+    VideoErrors.STREAM_NOT_AVAILABLE: ErrorCodeDetail(
+        VideoErrors.STREAM_NOT_AVAILABLE, 503, "Video stream not available"
+    ),
     # --- AUDIT ---
     AuditErrors.INVALID_ACTION: ErrorCodeDetail(AuditErrors.INVALID_ACTION, 400, "Invalid audit action"),
     AuditErrors.INVALID_TIME_FORMAT: ErrorCodeDetail(AuditErrors.INVALID_TIME_FORMAT, 400, "Invalid time format"),
@@ -1163,43 +1274,81 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     AuditErrors.INTEGRITY_FAILED: ErrorCodeDetail(AuditErrors.INTEGRITY_FAILED, 500, "Audit integrity check failed"),
     AuditErrors.LIST_FAILED: ErrorCodeDetail(AuditErrors.LIST_FAILED, 500, "Failed to list audit logs"),
     # --- EXPRESSION ---
-    ExpressionErrors.EVALUATE_FAILED: ErrorCodeDetail(ExpressionErrors.EVALUATE_FAILED, 500, "Expression evaluation failed"),
-    ExpressionErrors.BATCH_EVALUATE_FAILED: ErrorCodeDetail(ExpressionErrors.BATCH_EVALUATE_FAILED, 500, "Batch expression evaluation failed"),
-    ExpressionErrors.VALIDATE_FAILED: ErrorCodeDetail(ExpressionErrors.VALIDATE_FAILED, 400, "Expression validation failed"),
+    ExpressionErrors.EVALUATE_FAILED: ErrorCodeDetail(
+        ExpressionErrors.EVALUATE_FAILED, 500, "Expression evaluation failed"
+    ),
+    ExpressionErrors.BATCH_EVALUATE_FAILED: ErrorCodeDetail(
+        ExpressionErrors.BATCH_EVALUATE_FAILED, 500, "Batch expression evaluation failed"
+    ),
+    ExpressionErrors.VALIDATE_FAILED: ErrorCodeDetail(
+        ExpressionErrors.VALIDATE_FAILED, 400, "Expression validation failed"
+    ),
     # --- SCADA ---
     ScadaErrors.PROJECT_NOT_FOUND: ErrorCodeDetail(ScadaErrors.PROJECT_NOT_FOUND, 404, "SCADA project not found"),
     ScadaErrors.SAVE_FAILED: ErrorCodeDetail(ScadaErrors.SAVE_FAILED, 500, "Failed to save SCADA project"),
     ScadaErrors.DELETE_FAILED: ErrorCodeDetail(ScadaErrors.DELETE_FAILED, 500, "Failed to delete SCADA project"),
     ScadaErrors.LOAD_FAILED: ErrorCodeDetail(ScadaErrors.LOAD_FAILED, 500, "Failed to load SCADA project"),
     # --- PLATFORM ---
-    PlatformErrors.CONFIG_SCHEMA_NOT_FOUND: ErrorCodeDetail(PlatformErrors.CONFIG_SCHEMA_NOT_FOUND, 404, "Platform config schema not found"),
+    PlatformErrors.CONFIG_SCHEMA_NOT_FOUND: ErrorCodeDetail(
+        PlatformErrors.CONFIG_SCHEMA_NOT_FOUND, 404, "Platform config schema not found"
+    ),
     PlatformErrors.CONNECT_FAILED: ErrorCodeDetail(PlatformErrors.CONNECT_FAILED, 500, "Platform connection failed"),
-    PlatformErrors.DISCONNECT_FAILED: ErrorCodeDetail(PlatformErrors.DISCONNECT_FAILED, 500, "Platform disconnection failed"),
+    PlatformErrors.DISCONNECT_FAILED: ErrorCodeDetail(
+        PlatformErrors.DISCONNECT_FAILED, 500, "Platform disconnection failed"
+    ),
     PlatformErrors.NOT_SUPPORTED: ErrorCodeDetail(PlatformErrors.NOT_SUPPORTED, 400, "Unsupported platform type"),
     PlatformErrors.MISSING_CONFIG: ErrorCodeDetail(PlatformErrors.MISSING_CONFIG, 400, "Missing platform config"),
     PlatformErrors.NOT_CONNECTED: ErrorCodeDetail(PlatformErrors.NOT_CONNECTED, 503, "Platform not connected"),
-    PlatformErrors.VALIDATION_REQUIRED: ErrorCodeDetail(PlatformErrors.VALIDATION_REQUIRED, 400, "Required field is empty"),
-    PlatformErrors.VALIDATION_BROKER_FORMAT: ErrorCodeDetail(PlatformErrors.VALIDATION_BROKER_FORMAT, 400, "Invalid broker format"),
-    PlatformErrors.VALIDATION_PORT_RANGE: ErrorCodeDetail(PlatformErrors.VALIDATION_PORT_RANGE, 400, "Port out of range"),
-    PlatformErrors.VALIDATION_PORT_NUMBER: ErrorCodeDetail(PlatformErrors.VALIDATION_PORT_NUMBER, 400, "Port must be a number"),
-    PlatformErrors.VALIDATION_TOO_LONG: ErrorCodeDetail(PlatformErrors.VALIDATION_TOO_LONG, 400, "Field value too long"),
-    PlatformErrors.VALIDATION_UNSUPPORTED: ErrorCodeDetail(PlatformErrors.VALIDATION_UNSUPPORTED, 400, "Unsupported field type"),
+    PlatformErrors.VALIDATION_REQUIRED: ErrorCodeDetail(
+        PlatformErrors.VALIDATION_REQUIRED, 400, "Required field is empty"
+    ),
+    PlatformErrors.VALIDATION_BROKER_FORMAT: ErrorCodeDetail(
+        PlatformErrors.VALIDATION_BROKER_FORMAT, 400, "Invalid broker format"
+    ),
+    PlatformErrors.VALIDATION_PORT_RANGE: ErrorCodeDetail(
+        PlatformErrors.VALIDATION_PORT_RANGE, 400, "Port out of range"
+    ),
+    PlatformErrors.VALIDATION_PORT_NUMBER: ErrorCodeDetail(
+        PlatformErrors.VALIDATION_PORT_NUMBER, 400, "Port must be a number"
+    ),
+    PlatformErrors.VALIDATION_TOO_LONG: ErrorCodeDetail(
+        PlatformErrors.VALIDATION_TOO_LONG, 400, "Field value too long"
+    ),
+    PlatformErrors.VALIDATION_UNSUPPORTED: ErrorCodeDetail(
+        PlatformErrors.VALIDATION_UNSUPPORTED, 400, "Unsupported field type"
+    ),
     # --- SYSTEM ---
     SystemErrors.STATUS_FAILED: ErrorCodeDetail(SystemErrors.STATUS_FAILED, 500, "Failed to get system status"),
     SystemErrors.BACKUP_LIST_FAILED: ErrorCodeDetail(SystemErrors.BACKUP_LIST_FAILED, 500, "Failed to list backups"),
-    SystemErrors.BACKUP_CREATE_FAILED: ErrorCodeDetail(SystemErrors.BACKUP_CREATE_FAILED, 500, "Failed to create backup"),
+    SystemErrors.BACKUP_CREATE_FAILED: ErrorCodeDetail(
+        SystemErrors.BACKUP_CREATE_FAILED, 500, "Failed to create backup"
+    ),
     SystemErrors.INVALID_BACKUP_ID: ErrorCodeDetail(SystemErrors.INVALID_BACKUP_ID, 400, "Invalid backup ID"),
     SystemErrors.BACKUP_NOT_FOUND: ErrorCodeDetail(SystemErrors.BACKUP_NOT_FOUND, 404, "Backup not found"),
     SystemErrors.RESTORE_FAILED: ErrorCodeDetail(SystemErrors.RESTORE_FAILED, 500, "System restore failed"),
-    SystemErrors.STARTUP_VALIDATION_FAILED: ErrorCodeDetail(SystemErrors.STARTUP_VALIDATION_FAILED, 500, "Startup validation failed"),
-    SystemErrors.RETENTION_NOT_IMPLEMENTED: ErrorCodeDetail(SystemErrors.RETENTION_NOT_IMPLEMENTED, 501, "Retention policy management not implemented"),
-    SystemErrors.CERT_NOT_IMPLEMENTED: ErrorCodeDetail(SystemErrors.CERT_NOT_IMPLEMENTED, 501, "Certificate management not implemented"),
-    SystemErrors.MIGRATION_STATUS_FAILED: ErrorCodeDetail(SystemErrors.MIGRATION_STATUS_FAILED, 500, "Failed to get migration status"),
+    SystemErrors.STARTUP_VALIDATION_FAILED: ErrorCodeDetail(
+        SystemErrors.STARTUP_VALIDATION_FAILED, 500, "Startup validation failed"
+    ),
+    SystemErrors.RETENTION_NOT_IMPLEMENTED: ErrorCodeDetail(
+        SystemErrors.RETENTION_NOT_IMPLEMENTED, 501, "Retention policy management not implemented"
+    ),
+    SystemErrors.CERT_NOT_IMPLEMENTED: ErrorCodeDetail(
+        SystemErrors.CERT_NOT_IMPLEMENTED, 501, "Certificate management not implemented"
+    ),
+    SystemErrors.MIGRATION_STATUS_FAILED: ErrorCodeDetail(
+        SystemErrors.MIGRATION_STATUS_FAILED, 500, "Failed to get migration status"
+    ),
     SystemErrors.MIGRATION_FAILED: ErrorCodeDetail(SystemErrors.MIGRATION_FAILED, 500, "Migration failed"),
-    SystemErrors.MIGRATION_HISTORY_FAILED: ErrorCodeDetail(SystemErrors.MIGRATION_HISTORY_FAILED, 500, "Failed to get migration history"),
+    SystemErrors.MIGRATION_HISTORY_FAILED: ErrorCodeDetail(
+        SystemErrors.MIGRATION_HISTORY_FAILED, 500, "Failed to get migration history"
+    ),
     SystemErrors.LOCK_STATUS_FAILED: ErrorCodeDetail(SystemErrors.LOCK_STATUS_FAILED, 500, "Failed to get lock status"),
-    SystemErrors.FIRMWARE_HASH_FAILED: ErrorCodeDetail(SystemErrors.FIRMWARE_HASH_FAILED, 500, "Failed to compute file hash"),
-    SystemErrors.MIGRATION_SUCCESS: ErrorCodeDetail(SystemErrors.MIGRATION_SUCCESS, 200, "Migration completed successfully"),
+    SystemErrors.FIRMWARE_HASH_FAILED: ErrorCodeDetail(
+        SystemErrors.FIRMWARE_HASH_FAILED, 500, "Failed to compute file hash"
+    ),
+    SystemErrors.MIGRATION_SUCCESS: ErrorCodeDetail(
+        SystemErrors.MIGRATION_SUCCESS, 200, "Migration completed successfully"
+    ),
     # --- RULE ---
     RuleErrors.LIST_FAILED: ErrorCodeDetail(RuleErrors.LIST_FAILED, 500, "Failed to list rules"),
     RuleErrors.CREATE_FAILED: ErrorCodeDetail(RuleErrors.CREATE_FAILED, 500, "Failed to create rule"),
@@ -1211,45 +1360,83 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     RuleErrors.DISABLE_FAILED: ErrorCodeDetail(RuleErrors.DISABLE_FAILED, 500, "Failed to disable rule"),
     RuleErrors.TEST_FAILED: ErrorCodeDetail(RuleErrors.TEST_FAILED, 500, "Rule test failed"),
     RuleErrors.CONDITION_INVALID: ErrorCodeDetail(RuleErrors.CONDITION_INVALID, 400, "Rule condition is invalid"),
-    RuleErrors.IN_USE_BY_ALARMS: ErrorCodeDetail(RuleErrors.IN_USE_BY_ALARMS, 409, "Rule is referenced by active alarms. Please resolve them first."),
+    RuleErrors.IN_USE_BY_ALARMS: ErrorCodeDetail(
+        RuleErrors.IN_USE_BY_ALARMS, 409, "Rule is referenced by active alarms. Please resolve them first."
+    ),
     # --- ALARM ---
     AlarmErrors.LIST_FAILED: ErrorCodeDetail(AlarmErrors.LIST_FAILED, 500, "Failed to list alarms"),
     AlarmErrors.NOT_FOUND: ErrorCodeDetail(AlarmErrors.NOT_FOUND, 404, "Alarm not found"),
     AlarmErrors.GET_FAILED: ErrorCodeDetail(AlarmErrors.GET_FAILED, 500, "Failed to get alarm"),
     AlarmErrors.ACK_FAILED: ErrorCodeDetail(AlarmErrors.ACK_FAILED, 500, "Failed to acknowledge alarm"),
-    AlarmErrors.ALREADY_ACKNOWLEDGED: ErrorCodeDetail(AlarmErrors.ALREADY_ACKNOWLEDGED, 409, "Alarm already acknowledged"),
+    AlarmErrors.ALREADY_ACKNOWLEDGED: ErrorCodeDetail(
+        AlarmErrors.ALREADY_ACKNOWLEDGED, 409, "Alarm already acknowledged"
+    ),
     AlarmErrors.ALREADY_RECOVERED: ErrorCodeDetail(AlarmErrors.ALREADY_RECOVERED, 409, "Alarm already recovered"),
-    AlarmErrors.SILENCE_CREATE_FAILED: ErrorCodeDetail(AlarmErrors.SILENCE_CREATE_FAILED, 500, "Failed to create alarm silence period"),
-    AlarmErrors.SILENCE_NOT_FOUND: ErrorCodeDetail(AlarmErrors.SILENCE_NOT_FOUND, 404, "Alarm silence period not found"),
-    AlarmErrors.SILENCE_UPDATE_FAILED: ErrorCodeDetail(AlarmErrors.SILENCE_UPDATE_FAILED, 500, "Failed to update alarm silence period"),
+    AlarmErrors.SILENCE_CREATE_FAILED: ErrorCodeDetail(
+        AlarmErrors.SILENCE_CREATE_FAILED, 500, "Failed to create alarm silence period"
+    ),
+    AlarmErrors.SILENCE_NOT_FOUND: ErrorCodeDetail(
+        AlarmErrors.SILENCE_NOT_FOUND, 404, "Alarm silence period not found"
+    ),
+    AlarmErrors.SILENCE_UPDATE_FAILED: ErrorCodeDetail(
+        AlarmErrors.SILENCE_UPDATE_FAILED, 500, "Failed to update alarm silence period"
+    ),
     AlarmErrors.DELETE_FAILED: ErrorCodeDetail(AlarmErrors.DELETE_FAILED, 500, "Failed to delete alarm"),
     # --- INTEGRATION ---
-    IntegrationErrors.HANDSHAKE_FAILED: ErrorCodeDetail(IntegrationErrors.HANDSHAKE_FAILED, 500, "Integration handshake failed"),
-    IntegrationErrors.STATUS_FAILED: ErrorCodeDetail(IntegrationErrors.STATUS_FAILED, 500, "Failed to get integration status"),
-    IntegrationErrors.RPC_EXECUTE_FAILED: ErrorCodeDetail(IntegrationErrors.RPC_EXECUTE_FAILED, 500, "RPC execution failed"),
-    IntegrationErrors.RPC_HISTORY_FAILED: ErrorCodeDetail(IntegrationErrors.RPC_HISTORY_FAILED, 500, "RPC history query failed"),
-    IntegrationErrors.BACKHAUL_NOT_READY: ErrorCodeDetail(IntegrationErrors.BACKHAUL_NOT_READY, 503, "Backhaul channel not ready"),
-    IntegrationErrors.RPC_DEVICE_SERVICE_UNAVAILABLE: ErrorCodeDetail(IntegrationErrors.RPC_DEVICE_SERVICE_UNAVAILABLE, 503, "RPC device service unavailable"),
-    IntegrationErrors.RPC_MISSING_VALUE: ErrorCodeDetail(IntegrationErrors.RPC_MISSING_VALUE, 400, "RPC missing value parameter"),
+    IntegrationErrors.HANDSHAKE_FAILED: ErrorCodeDetail(
+        IntegrationErrors.HANDSHAKE_FAILED, 500, "Integration handshake failed"
+    ),
+    IntegrationErrors.STATUS_FAILED: ErrorCodeDetail(
+        IntegrationErrors.STATUS_FAILED, 500, "Failed to get integration status"
+    ),
+    IntegrationErrors.RPC_EXECUTE_FAILED: ErrorCodeDetail(
+        IntegrationErrors.RPC_EXECUTE_FAILED, 500, "RPC execution failed"
+    ),
+    IntegrationErrors.RPC_HISTORY_FAILED: ErrorCodeDetail(
+        IntegrationErrors.RPC_HISTORY_FAILED, 500, "RPC history query failed"
+    ),
+    IntegrationErrors.BACKHAUL_NOT_READY: ErrorCodeDetail(
+        IntegrationErrors.BACKHAUL_NOT_READY, 503, "Backhaul channel not ready"
+    ),
+    IntegrationErrors.RPC_DEVICE_SERVICE_UNAVAILABLE: ErrorCodeDetail(
+        IntegrationErrors.RPC_DEVICE_SERVICE_UNAVAILABLE, 503, "RPC device service unavailable"
+    ),
+    IntegrationErrors.RPC_MISSING_VALUE: ErrorCodeDetail(
+        IntegrationErrors.RPC_MISSING_VALUE, 400, "RPC missing value parameter"
+    ),
     IntegrationErrors.RPC_WRITE_FAILED: ErrorCodeDetail(IntegrationErrors.RPC_WRITE_FAILED, 500, "RPC write failed"),
-    IntegrationErrors.PUSH_DEVICE_VALIDATION_FAILED: ErrorCodeDetail(IntegrationErrors.PUSH_DEVICE_VALIDATION_FAILED, 422, "Push device validation failed"),
-    IntegrationErrors.REBUILD_DEVICE_FAILED: ErrorCodeDetail(IntegrationErrors.REBUILD_DEVICE_FAILED, 500, "Rebuild device failed"),
+    IntegrationErrors.PUSH_DEVICE_VALIDATION_FAILED: ErrorCodeDetail(
+        IntegrationErrors.PUSH_DEVICE_VALIDATION_FAILED, 422, "Push device validation failed"
+    ),
+    IntegrationErrors.REBUILD_DEVICE_FAILED: ErrorCodeDetail(
+        IntegrationErrors.REBUILD_DEVICE_FAILED, 500, "Rebuild device failed"
+    ),
     # --- CASCADE ---
     CascadeErrors.INVALID_CONFIG: ErrorCodeDetail(CascadeErrors.INVALID_CONFIG, 400, "Invalid cascade config"),
     CascadeErrors.TOPOLOGY_FAILED: ErrorCodeDetail(CascadeErrors.TOPOLOGY_FAILED, 500, "Failed to get topology"),
     CascadeErrors.NEIGHBORS_FAILED: ErrorCodeDetail(CascadeErrors.NEIGHBORS_FAILED, 500, "Failed to get neighbors"),
-    CascadeErrors.CONFIG_UPDATE_FAILED: ErrorCodeDetail(CascadeErrors.CONFIG_UPDATE_FAILED, 500, "Failed to update cascade config"),
+    CascadeErrors.CONFIG_UPDATE_FAILED: ErrorCodeDetail(
+        CascadeErrors.CONFIG_UPDATE_FAILED, 500, "Failed to update cascade config"
+    ),
     CascadeErrors.NEIGHBOR_NOT_FOUND: ErrorCodeDetail(CascadeErrors.NEIGHBOR_NOT_FOUND, 404, "Neighbor not found"),
     CascadeErrors.REMOVE_FAILED: ErrorCodeDetail(CascadeErrors.REMOVE_FAILED, 500, "Failed to remove neighbor"),
     CascadeErrors.NOT_ENABLED: ErrorCodeDetail(CascadeErrors.NOT_ENABLED, 503, "Cascade not enabled"),
     # --- MCP ---
-    McpErrors.DEVICE_SERVICE_UNAVAILABLE: ErrorCodeDetail(McpErrors.DEVICE_SERVICE_UNAVAILABLE, 503, "MCP device service unavailable"),
+    McpErrors.DEVICE_SERVICE_UNAVAILABLE: ErrorCodeDetail(
+        McpErrors.DEVICE_SERVICE_UNAVAILABLE, 503, "MCP device service unavailable"
+    ),
     McpErrors.MISSING_DEVICE_ID: ErrorCodeDetail(McpErrors.MISSING_DEVICE_ID, 400, "Missing device ID"),
     McpErrors.DEVICE_NOT_FOUND: ErrorCodeDetail(McpErrors.DEVICE_NOT_FOUND, 404, "MCP device not found"),
     McpErrors.MISSING_PARAMS: ErrorCodeDetail(McpErrors.MISSING_PARAMS, 400, "Missing required parameters"),
-    McpErrors.ALARM_SERVICE_UNAVAILABLE: ErrorCodeDetail(McpErrors.ALARM_SERVICE_UNAVAILABLE, 503, "MCP alarm service unavailable"),
-    McpErrors.SYSTEM_SERVICE_UNAVAILABLE: ErrorCodeDetail(McpErrors.SYSTEM_SERVICE_UNAVAILABLE, 503, "MCP system service unavailable"),
-    McpErrors.RULE_SERVICE_UNAVAILABLE: ErrorCodeDetail(McpErrors.RULE_SERVICE_UNAVAILABLE, 503, "MCP rule service unavailable"),
+    McpErrors.ALARM_SERVICE_UNAVAILABLE: ErrorCodeDetail(
+        McpErrors.ALARM_SERVICE_UNAVAILABLE, 503, "MCP alarm service unavailable"
+    ),
+    McpErrors.SYSTEM_SERVICE_UNAVAILABLE: ErrorCodeDetail(
+        McpErrors.SYSTEM_SERVICE_UNAVAILABLE, 503, "MCP system service unavailable"
+    ),
+    McpErrors.RULE_SERVICE_UNAVAILABLE: ErrorCodeDetail(
+        McpErrors.RULE_SERVICE_UNAVAILABLE, 503, "MCP rule service unavailable"
+    ),
     McpErrors.UNKNOWN_TOOL: ErrorCodeDetail(McpErrors.UNKNOWN_TOOL, 404, "Unknown MCP tool"),
     McpErrors.LIST_FAILED: ErrorCodeDetail(McpErrors.LIST_FAILED, 500, "Failed to list MCP tools"),
     McpErrors.CALL_FAILED: ErrorCodeDetail(McpErrors.CALL_FAILED, 500, "MCP tool call failed"),
@@ -1257,30 +1444,56 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     McpErrors.KEY_NOT_FOUND: ErrorCodeDetail(McpErrors.KEY_NOT_FOUND, 404, "MCP key not found"),
     McpErrors.SSE_FAILED: ErrorCodeDetail(McpErrors.SSE_FAILED, 500, "MCP SSE failed"),
     # --- NOTIFY ---
-    NotifyErrors.CHANNEL_NOT_FOUND: ErrorCodeDetail(NotifyErrors.CHANNEL_NOT_FOUND, 404, "Notification channel not found"),
-    NotifyErrors.CHANNEL_NOT_CONFIGURED: ErrorCodeDetail(NotifyErrors.CHANNEL_NOT_CONFIGURED, 400, "Notification channel not configured"),
-    NotifyErrors.CHANNEL_DELETE_FAILED: ErrorCodeDetail(NotifyErrors.CHANNEL_DELETE_FAILED, 500, "Failed to delete notification channel"),
-    NotifyErrors.CHANNEL_SAVE_FAILED: ErrorCodeDetail(NotifyErrors.CHANNEL_SAVE_FAILED, 500, "Failed to save notification channel config"),
-    NotifyErrors.CHANNEL_TEST_FAILED: ErrorCodeDetail(NotifyErrors.CHANNEL_TEST_FAILED, 400, "Notification channel test failed"),
-    NotifyErrors.CHANNEL_DISABLED: ErrorCodeDetail(NotifyErrors.CHANNEL_DISABLED, 404, "Notification channel not found"),
-    NotifyErrors.SMTP_NOT_CONFIGURED: ErrorCodeDetail(NotifyErrors.SMTP_NOT_CONFIGURED, 400, "SMTP server not configured"),
-    NotifyErrors.WEBHOOK_NOT_CONFIGURED: ErrorCodeDetail(NotifyErrors.WEBHOOK_NOT_CONFIGURED, 400, "Webhook not configured"),
-    NotifyErrors.CHANNEL_MANAGER_UNAVAILABLE: ErrorCodeDetail(NotifyErrors.CHANNEL_MANAGER_UNAVAILABLE, 503, "Channel management not available"),
+    NotifyErrors.CHANNEL_NOT_FOUND: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_NOT_FOUND, 404, "Notification channel not found"
+    ),
+    NotifyErrors.CHANNEL_NOT_CONFIGURED: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_NOT_CONFIGURED, 400, "Notification channel not configured"
+    ),
+    NotifyErrors.CHANNEL_DELETE_FAILED: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_DELETE_FAILED, 500, "Failed to delete notification channel"
+    ),
+    NotifyErrors.CHANNEL_SAVE_FAILED: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_SAVE_FAILED, 500, "Failed to save notification channel config"
+    ),
+    NotifyErrors.CHANNEL_TEST_FAILED: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_TEST_FAILED, 400, "Notification channel test failed"
+    ),
+    NotifyErrors.CHANNEL_DISABLED: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_DISABLED, 404, "Notification channel not found"
+    ),
+    NotifyErrors.SMTP_NOT_CONFIGURED: ErrorCodeDetail(
+        NotifyErrors.SMTP_NOT_CONFIGURED, 400, "SMTP server not configured"
+    ),
+    NotifyErrors.WEBHOOK_NOT_CONFIGURED: ErrorCodeDetail(
+        NotifyErrors.WEBHOOK_NOT_CONFIGURED, 400, "Webhook not configured"
+    ),
+    NotifyErrors.CHANNEL_MANAGER_UNAVAILABLE: ErrorCodeDetail(
+        NotifyErrors.CHANNEL_MANAGER_UNAVAILABLE, 503, "Channel management not available"
+    ),
     # --- App Update ---
     AppUpdateErrors.NOT_ENABLED: ErrorCodeDetail(AppUpdateErrors.NOT_ENABLED, 503, "App update not enabled"),
     AppUpdateErrors.CHECK_FAILED: ErrorCodeDetail(AppUpdateErrors.CHECK_FAILED, 500, "App update check failed"),
     AppUpdateErrors.IN_PROGRESS: ErrorCodeDetail(AppUpdateErrors.IN_PROGRESS, 409, "App update in progress"),
     AppUpdateErrors.NO_UPDATE: ErrorCodeDetail(AppUpdateErrors.NO_UPDATE, 404, "No update available"),
     AppUpdateErrors.NO_DOWNLOAD_URL: ErrorCodeDetail(AppUpdateErrors.NO_DOWNLOAD_URL, 500, "No download URL"),
-    AppUpdateErrors.DOWNLOAD_FAILED: ErrorCodeDetail(AppUpdateErrors.DOWNLOAD_FAILED, 500, "App update download failed"),
+    AppUpdateErrors.DOWNLOAD_FAILED: ErrorCodeDetail(
+        AppUpdateErrors.DOWNLOAD_FAILED, 500, "App update download failed"
+    ),
     AppUpdateErrors.APPLY_FAILED: ErrorCodeDetail(AppUpdateErrors.APPLY_FAILED, 500, "App update apply failed"),
-    AppUpdateErrors.ROLLBACK_FAILED: ErrorCodeDetail(AppUpdateErrors.ROLLBACK_FAILED, 500, "App update rollback failed"),
-    AppUpdateErrors.LIST_BACKUPS_FAILED: ErrorCodeDetail(AppUpdateErrors.LIST_BACKUPS_FAILED, 500, "Failed to list app update backups"),
+    AppUpdateErrors.ROLLBACK_FAILED: ErrorCodeDetail(
+        AppUpdateErrors.ROLLBACK_FAILED, 500, "App update rollback failed"
+    ),
+    AppUpdateErrors.LIST_BACKUPS_FAILED: ErrorCodeDetail(
+        AppUpdateErrors.LIST_BACKUPS_FAILED, 500, "Failed to list app update backups"
+    ),
     AppUpdateErrors.INVALID_VERSION: ErrorCodeDetail(AppUpdateErrors.INVALID_VERSION, 400, "Invalid version format"),
     # --- AUTHZ ---
     AuthzErrors.NOT_AUTHENTICATED: ErrorCodeDetail(AuthzErrors.NOT_AUTHENTICATED, 401, "Not authenticated"),
     AuthzErrors.PERMISSION_DENIED: ErrorCodeDetail(AuthzErrors.PERMISSION_DENIED, 403, "Permission denied"),
-    AuthzErrors.RESOURCE_OWNERSHIP_DENIED: ErrorCodeDetail(AuthzErrors.RESOURCE_OWNERSHIP_DENIED, 403, "Resource ownership check failed"),
+    AuthzErrors.RESOURCE_OWNERSHIP_DENIED: ErrorCodeDetail(
+        AuthzErrors.RESOURCE_OWNERSHIP_DENIED, 403, "Resource ownership check failed"
+    ),
     # --- AI ---
     AiErrors.ENGINE_NOT_INITIALIZED: ErrorCodeDetail(AiErrors.ENGINE_NOT_INITIALIZED, 503, "AI engine not initialized"),
     AiErrors.MODEL_NOT_FOUND: ErrorCodeDetail(AiErrors.MODEL_NOT_FOUND, 404, "AI model not found"),
@@ -1302,28 +1515,52 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     AiErrors.ENABLE_FAILED: ErrorCodeDetail(AiErrors.ENABLE_FAILED, 500, "Failed to enable AI model"),
     AiErrors.DISABLE_FAILED: ErrorCodeDetail(AiErrors.DISABLE_FAILED, 500, "Failed to disable AI model"),
     AiErrors.ONNX_NOT_AVAILABLE: ErrorCodeDetail(AiErrors.ONNX_NOT_AVAILABLE, 503, "ONNX Runtime not available"),
-    AiErrors.ONNXRUNTIME_NOT_INSTALLED: ErrorCodeDetail(AiErrors.ONNXRUNTIME_NOT_INSTALLED, 503, "ONNX Runtime not installed"),
+    AiErrors.ONNXRUNTIME_NOT_INSTALLED: ErrorCodeDetail(
+        AiErrors.ONNXRUNTIME_NOT_INSTALLED, 503, "ONNX Runtime not installed"
+    ),
     AiErrors.MODEL_IS_LOADING: ErrorCodeDetail(AiErrors.MODEL_IS_LOADING, 409, "Model is loading"),
     AiErrors.INVALID_INPUT_DATA: ErrorCodeDetail(AiErrors.INVALID_INPUT_DATA, 400, "Invalid input data"),
     AiErrors.INTERNAL_ERROR: ErrorCodeDetail(AiErrors.INTERNAL_ERROR, 500, "AI internal error"),
-    AiErrors.SCHEDULE_ALREADY_EXISTS: ErrorCodeDetail(AiErrors.SCHEDULE_ALREADY_EXISTS, 409, "AI schedule already exists"),
+    AiErrors.SCHEDULE_ALREADY_EXISTS: ErrorCodeDetail(
+        AiErrors.SCHEDULE_ALREADY_EXISTS, 409, "AI schedule already exists"
+    ),
     AiErrors.SCHEDULE_NOT_FOUND: ErrorCodeDetail(AiErrors.SCHEDULE_NOT_FOUND, 404, "AI schedule not found"),
     AiErrors.SCHEDULE_START_FAILED: ErrorCodeDetail(AiErrors.SCHEDULE_START_FAILED, 500, "Failed to start AI schedule"),
     AiErrors.SCHEDULE_NO_DATA: ErrorCodeDetail(AiErrors.SCHEDULE_NO_DATA, 404, "No data for AI schedule"),
-    AiErrors.EVOLUTION_SESSION_NOT_FOUND: ErrorCodeDetail(AiErrors.EVOLUTION_SESSION_NOT_FOUND, 404, "Evolution session not found"),
+    AiErrors.EVOLUTION_SESSION_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.EVOLUTION_SESSION_NOT_FOUND, 404, "Evolution session not found"
+    ),
     AiErrors.EVOLUTION_RUN_FAILED: ErrorCodeDetail(AiErrors.EVOLUTION_RUN_FAILED, 500, "Evolution run failed"),
-    AiErrors.EVOLUTION_STRATEGY_NOT_FOUND: ErrorCodeDetail(AiErrors.EVOLUTION_STRATEGY_NOT_FOUND, 404, "Evolution strategy result not found"),
-    AiErrors.EVOLUTION_NOT_COMPLETED: ErrorCodeDetail(AiErrors.EVOLUTION_NOT_COMPLETED, 400, "Evolution session not completed"),
-    AiErrors.BOUNDARY_TEST_RUN_FAILED: ErrorCodeDetail(AiErrors.BOUNDARY_TEST_RUN_FAILED, 500, "Boundary test run failed"),
-    AiErrors.BOUNDARY_TEST_REPORT_NOT_FOUND: ErrorCodeDetail(AiErrors.BOUNDARY_TEST_REPORT_NOT_FOUND, 404, "Boundary test report not found"),
+    AiErrors.EVOLUTION_STRATEGY_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.EVOLUTION_STRATEGY_NOT_FOUND, 404, "Evolution strategy result not found"
+    ),
+    AiErrors.EVOLUTION_NOT_COMPLETED: ErrorCodeDetail(
+        AiErrors.EVOLUTION_NOT_COMPLETED, 400, "Evolution session not completed"
+    ),
+    AiErrors.BOUNDARY_TEST_RUN_FAILED: ErrorCodeDetail(
+        AiErrors.BOUNDARY_TEST_RUN_FAILED, 500, "Boundary test run failed"
+    ),
+    AiErrors.BOUNDARY_TEST_REPORT_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.BOUNDARY_TEST_REPORT_NOT_FOUND, 404, "Boundary test report not found"
+    ),
     AiErrors.STRESS_TEST_RUN_FAILED: ErrorCodeDetail(AiErrors.STRESS_TEST_RUN_FAILED, 500, "Stress test run failed"),
-    AiErrors.STRESS_TEST_REPORT_NOT_FOUND: ErrorCodeDetail(AiErrors.STRESS_TEST_REPORT_NOT_FOUND, 404, "Stress test report not found"),
-    AiErrors.REPORT_GENERATE_FAILED: ErrorCodeDetail(AiErrors.REPORT_GENERATE_FAILED, 500, "AI report generation failed"),
+    AiErrors.STRESS_TEST_REPORT_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.STRESS_TEST_REPORT_NOT_FOUND, 404, "Stress test report not found"
+    ),
+    AiErrors.REPORT_GENERATE_FAILED: ErrorCodeDetail(
+        AiErrors.REPORT_GENERATE_FAILED, 500, "AI report generation failed"
+    ),
     AiErrors.REPORT_NOT_FOUND: ErrorCodeDetail(AiErrors.REPORT_NOT_FOUND, 404, "AI report not found"),
-    AiErrors.CALIB_SESSION_NOT_FOUND: ErrorCodeDetail(AiErrors.CALIB_SESSION_NOT_FOUND, 404, "Calibration session not found"),
+    AiErrors.CALIB_SESSION_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.CALIB_SESSION_NOT_FOUND, 404, "Calibration session not found"
+    ),
     AiErrors.TEST_ALREADY_RUNNING: ErrorCodeDetail(AiErrors.TEST_ALREADY_RUNNING, 409, "Test already running"),
-    AiErrors.PHYSICS_ENTRY_NOT_FOUND: ErrorCodeDetail(AiErrors.PHYSICS_ENTRY_NOT_FOUND, 404, "Physics parameter entry not found"),
-    AiErrors.PHYSICS_CALIB_NOT_FOUND: ErrorCodeDetail(AiErrors.PHYSICS_CALIB_NOT_FOUND, 404, "Physics calibration result not found"),
+    AiErrors.PHYSICS_ENTRY_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.PHYSICS_ENTRY_NOT_FOUND, 404, "Physics parameter entry not found"
+    ),
+    AiErrors.PHYSICS_CALIB_NOT_FOUND: ErrorCodeDetail(
+        AiErrors.PHYSICS_CALIB_NOT_FOUND, 404, "Physics calibration result not found"
+    ),
     AiErrors.MODEL_FORMAT_INVALID: ErrorCodeDetail(AiErrors.MODEL_FORMAT_INVALID, 400, "Unsupported model file format"),
     # --- GRAFANA ---
     GrafanaErrors.NOT_ENABLED: ErrorCodeDetail(GrafanaErrors.NOT_ENABLED, 503, "Grafana not enabled"),
@@ -1333,11 +1570,15 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     GrafanaErrors.CONNECTION_FAILED: ErrorCodeDetail(GrafanaErrors.CONNECTION_FAILED, 502, "Grafana connection failed"),
     GrafanaErrors.INVALID_UID: ErrorCodeDetail(GrafanaErrors.INVALID_UID, 400, "Invalid Grafana UID"),
     # --- STORAGE ---
-    StorageErrors.INFLUXDB_UNAVAILABLE: ErrorCodeDetail(StorageErrors.INFLUXDB_UNAVAILABLE, 503, "InfluxDB is unavailable"),
+    StorageErrors.INFLUXDB_UNAVAILABLE: ErrorCodeDetail(
+        StorageErrors.INFLUXDB_UNAVAILABLE, 503, "InfluxDB is unavailable"
+    ),
     StorageErrors.SQLITE_ERROR: ErrorCodeDetail(StorageErrors.SQLITE_ERROR, 500, "SQLite error"),
     StorageErrors.CACHE_OVERFLOW: ErrorCodeDetail(StorageErrors.CACHE_OVERFLOW, 507, "Cache overflow"),
     StorageErrors.SYNC_FAILED: ErrorCodeDetail(StorageErrors.SYNC_FAILED, 500, "Storage sync failed"),
-    StorageErrors.OFFLINE_QUEUE_CORRUPT: ErrorCodeDetail(StorageErrors.OFFLINE_QUEUE_CORRUPT, 500, "Offline queue corrupted"),
+    StorageErrors.OFFLINE_QUEUE_CORRUPT: ErrorCodeDetail(
+        StorageErrors.OFFLINE_QUEUE_CORRUPT, 500, "Offline queue corrupted"
+    ),
     # --- NETWORK ---
     NetworkErrors.TIMEOUT: ErrorCodeDetail(NetworkErrors.TIMEOUT, 504, "Network timeout"),
     NetworkErrors.CONNECTION_REFUSED: ErrorCodeDetail(NetworkErrors.CONNECTION_REFUSED, 502, "Connection refused"),
@@ -1349,28 +1590,48 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     ProtocolErrors.MQTT_AUTH: ErrorCodeDetail(ProtocolErrors.MQTT_AUTH, 401, "MQTT authentication failed"),
     # --- LINKAGE ---
     LinkageErrors.RULE_NOT_FOUND: ErrorCodeDetail(LinkageErrors.RULE_NOT_FOUND, 404, "Linkage rule not found"),
-    LinkageErrors.RULE_CREATE_FAILED: ErrorCodeDetail(LinkageErrors.RULE_CREATE_FAILED, 500, "Failed to create linkage rule"),
-    LinkageErrors.RULE_UPDATE_FAILED: ErrorCodeDetail(LinkageErrors.RULE_UPDATE_FAILED, 500, "Failed to update linkage rule"),
-    LinkageErrors.RULE_DELETE_FAILED: ErrorCodeDetail(LinkageErrors.RULE_DELETE_FAILED, 500, "Failed to delete linkage rule"),
+    LinkageErrors.RULE_CREATE_FAILED: ErrorCodeDetail(
+        LinkageErrors.RULE_CREATE_FAILED, 500, "Failed to create linkage rule"
+    ),
+    LinkageErrors.RULE_UPDATE_FAILED: ErrorCodeDetail(
+        LinkageErrors.RULE_UPDATE_FAILED, 500, "Failed to update linkage rule"
+    ),
+    LinkageErrors.RULE_DELETE_FAILED: ErrorCodeDetail(
+        LinkageErrors.RULE_DELETE_FAILED, 500, "Failed to delete linkage rule"
+    ),
     LinkageErrors.EXECUTION_FAILED: ErrorCodeDetail(LinkageErrors.EXECUTION_FAILED, 500, "Linkage execution failed"),
-    LinkageErrors.CONDITION_INVALID: ErrorCodeDetail(LinkageErrors.CONDITION_INVALID, 400, "Linkage condition is invalid"),
+    LinkageErrors.CONDITION_INVALID: ErrorCodeDetail(
+        LinkageErrors.CONDITION_INVALID, 400, "Linkage condition is invalid"
+    ),
     # --- APPROVAL ---
-    ApprovalErrors.REQUEST_NOT_FOUND: ErrorCodeDetail(ApprovalErrors.REQUEST_NOT_FOUND, 404, "Approval request not found"),
-    ApprovalErrors.SUBMIT_FAILED: ErrorCodeDetail(ApprovalErrors.SUBMIT_FAILED, 500, "Failed to submit approval request"),
+    ApprovalErrors.REQUEST_NOT_FOUND: ErrorCodeDetail(
+        ApprovalErrors.REQUEST_NOT_FOUND, 404, "Approval request not found"
+    ),
+    ApprovalErrors.SUBMIT_FAILED: ErrorCodeDetail(
+        ApprovalErrors.SUBMIT_FAILED, 500, "Failed to submit approval request"
+    ),
     ApprovalErrors.APPROVE_FAILED: ErrorCodeDetail(ApprovalErrors.APPROVE_FAILED, 500, "Failed to approve request"),
     ApprovalErrors.REJECT_FAILED: ErrorCodeDetail(ApprovalErrors.REJECT_FAILED, 500, "Failed to reject request"),
     ApprovalErrors.CANCEL_FAILED: ErrorCodeDetail(ApprovalErrors.CANCEL_FAILED, 500, "Failed to cancel request"),
     ApprovalErrors.NOT_PENDING: ErrorCodeDetail(ApprovalErrors.NOT_PENDING, 409, "Request is not pending approval"),
     ApprovalErrors.CHAIN_NOT_FOUND: ErrorCodeDetail(ApprovalErrors.CHAIN_NOT_FOUND, 404, "Approval chain not found"),
-    ApprovalErrors.CHAIN_CREATE_FAILED: ErrorCodeDetail(ApprovalErrors.CHAIN_CREATE_FAILED, 500, "Failed to create approval chain"),
+    ApprovalErrors.CHAIN_CREATE_FAILED: ErrorCodeDetail(
+        ApprovalErrors.CHAIN_CREATE_FAILED, 500, "Failed to create approval chain"
+    ),
     # --- IMPORT/EXPORT ---
     ImportExportErrors.EXPORT_FAILED: ErrorCodeDetail(ImportExportErrors.EXPORT_FAILED, 500, "Data export failed"),
     ImportExportErrors.IMPORT_FAILED: ErrorCodeDetail(ImportExportErrors.IMPORT_FAILED, 500, "Data import failed"),
-    ImportExportErrors.IMPORT_VALIDATION_FAILED: ErrorCodeDetail(ImportExportErrors.IMPORT_VALIDATION_FAILED, 400, "Import data validation failed"),
-    ImportExportErrors.IMPORT_PARSE_ERROR: ErrorCodeDetail(ImportExportErrors.IMPORT_PARSE_ERROR, 400, "Import data parse error"),
+    ImportExportErrors.IMPORT_VALIDATION_FAILED: ErrorCodeDetail(
+        ImportExportErrors.IMPORT_VALIDATION_FAILED, 400, "Import data validation failed"
+    ),
+    ImportExportErrors.IMPORT_PARSE_ERROR: ErrorCodeDetail(
+        ImportExportErrors.IMPORT_PARSE_ERROR, 400, "Import data parse error"
+    ),
     # --- SCRIPT ---
     ScriptErrors.NOT_FOUND: ErrorCodeDetail(ScriptErrors.NOT_FOUND, 404, "Script not found"),
-    ScriptErrors.DANGEROUS_CODE: ErrorCodeDetail(ScriptErrors.DANGEROUS_CODE, 400, "Script contains dangerous code pattern"),
+    ScriptErrors.DANGEROUS_CODE: ErrorCodeDetail(
+        ScriptErrors.DANGEROUS_CODE, 400, "Script contains dangerous code pattern"
+    ),
     ScriptErrors.LIST_FAILED: ErrorCodeDetail(ScriptErrors.LIST_FAILED, 500, "Failed to list scripts"),
     ScriptErrors.CREATE_FAILED: ErrorCodeDetail(ScriptErrors.CREATE_FAILED, 500, "Failed to create script"),
     ScriptErrors.UPDATE_FAILED: ErrorCodeDetail(ScriptErrors.UPDATE_FAILED, 500, "Failed to update script"),
@@ -1385,17 +1646,33 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     LogErrors.OPERATOR_REQUIRED: ErrorCodeDetail(LogErrors.OPERATOR_REQUIRED, 422, "Parameter 'operator' is required"),
     LogErrors.VALUE_REQUIRED: ErrorCodeDetail(LogErrors.VALUE_REQUIRED, 422, "Parameter 'value' is required"),
     # --- MODBUS DRIVER ---
-    ModbusDriverErrors.CONN_FAILED: ErrorCodeDetail(ModbusDriverErrors.CONN_FAILED, 503, "Modbus TCP connection failed"),
-    ModbusDriverErrors.CONN_TIMEOUT: ErrorCodeDetail(ModbusDriverErrors.CONN_TIMEOUT, 504, "Modbus TCP connection timeout"),
+    ModbusDriverErrors.CONN_FAILED: ErrorCodeDetail(
+        ModbusDriverErrors.CONN_FAILED, 503, "Modbus TCP connection failed"
+    ),
+    ModbusDriverErrors.CONN_TIMEOUT: ErrorCodeDetail(
+        ModbusDriverErrors.CONN_TIMEOUT, 504, "Modbus TCP connection timeout"
+    ),
     ModbusDriverErrors.READ_FAILED: ErrorCodeDetail(ModbusDriverErrors.READ_FAILED, 502, "Modbus TCP read failed"),
     ModbusDriverErrors.READ_TIMEOUT: ErrorCodeDetail(ModbusDriverErrors.READ_TIMEOUT, 504, "Modbus TCP read timeout"),
-    ModbusDriverErrors.READ_EXCEPTION: ErrorCodeDetail(ModbusDriverErrors.READ_EXCEPTION, 502, "Modbus TCP protocol exception"),
+    ModbusDriverErrors.READ_EXCEPTION: ErrorCodeDetail(
+        ModbusDriverErrors.READ_EXCEPTION, 502, "Modbus TCP protocol exception"
+    ),
     ModbusDriverErrors.WRITE_FAILED: ErrorCodeDetail(ModbusDriverErrors.WRITE_FAILED, 502, "Modbus TCP write failed"),
-    ModbusDriverErrors.WRITE_TIMEOUT: ErrorCodeDetail(ModbusDriverErrors.WRITE_TIMEOUT, 504, "Modbus TCP write timeout"),
-    ModbusDriverErrors.BCAST_WRITE_FAILED: ErrorCodeDetail(ModbusDriverErrors.BCAST_WRITE_FAILED, 502, "Modbus TCP broadcast write failed"),
-    ModbusDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(ModbusDriverErrors.VALUE_OUT_OF_RANGE, 422, "Value out of clamp range"),
-    ModbusDriverErrors.DECODE_FAILED: ErrorCodeDetail(ModbusDriverErrors.DECODE_FAILED, 502, "Modbus TCP value decode failed"),
-    ModbusDriverErrors.CONFIG_INVALID: ErrorCodeDetail(ModbusDriverErrors.CONFIG_INVALID, 400, "Modbus TCP config invalid"),
+    ModbusDriverErrors.WRITE_TIMEOUT: ErrorCodeDetail(
+        ModbusDriverErrors.WRITE_TIMEOUT, 504, "Modbus TCP write timeout"
+    ),
+    ModbusDriverErrors.BCAST_WRITE_FAILED: ErrorCodeDetail(
+        ModbusDriverErrors.BCAST_WRITE_FAILED, 502, "Modbus TCP broadcast write failed"
+    ),
+    ModbusDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        ModbusDriverErrors.VALUE_OUT_OF_RANGE, 422, "Value out of clamp range"
+    ),
+    ModbusDriverErrors.DECODE_FAILED: ErrorCodeDetail(
+        ModbusDriverErrors.DECODE_FAILED, 502, "Modbus TCP value decode failed"
+    ),
+    ModbusDriverErrors.CONFIG_INVALID: ErrorCodeDetail(
+        ModbusDriverErrors.CONFIG_INVALID, 400, "Modbus TCP config invalid"
+    ),
     ModbusDriverErrors.RECONNECT_OK: ErrorCodeDetail(ModbusDriverErrors.RECONNECT_OK, 200, "Modbus TCP reconnected"),
     # --- S7 DRIVER ---
     S7DriverErrors.CONN_FAILED: ErrorCodeDetail(S7DriverErrors.CONN_FAILED, 503, "S7 connection failed"),
@@ -1409,55 +1686,125 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     S7DriverErrors.CONFIG_INVALID: ErrorCodeDetail(S7DriverErrors.CONFIG_INVALID, 400, "S7 config invalid"),
     S7DriverErrors.RECONNECT_OK: ErrorCodeDetail(S7DriverErrors.RECONNECT_OK, 200, "S7 reconnected"),
     S7DriverErrors.RECONNECT_FAILED: ErrorCodeDetail(S7DriverErrors.RECONNECT_FAILED, 503, "S7 reconnect failed"),
-    S7DriverErrors.PASSWORD_FAILED: ErrorCodeDetail(S7DriverErrors.PASSWORD_FAILED, 401, "S7 password negotiation failed"),
+    S7DriverErrors.PASSWORD_FAILED: ErrorCodeDetail(
+        S7DriverErrors.PASSWORD_FAILED, 401, "S7 password negotiation failed"
+    ),
     S7DriverErrors.PDU_FAILED: ErrorCodeDetail(S7DriverErrors.PDU_FAILED, 502, "S7 PDU negotiation failed"),
     S7DriverErrors.CIRCUIT_OPEN: ErrorCodeDetail(S7DriverErrors.CIRCUIT_OPEN, 503, "S7 circuit breaker open"),
     S7DriverErrors.CONN_LOST: ErrorCodeDetail(S7DriverErrors.CONN_LOST, 503, "S7 connection lost"),
     S7DriverErrors.CONN_RECOVERED: ErrorCodeDetail(S7DriverErrors.CONN_RECOVERED, 200, "S7 connection recovered"),
-    S7DriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(S7DriverErrors.VALUE_OUT_OF_RANGE, 422, "S7 value out of clamp range"),
-    S7DriverErrors.AUTH_LOCKED: ErrorCodeDetail(S7DriverErrors.AUTH_LOCKED, 423, "S7 auth locked (too many password failures)"),
-    S7DriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(S7DriverErrors.FAILOVER_TRIGGERED, 200, "S7 link failover triggered (primary->backup)"),
-    S7DriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(S7DriverErrors.FAILOVER_NO_BACKUP, 503, "S7 failover failed: no backup link available"),
-    S7DriverErrors.REDUNDANCY_SWITCH: ErrorCodeDetail(S7DriverErrors.REDUNDANCY_SWITCH, 200, "S7 redundancy link switched"),
-    S7DriverErrors.REDUNDANCY_REVERT: ErrorCodeDetail(S7DriverErrors.REDUNDANCY_REVERT, 200, "S7 redundancy auto-reverted to primary"),
-    S7DriverErrors.REDUNDANCY_PROBE_OK: ErrorCodeDetail(S7DriverErrors.REDUNDANCY_PROBE_OK, 200, "S7 primary link probe succeeded"),
-    S7DriverErrors.REDUNDANCY_PROBE_FAIL: ErrorCodeDetail(S7DriverErrors.REDUNDANCY_PROBE_FAIL, 503, "S7 primary link probe failed"),
-    S7DriverErrors.PDU_NEGOTIATING: ErrorCodeDetail(S7DriverErrors.PDU_NEGOTIATING, 503, "S7 PDU negotiation in progress"),
-    S7DriverErrors.RATE_OF_CHANGE: ErrorCodeDetail(S7DriverErrors.RATE_OF_CHANGE, 200, "S7 rate of change exceeded threshold"),
+    S7DriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        S7DriverErrors.VALUE_OUT_OF_RANGE, 422, "S7 value out of clamp range"
+    ),
+    S7DriverErrors.AUTH_LOCKED: ErrorCodeDetail(
+        S7DriverErrors.AUTH_LOCKED, 423, "S7 auth locked (too many password failures)"
+    ),
+    S7DriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(
+        S7DriverErrors.FAILOVER_TRIGGERED, 200, "S7 link failover triggered (primary->backup)"
+    ),
+    S7DriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(
+        S7DriverErrors.FAILOVER_NO_BACKUP, 503, "S7 failover failed: no backup link available"
+    ),
+    S7DriverErrors.REDUNDANCY_SWITCH: ErrorCodeDetail(
+        S7DriverErrors.REDUNDANCY_SWITCH, 200, "S7 redundancy link switched"
+    ),
+    S7DriverErrors.REDUNDANCY_REVERT: ErrorCodeDetail(
+        S7DriverErrors.REDUNDANCY_REVERT, 200, "S7 redundancy auto-reverted to primary"
+    ),
+    S7DriverErrors.REDUNDANCY_PROBE_OK: ErrorCodeDetail(
+        S7DriverErrors.REDUNDANCY_PROBE_OK, 200, "S7 primary link probe succeeded"
+    ),
+    S7DriverErrors.REDUNDANCY_PROBE_FAIL: ErrorCodeDetail(
+        S7DriverErrors.REDUNDANCY_PROBE_FAIL, 503, "S7 primary link probe failed"
+    ),
+    S7DriverErrors.PDU_NEGOTIATING: ErrorCodeDetail(
+        S7DriverErrors.PDU_NEGOTIATING, 503, "S7 PDU negotiation in progress"
+    ),
+    S7DriverErrors.RATE_OF_CHANGE: ErrorCodeDetail(
+        S7DriverErrors.RATE_OF_CHANGE, 200, "S7 rate of change exceeded threshold"
+    ),
     S7DriverErrors.FROZEN_VALUE: ErrorCodeDetail(S7DriverErrors.FROZEN_VALUE, 200, "S7 frozen value detected"),
     S7DriverErrors.NAN_INF: ErrorCodeDetail(S7DriverErrors.NAN_INF, 502, "S7 NaN/Inf value detected"),
     S7DriverErrors.DEGRADE_ACTIVE: ErrorCodeDetail(S7DriverErrors.DEGRADE_ACTIVE, 200, "S7 collection degraded"),
     S7DriverErrors.DEGRADE_RECOVERED: ErrorCodeDetail(S7DriverErrors.DEGRADE_RECOVERED, 200, "S7 collection recovered"),
-    S7DriverErrors.BATCH_RETRY: ErrorCodeDetail(S7DriverErrors.BATCH_RETRY, 200, "S7 batch read retry with reduced size"),
-    S7DriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(S7DriverErrors.WRITE_VERIFY_FAILED, 502, "S7 write verify failed (read-back mismatch)"),
+    S7DriverErrors.BATCH_RETRY: ErrorCodeDetail(
+        S7DriverErrors.BATCH_RETRY, 200, "S7 batch read retry with reduced size"
+    ),
+    S7DriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(
+        S7DriverErrors.WRITE_VERIFY_FAILED, 502, "S7 write verify failed (read-back mismatch)"
+    ),
     S7DriverErrors.WRITE_RATE_LIMITED: ErrorCodeDetail(S7DriverErrors.WRITE_RATE_LIMITED, 429, "S7 write rate limited"),
-    S7DriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(S7DriverErrors.WRITE_VALUE_INVALID, 422, "S7 write value out of valid range"),
+    S7DriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(
+        S7DriverErrors.WRITE_VALUE_INVALID, 422, "S7 write value out of valid range"
+    ),
     S7DriverErrors.EDGE_RULE_FIRED: ErrorCodeDetail(S7DriverErrors.EDGE_RULE_FIRED, 200, "S7 edge rule fired (alarm)"),
-    S7DriverErrors.EDGE_RULE_RECOVERED: ErrorCodeDetail(S7DriverErrors.EDGE_RULE_RECOVERED, 200, "S7 edge rule recovered"),
-    S7DriverErrors.EDGE_RULE_ERROR: ErrorCodeDetail(S7DriverErrors.EDGE_RULE_ERROR, 500, "S7 edge rule evaluation error"),
-    S7DriverErrors.EDGE_TRIGGER_EXECUTED: ErrorCodeDetail(S7DriverErrors.EDGE_TRIGGER_EXECUTED, 200, "S7 edge trigger executed"),
-    S7DriverErrors.EDGE_TRIGGER_FAILED: ErrorCodeDetail(S7DriverErrors.EDGE_TRIGGER_FAILED, 502, "S7 edge trigger execution failed"),
+    S7DriverErrors.EDGE_RULE_RECOVERED: ErrorCodeDetail(
+        S7DriverErrors.EDGE_RULE_RECOVERED, 200, "S7 edge rule recovered"
+    ),
+    S7DriverErrors.EDGE_RULE_ERROR: ErrorCodeDetail(
+        S7DriverErrors.EDGE_RULE_ERROR, 500, "S7 edge rule evaluation error"
+    ),
+    S7DriverErrors.EDGE_TRIGGER_EXECUTED: ErrorCodeDetail(
+        S7DriverErrors.EDGE_TRIGGER_EXECUTED, 200, "S7 edge trigger executed"
+    ),
+    S7DriverErrors.EDGE_TRIGGER_FAILED: ErrorCodeDetail(
+        S7DriverErrors.EDGE_TRIGGER_FAILED, 502, "S7 edge trigger execution failed"
+    ),
     S7DriverErrors.TS_WRITE_FAILED: ErrorCodeDetail(S7DriverErrors.TS_WRITE_FAILED, 502, "S7 time-series write failed"),
     S7DriverErrors.TS_QUERY_FAILED: ErrorCodeDetail(S7DriverErrors.TS_QUERY_FAILED, 502, "S7 time-series query failed"),
-    S7DriverErrors.TS_CLEANUP_OK: ErrorCodeDetail(S7DriverErrors.TS_CLEANUP_OK, 200, "S7 time-series cleanup completed"),
-    S7DriverErrors.TS_CLEANUP_FAILED: ErrorCodeDetail(S7DriverErrors.TS_CLEANUP_FAILED, 502, "S7 time-series cleanup failed"),
-    S7DriverErrors.TS_NOT_STARTED: ErrorCodeDetail(S7DriverErrors.TS_NOT_STARTED, 503, "S7 time-series store not started"),
-    S7DriverErrors.OFFLINE_ENQUEUE_FAILED: ErrorCodeDetail(S7DriverErrors.OFFLINE_ENQUEUE_FAILED, 502, "S7 offline queue enqueue failed"),
-    S7DriverErrors.OFFLINE_UPLOAD_OK: ErrorCodeDetail(S7DriverErrors.OFFLINE_UPLOAD_OK, 200, "S7 offline data uploaded"),
-    S7DriverErrors.OFFLINE_UPLOAD_FAILED: ErrorCodeDetail(S7DriverErrors.OFFLINE_UPLOAD_FAILED, 502, "S7 offline data upload failed"),
-    S7DriverErrors.OFFLINE_SYNC_RESTORD: ErrorCodeDetail(S7DriverErrors.OFFLINE_SYNC_RESTORD, 200, "S7 offline sync restored (network back)"),
-    S7DriverErrors.OFFLINE_COMPRESS_FAILED: ErrorCodeDetail(S7DriverErrors.OFFLINE_COMPRESS_FAILED, 502, "S7 offline batch compression failed"),
-    S7DriverErrors.CONFIG_VERSION_SAVE_OK: ErrorCodeDetail(S7DriverErrors.CONFIG_VERSION_SAVE_OK, 200, "S7 config version saved"),
-    S7DriverErrors.CONFIG_VERSION_SAVE_FAILED: ErrorCodeDetail(S7DriverErrors.CONFIG_VERSION_SAVE_FAILED, 502, "S7 config version save failed"),
-    S7DriverErrors.CONFIG_VERSION_ROLLBACK_OK: ErrorCodeDetail(S7DriverErrors.CONFIG_VERSION_ROLLBACK_OK, 200, "S7 config version rollback completed"),
-    S7DriverErrors.CONFIG_VERSION_ROLLBACK_FAILED: ErrorCodeDetail(S7DriverErrors.CONFIG_VERSION_ROLLBACK_FAILED, 502, "S7 config version rollback failed"),
-    S7DriverErrors.CONFIG_VERSION_NOT_FOUND: ErrorCodeDetail(S7DriverErrors.CONFIG_VERSION_NOT_FOUND, 404, "S7 config version not found"),
+    S7DriverErrors.TS_CLEANUP_OK: ErrorCodeDetail(
+        S7DriverErrors.TS_CLEANUP_OK, 200, "S7 time-series cleanup completed"
+    ),
+    S7DriverErrors.TS_CLEANUP_FAILED: ErrorCodeDetail(
+        S7DriverErrors.TS_CLEANUP_FAILED, 502, "S7 time-series cleanup failed"
+    ),
+    S7DriverErrors.TS_NOT_STARTED: ErrorCodeDetail(
+        S7DriverErrors.TS_NOT_STARTED, 503, "S7 time-series store not started"
+    ),
+    S7DriverErrors.OFFLINE_ENQUEUE_FAILED: ErrorCodeDetail(
+        S7DriverErrors.OFFLINE_ENQUEUE_FAILED, 502, "S7 offline queue enqueue failed"
+    ),
+    S7DriverErrors.OFFLINE_UPLOAD_OK: ErrorCodeDetail(
+        S7DriverErrors.OFFLINE_UPLOAD_OK, 200, "S7 offline data uploaded"
+    ),
+    S7DriverErrors.OFFLINE_UPLOAD_FAILED: ErrorCodeDetail(
+        S7DriverErrors.OFFLINE_UPLOAD_FAILED, 502, "S7 offline data upload failed"
+    ),
+    S7DriverErrors.OFFLINE_SYNC_RESTORD: ErrorCodeDetail(
+        S7DriverErrors.OFFLINE_SYNC_RESTORD, 200, "S7 offline sync restored (network back)"
+    ),
+    S7DriverErrors.OFFLINE_COMPRESS_FAILED: ErrorCodeDetail(
+        S7DriverErrors.OFFLINE_COMPRESS_FAILED, 502, "S7 offline batch compression failed"
+    ),
+    S7DriverErrors.CONFIG_VERSION_SAVE_OK: ErrorCodeDetail(
+        S7DriverErrors.CONFIG_VERSION_SAVE_OK, 200, "S7 config version saved"
+    ),
+    S7DriverErrors.CONFIG_VERSION_SAVE_FAILED: ErrorCodeDetail(
+        S7DriverErrors.CONFIG_VERSION_SAVE_FAILED, 502, "S7 config version save failed"
+    ),
+    S7DriverErrors.CONFIG_VERSION_ROLLBACK_OK: ErrorCodeDetail(
+        S7DriverErrors.CONFIG_VERSION_ROLLBACK_OK, 200, "S7 config version rollback completed"
+    ),
+    S7DriverErrors.CONFIG_VERSION_ROLLBACK_FAILED: ErrorCodeDetail(
+        S7DriverErrors.CONFIG_VERSION_ROLLBACK_FAILED, 502, "S7 config version rollback failed"
+    ),
+    S7DriverErrors.CONFIG_VERSION_NOT_FOUND: ErrorCodeDetail(
+        S7DriverErrors.CONFIG_VERSION_NOT_FOUND, 404, "S7 config version not found"
+    ),
     S7DriverErrors.OTA_START_OK: ErrorCodeDetail(S7DriverErrors.OTA_START_OK, 200, "S7 OTA update started"),
-    S7DriverErrors.OTA_START_FAILED: ErrorCodeDetail(S7DriverErrors.OTA_START_FAILED, 502, "S7 OTA update start failed"),
-    S7DriverErrors.OTA_VERIFY_FAILED: ErrorCodeDetail(S7DriverErrors.OTA_VERIFY_FAILED, 502, "S7 OTA firmware verification failed"),
+    S7DriverErrors.OTA_START_FAILED: ErrorCodeDetail(
+        S7DriverErrors.OTA_START_FAILED, 502, "S7 OTA update start failed"
+    ),
+    S7DriverErrors.OTA_VERIFY_FAILED: ErrorCodeDetail(
+        S7DriverErrors.OTA_VERIFY_FAILED, 502, "S7 OTA firmware verification failed"
+    ),
     S7DriverErrors.OTA_ROLLBACK_OK: ErrorCodeDetail(S7DriverErrors.OTA_ROLLBACK_OK, 200, "S7 OTA rollback completed"),
-    S7DriverErrors.OTA_ROLLBACK_FAILED: ErrorCodeDetail(S7DriverErrors.OTA_ROLLBACK_FAILED, 502, "S7 OTA rollback failed"),
-    S7DriverErrors.OTA_IN_PROGRESS: ErrorCodeDetail(S7DriverErrors.OTA_IN_PROGRESS, 409, "S7 OTA update already in progress"),
+    S7DriverErrors.OTA_ROLLBACK_FAILED: ErrorCodeDetail(
+        S7DriverErrors.OTA_ROLLBACK_FAILED, 502, "S7 OTA rollback failed"
+    ),
+    S7DriverErrors.OTA_IN_PROGRESS: ErrorCodeDetail(
+        S7DriverErrors.OTA_IN_PROGRESS, 409, "S7 OTA update already in progress"
+    ),
     # --- OPCUA DRIVER ---
     OpcUaDriverErrors.CONN_FAILED: ErrorCodeDetail(OpcUaDriverErrors.CONN_FAILED, 503, "OPC UA connection failed"),
     OpcUaDriverErrors.CONN_TIMEOUT: ErrorCodeDetail(OpcUaDriverErrors.CONN_TIMEOUT, 504, "OPC UA connection timeout"),
@@ -1465,65 +1812,175 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     OpcUaDriverErrors.READ_TIMEOUT: ErrorCodeDetail(OpcUaDriverErrors.READ_TIMEOUT, 504, "OPC UA read timeout"),
     OpcUaDriverErrors.WRITE_FAILED: ErrorCodeDetail(OpcUaDriverErrors.WRITE_FAILED, 502, "OPC UA write failed"),
     OpcUaDriverErrors.WRITE_TIMEOUT: ErrorCodeDetail(OpcUaDriverErrors.WRITE_TIMEOUT, 504, "OPC UA write timeout"),
-    OpcUaDriverErrors.SESSION_EXPIRED: ErrorCodeDetail(OpcUaDriverErrors.SESSION_EXPIRED, 503, "OPC UA session expired"),
+    OpcUaDriverErrors.SESSION_EXPIRED: ErrorCodeDetail(
+        OpcUaDriverErrors.SESSION_EXPIRED, 503, "OPC UA session expired"
+    ),
     OpcUaDriverErrors.CERT_EXPIRED: ErrorCodeDetail(OpcUaDriverErrors.CERT_EXPIRED, 503, "OPC UA certificate expired"),
-    OpcUaDriverErrors.CERT_EXPIRING: ErrorCodeDetail(OpcUaDriverErrors.CERT_EXPIRING, 200, "OPC UA certificate expiring soon"),
-    OpcUaDriverErrors.SUBSCRIPTION_FAILED: ErrorCodeDetail(OpcUaDriverErrors.SUBSCRIPTION_FAILED, 502, "OPC UA subscription failed"),
-    OpcUaDriverErrors.BATCH_READ_FAILED: ErrorCodeDetail(OpcUaDriverErrors.BATCH_READ_FAILED, 502, "OPC UA batch read failed"),
-    OpcUaDriverErrors.BATCH_READ_TIMEOUT: ErrorCodeDetail(OpcUaDriverErrors.BATCH_READ_TIMEOUT, 504, "OPC UA batch read timeout"),
-    OpcUaDriverErrors.BATCH_WRITE_FAILED: ErrorCodeDetail(OpcUaDriverErrors.BATCH_WRITE_FAILED, 502, "OPC UA batch write failed"),
-    OpcUaDriverErrors.BATCH_WRITE_TIMEOUT: ErrorCodeDetail(OpcUaDriverErrors.BATCH_WRITE_TIMEOUT, 504, "OPC UA batch write timeout"),
-    OpcUaDriverErrors.CALLBACK_ERROR: ErrorCodeDetail(OpcUaDriverErrors.CALLBACK_ERROR, 502, "OPC UA subscription callback error"),
+    OpcUaDriverErrors.CERT_EXPIRING: ErrorCodeDetail(
+        OpcUaDriverErrors.CERT_EXPIRING, 200, "OPC UA certificate expiring soon"
+    ),
+    OpcUaDriverErrors.SUBSCRIPTION_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.SUBSCRIPTION_FAILED, 502, "OPC UA subscription failed"
+    ),
+    OpcUaDriverErrors.BATCH_READ_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.BATCH_READ_FAILED, 502, "OPC UA batch read failed"
+    ),
+    OpcUaDriverErrors.BATCH_READ_TIMEOUT: ErrorCodeDetail(
+        OpcUaDriverErrors.BATCH_READ_TIMEOUT, 504, "OPC UA batch read timeout"
+    ),
+    OpcUaDriverErrors.BATCH_WRITE_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.BATCH_WRITE_FAILED, 502, "OPC UA batch write failed"
+    ),
+    OpcUaDriverErrors.BATCH_WRITE_TIMEOUT: ErrorCodeDetail(
+        OpcUaDriverErrors.BATCH_WRITE_TIMEOUT, 504, "OPC UA batch write timeout"
+    ),
+    OpcUaDriverErrors.CALLBACK_ERROR: ErrorCodeDetail(
+        OpcUaDriverErrors.CALLBACK_ERROR, 502, "OPC UA subscription callback error"
+    ),
     OpcUaDriverErrors.RECONNECTING: ErrorCodeDetail(OpcUaDriverErrors.RECONNECTING, 200, "OPC UA reconnecting"),
-    OpcUaDriverErrors.SECURITY_SKIP: ErrorCodeDetail(OpcUaDriverErrors.SECURITY_SKIP, 200, "OPC UA security skipped due to missing certificate"),
-    OpcUaDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(OpcUaDriverErrors.VALUE_OUT_OF_RANGE, 422, "OPC UA value out of clamp range"),
-    OpcUaDriverErrors.QUALITY_BAD: ErrorCodeDetail(OpcUaDriverErrors.QUALITY_BAD, 200, "OPC UA variable quality is Bad"),
-    OpcUaDriverErrors.QUALITY_UNCERTAIN: ErrorCodeDetail(OpcUaDriverErrors.QUALITY_UNCERTAIN, 200, "OPC UA variable quality is Uncertain"),
-    OpcUaDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(OpcUaDriverErrors.OFFLINE_BAD_QUALITY, 200, "OPC UA offline, point marked bad quality"),
-    OpcUaDriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(OpcUaDriverErrors.FAILOVER_TRIGGERED, 200, "OPC UA failover triggered (primary->backup)"),
-    OpcUaDriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(OpcUaDriverErrors.FAILOVER_NO_BACKUP, 503, "OPC UA failover failed: no backup endpoint"),
-    OpcUaDriverErrors.FAILOVER_REVERT: ErrorCodeDetail(OpcUaDriverErrors.FAILOVER_REVERT, 200, "OPC UA reverted to primary endpoint"),
-    OpcUaDriverErrors.CERT_AUTO_RENEW_OK: ErrorCodeDetail(OpcUaDriverErrors.CERT_AUTO_RENEW_OK, 200, "OPC UA self-signed certificate auto-renewed"),
-    OpcUaDriverErrors.CERT_AUTO_RENEW_FAILED: ErrorCodeDetail(OpcUaDriverErrors.CERT_AUTO_RENEW_FAILED, 503, "OPC UA certificate auto-renew failed"),
-    OpcUaDriverErrors.SECURITY_DEGRADED: ErrorCodeDetail(OpcUaDriverErrors.SECURITY_DEGRADED, 200, "OPC UA security degraded to None policy"),
-    OpcUaDriverErrors.SESSION_PRE_EXPIRY_REBUILD: ErrorCodeDetail(OpcUaDriverErrors.SESSION_PRE_EXPIRY_REBUILD, 200, "OPC UA session pre-expiry rebuild"),
-    OpcUaDriverErrors.KEEPALIVE_FAILED: ErrorCodeDetail(OpcUaDriverErrors.KEEPALIVE_FAILED, 503, "OPC UA keepalive failed"),
-    OpcUaDriverErrors.STATE_TRANSITION: ErrorCodeDetail(OpcUaDriverErrors.STATE_TRANSITION, 200, "OPC UA connection state transition"),
-    OpcUaDriverErrors.RATE_OF_CHANGE: ErrorCodeDetail(OpcUaDriverErrors.RATE_OF_CHANGE, 200, "OPC UA rate of change exceeded threshold"),
-    OpcUaDriverErrors.FROZEN_VALUE: ErrorCodeDetail(OpcUaDriverErrors.FROZEN_VALUE, 200, "OPC UA frozen value detected"),
+    OpcUaDriverErrors.SECURITY_SKIP: ErrorCodeDetail(
+        OpcUaDriverErrors.SECURITY_SKIP, 200, "OPC UA security skipped due to missing certificate"
+    ),
+    OpcUaDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        OpcUaDriverErrors.VALUE_OUT_OF_RANGE, 422, "OPC UA value out of clamp range"
+    ),
+    OpcUaDriverErrors.QUALITY_BAD: ErrorCodeDetail(
+        OpcUaDriverErrors.QUALITY_BAD, 200, "OPC UA variable quality is Bad"
+    ),
+    OpcUaDriverErrors.QUALITY_UNCERTAIN: ErrorCodeDetail(
+        OpcUaDriverErrors.QUALITY_UNCERTAIN, 200, "OPC UA variable quality is Uncertain"
+    ),
+    OpcUaDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(
+        OpcUaDriverErrors.OFFLINE_BAD_QUALITY, 200, "OPC UA offline, point marked bad quality"
+    ),
+    OpcUaDriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(
+        OpcUaDriverErrors.FAILOVER_TRIGGERED, 200, "OPC UA failover triggered (primary->backup)"
+    ),
+    OpcUaDriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(
+        OpcUaDriverErrors.FAILOVER_NO_BACKUP, 503, "OPC UA failover failed: no backup endpoint"
+    ),
+    OpcUaDriverErrors.FAILOVER_REVERT: ErrorCodeDetail(
+        OpcUaDriverErrors.FAILOVER_REVERT, 200, "OPC UA reverted to primary endpoint"
+    ),
+    OpcUaDriverErrors.CERT_AUTO_RENEW_OK: ErrorCodeDetail(
+        OpcUaDriverErrors.CERT_AUTO_RENEW_OK, 200, "OPC UA self-signed certificate auto-renewed"
+    ),
+    OpcUaDriverErrors.CERT_AUTO_RENEW_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.CERT_AUTO_RENEW_FAILED, 503, "OPC UA certificate auto-renew failed"
+    ),
+    OpcUaDriverErrors.SECURITY_DEGRADED: ErrorCodeDetail(
+        OpcUaDriverErrors.SECURITY_DEGRADED, 200, "OPC UA security degraded to None policy"
+    ),
+    OpcUaDriverErrors.SESSION_PRE_EXPIRY_REBUILD: ErrorCodeDetail(
+        OpcUaDriverErrors.SESSION_PRE_EXPIRY_REBUILD, 200, "OPC UA session pre-expiry rebuild"
+    ),
+    OpcUaDriverErrors.KEEPALIVE_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.KEEPALIVE_FAILED, 503, "OPC UA keepalive failed"
+    ),
+    OpcUaDriverErrors.STATE_TRANSITION: ErrorCodeDetail(
+        OpcUaDriverErrors.STATE_TRANSITION, 200, "OPC UA connection state transition"
+    ),
+    OpcUaDriverErrors.RATE_OF_CHANGE: ErrorCodeDetail(
+        OpcUaDriverErrors.RATE_OF_CHANGE, 200, "OPC UA rate of change exceeded threshold"
+    ),
+    OpcUaDriverErrors.FROZEN_VALUE: ErrorCodeDetail(
+        OpcUaDriverErrors.FROZEN_VALUE, 200, "OPC UA frozen value detected"
+    ),
     OpcUaDriverErrors.NAN_INF: ErrorCodeDetail(OpcUaDriverErrors.NAN_INF, 502, "OPC UA NaN/Inf value detected"),
-    OpcUaDriverErrors.COMPLEX_TYPE_HEX_FALLBACK: ErrorCodeDetail(OpcUaDriverErrors.COMPLEX_TYPE_HEX_FALLBACK, 200, "OPC UA complex type parsed as hex fallback"),
-    OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN: ErrorCodeDetail(OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN, 502, "OPC UA unknown type cannot be parsed"),
-    OpcUaDriverErrors.ARRAY_TRUNCATED: ErrorCodeDetail(OpcUaDriverErrors.ARRAY_TRUNCATED, 200, "OPC UA array truncated"),
-    OpcUaDriverErrors.SUB_DEGRADED_POLLING: ErrorCodeDetail(OpcUaDriverErrors.SUB_DEGRADED_POLLING, 200, "OPC UA subscription degraded to polling"),
-    OpcUaDriverErrors.SUB_RECOVERED: ErrorCodeDetail(OpcUaDriverErrors.SUB_RECOVERED, 200, "OPC UA subscription recovered"),
+    OpcUaDriverErrors.COMPLEX_TYPE_HEX_FALLBACK: ErrorCodeDetail(
+        OpcUaDriverErrors.COMPLEX_TYPE_HEX_FALLBACK, 200, "OPC UA complex type parsed as hex fallback"
+    ),
+    OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN: ErrorCodeDetail(
+        OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN, 502, "OPC UA unknown type cannot be parsed"
+    ),
+    OpcUaDriverErrors.ARRAY_TRUNCATED: ErrorCodeDetail(
+        OpcUaDriverErrors.ARRAY_TRUNCATED, 200, "OPC UA array truncated"
+    ),
+    OpcUaDriverErrors.SUB_DEGRADED_POLLING: ErrorCodeDetail(
+        OpcUaDriverErrors.SUB_DEGRADED_POLLING, 200, "OPC UA subscription degraded to polling"
+    ),
+    OpcUaDriverErrors.SUB_RECOVERED: ErrorCodeDetail(
+        OpcUaDriverErrors.SUB_RECOVERED, 200, "OPC UA subscription recovered"
+    ),
     OpcUaDriverErrors.STALE_DATA: ErrorCodeDetail(OpcUaDriverErrors.STALE_DATA, 200, "OPC UA stale data detected"),
-    OpcUaDriverErrors.DEADBAND_NATIVE_FAILED: ErrorCodeDetail(OpcUaDriverErrors.DEADBAND_NATIVE_FAILED, 200, "OPC UA native deadband failed, falling back to software"),
-    OpcUaDriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(OpcUaDriverErrors.WRITE_VERIFY_FAILED, 502, "OPC UA write verify failed (read-back mismatch)"),
-    OpcUaDriverErrors.WRITE_TYPE_MISMATCH: ErrorCodeDetail(OpcUaDriverErrors.WRITE_TYPE_MISMATCH, 422, "OPC UA write type mismatch"),
-    OpcUaDriverErrors.WRITE_RATE_LIMITED: ErrorCodeDetail(OpcUaDriverErrors.WRITE_RATE_LIMITED, 429, "OPC UA write rate limited"),
-    OpcUaDriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(OpcUaDriverErrors.WRITE_VALUE_INVALID, 422, "OPC UA write value invalid"),
-    OpcUaDriverErrors.WRITE_AUDIT_OK: ErrorCodeDetail(OpcUaDriverErrors.WRITE_AUDIT_OK, 200, "OPC UA write audit logged"),
-    OpcUaDriverErrors.FAILOVER_FAST_SWITCH: ErrorCodeDetail(OpcUaDriverErrors.FAILOVER_FAST_SWITCH, 200, "OPC UA fast failover to backup endpoint"),
-    OpcUaDriverErrors.SESSION_RESTORED: ErrorCodeDetail(OpcUaDriverErrors.SESSION_RESTORED, 200, "OPC UA session restored from persisted state"),
-    OpcUaDriverErrors.SESSION_PERSIST_FAILED: ErrorCodeDetail(OpcUaDriverErrors.SESSION_PERSIST_FAILED, 500, "OPC UA session persist failed"),
-    OpcUaDriverErrors.CERT_FAILOVER_TRIGGERED: ErrorCodeDetail(OpcUaDriverErrors.CERT_FAILOVER_TRIGGERED, 200, "OPC UA switched to backup certificates"),
-    OpcUaDriverErrors.CERT_FAILOVER_REVERT: ErrorCodeDetail(OpcUaDriverErrors.CERT_FAILOVER_REVERT, 200, "OPC UA reverted to primary certificates"),
-    OpcUaDriverErrors.RULE_EVALUATED: ErrorCodeDetail(OpcUaDriverErrors.RULE_EVALUATED, 200, "OPC UA edge rule evaluated"),
-    OpcUaDriverErrors.RULE_TRIGGERED: ErrorCodeDetail(OpcUaDriverErrors.RULE_TRIGGERED, 200, "OPC UA edge rule triggered alarm"),
-    OpcUaDriverErrors.RULE_HOT_RELOADED: ErrorCodeDetail(OpcUaDriverErrors.RULE_HOT_RELOADED, 200, "OPC UA edge rules hot reloaded"),
-    OpcUaDriverErrors.CROSS_SERVER_WRITE: ErrorCodeDetail(OpcUaDriverErrors.CROSS_SERVER_WRITE, 200, "OPC UA cross-server write triggered"),
-    OpcUaDriverErrors.DATA_PERSIST_LOCAL: ErrorCodeDetail(OpcUaDriverErrors.DATA_PERSIST_LOCAL, 200, "OPC UA data persisted to local time-series store"),
-    OpcUaDriverErrors.DATA_SYNC_RECOVERED: ErrorCodeDetail(OpcUaDriverErrors.DATA_SYNC_RECOVERED, 200, "OPC UA network recovered, data sync enabled"),
-    OpcUaDriverErrors.DATA_COMPRESS_UPLOAD: ErrorCodeDetail(OpcUaDriverErrors.DATA_COMPRESS_UPLOAD, 200, "OPC UA compressed data batch uploaded"),
-    OpcUaDriverErrors.CONFIG_VERSION_SAVE_OK: ErrorCodeDetail(OpcUaDriverErrors.CONFIG_VERSION_SAVE_OK, 200, "OPC UA config version saved"),
-    OpcUaDriverErrors.CONFIG_VERSION_ROLLBACK_OK: ErrorCodeDetail(OpcUaDriverErrors.CONFIG_VERSION_ROLLBACK_OK, 200, "OPC UA config version rolled back"),
-    OpcUaDriverErrors.OTA_START_OK: ErrorCodeDetail(OpcUaDriverErrors.OTA_START_OK, 200, "OPC UA OTA started successfully"),
-    OpcUaDriverErrors.OTA_START_FAILED: ErrorCodeDetail(OpcUaDriverErrors.OTA_START_FAILED, 500, "OPC UA OTA start failed"),
-    OpcUaDriverErrors.OTA_VERIFY_FAILED: ErrorCodeDetail(OpcUaDriverErrors.OTA_VERIFY_FAILED, 500, "OPC UA OTA verification failed"),
-    OpcUaDriverErrors.OTA_ROLLBACK_OK: ErrorCodeDetail(OpcUaDriverErrors.OTA_ROLLBACK_OK, 200, "OPC UA OTA rollback succeeded"),
-    OpcUaDriverErrors.OTA_ROLLBACK_FAILED: ErrorCodeDetail(OpcUaDriverErrors.OTA_ROLLBACK_FAILED, 500, "OPC UA OTA rollback failed"),
-    OpcUaDriverErrors.OTA_IN_PROGRESS: ErrorCodeDetail(OpcUaDriverErrors.OTA_IN_PROGRESS, 409, "OPC UA OTA already in progress"),
+    OpcUaDriverErrors.DEADBAND_NATIVE_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.DEADBAND_NATIVE_FAILED, 200, "OPC UA native deadband failed, falling back to software"
+    ),
+    OpcUaDriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.WRITE_VERIFY_FAILED, 502, "OPC UA write verify failed (read-back mismatch)"
+    ),
+    OpcUaDriverErrors.WRITE_TYPE_MISMATCH: ErrorCodeDetail(
+        OpcUaDriverErrors.WRITE_TYPE_MISMATCH, 422, "OPC UA write type mismatch"
+    ),
+    OpcUaDriverErrors.WRITE_RATE_LIMITED: ErrorCodeDetail(
+        OpcUaDriverErrors.WRITE_RATE_LIMITED, 429, "OPC UA write rate limited"
+    ),
+    OpcUaDriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(
+        OpcUaDriverErrors.WRITE_VALUE_INVALID, 422, "OPC UA write value invalid"
+    ),
+    OpcUaDriverErrors.WRITE_AUDIT_OK: ErrorCodeDetail(
+        OpcUaDriverErrors.WRITE_AUDIT_OK, 200, "OPC UA write audit logged"
+    ),
+    OpcUaDriverErrors.FAILOVER_FAST_SWITCH: ErrorCodeDetail(
+        OpcUaDriverErrors.FAILOVER_FAST_SWITCH, 200, "OPC UA fast failover to backup endpoint"
+    ),
+    OpcUaDriverErrors.SESSION_RESTORED: ErrorCodeDetail(
+        OpcUaDriverErrors.SESSION_RESTORED, 200, "OPC UA session restored from persisted state"
+    ),
+    OpcUaDriverErrors.SESSION_PERSIST_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.SESSION_PERSIST_FAILED, 500, "OPC UA session persist failed"
+    ),
+    OpcUaDriverErrors.CERT_FAILOVER_TRIGGERED: ErrorCodeDetail(
+        OpcUaDriverErrors.CERT_FAILOVER_TRIGGERED, 200, "OPC UA switched to backup certificates"
+    ),
+    OpcUaDriverErrors.CERT_FAILOVER_REVERT: ErrorCodeDetail(
+        OpcUaDriverErrors.CERT_FAILOVER_REVERT, 200, "OPC UA reverted to primary certificates"
+    ),
+    OpcUaDriverErrors.RULE_EVALUATED: ErrorCodeDetail(
+        OpcUaDriverErrors.RULE_EVALUATED, 200, "OPC UA edge rule evaluated"
+    ),
+    OpcUaDriverErrors.RULE_TRIGGERED: ErrorCodeDetail(
+        OpcUaDriverErrors.RULE_TRIGGERED, 200, "OPC UA edge rule triggered alarm"
+    ),
+    OpcUaDriverErrors.RULE_HOT_RELOADED: ErrorCodeDetail(
+        OpcUaDriverErrors.RULE_HOT_RELOADED, 200, "OPC UA edge rules hot reloaded"
+    ),
+    OpcUaDriverErrors.CROSS_SERVER_WRITE: ErrorCodeDetail(
+        OpcUaDriverErrors.CROSS_SERVER_WRITE, 200, "OPC UA cross-server write triggered"
+    ),
+    OpcUaDriverErrors.DATA_PERSIST_LOCAL: ErrorCodeDetail(
+        OpcUaDriverErrors.DATA_PERSIST_LOCAL, 200, "OPC UA data persisted to local time-series store"
+    ),
+    OpcUaDriverErrors.DATA_SYNC_RECOVERED: ErrorCodeDetail(
+        OpcUaDriverErrors.DATA_SYNC_RECOVERED, 200, "OPC UA network recovered, data sync enabled"
+    ),
+    OpcUaDriverErrors.DATA_COMPRESS_UPLOAD: ErrorCodeDetail(
+        OpcUaDriverErrors.DATA_COMPRESS_UPLOAD, 200, "OPC UA compressed data batch uploaded"
+    ),
+    OpcUaDriverErrors.CONFIG_VERSION_SAVE_OK: ErrorCodeDetail(
+        OpcUaDriverErrors.CONFIG_VERSION_SAVE_OK, 200, "OPC UA config version saved"
+    ),
+    OpcUaDriverErrors.CONFIG_VERSION_ROLLBACK_OK: ErrorCodeDetail(
+        OpcUaDriverErrors.CONFIG_VERSION_ROLLBACK_OK, 200, "OPC UA config version rolled back"
+    ),
+    OpcUaDriverErrors.OTA_START_OK: ErrorCodeDetail(
+        OpcUaDriverErrors.OTA_START_OK, 200, "OPC UA OTA started successfully"
+    ),
+    OpcUaDriverErrors.OTA_START_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.OTA_START_FAILED, 500, "OPC UA OTA start failed"
+    ),
+    OpcUaDriverErrors.OTA_VERIFY_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.OTA_VERIFY_FAILED, 500, "OPC UA OTA verification failed"
+    ),
+    OpcUaDriverErrors.OTA_ROLLBACK_OK: ErrorCodeDetail(
+        OpcUaDriverErrors.OTA_ROLLBACK_OK, 200, "OPC UA OTA rollback succeeded"
+    ),
+    OpcUaDriverErrors.OTA_ROLLBACK_FAILED: ErrorCodeDetail(
+        OpcUaDriverErrors.OTA_ROLLBACK_FAILED, 500, "OPC UA OTA rollback failed"
+    ),
+    OpcUaDriverErrors.OTA_IN_PROGRESS: ErrorCodeDetail(
+        OpcUaDriverErrors.OTA_IN_PROGRESS, 409, "OPC UA OTA already in progress"
+    ),
     OpcUaDriverErrors.RBAC_DENIED: ErrorCodeDetail(OpcUaDriverErrors.RBAC_DENIED, 403, "OPC UA RBAC permission denied"),
     OpcUaDriverErrors.AUDIT_LOG_OK: ErrorCodeDetail(OpcUaDriverErrors.AUDIT_LOG_OK, 200, "OPC UA audit log recorded"),
     # --- FINS DRIVER ---
@@ -1539,48 +1996,130 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     FinsDriverErrors.RECONNECT_FAILED: ErrorCodeDetail(FinsDriverErrors.RECONNECT_FAILED, 503, "FINS reconnect failed"),
     FinsDriverErrors.CONN_LOST: ErrorCodeDetail(FinsDriverErrors.CONN_LOST, 503, "FINS connection lost"),
     FinsDriverErrors.CONN_RECOVERED: ErrorCodeDetail(FinsDriverErrors.CONN_RECOVERED, 200, "FINS connection recovered"),
-    FinsDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(FinsDriverErrors.VALUE_OUT_OF_RANGE, 422, "FINS value out of clamp range"),
-    FinsDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(FinsDriverErrors.OFFLINE_BAD_QUALITY, 200, "FINS offline, point marked bad quality"),
-    FinsDriverErrors.DIRECT_MODE_FALLBACK: ErrorCodeDetail(FinsDriverErrors.DIRECT_MODE_FALLBACK, 200, "FINS direct mode fallback to standard read"),
-    FinsDriverErrors.DISCOVER_FAILED: ErrorCodeDetail(FinsDriverErrors.DISCOVER_FAILED, 500, "FINS device discovery failed"),
-    FinsDriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(FinsDriverErrors.FAILOVER_TRIGGERED, 200, "FINS link failover triggered (primary->backup)"),
-    FinsDriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(FinsDriverErrors.FAILOVER_NO_BACKUP, 503, "FINS failover failed: no backup link available"),
-    FinsDriverErrors.FAILOVER_REVERT: ErrorCodeDetail(FinsDriverErrors.FAILOVER_REVERT, 200, "FINS reverted to primary link"),
-    FinsDriverErrors.NODE_INIT_FAILED: ErrorCodeDetail(FinsDriverErrors.NODE_INIT_FAILED, 503, "FINS node address initialization failed"),
+    FinsDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        FinsDriverErrors.VALUE_OUT_OF_RANGE, 422, "FINS value out of clamp range"
+    ),
+    FinsDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(
+        FinsDriverErrors.OFFLINE_BAD_QUALITY, 200, "FINS offline, point marked bad quality"
+    ),
+    FinsDriverErrors.DIRECT_MODE_FALLBACK: ErrorCodeDetail(
+        FinsDriverErrors.DIRECT_MODE_FALLBACK, 200, "FINS direct mode fallback to standard read"
+    ),
+    FinsDriverErrors.DISCOVER_FAILED: ErrorCodeDetail(
+        FinsDriverErrors.DISCOVER_FAILED, 500, "FINS device discovery failed"
+    ),
+    FinsDriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(
+        FinsDriverErrors.FAILOVER_TRIGGERED, 200, "FINS link failover triggered (primary->backup)"
+    ),
+    FinsDriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(
+        FinsDriverErrors.FAILOVER_NO_BACKUP, 503, "FINS failover failed: no backup link available"
+    ),
+    FinsDriverErrors.FAILOVER_REVERT: ErrorCodeDetail(
+        FinsDriverErrors.FAILOVER_REVERT, 200, "FINS reverted to primary link"
+    ),
+    FinsDriverErrors.NODE_INIT_FAILED: ErrorCodeDetail(
+        FinsDriverErrors.NODE_INIT_FAILED, 503, "FINS node address initialization failed"
+    ),
     FinsDriverErrors.NODE_INIT_OK: ErrorCodeDetail(FinsDriverErrors.NODE_INIT_OK, 200, "FINS node address initialized"),
-    FinsDriverErrors.FINS_ILLEGAL_AREA: ErrorCodeDetail(FinsDriverErrors.FINS_ILLEGAL_AREA, 502, "FINS illegal memory area"),
-    FinsDriverErrors.FINS_ILLEGAL_ADDRESS: ErrorCodeDetail(FinsDriverErrors.FINS_ILLEGAL_ADDRESS, 502, "FINS illegal address offset"),
-    FinsDriverErrors.FINS_ILLEGAL_DATA: ErrorCodeDetail(FinsDriverErrors.FINS_ILLEGAL_DATA, 502, "FINS illegal data length or type"),
-    FinsDriverErrors.FINS_FROZEN_VALUE: ErrorCodeDetail(FinsDriverErrors.FINS_FROZEN_VALUE, 200, "FINS frozen value detected"),
-    FinsDriverErrors.FINS_NAN_INF: ErrorCodeDetail(FinsDriverErrors.FINS_NAN_INF, 422, "FINS NaN or Inf value filtered"),
-    FinsDriverErrors.FINS_RATE_OF_CHANGE: ErrorCodeDetail(FinsDriverErrors.FINS_RATE_OF_CHANGE, 200, "FINS rate of change exceeded"),
-    FinsDriverErrors.FINS_BATCH_SPLIT: ErrorCodeDetail(FinsDriverErrors.FINS_BATCH_SPLIT, 200, "FINS batch read split to smaller batches"),
-    FinsDriverErrors.FINS_DEGRADED_FREQ: ErrorCodeDetail(FinsDriverErrors.FINS_DEGRADED_FREQ, 200, "FINS collection frequency degraded"),
-    FinsDriverErrors.WRITE_VALUE_OUT_OF_RANGE: ErrorCodeDetail(FinsDriverErrors.WRITE_VALUE_OUT_OF_RANGE, 422, "FINS write value out of range"),
-    FinsDriverErrors.WRITE_RATE_LIMITED: ErrorCodeDetail(FinsDriverErrors.WRITE_RATE_LIMITED, 429, "FINS write rate limited"),
-    FinsDriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(FinsDriverErrors.WRITE_VERIFY_FAILED, 502, "FINS write-back verification failed"),
-    FinsDriverErrors.WRITE_REJECTED: ErrorCodeDetail(FinsDriverErrors.WRITE_REJECTED, 403, "FINS write rejected by PLC"),
-    FinsDriverErrors.WRITE_PROTECTED_AREA: ErrorCodeDetail(FinsDriverErrors.WRITE_PROTECTED_AREA, 403, "FINS write to protected area"),
-    FinsDriverErrors.WRITE_MERGE: ErrorCodeDetail(FinsDriverErrors.WRITE_MERGE, 200, "FINS batch write merged adjacent addresses"),
-    FinsDriverErrors.FAILOVER_FAST: ErrorCodeDetail(FinsDriverErrors.FAILOVER_FAST, 200, "FINS fast failover to backup IP"),
-    FinsDriverErrors.STANDBY_READY: ErrorCodeDetail(FinsDriverErrors.STANDBY_READY, 200, "FINS standby connection ready"),
-    FinsDriverErrors.STANDBY_FAILED: ErrorCodeDetail(FinsDriverErrors.STANDBY_FAILED, 503, "FINS standby connection failed"),
-    FinsDriverErrors.STANDBY_TAKEOVER: ErrorCodeDetail(FinsDriverErrors.STANDBY_TAKEOVER, 200, "FINS standby takeover (instant failover)"),
-    FinsDriverErrors.EDGE_RULE_FIRED: ErrorCodeDetail(FinsDriverErrors.EDGE_RULE_FIRED, 200, "FINS edge rule fired (alarm)"),
-    FinsDriverErrors.EDGE_RULE_RECOVERED: ErrorCodeDetail(FinsDriverErrors.EDGE_RULE_RECOVERED, 200, "FINS edge rule recovered"),
-    FinsDriverErrors.EDGE_RULE_ERROR: ErrorCodeDetail(FinsDriverErrors.EDGE_RULE_ERROR, 500, "FINS edge rule evaluation error"),
-    FinsDriverErrors.EDGE_TRIGGER_EXECUTED: ErrorCodeDetail(FinsDriverErrors.EDGE_TRIGGER_EXECUTED, 200, "FINS edge trigger executed"),
-    FinsDriverErrors.EDGE_TRIGGER_FAILED: ErrorCodeDetail(FinsDriverErrors.EDGE_TRIGGER_FAILED, 502, "FINS edge trigger execution failed"),
-    FinsDriverErrors.RULE_HOT_RELOADED: ErrorCodeDetail(FinsDriverErrors.RULE_HOT_RELOADED, 200, "FINS edge rules hot reloaded"),
-    FinsDriverErrors.RULE_ROLLBACK_OK: ErrorCodeDetail(FinsDriverErrors.RULE_ROLLBACK_OK, 200, "FINS edge rule rolled back"),
-    FinsDriverErrors.TS_STORE_WRITE: ErrorCodeDetail(FinsDriverErrors.TS_STORE_WRITE, 200, "FINS time-series data stored locally"),
-    FinsDriverErrors.TS_STORE_OFFLINE: ErrorCodeDetail(FinsDriverErrors.TS_STORE_OFFLINE, 200, "FINS offline queue enqueued"),
-    FinsDriverErrors.TS_SYNC_RESTORED: ErrorCodeDetail(FinsDriverErrors.TS_SYNC_RESTORED, 200, "FINS offline data synced after network restore"),
-    FinsDriverErrors.TS_SYNC_FAILED: ErrorCodeDetail(FinsDriverErrors.TS_SYNC_FAILED, 503, "FINS offline data sync failed"),
-    FinsDriverErrors.TS_COMPRESS_UPLOAD: ErrorCodeDetail(FinsDriverErrors.TS_COMPRESS_UPLOAD, 200, "FINS compressed batch uploaded"),
-    FinsDriverErrors.CONFIG_VERSION_SAVED: ErrorCodeDetail(FinsDriverErrors.CONFIG_VERSION_SAVED, 200, "FINS config version saved"),
-    FinsDriverErrors.CONFIG_VERSION_ROLLBACK: ErrorCodeDetail(FinsDriverErrors.CONFIG_VERSION_ROLLBACK, 200, "FINS config version rolled back"),
-    FinsDriverErrors.CONFIG_CHANGE_DENIED: ErrorCodeDetail(FinsDriverErrors.CONFIG_CHANGE_DENIED, 403, "FINS config change denied (RBAC)"),
+    FinsDriverErrors.FINS_ILLEGAL_AREA: ErrorCodeDetail(
+        FinsDriverErrors.FINS_ILLEGAL_AREA, 502, "FINS illegal memory area"
+    ),
+    FinsDriverErrors.FINS_ILLEGAL_ADDRESS: ErrorCodeDetail(
+        FinsDriverErrors.FINS_ILLEGAL_ADDRESS, 502, "FINS illegal address offset"
+    ),
+    FinsDriverErrors.FINS_ILLEGAL_DATA: ErrorCodeDetail(
+        FinsDriverErrors.FINS_ILLEGAL_DATA, 502, "FINS illegal data length or type"
+    ),
+    FinsDriverErrors.FINS_FROZEN_VALUE: ErrorCodeDetail(
+        FinsDriverErrors.FINS_FROZEN_VALUE, 200, "FINS frozen value detected"
+    ),
+    FinsDriverErrors.FINS_NAN_INF: ErrorCodeDetail(
+        FinsDriverErrors.FINS_NAN_INF, 422, "FINS NaN or Inf value filtered"
+    ),
+    FinsDriverErrors.FINS_RATE_OF_CHANGE: ErrorCodeDetail(
+        FinsDriverErrors.FINS_RATE_OF_CHANGE, 200, "FINS rate of change exceeded"
+    ),
+    FinsDriverErrors.FINS_BATCH_SPLIT: ErrorCodeDetail(
+        FinsDriverErrors.FINS_BATCH_SPLIT, 200, "FINS batch read split to smaller batches"
+    ),
+    FinsDriverErrors.FINS_DEGRADED_FREQ: ErrorCodeDetail(
+        FinsDriverErrors.FINS_DEGRADED_FREQ, 200, "FINS collection frequency degraded"
+    ),
+    FinsDriverErrors.WRITE_VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        FinsDriverErrors.WRITE_VALUE_OUT_OF_RANGE, 422, "FINS write value out of range"
+    ),
+    FinsDriverErrors.WRITE_RATE_LIMITED: ErrorCodeDetail(
+        FinsDriverErrors.WRITE_RATE_LIMITED, 429, "FINS write rate limited"
+    ),
+    FinsDriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(
+        FinsDriverErrors.WRITE_VERIFY_FAILED, 502, "FINS write-back verification failed"
+    ),
+    FinsDriverErrors.WRITE_REJECTED: ErrorCodeDetail(
+        FinsDriverErrors.WRITE_REJECTED, 403, "FINS write rejected by PLC"
+    ),
+    FinsDriverErrors.WRITE_PROTECTED_AREA: ErrorCodeDetail(
+        FinsDriverErrors.WRITE_PROTECTED_AREA, 403, "FINS write to protected area"
+    ),
+    FinsDriverErrors.WRITE_MERGE: ErrorCodeDetail(
+        FinsDriverErrors.WRITE_MERGE, 200, "FINS batch write merged adjacent addresses"
+    ),
+    FinsDriverErrors.FAILOVER_FAST: ErrorCodeDetail(
+        FinsDriverErrors.FAILOVER_FAST, 200, "FINS fast failover to backup IP"
+    ),
+    FinsDriverErrors.STANDBY_READY: ErrorCodeDetail(
+        FinsDriverErrors.STANDBY_READY, 200, "FINS standby connection ready"
+    ),
+    FinsDriverErrors.STANDBY_FAILED: ErrorCodeDetail(
+        FinsDriverErrors.STANDBY_FAILED, 503, "FINS standby connection failed"
+    ),
+    FinsDriverErrors.STANDBY_TAKEOVER: ErrorCodeDetail(
+        FinsDriverErrors.STANDBY_TAKEOVER, 200, "FINS standby takeover (instant failover)"
+    ),
+    FinsDriverErrors.EDGE_RULE_FIRED: ErrorCodeDetail(
+        FinsDriverErrors.EDGE_RULE_FIRED, 200, "FINS edge rule fired (alarm)"
+    ),
+    FinsDriverErrors.EDGE_RULE_RECOVERED: ErrorCodeDetail(
+        FinsDriverErrors.EDGE_RULE_RECOVERED, 200, "FINS edge rule recovered"
+    ),
+    FinsDriverErrors.EDGE_RULE_ERROR: ErrorCodeDetail(
+        FinsDriverErrors.EDGE_RULE_ERROR, 500, "FINS edge rule evaluation error"
+    ),
+    FinsDriverErrors.EDGE_TRIGGER_EXECUTED: ErrorCodeDetail(
+        FinsDriverErrors.EDGE_TRIGGER_EXECUTED, 200, "FINS edge trigger executed"
+    ),
+    FinsDriverErrors.EDGE_TRIGGER_FAILED: ErrorCodeDetail(
+        FinsDriverErrors.EDGE_TRIGGER_FAILED, 502, "FINS edge trigger execution failed"
+    ),
+    FinsDriverErrors.RULE_HOT_RELOADED: ErrorCodeDetail(
+        FinsDriverErrors.RULE_HOT_RELOADED, 200, "FINS edge rules hot reloaded"
+    ),
+    FinsDriverErrors.RULE_ROLLBACK_OK: ErrorCodeDetail(
+        FinsDriverErrors.RULE_ROLLBACK_OK, 200, "FINS edge rule rolled back"
+    ),
+    FinsDriverErrors.TS_STORE_WRITE: ErrorCodeDetail(
+        FinsDriverErrors.TS_STORE_WRITE, 200, "FINS time-series data stored locally"
+    ),
+    FinsDriverErrors.TS_STORE_OFFLINE: ErrorCodeDetail(
+        FinsDriverErrors.TS_STORE_OFFLINE, 200, "FINS offline queue enqueued"
+    ),
+    FinsDriverErrors.TS_SYNC_RESTORED: ErrorCodeDetail(
+        FinsDriverErrors.TS_SYNC_RESTORED, 200, "FINS offline data synced after network restore"
+    ),
+    FinsDriverErrors.TS_SYNC_FAILED: ErrorCodeDetail(
+        FinsDriverErrors.TS_SYNC_FAILED, 503, "FINS offline data sync failed"
+    ),
+    FinsDriverErrors.TS_COMPRESS_UPLOAD: ErrorCodeDetail(
+        FinsDriverErrors.TS_COMPRESS_UPLOAD, 200, "FINS compressed batch uploaded"
+    ),
+    FinsDriverErrors.CONFIG_VERSION_SAVED: ErrorCodeDetail(
+        FinsDriverErrors.CONFIG_VERSION_SAVED, 200, "FINS config version saved"
+    ),
+    FinsDriverErrors.CONFIG_VERSION_ROLLBACK: ErrorCodeDetail(
+        FinsDriverErrors.CONFIG_VERSION_ROLLBACK, 200, "FINS config version rolled back"
+    ),
+    FinsDriverErrors.CONFIG_CHANGE_DENIED: ErrorCodeDetail(
+        FinsDriverErrors.CONFIG_CHANGE_DENIED, 403, "FINS config change denied (RBAC)"
+    ),
     FinsDriverErrors.RBAC_DENIED: ErrorCodeDetail(FinsDriverErrors.RBAC_DENIED, 403, "FINS RBAC permission denied"),
     FinsDriverErrors.AUDIT_LOGGED: ErrorCodeDetail(FinsDriverErrors.AUDIT_LOGGED, 200, "FINS audit event logged"),
     FinsDriverErrors.OTA_CHECK: ErrorCodeDetail(FinsDriverErrors.OTA_CHECK, 200, "FINS OTA update check"),
@@ -1588,7 +2127,6 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     FinsDriverErrors.OTA_COMPLETED: ErrorCodeDetail(FinsDriverErrors.OTA_COMPLETED, 200, "FINS OTA upgrade completed"),
     FinsDriverErrors.OTA_FAILED: ErrorCodeDetail(FinsDriverErrors.OTA_FAILED, 500, "FINS OTA upgrade failed"),
     FinsDriverErrors.OTA_ROLLBACK: ErrorCodeDetail(FinsDriverErrors.OTA_ROLLBACK, 200, "FINS OTA rollback"),
-
     McDriverErrors.CONN_FAILED: ErrorCodeDetail(McDriverErrors.CONN_FAILED, 503, "MC connection failed"),
     McDriverErrors.CONN_TIMEOUT: ErrorCodeDetail(McDriverErrors.CONN_TIMEOUT, 504, "MC connection timeout"),
     McDriverErrors.CONN_LOST: ErrorCodeDetail(McDriverErrors.CONN_LOST, 503, "MC connection lost"),
@@ -1602,175 +2140,421 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     McDriverErrors.CONFIG_INVALID: ErrorCodeDetail(McDriverErrors.CONFIG_INVALID, 400, "MC config invalid"),
     McDriverErrors.RECONNECT_OK: ErrorCodeDetail(McDriverErrors.RECONNECT_OK, 200, "MC reconnected"),
     McDriverErrors.RECONNECT_FAILED: ErrorCodeDetail(McDriverErrors.RECONNECT_FAILED, 503, "MC reconnect failed"),
-    McDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(McDriverErrors.VALUE_OUT_OF_RANGE, 422, "MC value out of clamp range"),
-    McDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(McDriverErrors.OFFLINE_BAD_QUALITY, 200, "MC offline, point marked bad quality"),
-    McDriverErrors.SLMP_DIRECT_FALLBACK: ErrorCodeDetail(McDriverErrors.SLMP_DIRECT_FALLBACK, 200, "MC SLMP direct mode fallback to standard read"),
+    McDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        McDriverErrors.VALUE_OUT_OF_RANGE, 422, "MC value out of clamp range"
+    ),
+    McDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(
+        McDriverErrors.OFFLINE_BAD_QUALITY, 200, "MC offline, point marked bad quality"
+    ),
+    McDriverErrors.SLMP_DIRECT_FALLBACK: ErrorCodeDetail(
+        McDriverErrors.SLMP_DIRECT_FALLBACK, 200, "MC SLMP direct mode fallback to standard read"
+    ),
     McDriverErrors.DISCOVER_FAILED: ErrorCodeDetail(McDriverErrors.DISCOVER_FAILED, 503, "MC device discovery failed"),
-    McDriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(McDriverErrors.FAILOVER_TRIGGERED, 200, "MC failover triggered (primary->backup)"),
+    McDriverErrors.FAILOVER_TRIGGERED: ErrorCodeDetail(
+        McDriverErrors.FAILOVER_TRIGGERED, 200, "MC failover triggered (primary->backup)"
+    ),
     McDriverErrors.FAILOVER_REVERT: ErrorCodeDetail(McDriverErrors.FAILOVER_REVERT, 200, "MC reverted to primary IP"),
-    McDriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(McDriverErrors.FAILOVER_NO_BACKUP, 503, "MC failover failed: no backup IP"),
+    McDriverErrors.FAILOVER_NO_BACKUP: ErrorCodeDetail(
+        McDriverErrors.FAILOVER_NO_BACKUP, 503, "MC failover failed: no backup IP"
+    ),
     McDriverErrors.FAILOVER_FAST: ErrorCodeDetail(McDriverErrors.FAILOVER_FAST, 200, "MC failover exceeded 3s target"),
-    McDriverErrors.RATE_OF_CHANGE: ErrorCodeDetail(McDriverErrors.RATE_OF_CHANGE, 200, "MC rate of change exceeded threshold"),
+    McDriverErrors.RATE_OF_CHANGE: ErrorCodeDetail(
+        McDriverErrors.RATE_OF_CHANGE, 200, "MC rate of change exceeded threshold"
+    ),
     McDriverErrors.FROZEN_VALUE: ErrorCodeDetail(McDriverErrors.FROZEN_VALUE, 200, "MC frozen value detected"),
     McDriverErrors.NAN_INF: ErrorCodeDetail(McDriverErrors.NAN_INF, 422, "MC NaN/Inf value detected"),
-    McDriverErrors.BATCH_RETRY: ErrorCodeDetail(McDriverErrors.BATCH_RETRY, 200, "MC batch read retry with reduced size"),
+    McDriverErrors.BATCH_RETRY: ErrorCodeDetail(
+        McDriverErrors.BATCH_RETRY, 200, "MC batch read retry with reduced size"
+    ),
     McDriverErrors.DEGRADE_ACTIVE: ErrorCodeDetail(McDriverErrors.DEGRADE_ACTIVE, 200, "MC collection degraded"),
     McDriverErrors.DEGRADE_RECOVERED: ErrorCodeDetail(McDriverErrors.DEGRADE_RECOVERED, 200, "MC collection recovered"),
-    McDriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(McDriverErrors.WRITE_VERIFY_FAILED, 502, "MC write verify failed (read-back mismatch)"),
+    McDriverErrors.WRITE_VERIFY_FAILED: ErrorCodeDetail(
+        McDriverErrors.WRITE_VERIFY_FAILED, 502, "MC write verify failed (read-back mismatch)"
+    ),
     McDriverErrors.WRITE_RATE_LIMITED: ErrorCodeDetail(McDriverErrors.WRITE_RATE_LIMITED, 429, "MC write rate limited"),
-    McDriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(McDriverErrors.WRITE_VALUE_INVALID, 422, "MC write value invalid"),
+    McDriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(
+        McDriverErrors.WRITE_VALUE_INVALID, 422, "MC write value invalid"
+    ),
     McDriverErrors.WRITE_AUDIT_OK: ErrorCodeDetail(McDriverErrors.WRITE_AUDIT_OK, 200, "MC write audit logged"),
-    McDriverErrors.RULE_ENGINE_INIT_FAILED: ErrorCodeDetail(McDriverErrors.RULE_ENGINE_INIT_FAILED, 503, "MC edge rule engine init failed"),
-    McDriverErrors.RULE_EVAL_FAILED: ErrorCodeDetail(McDriverErrors.RULE_EVAL_FAILED, 200, "MC edge rule evaluation failed"),
+    McDriverErrors.RULE_ENGINE_INIT_FAILED: ErrorCodeDetail(
+        McDriverErrors.RULE_ENGINE_INIT_FAILED, 503, "MC edge rule engine init failed"
+    ),
+    McDriverErrors.RULE_EVAL_FAILED: ErrorCodeDetail(
+        McDriverErrors.RULE_EVAL_FAILED, 200, "MC edge rule evaluation failed"
+    ),
     McDriverErrors.RULE_ADD_FAILED: ErrorCodeDetail(McDriverErrors.RULE_ADD_FAILED, 400, "MC edge rule add failed"),
     McDriverErrors.RULE_RELOAD_OK: ErrorCodeDetail(McDriverErrors.RULE_RELOAD_OK, 200, "MC edge rules reloaded"),
-    McDriverErrors.RULE_RELOAD_FAILED: ErrorCodeDetail(McDriverErrors.RULE_RELOAD_FAILED, 503, "MC edge rules reload failed"),
-    McDriverErrors.TRIGGER_WRITE_FAILED: ErrorCodeDetail(McDriverErrors.TRIGGER_WRITE_FAILED, 502, "MC trigger write to PLC failed"),
-    McDriverErrors.TS_STORAGE_INIT_FAILED: ErrorCodeDetail(McDriverErrors.TS_STORAGE_INIT_FAILED, 503, "MC time-series storage init failed"),
-    McDriverErrors.TS_PERSIST_FAILED: ErrorCodeDetail(McDriverErrors.TS_PERSIST_FAILED, 503, "MC time-series persist failed"),
+    McDriverErrors.RULE_RELOAD_FAILED: ErrorCodeDetail(
+        McDriverErrors.RULE_RELOAD_FAILED, 503, "MC edge rules reload failed"
+    ),
+    McDriverErrors.TRIGGER_WRITE_FAILED: ErrorCodeDetail(
+        McDriverErrors.TRIGGER_WRITE_FAILED, 502, "MC trigger write to PLC failed"
+    ),
+    McDriverErrors.TS_STORAGE_INIT_FAILED: ErrorCodeDetail(
+        McDriverErrors.TS_STORAGE_INIT_FAILED, 503, "MC time-series storage init failed"
+    ),
+    McDriverErrors.TS_PERSIST_FAILED: ErrorCodeDetail(
+        McDriverErrors.TS_PERSIST_FAILED, 503, "MC time-series persist failed"
+    ),
     McDriverErrors.TS_UPLOAD_OK: ErrorCodeDetail(McDriverErrors.TS_UPLOAD_OK, 200, "MC offline queue uploaded"),
-    McDriverErrors.TS_UPLOAD_FAILED: ErrorCodeDetail(McDriverErrors.TS_UPLOAD_FAILED, 503, "MC offline queue upload failed"),
-    McDriverErrors.TS_OFFLINE_QUEUED: ErrorCodeDetail(McDriverErrors.TS_OFFLINE_QUEUED, 200, "MC data queued to offline storage"),
+    McDriverErrors.TS_UPLOAD_FAILED: ErrorCodeDetail(
+        McDriverErrors.TS_UPLOAD_FAILED, 503, "MC offline queue upload failed"
+    ),
+    McDriverErrors.TS_OFFLINE_QUEUED: ErrorCodeDetail(
+        McDriverErrors.TS_OFFLINE_QUEUED, 200, "MC data queued to offline storage"
+    ),
     McDriverErrors.OTA_INIT_FAILED: ErrorCodeDetail(McDriverErrors.OTA_INIT_FAILED, 503, "MC OTA manager init failed"),
-    McDriverErrors.CONFIG_VERSION_INIT_FAILED: ErrorCodeDetail(McDriverErrors.CONFIG_VERSION_INIT_FAILED, 503, "MC config version manager init failed"),
+    McDriverErrors.CONFIG_VERSION_INIT_FAILED: ErrorCodeDetail(
+        McDriverErrors.CONFIG_VERSION_INIT_FAILED, 503, "MC config version manager init failed"
+    ),
     McDriverErrors.AUDIT_INIT_FAILED: ErrorCodeDetail(McDriverErrors.AUDIT_INIT_FAILED, 503, "MC audit init failed"),
     McDriverErrors.RBAC_DENIED: ErrorCodeDetail(McDriverErrors.RBAC_DENIED, 403, "MC RBAC permission denied"),
-    McDriverErrors.CONFIG_ROLLBACK_OK: ErrorCodeDetail(McDriverErrors.CONFIG_ROLLBACK_OK, 200, "MC config rollback completed"),
-    McDriverErrors.CONFIG_ROLLBACK_FAILED: ErrorCodeDetail(McDriverErrors.CONFIG_ROLLBACK_FAILED, 503, "MC config rollback failed"),
+    McDriverErrors.CONFIG_ROLLBACK_OK: ErrorCodeDetail(
+        McDriverErrors.CONFIG_ROLLBACK_OK, 200, "MC config rollback completed"
+    ),
+    McDriverErrors.CONFIG_ROLLBACK_FAILED: ErrorCodeDetail(
+        McDriverErrors.CONFIG_ROLLBACK_FAILED, 503, "MC config rollback failed"
+    ),
     # --- MODBUS SLAVE DRIVER ---
-    ModbusSlaveDriverErrors.REG_OUT_OF_BOUNDS: ErrorCodeDetail(ModbusSlaveDriverErrors.REG_OUT_OF_BOUNDS, 422, "Modbus Slave register address out of bounds"),
-    ModbusSlaveDriverErrors.POINT_UNDEFINED: ErrorCodeDetail(ModbusSlaveDriverErrors.POINT_UNDEFINED, 404, "Modbus Slave point not defined"),
-    ModbusSlaveDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(ModbusSlaveDriverErrors.VALUE_OUT_OF_RANGE, 422, "Modbus Slave value out of clamp range"),
-    ModbusSlaveDriverErrors.SERVER_START_FAILED: ErrorCodeDetail(ModbusSlaveDriverErrors.SERVER_START_FAILED, 503, "Modbus Slave server start failed"),
-    ModbusSlaveDriverErrors.SERVER_STOP_FAILED: ErrorCodeDetail(ModbusSlaveDriverErrors.SERVER_STOP_FAILED, 503, "Modbus Slave server stop failed"),
-    ModbusSlaveDriverErrors.SYNC_FAILED: ErrorCodeDetail(ModbusSlaveDriverErrors.SYNC_FAILED, 502, "Modbus Slave register sync to server failed"),
-    ModbusSlaveDriverErrors.PYMODBUS_NOT_INSTALLED: ErrorCodeDetail(ModbusSlaveDriverErrors.PYMODBUS_NOT_INSTALLED, 503, "pymodbus not installed"),
-    ModbusSlaveDriverErrors.DECODE_FAILED: ErrorCodeDetail(ModbusSlaveDriverErrors.DECODE_FAILED, 502, "Modbus Slave value decode failed"),
-    ModbusSlaveDriverErrors.CONFIG_INVALID: ErrorCodeDetail(ModbusSlaveDriverErrors.CONFIG_INVALID, 400, "Modbus Slave config invalid"),
-    ModbusSlaveDriverErrors.CONN_REJECTED_MAX: ErrorCodeDetail(ModbusSlaveDriverErrors.CONN_REJECTED_MAX, 429, "Modbus Slave connection rejected: max connections reached"),
-    ModbusSlaveDriverErrors.CONN_REJECTED_WHITELIST: ErrorCodeDetail(ModbusSlaveDriverErrors.CONN_REJECTED_WHITELIST, 403, "Modbus Slave connection rejected: IP not in whitelist"),
-    ModbusSlaveDriverErrors.CONN_REJECTED_BANNED: ErrorCodeDetail(ModbusSlaveDriverErrors.CONN_REJECTED_BANNED, 403, "Modbus Slave connection rejected: IP is banned"),
-    ModbusSlaveDriverErrors.IP_BANNED: ErrorCodeDetail(ModbusSlaveDriverErrors.IP_BANNED, 403, "Modbus Slave IP banned due to abuse"),
-    ModbusSlaveDriverErrors.WRITE_READONLY: ErrorCodeDetail(ModbusSlaveDriverErrors.WRITE_READONLY, 403, "Modbus Slave write to read-only register rejected"),
-    ModbusSlaveDriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(ModbusSlaveDriverErrors.WRITE_VALUE_INVALID, 422, "Modbus Slave write value out of valid range"),
+    ModbusSlaveDriverErrors.REG_OUT_OF_BOUNDS: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.REG_OUT_OF_BOUNDS, 422, "Modbus Slave register address out of bounds"
+    ),
+    ModbusSlaveDriverErrors.POINT_UNDEFINED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.POINT_UNDEFINED, 404, "Modbus Slave point not defined"
+    ),
+    ModbusSlaveDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.VALUE_OUT_OF_RANGE, 422, "Modbus Slave value out of clamp range"
+    ),
+    ModbusSlaveDriverErrors.SERVER_START_FAILED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.SERVER_START_FAILED, 503, "Modbus Slave server start failed"
+    ),
+    ModbusSlaveDriverErrors.SERVER_STOP_FAILED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.SERVER_STOP_FAILED, 503, "Modbus Slave server stop failed"
+    ),
+    ModbusSlaveDriverErrors.SYNC_FAILED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.SYNC_FAILED, 502, "Modbus Slave register sync to server failed"
+    ),
+    ModbusSlaveDriverErrors.PYMODBUS_NOT_INSTALLED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.PYMODBUS_NOT_INSTALLED, 503, "pymodbus not installed"
+    ),
+    ModbusSlaveDriverErrors.DECODE_FAILED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.DECODE_FAILED, 502, "Modbus Slave value decode failed"
+    ),
+    ModbusSlaveDriverErrors.CONFIG_INVALID: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.CONFIG_INVALID, 400, "Modbus Slave config invalid"
+    ),
+    ModbusSlaveDriverErrors.CONN_REJECTED_MAX: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.CONN_REJECTED_MAX, 429, "Modbus Slave connection rejected: max connections reached"
+    ),
+    ModbusSlaveDriverErrors.CONN_REJECTED_WHITELIST: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.CONN_REJECTED_WHITELIST, 403, "Modbus Slave connection rejected: IP not in whitelist"
+    ),
+    ModbusSlaveDriverErrors.CONN_REJECTED_BANNED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.CONN_REJECTED_BANNED, 403, "Modbus Slave connection rejected: IP is banned"
+    ),
+    ModbusSlaveDriverErrors.IP_BANNED: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.IP_BANNED, 403, "Modbus Slave IP banned due to abuse"
+    ),
+    ModbusSlaveDriverErrors.WRITE_READONLY: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.WRITE_READONLY, 403, "Modbus Slave write to read-only register rejected"
+    ),
+    ModbusSlaveDriverErrors.WRITE_VALUE_INVALID: ErrorCodeDetail(
+        ModbusSlaveDriverErrors.WRITE_VALUE_INVALID, 422, "Modbus Slave write value out of valid range"
+    ),
     # --- OPC DA DRIVER ---
     OpcDaDriverErrors.CONN_FAILED: ErrorCodeDetail(OpcDaDriverErrors.CONN_FAILED, 503, "OPC DA connection failed"),
     OpcDaDriverErrors.CONN_TIMEOUT: ErrorCodeDetail(OpcDaDriverErrors.CONN_TIMEOUT, 504, "OPC DA connection timeout"),
     OpcDaDriverErrors.CONN_LOST: ErrorCodeDetail(OpcDaDriverErrors.CONN_LOST, 503, "OPC DA connection lost"),
-    OpcDaDriverErrors.CONN_RECOVERED: ErrorCodeDetail(OpcDaDriverErrors.CONN_RECOVERED, 200, "OPC DA connection recovered"),
+    OpcDaDriverErrors.CONN_RECOVERED: ErrorCodeDetail(
+        OpcDaDriverErrors.CONN_RECOVERED, 200, "OPC DA connection recovered"
+    ),
     OpcDaDriverErrors.READ_FAILED: ErrorCodeDetail(OpcDaDriverErrors.READ_FAILED, 502, "OPC DA read failed"),
     OpcDaDriverErrors.READ_TIMEOUT: ErrorCodeDetail(OpcDaDriverErrors.READ_TIMEOUT, 504, "OPC DA read timeout"),
     OpcDaDriverErrors.WRITE_FAILED: ErrorCodeDetail(OpcDaDriverErrors.WRITE_FAILED, 502, "OPC DA write failed"),
     OpcDaDriverErrors.WRITE_TIMEOUT: ErrorCodeDetail(OpcDaDriverErrors.WRITE_TIMEOUT, 504, "OPC DA write timeout"),
     OpcDaDriverErrors.CONFIG_INVALID: ErrorCodeDetail(OpcDaDriverErrors.CONFIG_INVALID, 400, "OPC DA config invalid"),
     OpcDaDriverErrors.RECONNECT_OK: ErrorCodeDetail(OpcDaDriverErrors.RECONNECT_OK, 200, "OPC DA reconnected"),
-    OpcDaDriverErrors.RECONNECT_FAILED: ErrorCodeDetail(OpcDaDriverErrors.RECONNECT_FAILED, 503, "OPC DA reconnect failed"),
-    OpcDaDriverErrors.QUALITY_BAD: ErrorCodeDetail(OpcDaDriverErrors.QUALITY_BAD, 200, "OPC DA variable quality is Bad"),
-    OpcDaDriverErrors.QUALITY_UNCERTAIN: ErrorCodeDetail(OpcDaDriverErrors.QUALITY_UNCERTAIN, 200, "OPC DA variable quality is Uncertain"),
-    OpcDaDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(OpcDaDriverErrors.OFFLINE_BAD_QUALITY, 200, "OPC DA offline, point marked bad quality"),
-    OpcDaDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(OpcDaDriverErrors.VALUE_OUT_OF_RANGE, 422, "OPC DA value out of clamp range"),
-    OpcDaDriverErrors.DCOM_ACCESS_DENIED: ErrorCodeDetail(OpcDaDriverErrors.DCOM_ACCESS_DENIED, 403, "OPC DA DCOM access denied"),
-    OpcDaDriverErrors.DCOM_SERVER_UNAVAILABLE: ErrorCodeDetail(OpcDaDriverErrors.DCOM_SERVER_UNAVAILABLE, 503, "OPC DA DCOM server unavailable"),
-    OpcDaDriverErrors.DCOM_DISCONNECTED: ErrorCodeDetail(OpcDaDriverErrors.DCOM_DISCONNECTED, 503, "OPC DA DCOM object disconnected"),
-    OpcDaDriverErrors.DCOM_CALL_FAILED: ErrorCodeDetail(OpcDaDriverErrors.DCOM_CALL_FAILED, 502, "OPC DA DCOM call failed"),
-    OpcDaDriverErrors.SUBSCRIPTION_FAILED: ErrorCodeDetail(OpcDaDriverErrors.SUBSCRIPTION_FAILED, 502, "OPC DA subscription failed"),
+    OpcDaDriverErrors.RECONNECT_FAILED: ErrorCodeDetail(
+        OpcDaDriverErrors.RECONNECT_FAILED, 503, "OPC DA reconnect failed"
+    ),
+    OpcDaDriverErrors.QUALITY_BAD: ErrorCodeDetail(
+        OpcDaDriverErrors.QUALITY_BAD, 200, "OPC DA variable quality is Bad"
+    ),
+    OpcDaDriverErrors.QUALITY_UNCERTAIN: ErrorCodeDetail(
+        OpcDaDriverErrors.QUALITY_UNCERTAIN, 200, "OPC DA variable quality is Uncertain"
+    ),
+    OpcDaDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(
+        OpcDaDriverErrors.OFFLINE_BAD_QUALITY, 200, "OPC DA offline, point marked bad quality"
+    ),
+    OpcDaDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        OpcDaDriverErrors.VALUE_OUT_OF_RANGE, 422, "OPC DA value out of clamp range"
+    ),
+    OpcDaDriverErrors.DCOM_ACCESS_DENIED: ErrorCodeDetail(
+        OpcDaDriverErrors.DCOM_ACCESS_DENIED, 403, "OPC DA DCOM access denied"
+    ),
+    OpcDaDriverErrors.DCOM_SERVER_UNAVAILABLE: ErrorCodeDetail(
+        OpcDaDriverErrors.DCOM_SERVER_UNAVAILABLE, 503, "OPC DA DCOM server unavailable"
+    ),
+    OpcDaDriverErrors.DCOM_DISCONNECTED: ErrorCodeDetail(
+        OpcDaDriverErrors.DCOM_DISCONNECTED, 503, "OPC DA DCOM object disconnected"
+    ),
+    OpcDaDriverErrors.DCOM_CALL_FAILED: ErrorCodeDetail(
+        OpcDaDriverErrors.DCOM_CALL_FAILED, 502, "OPC DA DCOM call failed"
+    ),
+    OpcDaDriverErrors.SUBSCRIPTION_FAILED: ErrorCodeDetail(
+        OpcDaDriverErrors.SUBSCRIPTION_FAILED, 502, "OPC DA subscription failed"
+    ),
     OpcDaDriverErrors.BROWSE_FAILED: ErrorCodeDetail(OpcDaDriverErrors.BROWSE_FAILED, 502, "OPC DA browse failed"),
-    OpcDaDriverErrors.IMPORT_ERROR: ErrorCodeDetail(OpcDaDriverErrors.IMPORT_ERROR, 503, "OPC DA OpenOPC not installed"),
-    OpcDaDriverErrors.DCOM_CLASS_NOT_REGISTERED: ErrorCodeDetail(OpcDaDriverErrors.DCOM_CLASS_NOT_REGISTERED, 503, "OPC DA DCOM class not registered, install OPC Core Components"),
-    OpcDaDriverErrors.DCOM_SERVER_BUSY: ErrorCodeDetail(OpcDaDriverErrors.DCOM_SERVER_BUSY, 503, "OPC DA DCOM server busy, retry with backoff"),
-    OpcDaDriverErrors.RATE_OF_CHANGE_EXCEEDED: ErrorCodeDetail(OpcDaDriverErrors.RATE_OF_CHANGE_EXCEEDED, 200, "OPC DA rate of change exceeded limit"),
-    OpcDaDriverErrors.FROZEN_VALUE_DETECTED: ErrorCodeDetail(OpcDaDriverErrors.FROZEN_VALUE_DETECTED, 200, "OPC DA frozen value detected"),
-    OpcDaDriverErrors.WRITE_READ_ONLY: ErrorCodeDetail(OpcDaDriverErrors.WRITE_READ_ONLY, 403, "OPC DA write to read-only item rejected"),
-    OpcDaDriverErrors.WRITE_TYPE_MISMATCH: ErrorCodeDetail(OpcDaDriverErrors.WRITE_TYPE_MISMATCH, 422, "OPC DA write value type mismatch"),
+    OpcDaDriverErrors.IMPORT_ERROR: ErrorCodeDetail(
+        OpcDaDriverErrors.IMPORT_ERROR, 503, "OPC DA OpenOPC not installed"
+    ),
+    OpcDaDriverErrors.DCOM_CLASS_NOT_REGISTERED: ErrorCodeDetail(
+        OpcDaDriverErrors.DCOM_CLASS_NOT_REGISTERED,
+        503,
+        "OPC DA DCOM class not registered, install OPC Core Components",
+    ),
+    OpcDaDriverErrors.DCOM_SERVER_BUSY: ErrorCodeDetail(
+        OpcDaDriverErrors.DCOM_SERVER_BUSY, 503, "OPC DA DCOM server busy, retry with backoff"
+    ),
+    OpcDaDriverErrors.RATE_OF_CHANGE_EXCEEDED: ErrorCodeDetail(
+        OpcDaDriverErrors.RATE_OF_CHANGE_EXCEEDED, 200, "OPC DA rate of change exceeded limit"
+    ),
+    OpcDaDriverErrors.FROZEN_VALUE_DETECTED: ErrorCodeDetail(
+        OpcDaDriverErrors.FROZEN_VALUE_DETECTED, 200, "OPC DA frozen value detected"
+    ),
+    OpcDaDriverErrors.WRITE_READ_ONLY: ErrorCodeDetail(
+        OpcDaDriverErrors.WRITE_READ_ONLY, 403, "OPC DA write to read-only item rejected"
+    ),
+    OpcDaDriverErrors.WRITE_TYPE_MISMATCH: ErrorCodeDetail(
+        OpcDaDriverErrors.WRITE_TYPE_MISMATCH, 422, "OPC DA write value type mismatch"
+    ),
     # --- SIMULATOR DRIVER ---
     SimulatorDriverErrors.READ_FAILED: ErrorCodeDetail(SimulatorDriverErrors.READ_FAILED, 502, "Simulator read failed"),
-    SimulatorDriverErrors.READ_TIMEOUT: ErrorCodeDetail(SimulatorDriverErrors.READ_TIMEOUT, 504, "Simulator read timeout"),
-    SimulatorDriverErrors.WRITE_FAILED: ErrorCodeDetail(SimulatorDriverErrors.WRITE_FAILED, 502, "Simulator write failed"),
-    SimulatorDriverErrors.FAULT_TIMEOUT: ErrorCodeDetail(SimulatorDriverErrors.FAULT_TIMEOUT, 504, "Simulator fault: timeout"),
-    SimulatorDriverErrors.FAULT_DISCONNECT: ErrorCodeDetail(SimulatorDriverErrors.FAULT_DISCONNECT, 503, "Simulator fault: disconnect"),
-    SimulatorDriverErrors.FAULT_DATA_ERROR: ErrorCodeDetail(SimulatorDriverErrors.FAULT_DATA_ERROR, 502, "Simulator fault: data error"),
-    SimulatorDriverErrors.FAULT_RANDOM: ErrorCodeDetail(SimulatorDriverErrors.FAULT_RANDOM, 502, "Simulator fault: random mixed"),
-    SimulatorDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(SimulatorDriverErrors.VALUE_OUT_OF_RANGE, 422, "Simulator value out of clamp range"),
-    SimulatorDriverErrors.CONFIG_INVALID: ErrorCodeDetail(SimulatorDriverErrors.CONFIG_INVALID, 400, "Simulator config invalid"),
-    SimulatorDriverErrors.FORMULA_EVAL_FAILED: ErrorCodeDetail(SimulatorDriverErrors.FORMULA_EVAL_FAILED, 502, "Simulator formula evaluation failed"),
-    VideoAiDriverErrors.MODEL_NOT_LOADED: ErrorCodeDetail(VideoAiDriverErrors.MODEL_NOT_LOADED, 503, "Video AI model not loaded"),
-    VideoAiDriverErrors.FRAME_CAPTURE_FAILED: ErrorCodeDetail(VideoAiDriverErrors.FRAME_CAPTURE_FAILED, 502, "Video AI frame capture failed"),
-    VideoAiDriverErrors.INFERENCE_FAILED: ErrorCodeDetail(VideoAiDriverErrors.INFERENCE_FAILED, 502, "Video AI inference failed"),
-    VideoAiDriverErrors.INFERENCE_EMPTY: ErrorCodeDetail(VideoAiDriverErrors.INFERENCE_EMPTY, 200, "Video AI inference output empty"),
-    VideoAiDriverErrors.ONNX_LOAD_FAILED: ErrorCodeDetail(VideoAiDriverErrors.ONNX_LOAD_FAILED, 503, "Video AI ONNX model load failed"),
-    VideoAiDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(VideoAiDriverErrors.OFFLINE_BAD_QUALITY, 200, "Video AI offline, point marked bad quality"),
-    VideoAiDriverErrors.CONFIG_INVALID: ErrorCodeDetail(VideoAiDriverErrors.CONFIG_INVALID, 400, "Video AI config invalid"),
-    VideoAiDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(VideoAiDriverErrors.VALUE_OUT_OF_RANGE, 422, "Video AI value out of clamp range"),
-    VideoAiDriverErrors.MODEL_HOT_RELOAD_OK: ErrorCodeDetail(VideoAiDriverErrors.MODEL_HOT_RELOAD_OK, 200, "Video AI model hot-reloaded successfully"),
-    VideoAiDriverErrors.MODEL_HOT_RELOAD_FAILED: ErrorCodeDetail(VideoAiDriverErrors.MODEL_HOT_RELOAD_FAILED, 503, "Video AI model hot-reload failed"),
-    VideoAiDriverErrors.MODEL_ROLLBACK_OK: ErrorCodeDetail(VideoAiDriverErrors.MODEL_ROLLBACK_OK, 200, "Video AI model rolled back to previous version"),
-    VideoAiDriverErrors.MODEL_VALIDATE_FAILED: ErrorCodeDetail(VideoAiDriverErrors.MODEL_VALIDATE_FAILED, 422, "Video AI model validation failed"),
-    VideoAiDriverErrors.MODEL_VALIDATE_INPUT_MISMATCH: ErrorCodeDetail(VideoAiDriverErrors.MODEL_VALIDATE_INPUT_MISMATCH, 422, "Video AI model input dimensions mismatch"),
-    VideoAiDriverErrors.MODEL_VALIDATE_OUTPUT_MISMATCH: ErrorCodeDetail(VideoAiDriverErrors.MODEL_VALIDATE_OUTPUT_MISMATCH, 422, "Video AI model output dimensions mismatch"),
-    VideoAiDriverErrors.MODEL_VALIDATE_DTYPE_MISMATCH: ErrorCodeDetail(VideoAiDriverErrors.MODEL_VALIDATE_DTYPE_MISMATCH, 422, "Video AI model data type mismatch"),
-    VideoAiDriverErrors.GPU_DEGRADED_TO_CPU: ErrorCodeDetail(VideoAiDriverErrors.GPU_DEGRADED_TO_CPU, 200, "Video AI GPU unavailable, degraded to CPU"),
-    VideoAiDriverErrors.INFERENCE_TIMEOUT: ErrorCodeDetail(VideoAiDriverErrors.INFERENCE_TIMEOUT, 504, "Video AI inference timed out"),
-    VideoAiDriverErrors.PREPROCESS_FAILED: ErrorCodeDetail(VideoAiDriverErrors.PREPROCESS_FAILED, 422, "Video AI image preprocessing failed"),
-    VideoAiDriverErrors.MODEL_PATH_TRAVERSAL: ErrorCodeDetail(VideoAiDriverErrors.MODEL_PATH_TRAVERSAL, 403, "Video AI model path traversal detected"),
-    VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED: ErrorCodeDetail(VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED, 403, "Video AI model path not in allowed directories"),
-    VideoAiDriverErrors.MODEL_FORMAT_INVALID: ErrorCodeDetail(VideoAiDriverErrors.MODEL_FORMAT_INVALID, 422, "Video AI model file format invalid, only .onnx allowed"),
-    VideoAiDriverErrors.MODEL_HEADER_INVALID: ErrorCodeDetail(VideoAiDriverErrors.MODEL_HEADER_INVALID, 422, "Video AI model file header invalid"),
-    VideoAiDriverErrors.CONFIG_AUDIT_RECORDED: ErrorCodeDetail(VideoAiDriverErrors.CONFIG_AUDIT_RECORDED, 200, "Video AI config change audit recorded"),
+    SimulatorDriverErrors.READ_TIMEOUT: ErrorCodeDetail(
+        SimulatorDriverErrors.READ_TIMEOUT, 504, "Simulator read timeout"
+    ),
+    SimulatorDriverErrors.WRITE_FAILED: ErrorCodeDetail(
+        SimulatorDriverErrors.WRITE_FAILED, 502, "Simulator write failed"
+    ),
+    SimulatorDriverErrors.FAULT_TIMEOUT: ErrorCodeDetail(
+        SimulatorDriverErrors.FAULT_TIMEOUT, 504, "Simulator fault: timeout"
+    ),
+    SimulatorDriverErrors.FAULT_DISCONNECT: ErrorCodeDetail(
+        SimulatorDriverErrors.FAULT_DISCONNECT, 503, "Simulator fault: disconnect"
+    ),
+    SimulatorDriverErrors.FAULT_DATA_ERROR: ErrorCodeDetail(
+        SimulatorDriverErrors.FAULT_DATA_ERROR, 502, "Simulator fault: data error"
+    ),
+    SimulatorDriverErrors.FAULT_RANDOM: ErrorCodeDetail(
+        SimulatorDriverErrors.FAULT_RANDOM, 502, "Simulator fault: random mixed"
+    ),
+    SimulatorDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        SimulatorDriverErrors.VALUE_OUT_OF_RANGE, 422, "Simulator value out of clamp range"
+    ),
+    SimulatorDriverErrors.CONFIG_INVALID: ErrorCodeDetail(
+        SimulatorDriverErrors.CONFIG_INVALID, 400, "Simulator config invalid"
+    ),
+    SimulatorDriverErrors.FORMULA_EVAL_FAILED: ErrorCodeDetail(
+        SimulatorDriverErrors.FORMULA_EVAL_FAILED, 502, "Simulator formula evaluation failed"
+    ),
+    VideoAiDriverErrors.MODEL_NOT_LOADED: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_NOT_LOADED, 503, "Video AI model not loaded"
+    ),
+    VideoAiDriverErrors.FRAME_CAPTURE_FAILED: ErrorCodeDetail(
+        VideoAiDriverErrors.FRAME_CAPTURE_FAILED, 502, "Video AI frame capture failed"
+    ),
+    VideoAiDriverErrors.INFERENCE_FAILED: ErrorCodeDetail(
+        VideoAiDriverErrors.INFERENCE_FAILED, 502, "Video AI inference failed"
+    ),
+    VideoAiDriverErrors.INFERENCE_EMPTY: ErrorCodeDetail(
+        VideoAiDriverErrors.INFERENCE_EMPTY, 200, "Video AI inference output empty"
+    ),
+    VideoAiDriverErrors.ONNX_LOAD_FAILED: ErrorCodeDetail(
+        VideoAiDriverErrors.ONNX_LOAD_FAILED, 503, "Video AI ONNX model load failed"
+    ),
+    VideoAiDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(
+        VideoAiDriverErrors.OFFLINE_BAD_QUALITY, 200, "Video AI offline, point marked bad quality"
+    ),
+    VideoAiDriverErrors.CONFIG_INVALID: ErrorCodeDetail(
+        VideoAiDriverErrors.CONFIG_INVALID, 400, "Video AI config invalid"
+    ),
+    VideoAiDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
+        VideoAiDriverErrors.VALUE_OUT_OF_RANGE, 422, "Video AI value out of clamp range"
+    ),
+    VideoAiDriverErrors.MODEL_HOT_RELOAD_OK: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_HOT_RELOAD_OK, 200, "Video AI model hot-reloaded successfully"
+    ),
+    VideoAiDriverErrors.MODEL_HOT_RELOAD_FAILED: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_HOT_RELOAD_FAILED, 503, "Video AI model hot-reload failed"
+    ),
+    VideoAiDriverErrors.MODEL_ROLLBACK_OK: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_ROLLBACK_OK, 200, "Video AI model rolled back to previous version"
+    ),
+    VideoAiDriverErrors.MODEL_VALIDATE_FAILED: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_VALIDATE_FAILED, 422, "Video AI model validation failed"
+    ),
+    VideoAiDriverErrors.MODEL_VALIDATE_INPUT_MISMATCH: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_VALIDATE_INPUT_MISMATCH, 422, "Video AI model input dimensions mismatch"
+    ),
+    VideoAiDriverErrors.MODEL_VALIDATE_OUTPUT_MISMATCH: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_VALIDATE_OUTPUT_MISMATCH, 422, "Video AI model output dimensions mismatch"
+    ),
+    VideoAiDriverErrors.MODEL_VALIDATE_DTYPE_MISMATCH: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_VALIDATE_DTYPE_MISMATCH, 422, "Video AI model data type mismatch"
+    ),
+    VideoAiDriverErrors.GPU_DEGRADED_TO_CPU: ErrorCodeDetail(
+        VideoAiDriverErrors.GPU_DEGRADED_TO_CPU, 200, "Video AI GPU unavailable, degraded to CPU"
+    ),
+    VideoAiDriverErrors.INFERENCE_TIMEOUT: ErrorCodeDetail(
+        VideoAiDriverErrors.INFERENCE_TIMEOUT, 504, "Video AI inference timed out"
+    ),
+    VideoAiDriverErrors.PREPROCESS_FAILED: ErrorCodeDetail(
+        VideoAiDriverErrors.PREPROCESS_FAILED, 422, "Video AI image preprocessing failed"
+    ),
+    VideoAiDriverErrors.MODEL_PATH_TRAVERSAL: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_PATH_TRAVERSAL, 403, "Video AI model path traversal detected"
+    ),
+    VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED, 403, "Video AI model path not in allowed directories"
+    ),
+    VideoAiDriverErrors.MODEL_FORMAT_INVALID: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_FORMAT_INVALID, 422, "Video AI model file format invalid, only .onnx allowed"
+    ),
+    VideoAiDriverErrors.MODEL_HEADER_INVALID: ErrorCodeDetail(
+        VideoAiDriverErrors.MODEL_HEADER_INVALID, 422, "Video AI model file header invalid"
+    ),
+    VideoAiDriverErrors.CONFIG_AUDIT_RECORDED: ErrorCodeDetail(
+        VideoAiDriverErrors.CONFIG_AUDIT_RECORDED, 200, "Video AI config change audit recorded"
+    ),
     OnvifDriverErrors.START_FAILED: ErrorCodeDetail(OnvifDriverErrors.START_FAILED, 503, "ONVIF driver start failed"),
-    OnvifDriverErrors.CAMERA_INIT_FAILED: ErrorCodeDetail(OnvifDriverErrors.CAMERA_INIT_FAILED, 503, "ONVIF camera init failed"),
-    OnvifDriverErrors.DISCOVER_FAILED: ErrorCodeDetail(OnvifDriverErrors.DISCOVER_FAILED, 502, "ONVIF device discovery failed"),
+    OnvifDriverErrors.CAMERA_INIT_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.CAMERA_INIT_FAILED, 503, "ONVIF camera init failed"
+    ),
+    OnvifDriverErrors.DISCOVER_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.DISCOVER_FAILED, 502, "ONVIF device discovery failed"
+    ),
     OnvifDriverErrors.RTSP_FAILED: ErrorCodeDetail(OnvifDriverErrors.RTSP_FAILED, 502, "ONVIF RTSP stream URI failed"),
-    OnvifDriverErrors.PTZ_CONTINUOUS_FAILED: ErrorCodeDetail(OnvifDriverErrors.PTZ_CONTINUOUS_FAILED, 502, "ONVIF PTZ continuous move failed"),
-    OnvifDriverErrors.PTZ_ABSOLUTE_FAILED: ErrorCodeDetail(OnvifDriverErrors.PTZ_ABSOLUTE_FAILED, 502, "ONVIF PTZ absolute move failed"),
-    OnvifDriverErrors.PTZ_RELATIVE_FAILED: ErrorCodeDetail(OnvifDriverErrors.PTZ_RELATIVE_FAILED, 502, "ONVIF PTZ relative move failed"),
+    OnvifDriverErrors.PTZ_CONTINUOUS_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PTZ_CONTINUOUS_FAILED, 502, "ONVIF PTZ continuous move failed"
+    ),
+    OnvifDriverErrors.PTZ_ABSOLUTE_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PTZ_ABSOLUTE_FAILED, 502, "ONVIF PTZ absolute move failed"
+    ),
+    OnvifDriverErrors.PTZ_RELATIVE_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PTZ_RELATIVE_FAILED, 502, "ONVIF PTZ relative move failed"
+    ),
     OnvifDriverErrors.PTZ_STOP_FAILED: ErrorCodeDetail(OnvifDriverErrors.PTZ_STOP_FAILED, 502, "ONVIF PTZ stop failed"),
-    OnvifDriverErrors.PRESET_SET_FAILED: ErrorCodeDetail(OnvifDriverErrors.PRESET_SET_FAILED, 502, "ONVIF PTZ preset set failed"),
-    OnvifDriverErrors.PRESET_GOTO_FAILED: ErrorCodeDetail(OnvifDriverErrors.PRESET_GOTO_FAILED, 502, "ONVIF PTZ preset goto failed"),
-    OnvifDriverErrors.PRESET_REMOVE_FAILED: ErrorCodeDetail(OnvifDriverErrors.PRESET_REMOVE_FAILED, 502, "ONVIF PTZ preset remove failed"),
-    OnvifDriverErrors.PRESET_GET_FAILED: ErrorCodeDetail(OnvifDriverErrors.PRESET_GET_FAILED, 502, "ONVIF PTZ preset get failed"),
-    OnvifDriverErrors.SNAPSHOT_URI_FAILED: ErrorCodeDetail(OnvifDriverErrors.SNAPSHOT_URI_FAILED, 502, "ONVIF snapshot URI failed"),
-    OnvifDriverErrors.EVENT_SUBSCRIBE_FAILED: ErrorCodeDetail(OnvifDriverErrors.EVENT_SUBSCRIBE_FAILED, 502, "ONVIF event subscribe failed"),
+    OnvifDriverErrors.PRESET_SET_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PRESET_SET_FAILED, 502, "ONVIF PTZ preset set failed"
+    ),
+    OnvifDriverErrors.PRESET_GOTO_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PRESET_GOTO_FAILED, 502, "ONVIF PTZ preset goto failed"
+    ),
+    OnvifDriverErrors.PRESET_REMOVE_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PRESET_REMOVE_FAILED, 502, "ONVIF PTZ preset remove failed"
+    ),
+    OnvifDriverErrors.PRESET_GET_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.PRESET_GET_FAILED, 502, "ONVIF PTZ preset get failed"
+    ),
+    OnvifDriverErrors.SNAPSHOT_URI_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.SNAPSHOT_URI_FAILED, 502, "ONVIF snapshot URI failed"
+    ),
+    OnvifDriverErrors.EVENT_SUBSCRIBE_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.EVENT_SUBSCRIBE_FAILED, 502, "ONVIF event subscribe failed"
+    ),
     OnvifDriverErrors.READ_FAILED: ErrorCodeDetail(OnvifDriverErrors.READ_FAILED, 502, "ONVIF point read failed"),
     OnvifDriverErrors.WRITE_INVALID: ErrorCodeDetail(OnvifDriverErrors.WRITE_INVALID, 400, "ONVIF write point invalid"),
     OnvifDriverErrors.WRITE_FAILED: ErrorCodeDetail(OnvifDriverErrors.WRITE_FAILED, 502, "ONVIF write point failed"),
-    OnvifDriverErrors.WATCHDOG_TRIGGER: ErrorCodeDetail(OnvifDriverErrors.WATCHDOG_TRIGGER, 200, "ONVIF watchdog triggered reconnect"),
-    OnvifDriverErrors.RECONNECT_GIVEUP: ErrorCodeDetail(OnvifDriverErrors.RECONNECT_GIVEUP, 503, "ONVIF reconnect give up"),
-    OnvifDriverErrors.RECONNECT_FAILED: ErrorCodeDetail(OnvifDriverErrors.RECONNECT_FAILED, 502, "ONVIF reconnect failed"),
+    OnvifDriverErrors.WATCHDOG_TRIGGER: ErrorCodeDetail(
+        OnvifDriverErrors.WATCHDOG_TRIGGER, 200, "ONVIF watchdog triggered reconnect"
+    ),
+    OnvifDriverErrors.RECONNECT_GIVEUP: ErrorCodeDetail(
+        OnvifDriverErrors.RECONNECT_GIVEUP, 503, "ONVIF reconnect give up"
+    ),
+    OnvifDriverErrors.RECONNECT_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.RECONNECT_FAILED, 502, "ONVIF reconnect failed"
+    ),
     OnvifDriverErrors.AUTH_FAILED: ErrorCodeDetail(OnvifDriverErrors.AUTH_FAILED, 401, "ONVIF authentication failed"),
-    OnvifDriverErrors.NOT_SUPPORTED: ErrorCodeDetail(OnvifDriverErrors.NOT_SUPPORTED, 501, "ONVIF action not supported"),
+    OnvifDriverErrors.NOT_SUPPORTED: ErrorCodeDetail(
+        OnvifDriverErrors.NOT_SUPPORTED, 501, "ONVIF action not supported"
+    ),
     OnvifDriverErrors.CONN_TIMEOUT: ErrorCodeDetail(OnvifDriverErrors.CONN_TIMEOUT, 504, "ONVIF connection timeout"),
     OnvifDriverErrors.SOAP_ERROR: ErrorCodeDetail(OnvifDriverErrors.SOAP_ERROR, 502, "ONVIF SOAP error"),
-    OnvifDriverErrors.SNAPSHOT_DOWNLOAD_FAILED: ErrorCodeDetail(OnvifDriverErrors.SNAPSHOT_DOWNLOAD_FAILED, 502, "ONVIF snapshot download failed"),
-    OnvifDriverErrors.PTZ_OUT_OF_RANGE: ErrorCodeDetail(OnvifDriverErrors.PTZ_OUT_OF_RANGE, 422, "ONVIF PTZ value out of range"),
-    OnvifDriverErrors.PTZ_RATE_LIMITED: ErrorCodeDetail(OnvifDriverErrors.PTZ_RATE_LIMITED, 429, "ONVIF PTZ rate limited"),
-    OnvifDriverErrors.PRESET_NOT_FOUND: ErrorCodeDetail(OnvifDriverErrors.PRESET_NOT_FOUND, 404, "ONVIF preset not found"),
+    OnvifDriverErrors.SNAPSHOT_DOWNLOAD_FAILED: ErrorCodeDetail(
+        OnvifDriverErrors.SNAPSHOT_DOWNLOAD_FAILED, 502, "ONVIF snapshot download failed"
+    ),
+    OnvifDriverErrors.PTZ_OUT_OF_RANGE: ErrorCodeDetail(
+        OnvifDriverErrors.PTZ_OUT_OF_RANGE, 422, "ONVIF PTZ value out of range"
+    ),
+    OnvifDriverErrors.PTZ_RATE_LIMITED: ErrorCodeDetail(
+        OnvifDriverErrors.PTZ_RATE_LIMITED, 429, "ONVIF PTZ rate limited"
+    ),
+    OnvifDriverErrors.PRESET_NOT_FOUND: ErrorCodeDetail(
+        OnvifDriverErrors.PRESET_NOT_FOUND, 404, "ONVIF preset not found"
+    ),
     # --- PLATFORM (extended) ---
-    PlatformErrors.DASHBOARD_FAILED: ErrorCodeDetail(PlatformErrors.DASHBOARD_FAILED, 500, "Platform dashboard query failed"),
-    PlatformErrors.DATA_QUERY_FAILED: ErrorCodeDetail(PlatformErrors.DATA_QUERY_FAILED, 500, "Platform data query failed"),
-    PlatformErrors.TEMPLATE_FAILED: ErrorCodeDetail(PlatformErrors.TEMPLATE_FAILED, 500, "Platform template operation failed"),
+    PlatformErrors.DASHBOARD_FAILED: ErrorCodeDetail(
+        PlatformErrors.DASHBOARD_FAILED, 500, "Platform dashboard query failed"
+    ),
+    PlatformErrors.DATA_QUERY_FAILED: ErrorCodeDetail(
+        PlatformErrors.DATA_QUERY_FAILED, 500, "Platform data query failed"
+    ),
+    PlatformErrors.TEMPLATE_FAILED: ErrorCodeDetail(
+        PlatformErrors.TEMPLATE_FAILED, 500, "Platform template operation failed"
+    ),
     PlatformErrors.EXPORT_FAILED: ErrorCodeDetail(PlatformErrors.EXPORT_FAILED, 500, "Platform config export failed"),
     PlatformErrors.IMPORT_FAILED: ErrorCodeDetail(PlatformErrors.IMPORT_FAILED, 500, "Platform config import failed"),
-    PlatformErrors.MQTT_PUBLISH_FAILED: ErrorCodeDetail(PlatformErrors.MQTT_PUBLISH_FAILED, 500, "Platform MQTT publish failed"),
+    PlatformErrors.MQTT_PUBLISH_FAILED: ErrorCodeDetail(
+        PlatformErrors.MQTT_PUBLISH_FAILED, 500, "Platform MQTT publish failed"
+    ),
     # --- SIMULATION ---
     SimulationErrors.FAILED: ErrorCodeDetail(SimulationErrors.FAILED, 500, "Simulation failed"),
     SimulationErrors.EXPORT_FAILED: ErrorCodeDetail(SimulationErrors.EXPORT_FAILED, 500, "Simulation export failed"),
-    SimulationErrors.ASSESS_FAILED: ErrorCodeDetail(SimulationErrors.ASSESS_FAILED, 500, "Simulation assessment failed"),
+    SimulationErrors.ASSESS_FAILED: ErrorCodeDetail(
+        SimulationErrors.ASSESS_FAILED, 500, "Simulation assessment failed"
+    ),
     # --- TREND LEARNER ---
-    TrendLearnerErrors.INIT_FAILED: ErrorCodeDetail(TrendLearnerErrors.INIT_FAILED, 500, "Trend learner initialization failed"),
-    TrendLearnerErrors.PREDICT_FAILED: ErrorCodeDetail(TrendLearnerErrors.PREDICT_FAILED, 500, "Trend prediction failed"),
-    TrendLearnerErrors.DASHBOARD_FAILED: ErrorCodeDetail(TrendLearnerErrors.DASHBOARD_FAILED, 500, "Trend dashboard query failed"),
-    TrendLearnerErrors.ANALYSIS_FAILED: ErrorCodeDetail(TrendLearnerErrors.ANALYSIS_FAILED, 500, "Trend residual analysis failed"),
+    TrendLearnerErrors.INIT_FAILED: ErrorCodeDetail(
+        TrendLearnerErrors.INIT_FAILED, 500, "Trend learner initialization failed"
+    ),
+    TrendLearnerErrors.PREDICT_FAILED: ErrorCodeDetail(
+        TrendLearnerErrors.PREDICT_FAILED, 500, "Trend prediction failed"
+    ),
+    TrendLearnerErrors.DASHBOARD_FAILED: ErrorCodeDetail(
+        TrendLearnerErrors.DASHBOARD_FAILED, 500, "Trend dashboard query failed"
+    ),
+    TrendLearnerErrors.ANALYSIS_FAILED: ErrorCodeDetail(
+        TrendLearnerErrors.ANALYSIS_FAILED, 500, "Trend residual analysis failed"
+    ),
     # --- THRESHOLD LEARNER ---
-    ThresholdLearnerErrors.INIT_FAILED: ErrorCodeDetail(ThresholdLearnerErrors.INIT_FAILED, 500, "Threshold learner initialization failed"),
-    ThresholdLearnerErrors.INFER_FAILED: ErrorCodeDetail(ThresholdLearnerErrors.INFER_FAILED, 500, "Threshold inference failed"),
-    ThresholdLearnerErrors.FEEDBACK_FAILED: ErrorCodeDetail(ThresholdLearnerErrors.FEEDBACK_FAILED, 500, "Threshold feedback failed"),
-    ThresholdLearnerErrors.DASHBOARD_FAILED: ErrorCodeDetail(ThresholdLearnerErrors.DASHBOARD_FAILED, 500, "Threshold dashboard query failed"),
-    ThresholdLearnerErrors.DECOMPOSITION_FAILED: ErrorCodeDetail(ThresholdLearnerErrors.DECOMPOSITION_FAILED, 500, "Threshold decomposition failed"),
+    ThresholdLearnerErrors.INIT_FAILED: ErrorCodeDetail(
+        ThresholdLearnerErrors.INIT_FAILED, 500, "Threshold learner initialization failed"
+    ),
+    ThresholdLearnerErrors.INFER_FAILED: ErrorCodeDetail(
+        ThresholdLearnerErrors.INFER_FAILED, 500, "Threshold inference failed"
+    ),
+    ThresholdLearnerErrors.FEEDBACK_FAILED: ErrorCodeDetail(
+        ThresholdLearnerErrors.FEEDBACK_FAILED, 500, "Threshold feedback failed"
+    ),
+    ThresholdLearnerErrors.DASHBOARD_FAILED: ErrorCodeDetail(
+        ThresholdLearnerErrors.DASHBOARD_FAILED, 500, "Threshold dashboard query failed"
+    ),
+    ThresholdLearnerErrors.DECOMPOSITION_FAILED: ErrorCodeDetail(
+        ThresholdLearnerErrors.DECOMPOSITION_FAILED, 500, "Threshold decomposition failed"
+    ),
     # --- ANOMALY LEARNER ---
-    AnomalyLearnerErrors.INIT_FAILED: ErrorCodeDetail(AnomalyLearnerErrors.INIT_FAILED, 500, "Anomaly learner initialization failed"),
-    AnomalyLearnerErrors.INFER_FAILED: ErrorCodeDetail(AnomalyLearnerErrors.INFER_FAILED, 500, "Anomaly inference failed"),
-    AnomalyLearnerErrors.FEEDBACK_FAILED: ErrorCodeDetail(AnomalyLearnerErrors.FEEDBACK_FAILED, 500, "Anomaly feedback failed"),
-    AnomalyLearnerErrors.DASHBOARD_FAILED: ErrorCodeDetail(AnomalyLearnerErrors.DASHBOARD_FAILED, 500, "Anomaly dashboard query failed"),
+    AnomalyLearnerErrors.INIT_FAILED: ErrorCodeDetail(
+        AnomalyLearnerErrors.INIT_FAILED, 500, "Anomaly learner initialization failed"
+    ),
+    AnomalyLearnerErrors.INFER_FAILED: ErrorCodeDetail(
+        AnomalyLearnerErrors.INFER_FAILED, 500, "Anomaly inference failed"
+    ),
+    AnomalyLearnerErrors.FEEDBACK_FAILED: ErrorCodeDetail(
+        AnomalyLearnerErrors.FEEDBACK_FAILED, 500, "Anomaly feedback failed"
+    ),
+    AnomalyLearnerErrors.DASHBOARD_FAILED: ErrorCodeDetail(
+        AnomalyLearnerErrors.DASHBOARD_FAILED, 500, "Anomaly dashboard query failed"
+    ),
     # --- SHADOW ---
     ShadowErrors.UPDATE_FAILED: ErrorCodeDetail(ShadowErrors.UPDATE_FAILED, 500, "Device shadow update failed"),
     # --- DEBUG ---
@@ -1778,17 +2562,29 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     DebugErrors.READ_FAILED: ErrorCodeDetail(DebugErrors.READ_FAILED, 500, "Debug read failed"),
     DebugErrors.WRITE_FAILED: ErrorCodeDetail(DebugErrors.WRITE_FAILED, 500, "Debug write failed"),
     # --- OBSERVABILITY ---
-    ObservabilityErrors.ALERT_RULE_FAILED: ErrorCodeDetail(ObservabilityErrors.ALERT_RULE_FAILED, 500, "Observability alert rule operation failed"),
-    ObservabilityErrors.EVENT_FAILED: ErrorCodeDetail(ObservabilityErrors.EVENT_FAILED, 500, "Observability alert event operation failed"),
+    ObservabilityErrors.ALERT_RULE_FAILED: ErrorCodeDetail(
+        ObservabilityErrors.ALERT_RULE_FAILED, 500, "Observability alert rule operation failed"
+    ),
+    ObservabilityErrors.EVENT_FAILED: ErrorCodeDetail(
+        ObservabilityErrors.EVENT_FAILED, 500, "Observability alert event operation failed"
+    ),
     # --- CALIBRATION ---
-    CalibrationErrors.SESSION_FAILED: ErrorCodeDetail(CalibrationErrors.SESSION_FAILED, 500, "Calibration session operation failed"),
+    CalibrationErrors.SESSION_FAILED: ErrorCodeDetail(
+        CalibrationErrors.SESSION_FAILED, 500, "Calibration session operation failed"
+    ),
     # --- EVOLUTION ---
-    EvolutionErrors.SESSION_FAILED: ErrorCodeDetail(EvolutionErrors.SESSION_FAILED, 500, "Evolution session operation failed"),
+    EvolutionErrors.SESSION_FAILED: ErrorCodeDetail(
+        EvolutionErrors.SESSION_FAILED, 500, "Evolution session operation failed"
+    ),
     EvolutionErrors.RUN_FAILED: ErrorCodeDetail(EvolutionErrors.RUN_FAILED, 500, "Evolution run failed"),
     # --- FIRMWARE ---
-    FirmwareErrors.VERIFY_FAILED: ErrorCodeDetail(FirmwareErrors.VERIFY_FAILED, 500, "Firmware signature verification failed"),
+    FirmwareErrors.VERIFY_FAILED: ErrorCodeDetail(
+        FirmwareErrors.VERIFY_FAILED, 500, "Firmware signature verification failed"
+    ),
     FirmwareErrors.HASH_FAILED: ErrorCodeDetail(FirmwareErrors.HASH_FAILED, 500, "Firmware hash verification failed"),
-    FirmwareErrors.MANIFEST_FAILED: ErrorCodeDetail(FirmwareErrors.MANIFEST_FAILED, 500, "Firmware manifest generation failed"),
+    FirmwareErrors.MANIFEST_FAILED: ErrorCodeDetail(
+        FirmwareErrors.MANIFEST_FAILED, 500, "Firmware manifest generation failed"
+    ),
 }
 
 

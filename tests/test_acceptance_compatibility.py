@@ -11,9 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-
 from test_acceptance_smoke import _build_test_app
-
 
 # ═══════════════════════════════════════════════════════════════
 # 模块 6: 兼容性测试 (COMPATIBILITY)
@@ -38,7 +36,9 @@ class TestUserAgentCompatibility:
         """Chrome User-Agent 请求成功"""
         resp = await client.get(
             "/api/v1/devices",
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"  # noqa: E501
+            },
         )
         assert resp.status_code == 200
 
@@ -56,7 +56,9 @@ class TestUserAgentCompatibility:
         """Edge User-Agent 请求成功"""
         resp = await client.get(
             "/api/v1/devices",
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"  # noqa: E501
+            },
         )
         assert resp.status_code == 200
 
@@ -65,7 +67,9 @@ class TestUserAgentCompatibility:
         """Safari User-Agent 请求成功"""
         resp = await client.get(
             "/api/v1/devices",
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"  # noqa: E501
+            },
         )
         assert resp.status_code == 200
 
@@ -115,10 +119,25 @@ class TestContentTypeCompatibility:
     @pytest.mark.asyncio
     async def test_comp2_03_utf8_response(self, client, app):
         """响应支持 UTF-8 编码（中文内容）"""
-        app.state.device_service.list_devices = AsyncMock(return_value=(
-            [{"device_id": "chinese-dev-01", "name": "ChineseDevice", "protocol": "modbus_tcp", "enabled": True, "status": "offline", "config": {"slave_id": 1}, "points": [{"name": "temp", "data_type": "float32", "address": "0"}], "collect_interval": 5, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"}],
-            1,
-        ))
+        app.state.device_service.list_devices = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "device_id": "chinese-dev-01",
+                        "name": "ChineseDevice",
+                        "protocol": "modbus_tcp",
+                        "enabled": True,
+                        "status": "offline",
+                        "config": {"slave_id": 1},
+                        "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
+                        "collect_interval": 5,
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    }
+                ],
+                1,
+            )
+        )
         resp = await client.get("/api/v1/devices")
         assert resp.status_code == 200
 
@@ -145,13 +164,16 @@ class TestHTTPMethodCompliance:
     @pytest.mark.asyncio
     async def test_comp3_02_post_allowed(self, client):
         """POST 方法可用"""
-        resp = await client.post("/api/v1/devices", json={
-            "device_id": "method-test-dev",
-            "name": "MethodTest",
-            "protocol": "modbus_tcp",
-            "config": {"host": "127.0.0.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
-        })
+        resp = await client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "method-test-dev",
+                "name": "MethodTest",
+                "protocol": "modbus_tcp",
+                "config": {"host": "127.0.0.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
+            },
+        )
         # driver validation 可能失败，在 mock 环境下接受 422
         assert resp.status_code in (200, 201, 422)
 
@@ -250,9 +272,7 @@ class TestErrorHandlingCompatibility:
     @pytest.mark.asyncio
     async def test_comp5_03_500_has_error_body(self, client, app):
         """500 响应有错误 body"""
-        app.state.device_service.list_devices = AsyncMock(
-            side_effect=RuntimeError("test error")
-        )
+        app.state.device_service.list_devices = AsyncMock(side_effect=RuntimeError("test error"))
         resp = await client.get("/api/v1/devices")
         assert resp.status_code in (500, 503)
         data = resp.json()

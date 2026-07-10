@@ -33,9 +33,11 @@ class MetricsCollector:
         self._gauges: dict[str, float] = {}
         self._histograms: dict[str, deque[float]] = {}
         self._labels: dict[str, dict[str, str]] = {}
-        self._lock = threading.Lock()  # FIXED-P0: 原问题-使用asyncio.Lock但同步方法中从未acquire，并发写入导致数据竞争；改为threading.Lock并实际使用
+        self._lock = threading.Lock()  # FIXED-P0: 原问题-使用asyncio.Lock但同步方法中从未acquire，并发写入导致数据竞争；改为threading.Lock并实际使用  # noqa: E501
         self._start_time = time.time()
-        self._custom_collectors: list[Callable[[], str | list[str]]] = []  # FIXED-P2: 原问题-类型标注使用内置callable而非typing.Callable
+        self._custom_collectors: list[
+            Callable[[], str | list[str]]
+        ] = []  # FIXED-P2: 原问题-类型标注使用内置callable而非typing.Callable
 
     def inc_counter(self, name: str, value: float = 1, labels: dict[str, str] | None = None) -> None:
         """递增计数器
@@ -91,7 +93,9 @@ class MetricsCollector:
         key = self._make_key(name, labels)
         with self._lock:  # FIXED-P0: 原问题-锁从未acquire，并发写入数据竞争
             if key not in self._histograms:
-                self._histograms[key] = deque(maxlen=10000)  # FIXED-P1: 原问题-list超10000后切片[-5000:]为O(n)，改为deque(maxlen)自动淘汰旧值
+                self._histograms[key] = deque(
+                    maxlen=10000
+                )  # FIXED-P1: 原问题-list超10000后切片[-5000:]为O(n)，改为deque(maxlen)自动淘汰旧值
             self._histograms[key].append(value)
 
     def set_labels(self, name: str, labels: dict[str, str]) -> None:
@@ -118,76 +122,131 @@ class MetricsCollector:
         lines = []
 
         # 1. 驱动级指标
-        lines.extend(self._format_counters("edgelite_driver", {
-            "read_total": "Driver read operations total",
-            "read_failed_total": "Driver read failed operations total",
-            "write_total": "Driver write operations total",
-            "write_failed_total": "Driver write failed operations total",
-            "consecutive_failures": "Driver consecutive failure count",
-        }))
+        lines.extend(
+            self._format_counters(
+                "edgelite_driver",
+                {
+                    "read_total": "Driver read operations total",
+                    "read_failed_total": "Driver read failed operations total",
+                    "write_total": "Driver write operations total",
+                    "write_failed_total": "Driver write failed operations total",
+                    "consecutive_failures": "Driver consecutive failure count",
+                },
+            )
+        )
 
-        lines.extend(self._format_gauges("edgelite_driver", {
-            "connection_status": "Driver connection status (1=connected, 0=disconnected)",
-            "connection_quality_score": "Driver connection quality score (0-100)",
-            "consecutive_failures": "Consecutive failure count",
-        }))
+        lines.extend(
+            self._format_gauges(
+                "edgelite_driver",
+                {
+                    "connection_status": "Driver connection status (1=connected, 0=disconnected)",
+                    "connection_quality_score": "Driver connection quality score (0-100)",
+                    "consecutive_failures": "Consecutive failure count",
+                },
+            )
+        )
 
-        lines.extend(self._format_histograms("edgelite_driver", {
-            "read_latency_seconds": "Driver read latency histogram",
-            "write_latency_seconds": "Driver write latency histogram",
-        }))
+        lines.extend(
+            self._format_histograms(
+                "edgelite_driver",
+                {
+                    "read_latency_seconds": "Driver read latency histogram",
+                    "write_latency_seconds": "Driver write latency histogram",
+                },
+            )
+        )
 
         # 2. 队列级指标
-        lines.extend(self._format_gauges("edgelite_queue", {
-            "depth": "Queue depth",
-            "backpressure_total": "Total backpressure triggers",
-        }))
+        lines.extend(
+            self._format_gauges(
+                "edgelite_queue",
+                {
+                    "depth": "Queue depth",
+                    "backpressure_total": "Total backpressure triggers",
+                },
+            )
+        )
 
-        lines.extend(self._format_counters("edgelite_queue", {
-            "enqueued_total": "Total enqueued items",
-            "dequeued_total": "Total dequeued items",
-            "dropped_total": "Total dropped items due to backpressure",
-        }))
+        lines.extend(
+            self._format_counters(
+                "edgelite_queue",
+                {
+                    "enqueued_total": "Total enqueued items",
+                    "dequeued_total": "Total dequeued items",
+                    "dropped_total": "Total dropped items due to backpressure",
+                },
+            )
+        )
 
         # 3. 告警指标
-        lines.extend(self._format_counters("edgelite_alarm", {
-            "firing_total": "Total alarm firings",
-            "recovery_total": "Total alarm recoveries",
-            "acknowledged_total": "Total alarm acknowledgements",
-        }))
+        lines.extend(
+            self._format_counters(
+                "edgelite_alarm",
+                {
+                    "firing_total": "Total alarm firings",
+                    "recovery_total": "Total alarm recoveries",
+                    "acknowledged_total": "Total alarm acknowledgements",
+                },
+            )
+        )
 
-        lines.extend(self._format_gauges("edgelite_alarm", {
-            "current_firing": "Current firing alarms count",
-        }))
+        lines.extend(
+            self._format_gauges(
+                "edgelite_alarm",
+                {
+                    "current_firing": "Current firing alarms count",
+                },
+            )
+        )
 
         # 4. 采集指标
-        lines.extend(self._format_gauges("edgelite_collect", {
-            "active_tasks": "Active collection tasks",
-            "total_devices": "Total registered devices",
-            "online_devices": "Online devices count",
-            "offline_devices": "Offline devices count",
-        }))
+        lines.extend(
+            self._format_gauges(
+                "edgelite_collect",
+                {
+                    "active_tasks": "Active collection tasks",
+                    "total_devices": "Total registered devices",
+                    "online_devices": "Online devices count",
+                    "offline_devices": "Offline devices count",
+                },
+            )
+        )
 
-        lines.extend(self._format_histograms("edgelite_collect", {
-            "latency_seconds": "Collection latency histogram",
-            "batch_size": "Collection batch size histogram",
-        }))
+        lines.extend(
+            self._format_histograms(
+                "edgelite_collect",
+                {
+                    "latency_seconds": "Collection latency histogram",
+                    "batch_size": "Collection batch size histogram",
+                },
+            )
+        )
 
         # 5. 系统指标
-        lines.extend(self._format_gauges("edgelite_system", {
-            "cpu_percent": "CPU usage percent (from record_system_metrics)",
-            "memory_bytes": "Memory usage in bytes (from record_system_metrics)",
-            "disk_percent": "Disk usage percent (from record_system_metrics)",
-        }))
+        lines.extend(
+            self._format_gauges(
+                "edgelite_system",
+                {
+                    "cpu_percent": "CPU usage percent (from record_system_metrics)",
+                    "memory_bytes": "Memory usage in bytes (from record_system_metrics)",
+                    "disk_percent": "Disk usage percent (from record_system_metrics)",
+                },
+            )
+        )
         lines.extend(self._format_system_metrics())
 
         # 6. 业务级指标
-        lines.extend(self._format_counters("edgelite_business", {
-            "data_points_total": "Total data points collected",
-            "rules_triggered_total": "Total rule triggers",
-            "notifications_sent_total": "Total notifications sent",
-            "api_requests_total": "Total API requests",
-        }))
+        lines.extend(
+            self._format_counters(
+                "edgelite_business",
+                {
+                    "data_points_total": "Total data points collected",
+                    "rules_triggered_total": "Total rule triggers",
+                    "notifications_sent_total": "Total notifications sent",
+                    "api_requests_total": "Total API requests",
+                },
+            )
+        )
 
         # 7. 自定义指标
         lines.extend(self._format_custom_metrics())
@@ -203,7 +262,7 @@ class MetricsCollector:
             with self._lock:
                 items = list(self._counters.items())
             for key, value in items:
-                # FIXED-P0: 原问题-匹配逻辑key.startswith(metric_name)无法匹配带前缀的键名（如"edgelite_driver_read_total"不匹配"read_total"），导致所有指标永不输出
+                # FIXED-P0: 原问题-匹配逻辑key.startswith(metric_name)无法匹配带前缀的键名（如"edgelite_driver_read_total"不匹配"read_total"），导致所有指标永不输出  # noqa: E501
                 if key == full_name or key.startswith(full_name + "{"):
                     if not matched:
                         lines.append(f"# HELP {full_name} {help_text}")
@@ -257,13 +316,15 @@ class MetricsCollector:
                     # 计算分位数
                     p50_idx = min(int(count * 0.5), count - 1)
                     p95_idx = min(int(count * 0.95), count - 1)
-                    p99_idx = min(int(count * 0.99), count - 1)  # FIXED-P1: 原问题-count=1时int(0.99)=0安全，但count=100时int(99.0)=99越界；加min保护
+                    p99_idx = min(
+                        int(count * 0.99), count - 1
+                    )  # FIXED-P1: 原问题-count=1时int(0.99)=0安全，但count=100时int(99.0)=99越界；加min保护
 
                     # 提取标签部分
-                    base_labels = key[len(full_name) + 1:] if len(key) > len(full_name) else ""
+                    base_labels = key[len(full_name) + 1 :] if len(key) > len(full_name) else ""
 
-                    lines.append(f'{full_name}_count{{{base_labels}}} {count}')
-                    lines.append(f'{full_name}_sum{{{base_labels}}} {total:.6f}')
+                    lines.append(f"{full_name}_count{{{base_labels}}} {count}")
+                    lines.append(f"{full_name}_sum{{{base_labels}}} {total:.6f}")
 
                     if count > 0:
                         lines.append(f'{full_name}{{quantile="0.5",{base_labels}}} {values_sorted[p50_idx]:.6f}')
@@ -283,7 +344,9 @@ class MetricsCollector:
             import psutil
 
             # CPU
-            cpu_percent = psutil.cpu_percent(interval=None)  # FIXED-P1: 原问题-interval=0.1阻塞100ms，在async事件循环中导致卡顿；改为None非阻塞返回上次调用以来的平均值
+            cpu_percent = psutil.cpu_percent(
+                interval=None
+            )  # FIXED-P1: 原问题-interval=0.1阻塞100ms，在async事件循环中导致卡顿；改为None非阻塞返回上次调用以来的平均值  # noqa: E501
             lines.append("# HELP edgelite_system_cpu_percent CPU usage percent")
             lines.append("# TYPE edgelite_system_cpu_percent gauge")
             lines.append(f"edgelite_system_cpu_percent {cpu_percent:.2f}")
@@ -339,7 +402,9 @@ def record_driver_read(device_id: str, driver_name: str = "", success: bool = Tr
     if driver_name:
         labels["driver"] = driver_name
 
-    collector.inc_counter("edgelite_driver_read_total", labels=labels)  # FIXED-P0: 原问题-指标名缺少"edgelite_"前缀，与_format_counters期望的full_name不匹配，指标永不输出
+    collector.inc_counter(
+        "edgelite_driver_read_total", labels=labels
+    )  # FIXED-P0: 原问题-指标名缺少"edgelite_"前缀，与_format_counters期望的full_name不匹配，指标永不输出
     if not success:
         collector.inc_counter("edgelite_driver_read_failed_total", labels=labels)
     collector.observe_histogram("edgelite_driver_read_latency_seconds", latency_ms / 1000.0, labels=labels)
@@ -352,19 +417,25 @@ def record_driver_write(device_id: str, driver_name: str = "", success: bool = T
     if driver_name:
         labels["driver"] = driver_name
 
-    collector.inc_counter("edgelite_driver_write_total", labels=labels)  # FIXED-P0: 原问题-同record_driver_read，指标名缺少前缀
+    collector.inc_counter(
+        "edgelite_driver_write_total", labels=labels
+    )  # FIXED-P0: 原问题-同record_driver_read，指标名缺少前缀
     if not success:
         collector.inc_counter("edgelite_driver_write_failed_total", labels=labels)
     collector.observe_histogram("edgelite_driver_write_latency_seconds", latency_ms / 1000.0, labels=labels)
 
 
-def record_connection_status(device_id: str, driver_name: str = "", connected: bool = True, quality_score: float = 100.0) -> None:
+def record_connection_status(
+    device_id: str, driver_name: str = "", connected: bool = True, quality_score: float = 100.0
+) -> None:
     """记录连接状态"""
     collector = metrics_collector()
     labels = {"device": device_id}
     if driver_name:
         labels["driver"] = driver_name
-    collector.set_gauge("edgelite_driver_connection_status", 1 if connected else 0, labels)  # FIXED-P0: 原问题-指标名缺少前缀
+    collector.set_gauge(
+        "edgelite_driver_connection_status", 1 if connected else 0, labels
+    )  # FIXED-P0: 原问题-指标名缺少前缀
     collector.set_gauge("edgelite_driver_connection_quality_score", quality_score, labels)
     if not connected:
         collector.inc_counter("edgelite_driver_consecutive_failures", labels=labels)
@@ -385,10 +456,14 @@ def record_alarm(action: str, severity: str | None = None) -> None:
 
     if action == "firing":
         collector.inc_counter("edgelite_alarm_firing_total", labels=labels)  # FIXED-P0: 原问题-指标名缺少前缀
-        collector.inc_gauge("edgelite_alarm_current_firing", labels=labels)  # FIXED-P0: 原问题-alarm_current_firing为Gauge但使用inc_counter存储在_counters字典，_format_gauges查找_gauges字典永远找不到；且counter递减-1违反Prometheus语义
+        collector.inc_gauge(
+            "edgelite_alarm_current_firing", labels=labels
+        )  # FIXED-P0: 原问题-alarm_current_firing为Gauge但使用inc_counter存储在_counters字典，_format_gauges查找_gauges字典永远找不到；且counter递减-1违反Prometheus语义  # noqa: E501
     elif action == "recovery":
         collector.inc_counter("edgelite_alarm_recovery_total", labels=labels)
-        collector.inc_gauge("edgelite_alarm_current_firing", -1, labels=labels)  # FIXED-P0: 原问题-使用inc_counter(-1)递减counter，改为inc_gauge(-1)正确递减仪表
+        collector.inc_gauge(
+            "edgelite_alarm_current_firing", -1, labels=labels
+        )  # FIXED-P0: 原问题-使用inc_counter(-1)递减counter，改为inc_gauge(-1)正确递减仪表
     elif action == "ack":
         collector.inc_counter("edgelite_alarm_acknowledged_total", labels=labels)
 
@@ -404,7 +479,9 @@ def record_queue_metrics(depth: int, backpressure: bool = False) -> None:
 def record_collection_latency(device_id: str, latency_ms: float, batch_size: int) -> None:
     """记录采集延迟"""
     collector = metrics_collector()
-    collector.observe_histogram("edgelite_collect_latency_seconds", latency_ms / 1000.0, {"device": device_id})  # FIXED-P0: 原问题-指标名缺少前缀
+    collector.observe_histogram(
+        "edgelite_collect_latency_seconds", latency_ms / 1000.0, {"device": device_id}
+    )  # FIXED-P0: 原问题-指标名缺少前缀
     collector.observe_histogram("edgelite_collect_batch_size", float(batch_size), {"device": device_id})
 
 

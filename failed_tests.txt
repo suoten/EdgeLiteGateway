@@ -1,0 +1,1 @@
+﻿FAILED tests/test_registry_sandbox.py::TestConcurrentImportSafety::test_import_during_loading_succeeds - AssertionError: Concurrent import failed during loading: [ImportError("Import of 'os' is not in the allowed modules whitelist for custom drivers")]

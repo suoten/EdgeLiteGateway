@@ -20,12 +20,17 @@ try:
 except ImportError:
     pymodbus = None
 
-from edgelite.constants import _SERIAL_READ_TIMEOUT, _SERIAL_WRITE_WAIT, _SERIAL_POLL_INTERVAL  # FIXED: P2-3 将魔法数字 sleep 间隔提取为常量
-
+from edgelite.constants import (  # FIXED: P2-3 将魔法数字 sleep 间隔提取为常量
+    _SERIAL_POLL_INTERVAL,
+    _SERIAL_READ_TIMEOUT,
+    _SERIAL_WRITE_WAIT,
+)
 from edgelite.drivers.base import DriverPlugin
 
 _PYMODBUS_MAJOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[0]) if pymodbus else 2
-_PYMODBUS_MINOR = int(getattr(pymodbus, "__version__", "2.0.0").split(".")[1]) if pymodbus and _PYMODBUS_MAJOR >= 3 else 0
+_PYMODBUS_MINOR = (
+    int(getattr(pymodbus, "__version__", "2.0.0").split(".")[1]) if pymodbus and _PYMODBUS_MAJOR >= 3 else 0
+)
 _PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)
 
 # FIXED: pymodbus 3.7+ 不再接受 slave/unit 作为关键字参数
@@ -91,12 +96,54 @@ class SerialPortDriver(DriverPlugin):
     config_schema = {
         "description": "Serial communication (RS232/RS485), supports Modbus RTU and other protocols",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "port", "type": "string", "label": "Serial Port", "description": "Serial device path, e.g. COM1 on Windows, /dev/ttyUSB0 on Linux", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "baudrate", "type": "integer", "label": "Baud Rate", "description": "Serial communication speed, must match device", "default": 9600, "options": [9600, 19200, 38400, 57600, 115200]},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "bytesize", "type": "integer", "label": "Data Bits", "description": "Number of data bits per byte", "default": 8, "options": [5, 6, 7, 8]},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "parity", "type": "string", "label": "Parity", "description": "N=None, E=Even, O=Odd", "default": "N", "options": ["N", "E", "O"]},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "stopbits", "type": "number", "label": "Stop Bits", "description": "Number of stop bits", "default": 1, "options": [1, 1.5, 2]},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "protocol", "type": "string", "label": "Protocol", "description": "raw=raw passthrough, modbus_rtu=Modbus RTU", "default": "raw", "options": ["raw", "modbus_rtu"]},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "string",
+                "label": "Serial Port",
+                "description": "Serial device path, e.g. COM1 on Windows, /dev/ttyUSB0 on Linux",
+                "default": "COM1",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "baudrate",
+                "type": "integer",
+                "label": "Baud Rate",
+                "description": "Serial communication speed, must match device",
+                "default": 9600,
+                "options": [9600, 19200, 38400, 57600, 115200],
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "bytesize",
+                "type": "integer",
+                "label": "Data Bits",
+                "description": "Number of data bits per byte",
+                "default": 8,
+                "options": [5, 6, 7, 8],
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "parity",
+                "type": "string",
+                "label": "Parity",
+                "description": "N=None, E=Even, O=Odd",
+                "default": "N",
+                "options": ["N", "E", "O"],
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "stopbits",
+                "type": "number",
+                "label": "Stop Bits",
+                "description": "Number of stop bits",
+                "default": 1,
+                "options": [1, 1.5, 2],
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "protocol",
+                "type": "string",
+                "label": "Protocol",
+                "description": "raw=raw passthrough, modbus_rtu=Modbus RTU",
+                "default": "raw",
+                "options": ["raw", "modbus_rtu"],
+            },  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -249,9 +296,7 @@ class SerialPortDriver(DriverPlugin):
                         _set_client_slave_id(client, slave_id)
                         try:
                             if func == 1:
-                                rr = await asyncio.to_thread(
-                                    client.read_coils, addr, count, **_slave_kwarg(slave_id)
-                                )
+                                rr = await asyncio.to_thread(client.read_coils, addr, count, **_slave_kwarg(slave_id))
                             elif func == 3:
                                 rr = await asyncio.to_thread(
                                     client.read_holding_registers, addr, count, **_slave_kwarg(slave_id)
@@ -283,9 +328,7 @@ class SerialPortDriver(DriverPlugin):
                     async with self._lock:
                         await asyncio.to_thread(self._serial.write, cmd.encode("utf-8"))
                         await asyncio.sleep(_SERIAL_WRITE_WAIT)  # FIXED: P2-3 原魔法数字 0.1，串口写入后等待
-                        data = await asyncio.to_thread(
-                            self._serial.read, self._serial.in_waiting or 1024
-                        )
+                        data = await asyncio.to_thread(self._serial.read, self._serial.in_waiting or 1024)
                     result[point] = data.decode("utf-8", errors="replace").strip() if data else None
                 else:
                     result[point] = None

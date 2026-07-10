@@ -119,9 +119,7 @@ def _parse_modbus_exception(result: Any) -> str | None:
             if len(data) >= 2:
                 exc_code = data[1] | 0x80
                 # FIXED-P2: 未映射的异常码返回描述而非 None
-                return _MODBUS_EXCEPTION_CODES.get(
-                    exc_code, f"Unknown Exception (0x{exc_code & 0x7F:02X})"
-                )
+                return _MODBUS_EXCEPTION_CODES.get(exc_code, f"Unknown Exception (0x{exc_code & 0x7F:02X})")
         err_str = str(result)
         for code, desc in _MODBUS_EXCEPTION_CODES.items():
             if hex(code) in err_str or desc.split("(")[0].strip() in err_str:
@@ -137,10 +135,10 @@ def _parse_modbus_exception(result: Any) -> str | None:
 # ── 寄存器类型映射 ─────────────────────────────────────────────────────
 # 名称 → (功能码, 每个寄存器字节数)
 REGISTER_TYPES: dict[str, tuple[int, int]] = {
-    "coil": (0, 1),      # 0x01 → read_coils, → write_coil
+    "coil": (0, 1),  # 0x01 → read_coils, → write_coil
     "discrete": (1, 1),  # 1x → read_discrete inputs
-    "holding": (3, 2),   # 3x → read_holding_registers, → write_register
-    "input": (4, 2),     # 4x → read_input_registers
+    "holding": (3, 2),  # 3x → read_holding_registers, → write_register
+    "input": (4, 2),  # 4x → read_input_registers
 }
 
 # 数据类型→寄存器数量映射
@@ -157,8 +155,8 @@ DATA_TYPE_REGS: dict[str, int] = {
 
 # 字节序→(寄存器打包格式, 浮点/整数解包格式)
 _BYTE_ORDER_FMT: dict[str, tuple[str, str]] = {
-    "ABCD": (">", ">"),   # Big-Endian (默认)
-    "BADC": ("<", ">"),   # Big-Endian Byte Swap
-    "CDAB": (">", "<"),   # Little-Endian Word Swap
-    "DCBA": ("<", "<"),   # Little-Endian (完全反转)
+    "ABCD": (">", ">"),  # Big-Endian (默认)
+    "BADC": ("<", ">"),  # Big-Endian Byte Swap
+    "CDAB": (">", "<"),  # Little-Endian Word Swap
+    "DCBA": ("<", "<"),  # Little-Endian (完全反转)
 }

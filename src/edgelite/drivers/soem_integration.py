@@ -11,15 +11,15 @@ SOEM (Simple Open EtherCAT Master) 是一个开源的EtherCAT主站库。
     # Linux (Debian/Ubuntu)
     apt install soem
     pip install pysoem
-    
+
     # Linux (Alpine)
     apk add soem-dev
     pip install pysoem
-    
+
     # macOS
     brew install soem
     pip install pysoem
-    
+
     # Windows
     pip install pysoem
 
@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # 尝试导入 pysoem 包
 try:
     import pysoem
+
     PYSOEM_AVAILABLE = True
 except ImportError:
     PYSOEM_AVAILABLE = False
@@ -61,6 +62,7 @@ EC_STATE_ERROR = 0x20
 @dataclass
 class SOEMSlaveInfo:
     """SOEM从站信息"""
+
     position: int
     vendor_id: int
     product_code: int
@@ -76,6 +78,7 @@ class SOEMSlaveInfo:
 @dataclass
 class SOEMPdoConfig:
     """PDO配置"""
+
     index: int
     subindex: int
     name: str
@@ -115,7 +118,7 @@ class SOEMContext:
             # pysoem 1.1.x API
             self._ifhandle = pysoem.Network()
             self._initialized = True
-            logger.info("SOEM Network created (pysoem %s)", getattr(pysoem, '__version__', 'unknown'))
+            logger.info("SOEM Network created (pysoem %s)", getattr(pysoem, "__version__", "unknown"))
             return True
         except Exception as e:
             logger.error("Failed to create SOEM Network: %s", e)
@@ -138,31 +141,31 @@ class SOEMContext:
             # 打开网络接口并扫描从站
             self._ifhandle.open(self._iface)
             self._ifhandle.config_init()
-            
+
             slave_count = self._ifhandle.ec_slavecount
             logger.info("Found %d EtherCAT slaves", slave_count)
 
             # 读取每个从站信息
             for i in range(slave_count):
                 slave = self._ifhandle.slaves[i]
-                
+
                 # 解析设备名称
                 name = ""
                 try:
-                    if hasattr(slave, 'name') and slave.name:
+                    if hasattr(slave, "name") and slave.name:
                         if isinstance(slave.name, bytes):
-                            name = slave.name.decode('utf-8', errors='replace').strip('\x00')
+                            name = slave.name.decode("utf-8", errors="replace").strip("\x00")
                         else:
                             name = str(slave.name)
                 except Exception:
-                    name = f"Slave_{i+1}"
-                
+                    name = f"Slave_{i + 1}"
+
                 # 获取厂商ID和产品码
-                vendor_id = getattr(slave, 'man', 0)
-                product_code = getattr(slave, 'id', 0)
-                revision = getattr(slave, 'rev', 0)
-                state = getattr(slave, 'state', EC_STATE_INIT)
-                
+                vendor_id = getattr(slave, "man", 0)
+                product_code = getattr(slave, "id", 0)
+                revision = getattr(slave, "rev", 0)
+                state = getattr(slave, "state", EC_STATE_INIT)
+
                 slave_info = SOEMSlaveInfo(
                     position=i + 1,
                     vendor_id=vendor_id,
@@ -171,11 +174,17 @@ class SOEMContext:
                     device_type=0,
                     name=name,
                     state=state,
-                    alias=getattr(slave, 'alias', 0),
+                    alias=getattr(slave, "alias", 0),
                 )
                 self._slaves.append(slave_info)
-                logger.debug("Slave %d: %s (VID: 0x%08X, PID: 0x%08X, REV: 0x%08X)", 
-                           i + 1, name, vendor_id, product_code, revision)
+                logger.debug(
+                    "Slave %d: %s (VID: 0x%08X, PID: 0x%08X, REV: 0x%08X)",
+                    i + 1,
+                    name,
+                    vendor_id,
+                    product_code,
+                    revision,
+                )
 
             return self._slaves
 
@@ -317,7 +326,7 @@ class SOEMContext:
         elif data_type == "int16":
             return struct.unpack("<h", data[:2])[0]
         elif data_type == "string":
-            return data.decode('utf-8', errors='replace').strip('\x00')
+            return data.decode("utf-8", errors="replace").strip("\x00")
         else:
             return data.hex()
 
@@ -350,7 +359,7 @@ class SOEMContext:
         elif data_type == "int16":
             return struct.pack("<h", int(value))
         elif data_type == "string":
-            return str(value).encode('utf-8')
+            return str(value).encode("utf-8")
         else:
             return str(value).encode()
 

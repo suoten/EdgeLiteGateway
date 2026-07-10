@@ -99,7 +99,11 @@ SERVICE_DEFINITIONS = {
         ],
         "related_features": [
             {"name": "SVC_MQTT_SERVER_RELATED_1_NAME", "route": "Devices", "hint": "SVC_MQTT_SERVER_RELATED_1_HINT"},
-            {"name": "SVC_MQTT_SERVER_RELATED_2_NAME", "route": "PlatformConfig", "hint": "SVC_MQTT_SERVER_RELATED_2_HINT"},
+            {
+                "name": "SVC_MQTT_SERVER_RELATED_2_NAME",
+                "route": "PlatformConfig",
+                "hint": "SVC_MQTT_SERVER_RELATED_2_HINT",
+            },
         ],
         "setup_guide": [
             "SVC_MQTT_SERVER_GUIDE_1",
@@ -156,7 +160,11 @@ SERVICE_DEFINITIONS = {
         ],
         "related_features": [
             {"name": "SVC_MODBUS_SLAVE_RELATED_1_NAME", "route": "Devices", "hint": "SVC_MODBUS_SLAVE_RELATED_1_HINT"},
-            {"name": "SVC_MODBUS_SLAVE_RELATED_2_NAME", "route": "DataQuery", "hint": "SVC_MODBUS_SLAVE_RELATED_2_HINT"},
+            {
+                "name": "SVC_MODBUS_SLAVE_RELATED_2_NAME",
+                "route": "DataQuery",
+                "hint": "SVC_MODBUS_SLAVE_RELATED_2_HINT",
+            },
         ],
         "setup_guide": [
             "SVC_MODBUS_SLAVE_GUIDE_1",
@@ -205,8 +213,16 @@ SERVICE_DEFINITIONS = {
             "SVC_SERIAL_BRIDGE_USE_CASE_3",
         ],
         "related_features": [
-            {"name": "SVC_SERIAL_BRIDGE_RELATED_1_NAME", "route": "Devices", "hint": "SVC_SERIAL_BRIDGE_RELATED_1_HINT"},
-            {"name": "SVC_SERIAL_BRIDGE_RELATED_2_NAME", "route": "DriverConfig", "hint": "SVC_SERIAL_BRIDGE_RELATED_2_HINT"},
+            {
+                "name": "SVC_SERIAL_BRIDGE_RELATED_1_NAME",
+                "route": "Devices",
+                "hint": "SVC_SERIAL_BRIDGE_RELATED_1_HINT",
+            },
+            {
+                "name": "SVC_SERIAL_BRIDGE_RELATED_2_NAME",
+                "route": "DriverConfig",
+                "hint": "SVC_SERIAL_BRIDGE_RELATED_2_HINT",
+            },
         ],
         "setup_guide": [
             "SVC_SERIAL_BRIDGE_GUIDE_1",
@@ -470,9 +486,7 @@ class ServiceManager:
                         running_info["connections"] = instance.get_client_count()
                     elif hasattr(instance, "_clients"):
                         clients = instance._clients
-                        running_info["connections"] = (
-                            len(clients) if isinstance(clients, (list, set, dict)) else 0
-                        )
+                        running_info["connections"] = len(clients) if isinstance(clients, (list, set, dict)) else 0
                     else:
                         running_info["connections"] = 0
                 except Exception:
@@ -482,8 +496,7 @@ class ServiceManager:
                     if hasattr(instance, "get_status"):
                         sb_stats = instance.get_status()
                         running_info["total_connections"] = getattr(
-                            sb_stats, "total_connections",
-                            getattr(sb_stats, "client_count", 0)
+                            sb_stats, "total_connections", getattr(sb_stats, "client_count", 0)
                         )
                 except Exception as e:  # FIXED: 原问题-获取串口桥接统计异常静默置零，无日志
                     logger.debug("Failed to get serial bridge stats: %s", e)
@@ -502,9 +515,7 @@ class ServiceManager:
 
         current_config = {}
         if section_config:
-            current_config = {
-                k: getattr(section_config, k) for k in section_config.model_fields if k != "enabled"
-            }
+            current_config = {k: getattr(section_config, k) for k in section_config.model_fields if k != "enabled"}
 
         return ServiceInfo(
             name=service_name,
@@ -627,9 +638,20 @@ class ServiceManager:
                 await self._start_service_instance(service_name)
                 return {"success": True, "message": ServiceErrors.SERVICE_STARTED}
             except RuntimeError as e:
-                return {"success": False, "error": ServiceErrors.START_FAILED, "error_type": "runtime", "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
+                return {
+                    "success": False,
+                    "error": ServiceErrors.START_FAILED,
+                    "error_type": "runtime",
+                    "detail": str(e),
+                    "hint": self._get_start_error_hint(service_name, e),
+                }
             except Exception as e:
-                return {"success": False, "error": ServiceErrors.START_FAILED, "detail": str(e), "hint": self._get_start_error_hint(service_name, e)}
+                return {
+                    "success": False,
+                    "error": ServiceErrors.START_FAILED,
+                    "detail": str(e),
+                    "hint": self._get_start_error_hint(service_name, e),
+                }
 
     async def stop_service(self, service_name: str) -> dict:
         # FIX-P1: 使用 _op_lock 串行化，与 start_service/update_service_config 互斥，
@@ -687,9 +709,7 @@ class ServiceManager:
             return "ERR_SVC_HINT_TIMEOUT"
         return "ERR_SVC_HINT_CHECK_CONFIG"
 
-    async def _start_service_instance(
-        self, service_name: str, config_values: dict | None = None
-    ) -> None:
+    async def _start_service_instance(self, service_name: str, config_values: dict | None = None) -> None:
         svc_def = SERVICE_DEFINITIONS[service_name]
         # FIXED-P0: 原代码第664行 `svc_def["engine_class"]` 是无效语句（无副作用），已删除
 

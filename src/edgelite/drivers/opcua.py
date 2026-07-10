@@ -39,12 +39,30 @@ from edgelite.services.i18n import t as _t
 logger = logging.getLogger(__name__)
 
 _OPCUA_QUALITY_MAP = {
-    0: "bad", 4: "bad", 8: "bad", 12: "bad",
-    16: "bad", 20: "bad", 24: "bad", 28: "bad",
-    32: "uncertain", 36: "uncertain", 40: "uncertain", 44: "uncertain",
-    48: "uncertain", 52: "uncertain", 56: "uncertain", 60: "uncertain",
-    64: "uncertain", 68: "uncertain", 72: "uncertain", 76: "uncertain",
-    80: "uncertain", 84: "uncertain", 88: "uncertain", 92: "uncertain",
+    0: "bad",
+    4: "bad",
+    8: "bad",
+    12: "bad",
+    16: "bad",
+    20: "bad",
+    24: "bad",
+    28: "bad",
+    32: "uncertain",
+    36: "uncertain",
+    40: "uncertain",
+    44: "uncertain",
+    48: "uncertain",
+    52: "uncertain",
+    56: "uncertain",
+    60: "uncertain",
+    64: "uncertain",
+    68: "uncertain",
+    72: "uncertain",
+    76: "uncertain",
+    80: "uncertain",
+    84: "uncertain",
+    88: "uncertain",
+    92: "uncertain",
 }
 
 _OPCUA_STATUS_CODE_NAME_MAP: dict[int, str] = {
@@ -199,9 +217,21 @@ _OPCUA_INT_TYPES = frozenset({"SByte", "Byte", "Int16", "Int32", "Int64", "UInt1
 _OPCUA_FLOAT_TYPES = frozenset({"Float", "Double"})
 _OPCUA_NUMERIC_TYPES = _OPCUA_INT_TYPES | _OPCUA_FLOAT_TYPES
 _OPCUA_BUILTIN_TYPE_IDS = {
-    1: "Boolean", 2: "SByte", 3: "Byte", 4: "Int16", 5: "UInt16",
-    6: "Int32", 7: "UInt32", 8: "Int64", 9: "UInt64", 10: "Float",
-    11: "Double", 12: "String", 13: "DateTime", 14: "Guid", 15: "ByteString",
+    1: "Boolean",
+    2: "SByte",
+    3: "Byte",
+    4: "Int16",
+    5: "UInt16",
+    6: "Int32",
+    7: "UInt32",
+    8: "Int64",
+    9: "UInt64",
+    10: "Float",
+    11: "Double",
+    12: "String",
+    13: "DateTime",
+    14: "Guid",
+    15: "ByteString",
 }
 _MAX_CONNECT_RETRIES = 5
 _MAX_TOTAL_RECONNECT_DURATION = 86400  # FIXED-P1: 最大总重连时长24小时，超限后标记OFFLINE停止自动重连
@@ -295,7 +325,11 @@ def _calc_backoff(fail_count: int) -> float:
 
 def _resolve_complex_type_with_fallback(obj: Any, depth: int = 0, node_id: str = "") -> tuple[Any, str]:
     if depth >= 10:
-        logger.warning("OPC-UA complex type resolution depth limit reached for node %s (depth=%d), returning str representation", node_id or type(obj).__name__, depth)
+        logger.warning(
+            "OPC-UA complex type resolution depth limit reached for node %s (depth=%d), returning str representation",
+            node_id or type(obj).__name__,
+            depth,
+        )
         return str(obj), "bad"
     if isinstance(obj, (int, float, str, bool)):
         return obj, "good"
@@ -374,7 +408,6 @@ def _resolve_complex_type_with_fallback(obj: Any, depth: int = 0, node_id: str =
 
 
 class OpcUaDriver(DriverPlugin):
-
     _CONNECT_TIMEOUT = 5
     _READ_TIMEOUT = 30
     _WRITE_TIMEOUT = 10
@@ -390,57 +423,272 @@ class OpcUaDriver(DriverPlugin):
         "properties": {
             "endpoint": {"type": "string", "description": "OPC UA server endpoint URL", "format": "url"},
             "backup_endpoint": {"type": "string", "description": "Backup OPC UA server endpoint URL for redundancy"},
-            "security_mode": {"type": "string", "description": "Encryption mode", "enum": ["None", "Sign", "SignAndEncrypt"]},
+            "security_mode": {
+                "type": "string",
+                "description": "Encryption mode",
+                "enum": ["None", "Sign", "SignAndEncrypt"],
+            },
             "deadband": {"type": "number", "description": "Deadband filter threshold (software-side)", "minimum": 0},
-            "scaling": {"type": "object", "description": "Linear scaling transformation", "properties": {"ratio": {"type": "number", "default": 1.0}, "offset": {"type": "number", "default": 0.0}}},
-            "clamp": {"type": "object", "description": "Value range validation", "properties": {"min": {"type": "number"}, "max": {"type": "number"}}},
+            "scaling": {
+                "type": "object",
+                "description": "Linear scaling transformation",
+                "properties": {
+                    "ratio": {"type": "number", "default": 1.0},
+                    "offset": {"type": "number", "default": 0.0},
+                },
+            },
+            "clamp": {
+                "type": "object",
+                "description": "Value range validation",
+                "properties": {"min": {"type": "number"}, "max": {"type": "number"}},
+            },
             "rate_of_change": {"type": "number", "description": "Rate of change threshold (units/s)", "minimum": 0},
-            "frozen_count": {"type": "integer", "description": "Frozen value detection threshold (consecutive same values)", "minimum": 2},
-            "use_native_deadband": {"type": "boolean", "description": "Prefer OPC-UA native deadband over software deadband", "default": True},
-            "collection_mode": {"type": "string", "description": "Collection mode: auto/subscription/polling", "enum": ["auto", "subscription", "polling"], "default": "auto"},
-            "write_type_strategy": {"type": "string", "description": "Type mismatch strategy: truncate or reject", "enum": ["truncate", "reject"], "default": "reject"},
-            "backup_client_cert_path": {"type": "string", "description": "Backup client certificate path for cert redundancy"},
-            "backup_client_key_path": {"type": "string", "description": "Backup client private key path for cert redundancy"},
+            "frozen_count": {
+                "type": "integer",
+                "description": "Frozen value detection threshold (consecutive same values)",
+                "minimum": 2,
+            },
+            "use_native_deadband": {
+                "type": "boolean",
+                "description": "Prefer OPC-UA native deadband over software deadband",
+                "default": True,
+            },
+            "collection_mode": {
+                "type": "string",
+                "description": "Collection mode: auto/subscription/polling",
+                "enum": ["auto", "subscription", "polling"],
+                "default": "auto",
+            },
+            "write_type_strategy": {
+                "type": "string",
+                "description": "Type mismatch strategy: truncate or reject",
+                "enum": ["truncate", "reject"],
+                "default": "reject",
+            },
+            "backup_client_cert_path": {
+                "type": "string",
+                "description": "Backup client certificate path for cert redundancy",
+            },
+            "backup_client_key_path": {
+                "type": "string",
+                "description": "Backup client private key path for cert redundancy",
+            },
             "backup_ca_cert_path": {"type": "string", "description": "Backup CA certificate path for cert redundancy"},
         },
         "fields": [
-            {"name": "endpoint", "type": "string", "label": "OPC UA Endpoint", "description": "Primary OPC UA server endpoint URL", "default": "opc.tcp://localhost:4840", "required": True},
-            {"name": "backup_endpoint", "type": "string", "label": "Backup Endpoint", "description": "Backup OPC UA server endpoint URL for redundancy failover", "default": ""},
-            {"name": "username", "type": "string", "label": "Username", "description": "Leave empty for anonymous login"},
-            {"name": "password", "type": "string", "label": "Password", "description": "User password, leave empty for anonymous login", "secret": True},
-            {"name": "security_mode", "type": "string", "label": "Security Mode", "description": "Encryption mode, None=plaintext, SignAndEncrypt=highest security", "default": "SignAndEncrypt", "options": ["None", "Sign", "SignAndEncrypt"]},
-            {"name": "security_policy", "type": "string", "label": "Security Policy", "description": "Security policy: None, Basic128Rsa15, Basic256, Basic256Sha256", "default": "Basic256Sha256", "options": ["None", "Basic128Rsa15", "Basic256", "Basic256Sha256"]},
-            {"name": "client_cert_path", "type": "string", "label": "Client Cert Path", "description": "Path to client certificate file (PEM/DER)", "default": ""},
-            {"name": "client_key_path", "type": "string", "label": "Client Key Path", "description": "Path to client private key file (PEM/DER)", "default": ""},
-            {"name": "ca_cert_path", "type": "string", "label": "CA Cert Path", "description": "Path to CA certificate file (PEM/DER)", "default": ""},
-            {"name": "session_timeout", "type": "integer", "label": "Session Timeout (ms)", "description": "OPC UA session timeout in milliseconds", "default": 60000},
-            {"name": "subscription_interval", "type": "integer", "label": "Subscription Interval (ms)", "description": "Subscription publishing interval in milliseconds", "default": 500},
-            {"name": "deadband_type", "type": "string", "label": "Deadband Type (Native)", "description": "Native OPC UA deadband filter type: None=no filter, Absolute=absolute change, Percent=percent of range", "default": "None", "options": ["None", "Absolute", "Percent"]},
-            {"name": "deadband_value", "type": "number", "label": "Deadband Value (Native)", "description": "Native OPC UA deadband threshold value (0 to disable)", "default": 0},
-            {"name": "use_native_deadband", "type": "boolean", "label": "Use Native Deadband", "description": "Prefer OPC-UA native deadband over software deadband", "default": True},
-            {"name": "use_subscription", "type": "boolean", "label": "Use Subscription", "description": "Enable subscription mode for data change notifications", "default": True},
-            {"name": "collection_mode", "type": "string", "label": "Collection Mode", "description": "Collection mode: auto=subscription with polling fallback, subscription=subscription only, polling=polling only", "default": "auto", "options": ["auto", "subscription", "polling"]},
-            {"name": "deadband", "type": "number", "label": "Deadband (Software)", "description": "Software-side deadband filter threshold, suppress updates when change < deadband", "default": None},
-            {"name": "scaling", "type": "object", "label": "Scaling", "description": "Linear scaling: y = x * ratio + offset", "default": None, "fields": [
-                {"name": "ratio", "type": "number", "label": "Ratio", "description": "Scaling ratio (multiplier)", "default": 1.0},
-                {"name": "offset", "type": "number", "label": "Offset", "description": "Scaling offset (addend)", "default": 0.0},
-            ]},
-            {"name": "clamp", "type": "object", "label": "Clamp", "description": "Value range validation, mark quality=bad when out of range", "default": None, "fields": [
-                {"name": "min", "type": "number", "label": "Min", "description": "Minimum allowed value"},
-                {"name": "max", "type": "number", "label": "Max", "description": "Maximum allowed value"},
-            ]},
-            {"name": "rate_of_change", "type": "number", "label": "Rate of Change", "description": "Rate of change threshold (units/s), mark quality=uncertain when exceeded", "default": None},
-            {"name": "frozen_count", "type": "integer", "label": "Frozen Count", "description": "Frozen value detection: consecutive same values before marking uncertain", "default": 10},
-            {"name": "write_type_strategy", "type": "string", "label": "Write Type Strategy", "description": "Strategy when write value type mismatches node data type: truncate=auto-convert, reject=reject write", "default": "reject", "options": ["reject", "truncate"]},
-            {"name": "backup_client_cert_path", "type": "string", "label": "Backup Client Cert Path", "description": "Backup client certificate path, auto-switch when primary cert expires", "default": ""},
-            {"name": "backup_client_key_path", "type": "string", "label": "Backup Client Key Path", "description": "Backup client private key path for cert redundancy", "default": ""},
-            {"name": "backup_ca_cert_path", "type": "string", "label": "Backup CA Cert Path", "description": "Backup CA certificate path for cert redundancy", "default": ""},
+            {
+                "name": "endpoint",
+                "type": "string",
+                "label": "OPC UA Endpoint",
+                "description": "Primary OPC UA server endpoint URL",
+                "default": "opc.tcp://localhost:4840",
+                "required": True,
+            },
+            {
+                "name": "backup_endpoint",
+                "type": "string",
+                "label": "Backup Endpoint",
+                "description": "Backup OPC UA server endpoint URL for redundancy failover",
+                "default": "",
+            },
+            {
+                "name": "username",
+                "type": "string",
+                "label": "Username",
+                "description": "Leave empty for anonymous login",
+            },
+            {
+                "name": "password",
+                "type": "string",
+                "label": "Password",
+                "description": "User password, leave empty for anonymous login",
+                "secret": True,
+            },
+            {
+                "name": "security_mode",
+                "type": "string",
+                "label": "Security Mode",
+                "description": "Encryption mode, None=plaintext, SignAndEncrypt=highest security",
+                "default": "SignAndEncrypt",
+                "options": ["None", "Sign", "SignAndEncrypt"],
+            },
+            {
+                "name": "security_policy",
+                "type": "string",
+                "label": "Security Policy",
+                "description": "Security policy: None, Basic128Rsa15, Basic256, Basic256Sha256",
+                "default": "Basic256Sha256",
+                "options": ["None", "Basic128Rsa15", "Basic256", "Basic256Sha256"],
+            },
+            {
+                "name": "client_cert_path",
+                "type": "string",
+                "label": "Client Cert Path",
+                "description": "Path to client certificate file (PEM/DER)",
+                "default": "",
+            },
+            {
+                "name": "client_key_path",
+                "type": "string",
+                "label": "Client Key Path",
+                "description": "Path to client private key file (PEM/DER)",
+                "default": "",
+            },
+            {
+                "name": "ca_cert_path",
+                "type": "string",
+                "label": "CA Cert Path",
+                "description": "Path to CA certificate file (PEM/DER)",
+                "default": "",
+            },
+            {
+                "name": "session_timeout",
+                "type": "integer",
+                "label": "Session Timeout (ms)",
+                "description": "OPC UA session timeout in milliseconds",
+                "default": 60000,
+            },
+            {
+                "name": "subscription_interval",
+                "type": "integer",
+                "label": "Subscription Interval (ms)",
+                "description": "Subscription publishing interval in milliseconds",
+                "default": 500,
+            },
+            {
+                "name": "deadband_type",
+                "type": "string",
+                "label": "Deadband Type (Native)",
+                "description": "Native OPC UA deadband filter type: None=no filter, Absolute=absolute change, Percent=percent of range",
+                "default": "None",
+                "options": ["None", "Absolute", "Percent"],
+            },
+            {
+                "name": "deadband_value",
+                "type": "number",
+                "label": "Deadband Value (Native)",
+                "description": "Native OPC UA deadband threshold value (0 to disable)",
+                "default": 0,
+            },
+            {
+                "name": "use_native_deadband",
+                "type": "boolean",
+                "label": "Use Native Deadband",
+                "description": "Prefer OPC-UA native deadband over software deadband",
+                "default": True,
+            },
+            {
+                "name": "use_subscription",
+                "type": "boolean",
+                "label": "Use Subscription",
+                "description": "Enable subscription mode for data change notifications",
+                "default": True,
+            },
+            {
+                "name": "collection_mode",
+                "type": "string",
+                "label": "Collection Mode",
+                "description": "Collection mode: auto=subscription with polling fallback, subscription=subscription only, polling=polling only",
+                "default": "auto",
+                "options": ["auto", "subscription", "polling"],
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband (Software)",
+                "description": "Software-side deadband filter threshold, suppress updates when change < deadband",
+                "default": None,
+            },
+            {
+                "name": "scaling",
+                "type": "object",
+                "label": "Scaling",
+                "description": "Linear scaling: y = x * ratio + offset",
+                "default": None,
+                "fields": [
+                    {
+                        "name": "ratio",
+                        "type": "number",
+                        "label": "Ratio",
+                        "description": "Scaling ratio (multiplier)",
+                        "default": 1.0,
+                    },
+                    {
+                        "name": "offset",
+                        "type": "number",
+                        "label": "Offset",
+                        "description": "Scaling offset (addend)",
+                        "default": 0.0,
+                    },
+                ],
+            },
+            {
+                "name": "clamp",
+                "type": "object",
+                "label": "Clamp",
+                "description": "Value range validation, mark quality=bad when out of range",
+                "default": None,
+                "fields": [
+                    {"name": "min", "type": "number", "label": "Min", "description": "Minimum allowed value"},
+                    {"name": "max", "type": "number", "label": "Max", "description": "Maximum allowed value"},
+                ],
+            },
+            {
+                "name": "rate_of_change",
+                "type": "number",
+                "label": "Rate of Change",
+                "description": "Rate of change threshold (units/s), mark quality=uncertain when exceeded",
+                "default": None,
+            },
+            {
+                "name": "frozen_count",
+                "type": "integer",
+                "label": "Frozen Count",
+                "description": "Frozen value detection: consecutive same values before marking uncertain",
+                "default": 10,
+            },
+            {
+                "name": "write_type_strategy",
+                "type": "string",
+                "label": "Write Type Strategy",
+                "description": "Strategy when write value type mismatches node data type: truncate=auto-convert, reject=reject write",
+                "default": "reject",
+                "options": ["reject", "truncate"],
+            },
+            {
+                "name": "backup_client_cert_path",
+                "type": "string",
+                "label": "Backup Client Cert Path",
+                "description": "Backup client certificate path, auto-switch when primary cert expires",
+                "default": "",
+            },
+            {
+                "name": "backup_client_key_path",
+                "type": "string",
+                "label": "Backup Client Key Path",
+                "description": "Backup client private key path for cert redundancy",
+                "default": "",
+            },
+            {
+                "name": "backup_ca_cert_path",
+                "type": "string",
+                "label": "Backup CA Cert Path",
+                "description": "Backup CA certificate path for cert redundancy",
+                "default": "",
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=True, read=True, write=True, subscribe=True, batch_read=True, batch_write=True)
-    constraints = ({"type": "feature_note", "message": "Batch read uses ReadMultipleNodes for optimized reading; Node browse integrated in discovery"},)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    capabilities = DriverCapabilities(
+        discover=True, read=True, write=True, subscribe=True, batch_read=True, batch_write=True
+    )
+    constraints = (
+        {
+            "type": "feature_note",
+            "message": "Batch read uses ReadMultipleNodes for optimized reading; Node browse integrated in discovery",
+        },
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     def __init__(self):
         super().__init__()
@@ -452,7 +700,9 @@ class OpcUaDriver(DriverPlugin):
         self._pending_connections: int = 0  # FIXED-P2: 连接池上限检查与实际连接数不一致，增加待连接计数器
         self._clients_lock = asyncio.Lock()  # FIXED-P0: 客户端字典访问加锁保护
         self._subscriptions: dict[str, Any] = {}
-        self._sub_handlers: dict[str, _SubHandler] = {}  # FIXED-P0: 追踪SubHandler实例，确保stop/remove_device时能取消通知任务
+        self._sub_handlers: dict[
+            str, _SubHandler
+        ] = {}  # FIXED-P0: 追踪SubHandler实例，确保stop/remove_device时能取消通知任务
         self._data_callback: Callable | None = None
         self._connect_tasks: dict[str, asyncio.Task] = {}
         self._connect_fail_count: dict[str, int] = {}
@@ -525,7 +775,9 @@ class OpcUaDriver(DriverPlugin):
             task = asyncio.create_task(self._connect_device(device_id), name=f"opcua-reconnect-{device_id}")
             self._connect_tasks[device_id] = task
 
-        self._reconnect_tasks[device_id] = asyncio.create_task(_do_reconnect(), name=f"opcua-delayed-reconnect-{device_id}")
+        self._reconnect_tasks[device_id] = asyncio.create_task(
+            _do_reconnect(), name=f"opcua-delayed-reconnect-{device_id}"
+        )
 
     def _set_state(self, device_id: str, state: OpcUaConnectionState) -> None:
         # FIXED-P1: 状态赋值加锁保护，防止并发_set_state/remove_device导致状态机不一致
@@ -533,7 +785,12 @@ class OpcUaDriver(DriverPlugin):
             old = self._connection_states.get(device_id)
             self._connection_states[device_id] = state
         if old != state:
-            self._log_error(device_id, "STATE_TRANSITION", f"msg={old.value if old else 'None'} -> {state.value}", level=logging.INFO)
+            self._log_error(
+                device_id,
+                "STATE_TRANSITION",
+                f"msg={old.value if old else 'None'} -> {state.value}",
+                level=logging.INFO,
+            )
             try:
                 loop = asyncio.get_running_loop()
                 task = loop.create_task(self._set_connection_state(device_id, state.value))
@@ -543,7 +800,9 @@ class OpcUaDriver(DriverPlugin):
                 logger.debug("[opcua] set_state failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
             if state == OpcUaConnectionState.CONNECTED:
                 self.set_offline_sync_online(True)
-                self._log_error(device_id, "DATA_SYNC_RECOVERED", "msg=Network online, sync enabled", level=logging.INFO)
+                self._log_error(
+                    device_id, "DATA_SYNC_RECOVERED", "msg=Network online, sync enabled", level=logging.INFO
+                )
             elif state in (OpcUaConnectionState.OFFLINE, OpcUaConnectionState.DISCONNECTED):
                 self.set_offline_sync_online(False)
 
@@ -655,7 +914,9 @@ class OpcUaDriver(DriverPlugin):
             if not evicted:
                 break
 
-    def _audit_write(self, device_id: str, point: str, node_id: str, data_type: str, old_value: Any, new_value: Any, result: str) -> None:
+    def _audit_write(
+        self, device_id: str, point: str, node_id: str, data_type: str, old_value: Any, new_value: Any, result: str
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "user": self._device_configs.get(device_id, {}).get("username", ""),
@@ -668,7 +929,9 @@ class OpcUaDriver(DriverPlugin):
             "result": result,
         }
         self._write_audit_log.append(entry)
-        self._log_error(device_id, "WRITE_AUDIT_OK", f"msg=point={point} node={node_id} result={result}", level=logging.DEBUG)
+        self._log_error(
+            device_id, "WRITE_AUDIT_OK", f"msg=point={point} node={node_id} result={result}", level=logging.DEBUG
+        )
 
     async def _read_node_data_type(self, client: Any, device_id: str, node_id: str) -> str:
         cached = self._node_data_types.get(device_id, {}).get(node_id)
@@ -694,11 +957,15 @@ class OpcUaDriver(DriverPlugin):
             logger.debug("Failed to read node data type for %s: %s", node_id, e)
             return "Unknown"
 
-    async def _validate_write_type(self, client: Any, device_id: str, point: str, node_id: str, value: Any) -> tuple[Any, bool]:
+    async def _validate_write_type(
+        self, client: Any, device_id: str, point: str, node_id: str, value: Any
+    ) -> tuple[Any, bool]:
         type_name = await self._read_node_data_type(client, device_id, node_id)
         if type_name == "Unknown":
             # FIXED-P2: 类型未知时默认拒绝写入，防止将错误类型数据写入PLC节点
-            self._log_error(device_id, "WRITE_TYPE_UNKNOWN", f"msg=Cannot validate write type for {point}, node data type unknown")
+            self._log_error(
+                device_id, "WRITE_TYPE_UNKNOWN", f"msg=Cannot validate write type for {point}, node data type unknown"
+            )
             return value, False
         strategy = self._get_write_type_strategy(device_id, point)
         if type_name == "Boolean":
@@ -706,7 +973,9 @@ class OpcUaDriver(DriverPlugin):
                 return value, True
             if strategy == "truncate":
                 return bool(value), True
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected Boolean, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected Boolean, got {type(value).__name__} for {point}"
+            )
             return value, False
         if type_name in _OPCUA_INT_TYPES:
             if isinstance(value, bool):
@@ -719,7 +988,9 @@ class OpcUaDriver(DriverPlugin):
                     return int(value), True
                 self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected {type_name}, got float for {point}")
                 return value, False
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected {type_name}, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected {type_name}, got {type(value).__name__} for {point}"
+            )
             return value, False
         if type_name in _OPCUA_FLOAT_TYPES:
             if isinstance(value, bool):
@@ -727,33 +998,48 @@ class OpcUaDriver(DriverPlugin):
                 return value, False
             if isinstance(value, (int, float)):
                 return float(value), True
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected {type_name}, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected {type_name}, got {type(value).__name__} for {point}"
+            )
             return value, False
         if type_name == "String":
             if isinstance(value, str):
                 return value, True
             if strategy == "truncate":
                 return str(value), True
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected String, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected String, got {type(value).__name__} for {point}"
+            )
             return value, False
         # FIXED(严重): 补充ByteString/DateTime/Guid类型校验，避免合法写入被拒绝
         if type_name == "ByteString":
             if isinstance(value, (bytes, bytearray)):
                 return bytes(value), True
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected ByteString, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected ByteString, got {type(value).__name__} for {point}"
+            )
             return value, False
         if type_name == "DateTime":
             if isinstance(value, (str, datetime)):
                 return value, True
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected DateTime, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected DateTime, got {type(value).__name__} for {point}"
+            )
             return value, False
         if type_name == "Guid":
             if isinstance(value, str):
                 return value, True
-            self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected Guid, got {type(value).__name__} for {point}")
+            self._log_error(
+                device_id, "WRITE_TYPE_MISMATCH", f"msg=Expected Guid, got {type(value).__name__} for {point}"
+            )
             return value, False
         # FIXED(严重): 未处理类型日志级别从ERROR降为WARNING，避免合法类型被误报为错误
-        self._log_error(device_id, "WRITE_TYPE_MISMATCH", f"msg=Unhandled type {type_name}, got {type(value).__name__} for {point}", level=logging.WARNING)
+        self._log_error(
+            device_id,
+            "WRITE_TYPE_MISMATCH",
+            f"msg=Unhandled type {type_name}, got {type(value).__name__} for {point}",
+            level=logging.WARNING,
+        )
         return value, False
 
     def _check_array_bounds(self, device_id: str, point: str, node_id: str, value: Any) -> tuple[Any, bool]:
@@ -763,9 +1049,18 @@ class OpcUaDriver(DriverPlugin):
         if len(value) > _MAX_ARRAY_LENGTH:
             if strategy == "truncate":
                 truncated = list(value[:_MAX_ARRAY_LENGTH])
-                self._log_error(device_id, "ARRAY_TRUNCATED", f"msg=Array truncated from {len(value)} to {_MAX_ARRAY_LENGTH} for {point}", level=logging.WARNING)
+                self._log_error(
+                    device_id,
+                    "ARRAY_TRUNCATED",
+                    f"msg=Array truncated from {len(value)} to {_MAX_ARRAY_LENGTH} for {point}",
+                    level=logging.WARNING,
+                )
                 return truncated, True
-            self._log_error(device_id, "ARRAY_TRUNCATED", f"msg=Array length {len(value)} exceeds max {_MAX_ARRAY_LENGTH} for {point}")
+            self._log_error(
+                device_id,
+                "ARRAY_TRUNCATED",
+                f"msg=Array length {len(value)} exceeds max {_MAX_ARRAY_LENGTH} for {point}",
+            )
             return value, False
         return value, True
 
@@ -802,10 +1097,12 @@ class OpcUaDriver(DriverPlugin):
                 state["subscription_id"] = sub.subscription_id if hasattr(sub, "subscription_id") else None
                 if hasattr(sub, "monitored_items_map"):
                     for node_id, mi in sub.monitored_items_map.items():
-                        state["monitored_items"].append({
-                            "node_id": str(node_id) if not isinstance(node_id, str) else node_id,
-                            "monitored_item_id": mi.client_handle if hasattr(mi, "client_handle") else None,
-                        })
+                        state["monitored_items"].append(
+                            {
+                                "node_id": str(node_id) if not isinstance(node_id, str) else node_id,
+                                "monitored_item_id": mi.client_handle if hasattr(mi, "client_handle") else None,
+                            }
+                        )
             except Exception as e:
                 self._log_error(device_id, "SESSION_PERSIST_FAILED", f"msg={e}", level=logging.WARNING)
         points = self._device_points.get(device_id, [])
@@ -842,10 +1139,13 @@ class OpcUaDriver(DriverPlugin):
             "client_key_path": backup_key,
             "ca_cert_path": backup_ca or config.get("ca_cert_path", ""),
         }
-        self._log_error(device_id, "CERT_FAILOVER_TRIGGERED", "msg=Switched to backup certificates", level=logging.WARNING)
+        self._log_error(
+            device_id, "CERT_FAILOVER_TRIGGERED", "msg=Switched to backup certificates", level=logging.WARNING
+        )
         if self._audit:
             task = asyncio.create_task(self._audit.log_cert_switch(device_id, OpcUaAuditAction.CERT_SWITCH))
             self._background_tasks.add(task)  # UA-006
+
             def _silence(t):
                 self._background_tasks.discard(t)  # UA-006
                 if t.done() and not t.cancelled():
@@ -853,6 +1153,7 @@ class OpcUaDriver(DriverPlugin):
                         t.exception()
                     except Exception as e:
                         logger.warning("[opcua] silence failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+
             task.add_done_callback(_silence)
         return True
 
@@ -867,13 +1168,17 @@ class OpcUaDriver(DriverPlugin):
         if self._audit:
             task = asyncio.create_task(self._audit.log_cert_switch(device_id, OpcUaAuditAction.CERT_REVERT))
             self._background_tasks.add(task)  # UA-006
+
             def _silence2(t):
                 self._background_tasks.discard(t)  # UA-006
                 if t.done() and not t.cancelled():
                     try:
                         t.exception()
                     except Exception as e:
-                        logger.warning("[opcua] silence2 failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                        logger.warning(
+                            "[opcua] silence2 failed: %s", e
+                        )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+
             task.add_done_callback(_silence2)
         return True
 
@@ -886,10 +1191,13 @@ class OpcUaDriver(DriverPlugin):
         self._persist_session_state(device_id)
         primary = self._active_endpoints.get(device_id, "")
         self._active_endpoints[device_id] = backup
-        self._log_error(device_id, "FAILOVER_FAST_SWITCH", f"msg=Fast failover to backup={backup}", level=logging.WARNING)
+        self._log_error(
+            device_id, "FAILOVER_FAST_SWITCH", f"msg=Fast failover to backup={backup}", level=logging.WARNING
+        )
         if self._audit:
             task = asyncio.create_task(self._audit.log_failover(device_id, primary, backup))
             self._background_tasks.add(task)  # UA-006
+
             def _silence(t):
                 self._background_tasks.discard(t)  # UA-006
                 if t.done() and not t.cancelled():
@@ -897,6 +1205,7 @@ class OpcUaDriver(DriverPlugin):
                         t.exception()
                     except Exception as e:
                         logger.warning("[opcua] silence failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+
             task.add_done_callback(_silence)
         return True
 
@@ -1011,19 +1320,27 @@ class OpcUaDriver(DriverPlugin):
             await self._rule_engine.remove_rule(r["rule_id"])
         for rule in new_rules:
             self._rule_engine.add_rule(rule)
-        self._log_error("", "RULE_HOT_RELOADED", f"msg=Reloaded {len(new_rules)} rules (was {len(old_rules)})", level=logging.INFO)
+        self._log_error(
+            "", "RULE_HOT_RELOADED", f"msg=Reloaded {len(new_rules)} rules (was {len(old_rules)})", level=logging.INFO
+        )
         return len(new_rules)
 
     async def _edge_write_callback(self, device_id: str, point: str, value: Any) -> None:
         is_cross = device_id not in self._clients
         if is_cross:
             self._cross_server_writes[device_id] = True
-            self._log_error(device_id, "CROSS_SERVER_WRITE", f"msg=Cross-server write: point={point} value={value}", level=logging.INFO)
+            self._log_error(
+                device_id,
+                "CROSS_SERVER_WRITE",
+                f"msg=Cross-server write: point={point} value={value}",
+                level=logging.INFO,
+            )
         await self.write_point(device_id, point, value)
 
     async def _edge_mqtt_callback(self, topic: str, payload: dict, qos: int = 0, retain: bool = False) -> None:
         if self._event_bus:
             from edgelite.engine.event_bus import Event
+
             event = Event(type="mqtt_forward", data={"topic": topic, "payload": payload, "qos": qos, "retain": retain})
             await self._event_bus.publish(event)
 
@@ -1050,7 +1367,9 @@ class OpcUaDriver(DriverPlugin):
             stats["trigger_stats"] = self._trigger_executor.get_stats()
         return stats
 
-    async def init_data_persistence(self, retention_days: int = 7, compress: str = "gzip", sync_interval: float = 30.0, batch_size: int = 1000) -> None:
+    async def init_data_persistence(
+        self, retention_days: int = 7, compress: str = "gzip", sync_interval: float = 30.0, batch_size: int = 1000
+    ) -> None:
         # FIXED-P3: 防止重复初始化导致旧实例资源泄漏，需先调用stop清理
         if self._ts_store or self._offline_sync:
             raise RuntimeError("Data persistence already initialized, call stop first")
@@ -1078,10 +1397,22 @@ class OpcUaDriver(DriverPlugin):
             return 0
         return await self._offline_sync.force_sync()
 
-    async def query_ts(self, device_id: str, point_name: str, start_time, end_time=None, quality=None, aggregate=None, window_seconds=None, limit: int = 10000) -> list[dict]:
+    async def query_ts(
+        self,
+        device_id: str,
+        point_name: str,
+        start_time,
+        end_time=None,
+        quality=None,
+        aggregate=None,
+        window_seconds=None,
+        limit: int = 10000,
+    ) -> list[dict]:
         if not self._ts_store:
             return []
-        return await self._ts_store.query(device_id, point_name, start_time, end_time, quality, aggregate, window_seconds, limit)
+        return await self._ts_store.query(
+            device_id, point_name, start_time, end_time, quality, aggregate, window_seconds, limit
+        )
 
     async def query_ts_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict]:
         if not self._ts_store:
@@ -1111,10 +1442,9 @@ class OpcUaDriver(DriverPlugin):
             return False
         granted = has_permission(role, perm)
         if self._audit:
-            task = asyncio.create_task(
-                self._audit.log_rbac_check(device_id, permission, role, granted)
-            )
+            task = asyncio.create_task(self._audit.log_rbac_check(device_id, permission, role, granted))
             self._background_tasks.add(task)  # UA-006
+
             def _silence(t):
                 self._background_tasks.discard(t)  # UA-006
                 if t.done() and not t.cancelled():
@@ -1122,20 +1452,28 @@ class OpcUaDriver(DriverPlugin):
                         t.exception()
                     except Exception as e:
                         logger.warning("[opcua] silence failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+
             task.add_done_callback(_silence)
         if not granted:
-            self._log_error(device_id or "_", "RBAC_DENIED", f"role={role} permission={permission}", level=logging.WARNING)
+            self._log_error(
+                device_id or "_", "RBAC_DENIED", f"role={role} permission={permission}", level=logging.WARNING
+            )
         return granted
 
-    async def save_config_version(self, device_id: str, config: dict, change_summary: str = "", operator: str = "") -> int:
+    async def save_config_version(
+        self, device_id: str, config: dict, change_summary: str = "", operator: str = ""
+    ) -> int:
         if not self._config_version_mgr:
             return 0
         version = await self._config_version_mgr.save_version(device_id, config, change_summary, operator)
         if version > 0 and self._audit:
             task = asyncio.create_task(
-                self._audit.log_config_version(device_id, OpcUaAuditAction.CONFIG_VERSION_SAVE, to_version=version, operator=operator)
+                self._audit.log_config_version(
+                    device_id, OpcUaAuditAction.CONFIG_VERSION_SAVE, to_version=version, operator=operator
+                )
             )
             self._background_tasks.add(task)  # UA-006
+
             def _silence(t):
                 self._background_tasks.discard(t)  # UA-006
                 if t.done() and not t.cancelled():
@@ -1143,6 +1481,7 @@ class OpcUaDriver(DriverPlugin):
                         t.exception()
                     except Exception as e:
                         logger.warning("[opcua] silence failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+
             task.add_done_callback(_silence)
         return version
 
@@ -1168,15 +1507,20 @@ class OpcUaDriver(DriverPlugin):
         if result and self._audit:
             task = asyncio.create_task(
                 self._audit.log_config_version(
-                    device_id, OpcUaAuditAction.CONFIG_VERSION_ROLLBACK,
-                    from_version=target_version, to_version=result.get("version"), operator=operator,
+                    device_id,
+                    OpcUaAuditAction.CONFIG_VERSION_ROLLBACK,
+                    from_version=target_version,
+                    to_version=result.get("version"),
+                    operator=operator,
                 )
             )
+
             def _silence(t):
                 if t.done() and not t.cancelled():
                     exc = t.exception()
                     if exc:
                         logger.warning("[opcua] audit task failed: %s", exc)
+
             task.add_done_callback(_silence)
         return result
 
@@ -1282,7 +1626,9 @@ class OpcUaDriver(DriverPlugin):
 
         if self._check_stale_data(device_id, point_name):
             # FIXED: 陈旧数据检测命中时提前 return，不调用 record_success() 以避免重置陈旧计时器
-            return PointValue(value=None, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.STALE_DATA}")
+            return PointValue(
+                value=None, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.STALE_DATA}"
+            )
 
         pt_scaling = self._get_effective_point_param(device_id, point_name, "scaling")
         pt_clamp = self._get_effective_point_param(device_id, point_name, "clamp")
@@ -1295,20 +1641,26 @@ class OpcUaDriver(DriverPlugin):
             clamped, in_range = self._apply_clamp(value, pt_clamp)
             if not in_range:
                 ph.record_failure()
-                return PointValue(value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.VALUE_OUT_OF_RANGE}")
+                return PointValue(
+                    value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.VALUE_OUT_OF_RANGE}"
+                )
             value = clamped
 
         if self._check_rate_of_change(device_id, point_name, value):
             ph.last_value = value
             ph.last_timestamp = now_ts
             ph.record_success()
-            return PointValue(value=value, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.RATE_OF_CHANGE}")
+            return PointValue(
+                value=value, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.RATE_OF_CHANGE}"
+            )
 
         if self._check_frozen_value(device_id, point_name, value):
             ph.last_value = value
             ph.last_timestamp = now_ts
             ph.record_success()
-            return PointValue(value=value, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.FROZEN_VALUE}")
+            return PointValue(
+                value=value, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.FROZEN_VALUE}"
+            )
 
         if pt_deadband is not None and isinstance(value, (int, float)):
             async with self._values_lock:
@@ -1437,8 +1789,14 @@ class OpcUaDriver(DriverPlugin):
         # FIXED-P2: 连接池上限检查与递增放入同一锁保护，防止并发add_device绕过上限
         async with self._clients_lock:
             if len(self._clients) + self._pending_connections >= MAX_OPCUA_CONNECTIONS:
-                self._log_error(device_id, "CONN_LIMIT_EXCEEDED", f"Maximum OPC-UA connection limit reached ({MAX_OPCUA_CONNECTIONS}), rejecting device={device_id}")
-                raise RuntimeError(f"Maximum OPC-UA connection limit reached ({MAX_OPCUA_CONNECTIONS}), device={device_id} rejected")
+                self._log_error(
+                    device_id,
+                    "CONN_LIMIT_EXCEEDED",
+                    f"Maximum OPC-UA connection limit reached ({MAX_OPCUA_CONNECTIONS}), rejecting device={device_id}",
+                )
+                raise RuntimeError(
+                    f"Maximum OPC-UA connection limit reached ({MAX_OPCUA_CONNECTIONS}), device={device_id} rejected"
+                )
             self._pending_connections += 1
         self._device_configs[device_id] = config
         self._device_points[device_id] = points
@@ -1446,7 +1804,9 @@ class OpcUaDriver(DriverPlugin):
         self._subscription_locks[device_id] = asyncio.Lock()
         self._session_locks[device_id] = asyncio.Lock()
         self._session_rebuilding[device_id] = asyncio.Event()  # UA-002
-        self._rebuild_wait_queue[device_id] = asyncio.Queue(maxsize=1000)  # FIXED-P2: OPCUA-02 重建等待队列容量上限，防止内存增长
+        self._rebuild_wait_queue[device_id] = asyncio.Queue(
+            maxsize=1000
+        )  # FIXED-P2: OPCUA-02 重建等待队列容量上限，防止内存增长
         self._set_state(device_id, OpcUaConnectionState.DISCONNECTED)
 
         mode_str = config.get("collection_mode", "auto")
@@ -1455,7 +1815,9 @@ class OpcUaDriver(DriverPlugin):
         else:
             self._collection_modes[device_id] = CollectionMode.SUBSCRIPTION
 
-        await self.save_config_version(device_id, config, "initial config on add_device", "system")  # FIXED-P1: async方法必须await，原代码协程对象被丢弃导致配置版本丢失
+        await self.save_config_version(
+            device_id, config, "initial config on add_device", "system"
+        )  # FIXED-P1: async方法必须await，原代码协程对象被丢弃导致配置版本丢失
 
         if device_id in self._import_error_devices:  # FIXED-P2: ImportError后不再重试，跳过连接
             self._set_state(device_id, OpcUaConnectionState.OFFLINE)
@@ -1515,7 +1877,9 @@ class OpcUaDriver(DriverPlugin):
             handler.cancel()
         self._connect_fail_count.pop(device_id, None)  # FIXED-P2: remove_device时清理连接失败计数
         self._import_error_devices.discard(device_id)  # FIXED-P2: remove_device时清理import错误设备
-        self._session_rebuild_skip.pop(device_id, None)  # FIXED-P0: 清理session重建跳过标记，防止重新添加设备时残留旧标记
+        self._session_rebuild_skip.pop(
+            device_id, None
+        )  # FIXED-P0: 清理session重建跳过标记，防止重新添加设备时残留旧标记
 
     def _get_active_endpoint(self, device_id: str) -> str:
         config = self._device_configs.get(device_id, {})
@@ -1540,7 +1904,9 @@ class OpcUaDriver(DriverPlugin):
             self._log_error(device_id, "FAILOVER_NO_BACKUP", "msg=No backup endpoint configured")
             return False
         self._active_endpoints[device_id] = backup
-        self._log_error(device_id, "FAILOVER_TRIGGERED", f"msg=Switching to backup endpoint={backup}", level=logging.WARNING)
+        self._log_error(
+            device_id, "FAILOVER_TRIGGERED", f"msg=Switching to backup endpoint={backup}", level=logging.WARNING
+        )
         return True
 
     def _revert_to_primary(self, device_id: str) -> bool:
@@ -1549,7 +1915,9 @@ class OpcUaDriver(DriverPlugin):
         if not primary:
             return False
         self._active_endpoints[device_id] = primary
-        self._log_error(device_id, "FAILOVER_REVERT", f"msg=Reverting to primary endpoint={primary}", level=logging.INFO)
+        self._log_error(
+            device_id, "FAILOVER_REVERT", f"msg=Reverting to primary endpoint={primary}", level=logging.INFO
+        )
         return True
 
     async def _probe_primary(self, device_id: str) -> bool:
@@ -1561,6 +1929,7 @@ class OpcUaDriver(DriverPlugin):
         probe_client = None
         try:
             from asyncua import Client
+
             probe_client = Client(primary)
             await asyncio.wait_for(probe_client.connect(), timeout=3)
             try:
@@ -1599,7 +1968,11 @@ class OpcUaDriver(DriverPlugin):
                 break
 
         if drained > 0:
-            logger.info("[opcua] device=%s code=REBUILD_QUEUE_DRAINED msg=Session rebuilt, %d queued read requests will be processed", device_id, drained)
+            logger.info(
+                "[opcua] device=%s code=REBUILD_QUEUE_DRAINED msg=Session rebuilt, %d queued read requests will be processed",
+                device_id,
+                drained,
+            )
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
@@ -1610,7 +1983,9 @@ class OpcUaDriver(DriverPlugin):
             self._session_expired[device_id] = True
             result = {}
             for p in points:
-                result[p] = PointValue(value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.OFFLINE_BAD_QUALITY}")
+                result[p] = PointValue(
+                    value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.OFFLINE_BAD_QUALITY}"
+                )
             self._record_read_failure(device_id)
             return result
 
@@ -1622,15 +1997,24 @@ class OpcUaDriver(DriverPlugin):
                 queue = self._rebuild_wait_queue.get(device_id)
                 if queue:
                     try:
-                        queue.put_nowait(('read', points))
+                        queue.put_nowait(("read", points))
                     except asyncio.QueueFull as e:
                         # FIXED-P1: QueueFull时记录metric并返回带quality='bad_queued'的占位值
                         # 原问题：QueueFull仅记录日志，继续等待重建，调用方无感知数据被排队丢弃
                         # 修复：记录metric并返回bad_queued占位值，让调用方知道数据因队列满而未处理
-                        logger.warning("[opcua] device=%s code=REBUILD_QUEUE_FULL msg=Session rebuild wait queue full: %s", device_id, e)
+                        logger.warning(
+                            "[opcua] device=%s code=REBUILD_QUEUE_FULL msg=Session rebuild wait queue full: %s",
+                            device_id,
+                            e,
+                        )
                         result = {}
                         for p in points:
-                            result[p] = PointValue(value=None, quality="bad_queued", timestamp=now, source=f"opcua:{OpcUaDriverErrors.SESSION_REBUILDING}")
+                            result[p] = PointValue(
+                                value=None,
+                                quality="bad_queued",
+                                timestamp=now,
+                                source=f"opcua:{OpcUaDriverErrors.SESSION_REBUILDING}",
+                            )
                         return result
 
                 try:
@@ -1641,15 +2025,24 @@ class OpcUaDriver(DriverPlugin):
                     async def _wait_rebuild_done():
                         while rebuild_event.is_set():
                             await asyncio.sleep(0.5)
+
                     await asyncio.wait_for(_wait_rebuild_done(), timeout=60)
                 except TimeoutError:
                     # UA-MED-002: 等待超时，返回 uncertain quality 而不是失败
                     # FIXED-P0: 超时不直接清除Event（重建可能仍在进行），而是标记跳过等待，后续读取直接走正常路径
                     self._session_rebuild_skip[device_id] = True
-                    logger.warning("[opcua] device=%s code=REBUILD_WAIT_TIMEOUT msg=Session rebuild timed out, returning uncertain quality", device_id)
+                    logger.warning(
+                        "[opcua] device=%s code=REBUILD_WAIT_TIMEOUT msg=Session rebuild timed out, returning uncertain quality",
+                        device_id,
+                    )
                     result = {}
                     for p in points:
-                        result[p] = PointValue(value=None, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.SESSION_REBUILDING}")
+                        result[p] = PointValue(
+                            value=None,
+                            quality="uncertain",
+                            timestamp=now,
+                            source=f"opcua:{OpcUaDriverErrors.SESSION_REBUILDING}",
+                        )
                     return result
 
                 # 重新获取 client（可能已更新）
@@ -1658,7 +2051,12 @@ class OpcUaDriver(DriverPlugin):
                 if not client:
                     result = {}  # FIXED-F821: 初始化 result, 避免未绑定变量
                     for p in points:
-                        result[p] = PointValue(value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.OFFLINE_BAD_QUALITY}")
+                        result[p] = PointValue(
+                            value=None,
+                            quality="bad",
+                            timestamp=now,
+                            source=f"opcua:{OpcUaDriverErrors.OFFLINE_BAD_QUALITY}",
+                        )
                     self._record_read_failure(device_id)
                     return result
 
@@ -1676,7 +2074,9 @@ class OpcUaDriver(DriverPlugin):
         point_defs = self._device_points.get(device_id, [])
 
         try:
-            if len(points) >= 2 and hasattr(client, "read_multiple_values"):  # FIXED-P3: 批量读取阈值从3降为2，2个点也利用批量接口
+            if len(points) >= 2 and hasattr(
+                client, "read_multiple_values"
+            ):  # FIXED-P3: 批量读取阈值从3降为2，2个点也利用批量接口
                 result = await self._read_points_batch_optimized(client, device_id, points, point_defs)
             else:
                 for point_name in points:
@@ -1694,7 +2094,9 @@ class OpcUaDriver(DriverPlugin):
                         status_code = data_value.StatusCode if hasattr(data_value, "StatusCode") else None
                         quality = _map_opcua_quality(status_code)
                     except TimeoutError:  # FIXED-P1: 兼容Python<3.11
-                        self._log_error(device_id, "READ_TIMEOUT", f"msg=Node read timeout {node_id} ({self._READ_TIMEOUT}s)")
+                        self._log_error(
+                            device_id, "READ_TIMEOUT", f"msg=Node read timeout {node_id} ({self._READ_TIMEOUT}s)"
+                        )
                         result[point_name] = _bad_pv(OpcUaDriverErrors.READ_TIMEOUT)
                         continue
                     except asyncio.CancelledError:
@@ -1704,10 +2106,17 @@ class OpcUaDriver(DriverPlugin):
                         result[point_name] = _bad_pv(OpcUaDriverErrors.READ_FAILED)
                         continue
 
-                    if hasattr(raw_value, "__dict__") and not isinstance(raw_value, (int, float, str, bool, list, dict)):
+                    if hasattr(raw_value, "__dict__") and not isinstance(
+                        raw_value, (int, float, str, bool, list, dict)
+                    ):
                         raw_value, resolve_quality = _resolve_complex_type_with_fallback(raw_value, node_id=node_id)
                         if resolve_quality == "bad":
-                            result[point_name] = PointValue(value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN}")
+                            result[point_name] = PointValue(
+                                value=None,
+                                quality="bad",
+                                timestamp=now,
+                                source=f"opcua:{OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN}",
+                            )
                             continue
                         elif resolve_quality == "uncertain":
                             quality = "uncertain"
@@ -1730,7 +2139,9 @@ class OpcUaDriver(DriverPlugin):
 
         has_good = any((isinstance(v, PointValue) and v.quality != "bad") for v in result.values())
         if has_good:
-            await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+            await self._record_read_success(
+                device_id
+            )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
         else:
             self._record_read_failure(device_id)
 
@@ -1744,7 +2155,9 @@ class OpcUaDriver(DriverPlugin):
 
         return result
 
-    async def _read_points_batch_optimized(self, client: Any, device_id: str, points: list[str], point_defs: list[dict]) -> dict[str, Any]:
+    async def _read_points_batch_optimized(
+        self, client: Any, device_id: str, points: list[str], point_defs: list[dict]
+    ) -> dict[str, Any]:
         result = {}
         try:
             node_id_map = {}
@@ -1765,10 +2178,17 @@ class OpcUaDriver(DriverPlugin):
             # FIXED-P3: 批量读取超时设置最小下限，防止对单节点过短导致误超时
             # 之前：min(self._READ_TIMEOUT, len(nodes_to_read) * 2) 对单节点仅2秒过短
             # 之后：max(self._READ_TIMEOUT, len(nodes_to_read) * 2 + 5) 确保足够超时预算
-            values = await asyncio.wait_for(client.read_values(nodes_to_read), timeout=max(self._READ_TIMEOUT, len(nodes_to_read) * 2 + 5))
+            values = await asyncio.wait_for(
+                client.read_values(nodes_to_read), timeout=max(self._READ_TIMEOUT, len(nodes_to_read) * 2 + 5)
+            )
 
             if len(values) != len(nodes_to_read):  # FIXED-P2: 批量读取结果与节点列表长度不匹配时记录日志
-                logger.warning("[opcua] device=%s code=BATCH_READ_MISMATCH msg=Batch read returned %d values for %d nodes", device_id, len(values), len(nodes_to_read))
+                logger.warning(
+                    "[opcua] device=%s code=BATCH_READ_MISMATCH msg=Batch read returned %d values for %d nodes",
+                    device_id,
+                    len(values),
+                    len(nodes_to_read),
+                )
 
             for i, node in enumerate(nodes_to_read):
                 node_id_str = node.nodeid.to_string()
@@ -1830,9 +2250,14 @@ class OpcUaDriver(DriverPlugin):
         # SEC-FIX(修复2): 驱动层写入权限检查，防止内部服务绕过 API 层鉴权直接写入
         if hasattr(self, "check_permission"):
             from edgelite.security.rbac import Permission
+
             if not await self.check_permission(Permission.DEVICE_WRITE_POINT):
-                logger.warning("[opcua] write denied: role=%s lacks device:write_point, device=%s point=%s",
-                               getattr(self, "_current_user_role", "unknown"), device_id, point)
+                logger.warning(
+                    "[opcua] write denied: role=%s lacks device:write_point, device=%s point=%s",
+                    getattr(self, "_current_user_role", "unknown"),
+                    device_id,
+                    point,
+                )
                 return False
         async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
             client = self._clients.get(device_id)
@@ -1849,19 +2274,30 @@ class OpcUaDriver(DriverPlugin):
         node_id = point_def.get("address", "")
 
         if not self._check_write_rate_limit(device_id, point):
-            self._log_error(device_id, "WRITE_RATE_LIMITED", f"msg=Write rate limited for {point} (min interval {_WRITE_RATE_LIMIT_MS}ms)")
+            self._log_error(
+                device_id,
+                "WRITE_RATE_LIMITED",
+                f"msg=Write rate limited for {point} (min interval {_WRITE_RATE_LIMIT_MS}ms)",
+            )
             return False
 
         validated, type_ok = await self._validate_write_type(client, device_id, point, node_id, value)
         if not type_ok:
             # #[AUDIT-FIX] W7: 写入失败补充日志（_validate_write_type 内部已记录详细错误，此处补充入口级日志）
-            logger.warning("[opcua] Write rejected: type validation failed, device=%s point=%s value=%r", device_id, point, value)
+            logger.warning(
+                "[opcua] Write rejected: type validation failed, device=%s point=%s value=%r", device_id, point, value
+            )
             return False
 
         validated, bounds_ok = self._check_array_bounds(device_id, point, node_id, validated)
         if not bounds_ok:
             # #[AUDIT-FIX] W7: 写入失败补充日志
-            logger.warning("[opcua] Write rejected: array bounds check failed, device=%s point=%s node_id=%s", device_id, point, node_id)
+            logger.warning(
+                "[opcua] Write rejected: array bounds check failed, device=%s point=%s node_id=%s",
+                device_id,
+                point,
+                node_id,
+            )
             return False
 
         old_value = None
@@ -1895,7 +2331,11 @@ class OpcUaDriver(DriverPlugin):
             readback_dv = await asyncio.wait_for(node.read_data_value(), timeout=self._READ_TIMEOUT)
             readback_value = readback_dv.Value.Value if hasattr(readback_dv, "Value") else readback_dv
             if not self._is_write_value_close(readback_value, validated, node_data_type):
-                self._log_error(device_id, "WRITE_VERIFY_FAILED", f"msg=Read-back mismatch for {point}: wrote={validated}, read={readback_value}")
+                self._log_error(
+                    device_id,
+                    "WRITE_VERIFY_FAILED",
+                    f"msg=Read-back mismatch for {point}: wrote={validated}, read={readback_value}",
+                )
                 self._audit_write(device_id, point, node_id, node_data_type, old_value, validated, "verify_failed")
                 return False
         except asyncio.CancelledError:
@@ -1962,7 +2402,9 @@ class OpcUaDriver(DriverPlugin):
             # FIX-EL-R2-SEVERE: 原 min(self._WRITE_TIMEOUT, len(nodes)*2) 对小批量(1-4节点)
             # 仅给 2-8 秒超时，网络延迟较高时频繁误超时→走 fallback 单点重写→写入放大 N 倍。
             # 改为与批量读取(第1754行)一致的 max() 公式，确保小批量也有充足超时。
-            await asyncio.wait_for(client.write_values(nodes, values_list), timeout=max(self._WRITE_TIMEOUT, len(nodes) * 2 + 5))
+            await asyncio.wait_for(
+                client.write_values(nodes, values_list), timeout=max(self._WRITE_TIMEOUT, len(nodes) * 2 + 5)
+            )
             for _i, point_name in node_id_map.items():
                 result[point_name] = True
                 self._record_write_time(device_id, point_name)  # FIXED: 速率限制时间戳在写入成功后更新
@@ -1988,7 +2430,10 @@ class OpcUaDriver(DriverPlugin):
             _FALLBACK_MAX_POINTS = 10  # FIXED-P2: 逐点回退最大点数
             _FALLBACK_TOTAL_TIMEOUT = 60.0  # FIXED-P2: 逐点回退总超时60秒
             for point_name, value in writes:
-                if fallback_count >= _FALLBACK_MAX_POINTS or (time.monotonic() - fallback_start) > _FALLBACK_TOTAL_TIMEOUT:  # FIXED-P2: 超过最大点数或总超时则停止回退
+                if (
+                    fallback_count >= _FALLBACK_MAX_POINTS
+                    or (time.monotonic() - fallback_start) > _FALLBACK_TOTAL_TIMEOUT
+                ):  # FIXED-P2: 超过最大点数或总超时则停止回退
                     break
                 if point_name not in result:
                     try:
@@ -2000,7 +2445,9 @@ class OpcUaDriver(DriverPlugin):
                             await asyncio.wait_for(node.write_value(fallback_value), timeout=self._WRITE_TIMEOUT)
                             result[point_name] = True
                             self._record_write_time(device_id, point_name)  # FIXED: 速率限制时间戳在写入成功后更新
-                            self._audit_write(device_id, point_name, node_id, "Unknown", None, fallback_value, "ok_fallback")
+                            self._audit_write(
+                                device_id, point_name, node_id, "Unknown", None, fallback_value, "ok_fallback"
+                            )
                             fallback_count += 1  # FIXED-P2: 回退成功计数
                         else:
                             result[point_name] = False
@@ -2037,7 +2484,10 @@ class OpcUaDriver(DriverPlugin):
                 point_name = point_def.get("name", "")
                 if point_name:
                     self._latest_values.setdefault(device_id, {})[point_name] = PointValue(
-                        value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.OFFLINE_BAD_QUALITY}"
+                        value=None,
+                        quality="bad",
+                        timestamp=now,
+                        source=f"opcua:{OpcUaDriverErrors.OFFLINE_BAD_QUALITY}",
                     )
 
     def _check_cert_expiry(self, cert_path: str, cert_type: str, device_id: str = "") -> bool:
@@ -2048,6 +2498,7 @@ class OpcUaDriver(DriverPlugin):
 
             from cryptography import x509
             from cryptography.hazmat.backends import default_backend
+
             with open(cert_path, "rb") as f:
                 cert = x509.load_pem_x509_certificate(f.read(), default_backend())
             now = _dt.datetime.now(UTC).replace(tzinfo=None)
@@ -2058,7 +2509,13 @@ class OpcUaDriver(DriverPlugin):
             if now > expires:
                 self._log_error(device_id, "CERT_EXPIRED", f"msg={cert_type} certificate expired on {expires}")
                 if device_id:
-                    self._certificate_status[device_id] = {"cert_path": cert_path, "cert_type": cert_type, "expires_at": expires.isoformat(), "days_left": 0, "status": "expired"}
+                    self._certificate_status[device_id] = {
+                        "cert_path": cert_path,
+                        "cert_type": cert_type,
+                        "expires_at": expires.isoformat(),
+                        "days_left": 0,
+                        "status": "expired",
+                    }
                 return False
             days_left = (expires - now).days
             if device_id:
@@ -2067,17 +2524,35 @@ class OpcUaDriver(DriverPlugin):
                     status = "expiring_soon"
                 elif days_left <= 90:
                     status = "expiring_warning"
-                self._certificate_status[device_id] = {"cert_path": cert_path, "cert_type": cert_type, "expires_at": expires.isoformat(), "days_left": days_left, "status": status}
+                self._certificate_status[device_id] = {
+                    "cert_path": cert_path,
+                    "cert_type": cert_type,
+                    "expires_at": expires.isoformat(),
+                    "days_left": days_left,
+                    "status": status,
+                }
             if days_left <= 90:
                 if days_left <= 30:
-                    self._log_error(device_id, "CERT_EXPIRING", f"msg={cert_type} certificate expires in {days_left} days ({expires}) - URGENT", level=logging.ERROR)
+                    self._log_error(
+                        device_id,
+                        "CERT_EXPIRING",
+                        f"msg={cert_type} certificate expires in {days_left} days ({expires}) - URGENT",
+                        level=logging.ERROR,
+                    )
                     self._publish_cert_alarm(device_id, cert_type, days_left, expires)
                 else:
-                    self._log_error(device_id, "CERT_EXPIRING", f"msg={cert_type} certificate expires in {days_left} days ({expires})", level=logging.WARNING)
+                    self._log_error(
+                        device_id,
+                        "CERT_EXPIRING",
+                        f"msg={cert_type} certificate expires in {days_left} days ({expires})",
+                        level=logging.WARNING,
+                    )
             return True
         except ImportError:
             # FIXED-P2: cryptography库未安装时返回False，阻止未验证的TLS连接
-            logger.error("[opcua] code=CERT_IMPORT_ERROR msg=cryptography library not installed, cannot verify certificate")
+            logger.error(
+                "[opcua] code=CERT_IMPORT_ERROR msg=cryptography library not installed, cannot verify certificate"
+            )
             return False
         except Exception as e:
             logger.warning("[opcua] code=CERT_CHECK_FAILED msg=Failed to check %s certificate: %s", cert_type, e)
@@ -2095,15 +2570,27 @@ class OpcUaDriver(DriverPlugin):
             from cryptography.hazmat.backends import default_backend
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.x509.oid import NameOID
+
             with open(cert_path, "rb") as f:
                 old_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
             if old_cert.issuer != old_cert.subject:
-                self._log_error(device_id, "CERT_AUTO_RENEW_FAILED", "msg=Certificate is not self-signed, cannot auto-renew")
+                self._log_error(
+                    device_id, "CERT_AUTO_RENEW_FAILED", "msg=Certificate is not self-signed, cannot auto-renew"
+                )
                 return False
             with open(key_path, "rb") as f:
                 private_key = serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
             now = _dt.datetime.now(UTC).replace(tzinfo=None)
-            new_cert = (x509.CertificateBuilder().subject_name(old_cert.subject).issuer_name(old_cert.issuer).public_key(private_key.public_key()).serial_number(x509.random_serial_number()).not_valid_before(now).not_valid_after(now + _dt.timedelta(days=365)).sign(private_key, hashes.SHA256(), default_backend()))
+            new_cert = (
+                x509.CertificateBuilder()
+                .subject_name(old_cert.subject)
+                .issuer_name(old_cert.issuer)
+                .public_key(private_key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + _dt.timedelta(days=365))
+                .sign(private_key, hashes.SHA256(), default_backend())
+            )
             backup_path = cert_path + ".bak"
             if os.path.exists(cert_path):
                 os.replace(cert_path, backup_path)
@@ -2114,7 +2601,12 @@ class OpcUaDriver(DriverPlugin):
                 if os.path.exists(backup_path):
                     os.replace(backup_path, cert_path)
                 raise
-            self._log_error(device_id, "CERT_AUTO_RENEW_OK", "msg=Self-signed certificate auto-renewed for 365 days", level=logging.INFO)
+            self._log_error(
+                device_id,
+                "CERT_AUTO_RENEW_OK",
+                "msg=Self-signed certificate auto-renewed for 365 days",
+                level=logging.INFO,
+            )
             return True
         except ImportError:
             self._log_error(device_id, "CERT_AUTO_RENEW_FAILED", "msg=cryptography library not installed")
@@ -2125,22 +2617,36 @@ class OpcUaDriver(DriverPlugin):
                 try:
                     os.replace(backup_path, cert_path)
                 except Exception as e:
-                    logger.warning("[opcua] try_auto_renew_self_signed_cert failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                    logger.warning(
+                        "[opcua] try_auto_renew_self_signed_cert failed: %s", e
+                    )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
             self._log_error(device_id, "CERT_AUTO_RENEW_FAILED", f"msg={e}")
             return False
 
     def _publish_cert_alarm(self, device_id: str, cert_type: str, days_left: int, expires: object) -> None:
         try:
             from edgelite.app import _app_state
+
             event_bus = getattr(_app_state, "event_bus", None)
             if event_bus:
                 from edgelite.engine.event_bus import AlarmEvent
-                event = AlarmEvent(alarm_id=f"opcua_cert_{device_id}_{cert_type}", rule_id="opcua_certificate_expiry", device_id=device_id, severity="warning" if days_left > 7 else "critical", action="firing", trigger_value={"cert_type": cert_type, "days_left": days_left, "expires_at": str(expires)}, rule_type="certificate_monitor")
+
+                event = AlarmEvent(
+                    alarm_id=f"opcua_cert_{device_id}_{cert_type}",
+                    rule_id="opcua_certificate_expiry",
+                    device_id=device_id,
+                    severity="warning" if days_left > 7 else "critical",
+                    action="firing",
+                    trigger_value={"cert_type": cert_type, "days_left": days_left, "expires_at": str(expires)},
+                    rule_type="certificate_monitor",
+                )
                 try:
                     asyncio.get_running_loop()
+
                     # UA-006: 追踪线程安全上下文中的 task
                     async def _publish_event():
                         await event_bus.publish(event)
+
                     task = asyncio.create_task(_publish_event())
                     self._background_tasks.add(task)
                     task.add_done_callback(lambda t: self._background_tasks.discard(t))
@@ -2173,6 +2679,7 @@ class OpcUaDriver(DriverPlugin):
     def _get_security_policy_map(self):
         try:
             from asyncua.crypto.security_policies import SecurityPolicy
+
             return {
                 "None": None,
                 "Basic128Rsa15": SecurityPolicy.Basic128Rsa15,
@@ -2181,6 +2688,494 @@ class OpcUaDriver(DriverPlugin):
             }
         except ImportError:
             return {"None": None}
+
+    async def _run_keepalive_loop(self, device_id: str, client: Any) -> bool:
+        """Keepalive loop: returns True if subscription should be restored (session expired/failed)."""
+        while self._running and not self._stopping:
+            await asyncio.sleep(_KEEPALIVE_CHECK_INTERVAL)
+            # FIXED-P1: keepalive循环跨设备遍历_clients未加锁，移除无实际作用的跨设备检查
+            session_age = time.monotonic() - self._session_created_at.get(device_id, time.monotonic())
+            session_timeout_s = self._session_timeout_ms.get(device_id, 60000) / 1000.0
+            if session_age >= session_timeout_s * _SESSION_PRE_EXPIRY_RATIO:
+                self._log_error(
+                    device_id,
+                    "SESSION_PRE_EXPIRY_REBUILD",
+                    f"msg=Session age={session_age:.0f}s exceeds {int(_SESSION_PRE_EXPIRY_RATIO * 100)}% of timeout",
+                    level=logging.WARNING,
+                )
+                return True
+            try:
+                state = client.session_state
+                if state != 1:
+                    self._log_error(device_id, "SESSION_EXPIRED", f"msg=Session state={state}", level=logging.WARNING)
+                    async with self._session_locks[device_id]:
+                        self._session_expired[device_id] = True
+                        # FIXED-P1: Event set移入锁保护，与clear()在同一锁下，消除竞态窗口
+                        self._session_rebuilding[device_id].set()
+                    await self._mark_all_subscription_points_bad(device_id)
+                    return True
+                # FIXED-P1: get_objects_node()返回缓存节点不发网络请求，改用read_browse_name实际检测连接存活
+                # FIXED-P2: keepalive超时从30秒缩短到5秒，避免长时间阻塞导致会话过期检测延迟
+                await asyncio.wait_for(client.nodes.server.read_browse_name(), timeout=5.0)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self._log_error(device_id, "KEEPALIVE_FAILED", "msg=Keep-alive failed", level=logging.WARNING)
+                async with self._session_locks[device_id]:
+                    self._session_expired[device_id] = True
+                    # FIXED-P1: Event set移入锁保护，与clear()在同一锁下，消除竞态窗口
+                    self._session_rebuilding[device_id].set()
+                await self._mark_all_subscription_points_bad(device_id)
+                return True
+        return False
+
+    async def _validate_certs_for_connect(
+        self, device_id: str, retry_count: int
+    ) -> tuple[str | None, str | None, str | None, bool, int]:
+        """Validate certs before connecting.
+
+        Returns ``(client_cert_path, client_key_path, ca_cert_path, proceed, new_retry_count)``.
+        ``proceed=False`` signals the caller should ``continue`` the reconnect loop
+        (cert invalid and retry/backoff handled internally).
+        """
+        _MAX_CERT_EXPIRY_RETRIES = 3  # FIXED-P0: 证书过期场景增加最大重试次数，防止无限循环
+        self._set_state(device_id, OpcUaConnectionState.CONNECTING)
+        self._set_state(device_id, OpcUaConnectionState.CERT_VALIDATING)
+        cert_valid = True
+        client_cert_path, client_key_path, ca_cert_path = self._get_effective_cert_paths(device_id)
+        if client_cert_path:
+            cert_ok = await asyncio.to_thread(self._check_cert_expiry, client_cert_path, "Client", device_id=device_id)
+            if not cert_ok:
+                if self._switch_to_backup_certs(device_id):
+                    client_cert_path, client_key_path, ca_cert_path = self._get_effective_cert_paths(device_id)
+                    cert_ok = await asyncio.to_thread(
+                        self._check_cert_expiry, client_cert_path, "Client", device_id=device_id
+                    )
+                if not cert_ok:
+                    renewed = await asyncio.to_thread(
+                        self._try_auto_renew_self_signed_cert, client_cert_path, client_key_path, device_id
+                    )
+                    if renewed:
+                        cert_valid = True
+                    else:
+                        cert_valid = False
+                        self._log_error(
+                            device_id,
+                            "SECURITY_BLOCKED",
+                            "msg=Client cert invalid, refusing to degrade to unencrypted connection",
+                            level=logging.ERROR,
+                        )  # FIXED-P2: 证书失效时不降级为无加密，改为ERROR级别
+        if ca_cert_path:
+            ca_ok = await asyncio.to_thread(self._check_cert_expiry, ca_cert_path, "CA", device_id=device_id)
+            if not ca_ok:
+                cert_valid = False
+                self._log_error(
+                    device_id,
+                    "SECURITY_BLOCKED",
+                    "msg=CA cert invalid, refusing to degrade to unencrypted connection",
+                    level=logging.ERROR,
+                )  # FIXED-P2: CA证书失效时不降级
+
+        if not cert_valid and not self._security_degraded.get(device_id, False):
+            retry_count += 1  # FIXED-P0: 证书过期场景增加最大重试次数，防止无限循环
+            if retry_count > _MAX_CERT_EXPIRY_RETRIES:
+                self._log_error(
+                    device_id,
+                    "CERT_EXPIRED",
+                    f"msg=Certificate expired, max retries ({_MAX_CERT_EXPIRY_RETRIES}) exceeded, entering long-interval retry mode (3600s)",
+                )
+                self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+                await self._mark_all_subscription_points_bad(device_id)
+                retry_count = 0  # FIXED-P1: 长间隔重试后重置计数器，使下次有完整短间隔重试机会
+                # FIXED-P0: 证书过期重试耗尽后不break，改用长间隔重试避免永久离线
+                for _ in range(360):
+                    if self._stopping or not self._running:
+                        break
+                    await asyncio.sleep(10)
+                return client_cert_path, client_key_path, ca_cert_path, False, retry_count
+            self._log_error(
+                device_id,
+                "CERT_EXPIRED",
+                f"msg=Certificate expired and cannot degrade, waiting 60s before retry (attempt {retry_count}/{_MAX_CERT_EXPIRY_RETRIES})",
+            )
+            self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+            await self._mark_all_subscription_points_bad(device_id)
+            # UA-001: 使用短 sleep 循环，允许停止信号在 10 秒内中断
+            for _ in range(6):
+                if self._stopping or not self._running:
+                    break
+                await asyncio.sleep(10)
+            return client_cert_path, client_key_path, ca_cert_path, False, retry_count
+
+        return client_cert_path, client_key_path, ca_cert_path, True, retry_count
+
+    async def _create_opcua_client(
+        self,
+        device_id: str,
+        server_url: str,
+        username: str | None,
+        password: str | None,
+        session_timeout: int,
+        security_mode_str: str,
+        security_policy_str: str,
+        client_cert_path: str | None,
+        client_key_path: str | None,
+        ca_cert_path: str | None,
+    ) -> Any:
+        """Create and configure an OPC-UA client.
+
+        Returns the configured client, or ``None`` when security is degraded
+        (the caller should ``continue`` the reconnect loop in that case).
+        """
+        _SECURITY_MODE_MAP = {"None": 1, "Sign": 2, "SignAndEncrypt": 3}
+        self._set_state(device_id, OpcUaConnectionState.SESSION_CREATING)
+        from asyncua import Client
+
+        client = Client(server_url)
+        client.session_timeout = session_timeout
+
+        if username and password:
+            client.set_user(username)
+            client.set_password(password)
+
+        degraded = self._security_degraded.get(device_id, False)
+        if not degraded:
+            security_mode_val = _SECURITY_MODE_MAP.get(security_mode_str, 1)
+            client.security_mode = security_mode_val
+            # FIXED-P0: security_policy_str 已在方法开头读取（默认 Basic256Sha256），此处不再重复读取
+            _security_policy_map = self._get_security_policy_map()
+            policy = _security_policy_map.get(security_policy_str)
+            if policy is not None:
+                cert = client_cert_path if client_cert_path else None
+                key = client_key_path if client_key_path else None
+                if cert and key:
+                    await client.set_security(policy, cert, key)  # FIXED: 补充 await, 原协程未执行
+                else:
+                    self._log_error(
+                        device_id,
+                        "SECURITY_SKIP",
+                        f"msg=Security policy={security_policy_str} requires certificate+key",
+                        level=logging.WARNING,
+                    )
+            if client_cert_path and client_key_path and policy is None:
+                await client.load_client_certificate(client_cert_path)  # FIXED: 补充 await
+                await client.load_private_key(client_key_path)  # FIXED: 补充 await
+            if ca_cert_path:
+                await client.load_server_certificate(
+                    ca_cert_path
+                )  # FIXED-P1: 补充 await, 未 await 导致 CA 证书未加载, TLS 校验失效(MITM 风险)
+            return client
+        else:
+            # FIXED-P2: 证书不可用时拒绝降级为无加密，标记设备OFFLINE而非静默降级
+            self._log_error(
+                device_id,
+                "SECURITY_BLOCKED",
+                "msg=Security degradation blocked, marking device OFFLINE",
+                level=logging.ERROR,
+            )
+            self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+            await self._mark_all_subscription_points_bad(device_id)
+            for _ in range(6):
+                if self._stopping or not self._running:
+                    break
+                await asyncio.sleep(10)
+            return None
+
+    async def _handle_reconnect_or_failover(self, device_id: str, client: Any, connected: bool) -> tuple[bool, Any]:
+        """Handle reconnect / failover after the keepalive loop requested a restore.
+
+        Always leads to the caller ``continue``-ing the reconnect loop.
+        Returns ``(new_connected, new_client)``.
+        """
+        if not self._is_using_backup(device_id):
+            if await self._fast_failover(device_id):
+                self._set_state(device_id, OpcUaConnectionState.CONNECTING)
+                async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
+                    self._clients.pop(device_id, None)
+                    # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
+                    # FIXED-BugR4X: 原问题-_pending_connections+=1在锁外执行与锁内递减不一致，修复-移入_clients_lock块内
+                    if connected:
+                        self._pending_connections += 1
+                connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
+                if client:
+                    try:
+                        await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
+                    except asyncio.CancelledError:
+                        raise
+                    except (TimeoutError, Exception) as e:
+                        logger.debug("OPC-UA client disconnect failed: %s", e)
+                return connected, client
+        else:
+            primary_ok = await self._probe_primary(device_id)
+            if primary_ok:
+                self._persist_session_state(device_id)
+                self._revert_to_primary(device_id)
+                config = self._device_configs.get(device_id, {})
+                if config.get("client_cert_path"):
+                    self._revert_to_primary_certs(device_id)
+                self._log_error(device_id, "FAILOVER_REVERT", "msg=Primary recovered, reverting", level=logging.INFO)
+                self._set_state(device_id, OpcUaConnectionState.CONNECTING)
+                async with self._clients_lock:
+                    self._clients.pop(device_id, None)
+                    # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
+                    # FIXED-BugR4X: 原问题-_pending_connections+=1在锁外执行与锁内递减不一致，修复-移入_clients_lock块内
+                    if connected:
+                        self._pending_connections += 1
+                connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
+                if client:
+                    try:
+                        await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
+                    except asyncio.CancelledError:
+                        raise
+                    except (TimeoutError, Exception) as e:
+                        logger.debug("OPC-UA client disconnect failed: %s", e)
+                return connected, client
+        self._log_error(device_id, "RECONNECTING", "msg=Reconnecting", level=logging.INFO)
+        self._set_state(device_id, OpcUaConnectionState.CONNECTING)
+        async with self._clients_lock:
+            self._clients.pop(device_id, None)
+            # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
+            # FIXED-BugR4X: 原问题-_pending_connections+=1在锁外执行与锁内递减不一致，修复-移入_clients_lock块内
+            if connected:
+                self._pending_connections += 1
+        connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
+        if client:
+            try:
+                await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
+            except asyncio.CancelledError:
+                raise
+            except (TimeoutError, Exception) as e:
+                logger.debug("OPC-UA client disconnect failed: %s", e)
+        client = None
+        return connected, client
+
+    async def _handle_connect_exception(
+        self,
+        device_id: str,
+        client: Any,
+        first_fail_time: float | None,
+        connected: bool,
+        exc: Exception,
+    ) -> tuple[float | None, bool, str]:
+        """Handle a generic connection exception.
+
+        Returns ``(new_first_fail_time, new_connected, action)`` where ``action``
+        is one of ``"break"`` (stop reconnecting), ``"continue"`` (next loop
+        iteration) or ``"proceed"`` (fall through to the inner ``finally``).
+        """
+        # FIXED-P2: 连接异常后确保客户端被断开，防止半连接状态导致连接泄漏
+        if client:
+            try:
+                # FIXED-P1: disconnect添加超时保护，防止服务器无响应时stop()无限阻塞
+                await asyncio.wait_for(client.disconnect(), timeout=5.0)
+            except asyncio.CancelledError:
+                raise
+            except (TimeoutError, Exception) as e:
+                logger.warning("[opcua] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+        async with self._session_locks[device_id]:
+            self._session_expired[device_id] = True
+        self._connect_fail_count[device_id] = self._connect_fail_count.get(device_id, 0) + 1
+        fails = self._connect_fail_count[device_id]
+        if first_fail_time is None:
+            first_fail_time = time.monotonic()  # FIXED-P1: 记录首次失败时间
+        elif (time.monotonic() - first_fail_time) > _MAX_TOTAL_RECONNECT_DURATION:
+            self._log_error(
+                device_id,
+                "CONN_FAILED",
+                f"msg=Total reconnect duration exceeded {_MAX_TOTAL_RECONNECT_DURATION}s, marking OFFLINE (await manual recovery)",
+                level=logging.CRITICAL,
+            )
+            self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+            return first_fail_time, connected, "break"  # FIXED-P1: 超过最大总重连时长后停止自动重连
+        if fails >= _MAX_CONNECT_RETRIES:
+            self._log_error(
+                device_id,
+                "CONN_FAILED",
+                f"msg=Max connect retries ({_MAX_CONNECT_RETRIES}) exceeded, resetting counter and retrying with long delay",
+                level=logging.ERROR,
+            )
+            self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+            await self._mark_all_subscription_points_bad(device_id)
+            # FIXED-P0: 超过最大重试次数后不break，重置计数器并长延迟重试避免永久离线
+            self._connect_fail_count[device_id] = 0
+            for _ in range(60):
+                if self._stopping or not self._running:
+                    break
+                await asyncio.sleep(10)
+            return first_fail_time, connected, "continue"
+        delay = _calc_backoff(fails)
+        now = time.monotonic()
+        if not self._is_using_backup(device_id):
+            if await self._fast_failover(device_id):
+                self._set_state(device_id, OpcUaConnectionState.CONNECTING)
+                async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
+                    self._clients.pop(device_id, None)
+                # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
+                if connected:
+                    self._pending_connections += 1
+                connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
+                if client:
+                    try:
+                        await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
+                    except asyncio.CancelledError:
+                        raise
+                    except (TimeoutError, Exception) as e:
+                        logger.debug("OPC-UA client disconnect failed: %s", e)
+                return first_fail_time, connected, "continue"
+        self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+        await self._mark_all_subscription_points_bad(device_id)
+        if device_id in self._backup_cert_paths:
+            self._log_error(
+                device_id,
+                "CERT_FAILOVER_REVERT",
+                "msg=Connection failed with backup certs, rolling back to original",
+                level=logging.WARNING,
+            )
+            original = self._original_cert_paths.pop(device_id, None)
+            self._backup_cert_paths.pop(device_id, None)
+            if original:
+                self._backup_cert_paths[device_id] = original
+        last_log = self._last_connect_log.get(device_id, 0.0)
+        if fails < 3 or now - last_log >= 60:
+            self._log_error(
+                device_id,
+                "CONN_FAILED",
+                f"msg={exc}, retrying in {delay:.1f}s (attempt #{fails})",
+                level=logging.WARNING if fails > 3 else logging.ERROR,
+            )
+            self._last_connect_log[device_id] = now
+        # FIXED-P1: 通用异常处理中sleep改为短sleep循环，允许stop信号中断
+        remaining = delay
+        while remaining > 0 and not self._stopping and self._running:
+            chunk = min(10.0, remaining)
+            await asyncio.sleep(chunk)
+            remaining -= chunk
+        return first_fail_time, connected, "proceed"
+
+    async def _validate_security_config(
+        self, device_id: str, config: dict, security_mode_str: str, security_policy_str: str
+    ) -> bool:
+        """Validate security_mode / security_policy combination before connecting.
+
+        Returns ``False`` when the combination is invalid (caller should return
+        early); ``True`` to proceed. Also warns when certificates are missing.
+        """
+        # FIXED-P0: 校验 security_mode 与 security_policy 组合合法性
+        # 之前：security_mode=SignAndEncrypt 但 security_policy=None 时，代码跳过 set_security，实际建立无加密连接
+        # 之后：组合不一致时拒绝启动，记录 SECURITY_CONFIG_INVALID 错误
+        if security_mode_str != "None" and security_policy_str == "None":
+            self._log_error(
+                device_id,
+                "SECURITY_CONFIG_INVALID",
+                f"msg=security_mode={security_mode_str} requires security_policy != None, refusing to connect",
+                level=logging.ERROR,
+            )
+            self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+            await self._mark_all_subscription_points_bad(device_id)
+            for _ in range(6):
+                if self._stopping or not self._running:
+                    break
+                await asyncio.sleep(10)
+            return False
+        # 当 security_mode != None 时，警告缺少证书
+        if security_mode_str != "None" and not (config.get("client_cert_path") and config.get("client_key_path")):
+            self._log_error(
+                device_id,
+                "SECURITY_CONFIG_INVALID",
+                f"msg=security_mode={security_mode_str} requires client_cert_path and client_key_path",
+                level=logging.WARNING,
+            )
+        return True
+
+    async def _init_session_after_connect(self, device_id: str, session_timeout: int) -> None:
+        """Initialise session bookkeeping after a successful connect()."""
+        async with self._session_locks[device_id]:
+            self._session_expired[device_id] = False
+            # UA-002: Session 重建成功，重置重建事件
+            if device_id in self._session_rebuilding:
+                self._session_rebuilding[device_id].clear()
+            # UA-MED-002: 处理排队中的请求
+            await self._drain_rebuild_queue(device_id)
+            self._session_created_at[device_id] = time.monotonic()
+            self._session_timeout_ms[device_id] = session_timeout
+            self._connect_fail_count.pop(device_id, None)
+            self._security_degraded[device_id] = False
+
+    async def _create_subscription_with_fallback(
+        self,
+        device_id: str,
+        client: Any,
+        config: dict,
+        use_subscription_config: bool,
+        collection_mode: CollectionMode,
+    ) -> None:
+        """Create subscription, degrading to polling on failure when allowed."""
+        use_sub = use_subscription_config and collection_mode != CollectionMode.POLLING
+        if not use_sub:
+            return
+        self._set_state(device_id, OpcUaConnectionState.SUBSCRIBING)
+        try:
+            await self._create_subscription(device_id, client, config)
+            if collection_mode == CollectionMode.SUBSCRIPTION:
+                pass
+        except asyncio.CancelledError:
+            raise
+        except Exception as sub_err:
+            if collection_mode == CollectionMode.SUBSCRIPTION or config.get("collection_mode", "auto") == "auto":
+                self._log_error(
+                    device_id,
+                    "SUB_DEGRADED_POLLING",
+                    f"msg=Subscription failed ({sub_err}), degrading to polling mode",
+                    level=logging.WARNING,
+                )
+                self._collection_modes[device_id] = CollectionMode.POLLING
+            else:
+                raise
+
+    async def _refresh_namespace_cache(self, device_id: str, client: Any) -> None:
+        """Refresh the namespace index cache for ``device_id`` (best-effort)."""
+        try:
+            ns_array = await client.get_namespace_array()
+            self._ns_cache[device_id] = {name: idx for idx, name in enumerate(ns_array)}
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self._ns_cache[device_id] = {}
+
+    async def _connect_and_register_client(self, device_id: str, client: Any) -> None:
+        """Connect the client and register it in the shared clients dict."""
+        await asyncio.wait_for(client.connect(), timeout=self._CONNECT_TIMEOUT)
+        async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
+            self._clients[device_id] = client
+            self._node_data_types.pop(device_id, None)  # FIXED-P2: 重连时清除数据类型缓存，防止过期
+            # FIXED-P0: _pending_connections递减移入锁内，与add_device的递增在同一锁保护下，防止计数偏移
+            self._pending_connections = max(0, self._pending_connections - 1)
+
+    async def _finalize_connection(
+        self,
+        device_id: str,
+        client: Any,
+        config: dict,
+        use_subscription_config: bool,
+        collection_mode: CollectionMode,
+    ) -> None:
+        """Finish connection setup: namespace cache, subscription, state restore, probe."""
+        await self._refresh_namespace_cache(device_id, client)
+        await self._create_subscription_with_fallback(
+            device_id, client, config, use_subscription_config, collection_mode
+        )
+        restored = self._restore_session_state(device_id)
+        if restored:
+            self._log_error(
+                device_id,
+                "SESSION_RESTORED",
+                f"msg=Session restored from persisted state (sub_id={restored.get('subscription_id')})",
+                level=logging.INFO,
+            )
+        self._persist_session_state(device_id)
+        self._set_state(device_id, OpcUaConnectionState.CONNECTED)
+        if self._is_using_backup(device_id):
+            await self._start_primary_probe(device_id)
 
     async def _connect_device(self, device_id: str) -> None:
         config = self._device_configs.get(device_id, {})
@@ -2191,374 +3186,97 @@ class OpcUaDriver(DriverPlugin):
         # 之后：默认 "SignAndEncrypt"，强制用户显式选择降级
         security_mode_str = config.get("security_mode", "SignAndEncrypt")
         security_policy_str = config.get("security_policy", "Basic256Sha256")
-        # FIXED-P0: 校验 security_mode 与 security_policy 组合合法性
-        # 之前：security_mode=SignAndEncrypt 但 security_policy=None 时，代码跳过 set_security，实际建立无加密连接
-        # 之后：组合不一致时拒绝启动，记录 SECURITY_CONFIG_INVALID 错误
-        if security_mode_str != "None" and security_policy_str == "None":
-            self._log_error(
-                device_id, "SECURITY_CONFIG_INVALID",
-                f"msg=security_mode={security_mode_str} requires security_policy != None, refusing to connect",
-                level=logging.ERROR,
-            )
-            self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-            await self._mark_all_subscription_points_bad(device_id)
-            for _ in range(6):
-                if self._stopping or not self._running:
-                    break
-                await asyncio.sleep(10)
+        if not await self._validate_security_config(device_id, config, security_mode_str, security_policy_str):
             return
-        # 当 security_mode != None 时，警告缺少证书
-        if security_mode_str != "None" and not (config.get("client_cert_path") and config.get("client_key_path")):
-            self._log_error(
-                device_id, "SECURITY_CONFIG_INVALID",
-                f"msg=security_mode={security_mode_str} requires client_cert_path and client_key_path",
-                level=logging.WARNING,
-            )
         session_timeout = int(config.get("session_timeout", 60000))
         use_subscription_config = config.get("use_subscription", True)
         collection_mode = self._collection_modes.get(device_id, CollectionMode.SUBSCRIPTION)
 
-        _SECURITY_MODE_MAP = {"None": 1, "Sign": 2, "SignAndEncrypt": 3}
         _cert_expiry_retry_count = 0  # FIXED-P0: 证书过期场景增加最大重试次数，防止无限循环
-        _MAX_CERT_EXPIRY_RETRIES = 3
         _first_fail_time: float | None = None  # FIXED-P1: 首次连接失败时间，用于限制总重连时长
         _connected = False  # FIXED-P0: 跟踪当前连接状态，控制finally中_pending_connections递减逻辑
 
         try:  # FIXED-P0: 外层try包裹整个连接循环，确保finally中清理代码始终执行
-          while self._running and not self._stopping:
-            server_url = self._get_active_endpoint(device_id)
-            if self._stopping:
-                break
-            client = None
-            _restore_subscription = False
-
-            try:
-                self._set_state(device_id, OpcUaConnectionState.CONNECTING)
-                self._set_state(device_id, OpcUaConnectionState.CERT_VALIDATING)
-                cert_valid = True
-                client_cert_path, client_key_path, ca_cert_path = self._get_effective_cert_paths(device_id)
-                if client_cert_path:
-                    cert_ok = await asyncio.to_thread(self._check_cert_expiry, client_cert_path, "Client", device_id=device_id)
-                    if not cert_ok:
-                        if self._switch_to_backup_certs(device_id):
-                            client_cert_path, client_key_path, ca_cert_path = self._get_effective_cert_paths(device_id)
-                            cert_ok = await asyncio.to_thread(self._check_cert_expiry, client_cert_path, "Client", device_id=device_id)
-                        if not cert_ok:
-                            renewed = await asyncio.to_thread(self._try_auto_renew_self_signed_cert, client_cert_path, client_key_path, device_id)
-                            if renewed:
-                                cert_valid = True
-                            else:
-                                cert_valid = False
-                                self._log_error(device_id, "SECURITY_BLOCKED", "msg=Client cert invalid, refusing to degrade to unencrypted connection", level=logging.ERROR)  # FIXED-P2: 证书失效时不降级为无加密，改为ERROR级别
-                if ca_cert_path:
-                    ca_ok = await asyncio.to_thread(self._check_cert_expiry, ca_cert_path, "CA", device_id=device_id)
-                    if not ca_ok:
-                        cert_valid = False
-                        self._log_error(device_id, "SECURITY_BLOCKED", "msg=CA cert invalid, refusing to degrade to unencrypted connection", level=logging.ERROR)  # FIXED-P2: CA证书失效时不降级
-
-                if not cert_valid and not self._security_degraded.get(device_id, False):
-                    _cert_expiry_retry_count += 1  # FIXED-P0: 证书过期场景增加最大重试次数，防止无限循环
-                    if _cert_expiry_retry_count > _MAX_CERT_EXPIRY_RETRIES:
-                        self._log_error(device_id, "CERT_EXPIRED", f"msg=Certificate expired, max retries ({_MAX_CERT_EXPIRY_RETRIES}) exceeded, entering long-interval retry mode (3600s)")
-                        self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                        await self._mark_all_subscription_points_bad(device_id)
-                        _cert_expiry_retry_count = 0  # FIXED-P1: 长间隔重试后重置计数器，使下次有完整短间隔重试机会
-                        # FIXED-P0: 证书过期重试耗尽后不break，改用长间隔重试避免永久离线
-                        for _ in range(360):
-                            if self._stopping or not self._running:
-                                break
-                            await asyncio.sleep(10)
-                        continue
-                    self._log_error(device_id, "CERT_EXPIRED", f"msg=Certificate expired and cannot degrade, waiting 60s before retry (attempt {_cert_expiry_retry_count}/{_MAX_CERT_EXPIRY_RETRIES})")
-                    self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                    await self._mark_all_subscription_points_bad(device_id)
-                    # UA-001: 使用短 sleep 循环，允许停止信号在 10 秒内中断
-                    for _ in range(6):
-                        if self._stopping or not self._running:
-                            break
-                        await asyncio.sleep(10)
-                    continue
-
-                self._set_state(device_id, OpcUaConnectionState.SESSION_CREATING)
-                from asyncua import Client
-                client = Client(server_url)
-                client.session_timeout = session_timeout
-
-                if username and password:
-                    client.set_user(username)
-                    client.set_password(password)
-
-                degraded = self._security_degraded.get(device_id, False)
-                if not degraded:
-                    security_mode_val = _SECURITY_MODE_MAP.get(security_mode_str, 1)
-                    client.security_mode = security_mode_val
-                    # FIXED-P0: security_policy_str 已在方法开头读取（默认 Basic256Sha256），此处不再重复读取
-                    _security_policy_map = self._get_security_policy_map()
-                    policy = _security_policy_map.get(security_policy_str)
-                    if policy is not None:
-                        cert = client_cert_path if client_cert_path else None
-                        key = client_key_path if client_key_path else None
-                        if cert and key:
-                            await client.set_security(policy, cert, key)  # FIXED: 补充 await, 原协程未执行
-                        else:
-                            self._log_error(device_id, "SECURITY_SKIP", f"msg=Security policy={security_policy_str} requires certificate+key", level=logging.WARNING)
-                    if client_cert_path and client_key_path and policy is None:
-                        await client.load_client_certificate(client_cert_path)  # FIXED: 补充 await
-                        await client.load_private_key(client_key_path)  # FIXED: 补充 await
-                    if ca_cert_path:
-                        client.load_server_certificate(ca_cert_path)
-                else:
-                    # FIXED-P2: 证书不可用时拒绝降级为无加密，标记设备OFFLINE而非静默降级
-                    self._log_error(device_id, "SECURITY_BLOCKED", "msg=Security degradation blocked, marking device OFFLINE", level=logging.ERROR)
-                    self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                    await self._mark_all_subscription_points_bad(device_id)
-                    for _ in range(6):
-                        if self._stopping or not self._running:
-                            break
-                        await asyncio.sleep(10)
-                    continue
-
-                await asyncio.wait_for(client.connect(), timeout=self._CONNECT_TIMEOUT)
-                async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
-                    self._clients[device_id] = client
-                    self._node_data_types.pop(device_id, None)  # FIXED-P2: 重连时清除数据类型缓存，防止过期
-                    # FIXED-P0: _pending_connections递减移入锁内，与add_device的递增在同一锁保护下，防止计数偏移
-                    self._pending_connections = max(0, self._pending_connections - 1)
-                _connected = True  # FIXED-P0: 标记当前已连接，finally中不再递减
-                async with self._session_locks[device_id]:
-                    self._session_expired[device_id] = False
-                    # UA-002: Session 重建成功，重置重建事件
-                    if device_id in self._session_rebuilding:
-                        self._session_rebuilding[device_id].clear()
-                    # UA-MED-002: 处理排队中的请求
-                    await self._drain_rebuild_queue(device_id)
-                    self._session_created_at[device_id] = time.monotonic()
-                    self._session_timeout_ms[device_id] = session_timeout
-                    self._connect_fail_count.pop(device_id, None)
-                    _first_fail_time = None  # FIXED-P1: 连接成功后重置首次失败时间，使总重连时长为连续失败段计算
-                    self._security_degraded[device_id] = False
+            while self._running and not self._stopping:
+                server_url = self._get_active_endpoint(device_id)
+                if self._stopping:
+                    break
+                client = None
+                _restore_subscription = False
 
                 try:
-                    ns_array = await client.get_namespace_array()
-                    self._ns_cache[device_id] = {name: idx for idx, name in enumerate(ns_array)}
+                    (
+                        client_cert_path,
+                        client_key_path,
+                        ca_cert_path,
+                        _cert_proceed,
+                        _cert_expiry_retry_count,
+                    ) = await self._validate_certs_for_connect(device_id, _cert_expiry_retry_count)
+                    if not _cert_proceed:
+                        continue
+
+                    client = await self._create_opcua_client(
+                        device_id,
+                        server_url,
+                        username,
+                        password,
+                        session_timeout,
+                        security_mode_str,
+                        security_policy_str,
+                        client_cert_path,
+                        client_key_path,
+                        ca_cert_path,
+                    )
+                    if client is None:
+                        continue  # security degraded path handled inside helper
+
+                    await self._connect_and_register_client(device_id, client)
+                    _connected = True  # FIXED-P0: 标记当前已连接，finally中不再递减
+                    await self._init_session_after_connect(device_id, session_timeout)
+                    _first_fail_time = None  # FIXED-P1: 连接成功后重置首次失败时间
+                    await self._finalize_connection(device_id, client, config, use_subscription_config, collection_mode)
+                    _cert_expiry_retry_count = 0  # FIXED-P0: 连接成功后重置证书过期重试计数器
+
+                    _restore_subscription = await self._run_keepalive_loop(device_id, client)
+
+                    if _restore_subscription:
+                        _connected, client = await self._handle_reconnect_or_failover(device_id, client, _connected)
+                        continue
+
                 except asyncio.CancelledError:
                     raise
-                except Exception:
-                    self._ns_cache[device_id] = {}
-
-                use_sub = use_subscription_config and collection_mode != CollectionMode.POLLING
-                if use_sub:
-                    self._set_state(device_id, OpcUaConnectionState.SUBSCRIBING)
-                    try:
-                        await self._create_subscription(device_id, client, config)
-                        if collection_mode == CollectionMode.SUBSCRIPTION:
-                            pass
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as sub_err:
-                        if collection_mode == CollectionMode.SUBSCRIPTION or config.get("collection_mode", "auto") == "auto":
-                            self._log_error(device_id, "SUB_DEGRADED_POLLING", f"msg=Subscription failed ({sub_err}), degrading to polling mode", level=logging.WARNING)
-                            self._collection_modes[device_id] = CollectionMode.POLLING
-                        else:
-                            raise
-
-                restored = self._restore_session_state(device_id)
-                if restored:
-                    self._log_error(device_id, "SESSION_RESTORED", f"msg=Session restored from persisted state (sub_id={restored.get('subscription_id')})", level=logging.INFO)
-
-                self._persist_session_state(device_id)
-                self._set_state(device_id, OpcUaConnectionState.CONNECTED)
-                _cert_expiry_retry_count = 0  # FIXED-P0: 证书过期场景增加最大重试次数，防止无限循环 - 连接成功后重置计数器
-
-                if self._is_using_backup(device_id):
-                    await self._start_primary_probe(device_id)
-
-                while self._running and not self._stopping:
-                    await asyncio.sleep(_KEEPALIVE_CHECK_INTERVAL)
-                    # FIXED-P1: keepalive循环跨设备遍历_clients未加锁，移除无实际作用的跨设备检查
-                    session_age = time.monotonic() - self._session_created_at.get(device_id, time.monotonic())
-                    session_timeout_s = self._session_timeout_ms.get(device_id, 60000) / 1000.0
-                    if session_age >= session_timeout_s * _SESSION_PRE_EXPIRY_RATIO:
-                        self._log_error(device_id, "SESSION_PRE_EXPIRY_REBUILD", f"msg=Session age={session_age:.0f}s exceeds {int(_SESSION_PRE_EXPIRY_RATIO*100)}% of timeout", level=logging.WARNING)
-                        _restore_subscription = True
+                except ImportError:
+                    self._log_error(
+                        device_id,
+                        "CONN_FAILED",
+                        "msg=asyncua library not installed, marking device as permanently offline",
+                    )
+                    self._import_error_devices.add(device_id)  # FIXED-P2: ImportError后标记设备永久离线，不再重试
+                    self._set_state(device_id, OpcUaConnectionState.OFFLINE)
+                    async with self._session_locks[device_id]:
+                        self._session_expired[device_id] = True
+                    await self._mark_all_subscription_points_bad(device_id)
+                    break  # FIXED-P2: ImportError后不再重试，直接退出循环
+                except Exception as e:
+                    _first_fail_time, _connected, _action = await self._handle_connect_exception(
+                        device_id, client, _first_fail_time, _connected, e
+                    )
+                    if _action == "break":
                         break
-                    try:
-                        state = client.session_state
-                        if state != 1:
-                            self._log_error(device_id, "SESSION_EXPIRED", f"msg=Session state={state}", level=logging.WARNING)
-                            async with self._session_locks[device_id]:
-                                self._session_expired[device_id] = True
-                                # FIXED-P1: Event set移入锁保护，与clear()在同一锁下，消除竞态窗口
-                                self._session_rebuilding[device_id].set()
-                            await self._mark_all_subscription_points_bad(device_id)
-                            _restore_subscription = True
-                            break
-                        # FIXED-P1: get_objects_node()返回缓存节点不发网络请求，改用read_browse_name实际检测连接存活
-                        # FIXED-P2: keepalive超时从30秒缩短到5秒，避免长时间阻塞导致会话过期检测延迟
-                        await asyncio.wait_for(client.nodes.server.read_browse_name(), timeout=5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self._log_error(device_id, "KEEPALIVE_FAILED", "msg=Keep-alive failed", level=logging.WARNING)
-                        async with self._session_locks[device_id]:
-                            self._session_expired[device_id] = True
-                            # FIXED-P1: Event set移入锁保护，与clear()在同一锁下，消除竞态窗口
-                            self._session_rebuilding[device_id].set()
-                        await self._mark_all_subscription_points_bad(device_id)
-                        _restore_subscription = True
-                        break
-
-                if _restore_subscription:
-                    if not self._is_using_backup(device_id):
-                        if await self._fast_failover(device_id):
-                            self._set_state(device_id, OpcUaConnectionState.CONNECTING)
-                            async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
-                                self._clients.pop(device_id, None)
-                                # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
-                                # FIXED-BugR4X: 原问题-_pending_connections+=1在锁外执行与锁内递减不一致，修复-移入_clients_lock块内
-                                if _connected:
-                                    self._pending_connections += 1
-                            _connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
-                            if client:
-                                try:
-                                    await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
-                                except asyncio.CancelledError:
-                                    raise
-                                except (TimeoutError, Exception) as e:
-                                    logger.debug("OPC-UA client disconnect failed: %s", e)
-                            continue
-                    else:
-                        primary_ok = await self._probe_primary(device_id)
-                        if primary_ok:
-                            self._persist_session_state(device_id)
-                            self._revert_to_primary(device_id)
-                            config = self._device_configs.get(device_id, {})
-                            if config.get("client_cert_path"):
-                                self._revert_to_primary_certs(device_id)
-                            self._log_error(device_id, "FAILOVER_REVERT", "msg=Primary recovered, reverting", level=logging.INFO)
-                            self._set_state(device_id, OpcUaConnectionState.CONNECTING)
-                            async with self._clients_lock:
-                                self._clients.pop(device_id, None)
-                                # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
-                                # FIXED-BugR4X: 原问题-_pending_connections+=1在锁外执行与锁内递减不一致，修复-移入_clients_lock块内
-                                if _connected:
-                                    self._pending_connections += 1
-                            _connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
-                            if client:
-                                try:
-                                    await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
-                                except asyncio.CancelledError:
-                                    raise
-                                except (TimeoutError, Exception) as e:
-                                    logger.debug("OPC-UA client disconnect failed: %s", e)
-                            continue
-                    self._log_error(device_id, "RECONNECTING", "msg=Reconnecting", level=logging.INFO)
-                    self._set_state(device_id, OpcUaConnectionState.CONNECTING)
-                    async with self._clients_lock:
-                        self._clients.pop(device_id, None)
-                        # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
-                        # FIXED-BugR4X: 原问题-_pending_connections+=1在锁外执行与锁内递减不一致，修复-移入_clients_lock块内
-                        if _connected:
-                            self._pending_connections += 1
-                    _connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
-                    if client:
+                    elif _action == "continue":
+                        continue
+                finally:
+                    async with self._clients_lock:  # FIXED-P0: finally块访问_clients字典未加锁
+                        should_disconnect = client is not None and (
+                            device_id not in self._clients or self._clients[device_id] is not client
+                        )
+                    if should_disconnect:
                         try:
                             await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
                         except asyncio.CancelledError:
                             raise
                         except (TimeoutError, Exception) as e:
-                            logger.debug("OPC-UA client disconnect failed: %s", e)
-                    client = None
-                    continue
-
-            except asyncio.CancelledError:
-                raise
-            except ImportError:
-                self._log_error(device_id, "CONN_FAILED", "msg=asyncua library not installed, marking device as permanently offline")
-                self._import_error_devices.add(device_id)  # FIXED-P2: ImportError后标记设备永久离线，不再重试
-                self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                async with self._session_locks[device_id]:
-                    self._session_expired[device_id] = True
-                await self._mark_all_subscription_points_bad(device_id)
-                break  # FIXED-P2: ImportError后不再重试，直接退出循环
-            except Exception as e:
-                # FIXED-P2: 连接异常后确保客户端被断开，防止半连接状态导致连接泄漏
-                if client:
-                    try:
-                        # FIXED-P1: disconnect添加超时保护，防止服务器无响应时stop()无限阻塞
-                        await asyncio.wait_for(client.disconnect(), timeout=5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except (TimeoutError, Exception) as e:
-                        logger.warning("[opcua] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                async with self._session_locks[device_id]:
-                    self._session_expired[device_id] = True
-                self._connect_fail_count[device_id] = self._connect_fail_count.get(device_id, 0) + 1
-                fails = self._connect_fail_count[device_id]
-                if _first_fail_time is None:
-                    _first_fail_time = time.monotonic()  # FIXED-P1: 记录首次失败时间
-                elif (time.monotonic() - _first_fail_time) > _MAX_TOTAL_RECONNECT_DURATION:
-                    self._log_error(device_id, "CONN_FAILED", f"msg=Total reconnect duration exceeded {_MAX_TOTAL_RECONNECT_DURATION}s, marking OFFLINE (await manual recovery)", level=logging.CRITICAL)
-                    self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                    break  # FIXED-P1: 超过最大总重连时长后停止自动重连
-                if fails >= _MAX_CONNECT_RETRIES:
-                    self._log_error(device_id, "CONN_FAILED", f"msg=Max connect retries ({_MAX_CONNECT_RETRIES}) exceeded, resetting counter and retrying with long delay", level=logging.ERROR)
-                    self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                    await self._mark_all_subscription_points_bad(device_id)
-                    # FIXED-P0: 超过最大重试次数后不break，重置计数器并长延迟重试避免永久离线
-                    self._connect_fail_count[device_id] = 0
-                    for _ in range(60):
-                        if self._stopping or not self._running:
-                            break
-                        await asyncio.sleep(10)
-                    continue
-                delay = _calc_backoff(fails)
-                now = time.monotonic()
-                if not self._is_using_backup(device_id):
-                    if await self._fast_failover(device_id):
-                        self._set_state(device_id, OpcUaConnectionState.CONNECTING)
-                        async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
-                            self._clients.pop(device_id, None)
-                        # FIXED-P0: 仅在已连接状态转换到待连接时递增，首次连接失败时_connected已为False不需重复递增
-                        if _connected:
-                            self._pending_connections += 1
-                        _connected = False  # FIXED-P0: 标记当前处于pending状态，finally中需递减
-                        if client:
-                            try:
-                                await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
-                            except asyncio.CancelledError:
-                                raise
-                            except (TimeoutError, Exception) as e:
-                                logger.debug("OPC-UA client disconnect failed: %s", e)
-                        continue
-                self._set_state(device_id, OpcUaConnectionState.OFFLINE)
-                await self._mark_all_subscription_points_bad(device_id)
-                if device_id in self._backup_cert_paths:
-                    self._log_error(device_id, "CERT_FAILOVER_REVERT", "msg=Connection failed with backup certs, rolling back to original", level=logging.WARNING)
-                    original = self._original_cert_paths.pop(device_id, None)
-                    self._backup_cert_paths.pop(device_id, None)
-                    if original:
-                        self._backup_cert_paths[device_id] = original
-                last_log = self._last_connect_log.get(device_id, 0.0)
-                if fails < 3 or now - last_log >= 60:
-                    self._log_error(device_id, "CONN_FAILED", f"msg={e}, retrying in {delay:.1f}s (attempt #{fails})", level=logging.WARNING if fails > 3 else logging.ERROR)
-                    self._last_connect_log[device_id] = now
-                # FIXED-P1: 通用异常处理中sleep改为短sleep循环，允许stop信号中断
-                remaining = delay
-                while remaining > 0 and not self._stopping and self._running:
-                    chunk = min(10.0, remaining)
-                    await asyncio.sleep(chunk)
-                    remaining -= chunk
-            finally:
-                async with self._clients_lock:  # FIXED-P0: finally块访问_clients字典未加锁
-                    should_disconnect = client is not None and (device_id not in self._clients or self._clients[device_id] is not client)
-                if should_disconnect:
-                    try:
-                        await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
-                    except asyncio.CancelledError:
-                        raise
-                    except (TimeoutError, Exception) as e:
-                        logger.debug("OPC-UA client disconnect in finally failed: %s", e)
+                            logger.debug("OPC-UA client disconnect in finally failed: %s", e)
         # FIXED-P0: 将清理代码放入finally确保CancelledError时也能执行，防止_pending_connections永久泄漏
         finally:
             if not _connected:  # FIXED-P0: 仅在pending状态时递减，避免连接成功后finally额外递减导致计数偏低
@@ -2592,7 +3310,15 @@ class OpcUaDriver(DriverPlugin):
         use_native_deadband = config.get("use_native_deadband", True)
         batch_size = int(config.get("batch_size", self._batch_size))
 
-        handler = _SubHandler(device_id, self._latest_values, self._data_callback, self._values_lock, self._event_bus, self._subscription_locks.get(device_id), self)
+        handler = _SubHandler(
+            device_id,
+            self._latest_values,
+            self._data_callback,
+            self._values_lock,
+            self._event_bus,
+            self._subscription_locks.get(device_id),
+            self,
+        )
         subscription = await client.create_subscription(interval, handler)
         self._subscriptions[device_id] = subscription
         self._sub_handlers[device_id] = handler  # FIXED-P0: 追踪handler以便stop时取消
@@ -2606,28 +3332,56 @@ class OpcUaDriver(DriverPlugin):
 
         success_count = 0
         for batch_start in range(0, len(points), batch_size):
-            batch = points[batch_start:batch_start + batch_size]
+            batch = points[batch_start : batch_start + batch_size]
             batch_num = batch_start // batch_size + 1
-            batch_success = await self._subscribe_batch(device_id, client, subscription, batch, use_deadband and use_native_deadband, deadband_type_str, deadband_value, batch_num)
+            batch_success = await self._subscribe_batch(
+                device_id,
+                client,
+                subscription,
+                batch,
+                use_deadband and use_native_deadband,
+                deadband_type_str,
+                deadband_value,
+                batch_num,
+            )
             if batch_success == 0 and use_deadband and use_native_deadband:
                 native_deadband_ok = False
-                self._log_error(device_id, "DEADBAND_NATIVE_FAILED", "msg=Native deadband failed, retrying without native deadband", level=logging.WARNING)
+                self._log_error(
+                    device_id,
+                    "DEADBAND_NATIVE_FAILED",
+                    "msg=Native deadband failed, retrying without native deadband",
+                    level=logging.WARNING,
+                )
                 self._native_deadband_failed[device_id] = True
-                batch_success = await self._subscribe_batch(device_id, client, subscription, batch, False, deadband_type_str, deadband_value, batch_num)
+                batch_success = await self._subscribe_batch(
+                    device_id, client, subscription, batch, False, deadband_type_str, deadband_value, batch_num
+                )
             success_count += batch_success
 
         if not native_deadband_ok and use_deadband:
             sw_deadband = config.get("deadband")
             if sw_deadband is None:
-                self._log_error(device_id, "DEADBAND_NATIVE_FAILED", "msg=Native deadband failed and no software deadband configured, deadband disabled", level=logging.WARNING)
+                self._log_error(
+                    device_id,
+                    "DEADBAND_NATIVE_FAILED",
+                    "msg=Native deadband failed and no software deadband configured, deadband disabled",
+                    level=logging.WARNING,
+                )
 
         if success_count > 0:
-            self._log_error(device_id, "SUBSCRIPTION_OK", f"msg=Subscription created interval={interval}ms nodes={success_count}/{len(points)}", level=logging.INFO)
+            self._log_error(
+                device_id,
+                "SUBSCRIPTION_OK",
+                f"msg=Subscription created interval={interval}ms nodes={success_count}/{len(points)}",
+                level=logging.INFO,
+            )
             for pt in points:
                 ph = self._get_point_health(device_id, pt.get("name", ""))
                 ph.subscription_count += 1
         else:
-            self._log_error(device_id, "SUBSCRIPTION_FAILED", f"msg=All node subscriptions failed nodes=0/{len(points)}")
+            self._log_error(
+                device_id, "SUBSCRIPTION_FAILED", f"msg=All node subscriptions failed nodes=0/{len(points)}"
+            )
             # FIXED-BugR4X: 原问题-所有节点订阅失败抛RuntimeError前未清理已创建的subscription和handler导致资源泄漏，修复-调用subscription.delete()并从_subscriptions/_sub_handlers字典移除
             try:
                 await subscription.delete()
@@ -2637,10 +3391,21 @@ class OpcUaDriver(DriverPlugin):
             self._sub_handlers.pop(device_id, None)
             raise RuntimeError(f"All {len(points)} node subscriptions failed")
 
-    async def _subscribe_batch(self, device_id, client, subscription, points_batch, use_native_deadband, deadband_type_str, deadband_value, batch_num):
+    async def _subscribe_batch(
+        self,
+        device_id,
+        client,
+        subscription,
+        points_batch,
+        use_native_deadband,
+        deadband_type_str,
+        deadband_value,
+        batch_num,
+    ):
         success_count = 0
         try:
             from asyncua.common.subscription import DeadbandType
+
             db_type = DeadbandType.Absolute if deadband_type_str == "Absolute" else DeadbandType.Percent
         except ImportError:
             use_native_deadband = False
@@ -2655,34 +3420,49 @@ class OpcUaDriver(DriverPlugin):
                 node_objs.append(None)
 
         for i in range(0, len(node_objs), 10):
-            chunk = list(zip(points_batch[i:i + 10], node_objs[i:i + 10], strict=False))
+            chunk = list(zip(points_batch[i : i + 10], node_objs[i : i + 10], strict=False))
             for point_def, node in chunk:
                 if node is None:
                     continue
                 point_name = point_def.get("name", node.nodeid.to_string() if node else "")
                 try:
                     if use_native_deadband and db_type is not None:
-                        await subscription.subscribe_data_change(node, deadband_type=db_type, deadband_value=deadband_value)
+                        await subscription.subscribe_data_change(
+                            node, deadband_type=db_type, deadband_value=deadband_value
+                        )
                     else:
                         await subscription.subscribe_data_change(node)
                     success_count += 1
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
-                    self._log_error(device_id, "SUBSCRIPTION_FAILED", f"msg=Batch {batch_num} point={point_name} err={e}", level=logging.WARNING)
+                    self._log_error(
+                        device_id,
+                        "SUBSCRIPTION_FAILED",
+                        f"msg=Batch {batch_num} point={point_name} err={e}",
+                        level=logging.WARNING,
+                    )
         return success_count
 
-    async def create_subscription_batch(self, device_id, node_addresses, node_names=None, interval=500, deadband_type="None", deadband_value=0.0):
+    async def create_subscription_batch(
+        self, device_id, node_addresses, node_names=None, interval=500, deadband_type="None", deadband_value=0.0
+    ):
         async with self._clients_lock:  # FIXED-P0: 客户端字典访问加锁保护
             client = self._clients.get(device_id)
         if not client:
-            return {"success": False, "subscribed": 0, "failed": len(node_addresses), "errors": ["client_not_connected"]}
+            return {
+                "success": False,
+                "subscribed": 0,
+                "failed": len(node_addresses),
+                "errors": ["client_not_connected"],
+            }
         try:
             # 协议边界校验: 订阅刷新间隔不得低于 50ms，防止过频刷新导致 CPU 占用过高
             interval = max(50, int(interval))
             use_deadband = deadband_type != "None" and deadband_value > 0
             try:
                 from asyncua.common.subscription import DeadbandType
+
                 db_type = DeadbandType.Absolute if deadband_type == "Absolute" else DeadbandType.Percent
             except ImportError:
                 use_deadband = False
@@ -2690,7 +3470,15 @@ class OpcUaDriver(DriverPlugin):
 
             subscription = self._subscriptions.get(device_id)
             if not subscription:
-                handler = _SubHandler(device_id, self._latest_values, self._data_callback, self._values_lock, self._event_bus, self._subscription_locks.get(device_id), self)
+                handler = _SubHandler(
+                    device_id,
+                    self._latest_values,
+                    self._data_callback,
+                    self._values_lock,
+                    self._event_bus,
+                    self._subscription_locks.get(device_id),
+                    self,
+                )
                 subscription = await client.create_subscription(interval, handler)
                 self._subscriptions[device_id] = subscription
                 self._sub_handlers[device_id] = handler  # FIXED-P0: 追踪handler以便stop时取消
@@ -2702,7 +3490,9 @@ class OpcUaDriver(DriverPlugin):
                 try:
                     node = client.get_node(addr)
                     if use_deadband and db_type is not None:
-                        await subscription.subscribe_data_change(node, deadband_type=db_type, deadband_value=deadband_value)
+                        await subscription.subscribe_data_change(
+                            node, deadband_type=db_type, deadband_value=deadband_value
+                        )
                     else:
                         await subscription.subscribe_data_change(node)
                     subscribed += 1
@@ -2710,7 +3500,12 @@ class OpcUaDriver(DriverPlugin):
                     raise
                 except Exception as e:
                     errors.append(f"{name}({addr}): {e}")
-            return {"success": subscribed == len(node_addresses), "subscribed": subscribed, "failed": len(node_addresses) - subscribed, "errors": errors}
+            return {
+                "success": subscribed == len(node_addresses),
+                "subscribed": subscribed,
+                "failed": len(node_addresses) - subscribed,
+                "errors": errors,
+            }
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -2722,7 +3517,9 @@ class OpcUaDriver(DriverPlugin):
         if not client:
             return False
         try:
-            await asyncio.wait_for(client.nodes.server.read_browse_name(), timeout=3.0)  # FIXED-P1: 与keepalive一致，使用read_browse_name实际验证连接存活
+            await asyncio.wait_for(
+                client.nodes.server.read_browse_name(), timeout=3.0
+            )  # FIXED-P1: 与keepalive一致，使用read_browse_name实际验证连接存活
             return True
         except asyncio.CancelledError:
             raise
@@ -2766,7 +3563,16 @@ class OpcUaDriver(DriverPlugin):
                         browse_name = (await child.read_browse_name()).Name
                         display_name = (await child.read_display_name()).Text
                         node_class = (await child.read_node_class()).value
-                        discovered.append({"endpoint": server_url, "node_id": child.nodeid.to_string(), "browse_name": browse_name, "display_name": display_name, "node_class": node_class, "protocol": "opcua"})
+                        discovered.append(
+                            {
+                                "endpoint": server_url,
+                                "node_id": child.nodeid.to_string(),
+                                "browse_name": browse_name,
+                                "display_name": display_name,
+                                "node_class": node_class,
+                                "protocol": "opcua",
+                            }
+                        )
                     except Exception as node_err:
                         logger.debug("[opcua] discover child browse failed: %s", node_err)
                         continue
@@ -2807,7 +3613,13 @@ class OpcUaDriver(DriverPlugin):
                 display_name = ""
                 node_class = 0
             _total_nodes += 1
-            result = {"node_id": node.nodeid.to_string(), "browse_name": browse_name, "display_name": display_name, "node_class": node_class, "children": []}
+            result = {
+                "node_id": node.nodeid.to_string(),
+                "browse_name": browse_name,
+                "display_name": display_name,
+                "node_class": node_class,
+                "children": [],
+            }
             if depth < max_depth:
                 try:
                     children = await node.get_children()
@@ -2831,7 +3643,9 @@ class OpcUaDriver(DriverPlugin):
             else:
                 start_node = await asyncio.wait_for(client.get_objects_node(), timeout=30.0)
             children = await start_node.get_children()
-            return [await _browse_node(child, 1) for child in children[:_MAX_CHILDREN]]  # FIXED-P1: 顶层子节点同样受_MAX_CHILDREN限制
+            return [
+                await _browse_node(child, 1) for child in children[:_MAX_CHILDREN]
+            ]  # FIXED-P1: 顶层子节点同样受_MAX_CHILDREN限制
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -2840,8 +3654,9 @@ class OpcUaDriver(DriverPlugin):
 
 
 class _SubHandler:
-
-    def __init__(self, device_id, latest_values, data_callback, values_lock, event_bus=None, subscription_lock=None, driver=None):
+    def __init__(
+        self, device_id, latest_values, data_callback, values_lock, event_bus=None, subscription_lock=None, driver=None
+    ):
         self.device_id = device_id
         self._latest_values = latest_values
         self._data_callback = data_callback
@@ -2852,7 +3667,9 @@ class _SubHandler:
         self._notify_queue = _queue_mod.Queue(maxsize=10000)
         # FIXED-P1: 通知队列dropped计数器，追踪因队列满而丢弃的旧通知数量
         self._notify_dropped_count: int = 0
-        self._notify_dropped_lock = threading.Lock()  # FIXED-P0: 保护 _notify_dropped_count 递增，防止多线程并发 datachange_notification 导致计数竞态
+        self._notify_dropped_lock = (
+            threading.Lock()
+        )  # FIXED-P0: 保护 _notify_dropped_count 递增，防止多线程并发 datachange_notification 导致计数竞态
         self._loop = asyncio.get_running_loop()
         self._notification_task: asyncio.Task | None = None
         self._cancelled: bool = False  # FIXED: cancel()后阻止新通知任务创建
@@ -2890,7 +3707,11 @@ class _SubHandler:
                 with self._notify_dropped_lock:
                     self._notify_dropped_count += 1
                     if self._notify_dropped_count % 100 == 1:
-                        logger.warning("[opcua] device=%s code=NOTIFICATION_DROPPED msg=Subscription notification queue full, dropped newest notification (total_dropped=%d)", self.device_id, self._notify_dropped_count)
+                        logger.warning(
+                            "[opcua] device=%s code=NOTIFICATION_DROPPED msg=Subscription notification queue full, dropped newest notification (total_dropped=%d)",
+                            self.device_id,
+                            self._notify_dropped_count,
+                        )
 
         try:
             self._loop.call_soon_threadsafe(self._dispatch_notification)
@@ -2900,13 +3721,13 @@ class _SubHandler:
             logger.debug("OPC-UA call_soon_threadsafe failed: %s", e)
 
     def _dispatch_notification(self):
-        if getattr(self, '_cancelled', False):
+        if getattr(self, "_cancelled", False):
             return
         if self._notification_task is not None and not self._notification_task.done():
             return
         self._notification_task = asyncio.create_task(self._process_notifications())
         # FIXED-P0: 将通知任务加入驱动级后台任务追踪，确保stop()时能正确取消
-        if self._driver and hasattr(self._driver, '_background_tasks'):
+        if self._driver and hasattr(self._driver, "_background_tasks"):
             self._driver._background_tasks.add(self._notification_task)
             self._notification_task.add_done_callback(self._driver._background_tasks.discard)
 
@@ -2926,15 +3747,17 @@ class _SubHandler:
         # FIXED-P2: 添加连续调度次数限制，防止高频场景下无限递归调度耗尽事件循环资源
         if not self._notify_queue.empty():
             if self._notification_task is None or self._notification_task.done():
-                consecutive_schedules = getattr(self, '_notify_consecutive_schedules', 0) + 1
+                consecutive_schedules = getattr(self, "_notify_consecutive_schedules", 0) + 1
                 self._notify_consecutive_schedules = consecutive_schedules
                 if consecutive_schedules <= 10:
                     self._notification_task = asyncio.create_task(self._process_notifications())
-                    if self._driver and hasattr(self._driver, '_background_tasks'):
+                    if self._driver and hasattr(self._driver, "_background_tasks"):
                         self._driver._background_tasks.add(self._notification_task)
                         self._notification_task.add_done_callback(self._driver._background_tasks.discard)
                 else:
-                    logger.warning("[opcua] Notification processing reschedule limit reached, yielding to next datachange callback")
+                    logger.warning(
+                        "[opcua] Notification processing reschedule limit reached, yielding to next datachange callback"
+                    )
                     self._notify_consecutive_schedules = 0
         else:
             self._notify_consecutive_schedules = 0
@@ -2944,7 +3767,9 @@ class _SubHandler:
         if quality == "bad":
             pv = PointValue(value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.QUALITY_BAD}")
         elif quality == "uncertain":
-            pv = PointValue(value=val, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.QUALITY_UNCERTAIN}")
+            pv = PointValue(
+                value=val, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.QUALITY_UNCERTAIN}"
+            )
         else:
             pv = PointValue(value=val, quality="good", timestamp=now, source="subscribed")
 
@@ -2962,10 +3787,20 @@ class _SubHandler:
             if hasattr(val, "__dict__") and not isinstance(val, (int, float, str, bool, list, dict)):
                 resolved_val, resolve_quality = _resolve_complex_type_with_fallback(val, node_id=node_id)
                 if resolve_quality == "bad":
-                    pv = PointValue(value=None, quality="bad", timestamp=now, source=f"opcua:{OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN}")
+                    pv = PointValue(
+                        value=None,
+                        quality="bad",
+                        timestamp=now,
+                        source=f"opcua:{OpcUaDriverErrors.COMPLEX_TYPE_UNKNOWN}",
+                    )
                     quality = "bad"
                 elif resolve_quality == "uncertain":
-                    pv = PointValue(value=resolved_val, quality="uncertain", timestamp=now, source=f"opcua:{OpcUaDriverErrors.COMPLEX_TYPE_HEX_FALLBACK}")
+                    pv = PointValue(
+                        value=resolved_val,
+                        quality="uncertain",
+                        timestamp=now,
+                        source=f"opcua:{OpcUaDriverErrors.COMPLEX_TYPE_HEX_FALLBACK}",
+                    )
                     quality = "uncertain"
                 else:
                     pv = PointValue(value=resolved_val, quality=quality, timestamp=now, source="subscribed")
@@ -2979,9 +3814,11 @@ class _SubHandler:
         try:
             if self._data_callback:
                 callback_data = {point_name: pv.value if quality != "bad" else None}
-                task = asyncio.create_task(self._data_callback(device_id=self.device_id, data=callback_data))  # FIXED-P0: 回调阻塞通知处理，改为异步执行；FIXED-P3: 统一关键字参数签名与MQTT一致
+                task = asyncio.create_task(
+                    self._data_callback(device_id=self.device_id, data=callback_data)
+                )  # FIXED-P0: 回调阻塞通知处理，改为异步执行；FIXED-P3: 统一关键字参数签名与MQTT一致
                 # FIXED-P0: 将回调任务加入驱动级后台任务追踪，确保stop()时能正确取消
-                if self._driver and hasattr(self._driver, '_background_tasks'):
+                if self._driver and hasattr(self._driver, "_background_tasks"):
                     self._driver._background_tasks.add(task)
                     task.add_done_callback(self._driver._background_tasks.discard)
         except asyncio.CancelledError:
@@ -2991,12 +3828,16 @@ class _SubHandler:
 
         try:
             if self._event_bus:
-                event = PointUpdateEvent(device_id=self.device_id, point_name=point_name, value=pv.value, quality=pv.quality)
+                event = PointUpdateEvent(
+                    device_id=self.device_id, point_name=point_name, value=pv.value, quality=pv.quality
+                )
                 await self._event_bus.publish(event)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.error("[opcua] device=%s code=EVENT_PUBLISH_ERROR point=%s error=%s", self.device_id, point_name, exc)
+            logger.error(
+                "[opcua] device=%s code=EVENT_PUBLISH_ERROR point=%s error=%s", self.device_id, point_name, exc
+            )
 
         try:
             if self._driver and self._driver._rule_engine and quality == "good" and isinstance(pv.value, (int, float)):

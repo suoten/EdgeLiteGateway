@@ -136,7 +136,9 @@ class SelfLearnerBase:
             if not force and sample_count < self.min_samples:
                 logger.info(
                     "%s: skip training, only %d samples (need %d)",
-                    self.model_id, sample_count, self.min_samples,
+                    self.model_id,
+                    sample_count,
+                    self.min_samples,
                 )
                 return {
                     "model_id": self.model_id,
@@ -181,8 +183,11 @@ class SelfLearnerBase:
 
                 logger.info(
                     "%s: training completed (samples=%d, duration=%dms, path=%s, reload=%s)",
-                    self.model_id, len(data), train_duration_ms,
-                    model_path, reload_status,
+                    self.model_id,
+                    len(data),
+                    train_duration_ms,
+                    model_path,
+                    reload_status,
                 )
                 return {
                     "model_id": self.model_id,
@@ -200,7 +205,10 @@ class SelfLearnerBase:
                 train_duration_ms = int((time.monotonic() - train_start) * 1000)
                 logger.error(
                     "%s: training failed after %dms: %s",
-                    self.model_id, train_duration_ms, e, exc_info=True,
+                    self.model_id,
+                    train_duration_ms,
+                    e,
+                    exc_info=True,
                 )
                 return {
                     "model_id": self.model_id,
@@ -218,9 +226,7 @@ class SelfLearnerBase:
         """
         self.models_dir.mkdir(parents=True, exist_ok=True)
         target_path = self.models_dir / self.model_file
-        tmp_fd, tmp_path = tempfile.mkstemp(
-            dir=str(self.models_dir), suffix=".onnx.tmp"
-        )
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=str(self.models_dir), suffix=".onnx.tmp")
         try:
             with os.fdopen(tmp_fd, "wb") as f:
                 f.write(model_bytes)
@@ -241,7 +247,8 @@ class SelfLearnerBase:
         if self.ai_engine is None:
             logger.info(
                 "%s: ai_engine not set, skip hot-reload (file written to %s)",
-                self.model_id, model_path,
+                self.model_id,
+                model_path,
             )
             return "skipped:no_ai_engine"
 
@@ -305,10 +312,12 @@ class SelfLearnerBase:
         通用实现：记录反馈到历史，达到阈值后触发重训练。
         """
         with self._feedback_lock:
-            self._feedback_history.append({
-                "feedback": kwargs,
-                "timestamp": datetime.now(UTC).isoformat(),
-            })
+            self._feedback_history.append(
+                {
+                    "feedback": kwargs,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
             feedback_count = len(self._feedback_history)
 
         result = {

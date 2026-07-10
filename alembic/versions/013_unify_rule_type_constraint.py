@@ -23,16 +23,16 @@ Create Date: 2026-06-24
 # SQLite 不支持 ALTER CONSTRAINT，使用 batch_alter_table 重建表
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "013_unify_rule_type_constraint"
-down_revision: Union[str, None] = "012_round6_7_schema_changes"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "012_round6_7_schema_changes"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 # 统一后的合法 rule_type 值

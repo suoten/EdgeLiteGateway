@@ -87,7 +87,9 @@ class EncryptedValue:
         return bool(self.ciphertext)
 
 
-_SALT_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", ".kdf_salt")
+_SALT_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", ".kdf_salt"
+)
 
 
 class SecretManager:
@@ -148,8 +150,7 @@ class SecretManager:
                 self._init_fernet()
             else:
                 logger.warning(
-                    "SecretManager initialized without key. "
-                    "Set master_key, key_file, or EDGELITE_MASTER_KEY env var."
+                    "SecretManager initialized without key. Set master_key, key_file, or EDGELITE_MASTER_KEY env var."
                 )
 
     def _load_or_create_key(self) -> None:
@@ -187,9 +188,11 @@ class SecretManager:
             self._key_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
             # FIXED-P0: Windows上os.chmod无效，使用win32api设置ACL；非Windows使用os.chmod
             import sys
+
             if sys.platform == "win32":
                 try:
                     import win32security
+
                     sd = win32security.ConvertStringSecurityDescriptorToSDDL("D:P(A;;FA;;;OW)(A;;FR;;;OW)")
                     win32security.SetFileSecurity(str(self._key_file), win32security.DACL_SECURITY_INFORMATION, sd)
                 except ImportError:
@@ -233,22 +236,25 @@ class SecretManager:
             # FIXED-P2: 原问题-salt直接write，断电可写空文件导致加密失败
             # 改为tempfile+os.replace原子写入
             import tempfile
-            fd, tmp_path = tempfile.mkstemp(
-                suffix=".tmp", prefix=".kdf_salt.", dir=os.path.dirname(_SALT_FILE)
-            )
+
+            fd, tmp_path = tempfile.mkstemp(suffix=".tmp", prefix=".kdf_salt.", dir=os.path.dirname(_SALT_FILE))
             try:
                 with os.fdopen(fd, "wb") as f:
                     f.write(salt)
                 os.replace(tmp_path, _SALT_FILE)
                 # R5-S-14: 与 master key 文件保持一致，设置 0o600 权限防止其他用户读取
                 import sys
+
                 if sys.platform == "win32":
                     try:
                         import win32security
+
                         sd = win32security.ConvertStringSecurityDescriptorToSDDL("D:P(A;;FA;;;OW)(A;;FR;;;OW)")
                         win32security.SetFileSecurity(_SALT_FILE, win32security.DACL_SECURITY_INFORMATION, sd)
                     except ImportError:
-                        logger.warning("win32security not available, kdf_salt file permissions not restricted on Windows")
+                        logger.warning(
+                            "win32security not available, kdf_salt file permissions not restricted on Windows"
+                        )
                 else:
                     os.chmod(_SALT_FILE, 0o600)
             except Exception:
@@ -281,7 +287,9 @@ class SecretManager:
         """
         key_str = str(master_key)
         key_input = hashlib.sha256(key_str.encode()).digest()
-        effective_salt = hashlib.sha256(salt + key_input).digest()[:16]  # FIXED-P2: 盐值结合master_key派生，不同实例产生不同derived key
+        effective_salt = hashlib.sha256(salt + key_input).digest()[
+            :16
+        ]  # FIXED-P2: 盐值结合master_key派生，不同实例产生不同derived key
         derived = hashlib.pbkdf2_hmac(
             "sha256",
             key_input,
@@ -312,7 +320,9 @@ class SecretManager:
             加密后的 JSON 字符串（包含 algorithm, salt, ciphertext）
         """
         if not self._initialized:
-            raise RuntimeError("SecretManager not initialized, cannot encrypt")  # FIXED-P2: 未初始化时返回明文导致敏感信息暴露，改为抛出异常
+            raise RuntimeError(
+                "SecretManager not initialized, cannot encrypt"
+            )  # FIXED-P2: 未初始化时返回明文导致敏感信息暴露，改为抛出异常
 
         try:
             from cryptography.fernet import Fernet
@@ -334,7 +344,9 @@ class SecretManager:
 
         except Exception as e:
             logger.error("Encryption failed: %s", e)
-            raise RuntimeError(f"Encryption failed, refusing to return plaintext: {e}") from e  # FIXED-P0: 加密失败返回明文→抛异常
+            raise RuntimeError(
+                f"Encryption failed, refusing to return plaintext: {e}"
+            ) from e  # FIXED-P0: 加密失败返回明文→抛异常
 
     def decrypt(self, encrypted_str: str) -> str:
         """解密密文字符串
@@ -346,16 +358,22 @@ class SecretManager:
             解密后的明文
         """
         if not self._initialized:
-            raise RuntimeError("SecretManager not initialized, cannot decrypt")  # FIXED-P2: 未初始化时返回原始字符串可能暴露密文，改为抛出异常
+            raise RuntimeError(
+                "SecretManager not initialized, cannot decrypt"
+            )  # FIXED-P2: 未初始化时返回原始字符串可能暴露密文，改为抛出异常
 
         try:
             # 检查是否已经是加密格式
             if not encrypted_str.startswith("{"):
-                raise ValueError("Input is not an encrypted format (does not start with '{')")  # FIXED-P2: decrypt对非加密输入抛异常，添加decrypt_or_plain兼容方法
+                raise ValueError(
+                    "Input is not an encrypted format (does not start with '{')"
+                )  # FIXED-P2: decrypt对非加密输入抛异常，添加decrypt_or_plain兼容方法
 
             encrypted = EncryptedValue.from_dict(json.loads(encrypted_str))
             if not encrypted.is_encrypted():
-                raise ValueError("EncryptedValue has no ciphertext")  # FIXED-P2: decrypt对非加密输入抛异常，添加decrypt_or_plain兼容方法
+                raise ValueError(
+                    "EncryptedValue has no ciphertext"
+                )  # FIXED-P2: decrypt对非加密输入抛异常，添加decrypt_or_plain兼容方法
 
             # 使用保存的盐值派生密钥
             derived_key = self._derive_key(self._master_key, encrypted.salt.encode())
@@ -367,7 +385,9 @@ class SecretManager:
 
         except Exception as e:
             logger.error("Decryption failed: %s", e)
-            raise RuntimeError(f"Decryption failed, refusing to return encrypted string: {e}") from e  # FIXED-P0: 解密失败返回密文→抛异常
+            raise RuntimeError(
+                f"Decryption failed, refusing to return encrypted string: {e}"
+            ) from e  # FIXED-P0: 解密失败返回密文→抛异常
 
     def decrypt_or_plain(self, encrypted_str: str) -> str:
         """尝试解密，若输入非加密格式则原样返回。
@@ -416,14 +436,18 @@ class SecretManager:
         for sensitive in self._sensitive_fields:
             sensitive_lower = sensitive.lower()
             # 前缀匹配：field 以 sensitive + 分隔符开头
-            if name_lower.startswith(sensitive_lower + "_") or \
-               name_lower.startswith(sensitive_lower + "-") or \
-               name_lower.startswith(sensitive_lower + "."):
+            if (
+                name_lower.startswith(sensitive_lower + "_")
+                or name_lower.startswith(sensitive_lower + "-")
+                or name_lower.startswith(sensitive_lower + ".")
+            ):
                 return True
             # 后缀匹配：field 以 分隔符 + sensitive 结尾
-            if name_lower.endswith("_" + sensitive_lower) or \
-               name_lower.endswith("-" + sensitive_lower) or \
-               name_lower.endswith("." + sensitive_lower):
+            if (
+                name_lower.endswith("_" + sensitive_lower)
+                or name_lower.endswith("-" + sensitive_lower)
+                or name_lower.endswith("." + sensitive_lower)
+            ):
                 return True
         return False
 
@@ -442,7 +466,9 @@ class SecretManager:
         masked = {}
         for key, value in config.items():
             if self.is_sensitive_field(key):
-                if self._auto_encrypt and self._initialized and isinstance(value, str) and value:  # FIXED-P0: 未初始化时回退到掩码模式，不调用encrypt
+                if (
+                    self._auto_encrypt and self._initialized and isinstance(value, str) and value
+                ):  # FIXED-P0: 未初始化时回退到掩码模式，不调用encrypt
                     masked[key] = self.encrypt(value)
                 else:
                     masked[key] = self.mask_value(value)
@@ -450,10 +476,7 @@ class SecretManager:
                 masked[key] = self.mask_config(value)
             elif isinstance(value, list):
                 # FIXED-P1: 原实现未处理列表类型，列表中的敏感字典不会被脱敏
-                masked[key] = [
-                    self.mask_config(item) if isinstance(item, dict) else item
-                    for item in value
-                ]
+                masked[key] = [self.mask_config(item) if isinstance(item, dict) else item for item in value]
             else:
                 masked[key] = value
 
@@ -649,15 +672,15 @@ def _load_or_create_script_sign_key() -> str:
             key_path.parent.mkdir(parents=True, exist_ok=True)
             # 原子写入：tempfile + os.replace
             import tempfile
-            fd, tmp_path = tempfile.mkstemp(
-                suffix=".tmp", prefix=".script_sign_key.", dir=str(key_path.parent)
-            )
+
+            fd, tmp_path = tempfile.mkstemp(suffix=".tmp", prefix=".script_sign_key.", dir=str(key_path.parent))
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.write(new_key)
                 os.replace(tmp_path, str(key_path))
                 # 限制文件权限
                 import sys
+
                 if sys.platform != "win32":
                     os.chmod(str(key_path), 0o600)
                 else:
@@ -674,12 +697,14 @@ def _load_or_create_script_sign_key() -> str:
                 "Generated and persisted script sign key to %s. "
                 "WARNING: For production deployments, set the %s environment variable "
                 "instead of relying on file-based key storage for better security.",
-                key_path, _SCRIPT_SIGN_KEY_ENV,
+                key_path,
+                _SCRIPT_SIGN_KEY_ENV,
             )
         except Exception as e:
             logger.warning(
                 "Failed to persist script sign key: %s. Set %s env var for stable signing.",
-                e, _SCRIPT_SIGN_KEY_ENV,
+                e,
+                _SCRIPT_SIGN_KEY_ENV,
             )
 
         _script_sign_key_cache = new_key
@@ -702,10 +727,7 @@ def _apply_windows_acl(filepath: str) -> None:
         # 优先使用 USERNAME，回退到 USERPROFILE 解析
         username = os.environ.get("USERNAME") or os.environ.get("USER")
         if not username:
-            logger.warning(
-                "Cannot apply Windows ACL to script sign key file: "
-                "unable to determine current username"
-            )
+            logger.warning("Cannot apply Windows ACL to script sign key file: unable to determine current username")
             return
         # /inheritance:r 移除继承的 ACE
         # /grant:r 显式授予（替换而非追加）
@@ -718,7 +740,8 @@ def _apply_windows_acl(filepath: str) -> None:
         )
         logger.info(
             "Applied Windows ACL to script sign key file %s (owner=%s, read-only)",
-            filepath, username,
+            filepath,
+            username,
         )
     except subprocess.CalledProcessError as cpe:
         logger.warning(
@@ -730,9 +753,9 @@ def _apply_windows_acl(filepath: str) -> None:
         )
     except Exception as e:
         logger.warning(
-            "Failed to set ACL on script sign key file: %s. "
-            "Recommend setting %s env var in production.",
-            e, _SCRIPT_SIGN_KEY_ENV,
+            "Failed to set ACL on script sign key file: %s. Recommend setting %s env var in production.",
+            e,
+            _SCRIPT_SIGN_KEY_ENV,
         )
 
 

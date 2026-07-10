@@ -20,8 +20,8 @@ sys.path.insert(0, "src")
 
 from edgelite.drivers.ethercat import (
     EC_CMD_APRD,
-    EC_CMD_APWR,
     EC_CMD_APRW,
+    EC_CMD_APWR,
     EC_CMD_BRD,
     EC_CMD_BRW,
     EC_CMD_BWR,
@@ -48,7 +48,6 @@ from edgelite.drivers.soem_integration import (
     SOEMPdoConfig,
     SOEMSlaveInfo,
 )
-
 
 # ──────────────────────────────────────────────────────────────────
 # 1. ETG.1000.6 命令常量正确性 (修复重复定义)

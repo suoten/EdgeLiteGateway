@@ -42,6 +42,24 @@ from edgelite.drivers.edge_rule_engine import (
 )
 from edgelite.drivers.edge_triggers import EdgeTriggerExecutor
 from edgelite.drivers.modbus_audit import ModbusAudit, ModbusAuditAction
+
+# FIXED-P2 (Task #17): 共享常量与函数统一从 modbus_base 导入，消除 TCP/RTU 重复定义，
+# 确保 `modbus_rtu.X is modbus_base.X` 同一性检查通过。
+from edgelite.drivers.modbus_base import (
+    _BYTE_ORDER_FMT,
+    _MODBUS_EXCEPTION_CODES,
+    DATA_TYPE_REGS,
+    REGISTER_TYPES,
+    _detect_slave_kwarg_name,
+    _parse_modbus_exception,
+    _set_client_slave_id,
+)
+from edgelite.drivers.modbus_base import (
+    _read_kwargs as _read_kwargs_base,
+)
+from edgelite.drivers.modbus_base import (
+    _slave_kwarg as _slave_kwarg_base,
+)
 from edgelite.drivers.modbus_config_version import ModbusConfigVersion
 from edgelite.drivers.rule_store import RuleStore
 from edgelite.security.rbac import Permission, has_permission
@@ -65,23 +83,8 @@ READ_TIMEOUT = 30
 WRITE_TIMEOUT = 10
 _RETRY_TOTAL_TIMEOUT = 10  # FIXED-P2: 重试总超时上限(秒)，防止批量重试长时间阻塞采集线程
 
-# FIXED: pymodbus 3.7+ 不再接受 slave/unit 作为关键字参数，需使用 client.slave_id
-_SLAVE_KWARG_NAME: str | None = None
-
-# Modbus异常码映射
-_MODBUS_EXCEPTION_CODES = {
-    0x81: "Illegal Function (0x01)",
-    0x82: "Illegal Data Address (0x02)",
-    0x83: "Illegal Data Value (0x03)",
-    0x84: "Server Device Failure (0x04)",
-    0x85: "Acknowledge (0x05)",
-    0x86: "Server Device Busy (0x06)",
-    0x87: "Negative Acknowledge (0x07)",
-    0x88: "Memory Parity Error (0x08)",
-    0x8A: "Gateway Path Unavailable (0x0A)",
-    0x8B: "Gateway Target Device Failed (0x0B)",
-    0xAB: "Extended Exception (0x2B)",
-}
+# _SLAVE_KWARG_NAME / _detect_slave_kwarg_name / _set_client_slave_id / _MODBUS_EXCEPTION_CODES
+# 由 modbus_base 维护（FIXED-P2 Task #17），RTU 不再持有本地副本，消除 TCP/RTU 间重复定义。
 
 _ERROR_I18N = {
     "CONN_FAILED": {"zh": "连接失败", "en": "Connection failed"},
@@ -132,98 +135,30 @@ _ERROR_I18N = {
 _READ_FAIL_I18N = {"zh": "Modbus RTU 读取失败", "en": "Modbus RTU read failed"}
 
 
-def _detect_slave_kwarg_name() -> str | None:
-    """根据pymodbus版本号检测正确的slave参数名。
-    pymodbus 2.x: slave
-    pymodbus 3.0~3.6: unit
-    pymodbus 3.7+: slave (per-call传递，与modbus_tcp.py保持一致)
-    """
-    if _PYMODBUS_MAJOR < 3:
-        return "slave"
-    if _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 7:
-        return "unit"
-    return "slave"  # FIXED-P0: pymodbus 3.7+使用slave参数per-call传递，修复多设备串口slave_id丢失
-
-
 def _slave_kwarg(slave_id: int) -> dict:
-    """返回正确的 Modbus 设备 ID 参数，所有版本均 per-call 传递"""  # FIXED-P0: 与modbus_tcp.py一致，3.7+也per-call传递slave
-    if not 1 <= slave_id <= 247:
-        raise ValueError(f"Modbus config invalid: slave_id must be 1-247, got {slave_id}")
-    global _SLAVE_KWARG_NAME
-    if _SLAVE_KWARG_NAME is None:
-        _SLAVE_KWARG_NAME = _detect_slave_kwarg_name()
-    if _SLAVE_KWARG_NAME is None:
-        return {}  # FIXED-P0: 理论上不再触发，3.7+返回"slave"
-    return {_SLAVE_KWARG_NAME: slave_id}
+    """返回正确的 Modbus 设备 ID 参数（RTU 模式：禁止 slave_id=0 广播）
 
-
-def _set_client_slave_id(client: Any, slave_id: int) -> None:
-    """为 pymodbus 3.7+ 设置 client.slave_id"""
-    if _SLAVE_KWARG_NAME is None and hasattr(client, "slave_id"):
-        client.slave_id = slave_id
+    所有 pymodbus 版本均 per-call 传递 slave 参数，避免共享串口 slave_id 竞态。
+    RTU 模式禁止 slave_id=0（RTU 总线广播无响应且与单主总线语义冲突），值需 1-247。
+    """
+    # RTU 禁止 slave_id=0 (广播)，仅允许 1-247
+    return _slave_kwarg_base(slave_id, allow_broadcast=False)
 
 
 def _read_kwargs(count: int, slave_id: int) -> dict:
-    kwargs = _slave_kwarg(slave_id)
-    kwargs["count"] = count  # FIXED: 始终传count
-    return kwargs
-
-
-REGISTER_TYPES = {
-    "coil": (0, 1),
-    "discrete": (1, 1),
-    "holding": (3, 2),
-    "input": (4, 2),
-}
-
-DATA_TYPE_REGS = {
-    "bool": 1,
-    "int16": 1,
-    "uint16": 1,
-    "int32": 2,
-    "uint32": 2,
-    "float32": 2,
-    "float64": 4,
-    "string": 1,
-}
-
-# 字节序→(寄存器打包格式, 浮点/整数解包格式)
-_BYTE_ORDER_FMT = {
-    "ABCD": (">", ">"),   # Big-Endian (默认)
-    "BADC": ("<", ">"),   # Big-Endian Byte Swap
-    "CDAB": (">", "<"),   # Little-Endian Word Swap
-    "DCBA": ("<", "<"),   # Little-Endian (完全反转)
-}
-
-
-def _parse_modbus_exception(result: Any) -> str | None:
-    """解析Modbus错误响应中的异常码，返回异常码描述或None"""
-    try:
-        raw = getattr(result, "raw", None) or getattr(result, "value", None)
-        if raw and isinstance(raw, (bytes, list)):
-            data = raw if isinstance(raw, bytes) else bytes(raw)
-            if len(data) >= 2:
-                # FIXED-P1: 字典键为异常码|0x80(如0x82=Illegal Data Address)，data[1]为异常码(如0x02)，始终用data[1]|0x80
-                exc_code = data[1] | 0x80
-                return _MODBUS_EXCEPTION_CODES.get(exc_code)
-        err_str = str(result)
-        for code, desc in _MODBUS_EXCEPTION_CODES.items():
-            if hex(code) in err_str or desc.split("(")[0].strip() in err_str:
-                return desc
-    except Exception as e:
-        logger.debug("[modbus_rtu] Exception code parse failed: %s", e)  # MRTU-LOW-001: 删除冗余pass
-    return None
+    """返回正确的读取方法关键字参数（RTU 模式：禁止 slave_id=0）"""
+    return _read_kwargs_base(count, slave_id, allow_broadcast=False)
 
 
 class _CRCReconnectNeeded(Exception):
     """FIXED-P0: CRC错误时不在持有串口锁的情况下触发重连，通过异常让 read_points 在释放锁后处理重连"""
+
     def __init__(self, message: str, partial_result: dict | None = None):
         super().__init__(message)
         self.partial_result = partial_result or {}
 
 
 class ModbusRtuDriver(DriverPlugin):
-
     plugin_name = "modbus_rtu"
     plugin_version = "1.0.0"
     supported_protocols = ("modbus_rtu", "modbus-rtu")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
@@ -248,37 +183,197 @@ class ModbusRtuDriver(DriverPlugin):
     config_schema = {
         "description": "Modbus RTU serial protocol for RS485/RS232 bus devices",
         "required": ["port", "baudrate", "unit_id"],
-        "properties": {"port": {"type": "string", "description": "Serial device path"}, "baudrate": {"type": "integer", "description": "Communication baud rate", "minimum": 300, "maximum": 115200}, "unit_id": {"type": "integer", "description": "Device slave address (Unit ID)", "minimum": 1, "maximum": 247}},
+        "properties": {
+            "port": {"type": "string", "description": "Serial device path"},
+            "baudrate": {
+                "type": "integer",
+                "description": "Communication baud rate",
+                "minimum": 300,
+                "maximum": 115200,
+            },
+            "unit_id": {
+                "type": "integer",
+                "description": "Device slave address (Unit ID)",
+                "minimum": 1,
+                "maximum": 247,
+            },
+        },
         "fields": [
-            {"name": "port", "type": "string", "label": "Serial Port", "description": "Serial device path, e.g. COM3 or /dev/ttyUSB0", "default": "/dev/ttyUSB0", "required": True},
-            {"name": "baudrate", "type": "integer", "label": "Baud Rate", "description": "Communication baud rate", "default": 9600, "required": True},
-            {"name": "parity", "type": "string", "label": "Parity", "description": "Parity check: N/E/O", "default": "N"},
-            {"name": "stopbits", "type": "integer", "label": "Stop Bits", "description": "Stop bits: 1 or 2", "default": 1},
-            {"name": "bytesize", "type": "integer", "label": "Data Bits", "description": "Data bits: 7 or 8", "default": 8},
-            {"name": "unit_id", "type": "integer", "label": "Slave ID", "description": "Device slave address (Unit ID)", "default": 1, "required": True},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "Connection and read timeout", "default": 3.0},
-            {"name": "byte_order", "type": "string", "label": "Byte Order", "description": "Multi-register byte order: ABCD(Big-Endian), BADC, CDAB, DCBA(Little-Endian)", "default": "ABCD", "options": ["ABCD", "BADC", "CDAB", "DCBA"]},
-            {"name": "reconnect_interval", "type": "number", "label": "Reconnect Interval (s)", "description": "Seconds between reconnection attempts", "default": 10.0},
-            {"name": "max_reconnect_attempts", "type": "integer", "label": "Max Reconnect Attempts", "description": "Maximum consecutive reconnection attempts (default 3)", "default": 3},
-            {"name": "batch_read_size", "type": "integer", "label": "Batch Read Size", "description": "Maximum registers per read request (1-125)", "default": 125, "min": 1, "max": 125},
-            {"name": "function_code", "type": "string", "label": "Function Code", "description": "Default Modbus function code", "default": "03", "options": ["01", "02", "03", "04", "05", "06", "15", "16"]},
-            {"name": "rs485_mode", "type": "boolean", "label": "RS485 Mode", "description": "Enable RS485 half-duplex mode (RTS/CTS control)", "default": False},
-            {"name": "rs485_rts_on_send", "type": "boolean", "label": "RS485 RTS On Send", "description": "RTS signal active during send in RS485 mode", "default": True},
-            {"name": "rs485_rts_on_recv", "type": "boolean", "label": "RS485 RTS On Receive", "description": "RTS signal active during receive in RS485 mode", "default": False},
-            {"name": "rs485_delay_before_send", "type": "integer", "label": "RS485 Delay Before Send (ms)", "description": "Delay in ms before sending in RS485 mode", "default": 0},
-            {"name": "rs485_delay_after_send", "type": "integer", "label": "RS485 Delay After Send (ms)", "description": "Delay in ms after sending in RS485 mode", "default": 0},
-            {"name": "deadband", "type": "number", "label": "Deadband", "description": "Minimum change threshold for value reporting (0 = disabled)", "default": 0},
-            {"name": "scaling", "type": "object", "label": "Scaling", "description": "Linear scaling config: {ratio: 1.0, offset: 0.0}"},
-            {"name": "clamp", "type": "object", "label": "Clamp Range", "description": "Valid value range: {min: null, max: null}. Out-of-range values are marked bad"},
-            {"name": "language", "type": "string", "label": "Log Language", "description": "Log message language: zh or en", "default": "zh", "options": ["zh", "en"]},
-            {"name": "backup_port", "type": "string", "label": "Backup Serial Port", "description": "Backup serial port path for redundancy (e.g. /dev/ttyUSB1 or COM4)"},
-            {"name": "tcp_gateway", "type": "object", "label": "TCP-RTU Gateway", "description": "Serial server / TCP-RTU gateway config: {host, port, backup_host}"},
+            {
+                "name": "port",
+                "type": "string",
+                "label": "Serial Port",
+                "description": "Serial device path, e.g. COM3 or /dev/ttyUSB0",
+                "default": "/dev/ttyUSB0",
+                "required": True,
+            },
+            {
+                "name": "baudrate",
+                "type": "integer",
+                "label": "Baud Rate",
+                "description": "Communication baud rate",
+                "default": 9600,
+                "required": True,
+            },
+            {
+                "name": "parity",
+                "type": "string",
+                "label": "Parity",
+                "description": "Parity check: N/E/O",
+                "default": "N",
+            },
+            {
+                "name": "stopbits",
+                "type": "integer",
+                "label": "Stop Bits",
+                "description": "Stop bits: 1 or 2",
+                "default": 1,
+            },
+            {
+                "name": "bytesize",
+                "type": "integer",
+                "label": "Data Bits",
+                "description": "Data bits: 7 or 8",
+                "default": 8,
+            },
+            {
+                "name": "unit_id",
+                "type": "integer",
+                "label": "Slave ID",
+                "description": "Device slave address (Unit ID)",
+                "default": 1,
+                "required": True,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "Connection and read timeout",
+                "default": 3.0,
+            },
+            {
+                "name": "byte_order",
+                "type": "string",
+                "label": "Byte Order",
+                "description": "Multi-register byte order: ABCD(Big-Endian), BADC, CDAB, DCBA(Little-Endian)",
+                "default": "ABCD",
+                "options": ["ABCD", "BADC", "CDAB", "DCBA"],
+            },
+            {
+                "name": "reconnect_interval",
+                "type": "number",
+                "label": "Reconnect Interval (s)",
+                "description": "Seconds between reconnection attempts",
+                "default": 10.0,
+            },
+            {
+                "name": "max_reconnect_attempts",
+                "type": "integer",
+                "label": "Max Reconnect Attempts",
+                "description": "Maximum consecutive reconnection attempts (default 3)",
+                "default": 3,
+            },
+            {
+                "name": "batch_read_size",
+                "type": "integer",
+                "label": "Batch Read Size",
+                "description": "Maximum registers per read request (1-125)",
+                "default": 125,
+                "min": 1,
+                "max": 125,
+            },
+            {
+                "name": "function_code",
+                "type": "string",
+                "label": "Function Code",
+                "description": "Default Modbus function code",
+                "default": "03",
+                "options": ["01", "02", "03", "04", "05", "06", "15", "16"],
+            },
+            {
+                "name": "rs485_mode",
+                "type": "boolean",
+                "label": "RS485 Mode",
+                "description": "Enable RS485 half-duplex mode (RTS/CTS control)",
+                "default": False,
+            },
+            {
+                "name": "rs485_rts_on_send",
+                "type": "boolean",
+                "label": "RS485 RTS On Send",
+                "description": "RTS signal active during send in RS485 mode",
+                "default": True,
+            },
+            {
+                "name": "rs485_rts_on_recv",
+                "type": "boolean",
+                "label": "RS485 RTS On Receive",
+                "description": "RTS signal active during receive in RS485 mode",
+                "default": False,
+            },
+            {
+                "name": "rs485_delay_before_send",
+                "type": "integer",
+                "label": "RS485 Delay Before Send (ms)",
+                "description": "Delay in ms before sending in RS485 mode",
+                "default": 0,
+            },
+            {
+                "name": "rs485_delay_after_send",
+                "type": "integer",
+                "label": "RS485 Delay After Send (ms)",
+                "description": "Delay in ms after sending in RS485 mode",
+                "default": 0,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband",
+                "description": "Minimum change threshold for value reporting (0 = disabled)",
+                "default": 0,
+            },
+            {
+                "name": "scaling",
+                "type": "object",
+                "label": "Scaling",
+                "description": "Linear scaling config: {ratio: 1.0, offset: 0.0}",
+            },
+            {
+                "name": "clamp",
+                "type": "object",
+                "label": "Clamp Range",
+                "description": "Valid value range: {min: null, max: null}. Out-of-range values are marked bad",
+            },
+            {
+                "name": "language",
+                "type": "string",
+                "label": "Log Language",
+                "description": "Log message language: zh or en",
+                "default": "zh",
+                "options": ["zh", "en"],
+            },
+            {
+                "name": "backup_port",
+                "type": "string",
+                "label": "Backup Serial Port",
+                "description": "Backup serial port path for redundancy (e.g. /dev/ttyUSB1 or COM4)",
+            },
+            {
+                "name": "tcp_gateway",
+                "type": "object",
+                "label": "TCP-RTU Gateway",
+                "description": "Serial server / TCP-RTU gateway config: {host, port, backup_host}",
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=True)
-    constraints = ({"type": "protocol_note", "message": "RTU bus: only one master per bus; shared serial port may conflict"},)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    capabilities = DriverCapabilities(
+        discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=True
+    )
+    constraints = (
+        {"type": "protocol_note", "message": "RTU bus: only one master per bus; shared serial port may conflict"},
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     def __init__(self):
         super().__init__()
@@ -287,10 +382,14 @@ class ModbusRtuDriver(DriverPlugin):
         self._device_points: dict[str, list[dict]] = {}
         self._retry_count: dict[str, int] = {}
         self._retry_lock = asyncio.Lock()
-        self._read_fail_tracker: OrderedDict[tuple[str, str], tuple[float, float]] = OrderedDict()  # FIXED-P1: 改用OrderedDict支持LRU淘汰
+        self._read_fail_tracker: OrderedDict[tuple[str, str], tuple[float, float]] = (
+            OrderedDict()
+        )  # FIXED-P1: 改用OrderedDict支持LRU淘汰
         self._MAX_TRACKER_ENTRIES = 20000  # FIXED-P2: _read_fail_tracker容量上限
         # _offline_since inherited from base class (dict[str, datetime])  # FIXED-P2: 删除遮蔽基类的覆盖初始化
-        self._watchdog_tasks: dict[str, asyncio.Task] = {}  # FIXED-P0: 每设备独立watchdog，避免单设备阻塞所有设备健康检查
+        self._watchdog_tasks: dict[
+            str, asyncio.Task
+        ] = {}  # FIXED-P0: 每设备独立watchdog，避免单设备阻塞所有设备健康检查
         self._watchdog_fail_count: dict[str, int] = {}
         # FIXED-P3: 重连中设备标记集合，防止watchdog跨await重复触发reconnect
         self._reconnecting: set[str] = set()
@@ -367,10 +466,12 @@ class ModbusRtuDriver(DriverPlugin):
                 return False
 
             lock = self._driver._get_serial_lock(port_path)
-            max_retries = getattr(self._driver, '_serial_lock_max_retries', self._driver._SERIAL_LOCK_MAX_RETRIES)
-            base_delay = getattr(self._driver, '_serial_lock_retry_base_delay', self._driver._SERIAL_LOCK_RETRY_BASE_DELAY)
-            timeout = getattr(self._driver, '_SERIAL_LOCK_TIMEOUT', self._driver._SERIAL_LOCK_DEFAULT_TIMEOUT)
-            deadlock_reset = getattr(self._driver, '_SERIAL_DEADLOCK_RESET', self._driver._SERIAL_DEADLOCK_RESET)
+            max_retries = getattr(self._driver, "_serial_lock_max_retries", self._driver._SERIAL_LOCK_MAX_RETRIES)
+            base_delay = getattr(
+                self._driver, "_serial_lock_retry_base_delay", self._driver._SERIAL_LOCK_RETRY_BASE_DELAY
+            )
+            timeout = getattr(self._driver, "_SERIAL_LOCK_TIMEOUT", self._driver._SERIAL_LOCK_DEFAULT_TIMEOUT)
+            deadlock_reset = getattr(self._driver, "_SERIAL_DEADLOCK_RESET", self._driver._SERIAL_DEADLOCK_RESET)
             # FIXED-BugR4X: 原问题-deadlock_recovered仅在holder.done()块内赋值，第430行使用时可能未定义，修复-循环前初始化为False
             deadlock_recovered = False
 
@@ -380,12 +481,15 @@ class ModbusRtuDriver(DriverPlugin):
                     self._port_path = port_path
                     self._lock = lock
                     self._holder_task = asyncio.current_task()
-                    self._acquired_version = self._driver._lock_versions.get(port_path, 0)  # FIXED-P2: 记录获取锁时的版本号
+                    self._acquired_version = self._driver._lock_versions.get(
+                        port_path, 0
+                    )  # FIXED-P2: 记录获取锁时的版本号
                     # 记录锁持有者
                     self._driver._lock_holders[port_path] = self._holder_task
                     if attempt > 0:
-                        logger.debug("[modbus_rtu] device=%s acquired serial lock after %d retries",
-                                   self._device_id, attempt)
+                        logger.debug(
+                            "[modbus_rtu] device=%s acquired serial lock after %d retries", self._device_id, attempt
+                        )
                     return True
                 except TimeoutError:
                     # MRTU-001: 检查锁持有者是否已消失
@@ -393,18 +497,24 @@ class ModbusRtuDriver(DriverPlugin):
                     if holder is not None and holder.done():
                         # MRTU-MED-001: 检测到疑似死锁，尝试 reset 串口
                         if deadlock_reset:
-                            logger.warning("[modbus_rtu] device=%s code=DEADLOCK_DETECTED "
-                                        "msg=Stale lock holder detected, attempting serial reset",
-                                        self._device_id)
+                            logger.warning(
+                                "[modbus_rtu] device=%s code=DEADLOCK_DETECTED "
+                                "msg=Stale lock holder detected, attempting serial reset",
+                                self._device_id,
+                            )
                             reset_ok = await self._driver._reset_device_port(self._device_id)
                             if not reset_ok:
-                                logger.error("[modbus_rtu] device=%s code=DEADLOCK_RESET_FAILED "
-                                           "msg=Serial reset failed, refusing to force lock acquisition",
-                                           self._device_id)
+                                logger.error(
+                                    "[modbus_rtu] device=%s code=DEADLOCK_RESET_FAILED "
+                                    "msg=Serial reset failed, refusing to force lock acquisition",
+                                    self._device_id,
+                                )
                                 return False
                         else:
-                            logger.warning("[modbus_rtu] device=%s detected stale lock holder, clearing holder record only",
-                                          self._device_id)
+                            logger.warning(
+                                "[modbus_rtu] device=%s detected stale lock holder, clearing holder record only",
+                                self._device_id,
+                            )
                         # FIXED-P0: 死锁恢复后强制释放旧锁并替换为新Lock实例，否则后续acquire()仍会超时导致设备永久不可访问
                         self._driver._lock_holders.pop(port_path, None)
                         try:
@@ -421,10 +531,14 @@ class ModbusRtuDriver(DriverPlugin):
                         deadlock_recovered = True
 
                     if attempt < max_retries:
-                        delay = base_delay * (2 ** attempt)
+                        delay = base_delay * (2**attempt)
                         logger.debug(
                             "[modbus_rtu] device=%s serial lock timeout (attempt %d/%d), retrying in %.1fs (%s)",
-                            self._device_id, attempt + 1, max_retries + 1, delay, port_path
+                            self._device_id,
+                            attempt + 1,
+                            max_retries + 1,
+                            delay,
+                            port_path,
                         )
                         await asyncio.sleep(delay)
                     else:
@@ -437,18 +551,24 @@ class ModbusRtuDriver(DriverPlugin):
                                 self._holder_task = asyncio.current_task()
                                 self._acquired_version = self._driver._lock_versions.get(port_path, 0)
                                 self._driver._lock_holders[port_path] = self._holder_task
-                                logger.debug("[modbus_rtu] device=%s acquired serial lock after deadlock recovery",
-                                           self._device_id)
+                                logger.debug(
+                                    "[modbus_rtu] device=%s acquired serial lock after deadlock recovery",
+                                    self._device_id,
+                                )
                                 return True
                             except TimeoutError:
                                 pass
-                        self._driver._log_error(self._device_id, "SERIAL_LOCK_TIMEOUT",
-                            f"Serial port lock timeout after {max_retries + 1} attempts ({port_path}, {timeout}s each)")
+                        self._driver._log_error(
+                            self._device_id,
+                            "SERIAL_LOCK_TIMEOUT",
+                            f"Serial port lock timeout after {max_retries + 1} attempts ({port_path}, {timeout}s each)",
+                        )
                         logger.warning(
                             "[modbus_rtu] device=%s code=SERIAL_LOCK_CONTENTION "
                             "msg=Serial lock contention frequent on %s. Consider: 1) reducing polling intervals, "
                             "2) increasing serial_lock_timeout, 3) using fewer devices per port",
-                            self._device_id, port_path
+                            self._device_id,
+                            port_path,
                         )
                         return False
                 except BaseException:
@@ -474,13 +594,21 @@ class ModbusRtuDriver(DriverPlugin):
                     if current_version == self._acquired_version:
                         self._lock.release()
                     else:
-                        logger.warning("[modbus_rtu] device=%s lock version mismatch on release, skipping (acquired=%d, current=%d)",
-                                    self._device_id, self._acquired_version, current_version)
+                        logger.warning(
+                            "[modbus_rtu] device=%s lock version mismatch on release, skipping (acquired=%d, current=%d)",
+                            self._device_id,
+                            self._acquired_version,
+                            current_version,
+                        )
                     logger.debug("[modbus_rtu] device=%s released serial lock", self._device_id)
                 else:
                     self._driver._lock_holders.pop(self._port_path, None)
-                    logger.warning("[modbus_rtu] device=%s serial lock not released: task mismatch (holder=%s, current=%s)",
-                                self._device_id, self._holder_task, current_task)
+                    logger.warning(
+                        "[modbus_rtu] device=%s serial lock not released: task mismatch (holder=%s, current=%s)",
+                        self._device_id,
+                        self._holder_task,
+                        current_task,
+                    )
 
     def _get_serial_lock(self, port_path: str) -> asyncio.Lock:
         """Get or create an asyncio.Lock for a specific serial port path"""
@@ -499,9 +627,19 @@ class ModbusRtuDriver(DriverPlugin):
         if not port_path:
             return None
         lock = self._get_serial_lock(port_path)
-        max_retries = self._serial_lock_max_retries if hasattr(self, '_serial_lock_max_retries') else self._SERIAL_LOCK_MAX_RETRIES
-        base_delay = self._serial_lock_retry_base_delay if hasattr(self, '_serial_lock_retry_base_delay') else self._SERIAL_LOCK_RETRY_BASE_DELAY
-        timeout = self._SERIAL_LOCK_TIMEOUT if hasattr(self, '_SERIAL_LOCK_TIMEOUT') else self._SERIAL_LOCK_DEFAULT_TIMEOUT
+        max_retries = (
+            self._serial_lock_max_retries
+            if hasattr(self, "_serial_lock_max_retries")
+            else self._SERIAL_LOCK_MAX_RETRIES
+        )
+        base_delay = (
+            self._serial_lock_retry_base_delay
+            if hasattr(self, "_serial_lock_retry_base_delay")
+            else self._SERIAL_LOCK_RETRY_BASE_DELAY
+        )
+        timeout = (
+            self._SERIAL_LOCK_TIMEOUT if hasattr(self, "_SERIAL_LOCK_TIMEOUT") else self._SERIAL_LOCK_DEFAULT_TIMEOUT
+        )
 
         for attempt in range(max_retries + 1):
             try:
@@ -511,20 +649,28 @@ class ModbusRtuDriver(DriverPlugin):
                 return lock
             except TimeoutError:
                 if attempt < max_retries:
-                    delay = base_delay * (2 ** attempt)
+                    delay = base_delay * (2**attempt)
                     logger.debug(
                         "[modbus_rtu] device=%s serial lock timeout (attempt %d/%d), retrying in %.1fs (%s)",
-                        device_id, attempt + 1, max_retries + 1, delay, port_path
+                        device_id,
+                        attempt + 1,
+                        max_retries + 1,
+                        delay,
+                        port_path,
                     )
                     await asyncio.sleep(delay)
                 else:
-                    self._log_error(device_id, "SERIAL_LOCK_TIMEOUT",
-                        f"Serial port lock timeout after {max_retries + 1} attempts ({port_path}, {timeout}s each)")
+                    self._log_error(
+                        device_id,
+                        "SERIAL_LOCK_TIMEOUT",
+                        f"Serial port lock timeout after {max_retries + 1} attempts ({port_path}, {timeout}s each)",
+                    )
                     logger.warning(
                         "[modbus_rtu] device=%s code=SERIAL_LOCK_CONTENTION "
                         "msg=Serial lock contention frequent on %s. Consider: 1) reducing polling intervals, "
                         "2) increasing serial_lock_timeout, 3) using fewer devices per port",
-                        device_id, port_path
+                        device_id,
+                        port_path,
                     )
                     return None
         return None
@@ -549,7 +695,9 @@ class ModbusRtuDriver(DriverPlugin):
         tasks_to_wait: list[asyncio.Task] = []
 
         # FIXED-P0: 取消所有每设备独立watchdog任务
-        for _device_id, wd_task in list(self._watchdog_tasks.items()):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
+        for _device_id, wd_task in list(
+            self._watchdog_tasks.items()
+        ):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
             if not wd_task.done():
                 wd_task.cancel()
                 tasks_to_wait.append(wd_task)
@@ -573,9 +721,7 @@ class ModbusRtuDriver(DriverPlugin):
 
         if tasks_to_wait:
             # 第一轮等待：最多5秒
-            done, pending = await asyncio.wait(
-                tasks_to_wait, timeout=5.0, return_when=asyncio.ALL_COMPLETED
-            )
+            done, pending = await asyncio.wait(tasks_to_wait, timeout=5.0, return_when=asyncio.ALL_COMPLETED)
             for task in done:
                 exc = task.exception()
                 if exc is not None and not isinstance(exc, asyncio.CancelledError):
@@ -583,7 +729,10 @@ class ModbusRtuDriver(DriverPlugin):
 
             # MRTU-004: 等待被 force cancel 的任务完成（最多3秒）
             if pending:
-                logger.warning("[modbus_rtu] code=TASK_FORCE_CANCEL msg=%d background task(s) did not terminate, forcing cancel", len(pending))
+                logger.warning(
+                    "[modbus_rtu] code=TASK_FORCE_CANCEL msg=%d background task(s) did not terminate, forcing cancel",
+                    len(pending),
+                )
                 for task in pending:
                     task.cancel()
 
@@ -658,7 +807,9 @@ class ModbusRtuDriver(DriverPlugin):
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
         unit_id = config.get("unit_id", 1)
         if not (1 <= unit_id <= 247):
-            logger.error("[modbus_rtu] device=%s code=CONFIG_INVALID unit_id=%d out of range [1-247]", device_id, unit_id)
+            logger.error(
+                "[modbus_rtu] device=%s code=CONFIG_INVALID unit_id=%d out of range [1-247]", device_id, unit_id
+            )
             raise ValueError(f"Modbus RTU config invalid: unit_id must be 1-247, got {unit_id}")
         baudrate = config.get("baudrate", 9600)
         if not (300 <= baudrate <= 115200):
@@ -746,7 +897,9 @@ class ModbusRtuDriver(DriverPlugin):
             if not still_used:
                 self._serial_locks.pop(removed_port, None)
                 self._lock_holders.pop(removed_port, None)
-                logger.debug("[modbus_rtu] code=SERIAL_LOCK_CLEANUP msg=Cleaned up lock for unused port: %s", removed_port)
+                logger.debug(
+                    "[modbus_rtu] code=SERIAL_LOCK_CLEANUP msg=Cleaned up lock for unused port: %s", removed_port
+                )
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         client = await self._ensure_connected(device_id)
@@ -758,6 +911,18 @@ class ModbusRtuDriver(DriverPlugin):
         try:
             async with self._acquire_serial_context(device_id) as acquired:
                 if not acquired:
+                    now = datetime.now(UTC)
+                    return {p: PointValue(value=None, quality="bad", timestamp=now) for p in points}
+
+                # FIXED-TOCTOU (并发安全 #1): 在串口锁内重新校验 client，
+                # 防止 _ensure_connected 返回后、acquire_serial_lock 之前，
+                # _try_reconnect (另一协程) 关闭或替换该 client。
+                # 之前: _ensure_connected 在无锁状态下返回 client，_try_reconnect
+                #       可在 _ensure_connected 返回与 acquire_serial_lock 之间关闭/替换 client，
+                #       导致对已关闭/已失效 client 执行读取 (use-after-close)。
+                # 之后: 在串口锁内用 is 同一性 + connected 标志双重校验，失效则返回 bad quality。
+                current_client = self._clients.get(device_id)
+                if client is not current_client or not getattr(client, "connected", False):
                     now = datetime.now(UTC)
                     return {p: PointValue(value=None, quality="bad", timestamp=now) for p in points}
 
@@ -819,7 +984,9 @@ class ModbusRtuDriver(DriverPlugin):
                     )
                     result[point_name] = value
                     self._read_fail_tracker.pop((device_id, point_name), None)
-                    await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+                    await self._record_read_success(
+                        device_id
+                    )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
                 except ModbusException as e:
                     self._record_read_failure(device_id)
                     self._log_throttled(device_id, point_name, e)
@@ -847,12 +1014,16 @@ class ModbusRtuDriver(DriverPlugin):
             except TimeoutError:  # FIXED-P1: 兼容Python<3.11
                 self._record_read_failure(device_id)
                 self._log_error(device_id, "READ_TIMEOUT", f"Batch read timeout ({READ_TIMEOUT}s)")
-                batch_result = {name: PointValue(value=None, quality="bad", timestamp=datetime.now(UTC)) for name in reg_points}
+                batch_result = {
+                    name: PointValue(value=None, quality="bad", timestamp=datetime.now(UTC)) for name in reg_points
+                }
             for point_name, value in batch_result.items():
                 result[point_name] = value
                 self._read_fail_tracker.pop((device_id, point_name), None)
             if batch_result:
-                await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+                await self._record_read_success(
+                    device_id
+                )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
             else:
                 self._record_read_failure(device_id)
 
@@ -862,14 +1033,21 @@ class ModbusRtuDriver(DriverPlugin):
             if isinstance(val, PointValue):
                 if val.timestamp is None:
                     result[point_name] = PointValue(
-                        value=val.value, quality=val.quality,
-                        timestamp=now, source=val.source, latency_ms=val.latency_ms,
+                        value=val.value,
+                        quality=val.quality,
+                        timestamp=now,
+                        source=val.source,
+                        latency_ms=val.latency_ms,
                     )
                 self._record_point_stat(device_id, point_name, val.quality == "good")
                 continue
             pt_def = pt_map.get(point_name, {})
             processed = self._apply_point_processing(
-                device_id, point_name, val, pt_def, config,
+                device_id,
+                point_name,
+                val,
+                pt_def,
+                config,
             )
             if isinstance(processed, PointValue):
                 result[point_name] = processed
@@ -890,8 +1068,12 @@ class ModbusRtuDriver(DriverPlugin):
         return result
 
     async def _batch_read_points(
-        self, client: Any, slave_id: int,
-        point_defs: dict[str, dict], byte_order: str, device_id: str,
+        self,
+        client: Any,
+        slave_id: int,
+        point_defs: dict[str, dict],
+        byte_order: str,
+        device_id: str,
     ) -> dict[str, Any]:
         """批量合并读取寄存器测点，自动分包（>125寄存器自动拆分）。
 
@@ -967,14 +1149,14 @@ class ModbusRtuDriver(DriverPlugin):
         crc_error_detected = False
 
         async def _read_segment(
-            start_addr: int, count: int, items: list[tuple[str, dict]],
+            start_addr: int,
+            count: int,
+            items: list[tuple[str, dict]],
         ) -> None:
             nonlocal crc_error_detected
             _set_client_slave_id(client, slave_id)
             try:
-                read_result = await client.read_holding_registers(
-                    start_addr, **_read_kwargs(count, slave_id)
-                )
+                read_result = await client.read_holding_registers(start_addr, **_read_kwargs(count, slave_id))
                 if read_result.isError():
                     err_str = str(read_result)
                     # 检测CRC错误
@@ -991,7 +1173,7 @@ class ModbusRtuDriver(DriverPlugin):
                             for retry in range(2):
                                 if asyncio.get_running_loop().time() >= retry_deadline:
                                     break
-                                delay = min(1.0 * (2 ** retry), 30.0)
+                                delay = min(1.0 * (2**retry), 30.0)
                                 await asyncio.sleep(delay)
                                 # FIXED-Bug5: 单次 I/O 超时不超过剩余预算，防止总耗时超过 _RETRY_TOTAL_TIMEOUT
                                 _remaining_budget = max(1.0, retry_deadline - asyncio.get_running_loop().time())
@@ -1010,15 +1192,19 @@ class ModbusRtuDriver(DriverPlugin):
                                         data_type = pt_def.get("data_type", "float32")
                                         n_regs = DATA_TYPE_REGS.get(data_type, 1)
                                         offset = addr - start_addr
-                                        if offset < 0 or offset + n_regs > len(registers):  # FIXED-P2: 增加offset<0检查，防止负索引返回错误数据
+                                        if offset < 0 or offset + n_regs > len(
+                                            registers
+                                        ):  # FIXED-P2: 增加offset<0检查，防止负索引返回错误数据
                                             failed_points[name] = ModbusException("Insufficient registers in batch")
                                             continue
-                                        pt_regs = registers[offset:offset + n_regs]
+                                        pt_regs = registers[offset : offset + n_regs]
                                         try:
                                             value = self._decode_point_value(pt_regs, data_type, byte_order)
                                             result[name] = value
                                         except Exception as e:
-                                            logger.warning("[modbus_rtu] Decode point value failed: %s.%s - %s", device_id, name, e)
+                                            logger.warning(
+                                                "[modbus_rtu] Decode point value failed: %s.%s - %s", device_id, name, e
+                                            )
                                             failed_points[name] = e
                                     return
                     for name, _ in items:
@@ -1033,7 +1219,7 @@ class ModbusRtuDriver(DriverPlugin):
                     if offset < 0 or offset + n_regs > len(registers):  # FIXED-P2: 添加offset负值检查
                         failed_points[name] = ModbusException("Insufficient registers in batch")
                         continue
-                    pt_regs = registers[offset:offset + n_regs]
+                    pt_regs = registers[offset : offset + n_regs]
                     try:
                         value = self._decode_point_value(pt_regs, data_type, byte_order)
                         result[name] = value
@@ -1043,7 +1229,9 @@ class ModbusRtuDriver(DriverPlugin):
             except asyncio.CancelledError:  # FIXED-P1: Python 3.8下CancelledError继承自Exception，必须先捕获再向上传播
                 raise
             except Exception as e:
-                logger.warning("[modbus_rtu] Batch read error: %s.%s - %s", device_id, items[0][0] if items else "unknown", e)
+                logger.warning(
+                    "[modbus_rtu] Batch read error: %s.%s - %s", device_id, items[0][0] if items else "unknown", e
+                )
                 err_str = str(e)
                 if "crc" in err_str.lower() or "checksum" in err_str.lower():
                     crc_error_detected = True
@@ -1153,22 +1341,26 @@ class ModbusRtuDriver(DriverPlugin):
         elif data_type == "float64":
             return self._decode_registers(registers, byte_order, "d", 4)
         elif data_type == "string":  # FIXED-P1: 增加string类型处理，多寄存器字符串不再被截断
-            raw_bytes = b''.join(struct.pack('>H', r) for r in registers)
+            raw_bytes = b"".join(struct.pack(">H", r) for r in registers)
             try:
-                decoded = raw_bytes.decode('utf-8', errors='strict').rstrip('\x00')  # FIXED-P2: 先用strict解码，与TCP驱动一致
+                decoded = raw_bytes.decode("utf-8", errors="strict").rstrip(
+                    "\x00"
+                )  # FIXED-P2: 先用strict解码，与TCP驱动一致
             except UnicodeDecodeError as e:
                 logger.warning("[modbus_rtu] string解码失败: %s", e)
-                decoded = raw_bytes.decode('utf-8', errors='ignore').rstrip('\x00')
+                decoded = raw_bytes.decode("utf-8", errors="ignore").rstrip("\x00")
             # FIXED-P1: 字符串长度限制256字节，与TCP驱动一致
-            if len(decoded.encode('utf-8')) > 256:
-                decoded = decoded.encode('utf-8')[:256].decode('utf-8', errors='ignore')
+            if len(decoded.encode("utf-8")) > 256:
+                decoded = decoded.encode("utf-8")[:256].decode("utf-8", errors="ignore")
                 logger.warning("[modbus_rtu] string解码超256字节，已截断: len=%d", len(raw_bytes))
             return decoded
         else:
             return registers[0] if registers else None  # FIXED-P2: 未知数据类型返回None而非0，与TCP驱动行为一致
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
-        if not await self.check_permission(Permission.DEVICE_WRITE_POINT):  # FIXED-P0: 写入操作添加权限检查，viewer角色无法写入
+        if not await self.check_permission(
+            Permission.DEVICE_WRITE_POINT
+        ):  # FIXED-P0: 写入操作添加权限检查，viewer角色无法写入
             self._log_error(device_id, "WRITE_DENIED", f"role={self._current_user_role} lacks device:write")
             return False
         config = self._device_configs.get(device_id, {})
@@ -1179,7 +1371,7 @@ class ModbusRtuDriver(DriverPlugin):
             return False
 
         # FIXED-P0: NaN/Inf值写入前拒绝，防止异常浮点值绕过clamp写入设备寄存器
-        if isinstance(value, float) and (value != value or value == float('inf') or value == float('-inf')):
+        if isinstance(value, float) and (value != value or value == float("inf") or value == float("-inf")):
             self._log_error(device_id, "WRITE_NAN_INF", f"{point}: value is NaN/Inf, rejected")
             return False
         clamp = pt_def.get("clamp") or config.get("clamp")
@@ -1207,6 +1399,18 @@ class ModbusRtuDriver(DriverPlugin):
             if not acquired:
                 return False
 
+            # FIXED-TOCTOU (并发安全 #1): 在串口锁内重新校验 client，
+            # 防止 _ensure_connected 返回后、acquire_serial_lock 之前，
+            # _try_reconnect (另一协程) 关闭或替换该 client，导致对已失效 client 写入。
+            current_client = self._clients.get(device_id)
+            if client is not current_client or not getattr(client, "connected", False):
+                self._log_error(
+                    device_id,
+                    "CONN_FAILED",
+                    f"{point}: client closed/replaced between ensure_connected and serial lock",
+                )
+                return False
+
             old_value = await self._read_point_raw(device_id, client, pt_def, config) if write_verify else None
             result = await self._write_point_inner(device_id, client, point, value)
             await self._apply_turnaround_delay(device_id)
@@ -1216,8 +1420,12 @@ class ModbusRtuDriver(DriverPlugin):
                     verify_value = await self._read_point_raw(device_id, client, pt_def, config)
                     await self._apply_turnaround_delay(device_id)
                     if verify_value is not None and not self._verify_write_value(value, verify_value, pt_def):
-                        self._log_error(device_id, "WRITE_VERIFY_MISMATCH", f"{point}: written={value}, readback={verify_value}")
-                        self._record_write_audit(device_id, point, old_value, value, "mismatch", f"readback={verify_value}")
+                        self._log_error(
+                            device_id, "WRITE_VERIFY_MISMATCH", f"{point}: written={value}, readback={verify_value}"
+                        )
+                        self._record_write_audit(
+                            device_id, point, old_value, value, "mismatch", f"readback={verify_value}"
+                        )
                         self._write_last_time[key] = now_mono
                         return False
                 self._record_write_audit(device_id, point, old_value, value, "ok", "")
@@ -1292,8 +1500,12 @@ class ModbusRtuDriver(DriverPlugin):
         return self._connected.get(device_id, False)
 
     async def _read_single_point(
-        self, client: Any, slave_id: int, pt_def: dict,
-        byte_order: str = "ABCD", device_id: str = "",
+        self,
+        client: Any,
+        slave_id: int,
+        pt_def: dict,
+        byte_order: str = "ABCD",
+        device_id: str = "",
     ) -> Any:
         """读取单个测点"""
         address = int(pt_def.get("address", 0))
@@ -1347,9 +1559,7 @@ class ModbusRtuDriver(DriverPlugin):
             )
         else:
             result = await asyncio.wait_for(  # FIXED-P1: 初始读取添加超时保护，与重试路径一致
-                client.read_holding_registers(
-                    address, **_read_kwargs(reg_count, slave_id)
-                ),
+                client.read_holding_registers(address, **_read_kwargs(reg_count, slave_id)),
                 timeout=10.0,
             )
 
@@ -1366,7 +1576,7 @@ class ModbusRtuDriver(DriverPlugin):
                     for retry in range(2):
                         if asyncio.get_running_loop().time() >= retry_deadline:
                             break
-                        delay = min(1.0 * (2 ** retry), 30.0)
+                        delay = min(1.0 * (2**retry), 30.0)
                         await asyncio.sleep(delay)
                         # FIXED-Bug5: 单次 I/O 超时不超过剩余预算，防止总耗时超过 _RETRY_TOTAL_TIMEOUT
                         _remaining_budget = max(1.0, retry_deadline - asyncio.get_running_loop().time())
@@ -1455,7 +1665,10 @@ class ModbusRtuDriver(DriverPlugin):
         display_msg = f"{i18n_msg} - {message}" if i18n_msg and message else (i18n_msg or message)
         logger.error(
             "[%s] device=%s code=%s msg=%s",
-            self.plugin_name, device_id, error_code, display_msg,
+            self.plugin_name,
+            device_id,
+            error_code,
+            display_msg,
         )
 
     def _log_throttled(self, device_id: str, point_name: str, error: Exception) -> None:
@@ -1518,11 +1731,18 @@ class ModbusRtuDriver(DriverPlugin):
             if sys.platform == "win32":
                 try:
                     import serial as _pyserial
+
                     _probe = _pyserial.Serial(active_port, baudrate=baudrate, timeout=0.1)
                     _probe.close()
                 except Exception as _port_err:
-                    self._log_error(device_id, "PORT_LOCKED", f"Serial port {active_port} is already in use or unavailable on Windows: {_port_err}")
-                    await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, "serial port locked")
+                    self._log_error(
+                        device_id,
+                        "PORT_LOCKED",
+                        f"Serial port {active_port} is already in use or unavailable on Windows: {_port_err}",
+                    )
+                    await self._set_connection_state(
+                        device_id, ConnectionState.DISCONNECTED.value, "serial port locked"
+                    )
                     return False
             client = AsyncModbusSerialClient(
                 port=active_port,
@@ -1541,7 +1761,9 @@ class ModbusRtuDriver(DriverPlugin):
                     client.comm_params.rs485_delay_before_send = config.get("rs485_delay_before_send", 0) / 1000.0
                     client.comm_params.rs485_delay_after_send = config.get("rs485_delay_after_send", 0) / 1000.0
                 except Exception as e:
-                    logger.warning("[modbus_rtu] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                    logger.warning(
+                        "[modbus_rtu] operation failed: %s", e
+                    )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
         self._clients[device_id] = client
 
         try:
@@ -1549,7 +1771,9 @@ class ModbusRtuDriver(DriverPlugin):
                 connected = await asyncio.wait_for(client.connect(), timeout=CONNECT_TIMEOUT)
             except TimeoutError:
                 connected = False
-                self._log_error(device_id, "CONN_FAILED", f"connect timeout ({CONNECT_TIMEOUT}s) to {active_port}@{baudrate}")
+                self._log_error(
+                    device_id, "CONN_FAILED", f"connect timeout ({CONNECT_TIMEOUT}s) to {active_port}@{baudrate}"
+                )
             if connected:
                 logger.info("Modbus RTU连接成功: %s (%s@%d)", device_id, active_port, baudrate)
                 self._connected[device_id] = True
@@ -1572,7 +1796,9 @@ class ModbusRtuDriver(DriverPlugin):
         except Exception as e:
             err_msg = str(e)
             if "Permission denied" in err_msg or "Device or resource busy" in err_msg:
-                self._log_error(device_id, "PORT_LOCKED", f"Serial port {active_port} is already in use by another process")
+                self._log_error(
+                    device_id, "PORT_LOCKED", f"Serial port {active_port} is already in use by another process"
+                )
             else:
                 self._log_error(device_id, "CONN_FAILED", str(e))
             await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, str(e))
@@ -1637,7 +1863,7 @@ class ModbusRtuDriver(DriverPlugin):
                     should_failover = True
                 exceeded = True
             else:
-                delay = min(self._BACKOFF_BASE * (2 ** attempt), self._BACKOFF_MAX)
+                delay = min(self._BACKOFF_BASE * (2**attempt), self._BACKOFF_MAX)
                 jitter = random.uniform(0, self._JITTER_MAX)
                 total_delay = delay + jitter
 
@@ -1645,7 +1871,9 @@ class ModbusRtuDriver(DriverPlugin):
                 elapsed = now - port_state["last_attempt_time"]
                 if elapsed < total_delay:
                     wait_time = total_delay - elapsed
-                    self._log_error(device_id, "BACKOFF_RETRY", f"attempt={attempt + 1}, delay={wait_time:.2f}s, port={port_path}")
+                    self._log_error(
+                        device_id, "BACKOFF_RETRY", f"attempt={attempt + 1}, delay={wait_time:.2f}s, port={port_path}"
+                    )
                     await asyncio.sleep(wait_time)
 
                 port_state["attempt"] = attempt + 1
@@ -1695,10 +1923,16 @@ class ModbusRtuDriver(DriverPlugin):
                             new_client.comm_params.rs485_mode = True
                             new_client.comm_params.rs485_rts_on_send = config.get("rs485_rts_on_send", True)
                             new_client.comm_params.rs485_rts_on_recv = config.get("rs485_rts_on_recv", False)
-                            new_client.comm_params.rs485_delay_before_send = config.get("rs485_delay_before_send", 0) / 1000.0
-                            new_client.comm_params.rs485_delay_after_send = config.get("rs485_delay_after_send", 0) / 1000.0
+                            new_client.comm_params.rs485_delay_before_send = (
+                                config.get("rs485_delay_before_send", 0) / 1000.0
+                            )
+                            new_client.comm_params.rs485_delay_after_send = (
+                                config.get("rs485_delay_after_send", 0) / 1000.0
+                            )
                         except Exception as e:
-                            logger.warning("[modbus_rtu] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[modbus_rtu] operation failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 try:
                     try:
                         connected = await asyncio.wait_for(new_client.connect(), timeout=config.get("timeout", 3.0))
@@ -1715,14 +1949,18 @@ class ModbusRtuDriver(DriverPlugin):
                         self._port_backoff.pop(active_port, None)
                         self._device_port_map[device_id] = active_port
                         await self._set_connection_state(device_id, ConnectionState.CONNECTED.value)
-                        self._log_error(device_id, "RECONNECT_OK", f"reconnected to {active_port}@{config.get('baudrate')}")
+                        self._log_error(
+                            device_id, "RECONNECT_OK", f"reconnected to {active_port}@{config.get('baudrate')}"
+                        )
                     else:
                         try:
                             new_client.close()
                         except Exception as _close_err:  # FIXED-P1
                             logger.debug("[modbus_rtu] close error: %s", _close_err)
                         self._connected[device_id] = False
-                        await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, "connect failed")
+                        await self._set_connection_state(
+                            device_id, ConnectionState.DISCONNECTED.value, "connect failed"
+                        )
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
@@ -1788,7 +2026,9 @@ class ModbusRtuDriver(DriverPlugin):
                             # 之前：跨await访问_watchdog_fail_count，reconnect期间可能重复触发
                             # 之后：重置fail count，添加_reconnecting标记防止重复触发
                             if device_id not in self._reconnecting:
-                                logger.warning("[modbus_rtu] device=%s disconnected for >30s, triggering reconnect", device_id)
+                                logger.warning(
+                                    "[modbus_rtu] device=%s disconnected for >30s, triggering reconnect", device_id
+                                )
                                 self._watchdog_fail_count[device_id] = 0
                                 self._reconnecting.add(device_id)
                                 try:
@@ -1803,14 +2043,20 @@ class ModbusRtuDriver(DriverPlugin):
                             self._log_error(device_id, "HEALTH_CHECK_FAILED", "3 consecutive failures, marking offline")
                             self._connected[device_id] = False
                             self._health_check_fail_count[device_id] = 0
-                            await self._set_connection_state(device_id, ConnectionState.OFFLINE.value, "health check failed 3 times")
+                            await self._set_connection_state(
+                                device_id, ConnectionState.OFFLINE.value, "health check failed 3 times"
+                            )
                         elif self._health_check_fail_count[device_id] >= 1:
-                            await self._set_connection_state(device_id, ConnectionState.DEGRADED.value, "health check failing")
+                            await self._set_connection_state(
+                                device_id, ConnectionState.DEGRADED.value, "health check failing"
+                            )
                     else:
                         self._health_check_fail_count[device_id] = 0
                         status = self._connection_statuses.get(device_id)
                         if status and status.state == ConnectionState.DEGRADED.value:
-                            await self._set_connection_state(device_id, ConnectionState.CONNECTED.value, "health check recovered")
+                            await self._set_connection_state(
+                                device_id, ConnectionState.CONNECTED.value, "health check recovered"
+                            )
                     self._watchdog_fail_count[device_id] = 0
             except asyncio.CancelledError:
                 raise
@@ -1826,7 +2072,9 @@ class ModbusRtuDriver(DriverPlugin):
         config = self._device_configs.get(device_id, {})
         slave_id = config.get("unit_id", 1)
         try:
-            async with self.SerialLockContext(self, device_id) as acquired:  # FIXED-P1: 使用SerialLockContext替代手动acquire/release，确保死锁检测和超时保护
+            async with self.SerialLockContext(
+                self, device_id
+            ) as acquired:  # FIXED-P1: 使用SerialLockContext替代手动acquire/release，确保死锁检测和超时保护
                 if not acquired:
                     return False
                 _set_client_slave_id(client, slave_id)
@@ -1888,7 +2136,12 @@ class ModbusRtuDriver(DriverPlugin):
                     if now_mono - last_time > 300 and bp_state.get("attempt", 0) > 0:
                         old_attempt = bp_state["attempt"]
                         bp_state["attempt"] = max(1, old_attempt // 2)
-                        logger.debug("[modbus_rtu] code=BACKOFF_DECAY msg=Port %s backoff attempt decayed: %d -> %d", bp_port, old_attempt, bp_state["attempt"])
+                        logger.debug(
+                            "[modbus_rtu] code=BACKOFF_DECAY msg=Port %s backoff attempt decayed: %d -> %d",
+                            bp_port,
+                            old_attempt,
+                            bp_state["attempt"],
+                        )
 
                 # MRTU-005: 定期清理无设备引用的串口锁
                 cleanup_counter += 1
@@ -1947,10 +2200,15 @@ class ModbusRtuDriver(DriverPlugin):
             # 检查触发设备的重连是否成功
             client = self._clients.get(device_id)
             if client and self._connected.get(device_id, False) and client.connected:
-                logger.info("[modbus_rtu] device=%s code=DEADLOCK_RESET_OK msg=Serial reset and reconnect successful", device_id)
+                logger.info(
+                    "[modbus_rtu] device=%s code=DEADLOCK_RESET_OK msg=Serial reset and reconnect successful", device_id
+                )
                 return True
             else:
-                logger.error("[modbus_rtu] device=%s code=DEADLOCK_RECONNECT_FAILED msg=Serial reset succeeded but reconnect failed", device_id)
+                logger.error(
+                    "[modbus_rtu] device=%s code=DEADLOCK_RECONNECT_FAILED msg=Serial reset succeeded but reconnect failed",
+                    device_id,
+                )
                 return False
 
         except Exception as e:
@@ -1963,6 +2221,7 @@ class ModbusRtuDriver(DriverPlugin):
             return os.path.exists(port_path)
         try:
             from serial.tools.list_ports import comports
+
             available = [p.device for p in comports()]
             return port_path in available
         except Exception:
@@ -1975,7 +2234,9 @@ class ModbusRtuDriver(DriverPlugin):
             for device_id, port in list(self._device_port_map.items()):
                 if port == port_path:
                     self._connected[device_id] = False
-                    await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, "serial port disappeared")
+                    await self._set_connection_state(
+                        device_id, ConnectionState.DISCONNECTED.value, "serial port disappeared"
+                    )
                     self._log_error(device_id, "PORT_DISAPPEARED", f"Serial port {port_path} disappeared")
                     client = self._clients.get(device_id)
                     if client:
@@ -2096,11 +2357,20 @@ class ModbusRtuDriver(DriverPlugin):
                     count = self._failback_stable_count.get(device_id, 0) + 1
                     self._failback_stable_count[device_id] = count
                     if count < self._FAILOVER_STABLE_THRESHOLD:
-                        logger.debug("[modbus_rtu] device=%s primary port %s stable count=%d/%d",
-                                     device_id, primary_port, count, self._FAILOVER_STABLE_THRESHOLD)
+                        logger.debug(
+                            "[modbus_rtu] device=%s primary port %s stable count=%d/%d",
+                            device_id,
+                            primary_port,
+                            count,
+                            self._FAILOVER_STABLE_THRESHOLD,
+                        )
                         continue
                     self._failback_stable_count.pop(device_id, None)
-                    self._log_error(device_id, "FAILOVER_BACK", f"Primary port {primary_port} recovered (stable={count}), switching back")
+                    self._log_error(
+                        device_id,
+                        "FAILOVER_BACK",
+                        f"Primary port {primary_port} recovered (stable={count}), switching back",
+                    )
                     port_lock = self._port_reconnect_locks.setdefault(primary_port, asyncio.Lock())
                     async with port_lock:
                         self._active_port[device_id] = primary_port
@@ -2123,10 +2393,15 @@ class ModbusRtuDriver(DriverPlugin):
         if key not in self._point_stats and len(self._point_stats) >= self._MAX_POINT_STATS:
             oldest_key = next(iter(self._point_stats))
             self._point_stats.pop(oldest_key, None)
-        stats = self._point_stats.setdefault(key, {
-            "success_count": 0, "fail_count": 0,
-            "latency_samples": [], "consecutive_fails": 0,
-        })
+        stats = self._point_stats.setdefault(
+            key,
+            {
+                "success_count": 0,
+                "fail_count": 0,
+                "latency_samples": [],
+                "consecutive_fails": 0,
+            },
+        )
         if success:
             stats["success_count"] += 1
             stats["consecutive_fails"] = 0
@@ -2134,7 +2409,7 @@ class ModbusRtuDriver(DriverPlugin):
             stats["fail_count"] += 1
             stats["consecutive_fails"] += 1
         if len(stats["latency_samples"]) > self._POINT_STATS_WINDOW:
-            stats["latency_samples"] = stats["latency_samples"][-self._POINT_STATS_WINDOW:]
+            stats["latency_samples"] = stats["latency_samples"][-self._POINT_STATS_WINDOW :]
 
     def get_point_stats(self, device_id: str, point_name: str) -> dict | None:
         key = (device_id, point_name)
@@ -2217,12 +2492,16 @@ class ModbusRtuDriver(DriverPlugin):
             new_level = current_level + 1
             self._degrade_level[device_id] = new_level
             new_interval = self._DEGRADE_LEVELS[new_level]
-            self._log_error(device_id, "DEGRADED_FREQ", f"rate={success_rate:.2f}, level={new_level}, interval={new_interval}s")
+            self._log_error(
+                device_id, "DEGRADED_FREQ", f"rate={success_rate:.2f}, level={new_level}, interval={new_interval}s"
+            )
         elif success_rate > self._RECOVER_THRESHOLD and current_level > 0:
             new_level = current_level - 1
             self._degrade_level[device_id] = new_level
             new_interval = self._DEGRADE_LEVELS[new_level]
-            self._log_error(device_id, "RECOVERED_FREQ", f"rate={success_rate:.2f}, level={new_level}, interval={new_interval}s")
+            self._log_error(
+                device_id, "RECOVERED_FREQ", f"rate={success_rate:.2f}, level={new_level}, interval={new_interval}s"
+            )
 
     def get_polling_interval(self, device_id: str) -> float:
         level = self._degrade_level.get(device_id, 0)
@@ -2230,7 +2509,9 @@ class ModbusRtuDriver(DriverPlugin):
 
     async def write_points_batch(self, device_id: str, points: dict[str, Any]) -> dict[str, bool]:
         # FIXED-P1: 方法名与基类 write_points_batch 对齐
-        if not await self.check_permission(Permission.DEVICE_WRITE_POINT):  # FIXED-P0: 批量写入同样需要权限检查，防止viewer角色绕过
+        if not await self.check_permission(
+            Permission.DEVICE_WRITE_POINT
+        ):  # FIXED-P0: 批量写入同样需要权限检查，防止viewer角色绕过
             self._log_error(device_id, "WRITE_DENIED", f"role={self._current_user_role} lacks device:write")
             return {p: False for p in points}
         writes = points
@@ -2250,7 +2531,7 @@ class ModbusRtuDriver(DriverPlugin):
                 continue
             value = writes[point]
             # FIXED-P0: 批量写入NaN/Inf拒绝，防止异常浮点值绕过clamp写入设备寄存器
-            if isinstance(value, float) and (value != value or value == float('inf') or value == float('-inf')):
+            if isinstance(value, float) and (value != value or value == float("inf") or value == float("-inf")):
                 self._log_error(device_id, "WRITE_NAN_INF", f"{point}: batch write value is NaN/Inf, rejected")
                 continue
             clamp = pt_def.get("clamp") or config.get("clamp")
@@ -2267,13 +2548,31 @@ class ModbusRtuDriver(DriverPlugin):
             if not acquired:
                 return {p: False for p in writes}
 
+            # FIXED-TOCTOU (并发安全 #1): 在串口锁内重新校验 client，
+            # 防止 _ensure_connected 返回后、acquire_serial_lock 之前，
+            # _try_reconnect (另一协程) 关闭或替换该 client，导致对已失效 client 批量写入。
+            current_client = self._clients.get(device_id)
+            if client is not current_client or not getattr(client, "connected", False):
+                self._log_error(
+                    device_id,
+                    "CONN_FAILED",
+                    "client closed/replaced between ensure_connected and serial lock (batch write)",
+                )
+                return {p: False for p in writes}
+
             results = await self._batch_write_inner(device_id, client, pt_defs, writes, config, byte_order, slave_id)
             await self._apply_turnaround_delay(device_id)
             return results
 
     async def _batch_write_inner(
-        self, device_id: str, client: Any, pt_defs: dict[str, dict],
-        writes: dict[str, Any], config: dict, byte_order: str, slave_id: int,
+        self,
+        device_id: str,
+        client: Any,
+        pt_defs: dict[str, dict],
+        writes: dict[str, Any],
+        config: dict,
+        byte_order: str,
+        slave_id: int,
     ) -> dict[str, bool]:
         results = {}
         holding_writes: list[tuple[str, dict, Any]] = []
@@ -2296,7 +2595,9 @@ class ModbusRtuDriver(DriverPlugin):
             for group in merged:
                 if len(group) == 1:
                     point, pt_def, value, regs = group[0]
-                    ok = await self._write_single_point(device_id, client, point, pt_def, value, config, byte_order, slave_id)
+                    ok = await self._write_single_point(
+                        device_id, client, point, pt_def, value, config, byte_order, slave_id
+                    )
                     results[point] = ok
                 else:
                     start_addr = min(min(g[3].keys()) for g in group)
@@ -2313,13 +2614,27 @@ class ModbusRtuDriver(DriverPlugin):
                             timeout=WRITE_TIMEOUT,
                         )
                         merged_names = ",".join(g[0] for g in group)
-                        self._log_error(device_id, "WRITE_BATCH_MERGE", f"FC16: addr={start_addr}, count={len(reg_values)}, points={merged_names}")
-                        for point, _pt_def, value, _ in group:  # FIXED(P3): 原问题-B007循环变量pt_def未使用; 修复-改为_pt_def
+                        self._log_error(
+                            device_id,
+                            "WRITE_BATCH_MERGE",
+                            f"FC16: addr={start_addr}, count={len(reg_values)}, points={merged_names}",
+                        )
+                        for (
+                            point,
+                            _pt_def,
+                            value,
+                            _,
+                        ) in group:  # FIXED(P3): 原问题-B007循环变量pt_def未使用; 修复-改为_pt_def
                             results[point] = True
                             self._record_write_audit(device_id, point, None, value, "ok", "batch FC16")
                             self._record_write_success(device_id)
                     except Exception as e:
-                        for point, _pt_def, value, _ in group:  # FIXED(P3): 原问题-B007循环变量pt_def未使用; 修复-改为_pt_def
+                        for (
+                            point,
+                            _pt_def,
+                            value,
+                            _,
+                        ) in group:  # FIXED(P3): 原问题-B007循环变量pt_def未使用; 修复-改为_pt_def
                             results[point] = False
                             self._record_write_audit(device_id, point, None, value, "failed", str(e))
                             self._record_write_failure(device_id)
@@ -2332,7 +2647,9 @@ class ModbusRtuDriver(DriverPlugin):
         return results
 
     def _merge_adjacent_writes(
-        self, holding_writes: list[tuple[str, dict, Any]], byte_order: str,
+        self,
+        holding_writes: list[tuple[str, dict, Any]],
+        byte_order: str,
     ) -> list[list[tuple[str, dict, Any, dict[int, int]]]]:
         encoded = []
         for point, pt_def, value in holding_writes:
@@ -2383,8 +2700,15 @@ class ModbusRtuDriver(DriverPlugin):
         return [int(value) & 0xFFFF]
 
     async def _write_single_point(
-        self, device_id: str, client: Any, point: str, pt_def: dict,
-        value: Any, config: dict, byte_order: str, slave_id: int,
+        self,
+        device_id: str,
+        client: Any,
+        point: str,
+        pt_def: dict,
+        value: Any,
+        config: dict,
+        byte_order: str,
+        slave_id: int,
     ) -> bool:
         address = int(pt_def.get("address", 0))
         data_type = pt_def.get("data_type", "uint16")
@@ -2466,7 +2790,7 @@ class ModbusRtuDriver(DriverPlugin):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.warning("[modbus_rtu] read_point_raw failed: %s.%s - %s", device_id, pt_def.get('name', ''), e)
+            logger.warning("[modbus_rtu] read_point_raw failed: %s.%s - %s", device_id, pt_def.get("name", ""), e)
         return None
 
     @staticmethod
@@ -2485,8 +2809,13 @@ class ModbusRtuDriver(DriverPlugin):
         return written == readback
 
     def _record_write_audit(
-        self, device_id: str, point: str, old_value: Any,
-        new_value: Any, result: str, error_msg: str,
+        self,
+        device_id: str,
+        point: str,
+        old_value: Any,
+        new_value: Any,
+        result: str,
+        error_msg: str,
     ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
@@ -2552,12 +2881,16 @@ class ModbusRtuDriver(DriverPlugin):
                 continue
             try:
                 alarm_records = await self._edge_engine.evaluate_point(
-                    device_id, point_name, float(pv.value), pv.quality,
+                    device_id,
+                    point_name,
+                    float(pv.value),
+                    pv.quality,
                 )
                 for record in alarm_records:
                     action_label = "EDGE_ALARM_FIRE" if record.action == "firing" else "EDGE_ALARM_RECOVER"
                     self._log_error(
-                        device_id, action_label,
+                        device_id,
+                        action_label,
                         f"{point_name}={record.trigger_value:.2f} {record.action} (rule={record.rule_id}, threshold={record.threshold:.2f}, latency={record.latency_ms:.1f}ms)",
                     )
             except Exception as e:
@@ -2583,7 +2916,11 @@ class ModbusRtuDriver(DriverPlugin):
             )
             self._edge_engine.add_rule(rule)
             self._rule_store.save_rule(rule)
-            self._log_error(rule.device_id, "EDGE_RULE_LOAD", f"rule={rule.rule_id} op={rule.operator.value} threshold={rule.threshold}")
+            self._log_error(
+                rule.device_id,
+                "EDGE_RULE_LOAD",
+                f"rule={rule.rule_id} op={rule.operator.value} threshold={rule.threshold}",
+            )
             return rule
         except Exception as e:
             logger.error("[modbus_rtu] add edge rule failed: %s", e)
@@ -2725,15 +3062,17 @@ class ModbusRtuDriver(DriverPlugin):
 
         if self._ring_buffer:
             try:
-                await self._ring_buffer.put({
-                    "device_id": device_id,
-                    "points": {
-                        pn: {"value": pv.value, "quality": pv.quality}
-                        for pn, pv in result.items()
-                        if isinstance(pv, PointValue) and pv.value is not None
-                    },
-                    "timestamp_ns": ts_ns,
-                })
+                await self._ring_buffer.put(
+                    {
+                        "device_id": device_id,
+                        "points": {
+                            pn: {"value": pv.value, "quality": pv.quality}
+                            for pn, pv in result.items()
+                            if isinstance(pv, PointValue) and pv.value is not None
+                        },
+                        "timestamp_ns": ts_ns,
+                    }
+                )
             except Exception as e:
                 logger.error("[modbus_rtu] ring buffer put failed: %s", e)
 
@@ -2749,7 +3088,9 @@ class ModbusRtuDriver(DriverPlugin):
                     asyncio.get_running_loop()
                     self._sync_task = asyncio.ensure_future(self._sync_loop())
                 except RuntimeError as e:
-                    logger.debug("[modbus_rtu] set_network_status failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                    logger.debug(
+                        "[modbus_rtu] set_network_status failed: %s", e
+                    )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
 
     def set_upload_callback(self, callback) -> None:
         self._upload_callback = callback
@@ -2880,7 +3221,9 @@ class ModbusRtuDriver(DriverPlugin):
             )
         return True
 
-    async def rollback_device_config(self, device_id: str, target_version: int, operator: str = "system") -> dict | None:
+    async def rollback_device_config(
+        self, device_id: str, target_version: int, operator: str = "system"
+    ) -> dict | None:
         if not await self.check_permission(Permission.CONFIG_EDIT):
             self._log_error(device_id, "CONFIG_CHANGE_DENIED", f"role={self._current_user_role} lacks config:edit")
             return None
@@ -2961,7 +3304,9 @@ class ModbusRtuDriver(DriverPlugin):
             return ""
         return self._audit.export_csv()
 
-    async def audit_write_point(self, device_id: str, point_name: str, value: Any, operator: str = "system", status: str = "success") -> None:
+    async def audit_write_point(
+        self, device_id: str, point_name: str, value: Any, operator: str = "system", status: str = "success"
+    ) -> None:
         if self._audit:
             await self._audit.log_write(device_id, point_name, value, operator=operator, status=status)
 

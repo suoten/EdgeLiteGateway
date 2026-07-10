@@ -170,8 +170,8 @@ class TestGlobalStateNotModified:
         """加载后全局 import 正常工作 (非白名单模块可导入)"""
         # 如果全局 builtins.__import__ 被替换，这些 import 会失败
         import os
-        import subprocess
         import socket
+        import subprocess
         assert os is not None
         assert subprocess is not None
         assert socket is not None

@@ -76,7 +76,9 @@ async def list_tools(_user: dict[str, str] = Depends(require_permission(Permissi
         raise
     except Exception as e:
         logger.error("list_tools failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.LIST_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.post("/call", response_model=ApiResponse)
@@ -108,7 +110,9 @@ async def call_tool(
         raise
     except Exception as e:
         logger.error("call_tool failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.CALL_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.CALL_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.get("/resources", response_model=ApiResponse)
@@ -119,7 +123,9 @@ async def list_resources(_user: dict[str, str] = Depends(require_permission(Perm
         raise
     except Exception as e:
         logger.error("list_resources failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.LIST_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.get("/prompts", response_model=ApiResponse)
@@ -130,7 +136,9 @@ async def list_prompts(_user: dict[str, str] = Depends(require_permission(Permis
         raise
     except Exception as e:
         logger.error("list_prompts failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.LIST_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.get("/auth-keys", response_model=ApiResponse)
@@ -141,7 +149,9 @@ async def list_auth_keys(user: dict[str, str] = Depends(require_permission(Permi
         raise
     except Exception as e:
         logger.error("list_auth_keys failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.LIST_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 class CreateKeyRequest(BaseModel):
@@ -162,16 +172,18 @@ async def create_auth_key(
         raise
     except Exception as e:
         logger.error("create_auth_key failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.CREATE_KEY_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.CREATE_KEY_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.delete("/auth-keys/{key_id}", response_model=ApiResponse)
-async def delete_auth_key(
-    key_id: str, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))
-):
+async def delete_auth_key(key_id: str, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))):
     if _mcp_auth.delete_key(key_id):
         return ApiResponse(data={"deleted": True, "key_id": key_id})
-    raise HTTPException(status_code=404, detail=McpErrors.KEY_NOT_FOUND)  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+    raise HTTPException(
+        status_code=404, detail=McpErrors.KEY_NOT_FOUND
+    )  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
 
 
 @router.get("/sse-ticket", response_model=ApiResponse)
@@ -200,6 +212,7 @@ async def mcp_sse(
     if ticket:
         if not await _consume_sse_ticket(ticket):
             from fastapi import status as _st
+
             raise HTTPException(status_code=_st.HTTP_401_UNAUTHORIZED, detail=AuthzErrors.NOT_AUTHENTICATED)
         # ticket 有效即放行（ticket 由已认证用户通过 /sse-ticket 换取）
         user = {"user_id": "sse-ticket", "username": "sse-ticket", "role": "system"}
@@ -211,6 +224,7 @@ async def mcp_sse(
             from jwt import PyJWTError as JWTError
 
             from edgelite.security.jwt import verify_token
+
             try:
                 bearer_token = auth_header[7:]
                 payload = verify_token(bearer_token, token_type="access")
@@ -218,11 +232,13 @@ async def mcp_sse(
                 jti = payload.get("jti", "")
                 if jti:
                     from edgelite.security.token_revocation import is_token_revoked
+
                     if is_token_revoked(jti):
                         raise JWTError("Token revoked")
                 username = payload.get("username", "")
                 container = request.app.state
                 from edgelite.storage.sqlite_repo import UserRepo
+
                 async with container.database.get_session() as session:
                     repo = UserRepo(session, container.database.write_lock)
                     user = await repo.get_by_username(username)
@@ -235,6 +251,7 @@ async def mcp_sse(
 
     if user is None:
         from fastapi import status as _st
+
         raise HTTPException(status_code=_st.HTTP_401_UNAUTHORIZED, detail=AuthzErrors.NOT_AUTHENTICATED)
 
     try:
@@ -261,7 +278,9 @@ async def mcp_sse(
                             }
                             queue.put_nowait(json.dumps(data, default=str, ensure_ascii=False))
                         except _asyncio.QueueFull:
-                            logger.debug("MCP alarm event queue full, dropping")  # FIXED-P1: 原问题-队列满静默丢弃无日志
+                            logger.debug(
+                                "MCP alarm event queue full, dropping"
+                            )  # FIXED-P1: 原问题-队列满静默丢弃无日志
 
                     def _on_device_event(event):
                         try:
@@ -320,4 +339,6 @@ async def mcp_sse(
         raise
     except Exception as e:
         logger.error("mcp_sse failed: %s", e)
-        raise HTTPException(status_code=500, detail=McpErrors.SSE_FAILED) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        raise HTTPException(
+            status_code=500, detail=McpErrors.SSE_FAILED
+        ) from e  # FIXED: 原问题-硬编码错误码字符串，改为集中管理

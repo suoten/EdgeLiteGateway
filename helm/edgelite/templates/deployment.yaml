@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "edgelite.fullname" . }}
+  labels:
+    {{- include "edgelite.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "edgelite.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "edgelite.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "edgelite.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: EDGELITE_SERVER__HOST
+              value: {{ .Values.edgelite.server.host | quote }}
+            - name: EDGELITE_SERVER__PORT
+              value: {{ .Values.edgelite.server.port | quote }}
+            - name: EDGELITE_SERVER__CORS_ALLOWED_ORIGINS
+              value: {{ .Values.edgelite.server.corsAllowedOrigins | quote }}
+            - name: EDGELITE_INFLUXDB__URL
+              value: {{ .Values.edgelite.influxdb.url | quote }}
+            - name: EDGELITE_INFLUXDB__TOKEN
+              value: {{ .Values.edgelite.influxdb.token | quote }}
+            - name: EDGELITE_MQTT__BROKER
+              value: {{ .Values.edgelite.mqtt.broker | quote }}
+            - name: EDGELITE_MQTT__USERNAME
+              value: {{ .Values.edgelite.mqtt.username | quote }}
+            - name: EDGELITE_MQTT__PASSWORD
+              value: {{ .Values.edgelite.mqtt.password | quote }}
+            - name: EDGELITE_SECURITY__SECRET_KEY
+              value: {{ .Values.edgelite.security.secretKey | quote }}
+            - name: EDGELITE_ADMIN_PASSWORD
+              value: {{ .Values.edgelite.adminPassword | quote }}
+            - name: EDGELITE_DB__PATH
+              value: {{ .Values.edgelite.dbPath | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "edgelite.fullname" . }}
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

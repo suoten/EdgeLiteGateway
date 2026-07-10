@@ -49,7 +49,13 @@ class WebhookAuthMiddleware:
             return env_val
         return value
 
-    def verify(self, authorization_header: str | None, timestamp: str | None = None, nonce: str | None = None, signature: str | None = None) -> bool:
+    def verify(
+        self,
+        authorization_header: str | None,
+        timestamp: str | None = None,
+        nonce: str | None = None,
+        signature: str | None = None,
+    ) -> bool:
         """验证Authorization头
 
         Args:
@@ -122,9 +128,7 @@ class WebhookAuthMiddleware:
         try:
             decoded = base64.b64decode(header[6:].strip()).decode("utf-8")
             username, password = decoded.split(":", 1)
-            return hmac.compare_digest(username, self._username) and hmac.compare_digest(
-                password, self._password
-            )
+            return hmac.compare_digest(username, self._username) and hmac.compare_digest(password, self._password)
         except Exception as e:  # FIXED: 原问题-HMAC认证异常静默返回False，可能掩盖配置错误
             logger.debug("Basic认证解码失败: %s", e)
             return False

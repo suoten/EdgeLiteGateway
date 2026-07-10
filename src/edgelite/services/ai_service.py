@@ -31,7 +31,7 @@ class AiModelService:
         self._pending_db_logs: list[dict] = []
         self._db_counts: dict[str, int] = {}  # 从数据库恢复的推理计数缓存
         self._flush_task: asyncio.Task | None = None  # FIXED-P1: 持有刷写任务引用，防止被GC回收导致日志丢失
-        # FIXED(严重): 原问题-_inference_logs/_pending_db_logs的append/截断/刷写任务创建无锁保护，并发推理导致日志丢失和刷写任务竞争;
+        # FIXED(严重): 原问题-_inference_logs/_pending_db_logs的append/截断/刷写任务创建无锁保护，并发推理导致日志丢失和刷写任务竞争;  # noqa: E501
         # 修复-添加asyncio.Lock保护所有日志操作
         self._log_lock = asyncio.Lock()
 
@@ -41,6 +41,7 @@ class AiModelService:
             return
         try:
             from sqlalchemy import text
+
             # R8-S-01 修复(严重): 原代码无锁修改 _db_counts/_db_total_count/_db_error_counts/_db_avg_latency，
             # 与 list_models/inference 等并发读取这些计数器时可能读到部分写入的不一致状态。
             # 使用 _log_lock 保护读-改-写临界区。
@@ -52,20 +53,22 @@ class AiModelService:
                     for row in result:
                         self._db_counts[row[0]] = row[1]
                     # 恢复总调用数
-                    total_result = await session.execute(
-                        text("SELECT COUNT(*) FROM ai_inference_logs")
-                    )
+                    total_result = await session.execute(text("SELECT COUNT(*) FROM ai_inference_logs"))
                     self._db_total_count: int = total_result.scalar() or 0
                     # 恢复错误数
                     error_result = await session.execute(
-                        text("SELECT model_id, COUNT(*) as cnt FROM ai_inference_logs WHERE status='error' GROUP BY model_id")
+                        text(
+                            "SELECT model_id, COUNT(*) as cnt FROM ai_inference_logs WHERE status='error' GROUP BY model_id"  # noqa: E501
+                        )
                     )
                     self._db_error_counts: dict[str, int] = {}
                     for row in error_result:
                         self._db_error_counts[row[0]] = row[1]
                     # 恢复平均延迟
                     latency_result = await session.execute(
-                        text("SELECT model_id, AVG(latency_ms) as avg_lat FROM ai_inference_logs WHERE status='success' GROUP BY model_id")
+                        text(
+                            "SELECT model_id, AVG(latency_ms) as avg_lat FROM ai_inference_logs WHERE status='success' GROUP BY model_id"  # noqa: E501
+                        )
                     )
                     self._db_avg_latency: dict[str, float] = {}
                     for row in latency_result:
@@ -75,9 +78,9 @@ class AiModelService:
         except Exception as e:
             logger.warning("Failed to restore AI inference stats from DB: %s", e)
             self._db_counts = {}
-            self._db_error_counts = getattr(self, '_db_error_counts', {})
-            self._db_avg_latency = getattr(self, '_db_avg_latency', {})
-            self._db_total_count = getattr(self, '_db_total_count', 0)  # FIXED-P1: 异常路径也初始化_db_total_count
+            self._db_error_counts = getattr(self, "_db_error_counts", {})
+            self._db_avg_latency = getattr(self, "_db_avg_latency", {})
+            self._db_total_count = getattr(self, "_db_total_count", 0)  # FIXED-P1: 异常路径也初始化_db_total_count
 
     async def list_models(self, page: int = 1, page_size: int = 20) -> dict:
         # R8-S-02 修复(严重): page=0 时 start=(0-1)*page_size 产生负数切片起点，
@@ -103,8 +106,12 @@ class AiModelService:
                 updated_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
             ).model_dump()
             item["inference_count"] = (stats.get("call_count", 0) if stats else 0) + self._db_counts.get(mid, 0)
-            item["error_count"] = (stats.get("error_count", 0) if stats else 0) + getattr(self, '_db_error_counts', {}).get(mid, 0)
-            item["avg_latency_ms"] = stats.get("avg_latency_ms", 0) if stats else int(getattr(self, '_db_avg_latency', {}).get(mid, 0))
+            item["error_count"] = (stats.get("error_count", 0) if stats else 0) + getattr(
+                self, "_db_error_counts", {}
+            ).get(mid, 0)
+            item["avg_latency_ms"] = (
+                stats.get("avg_latency_ms", 0) if stats else int(getattr(self, "_db_avg_latency", {}).get(mid, 0))
+            )
             items.append(item)
         total = len(items)
         start = (page - 1) * page_size
@@ -129,8 +136,11 @@ class AiModelService:
             created_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
             updated_at=wrapper.loaded_at.isoformat() if wrapper.loaded_at else "",
             inference_count=(stats.get("call_count", 0) if stats else 0) + self._db_counts.get(model_id, 0),
-            error_count=(stats.get("error_count", 0) if stats else 0) + getattr(self, '_db_error_counts', {}).get(model_id, 0),
-            avg_latency_ms=stats.get("avg_latency_ms", 0) if stats else int(getattr(self, '_db_avg_latency', {}).get(model_id, 0)),
+            error_count=(stats.get("error_count", 0) if stats else 0)
+            + getattr(self, "_db_error_counts", {}).get(model_id, 0),
+            avg_latency_ms=stats.get("avg_latency_ms", 0)
+            if stats
+            else int(getattr(self, "_db_avg_latency", {}).get(model_id, 0)),
             last_inference_at=None,
         )
 
@@ -144,12 +154,13 @@ class AiModelService:
             wrapper.input_schema = update_data["input_schema"]
         if update_data.get("output_schema"):
             wrapper.output_schema = update_data["output_schema"]
-        # FIXED(严重): 原问题-update_model仅更新model_name/input_schema/output_schema，遗漏preprocess_config/postprocess_config/batch_size/max_concurrent/timeout_ms/device_preference;
+        # FIXED(严重): 原问题-update_model仅更新model_name/input_schema/output_schema，遗漏preprocess_config/postprocess_config/batch_size/max_concurrent/timeout_ms/device_preference;  # noqa: E501
         # 修复-补充缺失字段更新，preprocess/postprocess变更后重建pipeline
         if update_data.get("preprocess_config"):
             wrapper.preprocess_config = update_data["preprocess_config"]
             if wrapper.preprocess_config:
                 from edgelite.engine.ai_preprocess import PreprocessPipeline
+
                 wrapper._preprocess_pipeline = PreprocessPipeline(wrapper.preprocess_config)
             else:
                 wrapper._preprocess_pipeline = None
@@ -157,6 +168,7 @@ class AiModelService:
             wrapper.postprocess_config = update_data["postprocess_config"]
             if wrapper.postprocess_config:
                 from edgelite.engine.ai_postprocess import PostprocessPipeline
+
                 wrapper._postprocess_pipeline = PostprocessPipeline(wrapper.postprocess_config)
             else:
                 wrapper._postprocess_pipeline = None
@@ -197,13 +209,15 @@ class AiModelService:
             return False
         try:
             from edgelite.engine.edge_ai_inference import _check_onnxruntime
+
             if not _check_onnxruntime():
                 logger.warning("ONNX Runtime not available, marking AI service as disabled for model %s", model_id)
                 wrapper.status = "inactive"
                 from fastapi import HTTPException
+
                 raise HTTPException(
                     status_code=503,
-                    detail="ERR_AI_ONNXRUNTIME_NOT_INSTALLED: onnxruntime is not installed. Run: pip install onnxruntime",
+                    detail="ERR_AI_ONNXRUNTIME_NOT_INSTALLED: onnxruntime is not installed. Run: pip install onnxruntime",  # noqa: E501
                 )
         except ImportError:
             pass
@@ -235,7 +249,9 @@ class AiModelService:
             logger.error("AI model hot-reload failed: %s - %s", model_id, e)
             return False
 
-    async def inference(self, model_id: str, input_data: list[float], device_id: str | None = None, point_name: str | None = None) -> dict:
+    async def inference(
+        self, model_id: str, input_data: list[float], device_id: str | None = None, point_name: str | None = None
+    ) -> dict:
         result = await self._engine.infer(model_id, input_data)
         log_id = str(uuid.uuid4())
         wrapper = self._engine.get_model(model_id)
@@ -265,12 +281,12 @@ class AiModelService:
         }
         # Persist inference log
         log_entry = return_dict.get("log", {})
-        # FIXED(严重): 原问题-_inference_logs/_pending_db_logs的append/截断/刷写任务创建无锁保护，并发推理导致日志丢失和刷写任务竞争;
+        # FIXED(严重): 原问题-_inference_logs/_pending_db_logs的append/截断/刷写任务创建无锁保护，并发推理导致日志丢失和刷写任务竞争;  # noqa: E501
         # 修复-使用_log_lock保护所有日志操作
         async with self._log_lock:
             self._inference_logs.append(log_entry)
             if len(self._inference_logs) > self._max_logs:
-                self._inference_logs = self._inference_logs[-self._max_logs:]
+                self._inference_logs = self._inference_logs[-self._max_logs :]
             self._pending_db_logs.append(log_entry)
             if len(self._pending_db_logs) >= self._log_write_threshold:
                 # FIXED-P1: 原问题-create_task返回值未持有引用，可能被Python GC回收导致日志刷写永不执行
@@ -312,13 +328,13 @@ class AiModelService:
                 # 重试日志，丢弃超出上限的尾部新日志。
                 self._pending_db_logs = logs_to_write + self._pending_db_logs
                 if len(self._pending_db_logs) > self._max_logs:
-                    self._pending_db_logs = self._pending_db_logs[:self._max_logs]
+                    self._pending_db_logs = self._pending_db_logs[: self._max_logs]
 
     async def get_stats(self) -> AiStatsResponse:
         snapshot = self._engine.get_stats()
         models = self._engine.get_loaded_models()
         db_total = sum(self._db_counts.values())
-        db_errors = sum(getattr(self, '_db_error_counts', {}).values())
+        db_errors = sum(getattr(self, "_db_error_counts", {}).values())
         return AiStatsResponse(
             model_count=len(models),
             total_calls=snapshot.get("total_calls", 0) + db_total,
@@ -339,27 +355,28 @@ class AiModelService:
         recent_logs = logs_snapshot[-10:] if logs_snapshot else []
         recent_summary = []
         for log in recent_logs:
-            recent_summary.append({
-                "model_id": log.get("model_id", ""),
-                "model_name": log.get("model_name", ""),
-                "device_id": log.get("device_id", ""),
-                "latency_ms": log.get("latency_ms", 0),
-                "status": log.get("status", ""),
-                "timestamp": log.get("timestamp", ""),
-            })
+            recent_summary.append(
+                {
+                    "model_id": log.get("model_id", ""),
+                    "model_name": log.get("model_name", ""),
+                    "device_id": log.get("device_id", ""),
+                    "latency_ms": log.get("latency_ms", 0),
+                    "status": log.get("status", ""),
+                    "timestamp": log.get("timestamp", ""),
+                }
+            )
         latency_trend = []
         for log in logs_snapshot[-50:]:
             if log.get("status") == "success":
-                latency_trend.append({
-                    "t": log.get("timestamp", ""),
-                    "v": log.get("latency_ms", 0),
-                })
-        anomaly_count = sum(
-            1 for log in logs_snapshot[-50:]
-            if log.get("status") == "success"
-        )
+                latency_trend.append(
+                    {
+                        "t": log.get("timestamp", ""),
+                        "v": log.get("latency_ms", 0),
+                    }
+                )
+        anomaly_count = sum(1 for log in logs_snapshot[-50:] if log.get("status") == "success")
         db_total = sum(self._db_counts.values())
-        db_errors = sum(getattr(self, '_db_error_counts', {}).values())
+        db_errors = sum(getattr(self, "_db_error_counts", {}).values())
         return {
             "model_count": len(models),
             "active_model_count": active_count,
@@ -392,7 +409,7 @@ class AiModelService:
         """Register an uploaded model file with the AI engine"""
         # FIXED-P2: 原问题-uuid已在文件顶部导入，此处重复import是冗余的
         model_id = f"custom_{name}_{uuid.uuid4().hex[:8]}"
-        # FIXED(严重): 原问题-硬编码version="1.0"不匹配^v\d+\.\d+\.\d+$模式，导致_auto_increment_version()无法递增; 硬编码type="onnx"，上传.tflite/.pmml时模型类型标记错误;
+        # FIXED(严重): 原问题-硬编码version="1.0"不匹配^v\d+\.\d+\.\d+$模式，导致_auto_increment_version()无法递增; 硬编码type="onnx"，上传.tflite/.pmml时模型类型标记错误;  # noqa: E501
         # 修复-版本改为v1.0.0匹配版本模式; 根据扩展名推断类型
         ext = Path(file_path).suffix.lower()
         model_type = {".onnx": "onnx", ".tflite": "tflite", ".pmml": "pmml"}.get(ext, "onnx")

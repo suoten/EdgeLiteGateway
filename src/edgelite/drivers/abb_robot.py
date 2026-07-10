@@ -27,29 +27,61 @@ class AbbRobotDriver(DriverPlugin):
 
     plugin_name = "abb_robot"
     plugin_version = "1.0.0"
-    supported_protocols = ["abb_rws"]
+    supported_protocols = ("abb_rws",)  # FIXED: 原问题-list可变默认值; 修复-改为tuple
     config_schema = {
         "description": "ABB robot Robot Web Services protocol, read/write robot data via REST API",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP Address", "description": "ABB controller IP address", "default": "192.168.1.100", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "port", "type": "integer", "label": "Port", "description": "RWS port, default 80", "default": 80},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "ip",
+                "type": "string",
+                "label": "IP Address",
+                "description": "ABB controller IP address",
+                "default": "192.168.1.100",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "RWS port, default 80",
+                "default": 80,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "enable_safety_guard",
+                "type": "boolean",
+                "label": "Enable Safety Guard",
+                "description": "Block writes when safety stop is active",
+                "default": True,
+            },
+            {
+                "name": "stop_on_disconnect",
+                "type": "boolean",
+                "label": "Stop on Disconnect",
+                "description": "Stop robot motion when driver disconnects",
+                "default": True,
+            },
         ],
     }
 
     _MAX_RECONNECT_ATTEMPTS = 100
     _RECONNECT_BASE_DELAY = 1.0
     _RECONNECT_MAX_DELAY = 60.0
+    _MOTION_STOP_TIMEOUT = 5.0
 
     def __init__(self):
+        super().__init__()  # FIXED: 原问题-未调用super().__init__，导致_health_stats/_offline_since未初始化
         self._running = False
         self._config: dict = {}
         self._client: Any = None
         self._lock = asyncio.Lock()
         self._base_url = ""
-        self._connected: bool = True
+        self._connected: bool = False  # FIXED: 原问题-初始化为True，未连接时误报在线
         self._reconnect_count: int = 0
         self._reconnect_delay: float = self._RECONNECT_BASE_DELAY
         self._devices: dict[str, dict] = {}
+        self._safety_stop_active: bool = False  # 安全停止标志，激活时拒绝写入
+        self._enable_safety_guard: bool = True  # 是否启用安全保护
+        self._stop_on_disconnect: bool = True  # 断开连接时是否停止运动
 
     async def start(self, config: dict) -> None:
         try:
@@ -78,14 +110,95 @@ class AbbRobotDriver(DriverPlugin):
         self._running = True
         logger.info("ABB机器人驱动启动: %s:%d", ip, port)
 
+    @property
+    def is_safety_stop_active(self) -> bool:
+        """安全停止是否处于激活状态"""
+        return self._safety_stop_active
+
+    async def emergency_stop(self) -> bool:
+        """紧急停止：设置安全停止标志并尝试通过RWS停止机器人运动
+
+        即使无网络连接也会设置本地安全停止标志，确保写入被阻止。
+        返回值始终为True，表示安全停止已激活。
+        """
+        self._safety_stop_active = True
+        logger.warning("ABB机器人紧急停止已触发")
+        # 已连接时尝试通过RWS停止运动，失败不影响本地标志
+        if self._connected and self._client:
+            try:
+                await self.stop_motion()
+            except Exception as e:  # FIXED-P2: stop_motion失败不传播异常，本地标志已设置
+                logger.error("ABB紧急停止时停止运动失败: %s", e)
+        return True
+
+    async def stop_motion(self) -> bool:
+        """通过RWS API停止机器人运动
+
+        API: POST /rw/motionctrl?action=stop
+        返回True表示停止命令已发送且被接受，False表示未连接或发送失败。
+        """
+        if not self._connected or not self._client:
+            return False
+        try:
+            resp = await self._client.post(
+                f"{self._base_url}/motionctrl",
+                data={"action": "stop"},
+            )
+            return resp.status_code in (200, 202, 204)
+        except Exception as e:  # FIXED-P2: 网络异常时返回False，不传播异常
+            logger.error("ABB停止运动失败: %s", e)
+            return False
+
+    async def get_safety_state(self) -> dict:
+        """读取安全控制器状态
+
+        API: GET /rw/panel/safety_state
+        未连接时返回 {"available": False}。
+        成功时返回RWS响应数据，并同步本地安全停止标志。
+        """
+        if not self._connected or not self._client:
+            return {"available": False}
+        try:
+            resp = await self._client.get(f"{self._base_url}/panel/safety_state")
+            resp.raise_for_status()
+            data = resp.json()
+            # 同步本地安全停止标志：控制器返回active时设置本地标志
+            payload = data.get("payload", [])
+            if isinstance(payload, list) and payload:
+                state = payload[0].get("safety_stop_state", "")
+                if state == "active":
+                    self._safety_stop_active = True
+            return data
+        except Exception as e:  # FIXED-P2: 读取失败返回不可用，不传播异常
+            logger.error("ABB读取安全状态失败: %s", e)
+            return {"available": False}
+
+    def reset_safety_stop(self) -> bool:
+        """重置安全停止标志（操作员确认安全后调用）
+
+        返回True表示标志已清除，False表示安全停止未激活无需重置。
+        """
+        if not self._safety_stop_active:
+            return False
+        self._safety_stop_active = False
+        logger.info("ABB机器人安全停止已重置")
+        return True
+
     async def stop(self) -> None:
         self._running = False
+        # stop_on_disconnect启用且已连接时，先发送运动停止命令确保机器人停下
+        if self._stop_on_disconnect and self._connected and self._client:
+            try:
+                await self.stop_motion()
+            except Exception as e:  # FIXED-P2: stop_motion失败不阻塞关闭流程
+                logger.warning("ABB停止时停止运动失败: %s", e)
         if self._client:
             try:
                 await self._client.aclose()
             except Exception as e:  # FIXED-P2: aclose异常时连接泄漏，添加异常处理
                 logger.warning("ABB驱动关闭HTTP客户端异常: %s", e)
             self._client = None
+        self._connected = False  # FIXED: 原问题-未清除连接标志
         logger.info("ABB机器人驱动已停止")
 
     async def _get_rapid_data(self, task: str, module: str, symbol: str) -> Any:
@@ -318,6 +431,11 @@ class AbbRobotDriver(DriverPlugin):
 
         地址格式: "RAPID:Task:Module:Symbol"
         """
+        # FIXED: 安全保护激活时拒绝所有写入，防止在安全停止状态下修改机器人数据
+        if self._enable_safety_guard and self._safety_stop_active:
+            logger.warning("ABB写入被拒绝: 安全停止已激活 (point=%s)", point)
+            return False
+
         if not self._running or not self._client or not self._connected:
             await self._ensure_client(device_id)
             return False
@@ -376,6 +494,7 @@ class AbbRobotDriver(DriverPlugin):
                 pass
         try:
             import httpx
+
             self._client = httpx.AsyncClient(
                 auth=(username, password) if username else None,
                 timeout=httpx.Timeout(10.0, connect=5.0),

@@ -80,7 +80,7 @@ class TrendSelfLearner(SelfLearnerBase):
                 arr = np.array(sample, dtype=np.float32)
                 if arr.shape[0] >= INPUT_DIM + OUTPUT_DIM:
                     window = arr[:INPUT_DIM]
-                    target = arr[INPUT_DIM:INPUT_DIM + OUTPUT_DIM]
+                    target = arr[INPUT_DIM : INPUT_DIM + OUTPUT_DIM]
                 else:
                     continue
 
@@ -114,7 +114,7 @@ class TrendSelfLearner(SelfLearnerBase):
             # lstsq 返回 (解, 残差, 秩, 奇异值)
             solution, _, _, _ = np.linalg.lstsq(X_aug, Y, rcond=None)
             W = solution[:INPUT_DIM]  # [in_dim, out_dim]
-            b = solution[INPUT_DIM]    # [out_dim]
+            b = solution[INPUT_DIM]  # [out_dim]
         except np.linalg.LinAlgError as e:
             logger.error("Trend lstsq failed: %s", e)
             return None
@@ -128,6 +128,7 @@ class TrendSelfLearner(SelfLearnerBase):
     def _adjust_dim(arr: Any, target_dim: int) -> Any:
         """调整数组维度到目标长度（截断或零填充）"""
         import numpy as np
+
         if arr.shape[0] > target_dim:
             return arr[:target_dim]
         elif arr.shape[0] < target_dim:
@@ -175,6 +176,7 @@ class TrendSelfLearner(SelfLearnerBase):
     def _default_weights(self) -> dict[str, Any]:
         """返回默认（未训练）权重：W=0, b=0"""
         import numpy as np
+
         return {
             "W": np.zeros((INPUT_DIM, OUTPUT_DIM), dtype=np.float32),
             "b": np.zeros(OUTPUT_DIM, dtype=np.float32),

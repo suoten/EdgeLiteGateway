@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class ApprovalStatus(Enum):
     """Command approval status"""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -36,6 +37,7 @@ class ApprovalStatus(Enum):
 
 class ApprovalLevel(Enum):
     """Approval level"""
+
     LEVEL_1 = 1  # Operator
     LEVEL_2 = 2  # Supervisor
     LEVEL_3 = 3  # Manager
@@ -45,6 +47,7 @@ class ApprovalLevel(Enum):
 @dataclass
 class ApprovalStep:
     """Single approval step"""
+
     level: int = 1
     role_required: str = ""
     approvers: list[str] = field(default_factory=list)
@@ -54,6 +57,7 @@ class ApprovalStep:
 @dataclass
 class ApprovalChain:
     """Multi-level approval chain configuration"""
+
     chain_id: str = ""
     name: str = ""
     severity: str = ""  # Which alarm severity requires this chain
@@ -67,6 +71,7 @@ class ApprovalChain:
 @dataclass
 class CommandRequest:
     """Command request requiring approval"""
+
     request_id: str = ""
     device_id: str = ""
     device_name: str = ""
@@ -206,8 +211,7 @@ class CommandApprovalService:
                 for step in chain.steps
             ]
             logger.info(
-                "Command %s requires %d-level approval (chain: %s)",
-                request_id, len(chain.steps), chain.chain_id
+                "Command %s requires %d-level approval (chain: %s)", request_id, len(chain.steps), chain.chain_id
             )
         else:
             # No approval needed, auto-approve
@@ -356,7 +360,9 @@ Priority: {request.priority}/10
             if not request.approvals or request.current_step < 0 or request.current_step >= len(request.approvals):
                 logger.error(
                     "Request %s has invalid approval state: current_step=%d, approvals_count=%d",
-                    request_id, request.current_step, len(request.approvals),
+                    request_id,
+                    request.current_step,
+                    len(request.approvals),
                 )
                 return None
 
@@ -459,7 +465,8 @@ Priority: {request.priority}/10
         if not request.approvals or request.current_step < 0 or request.current_step >= len(request.approvals):
             logger.warning(
                 "Cannot notify next approver: invalid step %d for request %s",
-                request.current_step, request.request_id,
+                request.current_step,
+                request.request_id,
             )
             return
 
@@ -569,25 +576,28 @@ Approvers: {", ".join(approvers) if approvers else "none"}
                 except Exception as check_e:
                     logger.warning(
                         "[command_approval] check_write_allowed failed for request %s: %s",
-                        request.request_id, check_e,
+                        request.request_id,
+                        check_e,
                     )
                     write_blocked_reason = f"check_write_allowed raised: {check_e}"
 
                 if write_blocked_reason is not None:
                     request.approval_status = ApprovalStatus.FAILED
                     request.execution_result = (
-                        f"Write blocked by write-protection policy at execution time: "
-                        f"{write_blocked_reason}"
+                        f"Write blocked by write-protection policy at execution time: {write_blocked_reason}"
                     )
                     request.executed_at = datetime.now(UTC).isoformat()
                     request.executed_by = request.requested_by
                     logger.warning(
                         "[command_approval] 审批执行时写保护策略已变更，写入被拒绝 request=%s device=%s point=%s",
-                        request.request_id, request.device_id, point,
+                        request.request_id,
+                        request.device_id,
+                        point,
                     )
                     if audit_svc is not None:
                         try:
                             from edgelite.services.audit_service import AuditAction
+
                             await audit_svc.log(
                                 AuditAction.DEVICE_WRITE_POINT,
                                 username=request.requested_by,
@@ -605,13 +615,12 @@ Approvers: {", ".join(approvers) if approvers else "none"}
                         except Exception as audit_e:
                             logger.warning(
                                 "[command_approval] audit log failed for blocked request %s: %s",
-                                request.request_id, audit_e,
+                                request.request_id,
+                                audit_e,
                             )
                     return
 
-                success = await driver_manager.write_point(
-                    request.device_id, point, value
-                )
+                success = await driver_manager.write_point(request.device_id, point, value)
                 request.execution_result = "Success" if success else "Failed"
                 request.approval_status = ApprovalStatus.EXECUTED if success else ApprovalStatus.FAILED
 
@@ -619,6 +628,7 @@ Approvers: {", ".join(approvers) if approvers else "none"}
                 if audit_svc is not None:
                     try:
                         from edgelite.services.audit_service import AuditAction
+
                         await audit_svc.log(
                             AuditAction.DEVICE_WRITE_POINT,
                             username=request.requested_by,
@@ -637,7 +647,8 @@ Approvers: {", ".join(approvers) if approvers else "none"}
                     except Exception as audit_e:
                         logger.warning(
                             "[command_approval] audit log failed for request %s: %s",
-                            request.request_id, audit_e,
+                            request.request_id,
+                            audit_e,
                         )
             else:
                 request.execution_result = f"Unknown command type: {request.command_type}"
@@ -694,10 +705,7 @@ Approvers: {", ".join(approvers) if approvers else "none"}
 
     def list_my_requests(self, username: str) -> list[CommandRequest]:
         """List command requests by user"""
-        return [
-            r for r in self._requests.values()
-            if r.requested_by == username
-        ]
+        return [r for r in self._requests.values() if r.requested_by == username]
 
     def list_requests(
         self,

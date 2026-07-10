@@ -66,6 +66,7 @@ class CacheManager:
         self._ring_buffer_initialized = True
         try:
             from edgelite.config import get_config
+
             config = get_config()
             cache_cfg = getattr(config, "cache", None)
             if cache_cfg and getattr(cache_cfg, "incremental_sync_enabled", True):
@@ -80,7 +81,9 @@ class CacheManager:
                     critical_watermark=critical_wm,
                 )
                 logger.info(
-                    "RingBuffer已初始化: capacity=%d, compress=%s", capacity, compress,
+                    "RingBuffer已初始化: capacity=%d, compress=%s",
+                    capacity,
+                    compress,
                 )
         except Exception as e:
             logger.warning("RingBuffer初始化失败，仅使用SQLite: %s", e)
@@ -92,9 +95,8 @@ class CacheManager:
             try:
                 async with self._database.get_session() as session:
                     from sqlalchemy import text
-                    await session.execute(
-                        text("CREATE TABLE IF NOT EXISTS _orphan_ids (id INTEGER PRIMARY KEY)")
-                    )
+
+                    await session.execute(text("CREATE TABLE IF NOT EXISTS _orphan_ids (id INTEGER PRIMARY KEY)"))
                     result = await session.execute(text("SELECT id FROM _orphan_ids"))
                     rows = result.fetchall()
                     async with self._orphan_lock:
@@ -127,13 +129,15 @@ class CacheManager:
                 batch_max_id: int | None = None
                 for r in records:
                     sqlite_id = r.get("id")
-                    ring_records.append({
-                        "measurement": r.get("measurement", ""),
-                        "tags": r.get("tags", {}),
-                        "fields": r.get("fields", {}),
-                        "timestamp": r.get("timestamp", ""),
-                        "sqlite_id": sqlite_id,
-                    })
+                    ring_records.append(
+                        {
+                            "measurement": r.get("measurement", ""),
+                            "tags": r.get("tags", {}),
+                            "fields": r.get("fields", {}),
+                            "timestamp": r.get("timestamp", ""),
+                            "sqlite_id": sqlite_id,
+                        }
+                    )
                     if sqlite_id is not None:
                         all_restored_ids.add(sqlite_id)
                         if batch_max_id is None or sqlite_id > batch_max_id:
@@ -182,16 +186,12 @@ class CacheManager:
             try:
                 async with self._database.get_session() as session:
                     evicted_count = 0
-                    if self._cache_count >= MAX_CACHE_SIZE:  # FIXED-P0: 内存计数器替代SELECT COUNT(*)，减少写锁临界区耗时
+                    if (
+                        self._cache_count >= MAX_CACHE_SIZE
+                    ):  # FIXED-P0: 内存计数器替代SELECT COUNT(*)，减少写锁临界区耗时
                         delete_count = MAX_CACHE_SIZE // _CACHE_EVICTION_RATIO
-                        subq = (
-                            select(CacheQueueORM.id)
-                            .order_by(CacheQueueORM.id.asc())
-                            .limit(delete_count)
-                        )
-                        await session.execute(
-                            sa_delete(CacheQueueORM).where(CacheQueueORM.id.in_(subq))
-                        )
+                        subq = select(CacheQueueORM.id).order_by(CacheQueueORM.id.asc()).limit(delete_count)
+                        await session.execute(sa_delete(CacheQueueORM).where(CacheQueueORM.id.in_(subq)))
                         evicted_count = delete_count
                         logger.warning("缓存已满，丢弃最旧%d条数据", delete_count)
 
@@ -211,7 +211,9 @@ class CacheManager:
                     if new_cache_count < 0:
                         logger.warning(
                             "缓存计数器异常: _cache_count=%d, 1-evicted_count=%d, 计算结果=%d, 已重置为0",
-                            self._cache_count, 1 - evicted_count, new_cache_count,
+                            self._cache_count,
+                            1 - evicted_count,
+                            new_cache_count,
                         )
                         new_cache_count = 0
                     self._cache_count = new_cache_count  # FIXED-P0: 提交后更新计数器，避免事务回滚导致计数漂移
@@ -230,7 +232,7 @@ class CacheManager:
         ring_ok = False
         if self._ring_buffer:
             try:
-                # FIXED-BugR4X: 原问题-add_to_cache写入RingBuffer的记录缺少sqlite_id字段，导致增量同步后无法删除SQLite源记录，SQLite无限增长
+                # FIXED-BugR4X: 原问题-add_to_cache写入RingBuffer的记录缺少sqlite_id字段，导致增量同步后无法删除SQLite源记录，SQLite无限增长  # noqa: E501
                 # 修复-如果sqlite_record_id不为None，将其加入ring_record字典
                 ring_record = {
                     "measurement": measurement,
@@ -247,16 +249,17 @@ class CacheManager:
         if sqlite_ok != ring_ok:  # FIXED-P1: 部分失败时记录warning
             logger.warning("CacheManager partial write: sqlite_ok=%s, ring_ok=%s", sqlite_ok, ring_ok)
 
-        if sqlite_ok and not ring_ok and sqlite_record_id is not None:  # FIXED-P0: 原问题-SQLite写成功RingBuffer写失败时数据成为孤儿，记录ID供补偿同步
+        if (
+            sqlite_ok and not ring_ok and sqlite_record_id is not None
+        ):  # FIXED-P0: 原问题-SQLite写成功RingBuffer写失败时数据成为孤儿，记录ID供补偿同步
             # FIXED-P1: _orphan_sqlite_ids.add需加锁保护
             async with self._orphan_lock:
                 self._orphan_sqlite_ids.add(sqlite_record_id)
             try:  # FIXED-P1: 原问题-orphan集合纯内存，重启后丢失；持久化到SQLite
                 async with self._database.get_session() as session:
                     from sqlalchemy import text
-                    await session.execute(
-                        text("CREATE TABLE IF NOT EXISTS _orphan_ids (id INTEGER PRIMARY KEY)")
-                    )
+
+                    await session.execute(text("CREATE TABLE IF NOT EXISTS _orphan_ids (id INTEGER PRIMARY KEY)"))
                     await session.execute(
                         text("INSERT OR IGNORE INTO _orphan_ids (id) VALUES (:id)"),
                         {"id": sqlite_record_id},
@@ -271,9 +274,7 @@ class CacheManager:
         # FIXED: 原问题-get_cached_records无try-except保护
         try:
             async with self._database.get_session() as session:
-                result = await session.execute(
-                    select(CacheQueueORM).order_by(CacheQueueORM.id.asc()).limit(limit)
-                )
+                result = await session.execute(select(CacheQueueORM).order_by(CacheQueueORM.id.asc()).limit(limit))
                 rows = result.scalars().all()
                 return [
                     {
@@ -353,9 +354,7 @@ class CacheManager:
         try:
             async with self._database.get_session() as session:
                 await session.execute(
-                    sa_update(CacheQueueORM)
-                    .where(CacheQueueORM.id.in_(ids))
-                    .values(status="syncing")
+                    sa_update(CacheQueueORM).where(CacheQueueORM.id.in_(ids)).values(status="syncing")
                 )
                 await session.commit()
         except Exception as e:
@@ -367,9 +366,7 @@ class CacheManager:
             return
         try:
             async with self._database.get_session() as session:
-                await session.execute(
-                    sa_delete(CacheQueueORM).where(CacheQueueORM.id.in_(ids))
-                )
+                await session.execute(sa_delete(CacheQueueORM).where(CacheQueueORM.id.in_(ids)))
                 await session.commit()
                 async with self._write_lock:  # FIXED-P1: _cache_count修改移入_write_lock，与add_to_cache互斥
                     # FIXED S-03: 使用 max(0, ...) 保护，防止计数器变为负数
@@ -377,7 +374,9 @@ class CacheManager:
                     if new_cache_count < 0:
                         logger.warning(
                             "缓存计数器异常: _cache_count=%d, 试图减少 %d, 结果=%d, 已重置为0",
-                            self._cache_count, len(ids), new_cache_count,
+                            self._cache_count,
+                            len(ids),
+                            new_cache_count,
                         )
                         new_cache_count = 0
                     self._cache_count = new_cache_count
@@ -389,9 +388,7 @@ class CacheManager:
         try:
             async with self._database.get_session() as session:
                 result = await session.execute(
-                    sa_update(CacheQueueORM)
-                    .where(CacheQueueORM.status == "syncing")
-                    .values(status="pending")
+                    sa_update(CacheQueueORM).where(CacheQueueORM.status == "syncing").values(status="pending")
                 )
                 await session.commit()
                 return result.rowcount
@@ -420,9 +417,7 @@ class CacheManager:
             ids = list(self._orphan_sqlite_ids)
         try:
             async with self._database.get_session() as session:
-                result = await session.execute(
-                    select(CacheQueueORM).where(CacheQueueORM.id.in_(ids))
-                )
+                result = await session.execute(select(CacheQueueORM).where(CacheQueueORM.id.in_(ids)))
                 rows = result.scalars().all()
                 return [
                     {
@@ -448,6 +443,7 @@ class CacheManager:
         try:
             async with self._database.get_session() as session:
                 from sqlalchemy import text
+
                 for orphan_id in ids:
                     await session.execute(
                         text("DELETE FROM _orphan_ids WHERE id = :id"),
@@ -500,7 +496,9 @@ class CacheManager:
                     if new_cache_count < 0:
                         logger.warning(
                             "缓存计数器异常: _cache_count=%d, 试图减少 %d, 结果=%d, 已重置为0",
-                            self._cache_count, len(ids), new_cache_count,
+                            self._cache_count,
+                            len(ids),
+                            new_cache_count,
                         )
                         new_cache_count = 0
                     self._cache_count = new_cache_count
@@ -557,7 +555,8 @@ class CacheManager:
                     if self._cache_count != actual_count:
                         logger.info(
                             "缓存计数器校准: 内存=%d, 实际=%d, 已校正",
-                            self._cache_count, actual_count,
+                            self._cache_count,
+                            actual_count,
                         )
                         self._cache_count = actual_count
             except asyncio.CancelledError:
@@ -592,9 +591,7 @@ class CacheManager:
         try:
             async with self._database.get_session() as session:
                 result = await session.execute(
-                    select(func.count())
-                    .select_from(CacheQueueORM)
-                    .where(CacheQueueORM.status == "pending")
+                    select(func.count()).select_from(CacheQueueORM).where(CacheQueueORM.status == "pending")
                 )
                 pending_count = result.scalar() or 0
         except Exception as e:
@@ -605,13 +602,19 @@ class CacheManager:
             level = "critical"
             logger.warning(
                 "缓存水位告警: CRITICAL (usage=%.1f%%, count=%d/%d, pending=%d)",
-                usage_pct, cache_count, MAX_CACHE_SIZE, pending_count,
+                usage_pct,
+                cache_count,
+                MAX_CACHE_SIZE,
+                pending_count,
             )
         elif usage_pct >= 80:
             level = "high"
             logger.warning(
                 "缓存水位告警: HIGH (usage=%.1f%%, count=%d/%d, pending=%d)",
-                usage_pct, cache_count, MAX_CACHE_SIZE, pending_count,
+                usage_pct,
+                cache_count,
+                MAX_CACHE_SIZE,
+                pending_count,
             )
         else:
             level = "normal"
@@ -650,13 +653,15 @@ class CacheManager:
                         for r in orphans:
                             if "id" not in r:
                                 continue
-                            ring_records.append({
-                                "measurement": r.get("measurement", ""),
-                                "tags": r.get("tags", {}),
-                                "fields": r.get("fields", {}),
-                                "timestamp": r.get("timestamp", ""),
-                                "sqlite_id": r["id"],
-                            })
+                            ring_records.append(
+                                {
+                                    "measurement": r.get("measurement", ""),
+                                    "tags": r.get("tags", {}),
+                                    "fields": r.get("fields", {}),
+                                    "timestamp": r.get("timestamp", ""),
+                                    "sqlite_id": r["id"],
+                                }
+                            )
                             successfully_loaded_ids.append(r["id"])
                         if ring_records:
                             loaded = await self._ring_buffer.load_from_records(ring_records)

@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
 import sys
 import traceback
 import unittest.mock as mock
@@ -327,8 +326,8 @@ async def test_s7_mock():
         try:
             # #[AUDIT-FIX] read_points 签名为 read_points(device_id, points_list)
             # S7 地址格式: DB1.W0 = DB1 的 word 偏移0
-            result = await driver.read_points(device_id, ["DB1.W0"])
-            record(protocol, "数据采集测试", True, f"read_points 返回（mock db_read）")
+            await driver.read_points(device_id, ["DB1.W0"])
+            record(protocol, "数据采集测试", True, "read_points 返回（mock db_read）")
         except Exception as e:
             record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -389,9 +388,6 @@ async def test_mc_mock():
                 "frame_type": "4E",
                 "timeout": 3,
             }
-            points = [
-                {"name": "D0", "address": "D0", "data_type": "word"},
-            ]
             await driver.start(config)
             await asyncio.sleep(0.3)
             record(protocol, "连接测试", True, "start() 成功（mock pymcprotocol）")
@@ -401,8 +397,8 @@ async def test_mc_mock():
 
         try:
             # #[AUDIT-FIX] read_points 签名为 read_points(device_id, points_list)
-            result = await driver.read_points(device_id, ["D0"])
-            record(protocol, "数据采集测试", True, f"read_points 返回（mock read_device）")
+            await driver.read_points(device_id, ["D0"])
+            record(protocol, "数据采集测试", True, "read_points 返回（mock read_device）")
         except Exception as e:
             record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -471,9 +467,6 @@ async def test_fins_mock():
                     "mode": "tcp",
                     "timeout": 3,
                 }
-                points = [
-                    {"name": "D0", "address": "D0", "data_type": "word", "area": "DM"},
-                ]
                 await driver.start(config)
                 await asyncio.sleep(0.3)
                 record(protocol, "连接测试", True, "start() 成功（mock fins + mock handshake）")
@@ -483,8 +476,8 @@ async def test_fins_mock():
 
             try:
                 # #[AUDIT-FIX] read_points 签名为 read_points(device_id, points_list)
-                result = await driver.read_points(device_id, ["D0"])
-                record(protocol, "数据采集测试", True, f"read_points 返回（mock client.read）")
+                await driver.read_points(device_id, ["D0"])
+                record(protocol, "数据采集测试", True, "read_points 返回（mock client.read）")
             except Exception as e:
                 record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -580,8 +573,8 @@ async def test_opcua_mock():
             traceback.print_exc()
 
         try:
-            result = await driver.read_points("test_dev", ["temp"])
-            record(protocol, "数据采集测试", True, f"read_points 返回（mock node.read_data_value）")
+            await driver.read_points("test_dev", ["temp"])
+            record(protocol, "数据采集测试", True, "read_points 返回（mock node.read_data_value）")
         except Exception as e:
             record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -683,14 +676,14 @@ async def test_mqtt_mock():
 
         try:
             result = await driver.read_points("device1", ["temp"])
-            has_value = isinstance(result, dict) and len(result) >= 0
-            record(protocol, "数据采集测试", True, f"read_points 从缓存读取（push 模型）")
+            isinstance(result, dict) and len(result) >= 0
+            record(protocol, "数据采集测试", True, "read_points 从缓存读取（push 模型）")
         except Exception as e:
             record(protocol, "数据采集测试", False, f"异常: {e}")
 
         try:
-            ok = await driver.write_point("device1", "temp", 30.0)
-            record(protocol, "数据写入测试", True, f"write_point 入队发布（mock publish）")
+            await driver.write_point("device1", "temp", 30.0)
+            record(protocol, "数据写入测试", True, "write_point 入队发布（mock publish）")
         except Exception as e:
             record(protocol, "数据写入测试", False, f"异常: {e}")
 
@@ -740,7 +733,7 @@ async def test_http_webhook_mock():
         await asyncio.sleep(0.1)
         result = await driver.read_points("device1", ["temp"])
         has_value = isinstance(result, dict) and "temp" in result
-        record(protocol, "数据采集测试", has_value, f"receive_data + read_points 缓存读取")
+        record(protocol, "数据采集测试", has_value, "receive_data + read_points 缓存读取")
     except Exception as e:
         record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -810,9 +803,6 @@ async def test_allen_bradley_mock():
                 "slot": 0,
                 "timeout": 3,
             }
-            points = [
-                {"name": "Temp", "address": "Temp", "data_type": "int16"},
-            ]
             await driver.start(config)
             await asyncio.sleep(0.3)
             record(protocol, "连接测试", True, "start() 成功（mock pylogix）")
@@ -822,8 +812,8 @@ async def test_allen_bradley_mock():
 
         try:
             # #[AUDIT-FIX] read_points 签名为 read_points(device_id, points_list)
-            result = await driver.read_points(device_id, ["Temp"])
-            record(protocol, "数据采集测试", True, f"read_points 返回（mock PLC.Read）")
+            await driver.read_points(device_id, ["Temp"])
+            record(protocol, "数据采集测试", True, "read_points 返回（mock PLC.Read）")
         except Exception as e:
             record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -906,8 +896,8 @@ async def test_onvif_mock():
             traceback.print_exc()
 
         try:
-            result = await driver.read_points("cam1", ["rtsp"])
-            record(protocol, "数据采集测试", True, f"read_points 返回（mock GetStreamUri）")
+            await driver.read_points("cam1", ["rtsp"])
+            record(protocol, "数据采集测试", True, "read_points 返回（mock GetStreamUri）")
         except Exception as e:
             record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -953,7 +943,7 @@ async def test_simulator():
     try:
         result = await driver.read_points("sim_dev", ["temp"])
         has_value = isinstance(result, dict) and "temp" in result
-        record(protocol, "数据采集测试", has_value, f"read_points 返回模拟值")
+        record(protocol, "数据采集测试", has_value, "read_points 返回模拟值")
     except Exception as e:
         record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -1013,8 +1003,8 @@ async def test_modbus_slave_mock():
         traceback.print_exc()
 
     try:
-        result = await driver.read_points("slave_dev", ["HR_0"])
-        record(protocol, "数据采集测试", True, f"read_points 返回（本地寄存器读取）")
+        await driver.read_points("slave_dev", ["HR_0"])
+        record(protocol, "数据采集测试", True, "read_points 返回（本地寄存器读取）")
     except Exception as e:
         record(protocol, "数据采集测试", False, f"异常: {e}")
 
@@ -1065,14 +1055,8 @@ async def test_video_ai_mock():
         record(protocol, "模块导入", False, f"依赖缺失: {e}")
         return
 
-    driver = VideoAiDriver()
+    VideoAiDriver()
     try:
-        config = {
-            "video_source": "test.mp4",
-            "model_path": "test.onnx",
-            "interval": 1.0,
-            "timeout": 3,
-        }
         # Video AI 需要真实视频源和模型，mock 测试仅验证启动流程
         record(protocol, "连接测试", True, "Video AI 驱动实例化成功（需真实视频源+模型才能启动）")
     except Exception as e:
@@ -1100,7 +1084,7 @@ async def test_opc_da_mock():
         return
 
     # OPC DA 需要 OpenOPC + Windows COM，mock 测试仅验证类结构
-    driver = OpcDaDriver()
+    OpcDaDriver()
     record(protocol, "连接测试", True, "OPC DA 驱动实例化成功（需 Windows + OpenOPC 才能连接）")
     record(protocol, "数据采集测试", True, "OPC DA read_points 批量读取已验证（capabilities.batch_read=True）")
     record(protocol, "数据写入测试", True, "OPC DA write_point 已验证（代码路径覆盖）")
@@ -1138,7 +1122,7 @@ async def main():
         try:
             # 每个测试最多 15 秒，防止无限重连导致挂起
             await asyncio.wait_for(test_func(), timeout=15.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             protocol_name = test_func.__name__.replace("test_", "").replace("_mock", "")
             print(f"  [FAIL] 测试超时（15s）: {protocol_name}")
             record(protocol_name, "测试超时", False, "测试超过 15 秒未完成（可能无限重连）")

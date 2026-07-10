@@ -44,9 +44,7 @@ class TokenRenewalMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._threshold = max(60, int(renewal_threshold_seconds))
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         response = await call_next(request)
         # 仅对成功响应附加续签头（避免对 4xx/5xx 响应续签）
         if response.status_code >= 400:
@@ -84,11 +82,7 @@ class TokenRenewalMiddleware(BaseHTTPMiddleware):
             if remaining > _RENEWAL_THRESHOLD_SECONDS:
                 return None  # 未到续签阈值
             # 剔除 JWT 标准字段，保留业务 claims，重新签发
-            claims = {
-                k: v
-                for k, v in payload.items()
-                if k not in {"exp", "iat", "nbf", "jti"}
-            }
+            claims = {k: v for k, v in payload.items() if k not in {"exp", "iat", "nbf", "jti"}}
             new_token = create_access_token(claims)
             logger.debug(
                 "Access token renewed (remaining=%ds, user=%s)",

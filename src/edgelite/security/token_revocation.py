@@ -77,7 +77,7 @@ class TokenRevocationManager:
                 data = {k: v for k, v in data.items() if v > now}
                 _FALLBACK_FILE.write_text(json.dumps(data), encoding="utf-8")
                 # R5-G-11: 写入后设置文件权限 0o600（仅所有者可读写），防止其他用户读取撤销列表
-                if os.name != 'nt':
+                if os.name != "nt":
                     try:
                         os.chmod(str(_FALLBACK_FILE), 0o600)
                     except OSError as chmod_err:
@@ -125,6 +125,7 @@ class TokenRevocationManager:
                 loop = None
             if loop is not None:
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(asyncio.run, self._async_init())
                     future.result(timeout=10)
@@ -145,10 +146,7 @@ class TokenRevocationManager:
             await self._load_cache()
             self._db_ready = True
             self._init_done = True
-            logger.info(
-                "Token revocation manager initialized: %d entries loaded from SQLite",
-                len(self._cache)
-            )
+            logger.info("Token revocation manager initialized: %d entries loaded from SQLite", len(self._cache))
         except Exception as e:
             logger.error("Failed to initialize token revocation manager: %s", e)
             self._db_ready = False
@@ -161,6 +159,7 @@ class TokenRevocationManager:
 
             # Get database instance from app state
             from edgelite.app import _app_state
+
             db = getattr(_app_state, "database", None)
             if db is None:
                 logger.warning("Database not available for token revocation")
@@ -178,14 +177,18 @@ class TokenRevocationManager:
 
                 if not exists:
                     # Create table
-                    await session.execute(text("""
+                    await session.execute(
+                        text("""
                         CREATE TABLE IF NOT EXISTS revoked_tokens (
                             jti VARCHAR(64) PRIMARY KEY,
                             expires_at REAL NOT NULL,
                             revoked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
-                    """))
-                    await session.execute(text("CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at)"))
+                    """)
+                    )
+                    await session.execute(
+                        text("CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at)")
+                    )
                     await session.commit()
                     logger.info("Created revoked_tokens table")
         except Exception as e:
@@ -196,6 +199,7 @@ class TokenRevocationManager:
         """Load all non-expired entries from SQLite into memory cache."""
         try:
             from edgelite.app import _app_state
+
             db = getattr(_app_state, "database", None)
             if db is None:
                 return
@@ -208,8 +212,7 @@ class TokenRevocationManager:
             async with db.get_session() as session:
                 # Load valid entries
                 result = await session.execute(
-                    select(RevokedTokenORM.jti, RevokedTokenORM.expires_at)
-                    .where(RevokedTokenORM.expires_at > now)
+                    select(RevokedTokenORM.jti, RevokedTokenORM.expires_at).where(RevokedTokenORM.expires_at > now)
                 )
                 rows = result.all()
 
@@ -218,9 +221,7 @@ class TokenRevocationManager:
                         self._cache[jti] = expires_at
 
                 # Clean up expired entries
-                await session.execute(
-                    delete(RevokedTokenORM).where(RevokedTokenORM.expires_at <= now)
-                )
+                await session.execute(delete(RevokedTokenORM).where(RevokedTokenORM.expires_at <= now))
                 await session.commit()
 
                 logger.debug("Loaded %d valid revoked tokens, cleaned up expired ones", len(rows))
@@ -231,6 +232,7 @@ class TokenRevocationManager:
         """Get database instance."""
         try:
             from edgelite.app import _app_state
+
             return getattr(_app_state, "database", None)
         except Exception:
             return None
@@ -253,6 +255,7 @@ class TokenRevocationManager:
                 sqlite_path = getattr(db, "db_path", None) if db else None
                 if sqlite_path:
                     import sqlite3 as _sqlite3
+
                     conn = _sqlite3.connect(sqlite_path, timeout=5)
                     try:
                         conn.execute(
@@ -294,10 +297,7 @@ class TokenRevocationManager:
                     jti=jti,
                     expires_at=expires_at,
                 )
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["jti"],
-                    set_={"expires_at": expires_at}
-                )
+                stmt = stmt.on_conflict_do_update(index_elements=["jti"], set_={"expires_at": expires_at})
                 await session.execute(stmt)
                 await session.commit()
         except Exception as e:
@@ -359,6 +359,7 @@ class TokenRevocationManager:
                 sqlite_path = getattr(db, "db_path", None)
                 if sqlite_path:
                     import sqlite3 as _sqlite3
+
                     conn = _sqlite3.connect(f"file:{sqlite_path}?mode=ro", uri=True, timeout=1)
                     try:
                         row = conn.execute(
@@ -385,14 +386,18 @@ class TokenRevocationManager:
                     logger.error(
                         "Token revocation DB check has failed %d consecutive times (jti=%s, last_error=%s). "
                         "Failing open but revocation consistency at risk - investigate DB health immediately.",
-                        self._db_failures, jti, e,
+                        self._db_failures,
+                        jti,
+                        e,
                     )
                 else:
                     logger.error(
                         "Failed to check token revocation in DB for jti=%s: %s. "
                         "Failing open (cache is primary check, token has short TTL). "
                         "Consecutive failures: %d",
-                        jti, e, self._db_failures,
+                        jti,
+                        e,
+                        self._db_failures,
                     )
                 # FIXED(中危): DB故障时检查本地文件 fallback，减少已撤销token重新生效的风险窗口
                 if self._check_fallback(jti):
@@ -425,9 +430,7 @@ class TokenRevocationManager:
                 from edgelite.models.db import RevokedTokenORM
 
                 async with db.get_session() as session:
-                    result = await session.execute(
-                        delete(RevokedTokenORM).where(RevokedTokenORM.expires_at <= now)
-                    )
+                    result = await session.execute(delete(RevokedTokenORM).where(RevokedTokenORM.expires_at <= now))
                     await session.commit()
                     db_cleaned = result.rowcount or 0
                     cleaned += db_cleaned
@@ -458,6 +461,7 @@ class TokenRevocationManager:
                 sqlite_path = getattr(db, "db_path", None)
                 if sqlite_path:
                     import sqlite3 as _sqlite3
+
                     conn = _sqlite3.connect(sqlite_path, timeout=5)
                     try:
                         cursor = conn.execute(

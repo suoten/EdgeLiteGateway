@@ -67,7 +67,9 @@ class ConfigHotReloader:
         self._watched_files: dict[str, str] = {}  # path -> content_hash
         self._change_history: list[ConfigChange] = []
         self._lock = asyncio.Lock()
-        self._callbacks_lock = threading.Lock()  # FIXED-P0: _change_callbacks并发修改保护（同步方法无法使用asyncio.Lock）
+        self._callbacks_lock = (
+            threading.Lock()
+        )  # FIXED-P0: _change_callbacks并发修改保护（同步方法无法使用asyncio.Lock）
         self._change_callbacks: dict[str, list[Callable]] = {
             "device": [],
             "rule": [],
@@ -157,6 +159,7 @@ class ConfigHotReloader:
                         _parsed = json.loads(content)
                     else:
                         import yaml
+
                         _parsed = yaml.safe_load(content)
                     self._watched_files[f"_old_{file_path}"] = _parsed
                 except Exception:
@@ -185,12 +188,10 @@ class ConfigHotReloader:
         """
         if self._consecutive_failures == 0:
             return self._config.watch_interval
-        backoff = self._config.watch_interval * (2 ** self._consecutive_failures)
+        backoff = self._config.watch_interval * (2**self._consecutive_failures)
         return min(backoff, self._max_backoff_interval)
 
-    def _record_parse_failure(
-        self, file_path: str, exc: Exception, level: int = logging.ERROR
-    ) -> None:
+    def _record_parse_failure(self, file_path: str, exc: Exception, level: int = logging.ERROR) -> None:
         """S-11: 记录解析失败 - 错误去重 + 累加退避计数
 
         相同错误特征（文件路径+异常类型+错误消息）只记录一次高级别日志，
@@ -212,14 +213,18 @@ class ConfigHotReloader:
         if signature == self._last_error_signature:
             logger.debug(
                 "Config check repeated failure (dedup): %s - %s: %s",
-                file_path, type(exc).__name__, exc,
+                file_path,
+                type(exc).__name__,
+                exc,
             )
         else:
             self._last_error_signature = signature
             logger.log(
                 level,
                 "Config check failed for %s: %s: %s (consecutive_failures=%d, next_interval=%.1fs)",
-                file_path, type(exc).__name__, exc,
+                file_path,
+                type(exc).__name__,
+                exc,
                 self._consecutive_failures,
                 self._compute_backoff_interval(),
             )
@@ -313,15 +318,13 @@ class ConfigHotReloader:
             # （如 logging.yaml/notify.yaml）触发 reload_config 后用默认值覆盖当前运行配置
             main_config_path = os.environ.get("EDGELITE_CONFIG", "configs/config.yaml")
             try:
-                is_main = (
-                    Path(file_path).resolve()
-                    == Path(main_config_path).resolve()
-                )
+                is_main = Path(file_path).resolve() == Path(main_config_path).resolve()
             except Exception:
                 is_main = file_path == main_config_path
             if is_main:
                 # FIXED-P1: reload_config 失败时 raise，让 _check_changes 捕获，不更新哈希，下次循环重试
                 from edgelite.config import reload_config
+
                 # FIXED-P1: reload_config 内部执行同步 open()+yaml.safe_load+sqlite3.connect+解密操作，
                 # 在 async 上下文直接调用会阻塞事件循环。参考 _check_changes 中已用 asyncio.to_thread 读取文件，
                 # 这里将同步 reload_config 调用包装为 asyncio.to_thread 放到线程池执行。
@@ -364,7 +367,10 @@ class ConfigHotReloader:
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             backup_name = f"{Path(file_path).stem}_{timestamp}{Path(file_path).suffix}"
             backup_path = self._backup_dir / backup_name
-            tmp_path = backup_path.with_suffix(backup_path.suffix + ".tmp")  # FIXED-P1: 原问题-直接write_text目标文件，写入中断导致半写YAML损坏；改为原子替换：先写tmp→fsync→rename
+            tmp_path = backup_path.with_suffix(
+                backup_path.suffix + ".tmp"
+            )  # FIXED-P1: 原问题-直接write_text目标文件，写入中断导致半写YAML损坏；改为原子替换：先写tmp→fsync→rename
+
             # FIXED(严重): 原问题-同步文件IO(open/write/fsync/replace)阻塞事件循环;
             # 修复-用asyncio.to_thread包装同步文件写入操作
             def _do_backup():
@@ -373,6 +379,7 @@ class ConfigHotReloader:
                     f.flush()
                     os.fsync(f.fileno())  # FIXED-P2: 原问题-tmp_path.open("r")泄漏fd；改为with语句内fsync同一fd
                 tmp_path.replace(backup_path)
+
             await asyncio.to_thread(_do_backup)
             logger.debug("Config backed up: %s", backup_path)
 
@@ -450,9 +457,7 @@ class ConfigHotReloader:
         else:
             return "system"
 
-    def register_callback(
-        self, config_type: str, callback: Callable[[ConfigChange], None]
-    ) -> None:
+    def register_callback(self, config_type: str, callback: Callable[[ConfigChange], None]) -> None:
         """注册配置变更回调
 
         Args:
@@ -466,9 +471,7 @@ class ConfigHotReloader:
             self._change_callbacks[config_type].append(callback)
         logger.debug("Registered callback for config type: %s", config_type)
 
-    def unregister_callback(
-        self, config_type: str, callback: Callable[[ConfigChange], None]
-    ) -> None:
+    def unregister_callback(self, config_type: str, callback: Callable[[ConfigChange], None]) -> None:
         """取消注册回调"""
         # FIXED-P0: _change_callbacks修改需加锁，防止与_notify_callbacks遍历竞态
         with self._callbacks_lock:
@@ -476,9 +479,7 @@ class ConfigHotReloader:
                 with contextlib.suppress(ValueError):
                     self._change_callbacks[config_type].remove(callback)
 
-    async def reload_device_config(
-        self, device_id: str, new_config: dict
-    ) -> ConfigChange:
+    async def reload_device_config(self, device_id: str, new_config: dict) -> ConfigChange:
         """手动触发设备配置热更新
 
         Args:
@@ -502,9 +503,7 @@ class ConfigHotReloader:
         logger.info("Device config hot reloaded: %s", device_id)
         return change
 
-    async def reload_rule_config(
-        self, rule_id: str, new_config: dict
-    ) -> ConfigChange:
+    async def reload_rule_config(self, rule_id: str, new_config: dict) -> ConfigChange:
         """手动触发规则配置热更新"""
         change = ConfigChange(
             config_type="rule",

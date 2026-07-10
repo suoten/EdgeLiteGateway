@@ -5,15 +5,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-
 from test_acceptance_smoke import _build_test_app
-from edgelite.api.deps import get_current_user
 
+from edgelite.api.deps import get_current_user
 
 # ═══════════════════════════════════════════════════════════════
 # 模块 3: 接口测试 (API)

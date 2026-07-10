@@ -43,12 +43,14 @@ def _sanitize_csv_cell(value: Any) -> Any:
 
 class ExportFormat(Enum):
     """Export file format"""
+
     JSON = "json"
     CSV = "csv"
 
 
 class ImportMode(Enum):
     """Import conflict resolution mode"""
+
     SKIP = "skip"  # Skip existing items
     OVERWRITE = "overwrite"  # Overwrite existing items
     RENAME = "rename"  # Rename with suffix
@@ -58,6 +60,7 @@ class ImportMode(Enum):
 @dataclass
 class ImportResult:
     """Result of an import operation"""
+
     success: bool = True
     total_count: int = 0
     imported_count: int = 0
@@ -72,6 +75,7 @@ class ImportResult:
 @dataclass
 class DeviceTemplate:
     """Device configuration template"""
+
     template_id: str = ""
     name: str = ""
     protocol: str = ""
@@ -87,6 +91,7 @@ class DeviceTemplate:
 @dataclass
 class RuleTemplate:
     """Rule configuration template"""
+
     template_id: str = ""
     name: str = ""
     description: str = ""
@@ -102,6 +107,7 @@ class RuleTemplate:
 @dataclass
 class DeviceGroup:
     """Device grouping for organization"""
+
     group_id: str = ""
     name: str = ""
     description: str = ""
@@ -304,7 +310,9 @@ class DataImportService:
                             )
                             existing_device_ids_set = {row[0] for row in existing_result}
 
-                        if mode == ImportMode.RENAME:  # FIXED-P2: 原问题-预检用repo.get()创建独立session，TOCTOU窗口；改为同一session内查询ORM
+                        if (
+                            mode == ImportMode.RENAME
+                        ):  # FIXED-P2: 原问题-预检用repo.get()创建独立session，TOCTOU窗口；改为同一session内查询ORM
                             for item in items:
                                 device_id = item.get("device_id")
                                 if device_id and device_id in existing_device_ids_set:
@@ -317,7 +325,9 @@ class DataImportService:
                                 if device_id and device_id in existing_device_ids_set:
                                     raise ValueError(f"Device already exists: {device_id}")
                         created, skipped, errors = await self._device_repo.upsert_bulk(
-                            items, session, skip_existing=(mode == ImportMode.SKIP),
+                            items,
+                            session,
+                            skip_existing=(mode == ImportMode.SKIP),
                         )
                         if any(e for e in errors):
                             await session.rollback()
@@ -365,10 +375,7 @@ class DataImportService:
 
         # 顶层结构校验：仅允许 dict（带 devices/rules 键）或 list
         if not isinstance(parsed, (dict, list)):
-            raise ValueError(
-                f"Invalid export format: expected dict or list at top level, "
-                f"got {type(parsed).__name__}"
-            )
+            raise ValueError(f"Invalid export format: expected dict or list at top level, got {type(parsed).__name__}")
 
         # 根据顶层类型提取目标列表
         if isinstance(parsed, dict):
@@ -379,19 +386,14 @@ class DataImportService:
                 items = parsed["rules"]
                 expected_key = "rules"
             else:
-                raise ValueError(
-                    "Invalid export format: missing 'devices' or 'rules' key in dict"
-                )
+                raise ValueError("Invalid export format: missing 'devices' or 'rules' key in dict")
         else:
             items = parsed
             expected_key = "<top-level list>"
 
         # 顶层列表校验：必须是 list
         if not isinstance(items, list):
-            raise ValueError(
-                f"Invalid export format: expected list for '{expected_key}', "
-                f"got {type(items).__name__}"
-            )
+            raise ValueError(f"Invalid export format: expected list for '{expected_key}', got {type(items).__name__}")
 
         # 每个元素必须是 dict，防止后续 item.get() 抛 AttributeError
         for idx, item in enumerate(items):
@@ -485,7 +487,9 @@ class DataImportService:
                             )
                             existing_rule_ids_set = {row[0] for row in existing_result}
 
-                        if mode == ImportMode.RENAME:  # FIXED-P2: 原问题-预检用repo.get()创建独立session，TOCTOU窗口；改为同一session内查询ORM
+                        if (
+                            mode == ImportMode.RENAME
+                        ):  # FIXED-P2: 原问题-预检用repo.get()创建独立session，TOCTOU窗口；改为同一session内查询ORM
                             for item in items:
                                 rule_id = item.get("rule_id")
                                 if rule_id and rule_id in existing_rule_ids_set:
@@ -498,7 +502,9 @@ class DataImportService:
                                 if rule_id and rule_id in existing_rule_ids_set:
                                     raise ValueError(f"Rule already exists: {rule_id}")
                         created, skipped, errors = await self._rule_repo.upsert_bulk(
-                            items, session, skip_existing=(mode == ImportMode.SKIP),
+                            items,
+                            session,
+                            skip_existing=(mode == ImportMode.SKIP),
                         )
                         if any(e for e in errors):
                             await session.rollback()
@@ -635,13 +641,17 @@ class DataImportService:
                     try:
                         if devices_data:
                             d_created, d_skipped, d_errors = await self._device_repo.upsert_bulk(
-                                devices_data, session, skip_existing=(mode == ImportMode.SKIP),
+                                devices_data,
+                                session,
+                                skip_existing=(mode == ImportMode.SKIP),
                             )
                         else:
                             d_created, d_skipped, d_errors = 0, 0, []
                         if rules_data:
                             r_created, r_skipped, r_errors = await self._rule_repo.upsert_bulk(
-                                rules_data, session, skip_existing=(mode == ImportMode.SKIP),
+                                rules_data,
+                                session,
+                                skip_existing=(mode == ImportMode.SKIP),
                             )
                         else:
                             r_created, r_skipped, r_errors = 0, 0, []
@@ -653,22 +663,21 @@ class DataImportService:
                             logger.error(
                                 "Import all failed with %d errors, transaction rolled back. "
                                 "Devices imported before rollback: %d, Rules imported before rollback: %d",
-                                len(all_errors), d_created, r_created,
+                                len(all_errors),
+                                d_created,
+                                r_created,
                             )
                             # FIXED(S-08): rollback 后再次确认数据库状态（查询关键表行数）
                             try:
                                 # FIXED-P1: 原问题-加载全表再计数导致大表 OOM；改为 COUNT 查询
-                                dev_count_result = await session.execute(
-                                    select(func.count()).select_from(DeviceORM)
-                                )
+                                dev_count_result = await session.execute(select(func.count()).select_from(DeviceORM))
                                 dev_count_after = dev_count_result.scalar() or 0
-                                rule_count_result = await session.execute(
-                                    select(func.count()).select_from(RuleORM)
-                                )
+                                rule_count_result = await session.execute(select(func.count()).select_from(RuleORM))
                                 rule_count_after = rule_count_result.scalar() or 0
                                 logger.info(
                                     "Database state after rollback: devices=%d, rules=%d",
-                                    dev_count_after, rule_count_after,
+                                    dev_count_after,
+                                    rule_count_after,
                                 )
                             except Exception as verify_err:
                                 logger.error(
@@ -676,12 +685,14 @@ class DataImportService:
                                     verify_err,
                                 )
                             results["devices"] = ImportResult(
-                                success=False, total_count=len(devices_data),
+                                success=False,
+                                total_count=len(devices_data),
                                 error_count=len([e for e in d_errors if e]),
                                 errors=[e for e in d_errors if e],
                             )
                             results["rules"] = ImportResult(
-                                success=False, total_count=len(rules_data),
+                                success=False,
+                                total_count=len(rules_data),
                                 error_count=len([e for e in r_errors if e]),
                                 errors=[e for e in r_errors if e],
                             )
@@ -689,12 +700,16 @@ class DataImportService:
 
                         await session.commit()
                         results["devices"] = ImportResult(
-                            success=True, total_count=len(devices_data),
-                            imported_count=d_created, skipped_count=d_skipped,
+                            success=True,
+                            total_count=len(devices_data),
+                            imported_count=d_created,
+                            skipped_count=d_skipped,
                         )
                         results["rules"] = ImportResult(
-                            success=True, total_count=len(rules_data),
-                            imported_count=r_created, skipped_count=r_skipped,
+                            success=True,
+                            total_count=len(rules_data),
+                            imported_count=r_created,
+                            skipped_count=r_skipped,
                         )
                         return results
                     except Exception as e:
@@ -706,17 +721,14 @@ class DataImportService:
                         # rollback 后再次确认数据库状态（查询关键表行数）
                         try:
                             # FIXED-P1: 原问题-加载全表再计数导致大表 OOM；改为 COUNT 查询
-                            dev_count_result = await session.execute(
-                                select(func.count()).select_from(DeviceORM)
-                            )
+                            dev_count_result = await session.execute(select(func.count()).select_from(DeviceORM))
                             dev_count_after = dev_count_result.scalar() or 0
-                            rule_count_result = await session.execute(
-                                select(func.count()).select_from(RuleORM)
-                            )
+                            rule_count_result = await session.execute(select(func.count()).select_from(RuleORM))
                             rule_count_after = rule_count_result.scalar() or 0
                             logger.info(
                                 "Database state after rollback: devices=%d, rules=%d",
-                                dev_count_after, rule_count_after,
+                                dev_count_after,
+                                rule_count_after,
                             )
                         except Exception as verify_err:
                             logger.error(
@@ -726,14 +738,18 @@ class DataImportService:
                         logger.error(
                             "Import all exception: %s. Transaction rolled back. "
                             "Devices data count: %d, Rules data count: %d",
-                            str(e), len(devices_data), len(rules_data),
+                            str(e),
+                            len(devices_data),
+                            len(rules_data),
                         )
                         results["devices"] = ImportResult(
-                            success=False, errors=[f"Atomic import failed: {str(e)}"],
+                            success=False,
+                            errors=[f"Atomic import failed: {str(e)}"],
                             total_count=len(devices_data),
                         )
                         results["rules"] = ImportResult(
-                            success=False, errors=[f"Atomic import failed: {str(e)}"],
+                            success=False,
+                            errors=[f"Atomic import failed: {str(e)}"],
                             total_count=len(rules_data),
                         )
                         return results
@@ -741,7 +757,9 @@ class DataImportService:
                 # session 创建失败等极端情况
                 logger.error(
                     "Import all session error: %s. Devices data count: %d, Rules data count: %d",
-                    str(e), len(devices_data), len(rules_data),
+                    str(e),
+                    len(devices_data),
+                    len(rules_data),
                 )
                 results["devices"] = ImportResult(success=False, errors=[f"Atomic import failed: {str(e)}"])
                 results["rules"] = ImportResult(success=False, errors=[f"Atomic import failed: {str(e)}"])
@@ -788,7 +806,9 @@ class DataImportService:
                     logger.error("Rollback device %s failed: %s", item.get("device_id"), e)
             logger.error(
                 "Rule import failed, rolled back %d/%d devices. Rule errors: %s",
-                rollback_count, device_result.imported_count, str(rule_result.errors),
+                rollback_count,
+                device_result.imported_count,
+                str(rule_result.errors),
             )
             device_result.imported_count = 0
             device_result.success = False
@@ -808,7 +828,9 @@ class TemplateService:
     def __init__(self, template_repo: Any | None = None, database: Any | None = None):
         self._template_repo = template_repo
         self._database = database  # FIXED-P2: 原问题-RuleTemplate/DeviceGroup纯内存；改为注入database用于ORM持久化
-        self._device_templates: dict[str, DeviceTemplate] = {}  # FIXED-P0: 原问题-_device_templates未在__init__中定义，导致apply_device_template/export_templates/import_templates抛AttributeError
+        self._device_templates: dict[
+            str, DeviceTemplate
+        ] = {}  # FIXED-P0: 原问题-_device_templates未在__init__中定义，导致apply_device_template/export_templates/import_templates抛AttributeError  # noqa: E501
         self._rule_templates: dict[str, RuleTemplate] = {}
         self._device_groups: dict[str, DeviceGroup] = {}
         self._group_members: dict[str, list[str]] = defaultdict(list)
@@ -923,7 +945,9 @@ class TemplateService:
         return device
 
     # Rule Templates
-    async def create_rule_template(self, template: RuleTemplate) -> RuleTemplate:  # FIXED-P2: 原问题-纯内存存储；改为async+ORM持久化
+    async def create_rule_template(
+        self, template: RuleTemplate
+    ) -> RuleTemplate:  # FIXED-P2: 原问题-纯内存存储；改为async+ORM持久化
         """Create a new rule template"""
         if not template.template_id:
             template.template_id = f"rtmpl_{uuid.uuid4().hex[:8]}"
@@ -932,6 +956,7 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import RuleTemplateORM
+
                 async with self._database.session() as session:
                     orm = RuleTemplateORM(
                         template_id=template.template_id,
@@ -963,20 +988,26 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import RuleTemplateORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
-                        __import__("sqlalchemy").select(RuleTemplateORM).where(RuleTemplateORM.template_id == template_id)
+                        __import__("sqlalchemy")
+                        .select(RuleTemplateORM)
+                        .where(RuleTemplateORM.template_id == template_id)
                     )
                     orm = result.scalar_one_or_none()
                     if orm:
                         return RuleTemplate(
-                            template_id=orm.template_id, name=orm.name,
-                            description=orm.description, rule_type=orm.rule_type,
+                            template_id=orm.template_id,
+                            name=orm.name,
+                            description=orm.description,
+                            rule_type=orm.rule_type,
                             default_conditions=json.loads(orm.default_conditions),
                             default_severity=orm.default_severity,
                             default_duration=orm.default_duration,
                             notify_channels=json.loads(orm.notify_channels),
-                            created_at=str(orm.created_at), updated_at=str(orm.updated_at),
+                            created_at=str(orm.created_at),
+                            updated_at=str(orm.updated_at),
                         )
             except Exception as e:
                 logger.error("Rule template DB read failed: %s", e)
@@ -989,19 +1020,24 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import RuleTemplateORM
+
                 async with self._database.session() as session:
                     result = await session.execute(__import__("sqlalchemy").select(RuleTemplateORM))
                     rows = result.scalars().all()
                     return [
                         RuleTemplate(
-                            template_id=r.template_id, name=r.name,
-                            description=r.description, rule_type=r.rule_type,
+                            template_id=r.template_id,
+                            name=r.name,
+                            description=r.description,
+                            rule_type=r.rule_type,
                             default_conditions=json.loads(r.default_conditions),
                             default_severity=r.default_severity,
                             default_duration=r.default_duration,
                             notify_channels=json.loads(r.notify_channels),
-                            created_at=str(r.created_at), updated_at=str(r.updated_at),
-                        ) for r in rows
+                            created_at=str(r.created_at),
+                            updated_at=str(r.updated_at),
+                        )
+                        for r in rows
                     ]
             except Exception as e:
                 logger.error("Rule template DB list failed: %s", e)
@@ -1018,9 +1054,12 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import RuleTemplateORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
-                        __import__("sqlalchemy").select(RuleTemplateORM).where(RuleTemplateORM.template_id == template_id)
+                        __import__("sqlalchemy")
+                        .select(RuleTemplateORM)
+                        .where(RuleTemplateORM.template_id == template_id)
                     )
                     orm = result.scalar_one_or_none()
                     if not orm:
@@ -1036,13 +1075,16 @@ class TemplateService:
                         orm.notify_channels = json.dumps(data["notify_channels"], ensure_ascii=False)
                     await session.commit()
                     return RuleTemplate(
-                        template_id=orm.template_id, name=orm.name,
-                        description=orm.description, rule_type=orm.rule_type,
+                        template_id=orm.template_id,
+                        name=orm.name,
+                        description=orm.description,
+                        rule_type=orm.rule_type,
                         default_conditions=json.loads(orm.default_conditions),
                         default_severity=orm.default_severity,
                         default_duration=orm.default_duration,
                         notify_channels=json.loads(orm.notify_channels),
-                        created_at=str(orm.created_at), updated_at=str(orm.updated_at),
+                        created_at=str(orm.created_at),
+                        updated_at=str(orm.updated_at),
                     )
             except Exception as e:
                 logger.error("Rule template DB update failed: %s", e)
@@ -1063,9 +1105,12 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import RuleTemplateORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
-                        __import__("sqlalchemy").delete(RuleTemplateORM).where(RuleTemplateORM.template_id == template_id)
+                        __import__("sqlalchemy")
+                        .delete(RuleTemplateORM)
+                        .where(RuleTemplateORM.template_id == template_id)
                     )
                     await session.commit()
                     if result.rowcount > 0:
@@ -1119,7 +1164,9 @@ class TemplateService:
         return rule
 
     # Device Groups
-    async def create_device_group(self, group: DeviceGroup) -> DeviceGroup:  # FIXED-P2: 原问题-纯内存；改为async+ORM持久化
+    async def create_device_group(
+        self, group: DeviceGroup
+    ) -> DeviceGroup:  # FIXED-P2: 原问题-纯内存；改为async+ORM持久化
         """Create a new device group"""
         if not group.group_id:
             group.group_id = f"grp_{uuid.uuid4().hex[:8]}"
@@ -1128,10 +1175,13 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     orm = DeviceGroupORM(
-                        group_id=group.group_id, name=group.name,
-                        description=group.description, parent_id=group.parent_id or None,
+                        group_id=group.group_id,
+                        name=group.name,
+                        description=group.description,
+                        parent_id=group.parent_id or None,
                         device_ids=json.dumps(group.device_ids, ensure_ascii=False),
                         tags=json.dumps(group.tags, ensure_ascii=False),
                     )
@@ -1155,6 +1205,7 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
                         __import__("sqlalchemy").select(DeviceGroupORM).where(DeviceGroupORM.group_id == group_id)
@@ -1162,11 +1213,14 @@ class TemplateService:
                     orm = result.scalar_one_or_none()
                     if orm:
                         return DeviceGroup(
-                            group_id=orm.group_id, name=orm.name,
-                            description=orm.description, parent_id=orm.parent_id or "",
+                            group_id=orm.group_id,
+                            name=orm.name,
+                            description=orm.description,
+                            parent_id=orm.parent_id or "",
                             device_ids=json.loads(orm.device_ids),
                             tags=json.loads(orm.tags),
-                            created_at=str(orm.created_at), updated_at=str(orm.updated_at),
+                            created_at=str(orm.created_at),
+                            updated_at=str(orm.updated_at),
                         )
             except Exception as e:
                 logger.error("Device group DB read failed: %s", e)
@@ -1179,17 +1233,22 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     result = await session.execute(__import__("sqlalchemy").select(DeviceGroupORM))
                     rows = result.scalars().all()
                     return [
                         DeviceGroup(
-                            group_id=r.group_id, name=r.name,
-                            description=r.description, parent_id=r.parent_id or "",
+                            group_id=r.group_id,
+                            name=r.name,
+                            description=r.description,
+                            parent_id=r.parent_id or "",
                             device_ids=json.loads(r.device_ids),
                             tags=json.loads(r.tags),
-                            created_at=str(r.created_at), updated_at=str(r.updated_at),
-                        ) for r in rows
+                            created_at=str(r.created_at),
+                            updated_at=str(r.updated_at),
+                        )
+                        for r in rows
                     ]
             except Exception as e:
                 logger.error("Device group DB list failed: %s", e)
@@ -1206,6 +1265,7 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
                         __import__("sqlalchemy").select(DeviceGroupORM).where(DeviceGroupORM.group_id == group_id)
@@ -1222,11 +1282,14 @@ class TemplateService:
                         orm.tags = json.dumps(data["tags"], ensure_ascii=False)
                     await session.commit()
                     return DeviceGroup(
-                        group_id=orm.group_id, name=orm.name,
-                        description=orm.description, parent_id=orm.parent_id or "",
+                        group_id=orm.group_id,
+                        name=orm.name,
+                        description=orm.description,
+                        parent_id=orm.parent_id or "",
                         device_ids=json.loads(orm.device_ids),
                         tags=json.loads(orm.tags),
-                        created_at=str(orm.created_at), updated_at=str(orm.updated_at),
+                        created_at=str(orm.created_at),
+                        updated_at=str(orm.updated_at),
                     )
             except Exception as e:
                 logger.error("Device group DB update failed: %s", e)
@@ -1247,6 +1310,7 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
                         __import__("sqlalchemy").delete(DeviceGroupORM).where(DeviceGroupORM.group_id == group_id)
@@ -1255,7 +1319,9 @@ class TemplateService:
                     if result.rowcount > 0:
                         # FIXED-P1: 保护 _group_members 并发修改
                         with self._lock:
-                            for _device_id, groups in list(self._group_members.items()):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
+                            for _device_id, groups in list(
+                                self._group_members.items()
+                            ):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
                                 if group_id in groups:
                                     groups.remove(group_id)
                         logger.info("Device group deleted: %s", group_id)
@@ -1266,7 +1332,9 @@ class TemplateService:
         # FIXED-P1: 保护 _device_groups 和 _group_members 并发删除
         with self._lock:
             if group_id in self._device_groups:
-                for _device_id, groups in list(self._group_members.items()):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
+                for _device_id, groups in list(
+                    self._group_members.items()
+                ):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
                     if group_id in groups:
                         groups.remove(group_id)
                 del self._device_groups[group_id]
@@ -1274,7 +1342,9 @@ class TemplateService:
                 return True
             return False
 
-    async def add_device_to_group(self, device_id: str, group_id: str) -> bool:  # FIXED-P2: 原问题-内存操作不持久化；改为同步更新DB
+    async def add_device_to_group(
+        self, device_id: str, group_id: str
+    ) -> bool:  # FIXED-P2: 原问题-内存操作不持久化；改为同步更新DB
         """Add a device to a group"""
         # FIXED-P1: 快照检查是否已是成员，避免并发重复添加
         with self._lock:
@@ -1285,6 +1355,7 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
                         __import__("sqlalchemy").select(DeviceGroupORM).where(DeviceGroupORM.group_id == group_id)
@@ -1315,7 +1386,9 @@ class TemplateService:
         logger.info("Device %s added to group %s", device_id, group_id)
         return True
 
-    async def remove_device_from_group(self, device_id: str, group_id: str) -> bool:  # FIXED-P2: 原问题-内存操作不持久化；改为同步更新DB
+    async def remove_device_from_group(
+        self, device_id: str, group_id: str
+    ) -> bool:  # FIXED-P2: 原问题-内存操作不持久化；改为同步更新DB
         """Remove a device from a group"""
         # FIXED-P1: 快照检查是否是成员
         with self._lock:
@@ -1326,6 +1399,7 @@ class TemplateService:
         if self._database is not None:
             try:
                 from edgelite.models.db import DeviceGroupORM
+
                 async with self._database.session() as session:
                     result = await session.execute(
                         __import__("sqlalchemy").select(DeviceGroupORM).where(DeviceGroupORM.group_id == group_id)

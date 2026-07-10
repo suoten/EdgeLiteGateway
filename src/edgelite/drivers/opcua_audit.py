@@ -115,9 +115,7 @@ class OpcUaAudit:
         """
         await self.log("failover", device_id=device_id, primary=primary, backup=backup)
 
-    async def log_rbac_check(
-        self, device_id: str, permission: str, role: str, granted: bool
-    ) -> None:
+    async def log_rbac_check(self, device_id: str, permission: str, role: str, granted: bool) -> None:
         """记录 RBAC 权限校验
 
         Args:
@@ -161,9 +159,7 @@ class OpcUaAudit:
             details["operator"] = operator
         await self.log(action.value, device_id=device_id, **details)
 
-    async def log_ota(
-        self, device_id: str, action: OpcUaAuditAction, version: str | None = None
-    ) -> None:
+    async def log_ota(self, device_id: str, action: OpcUaAuditAction, version: str | None = None) -> None:
         """记录 OTA 升级/回滚操作
 
         Args:
@@ -190,10 +186,7 @@ class OpcUaAudit:
         """
         if limit <= 0:
             return []
-        matched = [
-            r for r in self._records
-            if r.get("device_id") == device_id or r.get("device_id") == ""
-        ]
+        matched = [r for r in self._records if r.get("device_id") == device_id or r.get("device_id") == ""]
         return matched[-limit:][::-1]
 
     def get_by_action(self, action: str | OpcUaAuditAction, limit: int) -> list[dict]:
@@ -229,12 +222,14 @@ class OpcUaAudit:
                 details_str = json.dumps(details, ensure_ascii=False, default=str)
             except (TypeError, ValueError):
                 details_str = str(details)
-            writer.writerow([
-                ts,
-                r.get("device_id", ""),
-                r.get("action", ""),
-                details_str,
-            ])
+            writer.writerow(
+                [
+                    ts,
+                    r.get("device_id", ""),
+                    r.get("action", ""),
+                    details_str,
+                ]
+            )
         return output.getvalue()
 
     def get_stats(self) -> dict:

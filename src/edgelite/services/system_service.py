@@ -55,9 +55,7 @@ class SystemService:
             cpu_count = psutil.cpu_count()
             cpu_count_logical = psutil.cpu_count(logical=True)
             memory = await loop.run_in_executor(None, psutil.virtual_memory)
-            disk = await loop.run_in_executor(
-                None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/")
-            )
+            disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/"))
             net_counters = await loop.run_in_executor(None, psutil.net_io_counters)
             load_avg = await loop.run_in_executor(None, self._get_load_avg)
         else:
@@ -93,6 +91,7 @@ class SystemService:
     def _get_load_avg() -> tuple[float, float, float]:
         try:
             import os as _os
+
             if hasattr(_os, "getloadavg"):
                 return _os.getloadavg()
         except Exception as e:
@@ -106,9 +105,7 @@ class SystemService:
         if psutil:
             cpu_percent = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=0.1))
             memory = await loop.run_in_executor(None, psutil.virtual_memory)
-            disk = await loop.run_in_executor(
-                None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/")
-            )
+            disk = await loop.run_in_executor(None, lambda: psutil.disk_usage("C:\\" if os.name == "nt" else "/"))
             mem_total, mem_used, mem_pct = memory.total, memory.used, memory.percent
             disk_total, disk_used, disk_pct = disk.total, disk.used, disk.percent
         else:
@@ -117,7 +114,9 @@ class SystemService:
             disk_total, disk_used, disk_pct = 0, 0, 0.0
 
         # 设备统计
-        _devices, device_total = await self._device_repo.list_all(page=1, size=1)  # FIXED(P3): 原问题-解包变量devices未使用; 修复-改为_devices前缀
+        _devices, device_total = await self._device_repo.list_all(
+            page=1, size=1
+        )  # FIXED(P3): 原问题-解包变量devices未使用; 修复-改为_devices前缀
         # FIXED-P0: get_active_devices改为async，需await
         online_devices = len(await self._scheduler.get_active_devices())
 
@@ -190,9 +189,15 @@ class SystemService:
         # 复制辅助DB文件到备份目录
         data_dir = Path(config.database.sqlite_path).parent if config.database.sqlite_path else Path("data")
         _AUX_DB_FILES = [
-            "edgelite_ts.db", "edge_rules.db", "edge_triggers.db",
-            "audit.db", "device_status.db", "mqtt_offline_queue.db",
-            "emergency_buffer.db", "opcua_ts.db", "opcua_config_versions.db",
+            "edgelite_ts.db",
+            "edge_rules.db",
+            "edge_triggers.db",
+            "audit.db",
+            "device_status.db",
+            "mqtt_offline_queue.db",
+            "emergency_buffer.db",
+            "opcua_ts.db",
+            "opcua_config_versions.db",
         ]
         aux_backed_up: list[str] = []
         loop = asyncio.get_running_loop()
@@ -201,6 +206,7 @@ class SystemService:
             if aux_path.exists():
                 try:
                     import shutil
+
                     # FIXED-P1: 原代码 shutil.copy2 是同步阻塞操作，在异步函数中会阻塞事件循环
                     # 改为使用 run_in_executor 在线程池中执行
                     aux_backup_path = backup_dir / f"backup_{timestamp}_{aux_name}"
@@ -223,10 +229,12 @@ class SystemService:
         json_file = backup_dir / f"backup_{timestamp}.json"
         try:
             backup_data = await self._export_all_config()
+
             # FIXED-P1: 同步文件 I/O 包装到线程中，避免阻塞事件循环
             def _write_backup_json(path, data):
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
+
             await asyncio.to_thread(_write_backup_json, json_file, backup_data)
         except Exception as e:
             logger.error("配置导出失败: %s", e)
@@ -285,6 +293,7 @@ class SystemService:
             def _read_backup_json(path):
                 with open(path, encoding="utf-8") as f:
                     return json.load(f)
+
             backup_data = await asyncio.to_thread(_read_backup_json, json_file)
         except (json.JSONDecodeError, OSError) as e:
             logger.error("Backup file read failed: %s", e)
@@ -354,8 +363,12 @@ class SystemService:
         except Exception as e:
             # FIXED-P0: 回滚时只删除新建的记录，不删除已更新的记录（避免数据丢失）
             logger.error(
-                "Restore backup data failed: %s, rolling back %d devices, %d rules, %d users (only created records will be deleted)",
-                e, len(restored_device_ids), len(restored_rule_ids), len(restored_user_ids,
+                "Restore backup data failed: %s, rolling back %d devices, %d rules, %d users (only created records will be deleted)",  # noqa: E501
+                e,
+                len(restored_device_ids),
+                len(restored_rule_ids),
+                len(
+                    restored_user_ids,
                 ),
             )
             for uid, op in restored_user_ids:
@@ -370,7 +383,9 @@ class SystemService:
                 if op == "create":
                     with contextlib.suppress(Exception):
                         await self._device_repo.delete(did)
-            raise RuntimeError(f"Restore failed and rolled back (updated records kept, created records deleted): {e}") from e
+            raise RuntimeError(
+                f"Restore failed and rolled back (updated records kept, created records deleted): {e}"
+            ) from e
 
         # 恢复后同步刷新运行时状态
         try:
@@ -422,7 +437,18 @@ class SystemService:
                 break
             page += 1
 
-        _SENSITIVE_KEYS = {"password", "secret", "token", "private_key", "privateKey", "api_key", "apiKey", "secret_key", "secretKey", "cip_password"}  # FIXED-P4: 设备配置导出时脱敏敏感字段
+        _SENSITIVE_KEYS = {
+            "password",
+            "secret",
+            "token",
+            "private_key",
+            "privateKey",
+            "api_key",
+            "apiKey",
+            "secret_key",
+            "secretKey",
+            "cip_password",
+        }  # FIXED-P4: 设备配置导出时脱敏敏感字段
 
         def _mask_device(d: dict) -> dict:
             config = d.get("config", {})

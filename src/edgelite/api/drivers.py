@@ -124,7 +124,9 @@ async def list_drivers(
         raise
     except Exception as e:
         logger.error("Failed to list drivers: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=DriverErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=DriverErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/protocols", response_model=ApiResponse[DriverProtocolsResponse])
@@ -142,7 +144,9 @@ async def list_protocols(
         raise
     except Exception as e:
         logger.error("Failed to list protocols: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=DriverErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=DriverErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/{driver_name}/config-schema", response_model=ApiResponse[DriverConfigSchemaResponse])
@@ -153,7 +157,9 @@ async def get_driver_config_schema(
 ):
     try:
         if not registry:
-            raise HTTPException(status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT)  # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(
+                status_code=501, detail=DriverErrors.REGISTRY_NOT_INIT
+            )  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         # 先用原始名称查找注册表（支持已注册的 kebab-case 别名如 "modbus-tcp-slave"）
         driver_cls = registry.get_driver_class(driver_name)
@@ -161,13 +167,16 @@ async def get_driver_config_schema(
             # 原始名称未找到，尝试归一化后查找
             try:
                 from edgelite.protocol_keys import normalize_protocol_key
+
                 normalized = normalize_protocol_key(driver_name) or driver_name
                 if normalized != driver_name:
                     driver_cls = registry.get_driver_class(normalized)
             except Exception as e:
                 logger.warning("协议键名归一化失败: %s", e)
         if not driver_cls:
-            raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(
+                status_code=404, detail=DriverErrors.NOT_FOUND
+            )  # FIXED: 原问题-中文硬编码detail，改为error_code
 
         schema = getattr(driver_cls, "config_schema", None)
         if not schema:
@@ -183,7 +192,9 @@ async def get_driver_config_schema(
         raise
     except Exception as e:
         logger.error("Failed to get driver config schema: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=DriverErrors.GET_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("", response_model=ApiResponse[list[DriverStatusInfo]])
@@ -220,7 +231,9 @@ async def list_all_drivers(
         raise
     except Exception as e:
         logger.error("Failed to list all drivers: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=DriverErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=DriverErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 class DriverDiscoverRequest(BaseModel):
@@ -260,7 +273,10 @@ async def discover_devices(
         logger.error("Driver %s start failed for discover: %s", driver_name, e)
         raise HTTPException(
             status_code=503,
-            detail={"message": DriverErrors.START_FAILED, "hint": f"Driver {driver_name} failed to start, check configuration and connectivity"},
+            detail={
+                "message": DriverErrors.START_FAILED,
+                "hint": f"Driver {driver_name} failed to start, check configuration and connectivity",
+            },
         ) from e  # FIXED-P2: 移除detail=str(e)返回前端，防止泄露内部IP/端口/协议错误码
 
     try:
@@ -271,22 +287,34 @@ async def discover_devices(
     except TimeoutError:
         raise HTTPException(
             status_code=504,
-            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Discovery timed out ({_DISCOVER_TIMEOUT}s), target may be unreachable or no devices responded"},
+            detail={
+                "message": DriverErrors.DISCOVER_FAILED,
+                "hint": f"Discovery timed out ({_DISCOVER_TIMEOUT}s), target may be unreachable or no devices responded",  # noqa: E501
+            },
         ) from None  # FIXED: 原问题-驱动扫描无超时保护，前端15s超时后看到网络错误而非业务提示
     except NotImplementedError:
         raise HTTPException(
             status_code=501,
-            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Driver {driver_name} does not support device discovery"},
+            detail={
+                "message": DriverErrors.DISCOVER_FAILED,
+                "hint": f"Driver {driver_name} does not support device discovery",
+            },
         ) from None  # FIXED: 原问题-驱动不支持discover时抛500，改为501+明确提示
     except ConnectionRefusedError as e:
         raise HTTPException(
             status_code=503,
-            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": f"Connection refused, target {driver_name} service may not be running"},
+            detail={
+                "message": DriverErrors.DISCOVER_FAILED,
+                "hint": f"Connection refused, target {driver_name} service may not be running",
+            },
         ) from e  # FIXED: 原问题-连接被拒时返回500，改为503+友好提示
     except OSError as e:
         raise HTTPException(
             status_code=503,
-            detail={"message": DriverErrors.DISCOVER_FAILED, "hint": "Network error, check target address and connectivity"},  # FIXED-P1: 不暴露异常详情
+            detail={
+                "message": DriverErrors.DISCOVER_FAILED,
+                "hint": "Network error, check target address and connectivity",
+            },  # FIXED-P1: 不暴露异常详情
         ) from e  # FIXED: 原问题-网络错误返回500，改为503+友好提示
     except Exception as e:
         error_code = DriverExceptionMapper.map_exception(e, driver_name)
@@ -294,12 +322,20 @@ async def discover_devices(
         if "timeout" in err_msg or "timed out" in err_msg:
             raise HTTPException(
                 status_code=504,
-                detail={"message": DriverErrors.DISCOVER_FAILED, "error_code": error_code, "hint": "Discovery timed out, target may be unreachable"},
+                detail={
+                    "message": DriverErrors.DISCOVER_FAILED,
+                    "error_code": error_code,
+                    "hint": "Discovery timed out, target may be unreachable",
+                },
             ) from e
         if "refused" in err_msg or "connection" in err_msg:
             raise HTTPException(
                 status_code=503,
-                detail={"message": DriverErrors.DISCOVER_FAILED, "error_code": error_code, "hint": f"Cannot connect to target, check if {driver_name} service is running and reachable"},
+                detail={
+                    "message": DriverErrors.DISCOVER_FAILED,
+                    "error_code": error_code,
+                    "hint": f"Cannot connect to target, check if {driver_name} service is running and reachable",
+                },
             ) from e
         raise HTTPException(
             status_code=500,
@@ -342,12 +378,14 @@ async def get_driver_load_status(
                 if not dep_info.get("available", True):
                     info["dependency_check"] = dep_info
 
-        return ApiResponse(data={
-            "drivers": status,
-            "loaded_count": loaded_count,
-            "skipped_count": skipped_count,
-            "dependency_results": dep_results,
-        })
+        return ApiResponse(
+            data={
+                "drivers": status,
+                "loaded_count": loaded_count,
+                "skipped_count": skipped_count,
+                "dependency_results": dep_results,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -425,21 +463,23 @@ async def list_driver_meta(
         except Exception:
             dep_info = None
 
-        drivers.append({
-            "name": getattr(driver_cls, "plugin_name", protocol),
-            "version": getattr(driver_cls, "plugin_version", "1.0.0"),
-            "protocol": protocol,
-            "plugin_name": plugin_name,
-            "plugin_version": getattr(driver_cls, "plugin_version", None),
-            "display_name_en": display.get("en"),
-            "display_name_zh": display.get("zh"),
-            "experimental": bool(getattr(driver_cls, "experimental", False)),
-            "capabilities": caps,
-            "constraints": constraints,
-            "config_schema": getattr(driver_cls, "config_schema", None),
-            "load_status": dep_info,
-            "dependency": dep_info,
-        })
+        drivers.append(
+            {
+                "name": getattr(driver_cls, "plugin_name", protocol),
+                "version": getattr(driver_cls, "plugin_version", "1.0.0"),
+                "protocol": protocol,
+                "plugin_name": plugin_name,
+                "plugin_version": getattr(driver_cls, "plugin_version", None),
+                "display_name_en": display.get("en"),
+                "display_name_zh": display.get("zh"),
+                "experimental": bool(getattr(driver_cls, "experimental", False)),
+                "capabilities": caps,
+                "constraints": constraints,
+                "config_schema": getattr(driver_cls, "config_schema", None),
+                "load_status": dep_info,
+                "dependency": dep_info,
+            }
+        )
 
     return ApiResponse(data={"drivers": drivers, "total": len(drivers)})
 
@@ -453,6 +493,7 @@ async def driver_environment_check(
     """Check if the runtime environment meets driver requirements"""
     try:
         from edgelite.protocol_keys import normalize_protocol_key
+
         driver_name = normalize_protocol_key(driver_name) or driver_name
     except Exception as e:
         # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -470,15 +511,19 @@ async def driver_environment_check(
         if hasattr(instance, "environment_check"):
             result = instance.environment_check()
             return ApiResponse(data=result)
-        return ApiResponse(data={
-            "protocol": driver_name,
-            "ready": True,
-            "issues": [],
-            "mode": "standard",
-        })
+        return ApiResponse(
+            data={
+                "protocol": driver_name,
+                "ready": True,
+                "issues": [],
+                "mode": "standard",
+            }
+        )
     except Exception as e:
         logger.error("Environment check failed for %s: %s", driver_name, e)
-        raise HTTPException(status_code=500, detail=DriverErrors.SELF_TEST_FAILED) from e  # FIXED-P0: 异常详情不返回前端
+        raise HTTPException(
+            status_code=500, detail=DriverErrors.SELF_TEST_FAILED
+        ) from e  # FIXED-P0: 异常详情不返回前端
 
 
 class OpcUaBrowseRequest(BaseModel):
@@ -511,6 +556,7 @@ async def browse_opcua_nodes(
     try:
         # 获取已运行的驱动实例（通过device_service）
         from edgelite.app import _app_state
+
         device_svc = getattr(_app_state, "device_service", None)
         if not device_svc:
             raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
@@ -526,6 +572,7 @@ async def browse_opcua_nodes(
                 # FIXED-P2: 补充共享访问检查，与devices.py保持一致
                 from edgelite.app import _app_state
                 from edgelite.storage.sqlite_repo import ResourceShareRepo
+
                 share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
                 has_access = await share_repo.check_user_has_access("device", req.device_id, user["user_id"])
                 if not has_access:
@@ -611,13 +658,16 @@ async def get_all_drivers_health(
                     if current_user["role"] != "admin":
                         from edgelite.app import _app_state
                         from edgelite.storage.sqlite_repo import ResourceShareRepo
+
                         device_svc = getattr(_app_state, "device_service", None)
                         if device_svc:
                             dev = await device_svc.get_device(dev_id)
                             if dev and dev.get("created_by") and dev.get("created_by") != current_user["user_id"]:
                                 # FIXED-P2: 补充共享访问检查，共享设备也可见
                                 share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
-                                has_access = await share_repo.check_user_has_access("device", dev_id, current_user["user_id"])
+                                has_access = await share_repo.check_user_has_access(
+                                    "device", dev_id, current_user["user_id"]
+                                )
                                 if not has_access:
                                     continue
                     is_connected = driver.is_device_connected(dev_id)
@@ -652,15 +702,17 @@ async def get_all_drivers_health(
                     else:
                         offline += 1
                 avg_score = score_sum / len(all_stats) if all_stats else 0.0
-                result.append(DriverHealthResponse(
-                    driver_name=driver_name,
-                    device_count=len(all_stats),
-                    healthy_count=healthy,
-                    degraded_count=degraded,
-                    offline_count=offline,
-                    avg_health_score=avg_score,
-                    devices=devices,
-                ))
+                result.append(
+                    DriverHealthResponse(
+                        driver_name=driver_name,
+                        device_count=len(all_stats),
+                        healthy_count=healthy,
+                        degraded_count=degraded,
+                        offline_count=offline,
+                        avg_health_score=avg_score,
+                        devices=devices,
+                    )
+                )
         return ApiResponse(data=result)
     except Exception as e:
         logger.error("get_all_drivers_health failed: %s", e)
@@ -740,6 +792,7 @@ async def video_ai_reload_model(
         # FIXED(严重): 原问题-model_path参数无路径校验,存在路径遍历风险;
         # 修复-禁止".."遍历,并校验解析后的绝对路径必须位于允许的模型目录内。
         from pathlib import Path
+
         model_path = req.model_path
         if not model_path:
             raise HTTPException(status_code=400, detail=VideoAiDriverErrors.CONFIG_INVALID)
@@ -753,7 +806,8 @@ async def video_ai_reload_model(
         allowed_dirs.extend(str(d) for d in _cfg_dirs)
         resolved = Path(model_path).resolve()
         in_allowed = any(
-            str(resolved) == Path(d).resolve().as_posix() or str(resolved).startswith(Path(d).resolve().as_posix() + "/")
+            str(resolved) == Path(d).resolve().as_posix()
+            or str(resolved).startswith(Path(d).resolve().as_posix() + "/")
             for d in allowed_dirs
         )
         if not in_allowed:

@@ -52,12 +52,12 @@ class OfflineSyncManager:
         """启动同步循环任务"""
         if self._sync_task is not None and not self._sync_task.done():
             return  # 已启动，避免重复创建
-        self._sync_task = asyncio.create_task(
-            self._sync_loop(), name="modbus-offline-sync"
-        )
+        self._sync_task = asyncio.create_task(self._sync_loop(), name="modbus-offline-sync")
         logger.info(
             "[offline_sync] 已启动 sync_interval=%.1fs batch=%d compress=%s",
-            self._sync_interval, self._batch_size, self._compress,
+            self._sync_interval,
+            self._batch_size,
+            self._compress,
         )
 
     async def stop(self) -> None:
@@ -84,6 +84,7 @@ class OfflineSyncManager:
                 # 短暂退避后继续
                 with contextlib.suppress(asyncio.CancelledError):
                     await asyncio.sleep(self._sync_interval)
+
     async def _do_sync(self) -> int:
         """执行一次同步：读取未同步数据并上传
 
@@ -138,9 +139,7 @@ class OfflineSyncManager:
                 if isinstance(rid, int) and rid > max_id:
                     max_id = rid
         if max_id > 0:
-            marker = getattr(self._ts_store, "sync_completed", None) or getattr(
-                self._ts_store, "mark_synced", None
-            )
+            marker = getattr(self._ts_store, "sync_completed", None) or getattr(self._ts_store, "mark_synced", None)
             if marker is not None:
                 try:
                     mres = marker(max_id)

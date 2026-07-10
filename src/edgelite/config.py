@@ -127,7 +127,9 @@ class ServerConfig(BaseModel):
     cors_origins: list[str] = ["http://localhost:3000"]  # 保留用于兼容
     webhook_api_key: str = ""
     debug_api_enabled: bool = False
-    debug_api_allowed_ips: list[str] = Field(default_factory=lambda: ["127.0.0.1", "::1"])  # FIXED(安全): 默认仅允许本机访问 Debug API，空列表=拒绝所有
+    debug_api_allowed_ips: list[str] = Field(
+        default_factory=lambda: ["127.0.0.1", "::1"]
+    )  # FIXED(安全): 默认仅允许本机访问 Debug API，空列表=拒绝所有
     # FIXED-P0: 可信代理 IP 列表，用于防止 X-Forwarded-For 头伪造绕过速率限制
     # 只有直接客户端 IP 在此列表中时，才信任 X-Forwarded-For/X-Real-IP 头
     # 支持单个 IP（如 "127.0.0.1"）或 CIDR 格式（如 "10.0.0.0/8"）
@@ -274,17 +276,20 @@ class SecurityConfig(BaseModel):
                 f"JWT tokens can be forged with a known placeholder! "
                 f"Set EDGELITE_SECURITY__SECRET_KEY environment variable."
             )
-        if self.secret_key.strip("<>") in self._PLACEHOLDER_VALUES or self.secret_key.lower() in self._PLACEHOLDER_VALUES:
+        if (
+            self.secret_key.strip("<>") in self._PLACEHOLDER_VALUES
+            or self.secret_key.lower() in self._PLACEHOLDER_VALUES
+        ):
             raise ValueError(
                 f"security.secret_key is set to a placeholder value '{self.secret_key}' — "
                 f"This is insecure! Generate a random key: "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                f'python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
         if len(self.secret_key) < 32:
             raise ValueError(
                 f"security.secret_key is too short ({len(self.secret_key)} chars, minimum 32) — "
                 f"JWT tokens can be brute-forced! Generate a random key: "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                f'python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
         return self
 
@@ -318,7 +323,9 @@ class SimulatorDeviceConfig(BaseModel):
 
 
 class SimulatorConfig(BaseModel):
-    auto_create: bool = False  # FIXED-P1: 默认关闭，生产环境不应自动创建模拟设备；开发环境通过EDGELITE_SIMULATOR__AUTO_CREATE=true开启
+    auto_create: bool = (
+        False  # FIXED-P1: 默认关闭，生产环境不应自动创建模拟设备；开发环境通过EDGELITE_SIMULATOR__AUTO_CREATE=true开启
+    )
     default_devices: list[SimulatorDeviceConfig] = []
 
 
@@ -650,6 +657,7 @@ def _resolve_env_vars(obj: Any) -> Any:  # FIXED-P0: 添加环境变量插值解
         # FIXED-P2: Remove unresolved ${...} placeholders from list items (e.g. CORS origins)
         obj = [item for item in obj if not (isinstance(item, str) and _ENV_VAR_PATTERN.search(item))]
     elif isinstance(obj, str):
+
         def _replace_match(m):
             var_expr = m.group(1)
             # 支持 ${VAR:default} 语法，冒号后为默认值
@@ -666,9 +674,14 @@ def _resolve_env_vars(obj: Any) -> Any:  # FIXED-P0: 添加环境变量插值解
                 if any(kw in var_name.lower() for kw in ("password", "secret", "token", "key")):
                     logger.error("Required environment variable %s not set, using empty value", var_name)
                     return ""
-                logger.warning("Environment variable %s referenced in config but not set, keeping ${%s} placeholder", var_name, var_name)
+                logger.warning(
+                    "Environment variable %s referenced in config but not set, keeping ${%s} placeholder",
+                    var_name,
+                    var_name,
+                )
                 return m.group(0)
             return val
+
         obj = _ENV_VAR_PATTERN.sub(_replace_match, obj)
     return obj
 
@@ -771,6 +784,7 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
         try:
             import json as _json
             import sqlite3 as _sqlite3
+
             cv_db = Path("data/config_versions.db")
             if cv_db.exists():
                 conn = _sqlite3.connect(str(cv_db), timeout=5)
@@ -809,8 +823,7 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
     dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
     if not dev_mode and config.server.debug_api_enabled:
         logger.warning(
-            "安全校验: 生产环境（DEV_MODE=false）下禁止开启 debug_api_enabled，"
-            "已强制关闭。如需调试请设置 DEV_MODE=true"
+            "安全校验: 生产环境（DEV_MODE=false）下禁止开启 debug_api_enabled，已强制关闭。如需调试请设置 DEV_MODE=true"
         )
         config.server.debug_api_enabled = False
 
@@ -824,12 +837,12 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
                 raise ValueError(
                     "EDGELITE_CSRF_SECRET 被设置为已知不安全默认值/占位符，"
                     "生产环境禁止使用！请生成强随机值："
-                    "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                    'python -c "import secrets; print(secrets.token_urlsafe(32))"'
                 )
             if len(_csrf_secret) < 32:
                 logger.warning(
                     "安全校验: EDGELITE_CSRF_SECRET 长度仅 %d 字符（建议至少 32 字符），"
-                    "可能被暴力破解。生成命令: python -c \"import secrets; print(secrets.token_urlsafe(32))\"",
+                    '可能被暴力破解。生成命令: python -c "import secrets; print(secrets.token_urlsafe(32))"',
                     len(_csrf_secret),
                 )
         else:
@@ -847,7 +860,9 @@ _config: AppConfig | None = None
 # （asyncio.Lock 恒存在，条件永真），且模块级创建 Lock 会绑定到导入时的（可能不存在的）事件循环，
 # 多事件循环场景下复用会报错。改为懒初始化，首次 get_config_async 时按当前运行循环创建。
 _config_async_lock: asyncio.Lock | None = None
-_config_sync_lock = threading.Lock()  # FIXED-P1: 原问题-get_config()同步版本无线程安全保护，多线程并发首次调用可创建多个实例
+_config_sync_lock = (
+    threading.Lock()
+)  # FIXED-P1: 原问题-get_config()同步版本无线程安全保护，多线程并发首次调用可创建多个实例
 _reload_lock = threading.Lock()  # FIXED-P1: reload_from_dict配置热更新并发保护
 
 
@@ -910,9 +925,11 @@ def save_config(config: AppConfig, config_path: str | Path | None = None) -> Non
     # FIXED-P0: 原问题-YAML写入成功后版本快照写入可能失败(non-fatal)，文件已更新但版本历史缺失
     # 改为：先写版本快照再原子替换YAML文件，快照失败则中止保存，确保版本历史始终覆盖当前文件
     import json as _json
+
     config_json = _json.dumps(config_dict, ensure_ascii=False, default=str)
     try:
         from edgelite.services.config_version import get_config_version_manager
+
         cvm = get_config_version_manager()
         cvm.save_version_sync(config_json)
     except Exception as cv_err:
@@ -922,9 +939,7 @@ def save_config(config: AppConfig, config_path: str | Path | None = None) -> Non
     # FIXED-P0: 原问题-save_config直接覆写文件，断电/磁盘满导致配置截断丢失
     # 改为写临时文件+os.replace原子替换，确保配置文件要么完整更新要么保持原状
     try:
-        fd, tmp_path = tempfile.mkstemp(
-            suffix=".tmp", prefix=path.name + ".", dir=str(path.parent)
-        )
+        fd, tmp_path = tempfile.mkstemp(suffix=".tmp", prefix=path.name + ".", dir=str(path.parent))
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
@@ -944,9 +959,7 @@ def save_config(config: AppConfig, config_path: str | Path | None = None) -> Non
     _config = config
 
 
-def update_config_section(
-    section: str, values: dict, config_path: str | Path | None = None
-) -> AppConfig:
+def update_config_section(section: str, values: dict, config_path: str | Path | None = None) -> AppConfig:
     """更新配置的某个段落并持久化
 
     Args:

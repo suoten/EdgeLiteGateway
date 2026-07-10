@@ -132,8 +132,11 @@ async def list_devices(
     try:
         created_by = None if user["role"] == "admin" else user["user_id"]
         devices, total = await svc.list_devices(
-            pagination.page, pagination.size,
-            status, protocol, search,
+            pagination.page,
+            pagination.size,
+            status,
+            protocol,
+            search,
             created_by=created_by,
             collect_status=collect_status,
         )
@@ -173,6 +176,7 @@ async def create_device(
         # Validate device config against driver schema
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             registry = get_driver_registry()
             if registry:
                 driver_cls = registry.get_driver_class(body.protocol if hasattr(body, "protocol") else "")
@@ -180,11 +184,14 @@ async def create_device(
                     driver_instance = driver_cls()
                     validation = driver_instance.validate_config(body.config if hasattr(body, "config") else {})
                     if not validation.valid:
-                        raise HTTPException(status_code=422, detail={
-                            "error_code": "ERR_DEVICE_CONFIG_INVALID",
-                            "errors": validation.errors,
-                            "warnings": validation.warnings,
-                        })
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "error_code": "ERR_DEVICE_CONFIG_INVALID",
+                                "errors": validation.errors,
+                                "warnings": validation.warnings,
+                            },
+                        )
         except HTTPException:
             raise
         except Exception as e:
@@ -193,6 +200,7 @@ async def create_device(
         device = await svc.create_device(body.model_dump(), created_by=user["user_id"])
         try:
             from edgelite.services.audit_service import AuditAction
+
             # 补充ip_address和user_agent用于审计追溯
             ip_address = request.client.host if request and request.client else None
             user_agent = request.headers.get("User-Agent") if request else None
@@ -216,23 +224,32 @@ async def create_device(
         elif "unsupported protocol" in err_msg.lower():
             raise HTTPException(status_code=422, detail=DeviceErrors.DRIVER_UNAVAILABLE) from e
         elif "missing required" in err_msg.lower():
-            raise HTTPException(status_code=422, detail={
-                "error_code": DeviceErrors.CONFIG_INVALID,
-                "errors": [err_msg],
-                "warnings": [],
-            }) from e
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error_code": DeviceErrors.CONFIG_INVALID,
+                    "errors": [err_msg],
+                    "warnings": [],
+                },
+            ) from e
         elif "driver start failed" in err_msg.lower() or "connection" in err_msg.lower():
-            raise HTTPException(status_code=409, detail={
-                "error_code": DeviceErrors.CREATE_FAILED,
-                "errors": [err_msg],
-                "warnings": [],
-            }) from e
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error_code": DeviceErrors.CREATE_FAILED,
+                    "errors": [err_msg],
+                    "warnings": [],
+                },
+            ) from e
         else:
-            raise HTTPException(status_code=422, detail={
-                "error_code": DeviceErrors.CONFIG_INVALID,
-                "errors": [err_msg],
-                "warnings": [],
-            }) from e
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error_code": DeviceErrors.CONFIG_INVALID,
+                    "errors": [err_msg],
+                    "warnings": [],
+                },
+            ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -267,6 +284,7 @@ async def discover_devices(
     try:
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             registry = get_driver_registry()
             if registry:
                 driver_cls = registry.get_driver_class(body.protocol)
@@ -275,10 +293,13 @@ async def discover_devices(
                     if caps is not None:
                         discover_supported = getattr(caps, "discover", None)
                         if discover_supported is False:
-                            raise HTTPException(status_code=400, detail={
-                                "error_code": "ERR_DEVICE_CAPABILITY_NOT_SUPPORTED",
-                                "message": f"Driver '{body.protocol}' does not support discover capability",
-                            })
+                            raise HTTPException(
+                                status_code=400,
+                                detail={
+                                    "error_code": "ERR_DEVICE_CAPABILITY_NOT_SUPPORTED",
+                                    "message": f"Driver '{body.protocol}' does not support discover capability",
+                                },
+                            )
         except HTTPException:
             raise
         except Exception as e:
@@ -353,25 +374,36 @@ async def test_device_connection(
 
     # 对于 modbus_rtu 等串口协议，无法用 TCP 检测
     if protocol in ("modbus_rtu", "modbus-rtu"):
-        return ApiResponse(data={
-            "success": False,
-            "supported": False,
-            "message": "Serial protocol cannot be tested via TCP; please save and run self-test.",
-        })
+        return ApiResponse(
+            data={
+                "success": False,
+                "supported": False,
+                "message": "Serial protocol cannot be tested via TCP; please save and run self-test.",
+            }
+        )
 
     if not host:
-        return ApiResponse(data={
-            "success": False,
-            "supported": False,
-            "message": "No host/ip in config to test.",
-        })
+        return ApiResponse(
+            data={
+                "success": False,
+                "supported": False,
+                "message": "No host/ip in config to test.",
+            }
+        )
 
     # 默认端口映射
     default_ports = {
-        "modbus_tcp": 502, "opcua": 4840, "mqtt": 1883,
-        "http": 80, "https": 443, "siemens_s7": 102,
-        "mitsubishi_mc": 5000, "omron_fins": 9600,
-        "allen_bradley": 44818, "opc_da": 135, "onvif": 80,
+        "modbus_tcp": 502,
+        "opcua": 4840,
+        "mqtt": 1883,
+        "http": 80,
+        "https": 443,
+        "siemens_s7": 102,
+        "mitsubishi_mc": 5000,
+        "omron_fins": 9600,
+        "allen_bradley": 44818,
+        "opc_da": 135,
+        "onvif": 80,
     }
     port = config.get("port")
     if not port:
@@ -402,28 +434,34 @@ async def test_device_connection(
                 await writer.wait_closed()
             except Exception as close_err:
                 logger.debug("writer.wait_closed() failed: %s", close_err)
-            return ApiResponse(data={
-                "success": True,
-                "supported": True,
-                "host": host,
-                "port": int(port),
-                "message": f"Connection to {host}:{port} succeeded.",
-            })
+            return ApiResponse(
+                data={
+                    "success": True,
+                    "supported": True,
+                    "host": host,
+                    "port": int(port),
+                    "message": f"Connection to {host}:{port} succeeded.",
+                }
+            )
         except (TimeoutError, ConnectionRefusedError, OSError) as ce:
-            return ApiResponse(data={
-                "success": False,
-                "supported": True,
-                "host": host,
-                "port": int(port),
-                "message": f"Connection to {host}:{port} failed: {type(ce).__name__}",
-            })
+            return ApiResponse(
+                data={
+                    "success": False,
+                    "supported": True,
+                    "host": host,
+                    "port": int(port),
+                    "message": f"Connection to {host}:{port} failed: {type(ce).__name__}",
+                }
+            )
     except Exception as e:
         logger.error("test_device_connection failed: %s", e)
-        return ApiResponse(data={
-            "success": False,
-            "supported": False,
-            "message": f"Test failed: {e}",
-        })
+        return ApiResponse(
+            data={
+                "success": False,
+                "supported": False,
+                "message": f"Test failed: {e}",
+            }
+        )
 
 
 # FIXED: 静态路由必须在/{device_id}动态路由之前注册，否则FastAPI将静态路径匹配为device_id导致404
@@ -445,7 +483,7 @@ async def list_all_device_health(
         # R9-S-14: 应用分页切片，防止返回过大响应
         if isinstance(data, list):
             total = len(data)
-            data = data[offset:offset + limit]
+            data = data[offset : offset + limit]
         else:
             total = 0
         return ApiResponse(data={"items": data, "total": total, "limit": limit, "offset": offset})
@@ -487,14 +525,19 @@ async def get_collect_stats(
         if user["role"] != "admin":
             accessible_ids = await _get_accessible_device_ids(svc, user)
             stats = {k: v for k, v in stats.items() if k in accessible_ids}
-        return ApiResponse(data={k: {
-            "device_id": v.device_id,
-            "avg_latency_ms": round(v.avg_latency_ms, 2),
-            "max_latency_ms": round(v.max_latency_ms, 2),
-            "total_calls": v.total_calls,
-            "timeout_count": v.timeout_count,
-            "last_collect_at": v.last_collect_at,
-        } for k, v in stats.items()})
+        return ApiResponse(
+            data={
+                k: {
+                    "device_id": v.device_id,
+                    "avg_latency_ms": round(v.avg_latency_ms, 2),
+                    "max_latency_ms": round(v.max_latency_ms, 2),
+                    "total_calls": v.total_calls,
+                    "timeout_count": v.timeout_count,
+                    "last_collect_at": v.last_collect_at,
+                }
+                for k, v in stats.items()
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -513,13 +556,18 @@ async def get_device_quality_stats(
         if user["role"] != "admin":
             accessible_ids = await _get_accessible_device_ids(svc, user)
             stats = {k: v for k, v in stats.items() if k in accessible_ids}
-        return ApiResponse(data={k: {
-            "device_id": v.device_id,
-            "success_count": v.success_count,
-            "error_count": v.error_count,
-            "total_count": v.total_count,
-            "error_rate": round(v.error_rate, 4),
-        } for k, v in stats.items()})
+        return ApiResponse(
+            data={
+                k: {
+                    "device_id": v.device_id,
+                    "success_count": v.success_count,
+                    "error_count": v.error_count,
+                    "total_count": v.total_count,
+                    "error_rate": round(v.error_rate, 4),
+                }
+                for k, v in stats.items()
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -541,10 +589,12 @@ async def batch_delete_devices(
         )
         failed = {k: v[1] for k, v in results.items() if not v[0]}
         success = {k for k, v in results.items() if v[0]}
-        return ApiResponse(data={
-            "success_count": len(success),
-            "failed": failed,
-        })
+        return ApiResponse(
+            data={
+                "success_count": len(success),
+                "failed": failed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -570,10 +620,12 @@ async def batch_start_collect(
         results = await svc.batch_start_collect(body.device_ids)
         failed = {k: v[1] for k, v in results.items() if not v[0]}
         success = {k for k, v in results.items() if v[0]}
-        return ApiResponse(data={
-            "success_count": len(success),
-            "failed": failed,
-        })
+        return ApiResponse(
+            data={
+                "success_count": len(success),
+                "failed": failed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -599,10 +651,12 @@ async def batch_stop_collect(
         results = await svc.batch_stop_collect(body.device_ids)
         failed = {k: v[1] for k, v in results.items() if not v[0]}
         success = {k for k, v in results.items() if v[0]}
-        return ApiResponse(data={
-            "success_count": len(success),
-            "failed": failed,
-        })
+        return ApiResponse(
+            data={
+                "success_count": len(success),
+                "failed": failed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -679,27 +733,43 @@ async def batch_deploy_config(
                         sensitive_changes.append(f"point added: {pt_name}")
                         continue
                     for sensitive_field in ("address", "data_type", "access_mode"):
-                        old_val = old_pt.get(sensitive_field) if isinstance(old_pt, dict) else getattr(old_pt, sensitive_field, None)
-                        new_val = new_pt.get(sensitive_field) if isinstance(new_pt, dict) else getattr(new_pt, sensitive_field, None)
+                        old_val = (
+                            old_pt.get(sensitive_field)
+                            if isinstance(old_pt, dict)
+                            else getattr(old_pt, sensitive_field, None)
+                        )
+                        new_val = (
+                            new_pt.get(sensitive_field)
+                            if isinstance(new_pt, dict)
+                            else getattr(new_pt, sensitive_field, None)
+                        )
                         if old_val != new_val:
                             sensitive_changes.append(f"point {pt_name}.{sensitive_field}: {old_val!r} -> {new_val!r}")
                 if sensitive_changes:
                     logger.warning(
                         "Batch deploy sensitive point changes for device %s by %s: %s",
-                        target_id, user.get("username"), sensitive_changes,
+                        target_id,
+                        user.get("username"),
+                        sensitive_changes,
                     )
 
                 # 构建更新数据：从模板复制points和collect_interval，可选覆盖config
                 update_data = {
-                    "points": template.get("points", []) if isinstance(template, dict) else getattr(template, "points", []),
-                    "collect_interval": template.get("collect_interval", 60) if isinstance(template, dict) else getattr(template, "collect_interval", 60),
+                    "points": template.get("points", [])
+                    if isinstance(template, dict)
+                    else getattr(template, "points", []),
+                    "collect_interval": template.get("collect_interval", 60)
+                    if isinstance(template, dict)
+                    else getattr(template, "collect_interval", 60),
                 }
                 if req.override_config:
                     update_data["config"] = req.override_config
 
                 # SEC-FIX: 保存变更前快照用于审计
-                before_snapshot = target if isinstance(target, dict) else (
-                    target.model_dump() if hasattr(target, "model_dump") else dict(target.__dict__)
+                before_snapshot = (
+                    target
+                    if isinstance(target, dict)
+                    else (target.model_dump() if hasattr(target, "model_dump") else dict(target.__dict__))
                 )
                 await device_service.update_device(target_id, update_data)
                 audit_record = {
@@ -734,6 +804,7 @@ async def batch_deploy_config(
         # SEC-FIX: 批量部署审计日志，details 含 before/after 快照和 deployed_devices 列表
         try:
             from edgelite.services.audit_service import AuditAction
+
             if audit_svc is not None:
                 await audit_svc.log(
                     action=AuditAction.DEVICE_UPDATE,
@@ -765,6 +836,7 @@ async def batch_deploy_config(
 # 设备模板管理
 # ------------------------------------------------------------------
 
+
 @router.post("/templates", response_model=ApiResponse[TemplateResponse], status_code=201)
 async def create_template(
     body: TemplateCreate,
@@ -779,7 +851,10 @@ async def create_template(
         template = await svc.create_template(body.device_id, body.template_name, created_by=user["user_id"])
         return ApiResponse(data=template)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={"error_code": DeviceErrors.TEMPLATE_CREATE_FAILED, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=409,
+            detail={"error_code": DeviceErrors.TEMPLATE_CREATE_FAILED, "errors": [str(e)], "warnings": []},
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -797,7 +872,10 @@ async def list_templates(
         templates = await svc.list_templates(created_by=created_by)
         return ApiResponse(data=templates)
     except ValueError as e:
-        raise HTTPException(status_code=503, detail={"error_code": DeviceErrors.TEMPLATE_LIST_FAILED, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": DeviceErrors.TEMPLATE_LIST_FAILED, "errors": [str(e)], "warnings": []},
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -819,7 +897,10 @@ async def create_from_template(
         )
         return ApiResponse(data=device)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={"error_code": DeviceErrors.FROM_TEMPLATE_FAILED, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=409,
+            detail={"error_code": DeviceErrors.FROM_TEMPLATE_FAILED, "errors": [str(e)], "warnings": []},
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -847,7 +928,10 @@ async def delete_template(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=503, detail={"error_code": DeviceErrors.TEMPLATE_DELETE_FAILED, "errors": [str(e)], "warnings": []}) from e
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": DeviceErrors.TEMPLATE_DELETE_FAILED, "errors": [str(e)], "warnings": []},
+        ) from e
     except Exception as e:
         logger.error("delete_template failed: %s", e)
         raise HTTPException(status_code=500, detail=DeviceErrors.TEMPLATE_DELETE_FAILED) from e
@@ -856,6 +940,7 @@ async def delete_template(
 # ------------------------------------------------------------------
 # 批量导入导出
 # ------------------------------------------------------------------
+
 
 @router.post("/export", response_model=ApiResponse)
 async def export_devices(
@@ -952,8 +1037,10 @@ async def update_device(
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         await _check_device_access(existing, user)
         # SEC-FIX-V06: 保存变更前快照，用于审计 before_value 与敏感字段变更检测
-        before_snapshot = existing if isinstance(existing, dict) else (
-            existing.model_dump() if hasattr(existing, "model_dump") else dict(existing.__dict__)
+        before_snapshot = (
+            existing
+            if isinstance(existing, dict)
+            else (existing.model_dump() if hasattr(existing, "model_dump") else dict(existing.__dict__))
         )
         # SEC-FIX-V03: 字段级白名单——只允许已知安全字段进入更新，防止注入任意 config 键
         _ALLOWED_UPDATE_KEYS = {"name", "config", "points", "collect_interval", "_version"}
@@ -968,8 +1055,10 @@ async def update_device(
             stripped = {k: v for k, v in data["config"].items() if k in _WRITE_POLICY_KEYS}
             if stripped:
                 logger.warning(
-                    "update_device stripped write-policy keys from config: %s (user=%s, device=%s) — use PUT /write-policy instead",
-                    list(stripped.keys()), user.get("user_id"), device_id,
+                    "update_device stripped write-policy keys from config: %s (user=%s, device=%s) — use PUT /write-policy instead",  # noqa: E501
+                    list(stripped.keys()),
+                    user.get("user_id"),
+                    device_id,
                 )
                 incoming_config = {k: v for k, v in data["config"].items() if k not in _WRITE_POLICY_KEYS}
                 # FIXED-Bug27: 合并数据库中已有的写保护字段，防止 config 整体替换时丢失
@@ -988,8 +1077,12 @@ async def update_device(
         # SEC-FIX-V03: 敏感字段变更检测——点位 name/address/data_type/access_mode 变更需重点审计
         sensitive_changes: list[str] = []
         if "points" in data and isinstance(before_snapshot, dict):
-            before_points = {p.get("name"): p for p in (before_snapshot.get("points") or [])} if isinstance(before_snapshot.get("points"), list) else {}
-            for new_pt in (data.get("points") or []):
+            before_points = (
+                {p.get("name"): p for p in (before_snapshot.get("points") or [])}
+                if isinstance(before_snapshot.get("points"), list)
+                else {}
+            )
+            for new_pt in data.get("points") or []:
                 pt_name = new_pt.get("name") if isinstance(new_pt, dict) else getattr(new_pt, "name", None)
                 if not pt_name:
                     continue
@@ -998,21 +1091,28 @@ async def update_device(
                     sensitive_changes.append(f"point added: {pt_name}")
                     continue
                 for sensitive_field in ("address", "data_type", "access_mode"):
-                    old_val = old_pt.get(sensitive_field) if isinstance(old_pt, dict) else getattr(old_pt, sensitive_field, None)
-                    new_val = new_pt.get(sensitive_field) if isinstance(new_pt, dict) else getattr(new_pt, sensitive_field, None)
+                    old_val = (
+                        old_pt.get(sensitive_field)
+                        if isinstance(old_pt, dict)
+                        else getattr(old_pt, sensitive_field, None)
+                    )
+                    new_val = (
+                        new_pt.get(sensitive_field)
+                        if isinstance(new_pt, dict)
+                        else getattr(new_pt, sensitive_field, None)
+                    )
                     if old_val != new_val:
                         sensitive_changes.append(f"point {pt_name}.{sensitive_field}: {old_val!r} -> {new_val!r}")
         # SEC-FIX: 非 admin 用户修改点位不可变字段（address/data_type/access_mode）直接拒绝
         # admin 用户允许变更但记录审计（下方已有逻辑）
         # 仅检测字段值变更（排除 point added 场景）
-        immutable_field_changes = [
-            c for c in sensitive_changes
-            if not c.startswith("point added:")
-        ]
+        immutable_field_changes = [c for c in sensitive_changes if not c.startswith("point added:")]
         if immutable_field_changes and user.get("role") != "admin":
             logger.warning(
                 "update_device blocked: non-admin user %s attempted immutable point field changes on %s: %s",
-                user.get("username"), device_id, immutable_field_changes,
+                user.get("username"),
+                device_id,
+                immutable_field_changes,
             )
             raise HTTPException(
                 status_code=403,
@@ -1028,10 +1128,17 @@ async def update_device(
         # Validate device config against driver schema
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             registry = get_driver_registry()
             if registry:
                 existing = await svc.get_device(device_id)
-                protocol = existing.get("protocol", "") if isinstance(existing, dict) else getattr(existing, "protocol", "") if existing else ""
+                protocol = (
+                    existing.get("protocol", "")
+                    if isinstance(existing, dict)
+                    else getattr(existing, "protocol", "")
+                    if existing
+                    else ""
+                )
                 config = data.get("config", {})
                 if protocol and config:
                     driver_cls = registry.get_driver_class(protocol)
@@ -1039,11 +1146,14 @@ async def update_device(
                         driver_instance = driver_cls()
                         validation = driver_instance.validate_config(config)
                         if not validation.valid:
-                            raise HTTPException(status_code=422, detail={
-                                "error_code": "ERR_DEVICE_CONFIG_INVALID",
-                                "errors": validation.errors,
-                                "warnings": validation.warnings,
-                            })
+                            raise HTTPException(
+                                status_code=422,
+                                detail={
+                                    "error_code": "ERR_DEVICE_CONFIG_INVALID",
+                                    "errors": validation.errors,
+                                    "warnings": validation.warnings,
+                                },
+                            )
         except HTTPException:
             raise
         except Exception as e:
@@ -1055,6 +1165,7 @@ async def update_device(
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         try:
             from edgelite.services.audit_service import AuditAction
+
             # SEC-FIX-V06: 审计日志补 before_value，支持变更前后比对
             audit_kwargs: dict = dict(
                 action=AuditAction.DEVICE_UPDATE,
@@ -1068,7 +1179,9 @@ async def update_device(
             # SEC-FIX-V03: 敏感字段变更时附加标记，便于安全审计检索
             if sensitive_changes:
                 audit_kwargs["details"] = {"sensitive_changes": sensitive_changes}
-                logger.warning("Sensitive device update by %s on %s: %s", user.get("username"), device_id, sensitive_changes)
+                logger.warning(
+                    "Sensitive device update by %s on %s: %s", user.get("username"), device_id, sensitive_changes
+                )
             await audit_svc.log(**audit_kwargs)
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
@@ -1105,11 +1218,17 @@ async def update_write_policy(
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         await _check_device_access(existing, user)
         # 保存变更前写保护配置快照
-        existing_dict = existing if isinstance(existing, dict) else (
-            existing.model_dump() if hasattr(existing, "model_dump") else dict(existing.__dict__)
+        existing_dict = (
+            existing
+            if isinstance(existing, dict)
+            else (existing.model_dump() if hasattr(existing, "model_dump") else dict(existing.__dict__))
         )
         existing_config = existing_dict.get("config", {}) if isinstance(existing_dict, dict) else {}
-        before_policy = {k: existing_config.get(k) for k in ("write_verify", "write_rate_limit", "write_audit", "write_whitelist") if k in existing_config}
+        before_policy = {
+            k: existing_config.get(k)
+            for k in ("write_verify", "write_rate_limit", "write_audit", "write_whitelist")
+            if k in existing_config
+        }
         # 合并写保护字段到 config
         policy_data = body.model_dump(exclude_none=True)
         merged_config = {**existing_config, **policy_data}
@@ -1119,7 +1238,12 @@ async def update_write_policy(
             old_val = before_policy.get(k)
             if k in ("write_verify", "write_audit") and old_val is True and new_val is False:
                 sensitive_changes.append(f"{k}: True -> False (DOWNGRADE)")
-            elif k == "write_rate_limit" and isinstance(old_val, (int, float)) and isinstance(new_val, (int, float)) and new_val < old_val:
+            elif (
+                k == "write_rate_limit"
+                and isinstance(old_val, (int, float))
+                and isinstance(new_val, (int, float))
+                and new_val < old_val
+            ):
                 sensitive_changes.append(f"{k}: {old_val} -> {new_val} (RELAXED)")
         if sensitive_changes:
             logger.warning("Write policy downgrade by %s on %s: %s", user.get("username"), device_id, sensitive_changes)
@@ -1133,6 +1257,7 @@ async def update_write_policy(
         # 审计日志
         try:
             from edgelite.services.audit_service import AuditAction
+
             await audit_svc.log(
                 AuditAction.DEVICE_UPDATE,
                 user_id=user["user_id"],
@@ -1172,6 +1297,7 @@ async def delete_device(
         # 先审计后业务：先写审计日志（status=pending），审计失败则不执行删除（fail-safe）
         try:
             from edgelite.services.audit_service import AuditAction
+
             await audit_svc.log(
                 AuditAction.DEVICE_DELETE,
                 user_id=user["user_id"],
@@ -1259,10 +1385,13 @@ async def write_device_point(
                 if caps is not None:
                     write_supported = getattr(caps, "write", None)
                     if write_supported is False:
-                        raise HTTPException(status_code=400, detail={
-                            "error_code": "ERR_DEVICE_CAPABILITY_NOT_SUPPORTED",
-                            "message": f"Device '{device_id}' driver does not support write capability",
-                        })
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "error_code": "ERR_DEVICE_CAPABILITY_NOT_SUPPORTED",
+                                "message": f"Device '{device_id}' driver does not support write capability",
+                            },
+                        )
         except HTTPException:
             raise
         except Exception as e:
@@ -1271,6 +1400,7 @@ async def write_device_point(
         # Check write policy
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             registry = get_driver_registry()
             if registry:
                 driver = registry.get_driver_instance(device_id)
@@ -1286,6 +1416,7 @@ async def write_device_point(
         # 完整的多级审批链可后续接入 CommandApprovalService.submit_command
         try:
             from edgelite.services.command_approval import get_approval_service
+
             approval_svc = get_approval_service()
             # 记录写入意图到审批服务（不阻塞，仅留痕）
             approval_svc.record_intent(
@@ -1307,6 +1438,7 @@ async def write_device_point(
         # SEC-FIX-V05: 写入审计持久化到 audit_service，解决驱动内存 deque 重启即丢的问题
         try:
             from edgelite.services.audit_service import AuditAction
+
             await audit_svc.log(
                 AuditAction.DEVICE_WRITE_POINT,
                 user_id=user["user_id"],
@@ -1347,11 +1479,7 @@ async def push_device_data(
     if not body.data:
         raise HTTPException(status_code=400, detail=DeviceErrors.PUSH_EMPTY)
 
-    api_key_configured = (
-        config
-        and getattr(config, "server", None)
-        and getattr(config.server, "webhook_api_key", None)
-    )
+    api_key_configured = config and getattr(config, "server", None) and getattr(config.server, "webhook_api_key", None)
 
     # 优先使用 Bearer Token（从数据库获取最新角色）
     # FIXED-M02: get_optional_current_user 现在正确处理：
@@ -1387,7 +1515,7 @@ async def push_device_data(
         if not has_api_key_permission("server.webhook_api_key", APIKeyPermission.DEVICE_PUSH):
             logger.warning(
                 "push_device_data: webhook API key lacks DEVICE_PUSH permission (ip=%s)",
-                request.client.host if request and request.client else "unknown"
+                request.client.host if request and request.client else "unknown",
             )
             err = make_error_response(DeviceErrors.PUSH_INVALID_KEY)
             return JSONResponse(content=err, status_code=err["code"])
@@ -1395,6 +1523,7 @@ async def push_device_data(
         # FIXED-H02: 记录 API Key 使用审计日志
         try:
             from edgelite.services.audit_service import AuditAction
+
             # FIXED(P1): 原问题-RUF006 create_task 返回值未保存，task 可能被 GC 回收;
             #            修复-保存到模块级 _background_tasks 集合
             task = asyncio.create_task(
@@ -1563,6 +1692,7 @@ async def get_device_metrics(
     await _check_device_owner(svc, device_id, user)
     try:
         from edgelite.drivers.registry import get_driver_registry
+
         registry = get_driver_registry()
         if registry:
             driver = registry.get_driver_instance(device_id)
@@ -1573,17 +1703,19 @@ async def get_device_metrics(
         raise
     except Exception as e:
         logger.error("Failed to get metrics for %s: %s", device_id, e)
-    return ApiResponse(data={
-        "read_error_rate": 0.0,
-        "write_error_rate": 0.0,
-        "consecutive_failures": 0,
-        "connection_quality_score": 100.0,
-        "total_downtime_seconds": 0.0,
-        "last_online_at": None,
-        "last_offline_at": None,
-        "avg_latency_ms": 0.0,
-        "reconnect_count": 0,
-    })
+    return ApiResponse(
+        data={
+            "read_error_rate": 0.0,
+            "write_error_rate": 0.0,
+            "consecutive_failures": 0,
+            "connection_quality_score": 100.0,
+            "total_downtime_seconds": 0.0,
+            "last_online_at": None,
+            "last_offline_at": None,
+            "avg_latency_ms": 0.0,
+            "reconnect_count": 0,
+        }
+    )
 
 
 class ConfigVersionSaveRequest(BaseModel):
@@ -1610,10 +1742,14 @@ async def list_config_versions(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("list_config_versions failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.GET_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
 
 
 @router.get("/{device_id}/config-versions/current", response_model=ApiResponse)
@@ -1631,10 +1767,14 @@ async def get_config_current(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("get_config_current failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.GET_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
 
 
 @router.get("/{device_id}/config-versions/{version}", response_model=ApiResponse)
@@ -1653,10 +1793,14 @@ async def get_config_version_detail(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("get_config_version_detail failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.GET_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
 
 
 @router.post("/{device_id}/config-versions", response_model=ApiResponse)
@@ -1670,12 +1814,16 @@ async def save_config_version(
     try:
         await _check_device_owner(svc, device_id, user)
         new_ver = await svc.save_config_version(
-            device_id, body.config, body.change_summary, body.operator,
+            device_id,
+            body.config,
+            body.change_summary,
+            body.operator,
         )
         if new_ver == 0:
             raise HTTPException(status_code=400, detail=DeviceErrors.UPDATE_FAILED)
         if audit:
             from edgelite.services.audit_service import AuditAction
+
             # FIXED-M05: user is dict, not object - use .get() instead of getattr()
             await audit.log(
                 AuditAction.DRIVER_CONFIG_UPDATE,
@@ -1689,10 +1837,14 @@ async def save_config_version(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("save_config_version failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.UPDATE_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.UPDATE_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
 
 
 @router.post("/{device_id}/config-versions/rollback", response_model=ApiResponse)
@@ -1710,6 +1862,7 @@ async def rollback_config_version(
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         if audit:
             from edgelite.services.audit_service import AuditAction
+
             # FIXED-M05: user is dict, not object - use .get() instead of getattr()
             await audit.log(
                 AuditAction.CONFIG_UPDATE,
@@ -1723,10 +1876,14 @@ async def rollback_config_version(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("rollback_config_version failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.UPDATE_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.UPDATE_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
 
 
 @router.get("/{device_id}/config-versions/audit", response_model=ApiResponse)
@@ -1743,10 +1900,14 @@ async def get_config_audit_trail(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("get_config_audit_trail failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.GET_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
 
 
 @router.get("/{device_id}/config-versions/diff", response_model=ApiResponse)
@@ -1766,7 +1927,11 @@ async def diff_config_versions(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=DeviceErrors.CONFIG_INVALID) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=400, detail=DeviceErrors.CONFIG_INVALID
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
     except Exception as e:
         logger.error("diff_config_versions failed: %s", e)
-        raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误
+        raise HTTPException(
+            status_code=500, detail=DeviceErrors.GET_FAILED
+        ) from e  # FIXED-P2: 原问题-detail=str(e)泄漏内部错误

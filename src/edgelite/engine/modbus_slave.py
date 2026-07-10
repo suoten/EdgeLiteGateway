@@ -37,12 +37,14 @@ def _parse_pymodbus_version():
     except (ValueError, IndexError, AttributeError):
         return 2, 0
 
+
 _PYMODBUS_MAJOR, _PYMODBUS_MINOR = _parse_pymodbus_version()
 _PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)
 try:
     if _PYMODBUS_37_PLUS:
         from pymodbus.datastore import SimData, SimDevice
         from pymodbus.server import ModbusTcpServer
+
         _PYMODBUS_37_PLUS = True
     else:
         _PYMODBUS_37_PLUS = False
@@ -98,7 +100,9 @@ class ModbusSlaveServer:
         host = config.get("host", "127.0.0.1")  # FIXED-P4: 默认绑定localhost，与config层一致
         port = int(config.get("port", 502))
         if port < 1024:  # FIXED-P2: Modbus默认502端口需要root权限
-            logger.warning("Modbus Slave port %d < 1024 requires root/Admin privileges. Consider using port 5020 or higher.", port)
+            logger.warning(
+                "Modbus Slave port %d < 1024 requires root/Admin privileges. Consider using port 5020 or higher.", port
+            )
         coils_size = int(config.get("coils_size", 100))
         discrete_size = int(config.get("discrete_size", 100))
         holding_size = int(config.get("holding_size", 1000))
@@ -128,8 +132,9 @@ class ModbusSlaveServer:
             self._running = False
             raise
 
-    async def _start_new_api(self, host: str, port: int, coils_size: int,
-                              discrete_size: int, holding_size: int, input_size: int) -> None:
+    async def _start_new_api(
+        self, host: str, port: int, coils_size: int, discrete_size: int, holding_size: int, input_size: int
+    ) -> None:
         """pymodbus 3.7+ 新API: SimData/SimDevice/ModbusTcpServer"""
         from pymodbus.datastore import SimData, SimDevice
         from pymodbus.server import ModbusTcpServer
@@ -148,8 +153,9 @@ class ModbusSlaveServer:
         self._running = True
         logger.info("内置Modbus Slave启动: %s:%d (Holding=%d, Input=%d)", host, port, holding_size, input_size)
 
-    async def _start_legacy_api(self, host: str, port: int, coils_size: int,
-                                 discrete_size: int, holding_size: int, input_size: int) -> None:
+    async def _start_legacy_api(
+        self, host: str, port: int, coils_size: int, discrete_size: int, holding_size: int, input_size: int
+    ) -> None:
         """pymodbus < 3.7 旧API: ModbusSequentialDataBlock/ModbusServerContext/StartAsyncTcpServer"""
         from pymodbus.datastore import (
             ModbusSequentialDataBlock,
@@ -168,7 +174,10 @@ class ModbusSlaveServer:
         input_block = ModbusSequentialDataBlock(1, [0] * input_size)
 
         slave_context = _SlaveCtx(
-            di=discrete_block, co=coils_block, hr=holding_block, ir=input_block,
+            di=discrete_block,
+            co=coils_block,
+            hr=holding_block,
+            ir=input_block,
         )
         if _PYMODBUS_MAJOR < 3:
             self._context = ModbusServerContext(slaves=slave_context, single=True)
@@ -253,9 +262,7 @@ class ModbusSlaveServer:
         except Exception as e:
             logger.warning("Modbus Slave写入Coil失败: %s", e)
 
-    async def map_device_data(
-        self, device_id: str, points: dict[str, Any], base_address: int = 0
-    ) -> None:
+    async def map_device_data(self, device_id: str, points: dict[str, Any], base_address: int = 0) -> None:
         """将设备测点数据映射到Holding寄存器
 
         Args:
@@ -290,9 +297,7 @@ class ModbusSlaveServer:
                         input_list = [0] * input_size
                         coils_list = [0] * coils_size
 
-                    next_addr = map_device_data_fast(
-                        points, holding_list, input_list, coils_list, base_address
-                    )
+                    next_addr = map_device_data_fast(points, holding_list, input_list, coils_list, base_address)
 
                     try:
                         if _PYMODBUS_37_PLUS:
@@ -385,16 +390,12 @@ class ModbusSlaveServer:
         for i, value in enumerate(values):
             await self.set_coil(start_address + i, value)
 
-    async def set_holding_registers_batch(
-        self, start_address: int, values: list[int]
-    ) -> None:
+    async def set_holding_registers_batch(self, start_address: int, values: list[int]) -> None:
         """批量设置多个Holding寄存器值"""
         for i, value in enumerate(values):
             await self.set_holding_register(start_address + i, value)
 
-    async def set_input_registers_batch(
-        self, start_address: int, values: list[int]
-    ) -> None:
+    async def set_input_registers_batch(self, start_address: int, values: list[int]) -> None:
         """批量设置多个Input寄存器值"""
         for i, value in enumerate(values):
             await self.set_input_register(start_address + i, value)

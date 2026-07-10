@@ -101,7 +101,13 @@ class ConnectionManager:
                 try:
                     await websocket.accept()
                     try:
-                        await websocket.send_json({"type": "error", "code": 4001, "message": "Authentication failed: invalid or expired token"})
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "code": 4001,
+                                "message": "Authentication failed: invalid or expired token",
+                            }
+                        )
                     except Exception as e:
                         # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                         logger.warning("WebSocket发送认证错误消息失败: %s", e)
@@ -193,7 +199,9 @@ class ConnectionManager:
             payload = verify_token(token, token_type="access")
         except Exception:
             try:
-                await websocket.send_json({"type": "error", "code": 4001, "message": "Authentication failed: invalid or expired token"})
+                await websocket.send_json(
+                    {"type": "error", "code": 4001, "message": "Authentication failed: invalid or expired token"}
+                )
             except Exception as e:
                 # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 logger.warning("WebSocket发送认证错误消息失败: %s", e)
@@ -259,19 +267,14 @@ class ConnectionManager:
         async with self._connect_lock:  # FIXED-P1: 锁内复制connections快照，防止迭代期间disconnect修改
             connections = set(self._connections.get(channel, set()))
             # FIXED(严重): 同时复制元数据快照，用于过滤
-            meta_snapshot = {
-                ws: dict(self._conn_meta[ws])
-                for ws in connections
-                if ws in self._conn_meta
-            }
+            meta_snapshot = {ws: dict(self._conn_meta[ws]) for ws in connections if ws in self._conn_meta}
         if not connections:
             return
 
         # FIXED(严重): 跳过未认证连接，防止 connect(token=None) 后 _recv_auth_token
         # 等待窗口内的未认证连接收到广播消息（认证前连接 _conn_meta.authenticated=False）
         connections = {
-            ws for ws in connections
-            if ws in meta_snapshot and meta_snapshot[ws].get("authenticated") is True
+            ws for ws in connections if ws in meta_snapshot and meta_snapshot[ws].get("authenticated") is True
         }
         if not connections:
             return
@@ -362,9 +365,7 @@ class ConnectionManager:
         """启动心跳检测任务"""
         if self._heartbeat_task is not None and not self._heartbeat_task.done():
             return
-        self._heartbeat_task = asyncio.create_task(
-            self._heartbeat_loop(), name="ws-heartbeat"
-        )
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(), name="ws-heartbeat")
         logger.info("WebSocket heartbeat started (interval=%ds)", self._heartbeat_interval)
 
     async def stop_heartbeat(self) -> None:

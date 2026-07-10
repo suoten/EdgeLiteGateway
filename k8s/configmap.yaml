@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edgelite-config
+  namespace: edgelite
+  labels:
+    app.kubernetes.io/name: edgelite
+data:
+  EDGELITE_SERVER__HOST: "0.0.0.0"
+  EDGELITE_SERVER__PORT: "8080"
+  EDGELITE_SERVER__CORS_ALLOWED_ORIGINS: "http://localhost:8080;http://localhost:3000"
+  EDGELITE_INFLUXDB__URL: "http://influxdb:8086"
+  EDGELITE_MQTT__BROKER: "mosquitto"
+  EDGELITE_MQTT__USERNAME: "edgelite"
+  EDGELITE_DB__PATH: "/app/data/edgelite.db"
+  EDGELITE_CONFIG: "configs/config.yaml"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edgelite-prometheus-config
+  namespace: edgelite
+  labels:
+    app.kubernetes.io/name: edgelite
+    app.kubernetes.io/component: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: "edgelite"
+        metrics_path: /metrics
+        static_configs:
+          - targets: ["edgelite:8080"]
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]

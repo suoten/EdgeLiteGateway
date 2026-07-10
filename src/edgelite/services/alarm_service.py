@@ -40,6 +40,7 @@ SEVERITY_ORDER = [SEVERITY_INFO, SEVERITY_WARNING, SEVERITY_MINOR, SEVERITY_MAJO
 @dataclass
 class AlarmEscalationConfig:
     """Alarm escalation configuration"""
+
     severity: str
     threshold_seconds: int  # Time before escalation
     escalate_to: str  # Target severity level
@@ -49,6 +50,7 @@ class AlarmEscalationConfig:
 @dataclass
 class AlarmSuppressionRule:
     """Alarm suppression rule"""
+
     rule_id: str
     name: str
     device_ids: list[str] = field(default_factory=list)
@@ -64,6 +66,7 @@ class AlarmSuppressionRule:
 @dataclass
 class AlarmStatistics:
     """Alarm statistics"""
+
     total_count: int = 0
     firing_count: int = 0
     acknowledged_count: int = 0
@@ -85,6 +88,7 @@ class AlarmStatistics:
 @dataclass
 class AlarmEscalationState:
     """State for alarm escalation tracking"""
+
     alarm_id: str
     severity: str
     start_time: datetime
@@ -296,10 +300,7 @@ class AlarmService:
         device_id = event.device_id
         severity = event.severity
 
-        logger.info(
-            "Alarm fired: %s (rule=%s, device=%s, severity=%s)",
-            alarm_id, rule_id, device_id, severity
-        )
+        logger.info("Alarm fired: %s (rule=%s, device=%s, severity=%s)", alarm_id, rule_id, device_id, severity)
 
         # R5-F-09 修复(致命): 去重检查 — 同一 alarm_id 仅处理一次，防止事件总线重投
         # 导致重复通知。recover/acknowledge 等其他 action 不在此去重（它们有独立路径）。
@@ -322,6 +323,7 @@ class AlarmService:
         # is_silenced是同步方法且内部使用run_coroutine_threadsafe，通过to_thread避免阻塞事件循环
         try:
             from edgelite.services.alarm_silence import get_alarm_silence_manager
+
             _silence_mgr = get_alarm_silence_manager()
             _is_silenced = await asyncio.to_thread(_silence_mgr.is_silenced, device_id, rule_id)
             if _is_silenced:
@@ -419,9 +421,7 @@ class AlarmService:
         if original_severity:
             try:
                 await self._repo.update_severity(alarm_id, original_severity)
-                logger.info(
-                    "告警 %s 严重度已恢复为原始值: %s", alarm_id, original_severity
-                )
+                logger.info("告警 %s 严重度已恢复为原始值: %s", alarm_id, original_severity)
             except Exception as e:
                 logger.error("恢复告警原始严重度失败 %s: %s", alarm_id, e)
 
@@ -576,7 +576,9 @@ class AlarmService:
 
         logger.debug(
             "Escalation scheduled for alarm %s: severity=%s, threshold=%ds",
-            alarm_id, severity, config.threshold_seconds
+            alarm_id,
+            severity,
+            config.threshold_seconds,
         )
 
     async def _cancel_escalation(self, alarm_id: str) -> None:
@@ -602,10 +604,7 @@ class AlarmService:
         alarm: dict,
     ) -> None:
         """Perform alarm escalation"""
-        logger.warning(
-            "Alarm escalated: %s (%s -> %s)",
-            alarm_id, current_severity, target_severity
-        )
+        logger.warning("Alarm escalated: %s (%s -> %s)", alarm_id, current_severity, target_severity)
 
         # R9-S-02 修复: 升级前保存原始严重度（仅首次升级时保存，保留最原始值），
         # 以便告警恢复时通过 _handle_recovery 还原为原始 severity
@@ -640,7 +639,8 @@ class AlarmService:
             except Exception as publish_err:
                 logger.error(
                     "Alarm %s escalation event publish failed (DB already updated): %s",
-                    alarm_id, publish_err,
+                    alarm_id,
+                    publish_err,
                 )
         else:
             # Fallback: 无 EventBus 时直接发送通知
@@ -714,7 +714,9 @@ class AlarmService:
         )
         logger.info(
             "Escalation configured: severity=%s, threshold=%ds, escalate_to=%s",
-            severity, threshold_seconds, escalate_to or severity
+            severity,
+            threshold_seconds,
+            escalate_to or severity,
         )
 
     # ============== Suppression ==============
@@ -785,7 +787,10 @@ class AlarmService:
             # All conditions match - alarm is suppressed
             logger.debug(
                 "Alarm suppressed by rule %s: rule_id=%s, device_id=%s, severity=%s",
-                rule.rule_id, rule_id, device_id, severity
+                rule.rule_id,
+                rule_id,
+                device_id,
+                severity,
             )
             return True
 
@@ -852,7 +857,9 @@ class AlarmService:
         self._update_mttr_mtbf()
         return self._stats
 
-    async def get_statistics_summary(self, device_ids: set[str] | None = None) -> dict[str, Any]:  # FIXED-P0: 改为async以支持await调用
+    async def get_statistics_summary(
+        self, device_ids: set[str] | None = None
+    ) -> dict[str, Any]:  # FIXED-P0: 改为async以支持await调用
         self._update_mttr_mtbf()
 
         if device_ids is not None:
@@ -861,7 +868,9 @@ class AlarmService:
         # FIXED-P2: W24 device_ids=None时从数据库重新计算统计而非直接返回内存值
         return await self._get_filtered_statistics(None)
 
-    async def _get_filtered_statistics(self, device_ids: set[str] | None) -> dict[str, Any]:  # FIXED-P0: _get_filtered_statistics使用正确的属性名
+    async def _get_filtered_statistics(
+        self, device_ids: set[str] | None
+    ) -> dict[str, Any]:  # FIXED-P0: _get_filtered_statistics使用正确的属性名
         # FIXED(一般): 原问题-3次全量加载(每次最多_MAX_QUERY_SIZE条)后内存统计，超限被截断且开销大;
         # 修复-改用count_by_status_and_severity单条GROUP BY查询，避免全量加载与内存过滤
         device_ids_list = list(device_ids) if device_ids is not None else None
@@ -973,10 +982,7 @@ class AlarmService:
             # FIXED-P0: 清理过期的 _alarm_start_times 条目，防止内存泄漏
             # 告警开始时间超过 7 天仍未恢复的，视为孤儿数据，清理掉
             cutoff_ts = datetime.now(UTC).timestamp() - 7 * 86400
-            stale_keys = [
-                aid for aid, st in self._alarm_start_times.items()
-                if st.timestamp() < cutoff_ts
-            ]
+            stale_keys = [aid for aid, st in self._alarm_start_times.items() if st.timestamp() < cutoff_ts]
             for aid in stale_keys:
                 del self._alarm_start_times[aid]
             if stale_keys:
@@ -1010,7 +1016,13 @@ class AlarmService:
             # FIXED(一般): 原问题-传入device_ids时先加载_MAX_QUERY_SIZE条再内存过滤，结果可能不完整;
             # 修复-将device_ids下推到SQL，由数据库完成过滤与分页，避免截断
             alarms, total = await self._repo.list_all(
-                page, size, status, severity, device_id, search, device_ids=list(device_ids),
+                page,
+                size,
+                status,
+                severity,
+                device_id,
+                search,
+                device_ids=list(device_ids),
             )
             return alarms, total
 
@@ -1116,7 +1128,8 @@ class AlarmService:
                     logger.warning(
                         "Manually triggered alarm %s notification failed on channels: %s "
                         "(alarm persisted, manual retry may be needed)",
-                        alarm.get("alarm_id"), _failed_channels,
+                        alarm.get("alarm_id"),
+                        _failed_channels,
                     )
             return alarm
         except Exception as e:

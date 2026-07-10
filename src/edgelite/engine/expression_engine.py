@@ -191,7 +191,9 @@ class SafeExpressionVisitor(ast.NodeVisitor):
             raise ValueError("表达式包含不允许的调用方式")
         self.generic_visit(node)
 
-    def visit_Subscript(self, node: ast.Subscript) -> None:  # FIXED-P2: Subscript允许dict/list下标访问，需校验下标值不含__dunder__以防止属性链逃逸
+    def visit_Subscript(
+        self, node: ast.Subscript
+    ) -> None:  # FIXED-P2: Subscript允许dict/list下标访问，需校验下标值不含__dunder__以防止属性链逃逸
         if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
             if node.slice.value.startswith("__") and node.slice.value.endswith("__"):
                 raise ValueError(f"表达式包含危险的字典键访问: {node.slice.value}")
@@ -221,33 +223,63 @@ class ExpressionEngine:
         self._max_workers = max_workers if max_workers is not None else _EXPRESSION_EVAL_MAX_WORKERS
         self._eval_timeout = eval_timeout if eval_timeout is not None else _EXPRESSION_EVAL_TIMEOUT
         self._pool_lock = threading.Lock()
-        self._eval_pool = concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix="expr_eval")  # FIXED-P2: 复用线程池避免孤儿线程
+        self._eval_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_workers, thread_name_prefix="expr_eval"
+        )  # FIXED-P2: 复用线程池避免孤儿线程
 
     def register_function(self, name: str, func: Any) -> None:
         if name in _DANGEROUS_NAMES:
             raise ValueError(f"不能注册危险名称的函数: {name}")
-        if name.startswith("__") and name.endswith("__"):  # FIXED-P2: 禁止注册__dunder__名称函数，防止绕过沙箱访问Python内部属性
+        if name.startswith("__") and name.endswith(
+            "__"
+        ):  # FIXED-P2: 禁止注册__dunder__名称函数，防止绕过沙箱访问Python内部属性
             raise ValueError(f"不能注册dunder名称的函数: {name}")
-        _DANGEROUS_CODE_NAMES = frozenset({
-            "__import__", "__builtins__", "eval", "exec", "open", "os", "sys",
-            "subprocess", "shutil", "pathlib", "socket", "ctypes", "signal", "io",
-            # FIXED-P1: 扩展危险代码名称集合，增加socket/ctypes/signal/io
-            # R6-S-02修复: 补充内省和动态执行相关危险函数，防止沙箱逃逸
-            "getattr", "setattr", "delattr", "type", "globals", "locals", "vars",
-            "dir", "compile", "memoryview", "breakpoint", "help", "input",
-        })
+        _DANGEROUS_CODE_NAMES = frozenset(
+            {
+                "__import__",
+                "__builtins__",
+                "eval",
+                "exec",
+                "open",
+                "os",
+                "sys",
+                "subprocess",
+                "shutil",
+                "pathlib",
+                "socket",
+                "ctypes",
+                "signal",
+                "io",
+                # FIXED-P1: 扩展危险代码名称集合，增加socket/ctypes/signal/io
+                # R6-S-02修复: 补充内省和动态执行相关危险函数，防止沙箱逃逸
+                "getattr",
+                "setattr",
+                "delattr",
+                "type",
+                "globals",
+                "locals",
+                "vars",
+                "dir",
+                "compile",
+                "memoryview",
+                "breakpoint",
+                "help",
+                "input",
+            }
+        )
         if callable(func):
             try:
                 code_obj = getattr(func, "__code__", None)
                 if code_obj is None:
                     raise ValueError(
-                        f"不能注册无 __code__ 属性的可调用对象: {name} "
-                        f"(type={type(func).__name__})，仅允许纯Python函数"
+                        f"不能注册无 __code__ 属性的可调用对象: {name} (type={type(func).__name__})，仅允许纯Python函数"
                     )
                 checked_names = set(getattr(code_obj, "co_names", ())) | set(getattr(code_obj, "co_freevars", ()))
                 for dangerous in _DANGEROUS_CODE_NAMES:
                     if dangerous in checked_names:
-                        raise ValueError(f"不能注册包含危险引用的函数: {name} (引用了 {dangerous})")  # FIXED-P0: register_function添加函数安全检查
+                        raise ValueError(
+                            f"不能注册包含危险引用的函数: {name} (引用了 {dangerous})"
+                        )  # FIXED-P0: register_function添加函数安全检查
                 # FIXED-P1: 检查函数闭包中引用的对象是否包含危险模块
                 # co_freevars仅包含变量名，不包含实际引用的对象类型
                 # 通过检查func.__closure__中的cell_contents进一步验证
@@ -263,7 +295,17 @@ class ExpressionEngine:
                         # except ValueError: pass 吞掉，安全检查形同虚设
                         # 修复：分离 cell_contents 读取与危险模块检测
                         cell_type_name = type(cell_val).__module__
-                        if cell_type_name in ("os", "sys", "subprocess", "socket", "ctypes", "signal", "io", "shutil", "pathlib"):
+                        if cell_type_name in (
+                            "os",
+                            "sys",
+                            "subprocess",
+                            "socket",
+                            "ctypes",
+                            "signal",
+                            "io",
+                            "shutil",
+                            "pathlib",
+                        ):
                             raise ValueError(f"不能注册闭包中引用危险模块的函数: {name} (模块 {cell_type_name})")
             except ValueError:
                 raise
@@ -289,7 +331,9 @@ class ExpressionEngine:
             code = compile(tree, "<expression>", "eval")
             # 自定义函数可能在 eval 中调用协变函数（如 asyncio.sleep），
             # 因此在线程池中执行 eval 并用 wait_for 限制总时长
-            result = self._eval_with_timeout(code, namespace)  # FIXED-P2: 自定义函数无超时保护，恶意/阻塞性自定义函数会导致评估线程永久卡死
+            result = self._eval_with_timeout(
+                code, namespace
+            )  # FIXED-P2: 自定义函数无超时保护，恶意/阻塞性自定义函数会导致评估线程永久卡死
             return result
         except ValueError:
             raise
@@ -339,9 +383,7 @@ class ExpressionEngine:
         except Exception as e:
             logger.debug("[expression_engine] eval_pool shutdown (__del__) failed: %s", e)
 
-    def evaluate_batch(
-        self, expressions: dict[str, str], variables: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def evaluate_batch(self, expressions: dict[str, str], variables: dict[str, Any] | None = None) -> dict[str, Any]:
         results = {}
         for name, expr in expressions.items():
             results[name] = self.evaluate(expr, variables)
@@ -356,6 +398,7 @@ class ExpressionEngine:
 
     def _resolve_variables(self, expression: str, variables: dict[str, Any]) -> str:
         missing_vars: list[str] = []
+
         def replacer(match: re.Match) -> str:
             var_path = match.group(1)
             parts = var_path.split(".")
@@ -370,7 +413,9 @@ class ExpressionEngine:
             if value is None:
                 missing_vars.append(var_path)
                 return "None"  # FIXED-P2: 未定义变量记录后抛出 ValueError，避免静默返回 None
-            if isinstance(value, bool):  # FIXED-P2: bool是int子类，必须先于int判断，否则bool值走int分支被转为"True"/"False"
+            if isinstance(
+                value, bool
+            ):  # FIXED-P2: bool是int子类，必须先于int判断，否则bool值走int分支被转为"True"/"False"
                 return "1" if value else "0"
             if isinstance(value, (int, float)):
                 return str(value)

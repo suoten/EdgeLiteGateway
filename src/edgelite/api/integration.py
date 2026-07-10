@@ -36,11 +36,13 @@ class HandshakeRequest(BaseModel):
 # R11-API-08: 为 RpcExecuteRequest.params 定义嵌套 Pydantic 模型，保留 extra=allow 向后兼容
 class RpcExecuteParams(BaseModel):
     """RPC 指令参数模型（允许额外字段以保持向后兼容）"""
+
     model_config = {"extra": "allow"}
 
 
 class RpcExecuteRequest(BaseModel):
     """RPC指令执行请求模型"""
+
     method: str = Field(..., description="指令方法名")
     device_id: str = Field(..., description="目标设备ID")
     params: RpcExecuteParams = Field(default_factory=RpcExecuteParams, description="指令参数(JSON)")
@@ -51,6 +53,7 @@ class RpcExecuteRequest(BaseModel):
 
 class RpcExecuteResponse(BaseModel):
     """RPC指令执行响应模型"""
+
     command_id: str = Field(..., description="指令ID")
     success: bool = Field(..., description="是否执行成功")
     result: object = Field(default=None, description="执行结果")
@@ -61,6 +64,7 @@ class RpcExecuteResponse(BaseModel):
 # R11-API-08: 为 PushDeviceRequest.points 定义嵌套 Pydantic 模型，保留 extra=allow 向后兼容
 class PushDevicePoint(BaseModel):
     """推送设备测点模型（允许额外字段以保持向后兼容）"""
+
     point_name: str = Field(default="", description="测点名称")
     address: str = Field(default="", description="测点地址")
     data_type: str = Field(default="", description="数据类型")
@@ -89,8 +93,13 @@ def _validate_push_device(req: PushDeviceRequest) -> list[str]:
     else:
         try:
             from edgelite.drivers.registry import get_driver_registry
+
             registry = get_driver_registry()
-            if registry and registry.get_driver_class(req.protocol) is None and req.protocol not in ("video", "simulator", "modbus_rtu"):
+            if (
+                registry
+                and registry.get_driver_class(req.protocol) is None
+                and req.protocol not in ("video", "simulator", "modbus_rtu")
+            ):
                 errors.append(f"protocol '{req.protocol}' not registered in DriverRegistry")
         except Exception as e:
             # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -110,7 +119,9 @@ async def push_device(
 ):
     validation_errors = _validate_push_device(req)
     if validation_errors:
-        raise HTTPException(status_code=422, detail={"error_code": DeviceErrors.CONFIG_INVALID, "errors": validation_errors})
+        raise HTTPException(
+            status_code=422, detail={"error_code": DeviceErrors.CONFIG_INVALID, "errors": validation_errors}
+        )
     try:
         device_service = getattr(endpoint, "_device_service", None)
         if device_service is None:
@@ -124,16 +135,22 @@ async def push_device(
         elif "unsupported protocol" in err_msg:
             raise HTTPException(status_code=422, detail=DeviceErrors.DRIVER_UNAVAILABLE) from e
         elif "driver start failed" in err_msg or "connection" in err_msg:
-            raise HTTPException(status_code=409, detail={
-                "error_code": DeviceErrors.CREATE_FAILED,
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error_code": DeviceErrors.CREATE_FAILED,
+                    "errors": [str(e)],
+                    "warnings": [],
+                },
+            ) from e
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_code": DeviceErrors.CONFIG_INVALID,
                 "errors": [str(e)],
                 "warnings": [],
-            }) from e
-        raise HTTPException(status_code=422, detail={
-            "error_code": DeviceErrors.CONFIG_INVALID,
-            "errors": [str(e)],
-            "warnings": [],
-        }) from e
+            },
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -154,7 +171,9 @@ async def handshake(
         raise
     except Exception as e:
         logger.error("handshake failed: %s", e)
-        raise HTTPException(status_code=500, detail=IntegrationErrors.HANDSHAKE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=IntegrationErrors.HANDSHAKE_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/status", response_model=ApiResponse)
@@ -177,7 +196,9 @@ async def get_integration_status(
         raise
     except Exception as e:
         logger.error("get_integration_status failed: %s", e)
-        raise HTTPException(status_code=500, detail=IntegrationErrors.STATUS_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=IntegrationErrors.STATUS_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/rpc/execute", response_model=ApiResponse[RpcExecuteResponse])
@@ -238,13 +259,15 @@ async def execute_rpc_command(
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
-        return ApiResponse(data=RpcExecuteResponse(
-            command_id=result.command_id,
-            success=result.success,
-            result=result.result,
-            error=result.error,
-            elapsed_ms=result.elapsed_ms,
-        ))
+        return ApiResponse(
+            data=RpcExecuteResponse(
+                command_id=result.command_id,
+                success=result.success,
+                result=result.result,
+                error=result.error,
+                elapsed_ms=result.elapsed_ms,
+            )
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -306,6 +329,7 @@ async def integration_health_check(request: Request):
 
     try:
         from edgelite.app import _app_state
+
         endpoint = getattr(_app_state, "integration_endpoint", None)
     except Exception:
         endpoint = None
@@ -335,15 +359,17 @@ async def integration_health_check(request: Request):
 
     # R11-API-06: 返回 ApiResponse 统一响应格式，替代直接返回 dict
     if is_authenticated:
-        return ApiResponse(data={
-            "status": "healthy" if healthy else "degraded",
-            "endpoint_initialized": endpoint is not None,
-            "active_sessions": session_count,
-            "active_connections": connection_count,
-            "backhaul_available": backhaul is not None,
-            "buffer_backlog": buffer_size,
-            "rpc_available": rpc_available,
-        })
+        return ApiResponse(
+            data={
+                "status": "healthy" if healthy else "degraded",
+                "endpoint_initialized": endpoint is not None,
+                "active_sessions": session_count,
+                "active_connections": connection_count,
+                "backhaul_available": backhaul is not None,
+                "buffer_backlog": buffer_size,
+                "rpc_available": rpc_available,
+            }
+        )
     else:
         # 无认证仅返回状态，不暴露内部细节
         return ApiResponse(data={"status": "healthy" if healthy else "degraded"})

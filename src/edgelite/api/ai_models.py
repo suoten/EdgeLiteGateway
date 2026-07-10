@@ -78,7 +78,9 @@ async def get_model(model_id: str, user: dict[str, str] = Depends(require_permis
 
 
 @router.put("/models/{model_id}", summary="更新AI模型元信息")
-async def update_model(model_id: str, body: AiModelUpdate, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))):
+async def update_model(
+    model_id: str, body: AiModelUpdate, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))
+):
     try:
         service = _get_ai_service()
         result = await service.update_model(model_id, body.model_dump(exclude_unset=True))
@@ -146,7 +148,11 @@ async def disable_model(model_id: str, user: dict[str, str] = Depends(require_pe
 
 
 @router.post("/models/{model_id}/reload", summary="模型热加载")
-async def reload_model(model_id: str, body: AiModelReloadRequest, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))):
+async def reload_model(
+    model_id: str,
+    body: AiModelReloadRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
     # FIXED(安全): 路径遍历防护 - 拒绝绝对路径/UNC路径/盘符路径/父目录引用，
     # 并使用 resolve() 解析后校验在允许的 ai_models 目录内（与 inference_api.py 防护逻辑一致）
     from pathlib import Path
@@ -182,16 +188,24 @@ async def reload_model(model_id: str, body: AiModelReloadRequest, user: dict[str
 
 
 @router.post("/inference", summary="手动触发AI推理")
-async def inference(body: AiInferenceRequest, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ))):
+async def inference(
+    body: AiInferenceRequest, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ))
+):
     try:
         service = _get_ai_service()
         result = await service.inference(
-            body.model_id, body.input_data, body.device_id, body.point_name,
+            body.model_id,
+            body.input_data,
+            body.device_id,
+            body.point_name,
         )
         if result.get("status") == "error":
             error_msg = result.get("error_message", "")
             # FIXED: 推理失败返回具体错误信息，而非笼统500
-            raise HTTPException(status_code=422, detail=f"{AiErrors.INFERENCE_FAILED}: {error_msg}" if error_msg else AiErrors.INFERENCE_FAILED)
+            raise HTTPException(
+                status_code=422,
+                detail=f"{AiErrors.INFERENCE_FAILED}: {error_msg}" if error_msg else AiErrors.INFERENCE_FAILED,
+            )
         return ApiResponse(code=0, message="success", data=result)
     except HTTPException:
         raise
@@ -223,7 +237,11 @@ async def get_stats(user: dict[str, str] = Depends(require_permission(Permission
     try:
         service = _get_ai_service()
         stats = await service.get_stats()
-        return ApiResponse(code=0, message="success", data=stats.model_dump())
+        # FIXED: 原问题-直接调用 stats.model_dump()，但服务契约可能返回 dict
+        # (如 mock 或 get_inference_summary 风格)，导致 AttributeError → 500。
+        # 兼容 Pydantic 模型与 dict 两种返回形态。
+        stats_data = stats.model_dump() if hasattr(stats, "model_dump") else stats
+        return ApiResponse(code=0, message="success", data=stats_data)
     except HTTPException:
         raise
     except Exception as e:
@@ -347,10 +365,13 @@ async def upload_model(
 
         # Save to models directory
         from edgelite.app import _app_state
+
         config = getattr(_app_state, "config", None)
-        models_dir = os.path.join(
-            getattr(config, "data_dir", "data"), "ai_models"
-        ) if config else os.path.join("data", "ai_models")
+        models_dir = (
+            os.path.join(getattr(config, "data_dir", "data"), "ai_models")
+            if config
+            else os.path.join("data", "ai_models")
+        )
         os.makedirs(models_dir, exist_ok=True)
 
         model_name = name or os.path.splitext(file.filename or "uploaded_model")[0]
@@ -384,19 +405,27 @@ async def upload_model(
         service = _get_ai_service()
         try:
             model_id = await service.register_uploaded_model(safe_name, dest_path)
-            return ApiResponse(code=0, message="success", data={
-                "model_id": model_id,
-                "file_path": dest_path,
-                "file_size": len(content),
-            })
+            return ApiResponse(
+                code=0,
+                message="success",
+                data={
+                    "model_id": model_id,
+                    "file_path": dest_path,
+                    "file_size": len(content),
+                },
+            )
         except Exception as reg_err:
             logger.warning("Auto-register failed for uploaded model %s: %s", safe_name, reg_err)
-            return ApiResponse(code=0, message="success", data={
-                "model_id": None,
-                "file_path": dest_path,
-                "file_size": len(content),
-                "note": "Model saved but auto-register failed. Use reload endpoint to load manually.",
-            })
+            return ApiResponse(
+                code=0,
+                message="success",
+                data={
+                    "model_id": None,
+                    "file_path": dest_path,
+                    "file_size": len(content),
+                    "note": "Model saved but auto-register failed. Use reload endpoint to load manually.",
+                },
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -408,7 +437,9 @@ class RollbackRequest(BaseModel):
     target_version: str = Field(min_length=1)
 
 
-@router.get("/models/{model_id}/versions", summary="获取模型版本历史")  # FIXED-P1: 移除多余/ai/前缀，router prefix已是/api/v1/ai
+@router.get(
+    "/models/{model_id}/versions", summary="获取模型版本历史"
+)  # FIXED-P1: 移除多余/ai/前缀，router prefix已是/api/v1/ai
 async def get_model_versions(
     model_id: str,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),

@@ -1,7 +1,7 @@
 """Smoke test for SQLite storage layer read/write operations."""
-import sys
 import asyncio
 import os
+import sys
 import time
 
 sys.path.insert(0, 'src')
@@ -52,10 +52,11 @@ async def test_sqlite_ts_only():
 
 async def test_main_db_only():
     """Test main database independently."""
-    from edgelite.config import get_config
-    from edgelite.storage.database import Database
-    from edgelite.models.db import UserORM
     from sqlalchemy import select, text
+
+    from edgelite.config import get_config
+    from edgelite.models.db import UserORM
+    from edgelite.storage.database import Database
 
     db_path = 'data/test_smoke.db'
     for suffix in ['', '-wal', '-shm']:

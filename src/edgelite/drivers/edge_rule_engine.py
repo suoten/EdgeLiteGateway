@@ -178,7 +178,9 @@ class ModbusEdgeRuleEngine:
             return False
         return func(value, rule.threshold)
 
-    async def _process_rule(self, rule: EdgeRule, device_id: str, point_name: str, value: float, is_breached: bool, now_mono: float) -> AlarmRecord | None:
+    async def _process_rule(
+        self, rule: EdgeRule, device_id: str, point_name: str, value: float, is_breached: bool, now_mono: float
+    ) -> AlarmRecord | None:
         rule_id = rule.rule_id
         was_active = rule_id in self._active_alarms
         if is_breached:
@@ -198,7 +200,19 @@ class ModbusEdgeRuleEngine:
             self._last_fire_ts[rule_id] = now_mono
             self._last_value[rule_id] = value
             self._breach_start_ts.pop(rule_id, None)
-            record = AlarmRecord(str(uuid.uuid4()), rule_id, device_id, point_name, "firing", value, rule.threshold, rule.severity, 0.0, datetime.now(UTC), list(rule.actions))
+            record = AlarmRecord(
+                str(uuid.uuid4()),
+                rule_id,
+                device_id,
+                point_name,
+                "firing",
+                value,
+                rule.threshold,
+                rule.severity,
+                0.0,
+                datetime.now(UTC),
+                list(rule.actions),
+            )
             self._active_alarms[rule_id] = record
             self._alarm_history.append(record)
             self._stats["fires"] += 1
@@ -208,7 +222,19 @@ class ModbusEdgeRuleEngine:
             self._active_alarms.pop(rule_id, None)
             self._last_value.pop(rule_id, None)
             self._breach_start_ts.pop(rule_id, None)
-            record = AlarmRecord(str(uuid.uuid4()), rule_id, device_id, point_name, "recovered", value if value is not None else 0.0, rule.threshold, rule.severity, 0.0, datetime.now(UTC), list(rule.actions))
+            record = AlarmRecord(
+                str(uuid.uuid4()),
+                rule_id,
+                device_id,
+                point_name,
+                "recovered",
+                value if value is not None else 0.0,
+                rule.threshold,
+                rule.severity,
+                0.0,
+                datetime.now(UTC),
+                list(rule.actions),
+            )
             self._alarm_history.append(record)
             self._stats["recoveries"] += 1
             await self._fire_callback(record)

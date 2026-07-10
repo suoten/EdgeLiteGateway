@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OtaPackage:
     """OTA firmware package metadata."""
+
     name: str = ""
     version: str = ""
     file_path: str = ""

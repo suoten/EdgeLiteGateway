@@ -32,14 +32,18 @@ _file_lock = asyncio.Lock()
 
 class ScadaProject(BaseModel):
     name: str = "default"
-    widgets: list[dict[str, Any]] = []  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
+    widgets: list[
+        dict[str, Any]
+    ] = []  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
     scenes: list[dict[str, Any]] = []  # 修复5: 多画面管理，每项 {id, name, widgets}
     updated_at: str | None = None
 
 
 class ScadaSaveRequest(BaseModel):
     name: str = "default"
-    widgets: list[dict[str, Any]] = []  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
+    widgets: list[
+        dict[str, Any]
+    ] = []  # FIXED: 原问题-dict类型参数无schema校验，此处为动态配置场景，schema由驱动/平台运行时决定
     scenes: list[dict[str, Any]] = []  # 修复5: 多画面管理，每项 {id, name, widgets}
 
 
@@ -92,7 +96,9 @@ async def list_projects(user: dict[str, str] = Depends(require_permission(Permis
         raise
     except Exception as e:
         logger.error("Failed to list projects: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=ScadaErrors.LOAD_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=ScadaErrors.LOAD_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/project/{name}", response_model=ApiResponse)
@@ -103,17 +109,23 @@ async def get_project(name: str, user: dict[str, str] = Depends(require_permissi
             return ApiResponse(data={"name": name, "widgets": [], "updated_at": None})
         data = await asyncio.to_thread(_read_json, path)
         if data is None:
-            raise HTTPException(status_code=500, detail=ScadaErrors.LOAD_FAILED)  # FIXED: 原问题-中文硬编码detail，改为error_code
+            raise HTTPException(
+                status_code=500, detail=ScadaErrors.LOAD_FAILED
+            )  # FIXED: 原问题-中文硬编码detail，改为error_code
         return ApiResponse(data=data)
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to get project: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=ScadaErrors.LOAD_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=ScadaErrors.LOAD_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.post("/project", response_model=ApiResponse)
-async def save_project(req: ScadaSaveRequest, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))):
+async def save_project(
+    req: ScadaSaveRequest, user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE))
+):
     path = _project_path(req.name)
     try:
         data = {
@@ -125,16 +137,18 @@ async def save_project(req: ScadaSaveRequest, user: dict[str, str] = Depends(req
         async with _file_lock:
             try:
                 await asyncio.to_thread(_write_json, path, data)
-                return ApiResponse(
-                    data={"saved": True, "name": req.name, "widget_count": len(req.widgets)}
-                )
+                return ApiResponse(data={"saved": True, "name": req.name, "widget_count": len(req.widgets)})
             except Exception as e:
-                raise HTTPException(status_code=500, detail=ScadaErrors.SAVE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+                raise HTTPException(
+                    status_code=500, detail=ScadaErrors.SAVE_FAILED
+                ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to save project: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=ScadaErrors.SAVE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=ScadaErrors.SAVE_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.delete("/project/{name}", response_model=ApiResponse)
@@ -144,9 +158,13 @@ async def delete_project(name: str, user: dict[str, str] = Depends(require_permi
         if path.exists():
             await asyncio.to_thread(path.unlink)
             return ApiResponse(data={"deleted": True, "name": name})
-        raise HTTPException(status_code=404, detail=ScadaErrors.PROJECT_NOT_FOUND)  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=404, detail=ScadaErrors.PROJECT_NOT_FOUND
+        )  # FIXED: 原问题-中文硬编码detail，改为error_code
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to delete project: %s", e)  # FIXED: 原问题-中文硬编码日志
-        raise HTTPException(status_code=500, detail=ScadaErrors.DELETE_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=ScadaErrors.DELETE_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code

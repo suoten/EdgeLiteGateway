@@ -67,9 +67,7 @@ class ModbusConfigVersion:
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         # check_same_thread=False 允许跨线程使用（配合 _lock 保护）
-        self._conn = sqlite3.connect(
-            self._db_path, check_same_thread=False, isolation_level=None
-        )
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         # WAL 模式 + 高并发友好配置
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -123,9 +121,12 @@ class ModbusConfigVersion:
             )
         logger.debug(
             "[modbus_config_version] snapshot device=%s version=%d operator=%s",
-            device_id, version_id, operator,
+            device_id,
+            version_id,
+            operator,
         )
         return version_id
+
     # ------------------------------------------------------------------
     # 深度对比
     # ------------------------------------------------------------------
@@ -240,6 +241,7 @@ class ModbusConfigVersion:
             "operator": row["operator"],
             "created_at": row["created_at"],
         }
+
     # ------------------------------------------------------------------
     # 版本对比
     # ------------------------------------------------------------------
@@ -281,14 +283,16 @@ class ModbusConfigVersion:
                 config = json.loads(r["config_json"])
             except (json.JSONDecodeError, TypeError):
                 config = {}
-            versions.append({
-                "version": r["id"],
-                "device_id": r["device_id"],
-                "config": config,
-                "change_summary": r["change_summary"],
-                "operator": r["operator"],
-                "created_at": r["created_at"],
-            })
+            versions.append(
+                {
+                    "version": r["id"],
+                    "device_id": r["device_id"],
+                    "config": config,
+                    "change_summary": r["change_summary"],
+                    "operator": r["operator"],
+                    "created_at": r["created_at"],
+                }
+            )
         return json.dumps(
             {"versions": versions, "exported_at": self._now_iso()},
             ensure_ascii=False,
@@ -303,6 +307,7 @@ class ModbusConfigVersion:
         json_str = self.export_json()
         try:
             import yaml  # type: ignore
+
             data = json.loads(json_str)
             return yaml.safe_dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
         except Exception as e:

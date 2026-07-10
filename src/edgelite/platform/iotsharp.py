@@ -106,7 +106,9 @@ class IoTSharpHandler(PlatformHandler):
 
     async def publish_device_status(self, device_id: str, online: bool) -> None:
         topic = f"devices/{device_id}/attributes"
-        payload = json.dumps({"online": online, "lastActivityTime": timestamp_ms()})  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
+        payload = json.dumps(
+            {"online": online, "lastActivityTime": timestamp_ms()}
+        )  # FIXED: 原问题-直接调用int(time.time()*1000)，未使用统一工具函数
         # FIXED-P1: 断连时入离线队列，避免直接return丢弃数据
         if not self._connected or not self._pub_queue:
             self._enqueue_offline(topic, payload.encode("utf-8"), 1)
@@ -168,7 +170,9 @@ class IoTSharpHandler(PlatformHandler):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error("IoTSharp MQTT connection error: %s, retrying in %.1fs", e, backoff)  # FIXED-P3: 中文日志→英文
+                logger.error(
+                    "IoTSharp MQTT connection error: %s, retrying in %.1fs", e, backoff
+                )  # FIXED-P3: 中文日志→英文
                 self._connected = False
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, _PLATFORM_RECONNECT_MAX_BACKOFF)  # FIXED-P2: 指数退避+上限
@@ -181,7 +185,9 @@ class IoTSharpHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                    )  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 # FIXED-P1: 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)两种格式

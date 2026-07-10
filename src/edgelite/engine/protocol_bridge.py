@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MappingRule:
     """映射规则"""
+
     rule_id: str
     source_protocol: str
     target_protocol: str
@@ -41,6 +42,7 @@ class MappingRule:
 @dataclass
 class ProtocolBridge:
     """协议桥接器配置"""
+
     bridge_id: str
     source_protocol: str  # 源协议
     target_protocol: str  # 目标协议
@@ -169,8 +171,7 @@ class ProtocolBridgeManager:
     def add_bridge(self, bridge: ProtocolBridge) -> None:
         """添加协议桥接"""
         self._bridges[bridge.bridge_id] = bridge
-        logger.info("添加协议桥接: %s (%s → %s)",
-                   bridge.bridge_id, bridge.source_protocol, bridge.target_protocol)
+        logger.info("添加协议桥接: %s (%s → %s)", bridge.bridge_id, bridge.source_protocol, bridge.target_protocol)
 
     def remove_bridge(self, bridge_id: str) -> None:
         """移除协议桥接"""
@@ -182,9 +183,13 @@ class ProtocolBridgeManager:
         bridge = self._bridges.get(bridge_id)
         if bridge:
             bridge.mapping_rules.append(rule)
-            logger.info("添加映射规则: %s.%s → %s.%s",
-                       rule.source_device, rule.source_point,
-                       rule.target_device, rule.target_point)
+            logger.info(
+                "添加映射规则: %s.%s → %s.%s",
+                rule.source_device,
+                rule.source_point,
+                rule.target_device,
+                rule.target_point,
+            )
 
     def remove_mapping_rule(self, bridge_id: str, rule_id: str) -> None:
         """移除映射规则"""
@@ -222,9 +227,7 @@ class ProtocolBridgeManager:
 
             try:
                 # 数据转换
-                converted_value = self._conversion.convert(
-                    value, rule.data_type, rule.scale, rule.offset
-                )
+                converted_value = self._conversion.convert(value, rule.data_type, rule.scale, rule.offset)
 
                 # 记录转换结果
                 result = {
@@ -249,9 +252,15 @@ class ProtocolBridgeManager:
                     except Exception as e:
                         logger.warning("转换回调执行失败: %s", e)
 
-                logger.debug("协议转换: %s.%s=%s → %s.%s=%s",
-                           source_device, source_point, value,
-                           rule.target_device, rule.target_point, converted_value)
+                logger.debug(
+                    "协议转换: %s.%s=%s → %s.%s=%s",
+                    source_device,
+                    source_point,
+                    value,
+                    rule.target_device,
+                    rule.target_point,
+                    converted_value,
+                )
 
             except Exception as e:
                 logger.error("协议转换失败: %s - %s", rule.rule_id, e)
@@ -368,8 +377,7 @@ class ModbusToOpcUaConverter:
             "data_type": data_type,
             "swap_bytes": swap_bytes,
         }
-        logger.info("添加映射: OPC UA %s ← Modbus %d (%s)",
-                   node_id, modbus_address, data_type)
+        logger.info("添加映射: OPC UA %s ← Modbus %d (%s)", node_id, modbus_address, data_type)
 
     async def update_modbus_data(self, address: int, registers: list[int]) -> None:
         """更新Modbus数据"""
@@ -408,6 +416,7 @@ class ModbusToOpcUaConverter:
                 raw = (high << 16) | low
                 # IEEE 754 float
                 import struct
+
                 return struct.unpack(">f", struct.pack(">I", raw))[0]
             return 0.0
 
@@ -443,12 +452,13 @@ class ModbusToOpcUaConverter:
                         high, low = low, high
                     raw = (high << 16) | low
                     import struct
+
                     result[node_id] = struct.unpack(">f", struct.pack(">I", raw))[0]
                 else:
                     result[node_id] = 0.0
             else:
                 result[node_id] = registers[0] if registers else 0
-        return result  # FIXED-P0: 同步方法应返回实际值而非Task对象，原实现asyncio.create_task在同步上下文中无法await，导致调用方拿到coroutine而非数据
+        return result  # FIXED-P0: 同步方法应返回实际值而非Task对象，原实现asyncio.create_task在同步上下文中无法await，导致调用方拿到coroutine而非数据  # noqa: E501
 
 
 # 全局实例

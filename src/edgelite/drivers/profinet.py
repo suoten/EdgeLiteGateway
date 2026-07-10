@@ -27,7 +27,11 @@ from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
 from edgelite.drivers.snap7_integration import (
-    SNAP7_AVAILABLE, Snap7Client, Snap7ConnectionInfo, ProfinetSnap7Bridge, S7Area
+    SNAP7_AVAILABLE,
+    ProfinetSnap7Bridge,
+    S7Area,
+    Snap7Client,
+    Snap7ConnectionInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +77,7 @@ VLAN_TAG_SIZE = 4
 @dataclass
 class ProfinetDevice:
     """Profinet设备信息"""
+
     device_name: str
     ip_address: str
     subnet_mask: str
@@ -140,22 +145,22 @@ def _parse_dcp_response(data: bytes) -> ProfinetDevice | None:
         offset = ETH_HEADER_SIZE
 
         # 检查VLAN标签
-        if len(data) > offset and data[offset:offset+2] == b"\x81\x00":
+        if len(data) > offset and data[offset : offset + 2] == b"\x81\x00":
             offset += VLAN_TAG_SIZE
 
         # 解析DCP头
-        frame_id = struct.unpack(">H", data[offset:offset+2])[0]
+        struct.unpack(">H", data[offset : offset + 2])[0]
         offset += 2
 
-        service_id = data[offset]
+        data[offset]
         offset += 1
-        service_type = data[offset]
+        data[offset]
         offset += 1
 
-        xid = struct.unpack(">I", data[offset:offset+4])[0]
+        struct.unpack(">I", data[offset : offset + 4])[0]
         offset += 4
 
-        reserved = struct.unpack(">H", data[offset:offset+2])[0]
+        struct.unpack(">H", data[offset : offset + 2])[0]
         offset += 2
 
         # 解析DCP选项
@@ -170,17 +175,17 @@ def _parse_dcp_response(data: bytes) -> ProfinetDevice | None:
         manufacturer = ""
 
         while offset < len(data) - 4:
-            option = struct.unpack(">H", data[offset:offset+2])[0]
+            option = struct.unpack(">H", data[offset : offset + 2])[0]
             offset += 2
-            suboption = struct.unpack(">H", data[offset:offset+2])[0]
+            suboption = struct.unpack(">H", data[offset : offset + 2])[0]
             offset += 2
-            block_len = struct.unpack(">H", data[offset:offset+2])[0]
+            block_len = struct.unpack(">H", data[offset : offset + 2])[0]
             offset += 2
 
             if offset + block_len > len(data):
                 break
 
-            block_data = data[offset:offset+block_len]
+            block_data = data[offset : offset + block_len]
             offset += block_len
 
             if option == DCP_OPT_IP and suboption == DCP_SUB_IP_PARAMS:
@@ -415,18 +420,48 @@ class ProfinetDriver(DriverPlugin):
     config_schema = {
         "description": "Profinet industrial Ethernet protocol with Snap7 integration for IO data exchange",
         "fields": [
-            {"name": "interface_ip", "type": "string", "label": "Interface IP",
-             "description": "Local network interface IP for sending broadcasts", "default": "0.0.0.0"},
-            {"name": "port", "type": "integer", "label": "Port",
-             "description": "Profinet DCP port (default 34964)", "default": 34964},
-            {"name": "enable_snap7", "type": "boolean", "label": "Enable Snap7 IO",
-             "description": "Enable Snap7 for IO data exchange (requires python-snap7)", "default": False},
-            {"name": "snap7_plc_ip", "type": "string", "label": "Snap7 PLC IP",
-             "description": "PLC IP for Snap7 connection (when Snap7 enabled)", "default": ""},
-            {"name": "snap7_rack", "type": "integer", "label": "Snap7 Rack",
-             "description": "PLC rack number for Snap7", "default": 0},
-            {"name": "snap7_slot", "type": "integer", "label": "Snap7 Slot",
-             "description": "PLC slot number for Snap7", "default": 1},
+            {
+                "name": "interface_ip",
+                "type": "string",
+                "label": "Interface IP",
+                "description": "Local network interface IP for sending broadcasts",
+                "default": "0.0.0.0",
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "Profinet DCP port (default 34964)",
+                "default": 34964,
+            },
+            {
+                "name": "enable_snap7",
+                "type": "boolean",
+                "label": "Enable Snap7 IO",
+                "description": "Enable Snap7 for IO data exchange (requires python-snap7)",
+                "default": False,
+            },
+            {
+                "name": "snap7_plc_ip",
+                "type": "string",
+                "label": "Snap7 PLC IP",
+                "description": "PLC IP for Snap7 connection (when Snap7 enabled)",
+                "default": "",
+            },
+            {
+                "name": "snap7_rack",
+                "type": "integer",
+                "label": "Snap7 Rack",
+                "description": "PLC rack number for Snap7",
+                "default": 0,
+            },
+            {
+                "name": "snap7_slot",
+                "type": "integer",
+                "label": "Snap7 Slot",
+                "description": "PLC slot number for Snap7",
+                "default": 1,
+            },
         ],
     }
 
@@ -523,7 +558,7 @@ class ProfinetDriver(DriverPlugin):
             return {}
 
         device_info = self._device_points.get(device_id, {})
-        device_config = device_info.get("config", {})
+        device_info.get("config", {})
 
         result = {}
         for point_addr in points:
@@ -667,13 +702,9 @@ class ProfinetDriver(DriverPlugin):
 
         # 建立Profinet到S7 DB的映射
         if self._snap7_bridge and config.get("map_to_db", False):
-            for i, pt in enumerate(points):
-                self._snap7_bridge.map_pn_to_db(
-                    pn_slot, pn_subslot, i,
-                    db_number, db_start + i * 2, 2
-                )
-                logger.debug("Mapped device %s point %d to DB%d.%d",
-                          device_id, i, db_number, db_start + i * 2)
+            for i, _pt in enumerate(points):
+                self._snap7_bridge.map_pn_to_db(pn_slot, pn_subslot, i, db_number, db_start + i * 2, 2)
+                logger.debug("Mapped device %s point %d to DB%d.%d", device_id, i, db_number, db_start + i * 2)
 
     def remove_device(self, device_id: str) -> None:
         """Remove a device at runtime"""
@@ -696,16 +727,17 @@ class ProfinetDriver(DriverPlugin):
 
             for device in devices:
                 self._devices[device.device_name] = device
-                results.append({
-                    "device_id": device.mac_address.replace(":", "-"),
-                    "device_name": device.device_name,
-                    "ip_address": device.ip_address,
-                    "mac_address": device.mac_address,
-                    "vendor_id": device.vendor_id,
-                    "device_id": device.device_id,
-                    "manufacturer": device.manufacturer,
-                    "type": "profinet",
-                })
+                results.append(
+                    {
+                        "device_id": device.device_id,
+                        "device_name": device.device_name,
+                        "ip_address": device.ip_address,
+                        "mac_address": device.mac_address,
+                        "vendor_id": device.vendor_id,
+                        "manufacturer": device.manufacturer,
+                        "type": "profinet",
+                    }
+                )
 
             return results
 

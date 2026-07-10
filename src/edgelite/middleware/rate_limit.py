@@ -94,11 +94,7 @@ class MemoryRateLimitBackend(RateLimitBackend):
         now = time.monotonic()
         with self._lock:
             # 清理空桶或 6 倍窗口未活跃的桶
-            stale = [
-                k
-                for k, b in self._buckets.items()
-                if not b or b[-1] < now - 3600
-            ]
+            stale = [k for k, b in self._buckets.items() if not b or b[-1] < now - 3600]
             for k in stale:
                 self._buckets.pop(k, None)
 
@@ -135,10 +131,7 @@ return 1
         try:
             import redis  # type: ignore[import-untyped]
         except ImportError as e:  # pragma: no cover - 由工厂防御
-            raise ImportError(
-                "RedisRateLimitBackend requires 'redis' package. "
-                "Install: pip install redis>=4.2"
-            ) from e
+            raise ImportError("RedisRateLimitBackend requires 'redis' package. Install: pip install redis>=4.2") from e
 
         self._redis = redis.Redis.from_url(redis_url, decode_responses=True)
         self._script = self._redis.register_script(self._LUA_SCRIPT)
@@ -220,7 +213,8 @@ def get_rate_limit_backend() -> RateLimitBackend:
             except Exception as e:
                 logger.error(
                     "RedisRateLimitBackend init failed (%s); falling back to memory. "
-                    "Multi-instance rate limiting will NOT be shared!", e
+                    "Multi-instance rate limiting will NOT be shared!",
+                    e,
                 )
                 _backend = MemoryRateLimitBackend()
     else:
@@ -262,9 +256,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._backend = backend or get_rate_limit_backend()
         self._last_cleanup = 0.0
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # 豁免探针/文档路径
         path = request.url.path
         if any(path.startswith(p) for p in _EXEMPT_PREFIXES):

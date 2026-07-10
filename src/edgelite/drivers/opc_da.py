@@ -30,12 +30,14 @@ logger = logging.getLogger(__name__)
 
 try:
     import pywintypes
+
     _COM_ERROR_TYPES = (pywintypes.com_error,)
 except ImportError:
     _COM_ERROR_TYPES = ()
 
 try:
     import pythoncom
+
     _PYTHONCOM_AVAILABLE = True
 except ImportError:
     _PYTHONCOM_AVAILABLE = False
@@ -50,9 +52,10 @@ _active_com_threads_lock = threading.Lock()
 # ODA-MED-001: 线程清理函数映射（用于 atexit）
 _thread_cleanup_funcs: dict = {}
 
+
 def _thread_com_cleanup() -> None:
     """ODA-MED-001: 线程退出时的 COM 清理函数（通过 atexit 注册）"""
-    if getattr(_thread_local, 'com_initialized', False):
+    if getattr(_thread_local, "com_initialized", False):
         try:
             pythoncom.CoUninitialize()
             logger.debug("[opc_da] ODA-MED-001: atexit CoUninitialize on thread %d", threading.current_thread().ident)
@@ -67,6 +70,7 @@ def _thread_com_cleanup() -> None:
                 _active_com_threads.discard(tid)
             _thread_cleanup_funcs.pop(tid, None)
 
+
 def _register_thread_cleanup(thread_id: int) -> None:
     """ODA-MED-001: 为线程注册退出清理函数
 
@@ -74,6 +78,7 @@ def _register_thread_cleanup(thread_id: int) -> None:
     COM清理改为在executor shutdown前通过_run_in_com_thread主动调用CoUninitialize。
     """
     _thread_cleanup_funcs[thread_id] = True
+
 
 _DCOM_ERROR_CODES = {
     0x80070005: "E_ACCESSDENIED - DCOM access denied",
@@ -116,10 +121,24 @@ _VT_TYPE_MAP: dict[int, tuple[type, ...]] = {
 }
 
 _VT_TYPE_NAMES: dict[int, str] = {
-    0: "VT_EMPTY", 1: "VT_NULL", 2: "VT_I2", 3: "VT_I4", 4: "VT_R4",
-    5: "VT_R8", 6: "VT_CY", 7: "VT_DATE", 8: "VT_BSTR", 11: "VT_BOOL",
-    16: "VT_I1", 17: "VT_UI1", 18: "VT_UI2", 19: "VT_UI4",
-    20: "VT_I8", 21: "VT_UI8", 22: "VT_INT", 23: "VT_UINT",
+    0: "VT_EMPTY",
+    1: "VT_NULL",
+    2: "VT_I2",
+    3: "VT_I4",
+    4: "VT_R4",
+    5: "VT_R8",
+    6: "VT_CY",
+    7: "VT_DATE",
+    8: "VT_BSTR",
+    11: "VT_BOOL",
+    16: "VT_I1",
+    17: "VT_UI1",
+    18: "VT_UI2",
+    19: "VT_UI4",
+    20: "VT_I8",
+    21: "VT_UI8",
+    22: "VT_INT",
+    23: "VT_UINT",
 }
 
 _OPC_QUALITY_HEX_MAP: dict[int, str] = {
@@ -250,55 +269,151 @@ class OpcDaDriver(DriverPlugin):
     plugin_version = "1.4.0"
     supported_protocols = ("opc_da",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     # #[AUDIT-FIX] FATAL: 缺失 _required_dependencies 声明，导致 registry 无法预检 OpenOPC 依赖
-    _required_dependencies: tuple[str, ...] = ("OpenOPC", "pywintypes", "pythoncom")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    _required_dependencies: tuple[str, ...] = (
+        "OpenOPC",
+        "pywintypes",
+        "pythoncom",
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "OPC DA classic protocol (Windows COM), reads data from legacy OPC servers",
         "required": ["prog_id"],
         "properties": {"prog_id": {"type": "string", "description": "OPC DA server ProgID"}},
         "fields": [
-            {"name": "prog_id", "type": "string", "label": "ProgID",
-             "description": "OPC DA server ProgID, e.g. Matrikon.OPC.Simulation", "required": True},
-            {"name": "host", "type": "string", "label": "Host",
-             "description": "OPC server host, leave empty for local machine", "default": "localhost"},
-            {"name": "gateway", "type": "string", "label": "Gateway",
-             "description": "OPC gateway address (optional, for remote access)", "default": ""},
-            {"name": "connect_timeout", "type": "number", "label": "Connect Timeout (s)",
-             "description": "DCOM connection timeout in seconds (default 30s, DCOM is slow)", "default": 30.0},
-            {"name": "username", "type": "string", "label": "DCOM Username",
-             "description": "Username for remote OPC server DCOM authentication (optional)", "default": ""},
-            {"name": "password", "type": "string", "label": "DCOM Password",
-             "description": "Password for remote OPC server DCOM authentication (optional)", "default": "", "secret": True},
-            {"name": "use_groups", "type": "boolean", "label": "Use Groups",
-             "description": "Use OPC groups for batch subscription", "default": True},
-            {"name": "update_rate", "type": "integer", "label": "Update Rate (ms)",
-             "description": "OPC group update rate in milliseconds", "default": 1000},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)",
-             "description": "OPC DA communication timeout in seconds", "default": 5.0},
-            {"name": "dcom_call_timeout", "type": "number", "label": "DCOM Call Timeout (s)",
-             "description": "Per-call DCOM timeout in seconds", "default": 10.0, "min": 1, "max": 120},
-            {"name": "deadband", "type": "number", "label": "Deadband (%)",
-             "description": "Global deadband percentage (0-100). Point-level deadband overrides this", "default": 0.0, "min": 0, "max": 100},
-            {"name": "scaling", "type": "object", "label": "Scaling",
-             "description": "Global linear scaling: {ratio: float, offset: float}. Point-level scaling overrides this",
-             "default": None},
-            {"name": "clamp", "type": "object", "label": "Clamp",
-             "description": "Global range clamp: {min: float, max: float}. Point-level clamp overrides this",
-             "default": None},
-            {"name": "rate_of_change", "type": "object", "label": "Rate of Change",
-             "description": "Rate of change check: {max_rate: float, unit: 's'|'min'}. Value change per unit time exceeds max_rate → bad quality",
-             "default": None},
-            {"name": "frozen_detect", "type": "object", "label": "Frozen Detect",
-             "description": "Frozen value detection: {consecutive: int, window_s: float}. Same value for N consecutive reads within window → bad quality",
-             "default": None},
-            {"name": "watchdog_interval", "type": "number", "label": "Watchdog Interval (s)",
-             "description": "Connection watchdog interval in seconds", "default": 15.0},
+            {
+                "name": "prog_id",
+                "type": "string",
+                "label": "ProgID",
+                "description": "OPC DA server ProgID, e.g. Matrikon.OPC.Simulation",
+                "required": True,
+            },
+            {
+                "name": "host",
+                "type": "string",
+                "label": "Host",
+                "description": "OPC server host, leave empty for local machine",
+                "default": "localhost",
+            },
+            {
+                "name": "gateway",
+                "type": "string",
+                "label": "Gateway",
+                "description": "OPC gateway address (optional, for remote access)",
+                "default": "",
+            },
+            {
+                "name": "connect_timeout",
+                "type": "number",
+                "label": "Connect Timeout (s)",
+                "description": "DCOM connection timeout in seconds (default 30s, DCOM is slow)",
+                "default": 30.0,
+            },
+            {
+                "name": "username",
+                "type": "string",
+                "label": "DCOM Username",
+                "description": "Username for remote OPC server DCOM authentication (optional)",
+                "default": "",
+            },
+            {
+                "name": "password",
+                "type": "string",
+                "label": "DCOM Password",
+                "description": "Password for remote OPC server DCOM authentication (optional)",
+                "default": "",
+                "secret": True,
+            },
+            {
+                "name": "use_groups",
+                "type": "boolean",
+                "label": "Use Groups",
+                "description": "Use OPC groups for batch subscription",
+                "default": True,
+            },
+            {
+                "name": "update_rate",
+                "type": "integer",
+                "label": "Update Rate (ms)",
+                "description": "OPC group update rate in milliseconds",
+                "default": 1000,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "OPC DA communication timeout in seconds",
+                "default": 5.0,
+            },
+            {
+                "name": "dcom_call_timeout",
+                "type": "number",
+                "label": "DCOM Call Timeout (s)",
+                "description": "Per-call DCOM timeout in seconds",
+                "default": 10.0,
+                "min": 1,
+                "max": 120,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband (%)",
+                "description": "Global deadband percentage (0-100). Point-level deadband overrides this",
+                "default": 0.0,
+                "min": 0,
+                "max": 100,
+            },
+            {
+                "name": "scaling",
+                "type": "object",
+                "label": "Scaling",
+                "description": "Global linear scaling: {ratio: float, offset: float}. Point-level scaling overrides this",
+                "default": None,
+            },
+            {
+                "name": "clamp",
+                "type": "object",
+                "label": "Clamp",
+                "description": "Global range clamp: {min: float, max: float}. Point-level clamp overrides this",
+                "default": None,
+            },
+            {
+                "name": "rate_of_change",
+                "type": "object",
+                "label": "Rate of Change",
+                "description": "Rate of change check: {max_rate: float, unit: 's'|'min'}. Value change per unit time exceeds max_rate → bad quality",
+                "default": None,
+            },
+            {
+                "name": "frozen_detect",
+                "type": "object",
+                "label": "Frozen Detect",
+                "description": "Frozen value detection: {consecutive: int, window_s: float}. Same value for N consecutive reads within window → bad quality",
+                "default": None,
+            },
+            {
+                "name": "watchdog_interval",
+                "type": "number",
+                "label": "Watchdog Interval (s)",
+                "description": "Connection watchdog interval in seconds",
+                "default": 15.0,
+            },
         ],
     }
 
     experimental = True
     # #[AUDIT-FIX] W6: batch_read 改为 True，read_points 实际通过 self._client.read(points) 批量读取多个测点
-    capabilities = DriverCapabilities(discover=True, read=True, write=True, subscribe=True, batch_read=True, batch_write=False)
-    constraints = ({"type": "platform", "message": "OPC DA requires Windows with DCOM configured; use opc-da-gateway for cross-platform"}, {"type": "platform", "message": "Cross-subnet/domain/DCOM permission issues are common; recommend opc-da-gateway proxy"})  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    capabilities = DriverCapabilities(
+        discover=True, read=True, write=True, subscribe=True, batch_read=True, batch_write=False
+    )
+    constraints = (
+        {
+            "type": "platform",
+            "message": "OPC DA requires Windows with DCOM configured; use opc-da-gateway for cross-platform",
+        },
+        {
+            "type": "platform",
+            "message": "Cross-subnet/domain/DCOM permission issues are common; recommend opc-da-gateway proxy",
+        },
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     _MAX_RECONNECT_ATTEMPTS = 3
     _RECONNECT_BASE_DELAY = 1.0
@@ -364,7 +479,10 @@ class OpcDaDriver(DriverPlugin):
         try:
             current_tid = threading.current_thread().ident
             # ODA-MED-001: 使用 threading.local() 存储线程本地状态
-            if getattr(_thread_local, 'com_initialized', False) and getattr(_thread_local, 'com_thread_id', None) == current_tid:
+            if (
+                getattr(_thread_local, "com_initialized", False)
+                and getattr(_thread_local, "com_thread_id", None) == current_tid
+            ):
                 return True
 
             # 在线程首次使用时注册清理函数
@@ -391,7 +509,9 @@ class OpcDaDriver(DriverPlugin):
             return
         try:
             current_tid = threading.current_thread().ident
-            if getattr(_thread_local, 'com_thread_id', None) == current_tid and getattr(_thread_local, 'com_initialized', False):
+            if getattr(_thread_local, "com_thread_id", None) == current_tid and getattr(
+                _thread_local, "com_initialized", False
+            ):
                 pythoncom.CoUninitialize()
                 logger.debug("[opc_da] ODA-MED-001: CoUninitialize on thread %d", current_tid)
                 _thread_local.com_initialized = False
@@ -417,7 +537,10 @@ class OpcDaDriver(DriverPlugin):
         i18n_msg = _t(error_code) if error_code.startswith("ERR_") else error_code
         logger.error(
             "[opc_da] device=%s code=%s i18n=%s msg=%s",
-            device_id, error_code, i18n_msg, message,
+            device_id,
+            error_code,
+            i18n_msg,
+            message,
         )
 
     def _make_bad_result(self, points: list[str], now: datetime, error_code: str = "") -> dict[str, PointValue]:
@@ -542,15 +665,19 @@ class OpcDaDriver(DriverPlugin):
                     if isinstance(prop, (list, tuple)) and len(prop) >= 2:
                         result[prop[0]] = prop[1]
             # FIXED-P2: 容量超限时淘汰最旧条目
-            if len(self._item_properties_cache) >= self._MAX_ITEM_PROPERTIES_CACHE and item_id not in self._item_properties_cache:
+            if (
+                len(self._item_properties_cache) >= self._MAX_ITEM_PROPERTIES_CACHE
+                and item_id not in self._item_properties_cache
+            ):
                 self._item_properties_cache.pop(next(iter(self._item_properties_cache)), None)
             self._item_properties_cache[item_id] = result
             return result
         except Exception:
             return {}
 
-    def _audit_write(self, device_id: str, point: str, item_id: str,
-                     data_type: str, old_value: Any, new_value: Any, result: str) -> None:
+    def _audit_write(
+        self, device_id: str, point: str, item_id: str, data_type: str, old_value: Any, new_value: Any, result: str
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "user": self._dcom_username or "system",
@@ -571,7 +698,9 @@ class OpcDaDriver(DriverPlugin):
             entries = [e for e in entries if e.get("device_id") == device_id]
         return entries[-limit:]
 
-    def _record_quality_stream(self, device_id: str, tag_name: str, opc_quality: Any, mapped_quality: str, value: Any) -> None:
+    def _record_quality_stream(
+        self, device_id: str, tag_name: str, opc_quality: Any, mapped_quality: str, value: Any
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "device_id": device_id,
@@ -580,7 +709,9 @@ class OpcDaDriver(DriverPlugin):
             "quality": mapped_quality,
             "value": str(value) if value is not None else None,
         }
-        self._quality_stream.append(entry)  # FIXED-P1: deque(maxlen=100)已自动淘汰，删除手动切片逻辑（切片会将deque腐蚀为list，丢失maxlen特性）
+        self._quality_stream.append(
+            entry
+        )  # FIXED-P1: deque(maxlen=100)已自动淘汰，删除手动切片逻辑（切片会将deque腐蚀为list，丢失maxlen特性）
 
     def get_quality_stream(self, device_id: str | None = None, limit: int = 100) -> list[dict]:
         if device_id:
@@ -591,6 +722,7 @@ class OpcDaDriver(DriverPlugin):
 
     async def start(self, config: dict) -> None:
         import sys
+
         self._config = config
         self._event_bus = config.get("event_bus")
         self._watchdog_interval = float(config.get("watchdog_interval", 15.0))
@@ -622,9 +754,12 @@ class OpcDaDriver(DriverPlugin):
         if not server:
             raise ValueError("OPC DA driver config missing 'server' parameter (ProgID)")
 
-        self._com_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="opc_da_com")  # FIXED-P1: max_workers=1→2，防止单个挂起DCOM调用死锁整个executor
+        self._com_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="opc_da_com"
+        )  # FIXED-P1: max_workers=1→2，防止单个挂起DCOM调用死锁整个executor
 
         try:
+
             def _init_com_and_create_client() -> Any:
                 # ODA-001: 使用线程安全的方式初始化COM
                 self._ensure_com_initialized()
@@ -670,8 +805,11 @@ class OpcDaDriver(DriverPlugin):
             self._callback_processor_task = asyncio.create_task(self._process_callback_queue())
 
         except TimeoutError:
-            self._log_error(self._prog_id, OpcDaDriverErrors.CONN_TIMEOUT,
-                            f"connect timeout after {self._connect_timeout}s to {server}@{host}")
+            self._log_error(
+                self._prog_id,
+                OpcDaDriverErrors.CONN_TIMEOUT,
+                f"connect timeout after {self._connect_timeout}s to {server}@{host}",
+            )
             self._connected = False
             # ODA-001: 清理COM状态
             await self._ensure_com_uninitialized()
@@ -758,7 +896,9 @@ class OpcDaDriver(DriverPlugin):
                     logger.warning("[opc_da] executor shutdown timed out after 15s, forcing shutdown")
                     self._com_executor.shutdown(wait=False)
                 except Exception as e:
-                    logger.warning("[opc_da] ODA-MED-001: executor shutdown(wait=True) failed: %s, falling back to wait=False", e)
+                    logger.warning(
+                        "[opc_da] ODA-MED-001: executor shutdown(wait=True) failed: %s, falling back to wait=False", e
+                    )
                     self._com_executor.shutdown(wait=False)
                 self._com_executor = None
             logger.info("OPC DA driver stopped")
@@ -774,7 +914,9 @@ class OpcDaDriver(DriverPlugin):
             for _ in range(len(self._latest_values) // 5):
                 self._latest_values.popitem(last=False)
 
-    def _process_good_value(self, device_id: str, tag_name: str, value: Any, now: datetime, now_ts: float) -> PointValue:
+    def _process_good_value(
+        self, device_id: str, tag_name: str, value: Any, now: datetime, now_ts: float
+    ) -> PointValue:
         scaling = self._get_effective_param(device_id, tag_name, "scaling")
         clamp = self._get_effective_param(device_id, tag_name, "clamp")
         deadband = self._get_effective_param(device_id, tag_name, "deadband")
@@ -790,7 +932,9 @@ class OpcDaDriver(DriverPlugin):
         clamped, in_range = self._apply_clamp(value, clamp)
         if not in_range:
             self._log_error(device_id, OpcDaDriverErrors.VALUE_OUT_OF_RANGE, f"point={tag_name} value={value}")
-            return PointValue(value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.VALUE_OUT_OF_RANGE}")
+            return PointValue(
+                value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.VALUE_OUT_OF_RANGE}"
+            )
         value = clamped
 
         if not self._check_rate_of_change(tag_name, value, now_ts, roc_cfg):
@@ -798,11 +942,15 @@ class OpcDaDriver(DriverPlugin):
             state = self._get_or_create_point_state(tag_name)
             state.last_value = value
             state.last_timestamp = now_ts
-            return PointValue(value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.RATE_OF_CHANGE_EXCEEDED}")
+            return PointValue(
+                value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.RATE_OF_CHANGE_EXCEEDED}"
+            )
 
         if not self._check_frozen_value(tag_name, value, frozen_cfg):
             self._log_error(device_id, OpcDaDriverErrors.FROZEN_VALUE_DETECTED, f"point={tag_name} value={value}")
-            return PointValue(value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.FROZEN_VALUE_DETECTED}")
+            return PointValue(
+                value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.FROZEN_VALUE_DETECTED}"
+            )
 
         last_val = self._last_good_values.get(tag_name)
         value = self._apply_deadband(value, last_val, deadband)
@@ -846,7 +994,9 @@ class OpcDaDriver(DriverPlugin):
                         value = item[1]
                         # FIXED-P4: 处理VT_ARRAY类型（8192+基础类型）
                         if isinstance(value, (list, tuple)):
-                            result[tag_name] = PointValue(value=list(value), timestamp=now, quality="good", source="opc_da")
+                            result[tag_name] = PointValue(
+                                value=list(value), timestamp=now, quality="good", source="opc_da"
+                            )
                             continue
                         opc_quality = item[2] if len(item) > 2 else "Unknown"
                         quality = _map_quality(opc_quality)
@@ -855,12 +1005,28 @@ class OpcDaDriver(DriverPlugin):
                         if quality == "good":
                             result[tag_name] = self._process_good_value(device_id, tag_name, value, now, now_ts)
                         elif quality == "uncertain":
-                            self._log_error(device_id, OpcDaDriverErrors.QUALITY_UNCERTAIN, f"point={tag_name} opc_quality={opc_quality}")
-                            result[tag_name] = PointValue(value=None, timestamp=now, quality="uncertain", source=f"opc_da:{OpcDaDriverErrors.QUALITY_UNCERTAIN}")
+                            self._log_error(
+                                device_id,
+                                OpcDaDriverErrors.QUALITY_UNCERTAIN,
+                                f"point={tag_name} opc_quality={opc_quality}",
+                            )
+                            result[tag_name] = PointValue(
+                                value=None,
+                                timestamp=now,
+                                quality="uncertain",
+                                source=f"opc_da:{OpcDaDriverErrors.QUALITY_UNCERTAIN}",
+                            )
                             self._record_read_failure(device_id)
                         else:
-                            self._log_error(device_id, OpcDaDriverErrors.QUALITY_BAD, f"point={tag_name} opc_quality={opc_quality}")
-                            result[tag_name] = PointValue(value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.QUALITY_BAD}")
+                            self._log_error(
+                                device_id, OpcDaDriverErrors.QUALITY_BAD, f"point={tag_name} opc_quality={opc_quality}"
+                            )
+                            result[tag_name] = PointValue(
+                                value=None,
+                                timestamp=now,
+                                quality="bad",
+                                source=f"opc_da:{OpcDaDriverErrors.QUALITY_BAD}",
+                            )
                             self._record_read_failure(device_id)
 
                 elif isinstance(tags, (list, tuple)) and len(tags) >= 2:
@@ -870,16 +1036,31 @@ class OpcDaDriver(DriverPlugin):
                     item_value = tags[1]
                     # FIXED-P4: 处理VT_ARRAY类型（8192+基础类型）
                     if isinstance(item_value, (list, tuple)):
-                        result[tag_name] = PointValue(value=list(item_value), timestamp=now, quality="good", source="opc_da")
+                        result[tag_name] = PointValue(
+                            value=list(item_value), timestamp=now, quality="good", source="opc_da"
+                        )
                     elif quality == "good":
                         result[tag_name] = self._process_good_value(device_id, tag_name, item_value, now, now_ts)
                     elif quality == "uncertain":
-                        self._log_error(device_id, OpcDaDriverErrors.QUALITY_UNCERTAIN, f"point={tag_name} opc_quality={opc_quality}")
-                        result[tag_name] = PointValue(value=None, timestamp=now, quality="uncertain", source=f"opc_da:{OpcDaDriverErrors.QUALITY_UNCERTAIN}")
+                        self._log_error(
+                            device_id,
+                            OpcDaDriverErrors.QUALITY_UNCERTAIN,
+                            f"point={tag_name} opc_quality={opc_quality}",
+                        )
+                        result[tag_name] = PointValue(
+                            value=None,
+                            timestamp=now,
+                            quality="uncertain",
+                            source=f"opc_da:{OpcDaDriverErrors.QUALITY_UNCERTAIN}",
+                        )
                         self._record_read_failure(device_id)
                     else:
-                        self._log_error(device_id, OpcDaDriverErrors.QUALITY_BAD, f"point={tag_name} opc_quality={opc_quality}")
-                        result[tag_name] = PointValue(value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.QUALITY_BAD}")
+                        self._log_error(
+                            device_id, OpcDaDriverErrors.QUALITY_BAD, f"point={tag_name} opc_quality={opc_quality}"
+                        )
+                        result[tag_name] = PointValue(
+                            value=None, timestamp=now, quality="bad", source=f"opc_da:{OpcDaDriverErrors.QUALITY_BAD}"
+                        )
                         self._record_read_failure(device_id)
 
             except Exception as e:
@@ -916,7 +1097,9 @@ class OpcDaDriver(DriverPlugin):
             try:
                 ar = int(access_rights)
                 if ar == _OPC_ACCESS_READ:
-                    self._log_error(device_id, OpcDaDriverErrors.WRITE_READ_ONLY, f"point={point} item={item_id} access_rights={ar}")
+                    self._log_error(
+                        device_id, OpcDaDriverErrors.WRITE_READ_ONLY, f"point={point} item={item_id} access_rights={ar}"
+                    )
                     self._audit_write(device_id, point, item_id, data_type_name, None, value, "rejected_read_only")
                     return False
             except (ValueError, TypeError) as e:
@@ -926,8 +1109,11 @@ class OpcDaDriver(DriverPlugin):
             try:
                 vt_int = int(vt_type)
                 if not self._validate_write_type(value, vt_int):
-                    self._log_error(device_id, OpcDaDriverErrors.WRITE_TYPE_MISMATCH,
-                                    f"point={point} item={item_id} vt={_VT_TYPE_NAMES.get(vt_int, hex(vt_int))} value_type={type(value).__name__}")
+                    self._log_error(
+                        device_id,
+                        OpcDaDriverErrors.WRITE_TYPE_MISMATCH,
+                        f"point={point} item={item_id} vt={_VT_TYPE_NAMES.get(vt_int, hex(vt_int))} value_type={type(value).__name__}",
+                    )
                     self._audit_write(device_id, point, item_id, data_type_name, None, value, "rejected_type_mismatch")
                     return False
             except (ValueError, TypeError) as e:
@@ -1071,6 +1257,7 @@ class OpcDaDriver(DriverPlugin):
             return []
 
         try:
+
             def _browse() -> list:
                 return self._client.browse(item_path)
 
@@ -1083,18 +1270,22 @@ class OpcDaDriver(DriverPlugin):
                 else:
                     name = str(branch)
                     is_branch = True
-                items.append({
-                    "name": name,
-                    "is_branch": is_branch,
-                    "path": item_path + "/" + name if item_path else name,
-                    "protocol": "opc_da",
-                })
+                items.append(
+                    {
+                        "name": name,
+                        "is_branch": is_branch,
+                        "path": item_path + "/" + name if item_path else name,
+                        "protocol": "opc_da",
+                    }
+                )
             return items
         except Exception as e:
             self._log_error("", OpcDaDriverErrors.BROWSE_FAILED, str(e))
             return []
 
-    async def remove_device(self, device_id: str) -> None:  # FIXED-P1: 改为async，与onvif_driver/modbus_rtu/opcua等驱动签名保持一致
+    async def remove_device(
+        self, device_id: str
+    ) -> None:  # FIXED-P1: 改为async，与onvif_driver/modbus_rtu/opcua等驱动签名保持一致
         self._health_stats.pop(device_id, None)
         self._offline_since.pop(device_id, None)
         # ODA-002: 清理设备状态
@@ -1168,10 +1359,7 @@ class OpcDaDriver(DriverPlugin):
         if self._com_executor is None:
             return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout=timeout)
         loop = asyncio.get_running_loop()
-        return await asyncio.wait_for(
-            loop.run_in_executor(self._com_executor, lambda: func(*args)),
-            timeout=timeout
-        )
+        return await asyncio.wait_for(loop.run_in_executor(self._com_executor, lambda: func(*args)), timeout=timeout)
 
     def _configure_dcom_security(self) -> None:
         if not _PYTHONCOM_AVAILABLE or not self._client:
@@ -1253,7 +1441,11 @@ class OpcDaDriver(DriverPlugin):
                 error_class = self._classify_dcom_error(e)
                 if self._is_backoff_retry(error_class) and attempt < self._BUSY_RETRY_ATTEMPTS - 1:
                     dcom_code = self._dcom_class_to_error_code(error_class)
-                    self._log_error(device_id, dcom_code, f"busy retry attempt {attempt + 1}/{self._BUSY_RETRY_ATTEMPTS} in {delay:.1f}s")
+                    self._log_error(
+                        device_id,
+                        dcom_code,
+                        f"busy retry attempt {attempt + 1}/{self._BUSY_RETRY_ATTEMPTS} in {delay:.1f}s",
+                    )
                     await asyncio.sleep(delay)
                     delay = min(delay * 2, self._BUSY_RETRY_MAX_DELAY)
                 else:
@@ -1273,7 +1465,9 @@ class OpcDaDriver(DriverPlugin):
                         if self._is_non_retryable(error_class):
                             # ODA-002: 不再设置 _running = False，只标记所有设备为离线
                             dcom_code = self._dcom_class_to_error_code(error_class)
-                            self._log_error("watchdog", dcom_code, f"non-retryable error, marking devices offline: {error_class}")
+                            self._log_error(
+                                "watchdog", dcom_code, f"non-retryable error, marking devices offline: {error_class}"
+                            )
                             for did in list(self._devices):  # FIXED-P1: 使用list()快照，防止迭代中dict被修改
                                 self._set_device_state(did, "disconnected", f"non-retryable: {error_class}")
                             # 重置连接状态，但保持驱动运行以允许后续重连
@@ -1308,7 +1502,9 @@ class OpcDaDriver(DriverPlugin):
                 if self._is_non_retryable(error_class):
                     # ODA-002: 不再设置 _running = False，只标记所有设备为离线
                     dcom_code = self._dcom_class_to_error_code(error_class)
-                    self._log_error("watchdog", dcom_code, f"non-retryable error, marking devices offline: {error_class}")
+                    self._log_error(
+                        "watchdog", dcom_code, f"non-retryable error, marking devices offline: {error_class}"
+                    )
                     for did in list(self._devices):  # FIXED-P1: 使用list()快照，防止迭代中dict被修改
                         self._set_device_state(did, "disconnected", f"non-retryable: {error_class}")
                     self._connected = False
@@ -1331,7 +1527,6 @@ class OpcDaDriver(DriverPlugin):
         # FIXED-P0: 添加重连锁，防止并发重连导致COM client竞态关闭
         # FIXED-P1: 移除hasattr惰性创建和locked()预判，直接使用async with避免TOCTOU
         async with self._reconnect_lock:
-
             # FIXED-P0: 重连计数器改为设备级，避免多设备互相影响
             count = self._reconnect_counts.get(device_id, 0) + 1
             self._reconnect_counts[device_id] = count
@@ -1421,8 +1616,9 @@ class OpcDaDriver(DriverPlugin):
                         await self.add_subscription(list(self._subscribed_items))
 
             except TimeoutError:
-                self._log_error(device_id, OpcDaDriverErrors.CONN_TIMEOUT,
-                                f"reconnect timeout after {self._connect_timeout}s")
+                self._log_error(
+                    device_id, OpcDaDriverErrors.CONN_TIMEOUT, f"reconnect timeout after {self._connect_timeout}s"
+                )
             except Exception as e:
                 error_class = self._classify_dcom_error(e)
                 dcom_code = self._dcom_class_to_error_code(error_class)

@@ -144,6 +144,7 @@ class TlsConfigBuilder:
 
             if ca_cert:
                 import tempfile
+
                 ca_path = None
                 try:
                     with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
@@ -158,6 +159,7 @@ class TlsConfigBuilder:
 
             if client_cert and client_key:
                 import tempfile
+
                 cert_path = None
                 key_path = None
                 try:
@@ -259,9 +261,7 @@ class TlsManager:
         }
         ssl_verify = mode_map.get(verify_mode, ssl.CERT_REQUIRED)
 
-        context = self._config_builder.build_mqtt_ssl_context(
-            ca_cert, client_cert, client_key, ssl_verify
-        )
+        context = self._config_builder.build_mqtt_ssl_context(ca_cert, client_cert, client_key, ssl_verify)
 
         if context:
             key = f"mqtt_{host}_{port}"
@@ -311,9 +311,7 @@ class TlsManager:
             key = Path(private_key_path)
             ca = Path(ca_cert_path) if ca_cert_path else None
 
-            context = self._config_builder.build_https_context(
-                cert, key, ca if ca and ca.exists() else None
-            )
+            context = self._config_builder.build_https_context(cert, key, ca if ca and ca.exists() else None)
 
             if context:
                 config["tls_enabled"] = True
@@ -355,11 +353,13 @@ class TlsManager:
             )
 
             # 构建证书
-            subject = issuer = x509.Name([
-                x509.NameAttribute(NameOID.COUNTRY_NAME, "CN"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
-                x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-            ])
+            subject = issuer = x509.Name(
+                [
+                    x509.NameAttribute(NameOID.COUNTRY_NAME, "CN"),
+                    x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
+                    x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+                ]
+            )
 
             now = datetime.now(UTC)  # FIXED-P2: datetime.utcnow()在Python 3.12+已弃用，改为datetime.now(UTC)
             cert = (

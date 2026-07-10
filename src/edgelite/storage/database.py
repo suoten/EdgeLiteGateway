@@ -165,9 +165,9 @@ def _needs_rule_type_fix(sync_conn, table_name: str) -> bool:
     ('trend', 'expression', 或独立的 'ai' 而非 'ai_inference')。
     """
     try:
-        result = sync_conn.execute(text(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=:t"
-        ), {"t": table_name})
+        result = sync_conn.execute(
+            text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:t"), {"t": table_name}
+        )
         row = result.fetchone()
         if not row or not row[0]:
             return False
@@ -202,15 +202,15 @@ def _normalize_rule_type(sync_conn, table_name: str) -> None:
             sync_conn.execute(text(sql))
     # 兜底: 其他非标准值 → 'threshold'
     with suppress(Exception):
-        sync_conn.execute(text(
-            f"UPDATE {table_name} SET rule_type='threshold' "
-            f"WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
-        ))
+        sync_conn.execute(
+            text(
+                f"UPDATE {table_name} SET rule_type='threshold' "
+                f"WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
+            )
+        )
 
 
-def _recreate_indexes_from_list(
-    sync_conn, table_name: str, indexes: list
-) -> None:
+def _recreate_indexes_from_list(sync_conn, table_name: str, indexes: list) -> None:
     """表重建后根据预先捕获的索引定义重新创建索引。"""
     for idx in indexes:
         idx_name = idx.get("name", "")
@@ -222,10 +222,7 @@ def _recreate_indexes_from_list(
         unique = "UNIQUE" if idx.get("unique", False) else ""
         col_list = ", ".join(cols)
         with suppress(Exception):
-            sync_conn.execute(text(
-                f"CREATE {unique} INDEX IF NOT EXISTS {idx_name} "
-                f"ON {table_name} ({col_list})"
-            ))
+            sync_conn.execute(text(f"CREATE {unique} INDEX IF NOT EXISTS {idx_name} ON {table_name} ({col_list})"))
 
 
 def _build_database_url(config: Any = None) -> str:
@@ -308,10 +305,18 @@ class Database:
     TABLE_REVOKED_TOKENS = "revoked_tokens"
     TABLE_LOGIN_ATTEMPTS = "login_attempts"
 
-    _TABLE_LOCK_NAMES = frozenset([
-        "devices", "rules", "alarms", "users",
-        "templates", "resource_shares", "revoked_tokens", "login_attempts",
-    ])
+    _TABLE_LOCK_NAMES = frozenset(
+        [
+            "devices",
+            "rules",
+            "alarms",
+            "users",
+            "templates",
+            "resource_shares",
+            "revoked_tokens",
+            "login_attempts",
+        ]
+    )
 
     # FIXED: 索引定义映射，用于 _ensure_indexes 补建缺失索引
     _REQUIRED_INDEXES = {
@@ -340,18 +345,16 @@ class Database:
             conn: SQLAlchemy 同步连接
             existing_tables: 已存在的表名列表
         """
-        from sqlalchemy import text as sa_text
         from contextlib import suppress
+
+        from sqlalchemy import text as sa_text
 
         for table_name, indexes in Database._REQUIRED_INDEXES.items():
             if table_name not in existing_tables:
                 continue
             for idx_name, col_name in indexes:
                 with suppress(Exception):
-                    conn.execute(sa_text(
-                        f"CREATE INDEX IF NOT EXISTS {idx_name} "
-                        f"ON {table_name} ({col_name})"
-                    ))
+                    conn.execute(sa_text(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table_name} ({col_name})"))
 
     def __init__(self, config: Any = None, use_fine_grained_locks: bool = True):
         self._config = config or get_config()
@@ -488,7 +491,9 @@ class Database:
             engine_kwargs["pool_size"] = self._config.database.pool_size
             engine_kwargs["max_overflow"] = self._config.database.max_overflow
             engine_kwargs["pool_pre_ping"] = True
-            engine_kwargs["pool_recycle"] = 3600  # FIXED-P1: 原问题-未配pool_recycle，MySQL 8小时后断开空闲连接导致"has gone away"
+            engine_kwargs["pool_recycle"] = (
+                3600  # FIXED-P1: 原问题-未配pool_recycle，MySQL 8小时后断开空闲连接导致"has gone away"
+            )
             engine_kwargs["pool_timeout"] = 60  # FIXED-P1: 未配pool_timeout导致连接池耗尽时无限等待
             # FIXED-BugR4: 必须为 MySQL/PostgreSQL 设置驱动级超时，
             # 否则网络异常时 connect/query 永久挂起，连接池耗尽后整个数据库层卡死。
@@ -507,9 +512,7 @@ class Database:
             engine_kwargs["connect_args"] = connect_args
 
         self._engine = create_async_engine(self._db_url, **engine_kwargs)
-        self._session_factory = async_sessionmaker(
-            self._engine, class_=AsyncSession, expire_on_commit=False
-        )
+        self._session_factory = async_sessionmaker(self._engine, class_=AsyncSession, expire_on_commit=False)
 
         if self._backend == "sqlite":  # FIXED-P1: 原问题-SQLite CheckConstraint默认不强制执行，显式启用
             self._register_sqlite_pragmas(self._engine)
@@ -527,6 +530,7 @@ class Database:
         safe_url = self._db_url
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(self._db_url)
             if parsed.password:
                 safe_url = f"{parsed.scheme}://{parsed.username or ''}:***@{parsed.hostname or ''}"
@@ -546,9 +550,16 @@ class Database:
             await self._engine.dispose()
             self._engine = None
             self._session_factory = None
-            raise RuntimeError(f"{DatabaseErrors.CONNECTION_FAILED}: {safe_url}") from conn_err  # FIXED-P2: 使用safe_url替代conn_err，防止凭据泄露到日志/异常链
+            raise RuntimeError(
+                f"{DatabaseErrors.CONNECTION_FAILED}: {safe_url}"
+            ) from conn_err  # FIXED-P2: 使用safe_url替代conn_err，防止凭据泄露到日志/异常链
 
-        logger.info("数据库连接已建立 (backend=%s, url=%s, pool_size=%s)", self._backend, safe_url, engine_kwargs.get("pool_size", "N/A"))
+        logger.info(
+            "数据库连接已建立 (backend=%s, url=%s, pool_size=%s)",
+            self._backend,
+            safe_url,
+            engine_kwargs.get("pool_size", "N/A"),
+        )
         return self._engine
 
     async def _check_sqlite_integrity(self) -> None:
@@ -564,6 +575,7 @@ class Database:
                         db_path = self.db_path
                         if db_path and Path(db_path).exists():
                             import shutil
+
                             corrupt_backup = f"{db_path}.corrupt.{int(time.time())}"
                             shutil.copy2(db_path, corrupt_backup)
                             logger.warning("已备份损坏数据库到: %s", corrupt_backup)
@@ -617,11 +629,14 @@ class Database:
                         return cursor.fetchone()
                     finally:
                         conn.close()
+
                 result = await asyncio.to_thread(_check_integrity)
                 if result and result[0] != "ok":
                     logger.warning(
                         "Sidecar database integrity check failed: %s (%s): %s, attempting recovery",
-                        src_path.name, abs_path, result[0],
+                        src_path.name,
+                        abs_path,
+                        result[0],
                     )
                     await self._recover_sidecar_db(abs_path, src_path.name)
                 else:
@@ -632,7 +647,9 @@ class Database:
             except Exception as e:
                 logger.warning(
                     "Sidecar database integrity check error: %s (%s): %s, attempting recovery",
-                    src_path.name, abs_path, e,
+                    src_path.name,
+                    abs_path,
+                    e,
                 )
                 await self._recover_sidecar_db(abs_path, src_path.name)
 
@@ -670,8 +687,7 @@ class Database:
         try:
             if backup_dir.exists():
                 backup_files = sorted(
-                    (f for f in backup_dir.glob(f"{db_name}.backup.*")
-                     if not f.name.endswith(("-wal", "-shm"))),
+                    (f for f in backup_dir.glob(f"{db_name}.backup.*") if not f.name.endswith(("-wal", "-shm"))),
                     key=lambda p: p.stat().st_mtime,
                     reverse=True,
                 )
@@ -703,7 +719,8 @@ class Database:
         if not restored:
             logger.warning(
                 "Sidecar DB %s will be recreated empty on next access (corrupt backup: %s)",
-                db_name, corrupt_backup,
+                db_name,
+                corrupt_backup,
             )
 
     async def _rebuild_sqlite_database(self) -> None:
@@ -748,8 +765,7 @@ class Database:
         try:
             if backup_dir.exists():
                 backup_files = sorted(
-                    (f for f in backup_dir.glob(f"{db_name}.backup.*")
-                     if not f.name.endswith(("-wal", "-shm"))),
+                    (f for f in backup_dir.glob(f"{db_name}.backup.*") if not f.name.endswith(("-wal", "-shm"))),
                     key=lambda p: p.stat().st_mtime,
                     reverse=True,
                 )
@@ -772,10 +788,10 @@ class Database:
             echo=self._config.database.echo,
             connect_args={"check_same_thread": False},
         )
-        self._register_sqlite_pragmas(self._engine)  # FIXED-P0: 原问题-重建引擎后未注册PRAGMA，导致WAL模式和busy_timeout丢失
-        self._session_factory = async_sessionmaker(
-            self._engine, class_=AsyncSession, expire_on_commit=False
-        )
+        self._register_sqlite_pragmas(
+            self._engine
+        )  # FIXED-P0: 原问题-重建引擎后未注册PRAGMA，导致WAL模式和busy_timeout丢失
+        self._session_factory = async_sessionmaker(self._engine, class_=AsyncSession, expire_on_commit=False)
 
         async with self._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -806,8 +822,7 @@ class Database:
                             await conn2.run_sync(Base.metadata.create_all)
                             await self._migrate(conn2)
                         raise RuntimeError(
-                            "SQLite backup also corrupted, rebuilt empty. "
-                            f"Corrupt file: {corrupt_backup}."
+                            f"SQLite backup also corrupted, rebuilt empty. Corrupt file: {corrupt_backup}."
                         )
                     else:
                         logger.info("SQLite恢复后完整性检查通过")
@@ -856,7 +871,9 @@ class Database:
             # FIXED: 原问题-init_tables中admin用户查询无try-except保护，数据库连接异常导致初始化失败
             # FIXED-C04: admin查询异常时不应创建新admin，否则会覆盖已有用户的密码
             try:
-                admin_username = os.environ.get("EDGELITE_ADMIN_USERNAME", "admin")  # FIXED-P4: 与创建时使用相同的环境变量
+                admin_username = os.environ.get(
+                    "EDGELITE_ADMIN_USERNAME", "admin"
+                )  # FIXED-P4: 与创建时使用相同的环境变量
                 result = await session.execute(select(UserORM).where(UserORM.username == admin_username))
                 admin_user = result.scalar_one_or_none()
                 admin_exists = admin_user is not None
@@ -878,7 +895,9 @@ class Database:
             # FIXED: 增加诊断日志，帮助排查密码被意外修改的问题
             logger.info(
                 "Admin init check: admin_exists=%s, temp_password_set=%s, force_reset=%s",
-                admin_exists, temp_password is not None, force_reset,
+                admin_exists,
+                temp_password is not None,
+                force_reset,
             )
 
             if not admin_exists:
@@ -890,7 +909,9 @@ class Database:
                     if not temp_password:
                         temp_password = secrets.token_urlsafe(16)
                         # FIXED-P2: 初始密码写入文件而非stdout，防止容器日志采集泄露
-                        password_file = os.path.join(os.path.dirname(self.db_path) if self.db_path else "data", ".initial_admin_password")
+                        password_file = os.path.join(
+                            os.path.dirname(self.db_path) if self.db_path else "data", ".initial_admin_password"
+                        )
                         try:
                             os.makedirs(os.path.dirname(password_file), exist_ok=True)
                             with open(password_file, "w", encoding="utf-8") as f:
@@ -903,28 +924,44 @@ class Database:
                                 acl_applied = False
                                 try:
                                     import win32security
-                                    sd = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor("D:P(A;;FA;;;OW)(A;;FR;;;OW)", win32security.SDDL_REVISION_1)
-                                    win32security.SetFileSecurity(password_file, win32security.DACL_SECURITY_INFORMATION, sd)
+
+                                    sd = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+                                        "D:P(A;;FA;;;OW)(A;;FR;;;OW)", win32security.SDDL_REVISION_1
+                                    )
+                                    win32security.SetFileSecurity(
+                                        password_file, win32security.DACL_SECURITY_INFORMATION, sd
+                                    )
                                     acl_applied = True
                                 except (ImportError, AttributeError, OSError) as acl_err:
                                     logger.warning(
                                         "win32security ACL setup failed for initial admin password file %s: %s. "
                                         "Trying icacls fallback.",
-                                        password_file, acl_err,
+                                        password_file,
+                                        acl_err,
                                     )
                                 # icacls fallback（Windows 内置工具，无需额外依赖）
                                 if not acl_applied:
                                     try:
                                         import subprocess
+
                                         username = os.environ.get("USERNAME") or os.environ.get("USER")
                                         if username:
                                             subprocess.run(
-                                                ["icacls", password_file, "/inheritance:r", "/grant:r", f"{username}:R"],
+                                                [
+                                                    "icacls",
+                                                    password_file,
+                                                    "/inheritance:r",
+                                                    "/grant:r",
+                                                    f"{username}:R",
+                                                ],
                                                 check=True,
                                                 capture_output=True,
                                                 timeout=10,
                                             )
-                                            logger.info("Applied Windows ACL to initial admin password file via icacls: %s", password_file)
+                                            logger.info(
+                                                "Applied Windows ACL to initial admin password file via icacls: %s",
+                                                password_file,
+                                            )
                                         else:
                                             logger.warning(
                                                 "Cannot apply Windows ACL to initial admin password file %s: "
@@ -936,14 +973,16 @@ class Database:
                                         logger.warning(
                                             "icacls failed for initial admin password file %s (exit %s): %s. "
                                             "Other users on this machine may be able to read the password.",
-                                            password_file, cpe.returncode,
+                                            password_file,
+                                            cpe.returncode,
                                             (cpe.stderr or b"").decode("utf-8", errors="replace").strip(),
                                         )
                                     except Exception as icacls_err:
                                         logger.warning(
                                             "icacls fallback failed for initial admin password file %s: %s. "
                                             "Other users on this machine may be able to read the password.",
-                                            password_file, icacls_err,
+                                            password_file,
+                                            icacls_err,
                                         )
                             # R5-F-03 修复(致命): 原 logger.info 输出完整密码文件路径，若日志被集中采集
                             # (ELK/Loki)会泄露文件位置便于攻击者定位明文密码。
@@ -985,6 +1024,7 @@ class Database:
                 # FIXED: 密码重置改为一次性操作，重置成功后自动清除标志
                 try:
                     from edgelite.security.password import hash_password
+
                     if admin_user:
                         # FIXED: 检查是否已经用当前密码值重置过（防止每次重启都改密码）
                         already_reset = await self._check_password_already_reset(admin_user, temp_password)
@@ -1013,6 +1053,7 @@ class Database:
         """
         try:
             from edgelite.security.password import verify_password
+
             return verify_password(temp_password, admin_user.password)
         except Exception:
             return False
@@ -1103,7 +1144,12 @@ class Database:
             ("users", "updated_at", "DATETIME", None),
             ("rules", "created_by", "VARCHAR(64)", None),
             ("rules", "version", "INTEGER", "1"),
-            ("rules", "updated_at", "DATETIME", None),  # #[AUDIT-FIX] rules 缺失 updated_at 导致 /api/v1/system/status 500
+            (
+                "rules",
+                "updated_at",
+                "DATETIME",
+                None,
+            ),  # #[AUDIT-FIX] rules 缺失 updated_at 导致 /api/v1/system/status 500
             # SEC-FIX: 新增 rules 表 script/rule_type 列，使 evaluator 读取的脚本/规则类型可持久化
             ("rules", "script", "TEXT", "''"),
             ("rules", "rule_type", "VARCHAR(16)", "'threshold'"),
@@ -1187,9 +1233,7 @@ class Database:
         try:
             # Try inserting a row with severity='major' to see if constraint blocks it
             # Use a temporary test - check constraint text from sqlite_master
-            result = sync_conn.execute(text(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name='rules'"
-            ))
+            result = sync_conn.execute(text("SELECT sql FROM sqlite_master WHERE type='table' AND name='rules'"))
             row = result.fetchone()
             if row and row[0]:
                 table_sql = row[0]
@@ -1211,7 +1255,8 @@ class Database:
             col_list = ", ".join(col_names)
 
             # Create new table with correct constraints
-            sync_conn.execute(text("""
+            sync_conn.execute(
+                text("""
                 CREATE TABLE rules_new (
                     rule_id VARCHAR(36) PRIMARY KEY,
                     name VARCHAR(128) NOT NULL,
@@ -1229,7 +1274,8 @@ class Database:
                     CONSTRAINT ck_rules_severity_valid CHECK (severity IN ('critical', 'major', 'warning', 'minor', 'info')),
                     CONSTRAINT ck_rules_duration_non_negative CHECK (duration >= 0)
                 )
-            """))
+            """)
+            )
 
             # Copy data
             sync_conn.execute(text(f"INSERT INTO rules_new ({col_list}) SELECT {col_list} FROM rules"))
@@ -1320,18 +1366,15 @@ class Database:
 
                 # 4. 创建新表（带正确约束）、复制数据、替换旧表
                 sync_conn.execute(text(rebuild_sql))
-                sync_conn.execute(text(
-                    f"INSERT INTO {table_name}_new ({col_list}) "
-                    f"SELECT {col_list} FROM {table_name}"
-                ))
+                sync_conn.execute(
+                    text(f"INSERT INTO {table_name}_new ({col_list}) SELECT {col_list} FROM {table_name}")
+                )
                 # R7-S-04 修复(严重): 表重建添加备份
                 # 原问题: 直接 DROP 旧表后若后续 RENAME/索引重建失败，数据已丢失无法恢复。
                 # 修复: 先将旧表 RENAME 为备份表（而非 DROP），重建成功后再删除备份；
                 # 重建失败时从备份恢复，避免数据丢失。
                 sync_conn.execute(text(f"ALTER TABLE {table_name} RENAME TO {table_name}_backup"))
-                sync_conn.execute(text(
-                    f"ALTER TABLE {table_name}_new RENAME TO {table_name}"
-                ))
+                sync_conn.execute(text(f"ALTER TABLE {table_name}_new RENAME TO {table_name}"))
 
                 # 5. 用重建前捕获的索引定义重建索引
                 _recreate_indexes_from_list(sync_conn, table_name, old_indexes)
@@ -1396,6 +1439,7 @@ class Database:
 
         # Build the database URL for Alembic
         from edgelite.storage.database import _build_database_url
+
         db_url = _build_database_url(self._config)
 
         # Convert sync driver URL to async driver URL
@@ -1415,7 +1459,13 @@ class Database:
             # R7-S-04: 改用 asyncio.create_subprocess_exec 异步执行，避免同步 subprocess.run
             # 阻塞事件循环最长 300 秒
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "alembic", "-c", str(alembic_ini), "upgrade", "head",
+                sys.executable,
+                "-m",
+                "alembic",
+                "-c",
+                str(alembic_ini),
+                "upgrade",
+                "head",
                 cwd=str(project_root),
                 env=env,
                 stdout=asyncio.subprocess.PIPE,
@@ -1423,7 +1473,8 @@ class Database:
             )
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                    proc.communicate(), timeout=300  # 5 minutes timeout
+                    proc.communicate(),
+                    timeout=300,  # 5 minutes timeout
                 )
             except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041 - 兼容 Python<3.11
                 # 超时后显式杀死子进程，防止资源泄漏
@@ -1537,7 +1588,8 @@ class Database:
 
             logger.warning(
                 "Database migration failure notification sent: backend=%s, error=%s",
-                backend, error_msg[:200],
+                backend,
+                error_msg[:200],
             )
 
         except Exception as notify_err:
@@ -1670,7 +1722,9 @@ class Database:
 
         elif self._backend in ("mysql", "mariadb"):
             await self._backup_mysql(backup_path)
-            await self._backup_sidecar_dbs(backup_path)  # FIXED-P1: 原问题-非SQLite后端备份不含sidecar，MySQL/PG用户sidecar数据无备份
+            await self._backup_sidecar_dbs(
+                backup_path
+            )  # FIXED-P1: 原问题-非SQLite后端备份不含sidecar，MySQL/PG用户sidecar数据无备份
         elif self._backend in ("postgresql", "postgres"):
             await self._backup_postgresql(backup_path)
             await self._backup_sidecar_dbs(backup_path)  # FIXED-P1: 同上
@@ -1712,20 +1766,22 @@ class Database:
 
                 # FIXED-BACKUP: Use manager's backup() method if available for thread-safe backup
                 manager = self._get_config_version_manager(rel_path)
-                if manager is not None and hasattr(manager, 'backup'):
+                if manager is not None and hasattr(manager, "backup"):
                     # Use thread-safe backup via manager
                     try:
                         # FIXED-ASYNC: backup() is now async, call it directly with await
                         await manager.backup(str(sidecar_backup))
                         logger.info(
                             "Sidecar database backed up via manager: %s -> %s",
-                            abs_path, sidecar_backup,
+                            abs_path,
+                            sidecar_backup,
                         )
                         continue
                     except Exception as e:
                         logger.warning(
                             "Manager backup failed for %s: %s, falling back to file copy",
-                            sidecar_name, e,
+                            sidecar_name,
+                            e,
                         )
                         # Fall through to file-level backup
 
@@ -1745,10 +1801,13 @@ class Database:
                 try:
                     # FIXED-P2: 原问题-同步WAL checkpoint+shutil.copy2阻塞事件循环；改为asyncio.to_thread
                     # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用默认参数绑定当前 abs_path、sidecar_name、sidecar_backup 的值
-                    def _checkpoint_and_copy(abs_path=abs_path, sidecar_name=sidecar_name, sidecar_backup=sidecar_backup):
+                    def _checkpoint_and_copy(
+                        abs_path=abs_path, sidecar_name=sidecar_name, sidecar_backup=sidecar_backup
+                    ):
                         # WAL checkpoint on the sidecar before file copy
                         try:
                             import sqlite3
+
                             conn = sqlite3.connect(abs_path, timeout=10)
                             try:
                                 conn.execute("PRAGMA wal_checkpoint=TRUNCATE")
@@ -1784,6 +1843,7 @@ class Database:
                 # Integrity check on the backed-up copy
                 try:
                     import sqlite3
+
                     # FIXED-P2: 同_check_sidecar_integrity，同步sqlite3操作改为asyncio.to_thread
                     # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用默认参数绑定当前 sidecar_backup 的值
                     def _check_backup_integrity(sidecar_backup=sidecar_backup):
@@ -1793,16 +1853,19 @@ class Database:
                             return cursor.fetchone()
                         finally:
                             conn.close()
+
                     result = await asyncio.to_thread(_check_backup_integrity)
                     if result and result[0] != "ok":
                         logger.warning(
                             "Sidecar backup integrity check failed for %s: %s",
-                            sidecar_name, result[0],
+                            sidecar_name,
+                            result[0],
                         )
                     else:
                         logger.info(
                             "Sidecar database backed up: %s -> %s",
-                            abs_path, sidecar_backup,
+                            abs_path,
+                            sidecar_backup,
                         )
                 except Exception as e:
                     logger.warning("Sidecar integrity check failed for %s: %s", sidecar_name, e)
@@ -1810,7 +1873,9 @@ class Database:
             except Exception as e:
                 logger.error(
                     "Sidecar database backup failed for %s (%s): %s",
-                    sidecar_name, abs_path, e,
+                    sidecar_name,
+                    abs_path,
+                    e,
                 )
 
     def _get_sidecar_write_lock(self, rel_path: str) -> Any:
@@ -1825,11 +1890,26 @@ class Database:
             "data/emergency_buffer.db": ("influx_storage", "_emergency_db_lock"),
             "data/edgelite_ts.db": ("influx_storage", "_sqlite_ts_write_lock_proxy"),
             "data/audit.db": ("audit_service", "_db_lock"),
-            "data/security_audit.db": ("audit_service", "_db_lock"),  # FIXED-P0: 原问题-security_audit.db无锁映射，备份期间并发写入可不一致
-            "data/edge_triggers.db": ("edge_triggers", "_db_lock"),  # FIXED-P0: 原问题-edge_triggers.db无锁映射，备份期间并发写入可不一致
-            "data/mqtt_offline_queue.db": ("mqtt_forwarder", "_offline_db_lock"),  # FIXED-P0: 原问题-mqtt_offline_queue.db无锁映射，备份期间并发写入可不一致
-            "data/opcua_ts.db": ("opcua_ts_store", "_ts_write_lock_proxy"),  # FIXED-P0: 原问题-opcua_ts.db无锁映射，备份期间并发写入可不一致
-            "data/observability_alerts.db": ("alert_engine", "_lock"),  # FIXED-P0: 原问题-observability_alerts.db无锁映射，备份期间并发写入可不一致
+            "data/security_audit.db": (
+                "audit_service",
+                "_db_lock",
+            ),  # FIXED-P0: 原问题-security_audit.db无锁映射，备份期间并发写入可不一致
+            "data/edge_triggers.db": (
+                "edge_triggers",
+                "_db_lock",
+            ),  # FIXED-P0: 原问题-edge_triggers.db无锁映射，备份期间并发写入可不一致
+            "data/mqtt_offline_queue.db": (
+                "mqtt_forwarder",
+                "_offline_db_lock",
+            ),  # FIXED-P0: 原问题-mqtt_offline_queue.db无锁映射，备份期间并发写入可不一致
+            "data/opcua_ts.db": (
+                "opcua_ts_store",
+                "_ts_write_lock_proxy",
+            ),  # FIXED-P0: 原问题-opcua_ts.db无锁映射，备份期间并发写入可不一致
+            "data/observability_alerts.db": (
+                "alert_engine",
+                "_lock",
+            ),  # FIXED-P0: 原问题-observability_alerts.db无锁映射，备份期间并发写入可不一致
         }
         lock_info = _SIDECAR_LOCK_MAP.get(rel_path)
         if lock_info is None:
@@ -1837,6 +1917,7 @@ class Database:
         obj_attr, lock_attr = lock_info
         try:
             from edgelite.app import _app_state
+
             obj = getattr(_app_state, obj_attr, None)
             if obj is not None:
                 if lock_attr == "_sqlite_ts_write_lock_proxy":
@@ -1846,7 +1927,9 @@ class Database:
                         # 导致edgelite_ts.db备份期间无写锁保护，并发写入可导致备份不一致
                         return getattr(sqlite_ts, "_db_lock", None) or getattr(sqlite_ts, "_write_lock", None)
                     return None
-                if lock_attr == "_ts_write_lock_proxy":  # FIXED-P0: opcua_ts_store内部SqliteTimeSeriesStorage._write_lock代理
+                if (
+                    lock_attr == "_ts_write_lock_proxy"
+                ):  # FIXED-P0: opcua_ts_store内部SqliteTimeSeriesStorage._write_lock代理
                     ts = getattr(obj, "_ts", None)
                     if ts is not None:
                         return getattr(ts, "_db_lock", None) or getattr(ts, "_write_lock", None)
@@ -1893,9 +1976,7 @@ class Database:
             logger.debug("Could not get config version manager for %s: %s", rel_path, e)
             return None
 
-    async def _restore_sidecar_dbs(
-        self, main_db_path: str, backup_dir: Path, main_stem: str
-    ) -> None:
+    async def _restore_sidecar_dbs(self, main_db_path: str, backup_dir: Path, main_stem: str) -> None:
         """Restore sidecar SQLite databases from backup.
 
         FIXED-BACKUP: When recovering the main database from a backup, also restore
@@ -1919,8 +2000,7 @@ class Database:
             try:
                 # Find the latest backup for this sidecar (same timestamp as main db backup)
                 main_db_backups = sorted(
-                    (f for f in backup_dir.glob(f"{main_stem}.backup.*")
-                     if not f.name.endswith(("-wal", "-shm"))),
+                    (f for f in backup_dir.glob(f"{main_stem}.backup.*") if not f.name.endswith(("-wal", "-shm"))),
                     key=lambda p: p.stat().st_mtime,
                     reverse=True,
                 )
@@ -1939,7 +2019,8 @@ class Database:
                 if sidecar_backup is None:
                     logger.warning(
                         "No sidecar backup found for %s (main backup ts=%s), skipping restore",
-                        sidecar_name, main_db_backups[0].name,
+                        sidecar_name,
+                        main_db_backups[0].name,
                     )
                     continue
 
@@ -1959,7 +2040,9 @@ class Database:
             except Exception as e:
                 logger.error(
                     "Sidecar database restore failed for %s (%s): %s",
-                    sidecar_name, abs_path, e,
+                    sidecar_name,
+                    abs_path,
+                    e,
                 )
 
     async def _backup_mysql(self, backup_path: str) -> None:
@@ -1982,7 +2065,9 @@ class Database:
 
         def _run_mysqldump():
             with open(backup_path, "w", encoding="utf-8") as f:
-                result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, timeout=300, env={**os.environ, **dump_env})
+                result = subprocess.run(
+                    cmd, stdout=f, stderr=subprocess.PIPE, timeout=300, env={**os.environ, **dump_env}
+                )
             if result.returncode != 0:
                 err_msg = result.stderr.decode("utf-8", errors="replace").strip()
                 raise RuntimeError(f"mysqldump failed (exit={result.returncode}): {err_msg}")

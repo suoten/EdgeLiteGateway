@@ -131,8 +131,7 @@ class FinsTsStore:
                            (device_id, point_name, quality, value_real, value_int,
                             value_str, value_bool, timestamp_ns, created_at)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (device_id, point_name, quality, value_real, value_int,
-                         value_str, value_bool, now_ns, now),
+                        (device_id, point_name, quality, value_real, value_int, value_str, value_bool, now_ns, now),
                     )
                     written += 1
                 await self._db.commit()
@@ -140,6 +139,7 @@ class FinsTsStore:
         except Exception as e:
             logger.error("[fins-ts] 写入采集结果失败: %s", e)
         return written
+
     async def query(
         self,
         device_id: str,
@@ -190,8 +190,14 @@ class FinsTsStore:
             return []
 
     async def _query_aggregate(
-        self, device_id: str, point_name: str, start_ns: int, end_ns: int,
-        aggregate: str, window_seconds: int, limit: int,
+        self,
+        device_id: str,
+        point_name: str,
+        start_ns: int,
+        end_ns: int,
+        aggregate: str,
+        window_seconds: int,
+        limit: int,
     ) -> list[dict[str, Any]]:
         """聚合查询。"""
         if not self._db:
@@ -219,8 +225,11 @@ class FinsTsStore:
                 )
                 rows = await cursor.fetchall()
                 return [
-                    {"time": datetime.fromtimestamp(row[0] / 1e9, tz=UTC).isoformat(),
-                     "value": row[1], "quality": "good"}
+                    {
+                        "time": datetime.fromtimestamp(row[0] / 1e9, tz=UTC).isoformat(),
+                        "value": row[1],
+                        "quality": "good",
+                    }
                     for row in rows
                 ]
         except Exception as e:
@@ -244,9 +253,7 @@ class FinsTsStore:
             "quality": row["quality"] or "good",
         }
 
-    async def query_latest(
-        self, device_id: str, point_names: list[str]
-    ) -> dict[str, dict[str, Any]]:
+    async def query_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict[str, Any]]:
         """查询指定点位的最新值。"""
         if not self._db or not point_names:
             return {}
@@ -272,11 +279,13 @@ class FinsTsStore:
                 for row in rows:
                     pn = row[0]
                     ts = datetime.fromtimestamp(row[1] / 1e9, tz=UTC).isoformat()
-                    value = row[2] if row[2] is not None else (
-                        row[3] if row[3] is not None else (
-                            row[4] if row[4] is not None else (
-                                bool(row[5]) if row[5] is not None else None
-                            )
+                    value = (
+                        row[2]
+                        if row[2] is not None
+                        else (
+                            row[3]
+                            if row[3] is not None
+                            else (row[4] if row[4] is not None else (bool(row[5]) if row[5] is not None else None))
                         )
                     )
                     result[pn] = {"time": ts, "value": value, "quality": row[6] or "good"}
@@ -331,12 +340,15 @@ class FinsOfflineSyncManager:
         self._online = True
         logger.info(
             "[fins-offline] 离线同步管理器已启动: interval=%.1f batch=%d compress=%s",
-            self._sync_interval, self._batch_size, self._compress,
+            self._sync_interval,
+            self._batch_size,
+            self._compress,
         )
 
     async def stop(self) -> None:
         """停止离线同步管理器，尝试刷新剩余队列。"""
         import contextlib
+
         if self._sync_task is not None and not self._sync_task.done():
             self._sync_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

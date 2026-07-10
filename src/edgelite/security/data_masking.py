@@ -106,15 +106,14 @@ class SensitiveFilter(logging.Filter):
                 record.msg = self.mask_string(str(record.msg))
             # 处理参数
             if record.args:
-                record.args = tuple(
-                    self.mask_string(str(arg)) if isinstance(arg, str) else arg
-                    for arg in record.args
-                )
+                record.args = tuple(self.mask_string(str(arg)) if isinstance(arg, str) else arg for arg in record.args)
             # 处理异常信息
             if record.exc_text:
                 record.exc_text = self.mask_string(record.exc_text)
         except Exception:
-            logger.debug("Data masking filter failed, original message retained")  # FIXED-P2: 脱敏失败时记录日志而非静默
+            logger.debug(
+                "Data masking filter failed, original message retained"
+            )  # FIXED-P2: 脱敏失败时记录日志而非静默
         return True
 
     def mask_string(self, text: str) -> str:
@@ -127,7 +126,8 @@ class SensitiveFilter(logging.Filter):
         if len(text) > _MAX_MASK_STRING_LENGTH:
             logger.debug(
                 "Input too long for masking (%d chars), truncating to %d",
-                len(text), _MAX_MASK_STRING_LENGTH,
+                len(text),
+                _MAX_MASK_STRING_LENGTH,
             )
             text = text[:_MAX_MASK_STRING_LENGTH]
 
@@ -200,8 +200,10 @@ def mask_json(data: dict, sensitive_keys: list[str] | None = None) -> dict:
                 # FIXED-P1: 原实现仅处理 dict 项，字符串项未脱敏。
                 # 敏感字段的列表值（如 {"tokens": ["abc", "def"]}）中的字符串也应脱敏
                 result[key] = [
-                    mask_json(item, sensitive_keys) if isinstance(item, dict)
-                    else mask_sensitive(str(item)) if isinstance(item, str)
+                    mask_json(item, sensitive_keys)
+                    if isinstance(item, dict)
+                    else mask_sensitive(str(item))
+                    if isinstance(item, str)
                     else "****"
                     for item in value
                 ]
@@ -210,10 +212,7 @@ def mask_json(data: dict, sensitive_keys: list[str] | None = None) -> dict:
         elif isinstance(value, dict):
             result[key] = mask_json(value, sensitive_keys)
         elif isinstance(value, list):
-            result[key] = [
-                mask_json(item, sensitive_keys) if isinstance(item, dict) else item
-                for item in value
-            ]
+            result[key] = [mask_json(item, sensitive_keys) if isinstance(item, dict) else item for item in value]
         else:
             result[key] = value
 
@@ -323,9 +322,7 @@ def redact_ip(ip: str, preserve_subnet: int = 2) -> str:
     if len(parts) != 4:
         return ip
 
-    redacted = ".".join(
-        p if i < preserve_subnet else "*" for i, p in enumerate(parts)
-    )
+    redacted = ".".join(p if i < preserve_subnet else "*" for i, p in enumerate(parts))
     return redacted
 
 

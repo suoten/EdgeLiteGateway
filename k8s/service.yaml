@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: edgelite
+  namespace: edgelite
+  labels:
+    app.kubernetes.io/name: edgelite
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: edgelite
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edgelite
+  namespace: edgelite
+  labels:
+    app.kubernetes.io/name: edgelite
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - edgelite.example.com
+      secretName: edgelite-tls
+  rules:
+    - host: edgelite.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edgelite
+                port:
+                  number: 8080

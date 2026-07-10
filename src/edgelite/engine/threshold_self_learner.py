@@ -93,7 +93,7 @@ class ThresholdSelfLearner(SelfLearnerBase):
 
         # 计算各窗口的变异系数 (CV = std / |mean|)
         means = np.mean(matrix, axis=1)  # [N]
-        stds = np.std(matrix, axis=1)    # [N]
+        stds = np.std(matrix, axis=1)  # [N]
         # 避免除零
         cv = stds / (np.abs(means) + 1e-8)
         mean_cv = float(np.mean(cv))
@@ -111,7 +111,10 @@ class ThresholdSelfLearner(SelfLearnerBase):
 
         logger.info(
             "%s: trained k=%.1f (mean_cv=%.3f, samples=%d)",
-            MODEL_ID, k, mean_cv, len(data),
+            MODEL_ID,
+            k,
+            mean_cv,
+            len(data),
         )
 
         return {
@@ -178,6 +181,7 @@ class ThresholdSelfLearner(SelfLearnerBase):
     def _default_weights(self) -> dict[str, Any]:
         """返回默认（未训练）权重：k²=9.0（k=3.0）"""
         import numpy as np
+
         return {
             "k_squared": np.array([9.0], dtype=np.float32),
             "k": _DEFAULT_K,

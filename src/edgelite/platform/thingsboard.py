@@ -182,7 +182,12 @@ class ThingsBoardHandler(PlatformHandler):
                 self._consecutive_failures += 1
                 delay = min(5 * (2 ** (self._consecutive_failures - 1)), 60)
                 delay *= 0.5 + random.random() * 0.5  # FIXED-P2: 原问题-重连固定延迟无退避无抖动，改为指数退避+jitter
-                logger.error("ThingsBoard MQTT connection error: %s, retrying in %.1fs (failures=%d)", e, delay, self._consecutive_failures)  # FIXED-P3: 中文日志→英文
+                logger.error(
+                    "ThingsBoard MQTT connection error: %s, retrying in %.1fs (failures=%d)",
+                    e,
+                    delay,
+                    self._consecutive_failures,
+                )  # FIXED-P3: 中文日志→英文
                 self._connected = False
                 await asyncio.sleep(delay)
 
@@ -193,7 +198,9 @@ class ThingsBoardHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                    )  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 # 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)
@@ -219,7 +226,9 @@ class ThingsBoardHandler(PlatformHandler):
                         except Exception as qe:
                             # FIXED-P2: 重入队列失败时写入离线队列，避免消息丢失
                             self._enqueue_offline(topic, payload, qos)
-                            logger.error("ThingsBoard re-enqueue failed, enqueued offline: %s", qe)  # FIXED-P2: 原问题-重入队列失败时pass吞没异常
+                            logger.error(
+                                "ThingsBoard re-enqueue failed, enqueued offline: %s", qe
+                            )  # FIXED-P2: 原问题-重入队列失败时pass吞没异常
         except asyncio.CancelledError:
             pass
 

@@ -26,9 +26,7 @@ security_scheme = HTTPBearer(auto_error=False)
 # LP-02: Cookie 名称与 auth.py 保持一致
 _AUTH_COOKIE_ACCESS = "edgelite_access"
 
-_current_request: contextvars.ContextVar[Request | None] = contextvars.ContextVar(
-    "_current_request", default=None
-)
+_current_request: contextvars.ContextVar[Request | None] = contextvars.ContextVar("_current_request", default=None)
 
 
 def _get_request() -> Request:  # FIXED-P0: 7个API模块依赖此函数获取Request对象
@@ -153,9 +151,10 @@ async def get_current_user(
 
         if token_iat < pwd_changed_ts:
             logger.warning(
-                "Token rejected: issued before password change. "
-                "username=%s token_iat=%s password_changed_at=%s",
-                username, token_iat, pwd_changed_ts
+                "Token rejected: issued before password change. username=%s token_iat=%s password_changed_at=%s",
+                username,
+                token_iat,
+                pwd_changed_ts,
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -212,6 +211,7 @@ async def get_optional_current_user(
         if auth_header.startswith("Bearer "):
             # FIXED-P0-5: get_current_user需要credentials参数，手动构造HTTPAuthorizationCredentials
             from fastapi.security import HTTPAuthorizationCredentials
+
             token = auth_header[7:]  # 去掉 "Bearer " 前缀
             credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
         else:
@@ -250,6 +250,7 @@ async def get_optional_user(request: Request) -> dict[str, str] | None:
         jti = payload.get("jti", "")
         if jti:
             from edgelite.security.token_revocation import is_token_revoked
+
             if is_token_revoked(jti):
                 return None
 

@@ -52,7 +52,7 @@ class OfflineQueue:
         await self._db.execute("PRAGMA busy_timeout=5000")
         await self._db.execute("PRAGMA synchronous=NORMAL")
         await self._db.execute(
-            "CREATE TABLE IF NOT EXISTS offline_records (id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT NOT NULL, payload TEXT NOT NULL, retries INTEGER NOT NULL DEFAULT 0, last_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS offline_records (id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT NOT NULL, payload TEXT NOT NULL, retries INTEGER NOT NULL DEFAULT 0, last_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"  # noqa: E501
         )
         await self._db.execute("CREATE INDEX IF NOT EXISTS idx_offline_topic ON offline_records(topic)")
         await self._db.execute("CREATE INDEX IF NOT EXISTS idx_offline_retries ON offline_records(retries)")
@@ -97,7 +97,7 @@ class OfflineQueue:
         now = _now_iso()
         placeholders = ",".join("?" * len(ids))
         await self._db.execute(
-            f"UPDATE offline_records SET retries = retries + 1, last_error = ?, updated_at = ? WHERE id IN ({placeholders})",
+            f"UPDATE offline_records SET retries = retries + 1, last_error = ?, updated_at = ? WHERE id IN ({placeholders})",  # noqa: E501
             (reason, now, *ids),
         )
         await self._db.commit()

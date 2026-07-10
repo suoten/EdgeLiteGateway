@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class AggregationType(Enum):
     """Aggregation function types"""
+
     MEAN = "mean"
     SUM = "sum"
     MAX = "max"
@@ -48,6 +49,7 @@ class AggregationType(Enum):
 
 class TimeRangeFormat(Enum):
     """Time range format"""
+
     RELATIVE = "relative"  # -1h, -24h, -7d
     ABSOLUTE = "absolute"  # 2024-01-01T00:00:00Z
     DURATION = "duration"  # 1h, 1d, 1w
@@ -56,6 +58,7 @@ class TimeRangeFormat(Enum):
 @dataclass
 class QueryOptions:
     """Options for historical data queries"""
+
     start: str = "-1h"
     stop: str = ""
     aggregate: str = ""  # e.g., "5m", "1h"
@@ -69,6 +72,7 @@ class QueryOptions:
 @dataclass
 class QueryResult:
     """Result of a historical data query"""
+
     device_id: str = ""
     point_name: str = ""
     start_time: str = ""
@@ -82,6 +86,7 @@ class QueryResult:
 @dataclass
 class Statistics:
     """Statistical summary of data"""
+
     count: int = 0
     sum: float = 0.0
     mean: float = 0.0
@@ -142,7 +147,9 @@ class HistoricalDataService:
         except TimeoutError:
             logger.warning(
                 "Historical query timeout (30s): device=%s point=%s start=%s",
-                device_id, point_name, options.start,
+                device_id,
+                point_name,
+                options.start,
             )
             result.query_ms = (time.time() - start_time) * 1000
             result.count = 0
@@ -159,8 +166,9 @@ class HistoricalDataService:
         if data:
             # FIXED(严重): 原问题-非数值value导致sum()抛TypeError;
             # 修复-过滤非数值类型
-            values = [d.get("value") for d in data
-                      if d.get("value") is not None and isinstance(d.get("value"), (int, float))]
+            values = [
+                d.get("value") for d in data if d.get("value") is not None and isinstance(d.get("value"), (int, float))
+            ]
             if values:
                 result.statistics = self._calculate_statistics(values, data)
 
@@ -297,7 +305,9 @@ class HistoricalDataService:
         result = await self.query(
             device_id,
             point_name,
-            QueryOptions(start=start, stop=stop, limit=_EXPORT_MAX_RECORDS),  # FIXED-P2: 使用_EXPORT_MAX_RECORDS限制最大导出记录数，防止OOM
+            QueryOptions(
+                start=start, stop=stop, limit=_EXPORT_MAX_RECORDS
+            ),  # FIXED-P2: 使用_EXPORT_MAX_RECORDS限制最大导出记录数，防止OOM
         )
 
         if format.lower() == "csv":
@@ -328,11 +338,13 @@ class HistoricalDataService:
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
         for point in result.data_points:
-            writer.writerow({
-                "time": point.get("time", ""),
-                "value": point.get("value", ""),
-                "quality": point.get("quality", ""),
-            })
+            writer.writerow(
+                {
+                    "time": point.get("time", ""),
+                    "value": point.get("value", ""),
+                    "quality": point.get("quality", ""),
+                }
+            )
         return output.getvalue()
 
     async def query_trend(
@@ -400,12 +412,8 @@ class HistoricalDataService:
     ) -> dict[str, Any]:
         """Calculate correlation between two points"""
         # Query both points
-        result1 = await self.query(
-            device_id, point1, QueryOptions(start=start, stop=stop, limit=5000)
-        )
-        result2 = await self.query(
-            device_id, point2, QueryOptions(start=start, stop=stop, limit=5000)
-        )
+        result1 = await self.query(device_id, point1, QueryOptions(start=start, stop=stop, limit=5000))
+        result2 = await self.query(device_id, point2, QueryOptions(start=start, stop=stop, limit=5000))
 
         if not result1.data_points or not result2.data_points:
             return {"correlation": None, "reason": "insufficient_data"}
@@ -445,7 +453,7 @@ class HistoricalDataService:
         numerator = n * sum_xy - sum_x * sum_y
         # FIXED(一般): 原问题-浮点误差导致sqrt参数为负时抛ValueError;
         # 修复-用max(0,...)保护，负值视为0（无相关性）
-        denom_arg = (n * sum_x2 - sum_x ** 2) * (n * sum_y2 - sum_y ** 2)
+        denom_arg = (n * sum_x2 - sum_x**2) * (n * sum_y2 - sum_y**2)
         denominator = math.sqrt(max(0, denom_arg))
 
         correlation = 0 if denominator == 0 else numerator / denominator
@@ -510,10 +518,7 @@ class DeviceShadowService:
         shadow = {
             "device_id": device_id,
             "state": {
-                "reported": {
-                    point_name: data.get("value")
-                    for point_name, data in latest.items()
-                },
+                "reported": {point_name: data.get("value") for point_name, data in latest.items()},
                 "desired": {},
                 "metadata": {
                     point_name: {
@@ -663,11 +668,13 @@ class DeviceShadowService:
                 self._offline_cache[device_id] = []
 
             cache_list = self._offline_cache[device_id]
-            cache_list.append({
-                "command": command,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "retries": 0,
-            })
+            cache_list.append(
+                {
+                    "command": command,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "retries": 0,
+                }
+            )
 
             # Enforce size limit: drop oldest commands beyond the cap
             if len(cache_list) > self._max_offline_commands_per_device:
@@ -675,7 +682,8 @@ class DeviceShadowService:
                 del cache_list[:overflow]
                 logger.warning(
                     "Offline cache full for device %s, dropped %d oldest commands",
-                    device_id, overflow,
+                    device_id,
+                    overflow,
                 )
 
         logger.info("Command cached for offline device: %s", device_id)
@@ -726,6 +734,7 @@ def get_historical_service(influx_storage: InfluxDBStorage | None = None) -> His
     if _historical_service is None:
         if influx_storage is None:
             from edgelite.app import _app_state
+
             influx_storage = getattr(_app_state, "influx_storage", None)
         if influx_storage:
             _historical_service = HistoricalDataService(influx_storage)
@@ -738,6 +747,7 @@ def get_shadow_service(influx_storage: InfluxDBStorage | None = None) -> DeviceS
     if _shadow_service is None:
         if influx_storage is None:
             from edgelite.app import _app_state
+
             influx_storage = getattr(_app_state, "influx_storage", None)
         if influx_storage:
             _shadow_service = DeviceShadowService(influx_storage)

@@ -14,22 +14,17 @@
 
 from __future__ import annotations
 
-import asyncio
 import sqlite3
 import sys
-import tempfile
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 import pytest_asyncio
 
 sys.path.insert(0, "src")
 
 from edgelite.engine.alarm_outbox import AlarmOutbox
 from edgelite.engine.event_bus import AlarmEvent, EventBus
-
 
 # ════════════════════════════════════════════════════════════════════════
 # AlarmOutbox.persist 返回值测试

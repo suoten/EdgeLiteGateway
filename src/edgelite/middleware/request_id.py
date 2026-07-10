@@ -50,9 +50,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._header_name = header_name
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         raw = request.headers.get(self._header_name)
         rid = _sanitize_request_id(raw)
         # 设置 contextvar，下游所有日志记录均能通过 Filter 读取

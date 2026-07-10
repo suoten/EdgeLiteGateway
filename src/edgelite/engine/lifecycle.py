@@ -54,6 +54,7 @@ class DeviceLifecycleManager:
     def _resolve_db_path(self) -> str:
         try:
             from edgelite.config import get_config
+
             config = get_config()
             sqlite_path = getattr(config.database, "sqlite_path", "")
             if sqlite_path:
@@ -100,6 +101,7 @@ class DeviceLifecycleManager:
     async def _persist_status(self, device_id: str, status: str) -> None:
         """Persist device status to SQLite (thread-safe via _sqlite_lock)."""
         import time
+
         def _do_persist():
             with self._sqlite_lock:
                 conn = self._get_conn()
@@ -107,6 +109,7 @@ class DeviceLifecycleManager:
                     return
                 conn.execute(_UPSERT_SQL, (device_id, status, time.time()))
                 conn.commit()
+
         try:
             await asyncio.to_thread(_do_persist)
         except Exception as e:
@@ -115,6 +118,7 @@ class DeviceLifecycleManager:
 
     async def _delete_status(self, device_id: str) -> None:
         """Delete device status from SQLite (thread-safe via _sqlite_lock)."""
+
         def _do_delete():
             with self._sqlite_lock:
                 conn = self._get_conn()
@@ -122,6 +126,7 @@ class DeviceLifecycleManager:
                     return
                 conn.execute(_DELETE_SQL, (device_id,))
                 conn.commit()
+
         try:
             await asyncio.to_thread(_do_delete)
         except Exception as e:
@@ -133,6 +138,7 @@ class DeviceLifecycleManager:
 
         Publishes event on success, publishes correction event on rollback.
         """
+
         def _do_transition():
             with self._sqlite_lock:
                 old_status = self._status_map.get(device_id, "offline")
@@ -145,6 +151,7 @@ class DeviceLifecycleManager:
                     new_status=new_status,
                 )
                 return old_status, event
+
         old_status, event = await asyncio.to_thread(_do_transition)
         if event is None:
             return
@@ -181,13 +188,16 @@ class DeviceLifecycleManager:
         def _do_get():
             with self._sqlite_lock:
                 return self._status_map.get(device_id, "offline")
+
         return await asyncio.to_thread(_do_get)
 
     async def remove_device(self, device_id: str) -> None:
         await self._delete_status(device_id)
+
         def _do_remove():
             with self._sqlite_lock:
                 self._status_map.pop(device_id, None)
+
         await asyncio.to_thread(_do_remove)
 
     async def close(self) -> None:
@@ -199,4 +209,5 @@ class DeviceLifecycleManager:
                     except Exception as e:
                         logger.warning("关闭SQLite连接失败: %s", e)
                     self._db_conn = None
+
         await asyncio.to_thread(_do_close)

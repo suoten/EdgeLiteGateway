@@ -54,7 +54,10 @@ class PaginationParams(BaseModel):
     """分页请求参数"""
 
     page: int = Field(default=1, ge=1)
-    size: int = Field(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_QUERY_SIZE, alias="page_size")
+    # FIXED: 原问题-alias="page_size" 导致 FastAPI 仅收集 page_size 查询参数，
+    # 前端与测试统一使用 size，被静默忽略（始终走默认值 20），且 le=_MAX_QUERY_SIZE
+    # 校验也被绕过。移除 alias，使查询参数名与字段名 size 一致。
+    size: int = Field(default=_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_QUERY_SIZE)
 
     model_config = {"populate_by_name": True}
 

@@ -25,7 +25,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
-from edgelite.drivers.soem_integration import SOEM_AVAILABLE, SOEMContext, SOEMSlaveInfo, SOEMPdoConfig
+from edgelite.drivers.soem_integration import (
+    SOEM_AVAILABLE,
+    SOEMContext,
+    SOEMPdoConfig,
+    SOEMSlaveInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,19 +47,19 @@ EC_STATE_SAFE_OP = 0x04
 EC_STATE_OPERATIONAL = 0x08
 
 # EtherCAT 命令 (ETG.1000.6 标准)
-EC_CMD_NOP = 0x00   # No Operation
+EC_CMD_NOP = 0x00  # No Operation
 EC_CMD_APRD = 0x01  # Auto Increment Physical Read
 EC_CMD_APWR = 0x02  # Auto Increment Physical Write
 EC_CMD_APRW = 0x03  # Auto Increment Physical Read/Write
 EC_CMD_FPRD = 0x04  # Configured Address Physical Read
 EC_CMD_FPWR = 0x05  # Configured Address Physical Write
 EC_CMD_FPRW = 0x06  # Configured Address Physical Read/Write
-EC_CMD_BRD = 0x07   # Broadcast Read
-EC_CMD_BWR = 0x08   # Broadcast Write
-EC_CMD_BRW = 0x09   # Broadcast Read/Write
-EC_CMD_LRD = 0x0A   # Logical Memory Read
-EC_CMD_LWR = 0x0B   # Logical Memory Write
-EC_CMD_LRW = 0x0C   # Logical Memory Read/Write
+EC_CMD_BRD = 0x07  # Broadcast Read
+EC_CMD_BWR = 0x08  # Broadcast Write
+EC_CMD_BRW = 0x09  # Broadcast Read/Write
+EC_CMD_LRD = 0x0A  # Logical Memory Read
+EC_CMD_LWR = 0x0B  # Logical Memory Write
+EC_CMD_LRW = 0x0C  # Logical Memory Read/Write
 
 # EtherCAT Working Counter 类型
 EC_WKC_TYPE_PDO_OUT = 1
@@ -65,6 +70,7 @@ EC_WKC_TYPE_SDO = 3
 @dataclass
 class EtherCATSlave:
     """EtherCAT从站信息"""
+
     station_address: int
     vendor_id: int
     product_code: int
@@ -79,6 +85,7 @@ class EtherCATSlave:
 @dataclass
 class PDOMapping:
     """PDO映射配置"""
+
     index: int
     subindex: int
     name: str
@@ -275,8 +282,9 @@ class EtherCATClient:
             ]
             await asyncio.to_thread(self._soem.configure_pdo, slave_addr, soem_mappings)
 
-        logger.info("PDO config complete: slave %d, output %d bytes, input %d bytes",
-                   slave_addr, output_size, input_size)
+        logger.info(
+            "PDO config complete: slave %d, output %d bytes, input %d bytes", slave_addr, output_size, input_size
+        )
         return True
 
     async def set_slave_state(self, slave_addr: int, state: int) -> bool:
@@ -297,10 +305,12 @@ class EtherCATClient:
             EC_STATE_OPERATIONAL: "OPERATIONAL",
         }
 
-        logger.info("Set slave %d state: %s -> %s",
-                   slave_addr,
-                   state_names.get(self._slaves[slave_addr].state, "UNKNOWN"),
-                   state_names.get(state, "UNKNOWN"))
+        logger.info(
+            "Set slave %d state: %s -> %s",
+            slave_addr,
+            state_names.get(self._slaves[slave_addr].state, "UNKNOWN"),
+            state_names.get(state, "UNKNOWN"),
+        )
 
         self._slaves[slave_addr].state = state
         return True
@@ -347,7 +357,7 @@ class EtherCATClient:
                 value = data[mapping.name]
                 size = _get_type_size(mapping.data_type)
                 packed = _pack_data(value, mapping.data_type)
-                output_data[offset:offset+size] = packed
+                output_data[offset : offset + size] = packed
                 offset += size
 
         self._slaves[slave_addr].outputs = bytes(output_data)
@@ -372,7 +382,9 @@ class EtherCATClient:
         logger.debug("SDO read (simulated): slave=%d 0x%04X:%02X", slave_addr, index, subindex)
         return None
 
-    async def write_sdo(self, slave_addr: int, index: int, subindex: int, value: Any, data_type: str = "uint32") -> bool:
+    async def write_sdo(
+        self, slave_addr: int, index: int, subindex: int, value: Any, data_type: str = "uint32"
+    ) -> bool:
         """写入SDO
 
         Args:
@@ -384,8 +396,14 @@ class EtherCATClient:
         """
         if self._soem and self._use_real_soem:
             result = await asyncio.to_thread(self._soem.write_sdo, slave_addr, index, subindex, value, data_type)
-            logger.debug("SDO write (SOEM): slave=%d 0x%04X:%02X = %s (%s)",
-                        slave_addr, index, subindex, value, "OK" if result else "FAIL")
+            logger.debug(
+                "SDO write (SOEM): slave=%d 0x%04X:%02X = %s (%s)",
+                slave_addr,
+                index,
+                subindex,
+                value,
+                "OK" if result else "FAIL",
+            )
             return result
 
         logger.debug("SDO write (simulated): slave=%d 0x%04X:%02X = %s", slave_addr, index, subindex, value)
@@ -403,8 +421,7 @@ class EtherCATClient:
             logger.debug("DC sync (simulated): slave=%d", slave_addr)
             return True
 
-        logger.info("DC sync requested: slave=%d, time=%dns, period=%dns",
-                   slave_addr, sync0_time, sync0_period)
+        logger.info("DC sync requested: slave=%d, time=%dns, period=%dns", slave_addr, sync0_time, sync0_period)
         return True
 
     def close(self) -> None:
@@ -423,10 +440,16 @@ def _get_type_size(data_type: str) -> int:
     """获取数据类型大小"""
     sizes = {
         "bool": 1,
-        "int8": 1, "uint8": 1,
-        "int16": 2, "uint16": 2,
-        "int32": 4, "uint32": 4, "float": 4,
-        "int64": 8, "uint64": 8, "double": 8,
+        "int8": 1,
+        "uint8": 1,
+        "int16": 2,
+        "uint16": 2,
+        "int32": 4,
+        "uint32": 4,
+        "float": 4,
+        "int64": 8,
+        "uint64": 8,
+        "double": 8,
     }
     return sizes.get(data_type, 1)
 
@@ -446,12 +469,27 @@ class EtherCATDriver(DriverPlugin):
     config_schema = {
         "description": "EtherCAT high-speed industrial Ethernet for motion control and distributed IO (SOEM integrated)",
         "fields": [
-            {"name": "iface", "type": "string", "label": "Network Interface",
-             "description": "EtherCAT network interface (e.g. eth0, ens1f0)", "default": "eth0"},
-            {"name": "timeout", "type": "integer", "label": "Timeout (ms)",
-             "description": "Operation timeout in milliseconds", "default": 2000},
-            {"name": "enable_dc", "type": "boolean", "label": "Enable DC Sync",
-             "description": "Enable Distributed Clock synchronization", "default": False},
+            {
+                "name": "iface",
+                "type": "string",
+                "label": "Network Interface",
+                "description": "EtherCAT network interface (e.g. eth0, ens1f0)",
+                "default": "eth0",
+            },
+            {
+                "name": "timeout",
+                "type": "integer",
+                "label": "Timeout (ms)",
+                "description": "Operation timeout in milliseconds",
+                "default": 2000,
+            },
+            {
+                "name": "enable_dc",
+                "type": "boolean",
+                "label": "Enable DC Sync",
+                "description": "Enable Distributed Clock synchronization",
+                "default": False,
+            },
         ],
     }
 
@@ -611,14 +649,16 @@ class EtherCATDriver(DriverPlugin):
                 vendor_id_str = f"0x{slave.vendor_id:08X}"
                 product_code_str = f"0x{slave.product_code:08X}"
 
-                results.append({
-                    "device_id": f"ethercat_{slave.station_address}",
-                    "name": slave.name,
-                    "station_address": slave.station_address,
-                    "vendor_id": vendor_id_str,
-                    "product_code": product_code_str,
-                    "protocol": "ethercat",
-                })
+                results.append(
+                    {
+                        "device_id": f"ethercat_{slave.station_address}",
+                        "name": slave.name,
+                        "station_address": slave.station_address,
+                        "vendor_id": vendor_id_str,
+                        "product_code": product_code_str,
+                        "protocol": "ethercat",
+                    }
+                )
 
             return results
 

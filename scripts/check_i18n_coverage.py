@@ -39,10 +39,7 @@ IGNORED_KEYS = {'canvas', 'default', 'three'}
 def is_valid_i18n_key(key: str) -> bool:
     if key in IGNORED_KEYS:
         return False
-    for pat in INVALID_KEY_PATTERNS:
-        if pat.search(key):
-            return False
-    return True
+    return all(not pat.search(key) for pat in INVALID_KEY_PATTERNS)
 
 
 def extract_keys_from_vue_files() -> dict[str, list[str]]:
@@ -79,9 +76,7 @@ def extract_defined_keys(ts_file: Path) -> set[str]:
             current_path = '.'.join(path_stack + [key_name])
             keys.add(current_path)
 
-            if '{' in value_part and '}' not in value_part:
-                path_stack.append(key_name)
-            elif value_part == '{':
+            if '{' in value_part and '}' not in value_part or value_part == '{':
                 path_stack.append(key_name)
 
         opens = stripped.count('{')
@@ -124,26 +119,26 @@ def main():
     print(f"  en-US only (not in zh-CN): {len(en_only)} keys")
 
     if missing_zh:
-        print(f"\n--- Missing in zh-CN ---")
+        print("\n--- Missing in zh-CN ---")
         for k in sorted(missing_zh):
             files = used_keys.get(k, [])
             file_info = f"  (used in: {files[0]})" if files and verbose else ""
             print(f"  {k}{file_info}")
 
     if missing_en:
-        print(f"\n--- Missing in en-US ---")
+        print("\n--- Missing in en-US ---")
         for k in sorted(missing_en):
             files = used_keys.get(k, [])
             file_info = f"  (used in: {files[0]})" if files and verbose else ""
             print(f"  {k}{file_info}")
 
     if zh_only:
-        print(f"\n--- Defined only in zh-CN (missing en-US translation) ---")
+        print("\n--- Defined only in zh-CN (missing en-US translation) ---")
         for k in sorted(zh_only):
             print(f"  {k}")
 
     if en_only:
-        print(f"\n--- Defined only in en-US (missing zh-CN translation) ---")
+        print("\n--- Defined only in en-US (missing zh-CN translation) ---")
         for k in sorted(en_only):
             print(f"  {k}")
 

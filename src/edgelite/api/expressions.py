@@ -46,7 +46,9 @@ def _get_engine():
 @router.post("/evaluate", response_model=ApiResponse)
 async def evaluate_expression(
     req: ExpressionTestRequest,
-    user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),  # SEC-FIX: 表达式引擎可执行计算，权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
+    user: dict[str, str] = Depends(
+        require_permission(Permission.CONFIG_EDIT)
+    ),  # SEC-FIX: 表达式引擎可执行计算，权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
     engine = _get_engine()
     try:
@@ -60,7 +62,9 @@ async def evaluate_expression(
 @router.post("/evaluate-batch", response_model=ApiResponse)
 async def evaluate_batch(
     req: ExpressionBatchRequest,
-    user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
+    user: dict[str, str] = Depends(
+        require_permission(Permission.CONFIG_EDIT)
+    ),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
     engine = _get_engine()
     try:
@@ -74,16 +78,24 @@ async def evaluate_batch(
 @router.post("/validate", response_model=ApiResponse)
 async def validate_expression(
     req: ExpressionTestRequest,
-    user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
+    user: dict[str, str] = Depends(
+        require_permission(Permission.CONFIG_EDIT)
+    ),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
     engine = _get_engine()
     try:
         engine._validate_expression(engine._resolve_variables(req.expression, req.variables or {}))
         return ApiResponse(data={"valid": True, "expression": req.expression})
     except ValueError:
-        return ApiResponse(data={"valid": False, "expression": req.expression, "error": ExpressionErrors.VALIDATE_FAILED}, error_code=ExpressionErrors.VALIDATE_FAILED)  # FIXED-P1: 不暴露异常详情
+        return ApiResponse(
+            data={"valid": False, "expression": req.expression, "error": ExpressionErrors.VALIDATE_FAILED},
+            error_code=ExpressionErrors.VALIDATE_FAILED,
+        )  # FIXED-P1: 不暴露异常详情
     except Exception:
-        return ApiResponse(data={"valid": False, "expression": req.expression, "error": ExpressionErrors.VALIDATE_FAILED}, error_code=ExpressionErrors.VALIDATE_FAILED)  # FIXED-P1: 不暴露异常详情
+        return ApiResponse(
+            data={"valid": False, "expression": req.expression, "error": ExpressionErrors.VALIDATE_FAILED},
+            error_code=ExpressionErrors.VALIDATE_FAILED,
+        )  # FIXED-P1: 不暴露异常详情
 
 
 @router.get("/functions", response_model=ApiResponse)

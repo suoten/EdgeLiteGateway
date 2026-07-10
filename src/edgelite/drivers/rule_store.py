@@ -47,6 +47,7 @@ class RuleStore:
 
     def load_rules(self) -> list[EdgeRule]:
         from edgelite.drivers.edge_rule_engine import EdgeRule, EdgeRuleOperator, EdgeRuleType
+
         if not self._db:
             return []
         with self._lock:
@@ -59,18 +60,40 @@ class RuleStore:
         for (snap_json,) in rows:
             try:
                 d = json.loads(snap_json)
-                rules.append(EdgeRule(rule_id=d["rule_id"], device_id=d.get("device_id", ""), point_name=d.get("point_name", ""), rule_type=EdgeRuleType(d.get("rule_type", "threshold")), operator=EdgeRuleOperator(d.get("operator", ">")), threshold=float(d.get("threshold", 0)), severity=d.get("severity", "major"), enabled=d.get("enabled", True), cooldown_ms=float(d.get("cooldown_ms", 5000)), duration_ms=float(d.get("duration_ms", 0)), deadband=float(d.get("deadband", 0)), actions=d.get("actions", [])))
+                rules.append(
+                    EdgeRule(
+                        rule_id=d["rule_id"],
+                        device_id=d.get("device_id", ""),
+                        point_name=d.get("point_name", ""),
+                        rule_type=EdgeRuleType(d.get("rule_type", "threshold")),
+                        operator=EdgeRuleOperator(d.get("operator", ">")),
+                        threshold=float(d.get("threshold", 0)),
+                        severity=d.get("severity", "major"),
+                        enabled=d.get("enabled", True),
+                        cooldown_ms=float(d.get("cooldown_ms", 5000)),
+                        duration_ms=float(d.get("duration_ms", 0)),
+                        deadband=float(d.get("deadband", 0)),
+                        actions=d.get("actions", []),
+                    )
+                )
             except (KeyError, ValueError, TypeError) as e:
                 logger.warning("skip malformed rule snapshot: %s", e)
         return rules
+
     def save_rule(self, rule: EdgeRule) -> None:
         snap = rule.to_dict()
         snap_json = json.dumps(snap, ensure_ascii=False, default=str)
         with self._lock:
             try:
-                self._db.execute("INSERT INTO rules(rule_id, snapshot, updated_at) VALUES(?,?,?) ON CONFLICT(rule_id) DO UPDATE SET snapshot=excluded.snapshot, updated_at=excluded.updated_at", (rule.rule_id, snap_json, _now_iso()))
+                self._db.execute(
+                    "INSERT INTO rules(rule_id, snapshot, updated_at) VALUES(?,?,?) ON CONFLICT(rule_id) DO UPDATE SET snapshot=excluded.snapshot, updated_at=excluded.updated_at",
+                    (rule.rule_id, snap_json, _now_iso()),
+                )
                 version = self._next_version(rule.rule_id)
-                self._db.execute("INSERT INTO rule_versions(rule_id, version, snapshot, created_at) VALUES(?,?,?,?)", (rule.rule_id, version, snap_json, _now_iso()))
+                self._db.execute(
+                    "INSERT INTO rule_versions(rule_id, version, snapshot, created_at) VALUES(?,?,?,?)",
+                    (rule.rule_id, version, snap_json, _now_iso()),
+                )
                 self._db.commit()
             except sqlite3.Error as e:
                 logger.error("save_rule failed for %s: %s", rule.rule_id, e)
@@ -87,9 +110,12 @@ class RuleStore:
 
     def rollback(self, rule_id: str, target_version: int) -> EdgeRule | None:
         from edgelite.drivers.edge_rule_engine import EdgeRule, EdgeRuleOperator, EdgeRuleType
+
         with self._lock:
             try:
-                row = self._db.execute("SELECT snapshot FROM rule_versions WHERE rule_id=? AND version=?", (rule_id, target_version)).fetchone()
+                row = self._db.execute(
+                    "SELECT snapshot FROM rule_versions WHERE rule_id=? AND version=?", (rule_id, target_version)
+                ).fetchone()
             except sqlite3.Error as e:
                 logger.error("rollback query failed: %s", e)
                 return None
@@ -98,7 +124,20 @@ class RuleStore:
             return None
         try:
             d = json.loads(row[0])
-            rule = EdgeRule(rule_id=d["rule_id"], device_id=d.get("device_id", ""), point_name=d.get("point_name", ""), rule_type=EdgeRuleType(d.get("rule_type", "threshold")), operator=EdgeRuleOperator(d.get("operator", ">")), threshold=float(d.get("threshold", 0)), severity=d.get("severity", "major"), enabled=d.get("enabled", True), cooldown_ms=float(d.get("cooldown_ms", 5000)), duration_ms=float(d.get("duration_ms", 0)), deadband=float(d.get("deadband", 0)), actions=d.get("actions", []))
+            rule = EdgeRule(
+                rule_id=d["rule_id"],
+                device_id=d.get("device_id", ""),
+                point_name=d.get("point_name", ""),
+                rule_type=EdgeRuleType(d.get("rule_type", "threshold")),
+                operator=EdgeRuleOperator(d.get("operator", ">")),
+                threshold=float(d.get("threshold", 0)),
+                severity=d.get("severity", "major"),
+                enabled=d.get("enabled", True),
+                cooldown_ms=float(d.get("cooldown_ms", 5000)),
+                duration_ms=float(d.get("duration_ms", 0)),
+                deadband=float(d.get("deadband", 0)),
+                actions=d.get("actions", []),
+            )
             self.save_rule(rule)
             return rule
         except (KeyError, ValueError, TypeError) as e:
@@ -108,7 +147,9 @@ class RuleStore:
     def get_versions(self, rule_id: str) -> list[dict]:
         with self._lock:
             try:
-                rows = self._db.execute("SELECT version, created_at FROM rule_versions WHERE rule_id=? ORDER BY version DESC", (rule_id,)).fetchall()
+                rows = self._db.execute(
+                    "SELECT version, created_at FROM rule_versions WHERE rule_id=? ORDER BY version DESC", (rule_id,)
+                ).fetchall()
             except sqlite3.Error as e:
                 logger.error("get_versions failed: %s", e)
                 return []
@@ -140,12 +181,15 @@ class RuleStore:
     def _next_version(self, rule_id: str) -> int:
         if not self._db:
             return 1
-        row = self._db.execute("SELECT COALESCE(MAX(version), 0) FROM rule_versions WHERE rule_id=?", (rule_id,)).fetchone()
+        row = self._db.execute(
+            "SELECT COALESCE(MAX(version), 0) FROM rule_versions WHERE rule_id=?", (rule_id,)
+        ).fetchone()
         return (row[0] if row else 0) + 1
 
 
 def _now_iso() -> str:
     from datetime import UTC, datetime
+
     return datetime.now(UTC).isoformat()
 
 

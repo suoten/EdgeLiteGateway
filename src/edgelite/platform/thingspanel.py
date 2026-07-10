@@ -139,9 +139,7 @@ class ThingsPanelHandler(PlatformHandler):
             self._enqueue_offline(topic, payload_bytes, 1)
             logger.warning("ThingsPanel pub queue full, enqueued offline")  # FIXED-P2: 原问题-中文日志
 
-    async def _connect_loop(
-        self, broker: str, port: int, username: str, password: str, device_token: str
-    ) -> None:
+    async def _connect_loop(self, broker: str, port: int, username: str, password: str, device_token: str) -> None:
         import aiomqtt
 
         backoff = 1
@@ -221,7 +219,9 @@ class ThingsPanelHandler(PlatformHandler):
                             {"result": result} if result is not None else {}, ensure_ascii=False
                         )
                         await client.publish(response_topic, response_payload)
-                        logger.debug("ThingsPanel RPC response: %s -> %s", method, request_id)  # FIXED-P3: 中文日志→英文
+                        logger.debug(
+                            "ThingsPanel RPC response: %s -> %s", method, request_id
+                        )  # FIXED-P3: 中文日志→英文
                 except Exception as e:
                     logger.error("ThingsPanel RPC handler error: %s", e)  # FIXED-P3: 中文日志→英文
         except asyncio.CancelledError:
@@ -234,7 +234,9 @@ class ThingsPanelHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    msg = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    msg = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                    )  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 # R7-S-04 修复(严重): 兼容直接发布的 dict 与离线队列刷新的 tuple (topic, payload, qos) 两种格式

@@ -31,8 +31,9 @@ class S7ConfigVersionManager:
         self._audit_trail: dict[str, list[dict[str, Any]]] = []
         self._lock = threading.Lock()
 
-    async def save_version(self, device_id: str, config: dict,
-                           change_summary: str = "", operator: str = "system") -> dict[str, Any]:
+    async def save_version(
+        self, device_id: str, config: dict, change_summary: str = "", operator: str = "system"
+    ) -> dict[str, Any]:
         """保存配置版本快照
 
         Args:
@@ -56,13 +57,15 @@ class S7ConfigVersionManager:
                 "config": copy.deepcopy(config),
             }
             versions.append(version_info)
-            self._audit_trail.setdefault(device_id, []).append({
-                "version": version_num,
-                "timestamp": version_info["timestamp"],
-                "action": "save",
-                "operator": operator,
-                "summary": change_summary,
-            })
+            self._audit_trail.setdefault(device_id, []).append(
+                {
+                    "version": version_num,
+                    "timestamp": version_info["timestamp"],
+                    "action": "save",
+                    "operator": operator,
+                    "summary": change_summary,
+                }
+            )
         logger.info("[s7_config_version] device=%s version=%d saved", device_id, version_num)
         return {k: v for k, v in version_info.items() if k != "config"}
 
@@ -90,8 +93,7 @@ class S7ConfigVersionManager:
                     return copy.deepcopy(v.get("config", {}))
             return None
 
-    async def rollback(self, device_id: str, target_version: int,
-                       operator: str = "system") -> dict[str, Any]:
+    async def rollback(self, device_id: str, target_version: int, operator: str = "system") -> dict[str, Any]:
         """回滚到指定版本 (创建新版本，内容复制自目标版本)
 
         Args:
@@ -124,15 +126,16 @@ class S7ConfigVersionManager:
                 "config": target_config,
             }
             versions.append(version_info)
-            self._audit_trail.setdefault(device_id, []).append({
-                "version": version_num,
-                "timestamp": version_info["timestamp"],
-                "action": "rollback",
-                "operator": operator,
-                "summary": f"Rollback to version {target_version}",
-            })
-        logger.info("[s7_config_version] device=%s rollback to v%d (new v%d)",
-                    device_id, target_version, version_num)
+            self._audit_trail.setdefault(device_id, []).append(
+                {
+                    "version": version_num,
+                    "timestamp": version_info["timestamp"],
+                    "action": "rollback",
+                    "operator": operator,
+                    "summary": f"Rollback to version {target_version}",
+                }
+            )
+        logger.info("[s7_config_version] device=%s rollback to v%d (new v%d)", device_id, target_version, version_num)
         return {k: v for k, v in version_info.items() if k != "config"}
 
     async def get_audit_trail(self, device_id: str, limit: int = 100) -> list[dict[str, Any]]:

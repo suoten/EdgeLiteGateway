@@ -30,14 +30,17 @@ logger = logging.getLogger(__name__)
 SNAP7_AVAILABLE = False
 _snap7_lib = None
 
+
 # Snap7常量
 class Snap7Error(Exception):
     """Snap7异常"""
+
     pass
 
 
 class S7Area(Enum):
     """S7内存区域"""
+
     PE = 0x81  # Process Inputs
     PA = 0x82  # Process Outputs
     MK = 0x83  # Markers (Flags)
@@ -48,6 +51,7 @@ class S7Area(Enum):
 
 class S7WordLen(Enum):
     """S7数据类型"""
+
     Bit = 0x01
     Byte = 0x02
     Word = 0x04
@@ -95,6 +99,7 @@ _try_load_snap7()
 @dataclass
 class Snap7ConnectionInfo:
     """Snap7连接信息"""
+
     ip_address: str
     rack: int = 0
     slot: int = 1
@@ -173,8 +178,7 @@ class Snap7Client:
             if result == 0:
                 self._connected = True
                 self._info = info
-                logger.info("Snap7 connected to %s (rack=%d, slot=%d)",
-                          info.ip_address, info.rack, info.slot)
+                logger.info("Snap7 connected to %s (rack=%d, slot=%d)", info.ip_address, info.rack, info.slot)
                 return True
             else:
                 logger.error("Snap7 connection failed: error=%d", result)
@@ -227,7 +231,7 @@ class Snap7Client:
 
         try:
             buffer = ctypes.create_string_buffer(size)
-            size_read = ctypes.c_int32(size)
+            ctypes.c_int32(size)
 
             result = _snap7_lib.Cli_ReadArea(
                 self._client,
@@ -284,8 +288,9 @@ class Snap7Client:
             )
 
             if result == 0:
-                logger.debug("Snap7 write_area success: area=%s db=%d start=%d size=%d",
-                           area.name, db_number, start, size)
+                logger.debug(
+                    "Snap7 write_area success: area=%s db=%d start=%d size=%d", area.name, db_number, start, size
+                )
                 return True
             else:
                 logger.error("Snap7 write_area failed: error=%d", result)

@@ -8,7 +8,7 @@ import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from edgelite.drivers.base import DriverPlugin
@@ -171,9 +171,7 @@ class OpcUaServerDriver(DriverPlugin):
             from asyncua import Server, ua
             from asyncua.server.users import User, UserRole
         except ImportError:
-            raise ImportError(
-                "asyncua未安装，请执行: pip install asyncua>=1.1.0"
-            ) from None
+            raise ImportError("asyncua未安装，请执行: pip install asyncua>=1.1.0") from None
 
         try:
             self._server = Server()
@@ -192,8 +190,10 @@ class OpcUaServerDriver(DriverPlugin):
                 cert_path = config.get("cert_path", "")
                 key_path = config.get("key_path", "")
                 if cert_path and key_path:
-                    self._server.load_certificate(cert_path)
-                    self._server.load_private_key(key_path)
+                    # FIXED-P1: load_certificate/load_private_key 是协程, 必须 await,
+                    # 否则 TLS 证书/私钥未真正加载, 加密形同虚设
+                    await self._server.load_certificate(cert_path)
+                    await self._server.load_private_key(key_path)
                     logger.info("OPC UA Server TLS enabled")
 
             # 用户认证配置
@@ -206,7 +206,9 @@ class OpcUaServerDriver(DriverPlugin):
                         def get_user(self, iserver, username: str, password: str) -> User:
                             if username == self.username and password == self.password:
                                 return User(role=UserRole.Admin)
-                            return User(role=UserRole.Anonymous)
+                            # FIXED-P1: 认证失败必须返回 None 拒绝连接,
+                            # 原实现降级为匿名用户会导致认证绕过
+                            return None
 
                     user_manager = CustomUserManager()
                     user_manager.username = username
@@ -220,6 +222,10 @@ class OpcUaServerDriver(DriverPlugin):
             # 启动服务器
             host = config.get("host", "0.0.0.0")
             port = int(config.get("port", 4840))
+            # FIXED-P1: set_endpoint 必须在 start 之前调用,
+            # 否则服务器使用默认端点, 自定义 host/port 配置失效
+            endpoint_url = f"opc.tcp://{host}:{port}"
+            self._server.set_endpoint(endpoint_url)
             await self._server.start()
             logger.info(
                 "OPC UA Server started: opc.tcp://%s:%d",
@@ -247,9 +253,7 @@ class OpcUaServerDriver(DriverPlugin):
         self._nodes.clear()
         self._subscriptions.clear()
 
-    async def add_device(
-        self, device_id: str, config: dict, points: list[dict] | None = None
-    ) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         """添加设备并注册其所有测点为 OPC UA 节点"""
         if not self._server:
             raise RuntimeError("OPC UA Server not started")
@@ -315,11 +319,10 @@ class OpcUaServerDriver(DriverPlugin):
 
         try:
             # 创建对象节点
-            uri = self._server.get_namespace_array()[node_idx - 1] if node_idx > 0 else ""
+            self._server.get_namespace_array()[node_idx - 1] if node_idx > 0 else ""
             idx = node_idx
 
             # 获取 Objects 节点
-            objects = self._server.nodes.objects
 
             # 创建可变变量
             var = await self._server.nodes.objects.add_variable(
@@ -403,7 +406,7 @@ class OpcUaServerDriver(DriverPlugin):
             try:
                 from asyncua import ua
 
-                uri = self._server.get_namespace_array()[self._namespace_idx - 1] if self._namespace_idx > 0 else ""
+                self._server.get_namespace_array()[self._namespace_idx - 1] if self._namespace_idx > 0 else ""
                 var = self._server.get_node(f"ns={self._namespace_idx};s={point}")
                 dv = ua.DataValue(ua.Variant(value, getattr(ua.VariantType, node.data_type, ua.VariantType.Float)))
                 dv.ServerTimestamp = datetime.now(UTC)
@@ -421,9 +424,7 @@ class OpcUaServerDriver(DriverPlugin):
             results[point_name] = await self.write_point(device_id, point_name, value)
         return results
 
-    async def update_point_value(
-        self, point: str, value: Any, quality: str = "good"
-    ) -> bool:
+    async def update_point_value(self, point: str, value: Any, quality: str = "good") -> bool:
         """更新测点值（从内部数据源同步）
 
         这是 OPC UA Server 的核心方法，用于从南向驱动接收数据并更新到 OPC UA 节点。
@@ -463,7 +464,6 @@ class OpcUaServerDriver(DriverPlugin):
             except (ValueError, TypeError):
                 return False
 
-            old_value = node.value
             node.value = value
             node.quality = quality
             node.timestamp = datetime.now(UTC)
@@ -598,11 +598,7 @@ class OpcUaServerDriver(DriverPlugin):
     async def remove_device(self, device_id: str) -> None:
         """移除设备（注销其所有节点）"""
         # 查找属于该设备的所有节点并移除
-        nodes_to_remove = [
-            node_id
-            for node_id, node in list(self._nodes.items())
-            if device_id in node.description
-        ]
+        nodes_to_remove = [node_id for node_id, node in list(self._nodes.items()) if device_id in node.description]
         for node_id in nodes_to_remove:
             try:
                 await self._unregister_node(node_id)

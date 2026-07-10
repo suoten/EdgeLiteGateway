@@ -35,20 +35,17 @@ _API_KEY_HEADER = "X-API-Key"
 _background_tasks: set[asyncio.Task] = set()
 
 
-def _log_api_key_usage(
-    request: Request,
-    key_name: str,
-    success: bool,
-    action: str = "metrics_access"
-) -> None:
+def _log_api_key_usage(request: Request, key_name: str, success: bool, action: str = "metrics_access") -> None:
     """Log API Key usage for audit trail."""
     try:
         from edgelite.app import _app_state
+
         audit_svc = getattr(_app_state, "audit_service", None)
         if audit_svc:
             client_ip = request.client.host if request.client else "unknown"
             try:
                 from edgelite.services.audit_service import AuditAction
+
                 # FIXED(P1): 原问题-RUF006 create_task 返回值未保存，task 可能被 GC 回收;
                 #            修复-保存到模块级 _background_tasks 集合
                 task = asyncio.create_task(
@@ -97,6 +94,7 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
             # FIXED(严重): 原问题-使用decode_token不检查token撤销和session状态;
             # 修复-改用verify_token完整校验
             from edgelite.security.jwt import verify_token
+
             payload = verify_token(token, token_type="access")
             username = payload.get("username", "")
             user_role = payload.get("role", "")
@@ -107,6 +105,7 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
             jti = payload.get("jti", "")
             if jti:
                 from edgelite.security.token_revocation import is_token_revoked
+
                 if is_token_revoked(jti):
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -137,6 +136,7 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
                     password_changed_at = user.get("password_changed_at")
                     if token_iat and password_changed_at:
                         from datetime import datetime
+
                         if isinstance(password_changed_at, str):
                             try:
                                 pwd_changed_ts = datetime.fromisoformat(password_changed_at).timestamp()
@@ -160,8 +160,9 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
             if not has_permission(user_role, Permission.SYSTEM_READ):
                 logger.warning(
                     "Metrics access denied: user=%s role=%s ip=%s - insufficient permissions",
-                    username, user_role,
-                    request.client.host if request.client else "unknown"
+                    username,
+                    user_role,
+                    request.client.host if request.client else "unknown",
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -229,7 +230,7 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
                     # FIXED-H02: webhook API key 默认只有 DEVICE_PUSH 权限，不应访问 metrics
                     logger.warning(
                         "Metrics auth: webhook API key attempted to access metrics (ip=%s)",
-                        request.client.host if request.client else "unknown"
+                        request.client.host if request.client else "unknown",
                     )
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
@@ -238,8 +239,7 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
 
             if valid_key_info is None:
                 logger.warning(
-                    "Metrics auth: invalid API key from ip=%s",
-                    request.client.host if request.client else "unknown"
+                    "Metrics auth: invalid API key from ip=%s", request.client.host if request.client else "unknown"
                 )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -247,12 +247,7 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
                 )
 
             # Log successful API Key usage
-            _log_api_key_usage(
-                request,
-                valid_key_info["key_name"],
-                success=True,
-                action="metrics_access"
-            )
+            _log_api_key_usage(request, valid_key_info["key_name"], success=True, action="metrics_access")
 
             # FIXED-H02: Return with scoped permissions, not admin role
             return {
@@ -475,7 +470,9 @@ class PrometheusExporter:
         self._lock = threading.Lock()
 
     def gauge(
-        self, name: str, value: float,
+        self,
+        name: str,
+        value: float,
         labels: dict[str, str] | None = None,
         description: str = "",
     ) -> None:
@@ -487,7 +484,9 @@ class PrometheusExporter:
             self._metrics[name]["values"][self._labels_key(labels or {})] = value
 
     def counter(
-        self, name: str, value: float,
+        self,
+        name: str,
+        value: float,
         labels: dict[str, str] | None = None,
         description: str = "",
     ) -> None:
@@ -510,8 +509,17 @@ class PrometheusExporter:
         labels: dict[str, str] | None = None,
         description: str = "",
         buckets: tuple[float, ...] = (
-            0.005, 0.01, 0.025, 0.05, 0.1,
-            0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
         ),
     ) -> None:
         """记录Histogram指标"""
@@ -528,7 +536,8 @@ class PrometheusExporter:
             key = self._labels_key(labels or {})
             if key not in self._metrics[name]["values"]:
                 self._metrics[name]["values"][key] = {
-                    "sum": 0.0, "count": 0,
+                    "sum": 0.0,
+                    "count": 0,
                     "buckets": {b: 0 for b in buckets},
                 }
 
@@ -611,17 +620,22 @@ class PrometheusExporter:
                     for labels_key, data in metric["values"].items():
                         labels = self._parse_labels(labels_key)
                         for b in buckets:
-                            output.append(_format_metric(
+                            output.append(
+                                _format_metric(
+                                    f"{name}_bucket",
+                                    {**labels, "le": str(b)},
+                                    data["buckets"].get(b, 0),
+                                    timestamp,
+                                )
+                            )
+                        output.append(
+                            _format_metric(
                                 f"{name}_bucket",
-                                {**labels, "le": str(b)},
-                                data["buckets"].get(b, 0),
+                                {**labels, "le": "+Inf"},
+                                data["count"],
                                 timestamp,
-                            ))
-                        output.append(_format_metric(
-                            f"{name}_bucket",
-                            {**labels, "le": "+Inf"}, data["count"],
-                            timestamp,
-                        ))
+                            )
+                        )
                         output.append(_format_metric(f"{name}_sum", labels, data["sum"], timestamp))
                         output.append(_format_metric(f"{name}_count", labels, data["count"], timestamp))
 
@@ -635,12 +649,14 @@ class PrometheusExporter:
                             idx = int(q * count) if count > 0 else 0
                             idx = min(idx, count - 1) if count > 0 else 0
                             quantile_value = sorted_values[idx] if sorted_values else 0.0
-                            output.append(_format_metric(
-                                f"{name}",
-                                {**labels, "quantile": str(q)},
-                                quantile_value,
-                                timestamp,
-                            ))
+                            output.append(
+                                _format_metric(
+                                    f"{name}",
+                                    {**labels, "quantile": str(q)},
+                                    quantile_value,
+                                    timestamp,
+                                )
+                            )
                         output.append(_format_metric(f"{name}_sum", labels, data["sum"], timestamp))
                         output.append(_format_metric(f"{name}_count", labels, data["count"], timestamp))
 
@@ -683,8 +699,10 @@ def _collect_system_metrics(exporter: PrometheusExporter) -> None:
     # 改为interval=None返回上次调用以来的瞬时CPU使用率，避免阻塞
     cpu_percent = psutil.cpu_percent(interval=None)
     exporter.gauge(
-        "edgelite_system_cpu_usage_percent", cpu_percent,
-        {"core": "total"}, "System CPU usage percent",
+        "edgelite_system_cpu_usage_percent",
+        cpu_percent,
+        {"core": "total"},
+        "System CPU usage percent",
     )
 
     for i, percent in enumerate(psutil.cpu_percent(interval=None, percpu=True)):
@@ -693,7 +711,8 @@ def _collect_system_metrics(exporter: PrometheusExporter) -> None:
     # 内存指标
     mem = psutil.virtual_memory()
     exporter.gauge(
-        "edgelite_system_memory_total_bytes", mem.total,
+        "edgelite_system_memory_total_bytes",
+        mem.total,
         description="System memory total in bytes",
     )
     exporter.gauge("edgelite_system_memory_available_bytes", mem.available)
@@ -704,10 +723,12 @@ def _collect_system_metrics(exporter: PrometheusExporter) -> None:
     try:
         # FIXED-P1: 原问题-Windows上psutil.disk_usage("/")可能失败，使用系统盘根目录
         import os
+
         disk_path = os.path.abspath(os.sep)  # Windows: "C:\", Linux: "/"
         disk = psutil.disk_usage(disk_path)
         exporter.gauge(
-            "edgelite_system_disk_total_bytes", disk.total,
+            "edgelite_system_disk_total_bytes",
+            disk.total,
             description="System disk total in bytes",
         )
         exporter.gauge("edgelite_system_disk_free_bytes", disk.free)
@@ -732,6 +753,7 @@ def _collect_system_metrics(exporter: PrometheusExporter) -> None:
     # Uptime
     try:
         from edgelite.app import _app_state
+
         start_time = getattr(_app_state, "start_time", None)
         if start_time:
             exporter.gauge(
@@ -778,13 +800,17 @@ async def _collect_device_metrics(exporter: PrometheusExporter) -> None:  # FIXE
         total_devices = len(active_devices)
         for protocol, count in protocol_counts.items():
             exporter.gauge(
-                "edgelite_devices_total", count,
-                {"protocol": protocol}, "Total devices by protocol",
+                "edgelite_devices_total",
+                count,
+                {"protocol": protocol},
+                "Total devices by protocol",
             )
         if not protocol_counts:
             exporter.gauge(
-                "edgelite_devices_total", total_devices,
-                {"protocol": "unknown"}, "Total devices by protocol",
+                "edgelite_devices_total",
+                total_devices,
+                {"protocol": "unknown"},
+                "Total devices by protocol",
             )
 
         # 在线/离线设备数
@@ -796,11 +822,13 @@ async def _collect_device_metrics(exporter: PrometheusExporter) -> None:  # FIXE
                 offline_count += 1
 
         exporter.gauge(
-            "edgelite_devices_online", online_count,
+            "edgelite_devices_online",
+            online_count,
             description="Number of online devices",
         )
         exporter.gauge(
-            "edgelite_devices_offline", offline_count,
+            "edgelite_devices_offline",
+            offline_count,
             description="Number of offline devices",
         )
 
@@ -837,11 +865,13 @@ async def _collect_points_metrics(exporter: PrometheusExporter) -> None:  # FIXE
             total_errors += timeout_count
 
         exporter.gauge(
-            "edgelite_points_collected_total", total_points,
+            "edgelite_points_collected_total",
+            total_points,
             description="Total data points collected",
         )
         exporter.gauge(
-            "edgelite_collection_errors_total", total_errors,
+            "edgelite_collection_errors_total",
+            total_errors,
             description="Total collection errors",
         )
     except Exception as e:
@@ -871,20 +901,22 @@ def _collect_alarm_metrics(exporter: PrometheusExporter) -> None:
                 # 回退：使用 evaluator 的统计
                 evaluator = getattr(_app_state, "evaluator", None)
                 counts = (
-                    getattr(evaluator, "_alarm_counts", {})
-                    if evaluator and hasattr(evaluator, "_alarm_counts")
-                    else {}
+                    getattr(evaluator, "_alarm_counts", {}) if evaluator and hasattr(evaluator, "_alarm_counts") else {}
                 )
             total_active = 0
             for severity, count in counts.items():
                 exporter.gauge(
-                    "edgelite_alarms_active", count,
-                    {"severity": severity}, "Active alarms by severity",
+                    "edgelite_alarms_active",
+                    count,
+                    {"severity": severity},
+                    "Active alarms by severity",
                 )
                 total_active += count
             exporter.gauge(
-                "edgelite_alarms_active", total_active,
-                {"severity": "all"}, "Active alarms by severity",
+                "edgelite_alarms_active",
+                total_active,
+                {"severity": "all"},
+                "Active alarms by severity",
             )
         except Exception as e:
             # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -915,11 +947,7 @@ def _collect_ai_metrics(exporter: PrometheusExporter) -> None:
         if not ai_engine:
             return
 
-        models = (
-            ai_engine.get_loaded_models()
-            if hasattr(ai_engine, "get_loaded_models")
-            else {}
-        )
+        models = ai_engine.get_loaded_models() if hasattr(ai_engine, "get_loaded_models") else {}
         active_count = 0
         for model_id, wrapper in models.items():
             status = getattr(wrapper, "status", "unknown")
@@ -927,20 +955,10 @@ def _collect_ai_metrics(exporter: PrometheusExporter) -> None:
                 active_count += 1
 
             # 通过 ai_engine.get_model_stats 获取详细统计
-            model_stats = (
-                ai_engine.get_model_stats(model_id)
-                if hasattr(ai_engine, "get_model_stats")
-                else None
-            )
-            inference_count = (
-                model_stats.get("call_count", 0) if model_stats else 0
-            )
-            error_count = (
-                model_stats.get("error_count", 0) if model_stats else 0
-            )
-            avg_latency_ms = (
-                model_stats.get("avg_latency_ms", 0) if model_stats else 0
-            )
+            model_stats = ai_engine.get_model_stats(model_id) if hasattr(ai_engine, "get_model_stats") else None
+            inference_count = model_stats.get("call_count", 0) if model_stats else 0
+            error_count = model_stats.get("error_count", 0) if model_stats else 0
+            avg_latency_ms = model_stats.get("avg_latency_ms", 0) if model_stats else 0
 
             # FIXED(严重): 计算本次采集相对于上次的增量(delta)，仅将 delta 传给 counter()，
             # 避免每次采集都把累计值累加到计数器导致指标虚高 N 倍
@@ -977,11 +995,13 @@ def _collect_ai_metrics(exporter: PrometheusExporter) -> None:
             _last_ai_stats.pop(m, None)
 
         exporter.gauge(
-            "edgelite_ai_active_models", active_count,
+            "edgelite_ai_active_models",
+            active_count,
             description="Number of active AI models",
         )
         exporter.gauge(
-            "edgelite_ai_total_models", len(models),
+            "edgelite_ai_total_models",
+            len(models),
             description="Total number of AI models",
         )
     except Exception as e:
@@ -989,7 +1009,9 @@ def _collect_ai_metrics(exporter: PrometheusExporter) -> None:
         logger.debug("AI推理指标采集失败: %s", e)
 
 
-async def _collect_cache_metrics(exporter: PrometheusExporter) -> None:  # FIXED-P0: 改为async以支持await influx_storage.available()/using_fallback()
+async def _collect_cache_metrics(
+    exporter: PrometheusExporter,
+) -> None:  # FIXED-P0: 改为async以支持await influx_storage.available()/using_fallback()
     """收集缓存指标 - edgelite_cache_size, edgelite_ring_buffer_usage"""
     try:
         from edgelite.app import _app_state
@@ -1003,7 +1025,8 @@ async def _collect_cache_metrics(exporter: PrometheusExporter) -> None:  # FIXED
             elif hasattr(cache_manager, "_cache"):
                 cache_size = len(cache_manager._cache)
             exporter.gauge(
-                "edgelite_cache_size", cache_size,
+                "edgelite_cache_size",
+                cache_size,
                 description="Cache queue size",
             )
 
@@ -1019,20 +1042,23 @@ async def _collect_cache_metrics(exporter: PrometheusExporter) -> None:  # FIXED
                 elif hasattr(sqlite_ts, "pending_count"):
                     buffer_size = sqlite_ts.pending_count()
                 exporter.gauge(
-                    "edgelite_ring_buffer_usage", buffer_size,
+                    "edgelite_ring_buffer_usage",
+                    buffer_size,
                     description="Ring buffer pending items count",
                 )
 
             # InfluxDB 可用性作为 gauge
             # FIXED-P0: available是async方法，原getattr获取绑定方法对象(始终truthy)导致指标失真，改为await调用
-            available = await influx_storage.available() if hasattr(influx_storage, 'available') else False
+            available = await influx_storage.available() if hasattr(influx_storage, "available") else False
             exporter.gauge(
                 "edgelite_influxdb_available",
                 1 if available else 0,
                 description="InfluxDB availability (1=available, 0=unavailable)",
             )
             # FIXED-P0: using_fallback同为async方法，改为await调用
-            using_fallback = await influx_storage.using_fallback() if hasattr(influx_storage, 'using_fallback') else False
+            using_fallback = (
+                await influx_storage.using_fallback() if hasattr(influx_storage, "using_fallback") else False
+            )
             exporter.gauge(
                 "edgelite_influxdb_using_fallback",
                 1 if using_fallback else 0,
@@ -1063,15 +1089,14 @@ async def _collect_protocol_metrics(exporter: PrometheusExporter) -> None:  # FI
                 continue
             driver = info[0]
             # 获取协议名称
-            protocol = (
-                getattr(driver, "plugin_name", None)
-                or getattr(driver, "__class__", type).__name__
-            )
+            protocol = getattr(driver, "plugin_name", None) or getattr(driver, "__class__", type).__name__
 
             if protocol not in protocol_stats:
                 protocol_stats[protocol] = {
-                    "total_reads": 0, "failed_reads": 0,
-                    "total_writes": 0, "failed_writes": 0,
+                    "total_reads": 0,
+                    "failed_reads": 0,
+                    "total_writes": 0,
+                    "failed_writes": 0,
                 }
 
             # 从驱动实例获取健康统计
@@ -1079,18 +1104,10 @@ async def _collect_protocol_metrics(exporter: PrometheusExporter) -> None:  # FI
                 try:
                     all_stats = driver.get_all_health_stats()
                     for _dev_id, health in all_stats.items():
-                        protocol_stats[protocol]["total_reads"] += getattr(
-                            health, "total_reads", 0
-                        )
-                        protocol_stats[protocol]["failed_reads"] += getattr(
-                            health, "failed_reads", 0
-                        )
-                        protocol_stats[protocol]["total_writes"] += getattr(
-                            health, "total_writes", 0
-                        )
-                        protocol_stats[protocol]["failed_writes"] += getattr(
-                            health, "failed_writes", 0
-                        )
+                        protocol_stats[protocol]["total_reads"] += getattr(health, "total_reads", 0)
+                        protocol_stats[protocol]["failed_reads"] += getattr(health, "failed_reads", 0)
+                        protocol_stats[protocol]["total_writes"] += getattr(health, "total_writes", 0)
+                        protocol_stats[protocol]["failed_writes"] += getattr(health, "failed_writes", 0)
                 except Exception as e:
                     # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                     logger.debug("驱动健康统计获取失败(protocol=%s): %s", protocol, e)
@@ -1141,11 +1158,7 @@ async def _collect_protocol_metrics(exporter: PrometheusExporter) -> None:  # FI
             _last_protocol_stats.pop(p, None)
 
         # 从 scheduler 的采集统计中获取延迟数据
-        collect_stats = (
-            await scheduler.get_collect_stats()
-            if hasattr(scheduler, "get_collect_stats")
-            else {}
-        )
+        collect_stats = await scheduler.get_collect_stats() if hasattr(scheduler, "get_collect_stats") else {}
         for device_id, stat in collect_stats.items():
             labels = {"device_id": device_id}
             exporter.histogram(
@@ -1199,11 +1212,7 @@ def _collect_event_bus_metrics(exporter: PrometheusExporter) -> None:
         )
 
         # 活跃 handler_loop 协程数量（协程泄漏监控指标）
-        handler_loop_count = (
-            event_bus.get_handler_loop_count()
-            if hasattr(event_bus, "get_handler_loop_count")
-            else 0
-        )
+        handler_loop_count = event_bus.get_handler_loop_count() if hasattr(event_bus, "get_handler_loop_count") else 0
         exporter.gauge(
             "edgelite_event_bus_handler_loops",
             handler_loop_count,
@@ -1278,16 +1287,8 @@ async def _collect_prometheus_client_metrics() -> None:  # FIXED-P0: 改为async
         scheduler = getattr(_app_state, "scheduler", None)
         if scheduler:
             # FIXED-P0: get_active_devices改为async，需await
-            active_devices = (
-                await scheduler.get_active_devices()
-                if hasattr(scheduler, "get_active_devices")
-                else []
-            )
-            stats = (
-                await scheduler.get_collect_stats()
-                if hasattr(scheduler, "get_collect_stats")
-                else {}
-            )
+            active_devices = await scheduler.get_active_devices() if hasattr(scheduler, "get_active_devices") else []
+            stats = await scheduler.get_collect_stats() if hasattr(scheduler, "get_collect_stats") else {}
 
             # 按协议统计设备总数
             protocol_counts: dict[str, int] = {}
@@ -1339,9 +1340,7 @@ async def _collect_prometheus_client_metrics() -> None:  # FIXED-P0: 改为async
                 if delta_errors > 0:
                     _collect_errors.inc(delta_errors)  # FIXED-P1: 已移除device_id标签，直接inc
                 if avg_latency_ms > 0:
-                    _collect_duration_seconds.labels(
-                        device_id=device_id
-                    ).observe(avg_latency_ms / 1000.0)
+                    _collect_duration_seconds.labels(device_id=device_id).observe(avg_latency_ms / 1000.0)
 
             # FIXED-P1: 清理已删除设备的统计条目，防止_last_collect_stats无界增长(内存泄漏)
             valid_keys = set()
@@ -1374,9 +1373,7 @@ async def _collect_prometheus_client_metrics() -> None:  # FIXED-P0: 改为async
             else:
                 evaluator = getattr(_app_state, "evaluator", None)
                 counts = (
-                    getattr(evaluator, "_alarm_counts", {})
-                    if evaluator and hasattr(evaluator, "_alarm_counts")
-                    else {}
+                    getattr(evaluator, "_alarm_counts", {}) if evaluator and hasattr(evaluator, "_alarm_counts") else {}
                 )
             _alarms_firing.clear()
             total = 0
@@ -1413,8 +1410,10 @@ async def _collect_prometheus_client_metrics() -> None:  # FIXED-P0: 改为async
     try:
         influx_storage = getattr(_app_state, "influx_storage", None)
         if influx_storage:
-            # FIXED-P0: using_fallback是async方法，原getattr获取绑定方法对象(始终truthy)导致降级模式指标失真，改为await调用
-            using_fallback = await influx_storage.using_fallback() if hasattr(influx_storage, 'using_fallback') else False
+            # FIXED-P0: using_fallback是async方法，原getattr获取绑定方法对象(始终truthy)导致降级模式指标失真，改为await调用  # noqa: E501
+            using_fallback = (
+                await influx_storage.using_fallback() if hasattr(influx_storage, "using_fallback") else False
+            )
             _influxdb_fallback_mode.set(1 if using_fallback else 0)
         else:
             _influxdb_fallback_mode.set(0)
@@ -1483,10 +1482,7 @@ async def prometheus_metrics(request: Request, auth_info: dict = MetricsAuth):
     支持与Prometheus server集成进行指标采集。
     包含系统指标、设备指标、告警指标、AI推理指标、缓存指标等。
     """
-    logger.debug(
-        "Metrics accessed: auth_type=%s username=%s",
-        auth_info.get("auth_type"), auth_info.get("username")
-    )
+    logger.debug("Metrics accessed: auth_type=%s username=%s", auth_info.get("auth_type"), auth_info.get("username"))
 
     if _PROMETHEUS_CLIENT_AVAILABLE:
         # 使用 prometheus_client 收集并输出指标
@@ -1510,11 +1506,7 @@ async def prometheus_metrics(request: Request, auth_info: dict = MetricsAuth):
         assert generate_latest is not None  # _PROMETHEUS_CLIENT_AVAILABLE 已保证
         pc_content = generate_latest(_registry).decode("utf-8")
         custom_content = exporter.render()
-        content = (
-            pc_content + "\n" + custom_content
-            if custom_content.strip()
-            else pc_content
-        )
+        content = pc_content + "\n" + custom_content if custom_content.strip() else pc_content
     else:
         # 降级：使用自定义导出器
         exporter = get_exporter()
@@ -1540,8 +1532,7 @@ async def prometheus_metrics_json(request: Request, auth_info: dict = MetricsAut
     返回OpenMetrics JSON格式，用于自定义采集。
     """
     logger.debug(
-        "Metrics JSON accessed: auth_type=%s username=%s",
-        auth_info.get("auth_type"), auth_info.get("username")
+        "Metrics JSON accessed: auth_type=%s username=%s", auth_info.get("auth_type"), auth_info.get("username")
     )
 
     exporter = get_exporter()
@@ -1554,13 +1545,15 @@ async def prometheus_metrics_json(request: Request, auth_info: dict = MetricsAut
         for name, metric in exporter._metrics.items():
             for labels_key, value in metric["values"].items():
                 labels = exporter._parse_labels(labels_key)
-                metrics.append({
-                    "name": name,
-                    "type": metric["type"],
-                    "description": metric.get("description", ""),
-                    "labels": labels,
-                    "value": value,
-                })
+                metrics.append(
+                    {
+                        "name": name,
+                        "type": metric["type"],
+                        "description": metric.get("description", ""),
+                        "labels": labels,
+                        "value": value,
+                    }
+                )
 
     return {"metrics": metrics, "timestamp": time.time()}
 
@@ -1580,8 +1573,7 @@ async def root_prometheus_metrics(request: Request):
     auth_info = await _authenticate_metrics(request)
 
     logger.debug(
-        "Root metrics accessed: auth_type=%s username=%s",
-        auth_info.get("auth_type"), auth_info.get("username")
+        "Root metrics accessed: auth_type=%s username=%s", auth_info.get("auth_type"), auth_info.get("username")
     )
 
     if _PROMETHEUS_CLIENT_AVAILABLE:

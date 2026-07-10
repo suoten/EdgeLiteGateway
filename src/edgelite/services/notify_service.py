@@ -52,15 +52,17 @@ _webhook_ip_cache_lock = threading.Lock()
 _WEBHOOK_IP_CACHE_MAXLEN = 100  # 修复资源泄漏：LRU淘汰上限，防止无界增长
 
 # FIXED(高危): 扩展域名黑名单 - 覆盖主流云元数据服务地址
-_BLOCKED_WEBHOOK_HOSTNAMES = frozenset({
-    "localhost",
-    "metadata.google.internal",  # GCP 元数据服务
-    "metadata",  # GCP 短名
-    "metadata.azure.com",  # Azure 元数据服务
-    "169.254.169.254",  # AWS/GCP/Azure 元数据 IP
-    "169.254.170.2",  # AWS ECS 任务元数据
-    "169.254.169.253",  # 阿里云元数据服务
-})
+_BLOCKED_WEBHOOK_HOSTNAMES = frozenset(
+    {
+        "localhost",
+        "metadata.google.internal",  # GCP 元数据服务
+        "metadata",  # GCP 短名
+        "metadata.azure.com",  # Azure 元数据服务
+        "169.254.169.254",  # AWS/GCP/Azure 元数据 IP
+        "169.254.170.2",  # AWS ECS 任务元数据
+        "169.254.169.253",  # 阿里云元数据服务
+    }
+)
 
 
 def _is_ip_safe_for_webhook(ip: Any) -> bool:
@@ -152,7 +154,9 @@ class NotifyService:
     """告警通知服务"""
 
     def __init__(self):
-        self._http_client = httpx.AsyncClient(timeout=_NOTIFY_HTTP_TIMEOUT) if httpx else None  # FIXED: 原问题-散落timeout魔法数字
+        self._http_client = (
+            httpx.AsyncClient(timeout=_NOTIFY_HTTP_TIMEOUT) if httpx else None
+        )  # FIXED: 原问题-散落timeout魔法数字
 
     async def close(self) -> None:
         # FIXED-P2: 原问题-close后未置空_http_client，重复调用close会操作已关闭的client
@@ -160,9 +164,7 @@ class NotifyService:
             await self._http_client.aclose()
             self._http_client = None
 
-    async def send_notification(
-        self, channels: list[str], alarm_data: dict, retry_count: int = 0
-    ) -> dict[str, bool]:
+    async def send_notification(self, channels: list[str], alarm_data: dict, retry_count: int = 0) -> dict[str, bool]:
         """根据通知渠道并行分发通知，返回各渠道发送结果"""
         channel_map = {
             "dingtalk": self._send_dingtalk,
@@ -193,13 +195,18 @@ class NotifyService:
                 if attempt < retry_count:
                     logger.warning(
                         "Notification %s attempt %d/%d failed: %s, retrying...",
-                        channel, attempt + 1, retry_count + 1, last_error or "handler returned False",
+                        channel,
+                        attempt + 1,
+                        retry_count + 1,
+                        last_error or "handler returned False",
                     )
-                    await asyncio.sleep(min(2 ** attempt, 10))
+                    await asyncio.sleep(min(2**attempt, 10))
                 else:
                     logger.error(
                         "Notification send failed after %d attempts: %s - %s",
-                        retry_count + 1, channel, last_error or "handler returned False",
+                        retry_count + 1,
+                        channel,
+                        last_error or "handler returned False",
                     )
             return (channel, False)
 
@@ -237,6 +244,7 @@ class NotifyService:
         url = dt.webhook_url
         # FIXED(安全): SSRF 防护 - 钉钉 webhook 仅允许官方域名
         from urllib.parse import urlparse
+
         _parsed = urlparse(url)
         if _parsed.hostname not in ("oapi.dingtalk.com",):
             logger.warning("DingTalk webhook URL host not allowed: %s", _parsed.hostname)
@@ -280,14 +288,12 @@ class NotifyService:
         severity = alarm_data.get("severity", "")
         label = severity_label.get(severity, severity)
 
-        subject = f"[EdgeLite Alert] {label} - Device {html.escape(alarm_data.get('device_id', ''))}"  # FIXED-P3: 中文→英文
+        subject = (
+            f"[EdgeLite Alert] {label} - Device {html.escape(alarm_data.get('device_id', ''))}"  # FIXED-P3: 中文→英文
+        )
         body_html = f"""
         <html><body>
-        <h2 style="color: {
-                    "red" if severity == "critical"
-                    else "orange" if severity == "warning"
-                    else "green"
-                }">
+        <h2 style="color: {"red" if severity == "critical" else "orange" if severity == "warning" else "green"}">
             EdgeLite Alert Notification  <!-- FIXED-P3: 中文→英文 -->
         </h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
@@ -299,9 +305,7 @@ class NotifyService:
             <tr><td><b>Status</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{html.escape(str(alarm_data.get("status", "")))}</td></tr>
             <tr><td><b>Trigger Value</b></td>  <!-- FIXED-P3: 中文→英文 -->
-            <td>{html.escape(json.dumps(
-                alarm_data.get("trigger_value", {}), ensure_ascii=False
-            ))}</td></tr>
+            <td>{html.escape(json.dumps(alarm_data.get("trigger_value", {}), ensure_ascii=False))}</td></tr>
             <tr><td><b>Trigger Count</b></td>  <!-- FIXED-P3: 中文→英文 -->
             <td>{alarm_data.get("trigger_count", 1)}</td></tr>
             <tr><td><b>Fired At</b></td>  <!-- FIXED-P3: 中文→英文 -->
@@ -332,9 +336,13 @@ class NotifyService:
     def _smtp_send(email_config: Any, msg: MIMEMultipart) -> None:
         """同步SMTP发送"""
         if email_config.use_tls:
-            server = smtplib.SMTP_SSL(email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT)  # FIXED: 原问题-散落timeout魔法数字
+            server = smtplib.SMTP_SSL(
+                email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT
+            )  # FIXED: 原问题-散落timeout魔法数字
         else:
-            server = smtplib.SMTP(email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT)  # FIXED: 原问题-散落timeout魔法数字
+            server = smtplib.SMTP(
+                email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT
+            )  # FIXED: 原问题-散落timeout魔法数字
             if getattr(email_config, "use_starttls", False):
                 server.starttls()
 
@@ -367,7 +375,7 @@ class NotifyService:
             "markdown": {
                 "content": f"### EdgeLite Alert\n"  # FIXED-P3: 中文→英文
                 f'> **Severity**: <font color="'  # FIXED-P3: 中文→英文
-                f'{"warning" if severity == "critical" else "info"}'
+                f"{'warning' if severity == 'critical' else 'info'}"
                 f'">{label}</font>\n'
                 f"> **Device**: {alarm_data.get('device_id', '')}\n"  # FIXED-P3: 中文→英文
                 f"> **Rule**: {alarm_data.get('rule_id', '')}\n"
@@ -384,6 +392,7 @@ class NotifyService:
                 return False
             # FIXED(安全): SSRF 防护 - 企业微信 webhook 仅允许官方域名
             from urllib.parse import urlparse as _urlparse
+
             _w_parsed = _urlparse(wechat.webhook_url)
             if _w_parsed.hostname not in ("qyapi.weixin.qq.com",):
                 logger.warning("WeChat webhook URL host not allowed: %s", _w_parsed.hostname)
@@ -437,10 +446,16 @@ class NotifyService:
                     new_netloc = f"[{resolved_ip}]:{parsed.port}" if parsed.port else f"[{resolved_ip}]"
                 else:
                     new_netloc = f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip
-                request_url = urllib.parse.urlunparse((
-                    parsed.scheme, new_netloc, parsed.path or "/",
-                    parsed.params, parsed.query, parsed.fragment,
-                ))
+                request_url = urllib.parse.urlunparse(
+                    (
+                        parsed.scheme,
+                        new_netloc,
+                        parsed.path or "/",
+                        parsed.params,
+                        parsed.query,
+                        parsed.fragment,
+                    )
+                )
                 headers["Host"] = hostname
                 if parsed.scheme == "https":
                     # 通过 sni_hostname 扩展保持原域名用于 TLS SNI 和证书验证

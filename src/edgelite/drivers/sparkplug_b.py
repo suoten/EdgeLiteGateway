@@ -95,18 +95,51 @@ class SparkplugBDriver(DriverPlugin):
     config_schema = {
         "description": "MQTT Sparkplug B industrial IoT protocol, standardized device data pub/sub",
         "fields": [
-            {"name": "group_id", "type": "string", "label": "Group ID",
-             "description": "Sparkplug B logical group ID", "default": "group1", "required": True},
-            {"name": "edge_node_id", "type": "string", "label": "Edge Node ID",
-             "description": "Gateway node ID in Sparkplug B", "default": "edgelite_node", "required": True},
-            {"name": "mqtt_broker", "type": "string", "label": "Broker Address",
-             "description": "MQTT Broker address", "default": "localhost", "required": True},
-            {"name": "mqtt_port", "type": "integer", "label": "Port",
-             "description": "MQTT Broker port", "default": 1883},
-            {"name": "enable_cmd_response", "type": "boolean", "label": "Enable Command Response",
-             "description": "Send command response messages (DCMD/RESP)", "default": True},
-            {"name": "batch_interval_ms", "type": "integer", "label": "Batch Interval (ms)",
-             "description": "Batch publish interval for DDATA messages", "default": 100},
+            {
+                "name": "group_id",
+                "type": "string",
+                "label": "Group ID",
+                "description": "Sparkplug B logical group ID",
+                "default": "group1",
+                "required": True,
+            },
+            {
+                "name": "edge_node_id",
+                "type": "string",
+                "label": "Edge Node ID",
+                "description": "Gateway node ID in Sparkplug B",
+                "default": "edgelite_node",
+                "required": True,
+            },
+            {
+                "name": "mqtt_broker",
+                "type": "string",
+                "label": "Broker Address",
+                "description": "MQTT Broker address",
+                "default": "localhost",
+                "required": True,
+            },
+            {
+                "name": "mqtt_port",
+                "type": "integer",
+                "label": "Port",
+                "description": "MQTT Broker port",
+                "default": 1883,
+            },
+            {
+                "name": "enable_cmd_response",
+                "type": "boolean",
+                "label": "Enable Command Response",
+                "description": "Send command response messages (DCMD/RESP)",
+                "default": True,
+            },
+            {
+                "name": "batch_interval_ms",
+                "type": "integer",
+                "label": "Batch Interval (ms)",
+                "description": "Batch publish interval for DDATA messages",
+                "default": 100,
+            },
         ],
     }
 
@@ -257,7 +290,9 @@ class SparkplugBDriver(DriverPlugin):
 
     async def start(self, config: dict) -> None:
         app_config = get_config()
-        sp_config = getattr(app_config, "sparkplug_b", None)  # FIXED: 原问题-直接访问sparkplug_b属性，配置缺失时AttributeError
+        sp_config = getattr(
+            app_config, "sparkplug_b", None
+        )  # FIXED: 原问题-直接访问sparkplug_b属性，配置缺失时AttributeError
         if sp_config is None:
             raise ValueError("SparkplugB configuration section not found in config")
 
@@ -298,9 +333,7 @@ class SparkplugBDriver(DriverPlugin):
         self._dbirth_published.clear()
         logger.info("Sparkplug B驱动停止")
 
-    async def add_device(
-        self, device_id: str, config: dict, points: list[dict] | None = None
-    ) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         if points is None:
             points = []
         self._device_metadata[device_id] = config
@@ -320,7 +353,9 @@ class SparkplugBDriver(DriverPlugin):
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
         async with self._values_lock:
             values = self._latest_values.get(device_id, {}).copy()
-        return {p: values.get(p) for p in points if values.get(p) is not None}  # FIXED: 原问题-values[p]硬访问可能KeyError，改为values.get(p)缺失时跳过
+        return {
+            p: values.get(p) for p in points if values.get(p) is not None
+        }  # FIXED: 原问题-values[p]硬访问可能KeyError，改为values.get(p)缺失时跳过
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
         if not self._client:
@@ -462,13 +497,16 @@ class SparkplugBDriver(DriverPlugin):
             point_meta = points_meta.get(point_name, {})
             if "datatype" in point_meta:
                 _v = point_meta["datatype"]
-                if _v is not None: m["datatype"] = _v  # FIXED: 原问题-键存在但值可能为None
+                if _v is not None:
+                    m["datatype"] = _v  # FIXED: 原问题-键存在但值可能为None
             if "alias" in point_meta:
                 _v = point_meta["alias"]
-                if _v is not None: m["alias"] = _v  # FIXED: 原问题-键存在但值可能为None
+                if _v is not None:
+                    m["alias"] = _v  # FIXED: 原问题-键存在但值可能为None
             if "metadata" in point_meta:
                 _v = point_meta["metadata"]
-                if _v is not None: m["metadata"] = _v  # FIXED: 原问题-键存在但值可能为None
+                if _v is not None:
+                    m["metadata"] = _v  # FIXED: 原问题-键存在但值可能为None
             metrics.append(m)
 
         if not metrics:
@@ -591,13 +629,16 @@ class SparkplugBDriver(DriverPlugin):
             return
 
         topic = self._build_topic("RESP", device_id)
-        metrics = [{
-            "name": f"{point}_response",
-            "value": "Success" if success else "Failure",
-        }, {
-            "name": f"{point}_value",
-            "value": value,
-        }]
+        metrics = [
+            {
+                "name": f"{point}_response",
+                "value": "Success" if success else "Failure",
+            },
+            {
+                "name": f"{point}_value",
+                "value": value,
+            },
+        ]
         payload = self._encode_payload(metrics, seq=self._next_seq())
         if payload:
             try:
@@ -620,12 +661,13 @@ class SparkplugBDriver(DriverPlugin):
             self._latest_values.setdefault(device_id, {})[point_name] = value
         self._device_points.setdefault(device_id, {})[point_name] = value
 
-        metrics = [{"name": point_name, "value": value}]
         # 批量模式: 缓存指标，定期发布
-        self._pending_metrics.setdefault(device_id, []).append({
-            "name": point_name,
-            "value": value,
-        })
+        self._pending_metrics.setdefault(device_id, []).append(
+            {
+                "name": point_name,
+                "value": value,
+            }
+        )
         # 启动批量发布协程
         if self._batch_task is None or self._batch_task.done():
             self._batch_task = asyncio.create_task(self._batch_publish_loop())
@@ -735,10 +777,12 @@ class SparkplugBDriver(DriverPlugin):
                             for m in metrics:
                                 point_name = m.get("name", "")
                                 if point_name:
-                                    points.append({
-                                        "name": point_name,
-                                        "datatype": m.get("datatype"),
-                                    })
+                                    points.append(
+                                        {
+                                            "name": point_name,
+                                            "datatype": m.get("datatype"),
+                                        }
+                                    )
 
                         # 如果主题中没有device部分，使用edge_node作为device
                         device_name = device or edge_node
@@ -746,17 +790,19 @@ class SparkplugBDriver(DriverPlugin):
 
                         if device_id not in discovered_ids:
                             discovered_ids.add(device_id)
-                            discovered.append({
-                                "device_id": device_id,
-                                "name": f"Sparkplug B Device ({sp_group}/{edge_node}/{device_name})",
-                                "protocol": "sparkplug_b",
-                                "config": {
-                                    "group_id": sp_group,
-                                    "edge_node_id": edge_node,
-                                    "device_id": device_name,
-                                },
-                                "points": points,
-                            })
+                            discovered.append(
+                                {
+                                    "device_id": device_id,
+                                    "name": f"Sparkplug B Device ({sp_group}/{edge_node}/{device_name})",
+                                    "protocol": "sparkplug_b",
+                                    "config": {
+                                        "group_id": sp_group,
+                                        "edge_node_id": edge_node,
+                                        "device_id": device_name,
+                                    },
+                                    "points": points,
+                                }
+                            )
 
                     except Exception as e:
                         logger.debug("Sparkplug B发现: 解析消息失败 - %s", e)

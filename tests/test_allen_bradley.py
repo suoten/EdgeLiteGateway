@@ -18,8 +18,6 @@ import sys
 import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 sys.path.insert(0, "src")
 
 from edgelite.drivers.allen_bradley import AbConnState, AllenBradleyDriver

@@ -12,16 +12,16 @@ Create Date: 2026-06-20
 #    token 撤销机制双重失效。新增 user_sessions 表持久化会话状态。
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "009_ai_logs_indexes_and_sessions"
-down_revision: Union[str, None] = "008_alarm_silences_table"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "008_alarm_silences_table"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

@@ -41,12 +41,14 @@ def _check_onnxruntime() -> bool:
         return True
     try:
         import onnxruntime as _ort
+
         ort = _ort
         _HAS_ONNX = True
         logger.info("onnxruntime dynamically loaded: %s", _ort.__version__)
         return True
     except ImportError:
         return False
+
 
 import contextlib
 
@@ -104,8 +106,10 @@ def _generate_onnx_model(
             helper.make_node("Sigmoid", ["h2_pre"], ["output"]),
         ]
         inits = [
-            numpy_helper.from_array(W1, name="W1"), numpy_helper.from_array(b1, name="b1"),
-            numpy_helper.from_array(W2, name="W2"), numpy_helper.from_array(b2, name="b2"),
+            numpy_helper.from_array(W1, name="W1"),
+            numpy_helper.from_array(b1, name="b1"),
+            numpy_helper.from_array(W2, name="W2"),
+            numpy_helper.from_array(b2, name="b2"),
         ]
         graph = helper.make_graph(nodes, "anomaly_graph", [X], [Y], initializer=inits)
     elif "trend" in model_file:
@@ -155,9 +159,7 @@ def _generate_onnx_model(
             Y = helper.make_tensor_value_info("output", TensorProto.FLOAT, actual_output_shape)
             matmul_node = helper.make_node("MatMul", inputs=["input", "W"], outputs=["matmul_out"])
             add_node = helper.make_node("Add", inputs=["matmul_out", "b"], outputs=["output"])
-            graph = helper.make_graph(
-                [matmul_node, add_node], "preset_graph", [X], [Y], initializer=[W_init, b_init]
-            )
+            graph = helper.make_graph([matmul_node, add_node], "preset_graph", [X], [Y], initializer=[W_init, b_init])
 
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
     model.ir_version = 7
@@ -166,7 +168,9 @@ def _generate_onnx_model(
     try:
         onnx.checker.check_model(model)
     except Exception as e:
-        logger.warning("ONNX model validation failed for %s: %s", model_file, e)  # FIXED-P2: 模型校验失败时记录警告而非静默忽略
+        logger.warning(
+            "ONNX model validation failed for %s: %s", model_file, e
+        )  # FIXED-P2: 模型校验失败时记录警告而非静默忽略
     return model.SerializeToString()
 
 
@@ -211,9 +215,11 @@ class OnnxModelWrapper:
         self._postprocess_pipeline: Any = None
         if self.preprocess_config:
             from edgelite.engine.ai_preprocess import PreprocessPipeline
+
             self._preprocess_pipeline = PreprocessPipeline(self.preprocess_config)
         if self.postprocess_config:
             from edgelite.engine.ai_postprocess import PostprocessPipeline
+
             self._postprocess_pipeline = PostprocessPipeline(self.postprocess_config)
 
     async def load(self, provider: str = "CPU") -> None:
@@ -234,9 +240,11 @@ class OnnxModelWrapper:
                 providers = ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
             else:
                 providers = ["CPUExecutionProvider"]
+
             # FIXED-P2: 原问题-InferenceSession构造是CPU密集型同步操作，在事件循环中执行会阻塞；改为asyncio.to_thread
             def _create_session():
                 return ort.InferenceSession(self.model_path, providers=providers)
+
             self.session = await asyncio.to_thread(_create_session)
             self.status = "active"
             self.loaded_at = datetime.now(UTC)
@@ -286,6 +294,7 @@ class InferenceStatsCollector:
 
     def __init__(self):
         import threading
+
         self._lock = threading.Lock()
         self._total_calls: int = 0
         self._total_errors: int = 0
@@ -312,7 +321,7 @@ class InferenceStatsCollector:
                 self._per_model_min_latency[model_id] = latency_ms
             self._recent_latencies.append(latency_ms)
             if len(self._recent_latencies) > self._max_recent:
-                self._recent_latencies = self._recent_latencies[-self._max_recent:]
+                self._recent_latencies = self._recent_latencies[-self._max_recent :]
             if status == "error":
                 self._total_errors += 1
                 self._per_model_errors[model_id] = self._per_model_errors.get(model_id, 0) + 1
@@ -382,15 +391,17 @@ PRESET_MODELS = [
 # FIXED(P0): 原问题-video_url无SSRF校验，可访问内部服务和云元数据;
 # 修复-校验URL协议和目标地址
 # FIXED(安全): 扩展域名黑名单 - 覆盖主流云元数据服务地址
-_BLOCKED_VIDEO_HOSTNAMES = frozenset({
-    "localhost",
-    "metadata.google.internal",  # GCP 元数据服务
-    "metadata",  # GCP 短名
-    "metadata.azure.com",  # Azure 元数据服务
-    "169.254.169.254",  # AWS/GCP/Azure 元数据 IP
-    "169.254.170.2",  # AWS ECS 任务元数据
-    "169.254.169.253",  # 阿里云元数据服务
-})
+_BLOCKED_VIDEO_HOSTNAMES = frozenset(
+    {
+        "localhost",
+        "metadata.google.internal",  # GCP 元数据服务
+        "metadata",  # GCP 短名
+        "metadata.azure.com",  # Azure 元数据服务
+        "169.254.169.254",  # AWS/GCP/Azure 元数据 IP
+        "169.254.170.2",  # AWS ECS 任务元数据
+        "169.254.169.253",  # 阿里云元数据服务
+    }
+)
 
 
 def _validate_video_url(url: str) -> bool:
@@ -398,6 +409,7 @@ def _validate_video_url(url: str) -> bool:
     import ipaddress
     import socket
     from urllib.parse import urlparse
+
     try:
         parsed = urlparse(url)
     except (ValueError, TypeError):
@@ -458,6 +470,7 @@ def _validate_cloud_endpoint(endpoint: str) -> bool:
     import ipaddress
     import socket
     from urllib.parse import urlparse
+
     try:
         parsed = urlparse(endpoint)
     except (ValueError, TypeError):
@@ -534,7 +547,9 @@ class AiInferenceEngine:
         # 避免在途推理持有的旧 wrapper 被 unload 后 session=None 导致 AttributeError
         self._pending_unload_wrappers: list[tuple[Any, float]] = []
 
-    async def initialize(self, event_bus: Any = None, db_session_factory: Any = None, config: dict | None = None) -> None:
+    async def initialize(
+        self, event_bus: Any = None, db_session_factory: Any = None, config: dict | None = None
+    ) -> None:
         if not self._enabled:
             logger.info("AI inference engine disabled")
             return
@@ -561,18 +576,22 @@ class AiInferenceEngine:
             )
         self._models_dir.mkdir(parents=True, exist_ok=True)
         from edgelite.engine.ai_inference_cache import InferenceCache
+
         self._inference_cache = InferenceCache(
             ttl=float(self._config.get("cache_ttl", 5.0)),
             max_size=int(self._config.get("cache_max_size", 1024)),
         )
         from edgelite.engine.ai_version_manager import HotSwapManager, ModelVersionManager
+
         self._version_manager = ModelVersionManager()
         self._hot_swap_manager = HotSwapManager(self)
         from edgelite.engine.ai_resource_monitor import ResourceMonitor
+
         self._resource_monitor = ResourceMonitor(self)
         if self._config.get("cloud_inference_enabled", False):
             try:
                 from edgelite.engine.circuit_breaker import CircuitBreaker
+
                 self._cloud_circuit_breaker = CircuitBreaker(
                     name="cloud_inference",
                     failure_threshold=int(self._config.get("cloud_failure_threshold", 3)),
@@ -582,9 +601,8 @@ class AiInferenceEngine:
                 logger.warning("CircuitBreaker not available for cloud inference")
         if self._config.get("auto_detect_device", True):
             from edgelite.engine.ai_device_detector import select_best_provider
-            provider, provider_name = select_best_provider(
-                self._config.get("device_preference", "auto")
-            )
+
+            provider, provider_name = select_best_provider(self._config.get("device_preference", "auto"))
             self._execution_provider = provider_name
             logger.info("Auto-detected best execution provider: %s (%s)", provider_name, provider)
         await self.load_preset_models()
@@ -616,6 +634,7 @@ class AiInferenceEngine:
         if provider == "CUDA":
             try:
                 import onnxruntime as ort
+
                 available = ort.get_available_providers()
                 if "CUDAExecutionProvider" not in available:
                     logger.warning(
@@ -630,6 +649,7 @@ class AiInferenceEngine:
         elif provider == "OpenVINO":
             try:
                 import onnxruntime as ort
+
                 available = ort.get_available_providers()
                 if "OpenVINOExecutionProvider" not in available:
                     logger.warning(
@@ -648,8 +668,7 @@ class AiInferenceEngine:
         # 修复-锁内收集需要重载的模型列表，释放锁后逐个重载，避免长时间持锁阻塞推理
         async with self._lock:
             models_to_reload = [
-                (model_id, wrapper) for model_id, wrapper in self._loaded_models.items()
-                if wrapper.status == "active"
+                (model_id, wrapper) for model_id, wrapper in self._loaded_models.items() if wrapper.status == "active"
             ]
         # 锁外逐个重载，每个模型重载期间不影响其他模型的推理请求
         for model_id, wrapper in models_to_reload:
@@ -665,6 +684,7 @@ class AiInferenceEngine:
         providers = ["CPU"]  # CPU is always available
         try:
             import onnxruntime as ort
+
             available = ort.get_available_providers()
             if "CUDAExecutionProvider" in available:
                 providers.append("CUDA")
@@ -685,7 +705,7 @@ class AiInferenceEngine:
                 if wrapper.status in ("active", "inactive"):
                     try:
                         current_mtime = Path(wrapper.model_path).stat().st_mtime
-                        if hasattr(wrapper, '_last_mtime') and current_mtime > wrapper._last_mtime:
+                        if hasattr(wrapper, "_last_mtime") and current_mtime > wrapper._last_mtime:
                             pending_reloads.append((model_id, wrapper, current_mtime))
                         else:
                             wrapper._last_mtime = current_mtime
@@ -709,12 +729,15 @@ class AiInferenceEngine:
     async def load_preset_models(self) -> None:
         try:
             import psutil
+
             mem = psutil.virtual_memory()
         except ImportError:  # FIXED-P2: psutil未安装时优雅降级，不阻止模型加载
             mem = None
         for preset in PRESET_MODELS:
             if mem and mem.available < 100 * 1024 * 1024:  # FIXED-P2: 可用内存<100MB时停止加载模型
-                logger.warning("Available memory too low (%.0fMB), skipping remaining preset models", mem.available / 1024 / 1024)
+                logger.warning(
+                    "Available memory too low (%.0fMB), skipping remaining preset models", mem.available / 1024 / 1024
+                )
                 break
             model_path = str(self._models_dir / preset["model_file"])
             abs_model_path = str(Path(model_path).resolve())
@@ -748,7 +771,8 @@ class AiInferenceEngine:
                 logger.warning(
                     "Preset model file not found and auto-generate failed: %s (abs: %s). "
                     "Run: python models/generate_preset_models.py or pip install onnx numpy",
-                    model_path, abs_model_path,
+                    model_path,
+                    abs_model_path,
                 )
             elif not _check_onnxruntime():
                 # 文件存在但 onnxruntime 未安装，标记为 inactive 而非 unavailable
@@ -776,9 +800,7 @@ class AiInferenceEngine:
             target_path.parent.mkdir(parents=True, exist_ok=True)
             # FIXED: 原子写入 .onnx 模型文件（temp + os.replace），防止进程崩溃留下半截文件 [2026-06-29]
             # 进程在 write_bytes 中途崩溃会留下损坏的 .onnx，下次启动 ort.InferenceSession 会失败
-            tmp_fd, tmp_path = tempfile.mkstemp(
-                dir=str(target_path.parent), suffix=".onnx.tmp"
-            )
+            tmp_fd, tmp_path = tempfile.mkstemp(dir=str(target_path.parent), suffix=".onnx.tmp")
             try:
                 with os.fdopen(tmp_fd, "wb") as f:
                     f.write(model_bytes)
@@ -830,7 +852,13 @@ class AiInferenceEngine:
             await wrapper.unload()
             await wrapper.load()
             self._record_version(wrapper)
-            logger.info("Model hot-reload completed: %s (%s -> %s, version=%s)", model_id, old_status, wrapper.status, new_version)
+            logger.info(
+                "Model hot-reload completed: %s (%s -> %s, version=%s)",
+                model_id,
+                old_status,
+                wrapper.status,
+                new_version,
+            )
         except Exception:
             wrapper.status = "unavailable"
             raise
@@ -857,24 +885,34 @@ class AiInferenceEngine:
         fmt = self._detect_model_format(model_path)
         if fmt == "tflite":
             return TFLiteModelWrapper(
-                model_id=model_id, model_name=model_name,
-                model_version=model_version, model_type=model_type,
-                model_path=model_path, input_schema=input_schema,
+                model_id=model_id,
+                model_name=model_name,
+                model_version=model_version,
+                model_type=model_type,
+                model_path=model_path,
+                input_schema=input_schema,
                 output_schema=output_schema,
             )
         elif fmt == "pmml":
             return PMMLModelWrapper(
-                model_id=model_id, model_name=model_name,
-                model_version=model_version, model_type=model_type,
-                model_path=model_path, input_schema=input_schema,
+                model_id=model_id,
+                model_name=model_name,
+                model_version=model_version,
+                model_type=model_type,
+                model_path=model_path,
+                input_schema=input_schema,
                 output_schema=output_schema,
             )
         else:
             return OnnxModelWrapper(
-                model_id=model_id, model_name=model_name,
-                model_version=model_version, model_type=model_type,
-                is_preset=is_preset, model_path=model_path,
-                input_schema=input_schema, output_schema=output_schema,
+                model_id=model_id,
+                model_name=model_name,
+                model_version=model_version,
+                model_type=model_type,
+                is_preset=is_preset,
+                model_path=model_path,
+                input_schema=input_schema,
+                output_schema=output_schema,
                 preprocess_config=preprocess_config,
                 postprocess_config=postprocess_config,
             )
@@ -896,10 +934,14 @@ class AiInferenceEngine:
                 self._record_version(existing)
                 model_version = new_version
             wrapper = self._create_wrapper(
-                model_id=model_id, model_name=model_name,
-                model_version=model_version, model_type=model_type,
-                model_path=model_path, input_schema=input_schema,
-                output_schema=output_schema, is_preset=False,
+                model_id=model_id,
+                model_name=model_name,
+                model_version=model_version,
+                model_type=model_type,
+                model_path=model_path,
+                input_schema=input_schema,
+                output_schema=output_schema,
+                is_preset=False,
             )
             if isinstance(wrapper, OnnxModelWrapper):
                 await wrapper.load(provider=self._execution_provider)
@@ -1056,12 +1098,25 @@ class AiInferenceEngine:
             logger.warning(
                 "Inference timeout for model %s (%.1fs), returning degraded result; "
                 "underlying executor thread pool task may still be running and cannot be cancelled",
-                model_id, inference_timeout,
+                model_id,
+                inference_timeout,
             )
             cached_result = getattr(wrapper, "last_result", None)
             if cached_result:
-                return InferenceResult(model_id=model_id, output_data=cached_result, latency_ms=latency_ms, status="error", error_message=f"Inference timeout ({inference_timeout}s), returning cached result")
-            return InferenceResult(model_id=model_id, output_data={"output_0": [0.0]}, latency_ms=latency_ms, status="error", error_message=f"Inference timeout ({inference_timeout}s)")
+                return InferenceResult(
+                    model_id=model_id,
+                    output_data=cached_result,
+                    latency_ms=latency_ms,
+                    status="error",
+                    error_message=f"Inference timeout ({inference_timeout}s), returning cached result",
+                )
+            return InferenceResult(
+                model_id=model_id,
+                output_data={"output_0": [0.0]},
+                latency_ms=latency_ms,
+                status="error",
+                error_message=f"Inference timeout ({inference_timeout}s)",
+            )
         except MemoryError:
             latency_ms = int((time.perf_counter() - start) * 1000)
             self._stats.record_inference(model_id, latency_ms, "error")
@@ -1076,17 +1131,31 @@ class AiInferenceEngine:
                 # 后续推理会持续 OOM，且无任何日志提示 unload 失败
                 logger.error(
                     "Unload model failed after OOM for %s: %s (session may leak)",
-                    model_id, unload_err, exc_info=True,
+                    model_id,
+                    unload_err,
+                    exc_info=True,
                 )
             wrapper.status = "error"
-            return InferenceResult(model_id=model_id, output_data={}, latency_ms=latency_ms, status="error", error_message="OOM during inference")
+            return InferenceResult(
+                model_id=model_id,
+                output_data={},
+                latency_ms=latency_ms,
+                status="error",
+                error_message="OOM during inference",
+            )
         except Exception as e:
             latency_ms = int((time.perf_counter() - start) * 1000)
             self._stats.record_inference(model_id, latency_ms, "error")
             if isinstance(e, RuntimeError) and "out of memory" in str(e).lower():
                 logger.error("OOM during inference for model %s (RuntimeError), marking as error", model_id)
                 wrapper.status = "error"
-                return InferenceResult(model_id=model_id, output_data={}, latency_ms=latency_ms, status="error", error_message="OOM during inference")
+                return InferenceResult(
+                    model_id=model_id,
+                    output_data={},
+                    latency_ms=latency_ms,
+                    status="error",
+                    error_message="OOM during inference",
+                )
             # Edge inference failed, try cloud fallback
             if self._config.get("cloud_inference_enabled", False):
                 cloud_url = self._config.get("cloud_inference_url", "")
@@ -1104,13 +1173,19 @@ class AiInferenceEngine:
             )
 
     async def infer_cloud_fallback(
-        self, model_id: str, input_data: list[float], cloud_url: str = "",
+        self,
+        model_id: str,
+        input_data: list[float],
+        cloud_url: str = "",
     ) -> InferenceResult:
         """云端推理降级：当边缘推理不可用时，将数据发送到云端推理服务"""
         if self._cloud_circuit_breaker and self._cloud_circuit_breaker.is_open:
             return InferenceResult(
-                model_id=model_id, output_data={}, latency_ms=0,
-                status="error", error_message="Cloud inference circuit breaker is OPEN",
+                model_id=model_id,
+                output_data={},
+                latency_ms=0,
+                status="error",
+                error_message="Cloud inference circuit breaker is OPEN",
             )
 
         import httpx
@@ -1152,7 +1227,11 @@ class AiInferenceEngine:
                 cloud_version = cloud_wrapper.model_version if cloud_wrapper else None
                 resp = await client.post(
                     f"{cloud_endpoint}/infer",
-                    json={"model_id": model_id, "model_version": cloud_version, "input_data": input_data},  # FIXED-P2: 云推理请求携带模型版本号
+                    json={
+                        "model_id": model_id,
+                        "model_version": cloud_version,
+                        "input_data": input_data,
+                    },  # FIXED-P2: 云推理请求携带模型版本号
                     headers=headers,
                 )
                 latency_ms = int((time.perf_counter() - start) * 1000)
@@ -1286,14 +1365,21 @@ class AiInferenceEngine:
 
             task = asyncio.create_task(
                 self._scheduled_inference_loop(
-                    model_id, device_id, point_name, interval_seconds, input_window_size,
+                    model_id,
+                    device_id,
+                    point_name,
+                    interval_seconds,
+                    input_window_size,
                 ),
                 name=f"scheduled_inference_{model_id}",
             )
             self._scheduled_tasks[model_id] = task
         logger.info(
             "Scheduled inference started: model=%s, device=%s, point=%s, interval=%ds",
-            model_id, device_id, point_name, interval_seconds,
+            model_id,
+            device_id,
+            point_name,
+            interval_seconds,
         )
 
     async def _scheduled_inference_loop(
@@ -1309,7 +1395,9 @@ class AiInferenceEngine:
             while model_id in self._scheduled_tasks:
                 try:
                     input_data = await self._fetch_influx_data(
-                        device_id, point_name, input_window_size,
+                        device_id,
+                        point_name,
+                        input_window_size,
                     )
                     if input_data:
                         result = await self.infer(model_id, input_data)
@@ -1327,11 +1415,14 @@ class AiInferenceEngine:
                     else:
                         logger.debug(
                             "Scheduled inference: no data for device=%s point=%s",
-                            device_id, point_name,
+                            device_id,
+                            point_name,
                         )
                 except Exception as e:
                     logger.error(
-                        "Scheduled inference error: model=%s - %s", model_id, e,
+                        "Scheduled inference error: model=%s - %s",
+                        model_id,
+                        e,
                     )
                 await asyncio.sleep(interval_seconds)
         except asyncio.CancelledError:
@@ -1342,7 +1433,10 @@ class AiInferenceEngine:
                 self._scheduled_tasks.pop(model_id, None)
 
     async def _fetch_influx_data(
-        self, device_id: str, point_name: str, window_size: int,
+        self,
+        device_id: str,
+        point_name: str,
+        window_size: int,
     ) -> list[float] | None:
         """Fetch recent data points from InfluxDB as input for inference"""
         try:
@@ -1362,10 +1456,7 @@ class AiInferenceEngine:
             if not data:
                 return None
 
-            values = [
-                d["value"] for d in data
-                if d.get("value") is not None and isinstance(d["value"], (int, float))
-            ]
+            values = [d["value"] for d in data if d.get("value") is not None and isinstance(d["value"], (int, float))]
             if not values:
                 return None
 
@@ -1403,8 +1494,12 @@ class AiInferenceEngine:
         return result
 
     async def infer_from_video(
-        self, model_id: str, video_url: str, frame_interval: float = 1.0,
-        confidence_threshold: float = 0.5, max_frames: int = 0,
+        self,
+        model_id: str,
+        video_url: str,
+        frame_interval: float = 1.0,
+        confidence_threshold: float = 0.5,
+        max_frames: int = 0,
     ) -> AsyncIterator[dict]:
         """视频流推理管道: URL → OpenCV抽帧 → 预处理 → ONNX推理 → 后处理"""
         # FIXED(P0): 原问题-video_url无SSRF校验，可访问内部服务和云元数据;
@@ -1459,6 +1554,7 @@ class AiInferenceEngine:
                 # R6-S-24: cv2.resize 同为阻塞调用，一并包装到 asyncio.to_thread 中执行
                 resized = await asyncio.to_thread(cv2.resize, frame, (model_w, model_h))
                 import numpy as np
+
                 input_data = resized.astype(np.float32).flatten().tolist()
 
                 # Inference
@@ -1479,13 +1575,16 @@ class AiInferenceEngine:
         """发布推理结果到事件总线，驱动规则引擎"""
         if self._event_bus:
             try:
-                await self._event_bus.publish("ai_inference_result", {
-                    "model_id": result.model_id,
-                    "output_data": result.output_data,
-                    "latency_ms": result.latency_ms,
-                    "status": result.status,
-                    "timestamp": datetime.now(UTC).isoformat(),
-                })
+                await self._event_bus.publish(
+                    "ai_inference_result",
+                    {
+                        "model_id": result.model_id,
+                        "output_data": result.output_data,
+                        "latency_ms": result.latency_ms,
+                        "status": result.status,
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    },
+                )
             except Exception as e:
                 logger.warning("Failed to publish inference result: %s", e)
 
@@ -1559,7 +1658,9 @@ class AiInferenceEngine:
             if not (target_model_path and Path(target_model_path).exists()):
                 self._record_version(wrapper, f"rollback_from_{current_version}_to_{target_version}")
                 wrapper.model_version = target_version
-                logger.info("Model version rolled back (no reload): %s %s -> %s", model_id, current_version, target_version)
+                logger.info(
+                    "Model version rolled back (no reload): %s %s -> %s", model_id, current_version, target_version
+                )
                 return True
 
             # 收集创建新 wrapper 所需的元数据
@@ -1575,10 +1676,14 @@ class AiInferenceEngine:
 
         # 锁外: 创建并加载新 wrapper，不阻塞其他推理请求
         new_wrapper = self._create_wrapper(
-            model_id=model_id, model_name=model_name,
-            model_version=target_version, model_type=model_type,
-            model_path=target_model_path, input_schema=input_schema,
-            output_schema=output_schema, is_preset=is_preset,
+            model_id=model_id,
+            model_name=model_name,
+            model_version=target_version,
+            model_type=model_type,
+            model_path=target_model_path,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            is_preset=is_preset,
             preprocess_config=preprocess_config,
             postprocess_config=postprocess_config,
         )
@@ -1601,9 +1706,7 @@ class AiInferenceEngine:
         # 导致并发推理触发 AttributeError。改为放入待回收列表，由 shutdown 统一释放。
         if old_wrapper is not None:
             self._pending_unload_wrappers.append((old_wrapper, time.monotonic()))
-            logger.info(
-                "Old wrapper for %s queued for deferred unload after rollback", model_id
-            )
+            logger.info("Old wrapper for %s queued for deferred unload after rollback", model_id)
 
         logger.info("Model version rolled back: %s %s -> %s", model_id, current_version, target_version)
         return True
@@ -1689,6 +1792,7 @@ class TFLiteModelWrapper:
         except ImportError:
             try:
                 import tensorflow as tf
+
                 tflite = tf.lite
             except ImportError:
                 self.status = "inactive"
@@ -1971,8 +2075,7 @@ def quantize_model_int8(
         return True
     except ImportError:
         logger.error(
-            "onnxruntime[qdq] not installed. "
-            "For INT8 quantization, install: pip install onnxruntime-quantization"
+            "onnxruntime[qdq] not installed. For INT8 quantization, install: pip install onnxruntime-quantization"
         )
         return False
     except Exception as e:
@@ -2044,6 +2147,7 @@ def get_model_info(model_path: str) -> dict:
     if ext == ".onnx":
         try:
             import onnx
+
             model = onnx.load(model_path)
             info["ir_version"] = model.ir_version
             info["producer_name"] = model.producer_name
@@ -2070,6 +2174,7 @@ def get_model_info(model_path: str) -> dict:
     elif ext == ".tflite":
         try:
             import tflite_runtime.interpreter as tflite  # pyright: ignore[reportMissingImports]
+
             interpreter = tflite.Interpreter(model_path=model_path)
             interpreter.allocate_tensors()
             info["inputs"] = [

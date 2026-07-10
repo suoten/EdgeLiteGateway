@@ -111,9 +111,7 @@ class AlarmOutbox:
                 )
                 """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_alarm_outbox_created ON alarm_outbox(created_at)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_alarm_outbox_created ON alarm_outbox(created_at)")
             conn.commit()
             self._conn = conn
             logger.info("AlarmOutbox initialized at %s", db_path)
@@ -140,8 +138,7 @@ class AlarmOutbox:
             payload = _serialize_event(event)
             with self._lock:
                 conn.execute(
-                    "INSERT INTO alarm_outbox (event_type, event_data, created_at)"
-                    " VALUES (?, ?, ?)",
+                    "INSERT INTO alarm_outbox (event_type, event_data, created_at) VALUES (?, ?, ?)",
                     (event_type, payload, datetime.now(UTC).isoformat()),
                 )
                 conn.commit()
@@ -165,9 +162,7 @@ class AlarmOutbox:
         replayed = 0
         try:
             with self._lock:
-                rows = conn.execute(
-                    "SELECT id, event_data FROM alarm_outbox ORDER BY id ASC"
-                ).fetchall()
+                rows = conn.execute("SELECT id, event_data FROM alarm_outbox ORDER BY id ASC").fetchall()
             # 锁外执行 callback 避免 DB 长时间持锁
             for _id, raw in rows:
                 try:

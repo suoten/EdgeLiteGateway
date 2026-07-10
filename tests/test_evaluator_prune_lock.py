@@ -29,9 +29,8 @@ import pytest_asyncio
 
 sys.path.insert(0, "src")
 
-from edgelite.engine.event_bus import EventBus
 from edgelite.engine.evaluator import RuleEvaluator
-
+from edgelite.engine.event_bus import EventBus
 
 # ════════════════════════════════════════════════════════════════════════
 # Fixtures

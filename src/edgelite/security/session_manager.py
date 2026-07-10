@@ -52,17 +52,11 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
         )
         """
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at)")
 
 
-def register_session(
-    user_id: str, jti: str, expires_at: float | None = None
-) -> None:
+def register_session(user_id: str, jti: str, expires_at: float | None = None) -> None:
     """注册新会话到内存和 SQLite。
 
     FIXED-P0 (并发安全#5): SQLite 先 → 内存后，确保持久化成功后才更新内存。
@@ -88,17 +82,14 @@ def register_session(
             try:
                 _ensure_table(conn)
                 conn.execute(
-                    "INSERT OR REPLACE INTO user_sessions"
-                    " (user_id, jti, expires_at) VALUES (?, ?, ?)",
+                    "INSERT OR REPLACE INTO user_sessions (user_id, jti, expires_at) VALUES (?, ?, ?)",
                     (user_id, jti, exp),
                 )
                 conn.commit()
             finally:
                 conn.close()
         except Exception as e:
-            logger.warning(
-                "Failed to persist session for user %s: %s", user_id, e
-            )
+            logger.warning("Failed to persist session for user %s: %s", user_id, e)
             return  # SQLite 失败则不更新内存，保持内存与 SQLite 一致
 
     # 内存后: SQLite 成功后才更新内存
@@ -201,16 +192,12 @@ def clear_user_sessions(user_id: str) -> list[str]:
             conn = sqlite3.connect(db_path, timeout=5)
             try:
                 _ensure_table(conn)
-                conn.execute(
-                    "DELETE FROM user_sessions WHERE user_id = ?", (user_id,)
-                )
+                conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
                 conn.commit()
             finally:
                 conn.close()
         except Exception as e:
-            logger.warning(
-                "Failed to clear sessions for user %s: %s", user_id, e
-            )
+            logger.warning("Failed to clear sessions for user %s: %s", user_id, e)
             return []  # SQLite 失败则不更新内存，返回空列表
 
     # 内存后: SQLite 成功后才移除 (只 discard 快照中的 jti，保留窗口期新注册的 session)
@@ -225,9 +212,7 @@ def clear_user_sessions(user_id: str) -> list[str]:
     return jtis
 
 
-async def revoke_old_sessions(
-    user_id: str, new_jtis: list[str]
-) -> None:
+async def revoke_old_sessions(user_id: str, new_jtis: list[str]) -> None:
     """撤销用户旧会话，保留 new_jtis 中的新会话。
 
     LP-09 并发登录控制: 新登录时撤销旧会话，防止并发会话。
@@ -264,24 +249,19 @@ async def revoke_old_sessions(
                 _ensure_table(conn)
                 # DELETE 旧会话
                 for jti in to_revoke:
-                    conn.execute(
-                        "DELETE FROM user_sessions WHERE jti = ?", (jti,)
-                    )
+                    conn.execute("DELETE FROM user_sessions WHERE jti = ?", (jti,))
                 # INSERT 新会话 (修复原问题2: 新 session 也需持久化)
                 exp = time.time() + _DEFAULT_SESSION_TTL
                 for jti in new_set:
                     conn.execute(
-                        "INSERT OR REPLACE INTO user_sessions"
-                        " (user_id, jti, expires_at) VALUES (?, ?, ?)",
+                        "INSERT OR REPLACE INTO user_sessions (user_id, jti, expires_at) VALUES (?, ?, ?)",
                         (user_id, jti, exp),
                     )
                 conn.commit()
             finally:
                 conn.close()
         except Exception as e:
-            logger.warning(
-                "Failed to revoke old sessions for user %s: %s", user_id, e
-            )
+            logger.warning("Failed to revoke old sessions for user %s: %s", user_id, e)
             return  # SQLite 失败则不更新内存，保持旧 session 活跃 (一致性优先)
 
     # 内存后: SQLite 成功后才更新 (用新会话集替换旧会话集)
@@ -311,9 +291,7 @@ def restore_sessions() -> int:
             _ensure_table(conn)
             now = time.time()
             # 清理过期会话
-            conn.execute(
-                "DELETE FROM user_sessions WHERE expires_at <= ?", (now,)
-            )
+            conn.execute("DELETE FROM user_sessions WHERE expires_at <= ?", (now,))
             # 加载活跃会话
             rows = conn.execute(
                 "SELECT user_id, jti FROM user_sessions WHERE expires_at > ?",

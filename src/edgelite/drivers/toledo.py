@@ -33,9 +33,28 @@ class ToledoDriver(DriverPlugin):
     config_schema = {
         "description": "Mettler-Toledo weighing instrument protocol, supports TCP/Serial/MT-SICS",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "host", "type": "string", "label": "IP Address", "description": "Weighing instrument IP address (TCP mode)", "default": "192.168.1.1"},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "port", "type": "integer", "label": "Port", "description": "TCP port, default 1701", "default": 1701},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "mode", "type": "string", "label": "Communication Mode", "description": "TCP or Serial", "default": "tcp", "options": ["tcp", "serial"]},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "host",
+                "type": "string",
+                "label": "IP Address",
+                "description": "Weighing instrument IP address (TCP mode)",
+                "default": "192.168.1.1",
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "TCP port, default 1701",
+                "default": 1701,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "mode",
+                "type": "string",
+                "label": "Communication Mode",
+                "description": "TCP or Serial",
+                "default": "tcp",
+                "options": ["tcp", "serial"],
+            },  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -84,9 +103,7 @@ class ToledoDriver(DriverPlugin):
                 self._running = True
                 logger.info("托利多串口连接成功: %s @ %d", serial_port, baudrate)
             except ImportError:
-                raise ImportError(
-                    "serial_asyncio未安装，请执行: pip install pyserial-asyncio"
-                ) from None
+                raise ImportError("serial_asyncio未安装，请执行: pip install pyserial-asyncio") from None
             except Exception as e:
                 logger.error("托利多串口连接失败: %s - %s", serial_port, e)
                 raise
@@ -119,7 +136,9 @@ class ToledoDriver(DriverPlugin):
             return {}
 
         result = {}
-        protocol = self._config.get("protocol", "mt-sics")  # FIXED-P2: protocol读取后未使用，始终走MT-SICS路径，现根据protocol选择读取方法
+        self._config.get(
+            "protocol", "mt-sics"
+        )  # FIXED-P2: protocol读取后未使用，始终走MT-SICS路径，现根据protocol选择读取方法
 
         async with self._lock:
             for point_name in points:
@@ -254,6 +273,7 @@ class ToledoDriver(DriverPlugin):
                 self._reader, self._writer = await asyncio.open_connection(ip, port)
             elif serial_port:
                 import serial_asyncio
+
                 baudrate = int(self._config.get("baudrate", 9600))
                 self._reader, self._writer = await serial_asyncio.open_serial_connection(
                     url=serial_port, baudrate=baudrate

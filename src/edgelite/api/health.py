@@ -61,7 +61,8 @@ class _RateLimiter:
         """定期清理空桶，防止内存无限增长。"""
         now = time.monotonic()
         empty_keys = [
-            ip for ip, bucket in self._buckets.items()
+            ip
+            for ip, bucket in self._buckets.items()
             if not bucket or bucket[-1] < now - _RATE_LIMIT_WINDOW_SECONDS * 6
         ]
         for ip in empty_keys:
@@ -89,11 +90,13 @@ async def _check_sqlite() -> dict[str, Any]:
     """检查 SQLite 主库可用性。"""
     try:
         from edgelite.app import _app_state
+
         db = getattr(_app_state, "database", None)
         if db is None:
             return {"status": "unhealthy", "error": "database not initialized"}
         async with db.get_session() as session:
             from sqlalchemy import text
+
             await session.execute(text("SELECT 1"))
         return {"status": "healthy"}
     except Exception as e:
@@ -104,6 +107,7 @@ async def _check_influxdb() -> dict[str, Any]:
     """检查 InfluxDB 可用性。"""
     try:
         from edgelite.app import _app_state
+
         influx = getattr(_app_state, "influx_storage", None)
         if influx is None:
             return {"status": "unhealthy", "error": "influx_storage not initialized"}
@@ -118,6 +122,7 @@ async def _check_mqtt() -> dict[str, Any]:
     """检查 MQTT forwarder 连接状态。"""
     try:
         from edgelite.app import _app_state
+
         forwarder = getattr(_app_state, "mqtt_forwarder", None)
         if forwarder is None:
             # MQTT forwarder 是可选依赖，未初始化视为 degraded 而非 unhealthy
@@ -135,6 +140,7 @@ async def _check_drivers() -> dict[str, Any]:
     """检查驱动注册表状态。"""
     try:
         from edgelite.app import _app_state
+
         registry = getattr(_app_state, "driver_registry", None)
         if registry is None:
             return {"status": "degraded", "error": "driver_registry not initialized"}

@@ -3,11 +3,10 @@
 import asyncio
 import os
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock
-
 from fastapi import FastAPI
 
 from edgelite.api.deps import get_current_user

@@ -28,6 +28,7 @@ from edgelite.security.rbac import Permission
 
 logger = logging.getLogger(__name__)
 
+
 # Field type normalization: driver schema types → debug UI types
 def _normalize_field_type(driver_type: str) -> str:
     """Map driver config_schema field types to debug UI field types."""
@@ -40,6 +41,7 @@ def _normalize_field_type(driver_type: str) -> str:
         "select": "select",
     }
     return type_map.get(driver_type, "text")
+
 
 router = APIRouter(prefix="/api/v1/debug", tags=["debug"])
 
@@ -96,6 +98,7 @@ def _get_real_client_ip(request: Request) -> str | None:
     # 从配置读取可信代理列表
     try:
         from edgelite.config import get_config
+
         config = get_config()
         trusted_proxies = getattr(config.server, "trusted_proxies", []) if hasattr(config, "server") else []
     except Exception:
@@ -161,6 +164,7 @@ def _check_debug_ip_whitelist(request: Request) -> None:
     与配置注释"空列表=拒绝所有"矛盾; 修复-空列表时拒绝所有请求。
     """
     from edgelite.config import get_config
+
     config = get_config()
     allowed_ips = getattr(config.server, "debug_api_allowed_ips", None)
     if not allowed_ips:
@@ -169,6 +173,7 @@ def _check_debug_ip_whitelist(request: Request) -> None:
     client_ip = _get_real_client_ip(request)
     if client_ip not in allowed_ips:
         raise HTTPException(status_code=403, detail=DebugErrors.IP_NOT_ALLOWED)
+
 
 # In-memory packet buffer for sniffing (bounded deque per protocol)
 _MAX_PACKET_BUFFER = 1000
@@ -229,8 +234,12 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "modbus_tcp": {
         "name": "Modbus TCP",
         "fields": [
-            {"key": "function_code", "label": "Function Code", "type": "select",
-             "options": [{"value": k, "label": f"{k} - {v}"} for k, v in _MODBUS_FUNCTIONS.items()]},
+            {
+                "key": "function_code",
+                "label": "Function Code",
+                "type": "select",
+                "options": [{"value": k, "label": f"{k} - {v}"} for k, v in _MODBUS_FUNCTIONS.items()],
+            },
             {"key": "start_address", "label": "Start Address", "type": "number", "default": 0, "min": 0, "max": 65535},
             {"key": "quantity", "label": "Quantity", "type": "number", "default": 1, "min": 1, "max": 125},
             {"key": "slave_id", "label": "Slave ID", "type": "number", "default": 1, "min": 1, "max": 247},
@@ -240,8 +249,12 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "modbus_rtu": {
         "name": "Modbus RTU",
         "fields": [
-            {"key": "function_code", "label": "Function Code", "type": "select",
-             "options": [{"value": k, "label": f"{k} - {v}"} for k, v in _MODBUS_FUNCTIONS.items()]},
+            {
+                "key": "function_code",
+                "label": "Function Code",
+                "type": "select",
+                "options": [{"value": k, "label": f"{k} - {v}"} for k, v in _MODBUS_FUNCTIONS.items()],
+            },
             {"key": "start_address", "label": "Start Address", "type": "number", "default": 0, "min": 0, "max": 65535},
             {"key": "quantity", "label": "Quantity", "type": "number", "default": 1, "min": 1, "max": 125},
             {"key": "slave_id", "label": "Slave ID", "type": "number", "default": 1, "min": 1, "max": 247},
@@ -252,20 +265,28 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "name": "OPC UA",
         "fields": [
             {"key": "node_id", "label": "Node ID", "type": "text", "placeholder": "ns=2;i=1"},
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Read"},
-                 {"value": "write", "label": "Write"},
-                 {"value": "browse", "label": "Browse"},
-                 {"value": "subscribe", "label": "Subscribe"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Read"},
+                    {"value": "write", "label": "Write"},
+                    {"value": "browse", "label": "Browse"},
+                    {"value": "subscribe", "label": "Subscribe"},
+                ],
+            },
             {"key": "write_value", "label": "Write Value", "type": "text", "optional": True},
-            {"key": "deadband_type", "label": "Deadband Type", "type": "select",
-             "options": [
-                 {"value": "None", "label": "None"},
-                 {"value": "Absolute", "label": "Absolute"},
-                 {"value": "Percent", "label": "Percent"},
-             ]},
+            {
+                "key": "deadband_type",
+                "label": "Deadband Type",
+                "type": "select",
+                "options": [
+                    {"value": "None", "label": "None"},
+                    {"value": "Absolute", "label": "Absolute"},
+                    {"value": "Percent", "label": "Percent"},
+                ],
+            },
             {"key": "deadband_value", "label": "Deadband Value", "type": "number", "default": 0},
         ],
     },
@@ -274,17 +295,25 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "fields": [
             {"key": "topic", "label": "Topic", "type": "text", "placeholder": "sensor/data"},
             {"key": "payload", "label": "Payload", "type": "textarea", "placeholder": '{"key": "value"}'},
-            {"key": "qos", "label": "QoS", "type": "select",
-             "options": [
-                 {"value": "0", "label": "0 - At most once"},
-                 {"value": "1", "label": "1 - At least once"},
-                 {"value": "2", "label": "2 - Exactly once"},
-             ]},
-            {"key": "retain", "label": "Retain", "type": "select",
-             "options": [
-                 {"value": "false", "label": "No"},
-                 {"value": "true", "label": "Yes"},
-             ]},
+            {
+                "key": "qos",
+                "label": "QoS",
+                "type": "select",
+                "options": [
+                    {"value": "0", "label": "0 - At most once"},
+                    {"value": "1", "label": "1 - At least once"},
+                    {"value": "2", "label": "2 - Exactly once"},
+                ],
+            },
+            {
+                "key": "retain",
+                "label": "Retain",
+                "type": "select",
+                "options": [
+                    {"value": "false", "label": "No"},
+                    {"value": "true", "label": "Yes"},
+                ],
+            },
             {"key": "will_topic", "label": "Will Topic", "type": "text", "optional": True},
             {"key": "will_message", "label": "Will Message", "type": "text", "optional": True},
         ],
@@ -292,13 +321,17 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "s7": {
         "name": "Siemens S7",
         "fields": [
-            {"key": "area", "label": "Area", "type": "select",
-             "options": [
-                 {"value": "DB", "label": "Data Block (DB)"},
-                 {"value": "I", "label": "Input (I)"},
-                 {"value": "Q", "label": "Output (Q)"},
-                 {"value": "M", "label": "Marker (M)"},
-             ]},
+            {
+                "key": "area",
+                "label": "Area",
+                "type": "select",
+                "options": [
+                    {"value": "DB", "label": "Data Block (DB)"},
+                    {"value": "I", "label": "Input (I)"},
+                    {"value": "Q", "label": "Output (Q)"},
+                    {"value": "M", "label": "Marker (M)"},
+                ],
+            },
             {"key": "db_number", "label": "DB Number", "type": "number", "default": 1},
             {"key": "start", "label": "Start Address", "type": "number", "default": 0},
             {"key": "size", "label": "Size (bytes)", "type": "number", "default": 1, "min": 1},
@@ -307,22 +340,30 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "mc": {
         "name": "Mitsubishi MC",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Read Device"},
-                 {"value": "write", "label": "Write Device"},
-                 {"value": "read_bit", "label": "Read Bit Device"},
-                 {"value": "write_bit", "label": "Write Bit Device"},
-             ]},
-            {"key": "device_type", "label": "Device Type", "type": "select",
-             "options": [
-                 {"value": "D", "label": "D - Data Register"},
-                 {"value": "M", "label": "M - Internal Relay"},
-                 {"value": "X", "label": "X - Input"},
-                 {"value": "Y", "label": "Y - Output"},
-                 {"value": "W", "label": "W - Link Register"},
-                 {"value": "R", "label": "R - File Register"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Read Device"},
+                    {"value": "write", "label": "Write Device"},
+                    {"value": "read_bit", "label": "Read Bit Device"},
+                    {"value": "write_bit", "label": "Write Bit Device"},
+                ],
+            },
+            {
+                "key": "device_type",
+                "label": "Device Type",
+                "type": "select",
+                "options": [
+                    {"value": "D", "label": "D - Data Register"},
+                    {"value": "M", "label": "M - Internal Relay"},
+                    {"value": "X", "label": "X - Input"},
+                    {"value": "Y", "label": "Y - Output"},
+                    {"value": "W", "label": "W - Link Register"},
+                    {"value": "R", "label": "R - File Register"},
+                ],
+            },
             {"key": "address", "label": "Address", "type": "number", "default": 0},
             {"key": "count", "label": "Count", "type": "number", "default": 1, "min": 1, "max": 960},
             {"key": "write_value", "label": "Write Value", "type": "number", "optional": True},
@@ -331,95 +372,138 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "fins": {
         "name": "Omron FINS",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Memory Area Read (0101)"},
-                 {"value": "write", "label": "Memory Area Write (0102)"},
-                 {"value": "fill", "label": "Memory Area Fill (0103)"},
-                 {"value": "read_multiple", "label": "Read Multiple (0104)"},
-             ]},
-            {"key": "area", "label": "Memory Area", "type": "select",
-             "options": [
-                 {"value": "D", "label": "D - DM Area"},
-                 {"value": "CIO", "label": "CIO - Core I/O"},
-                 {"value": "W", "label": "W - Work Area"},
-                 {"value": "H", "label": "H - HR Area"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Memory Area Read (0101)"},
+                    {"value": "write", "label": "Memory Area Write (0102)"},
+                    {"value": "fill", "label": "Memory Area Fill (0103)"},
+                    {"value": "read_multiple", "label": "Read Multiple (0104)"},
+                ],
+            },
+            {
+                "key": "area",
+                "label": "Memory Area",
+                "type": "select",
+                "options": [
+                    {"value": "D", "label": "D - DM Area"},
+                    {"value": "CIO", "label": "CIO - Core I/O"},
+                    {"value": "W", "label": "W - Work Area"},
+                    {"value": "H", "label": "H - HR Area"},
+                ],
+            },
             {"key": "address", "label": "Address", "type": "number", "default": 0},
             {"key": "count", "label": "Count", "type": "number", "default": 1, "min": 1, "max": 9999},
-            {"key": "data_type", "label": "Data Type", "type": "select",
-             "options": [
-                 {"value": "w", "label": "Word (16-bit)"},
-                 {"value": "r", "label": "Real (32-bit float)"},
-                 {"value": "b", "label": "Bit"},
-                 {"value": "i", "label": "Signed Integer (32-bit)"},
-             ]},
+            {
+                "key": "data_type",
+                "label": "Data Type",
+                "type": "select",
+                "options": [
+                    {"value": "w", "label": "Word (16-bit)"},
+                    {"value": "r", "label": "Real (32-bit float)"},
+                    {"value": "b", "label": "Bit"},
+                    {"value": "i", "label": "Signed Integer (32-bit)"},
+                ],
+            },
             {"key": "write_value", "label": "Write Value", "type": "number", "optional": True},
         ],
     },
     "allen_bradley": {
         "name": "Allen-Bradley CIP/PCCC",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Read Tag (CIP)"},
-                 {"value": "write", "label": "Write Tag (CIP)"},
-                 {"value": "read_pccc", "label": "Typed Read (PCCC)"},
-                 {"value": "write_pccc", "label": "Typed Write (PCCC)"},
-                 {"value": "discover_tags", "label": "Discover Tags"},
-             ]},
-            {"key": "tag_name", "label": "Tag Name / Address", "type": "text", "placeholder": "Program:Main.TagName or N7:0"},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Read Tag (CIP)"},
+                    {"value": "write", "label": "Write Tag (CIP)"},
+                    {"value": "read_pccc", "label": "Typed Read (PCCC)"},
+                    {"value": "write_pccc", "label": "Typed Write (PCCC)"},
+                    {"value": "discover_tags", "label": "Discover Tags"},
+                ],
+            },
+            {
+                "key": "tag_name",
+                "label": "Tag Name / Address",
+                "type": "text",
+                "placeholder": "Program:Main.TagName or N7:0",
+            },
             {"key": "value", "label": "Write Value", "type": "text", "optional": True},
-            {"key": "connection_type", "label": "Connection Type", "type": "select",
-             "options": [
-                 {"value": "CIP", "label": "CIP (ControlLogix)"},
-                 {"value": "PCCC", "label": "PCCC (MicroLogix)"},
-             ]},
+            {
+                "key": "connection_type",
+                "label": "Connection Type",
+                "type": "select",
+                "options": [
+                    {"value": "CIP", "label": "CIP (ControlLogix)"},
+                    {"value": "PCCC", "label": "PCCC (MicroLogix)"},
+                ],
+            },
         ],
     },
     "abb_rws": {
         "name": "ABB RWS",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read_joints", "label": "Read Joint Values"},
-                 {"value": "read_motion", "label": "Read Motion Data"},
-                 {"value": "read_status", "label": "Read Robot Status"},
-                 {"value": "read_rapid", "label": "Read RAPID Variable"},
-                 {"value": "write_rapid", "label": "Write RAPID Variable"},
-                 {"value": "start_program", "label": "Start Program"},
-                 {"value": "stop_program", "label": "Stop Program"},
-                 {"value": "reset_program", "label": "Reset Program"},
-             ]},
-            {"key": "rapid_path", "label": "RAPID Path", "type": "text", "placeholder": "T_ROB1:MainModule:myVar", "optional": True},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read_joints", "label": "Read Joint Values"},
+                    {"value": "read_motion", "label": "Read Motion Data"},
+                    {"value": "read_status", "label": "Read Robot Status"},
+                    {"value": "read_rapid", "label": "Read RAPID Variable"},
+                    {"value": "write_rapid", "label": "Write RAPID Variable"},
+                    {"value": "start_program", "label": "Start Program"},
+                    {"value": "stop_program", "label": "Stop Program"},
+                    {"value": "reset_program", "label": "Reset Program"},
+                ],
+            },
+            {
+                "key": "rapid_path",
+                "label": "RAPID Path",
+                "type": "text",
+                "placeholder": "T_ROB1:MainModule:myVar",
+                "optional": True,
+            },
             {"key": "write_value", "label": "Write Value", "type": "text", "optional": True},
         ],
     },
     "fanuc_focas": {
         "name": "FANUC FOCAS",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "cnc_status", "label": "CNC Status"},
-                 {"value": "cnc_position", "label": "CNC Position"},
-                 {"value": "cnc_program", "label": "CNC Program Number"},
-                 {"value": "cnc_feedrate", "label": "CNC Feedrate"},
-                 {"value": "cnc_spindle", "label": "CNC Spindle Speed"},
-                 {"value": "cnc_alarm", "label": "CNC Alarms"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "cnc_status", "label": "CNC Status"},
+                    {"value": "cnc_position", "label": "CNC Position"},
+                    {"value": "cnc_program", "label": "CNC Program Number"},
+                    {"value": "cnc_feedrate", "label": "CNC Feedrate"},
+                    {"value": "cnc_spindle", "label": "CNC Spindle Speed"},
+                    {"value": "cnc_alarm", "label": "CNC Alarms"},
+                ],
+            },
             {"key": "max_axes", "label": "Max Axes", "type": "number", "default": 8},
         ],
     },
     "kuka_ekrl": {
         "name": "KUKA EKRL",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Read Variables"},
-                 {"value": "write", "label": "Write Variable"},
-                 {"value": "program_start", "label": "Start Program"},
-                 {"value": "program_stop", "label": "Stop Program"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Read Variables"},
+                    {"value": "write", "label": "Write Variable"},
+                    {"value": "program_start", "label": "Start Program"},
+                    {"value": "program_stop", "label": "Stop Program"},
+                ],
+            },
             {"key": "variables", "label": "Variables", "type": "text", "placeholder": "$OV_PRO,$POS_ACT"},
             {"key": "write_value", "label": "Write Value", "type": "text", "optional": True},
         ],
@@ -427,28 +511,36 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "toledo_mtsics": {
         "name": "Toledo MT-SICS",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read_weight", "label": "Read Weight (SIR)"},
-                 {"value": "read_stable", "label": "Read Stable (SFR)"},
-                 {"value": "read_all", "label": "Read All (SIL)"},
-                 {"value": "tare", "label": "Tare (T)"},
-                 {"value": "zero", "label": "Zero (Z)"},
-                 {"value": "print", "label": "Print (P)"},
-                 {"value": "switch_unit", "label": "Switch Unit (SUI)"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read_weight", "label": "Read Weight (SIR)"},
+                    {"value": "read_stable", "label": "Read Stable (SFR)"},
+                    {"value": "read_all", "label": "Read All (SIL)"},
+                    {"value": "tare", "label": "Tare (T)"},
+                    {"value": "zero", "label": "Zero (Z)"},
+                    {"value": "print", "label": "Print (P)"},
+                    {"value": "switch_unit", "label": "Switch Unit (SUI)"},
+                ],
+            },
         ],
     },
     "opc_da": {
         "name": "OPC DA Client",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Read Items"},
-                 {"value": "write", "label": "Write Item"},
-                 {"value": "browse", "label": "Browse Server"},
-                 {"value": "list_servers", "label": "List Servers"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Read Items"},
+                    {"value": "write", "label": "Write Item"},
+                    {"value": "browse", "label": "Browse Server"},
+                    {"value": "list_servers", "label": "List Servers"},
+                ],
+            },
             {"key": "item_id", "label": "OPC Item ID", "type": "text", "placeholder": "Simulation.Items.Random"},
             {"key": "value", "label": "Write Value", "type": "text", "optional": True},
         ],
@@ -456,20 +548,24 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "onvif": {
         "name": "ONVIF",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "discover", "label": "WS-Discovery"},
-                 {"value": "get_rtsp", "label": "Get RTSP URL"},
-                 {"value": "get_snapshot", "label": "Get Snapshot URI"},
-                 {"value": "ptz_continuous", "label": "PTZ Continuous Move"},
-                 {"value": "ptz_absolute", "label": "PTZ Absolute Move"},
-                 {"value": "ptz_relative", "label": "PTZ Relative Move"},
-                 {"value": "ptz_stop", "label": "PTZ Stop"},
-                 {"value": "preset_set", "label": "Set Preset"},
-                 {"value": "preset_goto", "label": "Goto Preset"},
-                 {"value": "preset_remove", "label": "Remove Preset"},
-                 {"value": "subscribe_events", "label": "Subscribe Events"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "discover", "label": "WS-Discovery"},
+                    {"value": "get_rtsp", "label": "Get RTSP URL"},
+                    {"value": "get_snapshot", "label": "Get Snapshot URI"},
+                    {"value": "ptz_continuous", "label": "PTZ Continuous Move"},
+                    {"value": "ptz_absolute", "label": "PTZ Absolute Move"},
+                    {"value": "ptz_relative", "label": "PTZ Relative Move"},
+                    {"value": "ptz_stop", "label": "PTZ Stop"},
+                    {"value": "preset_set", "label": "Set Preset"},
+                    {"value": "preset_goto", "label": "Goto Preset"},
+                    {"value": "preset_remove", "label": "Remove Preset"},
+                    {"value": "subscribe_events", "label": "Subscribe Events"},
+                ],
+            },
             {"key": "pan", "label": "Pan", "type": "number", "default": 0, "min": -1, "max": 1},
             {"key": "tilt", "label": "Tilt", "type": "number", "default": 0, "min": -1, "max": 1},
             {"key": "zoom", "label": "Zoom", "type": "number", "default": 0, "min": -1, "max": 1},
@@ -479,17 +575,27 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "http_webhook": {
         "name": "HTTP Webhook",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "send", "label": "Send Request"},
-                 {"value": "test_auth", "label": "Test Authentication"},
-             ]},
-            {"key": "method", "label": "Method", "type": "select",
-             "options": [
-                 {"value": "GET", "label": "GET"}, {"value": "POST", "label": "POST"},
-                 {"value": "PUT", "label": "PUT"}, {"value": "DELETE", "label": "DELETE"},
-                 {"value": "PATCH", "label": "PATCH"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "send", "label": "Send Request"},
+                    {"value": "test_auth", "label": "Test Authentication"},
+                ],
+            },
+            {
+                "key": "method",
+                "label": "Method",
+                "type": "select",
+                "options": [
+                    {"value": "GET", "label": "GET"},
+                    {"value": "POST", "label": "POST"},
+                    {"value": "PUT", "label": "PUT"},
+                    {"value": "DELETE", "label": "DELETE"},
+                    {"value": "PATCH", "label": "PATCH"},
+                ],
+            },
             {"key": "url", "label": "URL", "type": "text"},
             {"key": "body", "label": "Body", "type": "textarea", "optional": True},
         ],
@@ -497,21 +603,29 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "simulator": {
         "name": "Simulator",
         "fields": [
-            {"key": "operation", "label": "Operation", "type": "select",
-             "options": [
-                 {"value": "read", "label": "Read Points"},
-                 {"value": "write", "label": "Write Point"},
-                 {"value": "set_fault", "label": "Set Fault Mode"},
-             ]},
+            {
+                "key": "operation",
+                "label": "Operation",
+                "type": "select",
+                "options": [
+                    {"value": "read", "label": "Read Points"},
+                    {"value": "write", "label": "Write Point"},
+                    {"value": "set_fault", "label": "Set Fault Mode"},
+                ],
+            },
             {"key": "point_name", "label": "Point Name", "type": "text", "default": "temperature"},
             {"key": "value", "label": "Value", "type": "number", "optional": True},
-            {"key": "fault_mode", "label": "Fault Mode", "type": "select",
-             "options": [
-                 {"value": "none", "label": "None"},
-                 {"value": "timeout", "label": "Timeout"},
-                 {"value": "disconnect", "label": "Disconnect"},
-                 {"value": "data_error", "label": "Data Error"},
-             ]},
+            {
+                "key": "fault_mode",
+                "label": "Fault Mode",
+                "type": "select",
+                "options": [
+                    {"value": "none", "label": "None"},
+                    {"value": "timeout", "label": "Timeout"},
+                    {"value": "disconnect", "label": "Disconnect"},
+                    {"value": "data_error", "label": "Data Error"},
+                ],
+            },
         ],
     },
 }
@@ -532,11 +646,13 @@ async def list_debug_protocols(
     protocols = []
     for proto_key, schema in _PROTOCOL_SCHEMAS.items():
         display_name = DRIVER_DISPLAY_NAMES.get(proto_key, {}).get("en", schema["name"])
-        protocols.append({
-            "key": proto_key,
-            "name": display_name,
-            "schema": schema,
-        })
+        protocols.append(
+            {
+                "key": proto_key,
+                "name": display_name,
+                "schema": schema,
+            }
+        )
 
     # Also expose common frontend aliases so UI can pick either key
     try:
@@ -555,12 +671,14 @@ async def list_debug_protocols(
         base_schema = _PROTOCOL_SCHEMAS.get(canonical_key) or _PROTOCOL_SCHEMAS.get(alias_key)
         if base_schema is None:
             continue
-        protocols.append({
-            "key": alias_key,
-            "name": DRIVER_DISPLAY_NAMES.get(canonical_key, {}).get("en", alias_key),
-            "schema": base_schema,
-            "alias_of": canonical_key,
-        })
+        protocols.append(
+            {
+                "key": alias_key,
+                "name": DRIVER_DISPLAY_NAMES.get(canonical_key, {}).get("en", alias_key),
+                "schema": base_schema,
+                "alias_of": canonical_key,
+            }
+        )
 
     # Add remaining protocols without detailed schemas
     for proto_key, name_info in DRIVER_DISPLAY_NAMES.items():
@@ -569,6 +687,7 @@ async def list_debug_protocols(
             driver_schema_fields = []
             try:
                 from edgelite.drivers.registry import get_driver_registry
+
                 registry = get_driver_registry()
                 driver_cls = registry.get_driver_class(proto_key)
                 if driver_cls and hasattr(driver_cls, "config_schema"):
@@ -603,21 +722,26 @@ async def list_debug_protocols(
                 schema_to_use = {
                     "name": name_info.get("en", proto_key),
                     "fields": [
-                        {"key": "operation", "label": "Operation", "type": "select",
-                         "options": [
-                             {"value": "read", "label": "Read"},
-                             {"value": "write", "label": "Write"},
-                             {"value": "discover", "label": "Discover"},
-                         ]},
-                        {"key": "params", "label": "Parameters (JSON)", "type": "textarea",
-                         "placeholder": "{}"},
+                        {
+                            "key": "operation",
+                            "label": "Operation",
+                            "type": "select",
+                            "options": [
+                                {"value": "read", "label": "Read"},
+                                {"value": "write", "label": "Write"},
+                                {"value": "discover", "label": "Discover"},
+                            ],
+                        },
+                        {"key": "params", "label": "Parameters (JSON)", "type": "textarea", "placeholder": "{}"},
                     ],
                 }
-            protocols.append({
-                "key": proto_key,
-                "name": name_info.get("en", proto_key),
-                "schema": schema_to_use,
-            })
+            protocols.append(
+                {
+                    "key": proto_key,
+                    "name": name_info.get("en", proto_key),
+                    "schema": schema_to_use,
+                }
+            )
 
     return ApiResponse(data={"protocols": protocols})
 
@@ -636,7 +760,6 @@ async def simulate_signal(
     _check_debug_ip_whitelist(request)  # FIXED-P1: Debug API IP whitelist
     """Send a test signal to a device and return the raw request/response"""
 
-
     protocol = normalize_protocol_key(protocol) or protocol
     if operation == "test":
         operation = "connect"
@@ -644,6 +767,7 @@ async def simulate_signal(
     # Get device info to validate it exists
     try:
         from edgelite.app import _app_state
+
         container = _app_state
     except ImportError as exc:  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from exc
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from exc
@@ -737,9 +861,7 @@ async def simulate_signal(
     return ApiResponse(data=result)
 
 
-async def _simulate_modbus(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_modbus(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """Simulate Modbus read/write operation"""
     function_code = params.get("function_code", "03")
     start_address = int(params.get("start_address", 0))
@@ -777,9 +899,7 @@ async def _simulate_modbus(
         return {"request_raw": request_raw, "response_raw": None, "error": "simulate_failed"}
 
 
-async def _simulate_opcua(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_opcua(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """Simulate OPC UA read/write operation"""
     node_id = params.get("node_id", "ns=2;i=1")
     write_value = params.get("write_value")
@@ -811,9 +931,7 @@ async def _simulate_opcua(
         return {"request_raw": request_raw, "response_raw": None, "error": "simulate_failed"}
 
 
-async def _simulate_mqtt(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_mqtt(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """Simulate MQTT publish/subscribe operation"""
     topic = params.get("topic", "test/debug")
     payload = params.get("payload", "")
@@ -837,9 +955,7 @@ async def _simulate_mqtt(
         return {"request_raw": request_raw, "response_raw": None, "error": "simulate_failed"}
 
 
-async def _simulate_s7(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_s7(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """Simulate Siemens S7 read/write operation"""
     area = params.get("area", "DB")
     db_number = int(params.get("db_number", 1))
@@ -864,9 +980,7 @@ async def _simulate_s7(
         return {"request_raw": request_raw, "response_raw": None, "error": "simulate_failed"}
 
 
-async def _simulate_mc(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_mc(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """三菱MC协议专用模拟器"""
     result = {"success": True, "message": ""}
 
@@ -877,7 +991,7 @@ async def _simulate_mc(
     if operation in ("read", "read_bit"):
         result["message"] = f"MC Read: {device_type}{address} x{count}"
         # 模拟3E帧请求/响应
-        request_hex = f"5000 00 FF 03 00 0C 00 01 00 00 00 01 00 00 00 01 00 {device_type.encode().hex()} {address:04X} {count:04X}"
+        request_hex = f"5000 00 FF 03 00 0C 00 01 00 00 00 01 00 00 00 01 00 {device_type.encode().hex()} {address:04X} {count:04X}"  # noqa: E501
         result["request_raw"] = request_hex
         # 模拟响应
         values = [i * 10 for i in range(count)]
@@ -893,9 +1007,7 @@ async def _simulate_mc(
     return result
 
 
-async def _simulate_fins(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_fins(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """欧姆龙FINS协议专用模拟器"""
     result = {"success": True, "message": ""}
 
@@ -928,9 +1040,7 @@ async def _simulate_fins(
     return result
 
 
-async def _simulate_allen_bradley(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_allen_bradley(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """Allen-Bradley CIP/PCCC协议专用模拟器"""
     result = {"success": True, "message": ""}
 
@@ -961,9 +1071,7 @@ async def _simulate_allen_bradley(
     return result
 
 
-async def _simulate_abb_rws(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_abb_rws(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """ABB RWS协议专用模拟器"""
     result = {"success": True, "message": ""}
     rapid_path = params.get("rapid_path", "")
@@ -994,9 +1102,7 @@ async def _simulate_abb_rws(
     return result
 
 
-async def _simulate_onvif(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_onvif(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """ONVIF协议专用模拟器"""
     result = {"success": True, "message": ""}
     pan = params.get("pan", 0)
@@ -1026,9 +1132,7 @@ async def _simulate_onvif(
     return result
 
 
-async def _simulate_http_webhook(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_http_webhook(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """HTTP Webhook协议专用模拟器"""
     result = {"success": True, "message": ""}
     method = params.get("method", "POST")
@@ -1038,7 +1142,7 @@ async def _simulate_http_webhook(
     if operation == "send":
         result["message"] = f"HTTP {method} {url}"
         result["request_raw"] = f"{method} {url} HTTP/1.1\nContent-Type: application/json\n\n{body}"
-        result["response_raw"] = "HTTP/1.1 200 OK\nContent-Type: application/json\n\n{\"status\":\"ok\"}"
+        result["response_raw"] = 'HTTP/1.1 200 OK\nContent-Type: application/json\n\n{"status":"ok"}'
         result["data"] = {"status_code": 200, "body": {"status": "ok"}}
     elif operation == "test_auth":
         result["message"] = f"HTTP Auth Test: {url}"
@@ -1048,9 +1152,7 @@ async def _simulate_http_webhook(
     return result
 
 
-async def _simulate_serial(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_serial(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """串口协议专用模拟器"""
     result = {"success": True, "message": ""}
     data = params.get("data", "")
@@ -1073,9 +1175,7 @@ async def _simulate_serial(
     return result
 
 
-async def _simulate_simulator(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_simulator(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """模拟器协议专用模拟器"""
     result = {"success": True, "message": ""}
     point_name = params.get("point_name", "temperature")
@@ -1096,9 +1196,7 @@ async def _simulate_simulator(
     return result
 
 
-async def _simulate_generic(
-    container: Any, device: dict, operation: str, params: dict
-) -> dict[str, Any]:
+async def _simulate_generic(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
     """Generic simulation for protocols without specific handlers.
 
     Supports:
@@ -1113,7 +1211,11 @@ async def _simulate_generic(
         proto = device.get("protocol")
 
         if operation == "connect":
-            driver = container.device_service._driver_instances.get(device_id) if hasattr(container, "device_service") else None
+            driver = (
+                container.device_service._driver_instances.get(device_id)
+                if hasattr(container, "device_service")
+                else None
+            )
             if driver and hasattr(driver, "health_check"):
                 ok = await driver.health_check(device_id)
                 response_raw = f"HealthCheck: {ok}"
@@ -1122,16 +1224,16 @@ async def _simulate_generic(
 
         if operation == "discover":
             discover_config = params.get("config") or device.get("config") or {}
-            driver_cls = container.driver_registry.get_driver_class(proto) if hasattr(container, "driver_registry") else None
+            driver_cls = (
+                container.driver_registry.get_driver_class(proto) if hasattr(container, "driver_registry") else None
+            )
             if driver_cls is None:
                 return {"request_raw": request_raw, "error": f"Driver not available for protocol: {proto}"}
             driver = driver_cls()
             # FIXED-P1: 驱动操作添加超时保护，防止驱动挂起导致请求无限阻塞
             await asyncio.wait_for(driver.start({}), timeout=30.0)
             try:
-                values = await asyncio.wait_for(
-                    driver.discover_devices(discover_config), timeout=60.0
-                )
+                values = await asyncio.wait_for(driver.discover_devices(discover_config), timeout=60.0)
             finally:
                 await asyncio.wait_for(driver.stop(), timeout=10.0)
             response_raw = f"Discover OK: {len(values)} devices"
@@ -1177,6 +1279,7 @@ async def _simulate_opc_da(container: dict, device: str, operation: str, params:
         item_id = params.get("item_id", "Simulation.Items.Random")
         result["message"] = f"OPC DA Read: {item_id}"
         import random
+
         result["data"] = {"item_id": item_id, "value": round(random.uniform(0, 100), 2), "quality": "Good"}
     elif operation == "write":
         item_id = params.get("item_id", "")
@@ -1245,6 +1348,7 @@ async def list_debug_devices(
     """List devices available for debugging"""
     try:
         from edgelite.app import _app_state
+
         container = _app_state
     except ImportError as exc:  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from exc
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from exc
@@ -1280,6 +1384,7 @@ async def debug_read(
 ) -> ApiResponse:
     try:
         from edgelite.app import _app_state
+
         container = _app_state
     except ImportError as exc:  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from exc
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from exc
@@ -1291,17 +1396,22 @@ async def debug_read(
         raise HTTPException(404, f"Driver not found: {protocol}")
     try:
         import asyncio
+
         values = await asyncio.wait_for(driver.read_points(device_id, points), timeout=30.0)
         recent_packets = list(_get_buffer(protocol))[-20:]
-        return ApiResponse(data={
-            "device_id": device_id,
-            "protocol": protocol,
-            "values": values,
-            "raw_packets": recent_packets,
-        })
+        return ApiResponse(
+            data={
+                "device_id": device_id,
+                "protocol": protocol,
+                "values": values,
+                "raw_packets": recent_packets,
+            }
+        )
     except Exception as e:
         logger.error("Debug read failed: %s", e)
-        raise HTTPException(500, DebugErrors.READ_FAILED) from e  # FIXED-P1: 不暴露异常详情给前端  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+        raise HTTPException(
+            500, DebugErrors.READ_FAILED
+        ) from e  # FIXED-P1: 不暴露异常详情给前端  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
 
 
 @router.post("/write", response_model=ApiResponse)
@@ -1315,6 +1425,7 @@ async def debug_write(
 ) -> ApiResponse:
     try:
         from edgelite.app import _app_state
+
         container = _app_state
     except ImportError as exc:  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from exc
         raise HTTPException(503, CommonErrors.SERVICE_NOT_READY) from exc
@@ -1347,7 +1458,9 @@ async def debug_write(
             set_role = getattr(driver, "set_user_role", None)
             if set_role is not None:
                 try:
-                    await set_role(debug_user["role"]) if __import__("inspect").iscoroutinefunction(set_role) else set_role(debug_user["role"])
+                    await set_role(debug_user["role"]) if __import__("inspect").iscoroutinefunction(
+                        set_role
+                    ) else set_role(debug_user["role"])
                 except Exception as e:
                     logger.debug("[debug] set_user_role failed (non-fatal): %s", e)
             driver._current_write_user = debug_user.get("username", "")  # type: ignore[attr-defined]
@@ -1357,9 +1470,11 @@ async def debug_write(
         # 审计日志记录
         try:
             from edgelite.app import _app_state as _state
+
             audit_svc = getattr(_state, "audit_service", None)
             if audit_svc is not None:
                 from edgelite.services.audit_service import AuditAction
+
                 await audit_svc.log(
                     action=AuditAction.DEVICE_WRITE_POINT,
                     user_id=user.get("user_id", "debug"),
@@ -1372,19 +1487,23 @@ async def debug_write(
         except Exception as e:
             logger.warning("[debug] Write audit log failed: %s", e)
         recent_packets = list(_get_buffer(protocol))[-20:]
-        return ApiResponse(data={
-            "device_id": device_id,
-            "protocol": protocol,
-            "point": point,
-            "value": value,
-            "success": success,
-            "raw_packets": recent_packets,
-        })
+        return ApiResponse(
+            data={
+                "device_id": device_id,
+                "protocol": protocol,
+                "point": point,
+                "value": value,
+                "success": success,
+                "raw_packets": recent_packets,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Debug write failed: %s", e)
-        raise HTTPException(500, DebugErrors.WRITE_FAILED) from e  # FIXED-P1: 不暴露异常详情给前端  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+        raise HTTPException(
+            500, DebugErrors.WRITE_FAILED
+        ) from e  # FIXED-P1: 不暴露异常详情给前端  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
 
 
 @router.websocket("/monitor")
@@ -1411,6 +1530,7 @@ async def debug_monitor(ws: WebSocket) -> None:
     token = None
     try:
         import json as _json
+
         raw = await asyncio.wait_for(ws.receive_text(), timeout=5.0)
         data = _json.loads(raw)
         if isinstance(data, dict) and data.get("type") == "auth":
@@ -1426,11 +1546,14 @@ async def debug_monitor(ws: WebSocket) -> None:
 
     if not token:
         logger.warning("[debug_ws] code=AUTH_MISSING_TOKEN ip=%s msg=No token in auth frame", client_ip)
-        await ws.close(code=4001, reason="Authentication required: send {\"type\":\"auth\",\"token\":\"<your_token>\"} as first message")
+        await ws.close(
+            code=4001, reason='Authentication required: send {"type":"auth","token":"<your_token>"} as first message'
+        )
         return
 
     try:
         from edgelite.security.jwt import decode_token
+
         payload = decode_token(token, verify_exp=True, token_type="access")
 
         username = payload.get("username", "unknown")
@@ -1438,11 +1561,9 @@ async def debug_monitor(ws: WebSocket) -> None:
         jti = payload.get("jti")
         if jti:
             from edgelite.security.token_revocation import is_token_revoked
+
             if is_token_revoked(jti):
-                logger.warning(
-                    "Debug monitor WebSocket rejected: user=%s ip=%s - token revoked",
-                    username, client_ip
-                )
+                logger.warning("Debug monitor WebSocket rejected: user=%s ip=%s - token revoked", username, client_ip)
                 await ws.close(code=4001, reason="Token revoked")
                 return
 
@@ -1461,8 +1582,7 @@ async def debug_monitor(ws: WebSocket) -> None:
 
         if user is None or not user["enabled"]:
             logger.warning(
-                "Debug monitor WebSocket rejected: user=%s ip=%s - user disabled or not found",
-                username, client_ip
+                "Debug monitor WebSocket rejected: user=%s ip=%s - user disabled or not found", username, client_ip
             )
             await ws.close(code=1008, reason="User disabled or not found")
             return
@@ -1472,15 +1592,14 @@ async def debug_monitor(ws: WebSocket) -> None:
             logger.warning(
                 "Debug monitor WebSocket rejected: user=%s db_role=%s ip=%s - "
                 "insufficient permissions (requires admin)",
-                username, db_role, client_ip
+                username,
+                db_role,
+                client_ip,
             )
             await ws.close(code=1008, reason="Insufficient permissions: admin role required")
             return
 
-        logger.info(
-            "Debug monitor WebSocket connected: user=%s role=%s ip=%s",
-            username, db_role, client_ip
-        )
+        logger.info("Debug monitor WebSocket connected: user=%s role=%s ip=%s", username, db_role, client_ip)
     except Exception as e:
         logger.warning("Debug monitor WebSocket auth failed: ip=%s error=%s", client_ip, e)
         await ws.close(code=4001, reason="Authentication failed")
@@ -1501,7 +1620,11 @@ async def debug_monitor(ws: WebSocket) -> None:
         last_seq: dict[int, int] = {}
         while True:
             await asyncio.sleep(0.2)
-            buffers_to_check = [_get_buffer(protocol_filter)] if protocol_filter else [_get_buffer(p) for p in _packet_buffers if p != "__all__"]
+            buffers_to_check = (
+                [_get_buffer(protocol_filter)]
+                if protocol_filter
+                else [_get_buffer(p) for p in _packet_buffers if p != "__all__"]
+            )
             for buf in buffers_to_check:
                 key = id(buf)
                 last = last_seq.get(key, 0)

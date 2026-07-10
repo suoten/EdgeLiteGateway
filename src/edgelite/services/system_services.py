@@ -32,16 +32,18 @@ from edgelite.constants import normalize_protocol
 
 class BackupFormat(Enum):
     """Backup file format"""
+
     JSON = "json"
     ZIP = "zip"
 
 
 class BackupType(Enum):
     """Backup type — determines what data is included in a single backup file."""
-    FULL = "full"          # All devices + all rules + system config
-    DEVICES = "devices"    # All devices only
-    RULES = "rules"       # All rules only
-    CONFIG = "config"     # System config only
+
+    FULL = "full"  # All devices + all rules + system config
+    DEVICES = "devices"  # All devices only
+    RULES = "rules"  # All rules only
+    CONFIG = "config"  # System config only
     INCREMENTAL = "incremental"  # Changes since the last backup (references base_backup_id)
 
 
@@ -56,13 +58,15 @@ class BackupStrategy(Enum):
     - Incremental backups: only those linked to a retained full backup are kept
       (orphaned increments from deleted fulls are also deleted)
     """
-    FULL_ONLY = "full_only"           # Every scheduled run creates a full backup
+
+    FULL_ONLY = "full_only"  # Every scheduled run creates a full backup
     FULL_THEN_INCREMENTAL = "full_then_incremental"  # Full weekly + daily increments
 
 
 @dataclass
 class BackupMetadata:
     """Backup file metadata (stored inside each backup JSON file)."""
+
     backup_id: str = ""
     name: str = ""
     description: str = ""
@@ -71,20 +75,21 @@ class BackupMetadata:
     created_at: str = ""
     created_by: str = ""
     file_size: int = 0
-    checksum: str = ""          # SHA-256 of the file content
+    checksum: str = ""  # SHA-256 of the file content
     device_count: int = 0
     rule_count: int = 0
     includes_secrets: bool = False
 
     # FIXED-INCREMENTAL: incremental chain tracking
-    base_backup_id: str = ""     # For INCREMENTAL type: the full backup this is based on
-    incremental_since: str = ""   # ISO timestamp: only entities updated_at >= this are included
-    previous_backup_id: str = "" # Previous backup in the chain (for ordering)
+    base_backup_id: str = ""  # For INCREMENTAL type: the full backup this is based on
+    incremental_since: str = ""  # ISO timestamp: only entities updated_at >= this are included
+    previous_backup_id: str = ""  # Previous backup in the chain (for ordering)
 
 
 @dataclass
 class AuditEntry:
     """Configuration change audit entry"""
+
     audit_id: str = ""
     timestamp: str = ""
     user: str = ""
@@ -100,6 +105,7 @@ class AuditEntry:
 @dataclass
 class LogConfig:
     """Log rotation configuration"""
+
     enabled: bool = True
     max_size_mb: int = 100  # Max size per log file
     max_files: int = 10  # Number of backup files to keep
@@ -145,13 +151,9 @@ class ConfigBackupService:
         self._backup_dir.mkdir(parents=True, exist_ok=True)
 
         self._interval_seconds: int = (
-            interval_seconds
-            if interval_seconds is not None
-            else _AUTO_BACKUP_INTERVAL_SECONDS
+            interval_seconds if interval_seconds is not None else _AUTO_BACKUP_INTERVAL_SECONDS
         )
-        self._max_backups: int = (
-            max_backups if max_backups is not None else _AUTO_BACKUP_MAX_RETENTION
-        )
+        self._max_backups: int = max_backups if max_backups is not None else _AUTO_BACKUP_MAX_RETENTION
 
         self._incremental_enabled = incremental_enabled
         self._full_backup_day_of_week = full_backup_day_of_week
@@ -212,12 +214,11 @@ class ConfigBackupService:
         self._is_running = True
         asyncio.get_running_loop()
         # FIXED-P1: 命名任务以便 teardown 白名单兜底取消
-        self._auto_backup_task = asyncio.create_task(
-            self._backup_loop(), name="edgelite_config_backup"
-        )
+        self._auto_backup_task = asyncio.create_task(self._backup_loop(), name="edgelite_config_backup")
         logger.info(
             "Auto-backup scheduler started (interval=%ds, max_backups=%d)",
-            self._interval_seconds, self._max_backups,
+            self._interval_seconds,
+            self._max_backups,
         )
 
     async def stop_scheduler(self) -> None:
@@ -394,7 +395,10 @@ class ConfigBackupService:
 
         logger.info(
             "Backup created: %s (%s, %d devices, %d rules)",
-            backup_id, backup_type.value, metadata.device_count, metadata.rule_count
+            backup_id,
+            backup_type.value,
+            metadata.device_count,
+            metadata.rule_count,
         )
 
         # Cleanup old backups
@@ -424,17 +428,14 @@ class ConfigBackupService:
     async def list_backups(self) -> list[BackupMetadata]:
         """List all available backups"""
         backups = []
-        for backup_file in sorted(
-            self._backup_dir.glob("backup_*.json"), reverse=True
-        ):
+        for backup_file in sorted(self._backup_dir.glob("backup_*.json"), reverse=True):
             try:
                 content = backup_file.read_text(encoding="utf-8")
                 parsed = json.loads(content)
                 meta = parsed.get("metadata", {})
-                backups.append(BackupMetadata(**{
-                    k: v for k, v in meta.items()
-                    if k in BackupMetadata.__dataclass_fields__
-                }))
+                backups.append(
+                    BackupMetadata(**{k: v for k, v in meta.items() if k in BackupMetadata.__dataclass_fields__})
+                )
             except Exception as e:
                 logger.warning("Failed to parse backup %s: %s", backup_file.name, e)
         return backups
@@ -474,9 +475,7 @@ class ConfigBackupService:
 
             backup = await self.get_backup(current_id)
             if backup is None:
-                logger.warning(
-                    "Broken incremental chain: backup %s not found", current_id
-                )
+                logger.warning("Broken incremental chain: backup %s not found", current_id)
                 break
 
             meta = backup.get("metadata", {})
@@ -507,11 +506,7 @@ class ConfigBackupService:
         for entity in entities:
             if not isinstance(entity, dict):
                 continue
-            entity_id = (
-                entity.get("device_id")
-                or entity.get("rule_id")
-                or entity.get("id")
-            )
+            entity_id = entity.get("device_id") or entity.get("rule_id") or entity.get("id")
             if not entity_id:
                 # 无ID的实体无法去重，直接保留（追加到结果末尾）
                 continue
@@ -524,11 +519,7 @@ class ConfigBackupService:
         for entity in entities:
             if not isinstance(entity, dict):
                 continue
-            entity_id = (
-                entity.get("device_id")
-                or entity.get("rule_id")
-                or entity.get("id")
-            )
+            entity_id = entity.get("device_id") or entity.get("rule_id") or entity.get("id")
             if not entity_id:
                 result.append(entity)
 
@@ -564,8 +555,7 @@ class ConfigBackupService:
         backup_type_str = meta.get("backup_type", "full")
         is_incremental = backup_type_str == "incremental"
         target_type = restore_type or (
-            BackupType.INCREMENTAL if is_incremental
-            else BackupType(meta.get("backup_type", "full"))
+            BackupType.INCREMENTAL if is_incremental else BackupType(meta.get("backup_type", "full"))
         )
 
         # Build ordered restore list: [full_backup, inc1, ..., target]
@@ -645,6 +635,7 @@ class ConfigBackupService:
         snapshot_dir.mkdir(parents=True, exist_ok=True)
 
         try:
+
             def _snap(src_path: str) -> Path | None:
                 src = Path(src_path)
                 if src.exists():
@@ -666,13 +657,15 @@ class ConfigBackupService:
         rule_repo = getattr(_app_state, "rule_repo", None)
 
         # Phase 5: single-transaction upsert
-        async with (db.write_lock if hasattr(db, "write_lock") else db._write_lock):
+        async with db.write_lock if hasattr(db, "write_lock") else db._write_lock:
             async with db.get_session() as session:
                 try:
                     dev_created = dev_skipped = rule_created = rule_skipped = 0
                     if device_repo and devices_to_restore:
                         dev_created, dev_skipped, dev_errs = await device_repo.upsert_bulk(
-                            devices_to_restore, session, skip_existing=skip_existing,
+                            devices_to_restore,
+                            session,
+                            skip_existing=skip_existing,
                         )
                         for err in dev_errs:
                             if err:
@@ -681,7 +674,9 @@ class ConfigBackupService:
                         # 之前：设备恢复后立即 commit，若规则恢复失败 rollback 只能回滚规则，设备已永久写入
                     if rule_repo and rules_to_restore:
                         rule_created, rule_skipped, rule_errs = await rule_repo.upsert_bulk(
-                            rules_to_restore, session, skip_existing=skip_existing,
+                            rules_to_restore,
+                            session,
+                            skip_existing=skip_existing,
                         )
                         for err in rule_errs:
                             if err:
@@ -770,7 +765,8 @@ class ConfigBackupService:
                 inc_file.unlink()
                 logger.info(
                     "Deleted orphaned incremental backup (parent %s deleted): %s",
-                    backup_id, inc_id,
+                    backup_id,
+                    inc_id,
                 )
 
         backup_file.unlink()
@@ -797,14 +793,11 @@ class ConfigBackupService:
         # 将非增量（全量/设备/规则/配置）备份纳入超限判断；删除全量备份时，
         # delete_backup 会同时清理其关联的孤儿增量备份，保持链完整性。
         # getattr 兼容 backup_type 为枚举(BackupType.INCREMENTAL)或字符串("incremental")两种形态。
-        deletable = [
-            b for b in backups
-            if getattr(b.backup_type, "value", b.backup_type) != "incremental"
-        ]
+        deletable = [b for b in backups if getattr(b.backup_type, "value", b.backup_type) != "incremental"]
         if len(deletable) <= self._max_backups:
             return 0
 
-        to_delete = deletable[self._max_backups:]
+        to_delete = deletable[self._max_backups :]
         deleted = 0
         for backup in to_delete:
             if await self.delete_backup(backup.backup_id):
@@ -836,9 +829,7 @@ class LogRotationService:
         if self._rotation_task:
             return
         # FIXED-P1: 命名任务以便 teardown 白名单兜底取消
-        self._rotation_task = asyncio.create_task(
-            self._rotation_loop(), name="edgelite_log_rotation"
-        )
+        self._rotation_task = asyncio.create_task(self._rotation_loop(), name="edgelite_log_rotation")
         logger.info("Log rotation service started")
 
     async def stop(self) -> None:
@@ -886,7 +877,7 @@ class LogRotationService:
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        for old_file in backup_files[self._config.max_files:]:
+        for old_file in backup_files[self._config.max_files :]:
             try:
                 old_file.unlink()
                 logger.debug("Old log backup removed: %s", old_file.name)
@@ -898,6 +889,7 @@ class LogRotationService:
     async def _compress_log(self, log_file: Path) -> None:
         """压缩单个日志备份文件为gzip"""
         import gzip
+
         compressed_path = log_file.with_suffix(log_file.suffix + ".gz")
 
         # FIXED-P1: 原问题-async函数内直接同步文件IO阻塞事件循环；改为asyncio.to_thread
@@ -930,6 +922,7 @@ class LogRotationService:
         def _do_rotate(log_file=log_file, rotated_path=rotated_path):
             if self._config.compression == "gzip":
                 import gzip
+
                 with open(log_file, "rb") as f_in:
                     with gzip.open(rotated_path, "wb") as f_out:
                         shutil.copyfileobj(f_in, f_out)
@@ -958,7 +951,7 @@ class LogRotationService:
         )
 
         # Remove files beyond max
-        for old_file in rotated_files[self._config.max_files:]:
+        for old_file in rotated_files[self._config.max_files :]:
             try:
                 old_file.unlink()
                 logger.debug("Old log removed: %s", old_file.name)
@@ -1098,13 +1091,18 @@ class ConfigAuditService:
                     await session.commit()
                 logger.info(
                     "Audit: %s %s %s/%s by %s",
-                    action, resource_type, resource_id, resource_name, user,
+                    action,
+                    resource_type,
+                    resource_id,
+                    resource_name,
+                    user,
                 )
                 return _dict_to_audit_entry(entry_dict)
             except Exception as db_err:
                 logger.warning(
                     "Audit DB write failed (%s), falling back to JSONL: %s",
-                    db_err, audit_id,
+                    db_err,
+                    audit_id,
                 )
                 # FIXED-P1: 原问题-async函数内直接调用同步文件写阻塞事件循环；改为asyncio.to_thread
                 await asyncio.to_thread(_write_fallback_jsonl, entry_dict)
@@ -1133,9 +1131,11 @@ class ConfigAuditService:
                 # FIXED-P1: 原问题-async函数内直接调用同步文件读阻塞事件循环；改为asyncio.to_thread
                 return await asyncio.to_thread(
                     _query_jsonl_fallback,
-                    user=user, resource_type=resource_type,
+                    user=user,
+                    resource_type=resource_type,
                     resource_id=resource_id,
-                    start_time=start_time, end_time=end_time,
+                    start_time=start_time,
+                    end_time=end_time,
                     limit=limit,
                 )
 
@@ -1167,9 +1167,11 @@ class ConfigAuditService:
                 # FIXED-P1: 原问题-async函数内直接调用同步文件读阻塞事件循环；改为asyncio.to_thread
                 return await asyncio.to_thread(
                     _query_jsonl_fallback,
-                    user=user, resource_type=resource_type,
+                    user=user,
+                    resource_type=resource_type,
                     resource_id=resource_id,
-                    start_time=start_time, end_time=end_time,
+                    start_time=start_time,
+                    end_time=end_time,
                     limit=limit,
                 )
 
@@ -1204,8 +1206,10 @@ class ConfigAuditService:
                 # FIXED-P1: 原问题-async函数内直接调用同步文件读阻塞事件循环；改为asyncio.to_thread
                 rows = await asyncio.to_thread(
                     _query_jsonl_fallback,
-                    user=user, resource_type=resource_type,
-                    start_time=start_time, end_time=end_time,
+                    user=user,
+                    resource_type=resource_type,
+                    start_time=start_time,
+                    end_time=end_time,
                     limit=100000,
                 )
                 return len(rows)
@@ -1255,9 +1259,16 @@ class ConfigAuditService:
 
             output = io.StringIO()
             fieldnames = [
-                "audit_id", "timestamp", "user_id", "action",
-                "resource_type", "resource_id", "resource_name",
-                "ip_address", "user_agent", "session_id",
+                "audit_id",
+                "timestamp",
+                "user_id",
+                "action",
+                "resource_type",
+                "resource_id",
+                "resource_name",
+                "ip_address",
+                "user_agent",
+                "session_id",
             ]
             writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
@@ -1296,9 +1307,7 @@ class ConfigAuditService:
 
                     from edgelite.models.db import AuditLogORM
 
-                    result = await session.execute(
-                        delete(AuditLogORM).where(AuditLogORM.timestamp < cutoff)
-                    )
+                    result = await session.execute(delete(AuditLogORM).where(AuditLogORM.timestamp < cutoff))
                     await session.commit()
                     count = result.rowcount
                     if count:
@@ -1314,6 +1323,7 @@ class ConfigAuditService:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
 
 def _get_db():
     """Get the main Database instance from app state."""
@@ -1527,6 +1537,7 @@ def get_backup_service(
         _backup_service = ConfigBackupService(backup_dir, interval_seconds, max_backups)
         if auto_start:
             import asyncio
+
             try:
                 asyncio.get_running_loop()
                 # FIXED-P1: 命名任务以便 teardown 白名单兜底取消

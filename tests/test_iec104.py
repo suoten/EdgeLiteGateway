@@ -1,7 +1,7 @@
 """IEC 60870-5-104 驱动单元测试
 
-重点验证质量描述符(QDS)位布局修正 (IEC 60870-5-4):
-  bit0=保留, bit1=OV, bit2-3=BL, bit4=SB, bit5=NT, bit6=IV, bit7=保留
+重点验证质量描述符(QDS)位布局 (IEC 60870-5-4):
+  bit0=保留, bit1=OV, bit2=BL, bit3=SB, bit4=NT, bit5=IV, bits6-7=保留
 """
 
 import asyncio
@@ -12,8 +12,6 @@ import sys
 sys.path.insert(0, "src")
 
 from edgelite.drivers.iec104 import (
-    COT_ACTIVATION_CON,
-    Iec104Driver,
     QUALITY_BL,
     QUALITY_IV,
     QUALITY_NT,
@@ -28,6 +26,7 @@ from edgelite.drivers.iec104 import (
     TI_M_SP_NA,
     U_FRAME_TESTFR_ACT,
     U_FRAME_TESTFR_CON,
+    Iec104Driver,
 )
 
 
@@ -38,21 +37,21 @@ class TestIec104QualityConstants:
         """OV(溢出) = bit1 = 0x02"""
         assert QUALITY_OV == 0x02
 
-    def test_bl_bits2_3(self):
-        """BL(封锁) = bits2-3 = 0x0C"""
-        assert QUALITY_BL == 0x0C
+    def test_bl_bit2(self):
+        """BL(封锁) = bit2 = 0x04"""
+        assert QUALITY_BL == 0x04
 
-    def test_sb_bit4(self):
-        """SB(被替代) = bit4 = 0x10"""
-        assert QUALITY_SB == 0x10
+    def test_sb_bit3(self):
+        """SB(被替代) = bit3 = 0x08"""
+        assert QUALITY_SB == 0x08
 
-    def test_nt_bit5(self):
-        """NT(非当前) = bit5 = 0x20"""
-        assert QUALITY_NT == 0x20
+    def test_nt_bit4(self):
+        """NT(非当前) = bit4 = 0x10"""
+        assert QUALITY_NT == 0x10
 
-    def test_iv_bit6(self):
-        """IV(无效) = bit6 = 0x40"""
-        assert QUALITY_IV == 0x40
+    def test_iv_bit5(self):
+        """IV(无效) = bit5 = 0x20"""
+        assert QUALITY_IV == 0x20
 
     def test_no_overlap(self):
         """各质量位互不重叠"""
@@ -77,29 +76,31 @@ class TestIec104DecodeQuality:
         """QDS=0x04 → blocked (BL bit2)"""
         assert Iec104Driver._decode_quality(0x04) == "blocked"
 
-    def test_blocked_bit3(self):
-        """QDS=0x08 → blocked (BL bit3)"""
-        assert Iec104Driver._decode_quality(0x08) == "blocked"
+    def test_substituted_bit3(self):
+        """QDS=0x08 → substituted (SB bit3)"""
+        assert Iec104Driver._decode_quality(0x08) == "substituted"
 
-    def test_blocked_both_bits(self):
-        """QDS=0x0C → blocked (BL bits2-3)"""
-        assert Iec104Driver._decode_quality(0x0C) == "blocked"
+    def test_blocked_and_substituted(self):
+        """QDS=0x0C → blocked,substituted (BL bit2 + SB bit3)"""
+        result = Iec104Driver._decode_quality(0x0C)
+        parts = set(result.split(","))
+        assert parts == {"blocked", "substituted"}
 
     def test_substituted(self):
-        """QDS=0x10 → substituted"""
-        assert Iec104Driver._decode_quality(0x10) == "substituted"
+        """QDS=0x08 → substituted"""
+        assert Iec104Driver._decode_quality(0x08) == "substituted"
 
     def test_not_topical(self):
-        """QDS=0x20 → not_topical"""
-        assert Iec104Driver._decode_quality(0x20) == "not_topical"
+        """QDS=0x10 → not_topical"""
+        assert Iec104Driver._decode_quality(0x10) == "not_topical"
 
     def test_invalid(self):
-        """QDS=0x40 → invalid"""
-        assert Iec104Driver._decode_quality(0x40) == "invalid"
+        """QDS=0x20 → invalid"""
+        assert Iec104Driver._decode_quality(0x20) == "invalid"
 
     def test_all_flags(self):
         """QDS=0x7E → 全部标志 (OV+BL+SB+NT+IV)"""
-        # 0x7E = 0111 1110 = OV(0x02)+BL(0x0C)+SB(0x10)+NT(0x20)+IV(0x40)
+        # 0x7E = 0111 1110 = OV(0x02)+BL(0x04)+SB(0x08)+NT(0x10)+IV(0x20)
         result = Iec104Driver._decode_quality(0x7E)
         parts = set(result.split(","))
         assert parts == {"overflow", "blocked", "substituted", "not_topical", "invalid"}
@@ -136,8 +137,8 @@ class TestIec104SiqParse:
         assert r["quality"] == "overflow"
 
     def test_value_off_invalid(self):
-        """SIQ=0x40: value=0, IV=1 → invalid"""
-        r = self._parse(0x40)
+        """SIQ=0x20: value=0, IV=1 → invalid"""
+        r = self._parse(0x20)
         assert r["value"] == 0
         assert r["quality"] == "invalid"
 
@@ -151,9 +152,9 @@ class TestIec104SiqParse:
 class TestIec104DiqParse:
     """双点信息(DIQ)解析: value=bits0-1, QDS=bits2-7
 
-    关键回归点: value 位(bits0-1)不得误触发 OV(bit1=0x02)
-    原实现 diq>>2 配合错误常量/双重位移导致解码错乱;
-    新实现 diq & 0xFC 清除 value 位后按 QDS 掩码判定。
+    关键回归点: value 位(bits0-1)不得误触发质量标志
+    实现使用 (diq & 0xFC) >> 1 将 DIQ 质量位归一化到 QDS 位置后解码。
+    DIQ 质量位布局: bit2=reserved, bit3=BL, bit4=SB, bit5=NT, bit6=IV
     """
 
     def _parse(self, diq_byte: int) -> dict:
@@ -166,7 +167,7 @@ class TestIec104DiqParse:
     def test_value_intermediate_good(self):
         """DIQ=0x02: value=2(中间态), 无标志 → good
 
-        0x02 bit1 若未屏蔽会被误判为 OV; 修复后 & 0xFC 清除 → good
+        0x02 bits0-1=value=2, 无质量位 → good
         """
         r = self._parse(0x02)
         assert r["value"] == 2
@@ -187,7 +188,7 @@ class TestIec104DiqParse:
     def test_value_intermediate_with_invalid(self):
         """DIQ=0x42: value=2, IV=1 → invalid
 
-        0x42 = bit1(value) + bit6(IV); & 0xFC → 0x40 → invalid
+        0x42 = bits0-1(value=2) + bit6(IV in DIQ); (0x42 & 0xFC)>>1 = 0x20 → invalid
         """
         r = self._parse(0x42)
         assert r["value"] == 2
@@ -196,8 +197,7 @@ class TestIec104DiqParse:
     def test_value_on_with_substituted(self):
         """DIQ=0x13: value=3, SB=1 → substituted
 
-        0x13 = bits0-1(value=3) + bit4(SB=0x10); & 0xFC → 0x10 → substituted
-        注意: DIQ 的 QDS 从 bit2 起, 不含 OV(溢出) 标志。
+        0x13 = bits0-1(value=3) + bit4(SB in DIQ); (0x13 & 0xFC)>>1 = 0x08 → substituted
         """
         r = self._parse(0x13)
         assert r["value"] == 3
@@ -225,20 +225,20 @@ class TestIec104AnalogQdsParse:
         assert r["quality"] == "overflow"
 
     def test_not_topical(self):
-        """QDS=0x20 → not_topical"""
-        r = self._parse_me_na(-1000, 0x20)
+        """QDS=0x10 → not_topical (NT=bit4=0x10)"""
+        r = self._parse_me_na(-1000, 0x10)
         assert r["quality"] == "not_topical"
 
     def test_invalid_overflow(self):
-        """QDS=0x42 → invalid,overflow"""
-        r = self._parse_me_na(0, 0x42)
+        """QDS=0x22 → invalid,overflow (IV=0x20 + OV=0x02)"""
+        r = self._parse_me_na(0, 0x22)
         parts = set(r["quality"].split(","))
         assert parts == {"invalid", "overflow"}
 
     def test_me_nc_float_with_qds(self):
         """TI_M_ME_NC (浮点) QDS 解码"""
         driver = Iec104Driver.__new__(Iec104Driver)
-        data = struct.pack("<fB", 3.14, 0x40)  # value + IV
+        data = struct.pack("<fB", 3.14, 0x20)  # value + IV(0x20)
         r = driver._parse_information_object(
             ti=TI_M_ME_NC, data=data, offset=0, ioa=1, cot=3, asdu_addr=1
         )

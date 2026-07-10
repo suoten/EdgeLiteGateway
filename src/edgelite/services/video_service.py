@@ -71,7 +71,9 @@ class VideoService:
         event_type = event_data.get("type", "")
         if "alarm" in event_type.lower():
             alarm_event = AlarmEvent(
-                alarm_id=event_data.get("alarm_id", f"video_{event_data.get('device_id', '')}_{event_type}"),  # FIXED-P1: 原问题-缺少alarm_id导致告警去重失败
+                alarm_id=event_data.get(
+                    "alarm_id", f"video_{event_data.get('device_id', '')}_{event_type}"
+                ),  # FIXED-P1: 原问题-缺少alarm_id导致告警去重失败
                 rule_id=event_data.get("rule_id", "video_alarm"),  # FIXED-P1: 原问题-缺少rule_id导致告警分类失败
                 device_id=event_data.get("device_id", ""),
                 severity=event_data.get("severity", "warning"),

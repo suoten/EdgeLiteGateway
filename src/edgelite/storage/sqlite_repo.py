@@ -51,6 +51,7 @@ def _get_optimistic_lock_retries() -> int:
     """FIXED-P4: 原问题-乐观锁重试次数硬编码3；改为从配置读取"""
     try:
         from edgelite.config import get_config
+
         return get_config().database.optimistic_lock_retries
     except Exception:
         return 3
@@ -66,7 +67,10 @@ def retry_on_stale(max_retries: int | None = None, base_delay: float = 0.1):
         max_retries: Maximum number of retry attempts (default: from config, fallback 3)
         base_delay: Base delay in seconds for exponential backoff (default: 0.1)
     """
-    effective_retries = max_retries if max_retries is not None else _get_optimistic_lock_retries()  # FIXED-P4: 原问题-硬编码3；改为从配置读取
+    effective_retries = (
+        max_retries if max_retries is not None else _get_optimistic_lock_retries()
+    )  # FIXED-P4: 原问题-硬编码3；改为从配置读取
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -75,19 +79,21 @@ def retry_on_stale(max_retries: int | None = None, base_delay: float = 0.1):
                     return await func(*args, **kwargs)
                 except StaleDataError:
                     if attempt == effective_retries - 1:
-                        logger.warning(
-                            "StaleDataError: %s failed after %d retries",
-                            func.__name__, effective_retries
-                        )
+                        logger.warning("StaleDataError: %s failed after %d retries", func.__name__, effective_retries)
                         raise
-                    delay = base_delay * (2 ** attempt)
+                    delay = base_delay * (2**attempt)
                     logger.debug(
                         "StaleDataError in %s (attempt %d/%d), retrying in %.3fs",
-                        func.__name__, attempt + 1, effective_retries, delay
+                        func.__name__,
+                        attempt + 1,
+                        effective_retries,
+                        delay,
                     )
                     await asyncio.sleep(delay)
             return None  # unreachable
+
         return wrapper
+
     return decorator
 
 
@@ -97,7 +103,9 @@ def _now() -> datetime:
 
 # FIXED: 原问题-json.loads无异常保护，数据库字段损坏导致整个查询崩溃
 # 现提供安全解析辅助函数
-_corrupt_json_count: int = 0  # FIXED-P2: 原问题-_safe_json_loads损坏时静默返回default，运维无法感知数据损坏；添加全局计数器
+_corrupt_json_count: int = (
+    0  # FIXED-P2: 原问题-_safe_json_loads损坏时静默返回default，运维无法感知数据损坏；添加全局计数器
+)
 
 
 def _safe_json_loads(value: Any, default: Any = None, field_name: str = "") -> Any:
@@ -121,7 +129,13 @@ def _uuid() -> str:
 
 
 _VALID_DEVICE_STATUSES = {"online", "offline", "error", "unknown"}
-_VALID_RULE_SEVERITIES = {"critical", "major", "warning", "minor", "info"}  # FIXED-P0: 与Pydantic RuleCreate.severity Literal对齐，补充major/minor
+_VALID_RULE_SEVERITIES = {
+    "critical",
+    "major",
+    "warning",
+    "minor",
+    "info",
+}  # FIXED-P0: 与Pydantic RuleCreate.severity Literal对齐，补充major/minor
 _VALID_RULE_LOGICS = {"AND", "OR", "NOT"}  # FIXED-P0: 与Pydantic RuleCreate.logic Literal对齐，补充NOT
 _VALID_USER_ROLES = {"admin", "operator", "viewer"}
 _VALID_ALARM_STATUSES = {"firing", "acknowledged", "recovered"}
@@ -202,6 +216,7 @@ def _validate_device_config(config: dict, protocol: str) -> None:
 # Protocol-specific validators
 # ----------------------------------------------------------------------
 
+
 def _validate_modbus_config(config: dict, protocol: str) -> None:
     """Modbus TCP/RTU/Slave config: host, port, unit_id (slave_id), timeout, retry."""
     host = config.get("host")
@@ -230,7 +245,9 @@ def _validate_modbus_config(config: dict, protocol: str) -> None:
     # RTU-specific: serial_port
     if protocol == "modbus_rtu":
         serial_port = config.get("serial_port") or config.get("port_name")
-        if serial_port is None or (isinstance(serial_port, str) and not serial_port.strip()):  # FIXED-P2: 原问题-RTU协议serial_port允许None入库；改为强制非空
+        if serial_port is None or (
+            isinstance(serial_port, str) and not serial_port.strip()
+        ):  # FIXED-P2: 原问题-RTU协议serial_port允许None入库；改为强制非空
             raise ValueError("config.serial_port is required for modbus_rtu and must be non-empty str")
         if not isinstance(serial_port, str):
             raise ValueError(f"config.serial_port must be str, got {type(serial_port).__name__}")
@@ -269,7 +286,12 @@ def _validate_s7_config(config: dict) -> None:
 
     plc_model = config.get("plc_model")
     if plc_model is not None and plc_model not in (
-        "auto", "S7-200 SMART", "S7-300", "S7-400", "S7-1200", "S7-1500",
+        "auto",
+        "S7-200 SMART",
+        "S7-300",
+        "S7-400",
+        "S7-1200",
+        "S7-1500",
     ):
         raise ValueError(
             f"config.plc_model must be one of auto/S7-200 SMART/S7-300/S7-400/S7-1200/S7-1500, got {plc_model!r}"
@@ -352,9 +374,7 @@ def _validate_opcua_config(config: dict) -> None:
         if not isinstance(endpoint, str):
             raise ValueError(f"config.endpoint must be str, got {type(endpoint).__name__}")
         if not endpoint.startswith(("opc.tcp://", "opc.https://", "opcua://")):
-            raise ValueError(
-                f"config.endpoint must start with opc.tcp:// or opc.https://, got {endpoint!r}"
-            )
+            raise ValueError(f"config.endpoint must start with opc.tcp:// or opc.https://, got {endpoint!r}")
 
     ns_index = config.get("namespace_index") or config.get("namespace")
     if ns_index is not None and (not isinstance(ns_index, int) or ns_index < 0):
@@ -362,14 +382,15 @@ def _validate_opcua_config(config: dict) -> None:
 
     sec_mode = config.get("security_mode")
     if sec_mode is not None and sec_mode not in ("None", "Sign", "SignAndEncrypt"):
-        raise ValueError(
-            f"config.security_mode must be one of None/Sign/SignAndEncrypt, got {sec_mode!r}"
-        )
+        raise ValueError(f"config.security_mode must be one of None/Sign/SignAndEncrypt, got {sec_mode!r}")
 
     policy = config.get("security_policy")
     if policy is not None and policy not in (
-        "Basic256", "Basic256Sha256", "Basic128Rsa15",
-        "Aes128_Sha256_RsaOaep", "Aes256_Sha256_RsaPss",
+        "Basic256",
+        "Basic256Sha256",
+        "Basic128Rsa15",
+        "Aes128_Sha256_RsaOaep",
+        "Aes256_Sha256_RsaPss",
     ):
         raise ValueError(f"config.security_policy value not recognised: {policy!r}")
 
@@ -430,9 +451,7 @@ def _validate_simulator_config(config: dict) -> None:
     """Simulator config: mode, interval_ms, noise."""
     mode = config.get("mode")
     if mode is not None and mode not in ("sine", "random", "step", "constant", "triangle"):
-        raise ValueError(
-            f"config.mode must be one of sine/random/step/constant/triangle, got {mode!r}"
-        )
+        raise ValueError(f"config.mode must be one of sine/random/step/constant/triangle, got {mode!r}")
 
     interval = config.get("interval_ms") or config.get("interval")
     if interval is not None and (not isinstance(interval, (int, float)) or interval <= 0):
@@ -466,9 +485,7 @@ def _validate_videoai_config(config: dict) -> None:
         if not isinstance(rtsp, str):
             raise ValueError(f"config.rtsp_url must be str, got {type(rtsp).__name__}")
         if not rtsp.startswith(("rtsp://", "rtmp://", "http://", "https://")):
-            raise ValueError(
-                f"config.rtsp_url must start with rtsp:// or rtmp://, got {rtsp!r}"
-            )
+            raise ValueError(f"config.rtsp_url must start with rtsp:// or rtmp://, got {rtsp!r}")
 
     interval = config.get("detect_interval") or config.get("interval")
     if interval is not None and (not isinstance(interval, (int, float)) or interval <= 0):
@@ -491,12 +508,14 @@ def _validate_generic_config(config: dict) -> None:
 # Internal helpers
 # ----------------------------------------------------------------------
 
+
 def _validate_ipv4_or_hostname(value: str, field_name: str) -> None:
     """Reject obviously invalid host values."""
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be non-empty string, got {value!r}")
     # Basic pattern: alphanumeric with dots/hyphens, at least one dot for FQDN
     import re
+
     if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9.\-]*[a-zA-Z0-9])?$", value):
         raise ValueError(f"{field_name} contains invalid characters: {value!r}")
 
@@ -504,6 +523,7 @@ def _validate_ipv4_or_hostname(value: str, field_name: str) -> None:
 def _validate_dns_resolution(host: str, field_name: str) -> None:
     """Warn about hosts that look malformed (but don't block — DNS may work at runtime)."""
     import re
+
     # Block obviously invalid patterns (but not all — runtime DNS is authoritative)
     if re.search(r"[^\w.\-]", host):
         raise ValueError(f"{field_name} contains invalid hostname characters: {host!r}")
@@ -512,6 +532,7 @@ def _validate_dns_resolution(host: str, field_name: str) -> None:
 # ----------------------------------------------------------------------
 # Point-level validation
 # ----------------------------------------------------------------------
+
 
 def _validate_points(points: Any, protocol: str = "") -> None:
     """Validate every point in a points list against protocol-specific field requirements.
@@ -546,8 +567,16 @@ def _validate_points(points: Any, protocol: str = "") -> None:
         # data_type
         dt = pt.get("data_type") or pt.get("type")
         if dt is not None and dt not in (
-            "bool", "int16", "uint16", "int32", "uint32",
-            "float32", "float64", "string", "bit", "byte",
+            "bool",
+            "int16",
+            "uint16",
+            "int32",
+            "uint32",
+            "float32",
+            "float64",
+            "string",
+            "bit",
+            "byte",
         ):
             raise ValueError(
                 f"{prefix}.data_type must be one of "
@@ -590,12 +619,17 @@ def _validate_points(points: Any, protocol: str = "") -> None:
         # Register type for Modbus
         reg_type = pt.get("register_type") or pt.get("function_code")
         if reg_type is not None and reg_type not in (
-            "coil", "holding", "input", "discrete",
-            1, 2, 3, 4,
+            "coil",
+            "holding",
+            "input",
+            "discrete",
+            1,
+            2,
+            3,
+            4,
         ):
             raise ValueError(
-                f"{prefix}.register_type must be one of "
-                "coil/holding/input/discrete/1/2/3/4, got {reg_type!r}"
+                f"{prefix}.register_type must be one of coil/holding/input/discrete/1/2/3/4, got {{reg_type!r}}"
             )
 
 
@@ -635,7 +669,9 @@ def _validate_device_update_data(data: dict, current_protocol: str = "") -> None
     if "config" in data:
         if not isinstance(data["config"], dict):  # FIXED-DEV-VALIDATION: config结构验证
             raise ValueError(f"config must be dict, got {type(data['config']).__name__}")
-        protocol = data.get("protocol") or current_protocol  # FIXED-P2: 原问题-protocol缺失时跳过config验证；改为fallback到DB当前protocol
+        protocol = (
+            data.get("protocol") or current_protocol
+        )  # FIXED-P2: 原问题-protocol缺失时跳过config验证；改为fallback到DB当前protocol
         if protocol:
             _validate_device_config(data["config"], protocol)  # FIXED-DEV-VALIDATION: protocol-specific验证
     if "points" in data:
@@ -755,12 +791,16 @@ def _validate_template_data(data: dict) -> None:
         raise ValueError(f"Invalid protocol: {protocol}, valid options: {sorted(VALID_DEVICE_PROTOCOLS)}")
 
 
-def _validate_template_update_data(data: dict) -> None:  # FIXED-P1: TemplateRepo.update验证条件跳过，protocol变更不触发验证
+def _validate_template_update_data(
+    data: dict,
+) -> None:  # FIXED-P1: TemplateRepo.update验证条件跳过，protocol变更不触发验证
     if "protocol" in data and normalize_protocol(data["protocol"]) is None:
         raise ValueError(f"Invalid protocol: {data['protocol']}, valid options: {sorted(VALID_DEVICE_PROTOCOLS)}")
 
 
-def _validate_alarm_data(data: dict) -> None:  # FIXED-P1: 原问题-AlarmRepo.create无业务验证，severity/status/rule_type可写入非法值
+def _validate_alarm_data(
+    data: dict,
+) -> None:  # FIXED-P1: 原问题-AlarmRepo.create无业务验证，severity/status/rule_type可写入非法值
     severity = data.get("severity", "")
     if severity and severity not in _VALID_RULE_SEVERITIES:
         raise ValueError(f"Invalid severity: {severity}, must be one of {_VALID_RULE_SEVERITIES}")
@@ -857,7 +897,6 @@ class BaseRepo:
     def _is_database_mode(self) -> bool:
         return self._database is not None
 
-
     @asynccontextmanager
     async def _auto_session(self) -> AsyncGenerator[AsyncSession, None]:
         """FIXED-ROLLBACK: Context manager that ensures automatic rollback on exception.
@@ -932,9 +971,7 @@ class DeviceRepo(BaseRepo):
         # FIXED: 原问题-查询操作无try-except保护
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(DeviceORM).where(DeviceORM.device_id == device_id)
-                )
+                result = await session.execute(select(DeviceORM).where(DeviceORM.device_id == device_id))
                 orm = result.scalar_one_or_none()
                 return _orm_to_device(orm) if orm else None
         except Exception as e:
@@ -948,9 +985,7 @@ class DeviceRepo(BaseRepo):
             return []
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(DeviceORM).where(DeviceORM.device_id.in_(device_ids))
-                )
+                result = await session.execute(select(DeviceORM).where(DeviceORM.device_id.in_(device_ids)))
                 orms = result.scalars().all()
                 return [_orm_to_device(orm) for orm in orms if orm is not None]
         except Exception as e:
@@ -1062,9 +1097,7 @@ class DeviceRepo(BaseRepo):
     async def list_device_ids_by_owner(self, created_by: str) -> list[str]:
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(DeviceORM.device_id).where(DeviceORM.created_by == created_by)
-                )
+                result = await session.execute(select(DeviceORM.device_id).where(DeviceORM.created_by == created_by))
                 return [row[0] for row in result.fetchall()]
         except Exception as e:
             logger.error("DeviceRepo.list_device_ids_by_owner failed: %s", e)
@@ -1079,9 +1112,7 @@ class DeviceRepo(BaseRepo):
             return []
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(DeviceORM).where(DeviceORM.device_id.in_(device_ids))
-                )
+                result = await session.execute(select(DeviceORM).where(DeviceORM.device_id.in_(device_ids)))
                 rows = result.scalars().all()
                 return [_orm_to_device(r) for r in rows]
         except Exception as e:
@@ -1121,18 +1152,24 @@ class DeviceRepo(BaseRepo):
     @retry_on_stale(base_delay=0.1)
     async def update(self, device_id: str, data: dict) -> dict | None:
         try:
-            async with self._write_write_lock():  # FIXED-P0: 原问题-write_lock仅保护commit，读-改-写序列可并发交叉；改为保护整个序列
+            async with (
+                self._write_write_lock()
+            ):  # FIXED-P0: 原问题-write_lock仅保护commit，读-改-写序列可并发交叉；改为保护整个序列
                 async with self._auto_session() as session:
-                    result = await session.execute(
-                        select(DeviceORM).where(DeviceORM.device_id == device_id)
-                    )
+                    result = await session.execute(select(DeviceORM).where(DeviceORM.device_id == device_id))
                     orm = result.scalar_one_or_none()
                     if orm is None:
                         return None
-                    _validate_device_update_data(data, current_protocol=orm.protocol or "")  # FIXED-P2: 原问题-protocol缺失时跳过config验证；改为传入DB当前protocol作为fallback
-                    old_version = data.get("_version")  # FIXED-P2: 原问题-data.pop("_version")修改传入参数dict，调用方复用时_version键丢失
+                    _validate_device_update_data(
+                        data, current_protocol=orm.protocol or ""
+                    )  # FIXED-P2: 原问题-protocol缺失时跳过config验证；改为传入DB当前protocol作为fallback
+                    old_version = data.get(
+                        "_version"
+                    )  # FIXED-P2: 原问题-data.pop("_version")修改传入参数dict，调用方复用时_version键丢失
                     if old_version is not None and orm.version != old_version:
-                        raise StaleDataError(f"Device {device_id} version conflict: expected={old_version}, actual={orm.version}")
+                        raise StaleDataError(
+                            f"Device {device_id} version conflict: expected={old_version}, actual={orm.version}"
+                        )
                     for key in ("name", "collect_interval"):
                         if key in data:
                             setattr(orm, key, data[key])
@@ -1162,7 +1199,9 @@ class DeviceRepo(BaseRepo):
                     await session.execute(
                         update(DeviceORM)
                         .where(DeviceORM.device_id == device_id)
-                        .values(status=status, updated_at=_now(), version=DeviceORM.version + 1)  # FIXED-P1: 原问题-update_status绕过乐观锁，不递增version
+                        .values(
+                            status=status, updated_at=_now(), version=DeviceORM.version + 1
+                        )  # FIXED-P1: 原问题-update_status绕过乐观锁，不递增version
                     )
                     await session.commit()
         except Exception as e:
@@ -1174,21 +1213,15 @@ class DeviceRepo(BaseRepo):
         # 改为：delete仅做主库删除（快速），sidecar清理由调用方(DeviceService)异步执行
         try:
             async with self._write_write_lock(), self._auto_session() as session:
-                await session.execute(
-                    delete(AlarmORM).where(AlarmORM.device_id == device_id)
-                )
-                await session.execute(
-                    delete(RuleORM).where(RuleORM.device_id == device_id)
-                )
+                await session.execute(delete(AlarmORM).where(AlarmORM.device_id == device_id))
+                await session.execute(delete(RuleORM).where(RuleORM.device_id == device_id))
                 await session.execute(
                     delete(ResourceShareORM).where(
                         ResourceShareORM.resource_type == "device",
                         ResourceShareORM.resource_id == device_id,
                     )
                 )
-                result = await session.execute(
-                    delete(DeviceORM).where(DeviceORM.device_id == device_id)
-                )
+                result = await session.execute(delete(DeviceORM).where(DeviceORM.device_id == device_id))
                 if result.rowcount > 0:
                     await session.commit()
                     return True
@@ -1198,9 +1231,7 @@ class DeviceRepo(BaseRepo):
             logger.error("DeviceRepo.delete failed: %s", e)
             raise RuntimeError(f"DeviceRepo.delete failed for device_id={device_id}: {e}") from e
 
-    async def delete_with_owner_check(
-        self, device_id: str, user_id: str, is_admin: bool
-    ) -> str:
+    async def delete_with_owner_check(self, device_id: str, user_id: str, is_admin: bool) -> str:
         """Delete a device and all its cascade children in a single transaction.
 
         FIXED-CASCADE: Previously the device was deleted first, then its alarms/rules.
@@ -1218,9 +1249,7 @@ class DeviceRepo(BaseRepo):
                 async with self._auto_session() as session:
                     # Pre-check: does the device exist and does the user own it?
                     # Use a subquery to combine existence + permission check in one query.
-                    device_exists_stmt = select(DeviceORM.device_id).where(
-                        DeviceORM.device_id == device_id
-                    )
+                    device_exists_stmt = select(DeviceORM.device_id).where(DeviceORM.device_id == device_id)
                     if not is_admin:
                         device_exists_stmt = select(DeviceORM.device_id).where(
                             DeviceORM.device_id == device_id,
@@ -1239,9 +1268,7 @@ class DeviceRepo(BaseRepo):
                     device = check_result.scalar_one_or_none()
                     if device is None:
                         # Determine whether it's a permission failure or a true missing device
-                        exists_stmt = select(DeviceORM.device_id).where(
-                            DeviceORM.device_id == device_id
-                        )
+                        exists_stmt = select(DeviceORM.device_id).where(DeviceORM.device_id == device_id)
                         exists_result = await session.execute(exists_stmt)
                         if exists_result.scalar_one_or_none() is not None:
                             return "not_authorized"
@@ -1261,33 +1288,30 @@ class DeviceRepo(BaseRepo):
                     if shares_result.rowcount:
                         logger.info(
                             "Cascade deleted %d resource_share rows for device %s",
-                            shares_result.rowcount, device_id,
+                            shares_result.rowcount,
+                            device_id,
                         )
 
                     # 2. Delete alarms that reference this device
-                    alarms_result = await session.execute(
-                        delete(AlarmORM).where(AlarmORM.device_id == device_id)
-                    )
+                    alarms_result = await session.execute(delete(AlarmORM).where(AlarmORM.device_id == device_id))
                     if alarms_result.rowcount:
                         logger.info(
                             "Cascade deleted %d alarm rows for device %s",
-                            alarms_result.rowcount, device_id,
+                            alarms_result.rowcount,
+                            device_id,
                         )
 
                     # 3. Delete rules that reference this device
-                    rules_result = await session.execute(
-                        delete(RuleORM).where(RuleORM.device_id == device_id)
-                    )
+                    rules_result = await session.execute(delete(RuleORM).where(RuleORM.device_id == device_id))
                     if rules_result.rowcount:
                         logger.info(
                             "Cascade deleted %d rule rows for device %s",
-                            rules_result.rowcount, device_id,
+                            rules_result.rowcount,
+                            device_id,
                         )
 
                     # 4. Delete the device itself — safe because children are gone
-                    device_result = await session.execute(
-                        delete(DeviceORM).where(DeviceORM.device_id == device_id)
-                    )
+                    device_result = await session.execute(delete(DeviceORM).where(DeviceORM.device_id == device_id))
                     if device_result.rowcount > 0:
                         # FIXED: sidecar清理移到写锁外异步执行，避免长时间持锁导致删除超时
                         await session.commit()
@@ -1300,7 +1324,8 @@ class DeviceRepo(BaseRepo):
             logger.error(
                 "DeviceRepo.delete_with_owner_check failed for device %s: %s — "
                 "transaction rolled back, no orphans created",
-                device_id, e,
+                device_id,
+                e,
             )
             return "not_found"
 
@@ -1353,9 +1378,7 @@ class DeviceRepo(BaseRepo):
         all_device_ids = [r["device_id"] for r in records if r.get("device_id")]
         existing_devices_map: dict[str, DeviceORM] = {}
         if all_device_ids:
-            existing_result = await session.execute(
-                select(DeviceORM).where(DeviceORM.device_id.in_(all_device_ids))
-            )
+            existing_result = await session.execute(select(DeviceORM).where(DeviceORM.device_id.in_(all_device_ids)))
             for row in existing_result.scalars().all():
                 existing_devices_map[row.device_id] = row
 
@@ -1419,6 +1442,7 @@ class DeviceRepo(BaseRepo):
         cleanup_errors: list[str] = []
         try:
             from edgelite.app import _app_state
+
             for driver_attr, mgr_attr in [
                 ("s7_driver", "_config_version_mgr"),
                 ("mc_driver", "_config_version_mgr"),
@@ -1466,9 +1490,7 @@ class DeviceRepo(BaseRepo):
 
         if cleanup_errors:
             await self._record_cleanup_compensation(device_id, str(cleanup_errors))
-            raise RuntimeError(
-                f"Sidecar cleanup failed for device {device_id}: {cleanup_errors}"
-            )
+            raise RuntimeError(f"Sidecar cleanup failed for device {device_id}: {cleanup_errors}")
 
     async def cleanup_sidecar_data(self, device_id: str) -> None:
         """公开方法：清理设备在sidecar数据库中的残留数据
@@ -1480,21 +1502,28 @@ class DeviceRepo(BaseRepo):
             await self._cleanup_sidecar_config_versions(device_id)
         except Exception as e:
             # 异步清理失败不影响删除结果，补偿日志已由内部方法记录
-            logger.warning("Sidecar data cleanup failed for %s (orphan data may remain until compensation retry): %s", device_id, e)
+            logger.warning(
+                "Sidecar data cleanup failed for %s (orphan data may remain until compensation retry): %s", device_id, e
+            )
 
     async def _record_cleanup_compensation(self, device_id: str, error_detail: str) -> None:
         """FIXED-P2: 记录Sidecar清理补偿日志，供后台异步重试清理孤儿数据"""
         try:
             if self._database is not None:
                 async with self._database.session() as session:
-                    await session.execute(text(
-                        "CREATE TABLE IF NOT EXISTS _pending_sidecar_cleanup "
-                        "(device_id TEXT PRIMARY KEY, error_detail TEXT, created_at REAL, retry_count INTEGER DEFAULT 0)"
-                    ))
-                    await session.execute(text(
-                        "INSERT OR REPLACE INTO _pending_sidecar_cleanup (device_id, error_detail, created_at, retry_count) "
-                        "VALUES (:did, :err, :ts, COALESCE((SELECT retry_count FROM _pending_sidecar_cleanup WHERE device_id=:did), 0))"
-                    ), {"did": device_id, "err": error_detail[:500], "ts": time.time()})
+                    await session.execute(
+                        text(
+                            "CREATE TABLE IF NOT EXISTS _pending_sidecar_cleanup "
+                            "(device_id TEXT PRIMARY KEY, error_detail TEXT, created_at REAL, retry_count INTEGER DEFAULT 0)"
+                        )
+                    )
+                    await session.execute(
+                        text(
+                            "INSERT OR REPLACE INTO _pending_sidecar_cleanup (device_id, error_detail, created_at, retry_count) "
+                            "VALUES (:did, :err, :ts, COALESCE((SELECT retry_count FROM _pending_sidecar_cleanup WHERE device_id=:did), 0))"
+                        ),
+                        {"did": device_id, "err": error_detail[:500], "ts": time.time()},
+                    )
                     await session.commit()
         except Exception as e:
             logger.warning("Failed to record cleanup compensation for %s: %s", device_id, e)
@@ -1509,24 +1538,29 @@ class DeviceRepo(BaseRepo):
         try:
             async with self._database.session() as session:
                 # 确保表存在并补充 next_retry_at 列（兼容旧表）
-                await session.execute(text(
-                    "CREATE TABLE IF NOT EXISTS _pending_sidecar_cleanup "
-                    "(device_id TEXT PRIMARY KEY, error_detail TEXT, created_at REAL, "
-                    "retry_count INTEGER DEFAULT 0, next_retry_at REAL DEFAULT 0)"
-                ))
+                await session.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS _pending_sidecar_cleanup "
+                        "(device_id TEXT PRIMARY KEY, error_detail TEXT, created_at REAL, "
+                        "retry_count INTEGER DEFAULT 0, next_retry_at REAL DEFAULT 0)"
+                    )
+                )
                 try:
-                    await session.execute(text(
-                        "ALTER TABLE _pending_sidecar_cleanup ADD COLUMN next_retry_at REAL DEFAULT 0"
-                    ))
+                    await session.execute(
+                        text("ALTER TABLE _pending_sidecar_cleanup ADD COLUMN next_retry_at REAL DEFAULT 0")
+                    )
                 except Exception:
                     pass  # 列已存在
 
                 now = time.time()
-                result = await session.execute(text(
-                    "SELECT device_id, retry_count FROM _pending_sidecar_cleanup "
-                    "WHERE next_retry_at <= :now OR next_retry_at IS NULL "
-                    "ORDER BY created_at ASC LIMIT 50"
-                ), {"now": now})
+                result = await session.execute(
+                    text(
+                        "SELECT device_id, retry_count FROM _pending_sidecar_cleanup "
+                        "WHERE next_retry_at <= :now OR next_retry_at IS NULL "
+                        "ORDER BY created_at ASC LIMIT 50"
+                    ),
+                    {"now": now},
+                )
                 pending = result.fetchall()
 
             for device_id, retry_count in pending:
@@ -1536,9 +1570,9 @@ class DeviceRepo(BaseRepo):
                         device_id,
                     )
                     async with self._database.session() as session:
-                        await session.execute(text(
-                            "DELETE FROM _pending_sidecar_cleanup WHERE device_id = :did"
-                        ), {"did": device_id})
+                        await session.execute(
+                            text("DELETE FROM _pending_sidecar_cleanup WHERE device_id = :did"), {"did": device_id}
+                        )
                         await session.commit()
                     continue
 
@@ -1546,25 +1580,30 @@ class DeviceRepo(BaseRepo):
                 try:
                     await self.cleanup_sidecar_data(device_id)
                     async with self._database.session() as session:
-                        await session.execute(text(
-                            "DELETE FROM _pending_sidecar_cleanup WHERE device_id = :did"
-                        ), {"did": device_id})
+                        await session.execute(
+                            text("DELETE FROM _pending_sidecar_cleanup WHERE device_id = :did"), {"did": device_id}
+                        )
                         await session.commit()
                     logger.info("Sidecar清理补偿成功: device_id=%s", device_id)
                 except Exception as e:
                     # 指数退避：60s, 120s, 240s... 上限600s
-                    backoff = min(60 * (2 ** retry_count), 600)
+                    backoff = min(60 * (2**retry_count), 600)
                     next_retry = time.time() + backoff
                     async with self._database.session() as session:
-                        await session.execute(text(
-                            "UPDATE _pending_sidecar_cleanup "
-                            "SET retry_count = retry_count + 1, next_retry_at = :nrt, "
-                            "error_detail = :err WHERE device_id = :did"
-                        ), {"nrt": next_retry, "err": str(e)[:500], "did": device_id})
+                        await session.execute(
+                            text(
+                                "UPDATE _pending_sidecar_cleanup "
+                                "SET retry_count = retry_count + 1, next_retry_at = :nrt, "
+                                "error_detail = :err WHERE device_id = :did"
+                            ),
+                            {"nrt": next_retry, "err": str(e)[:500], "did": device_id},
+                        )
                         await session.commit()
                     logger.warning(
                         "Sidecar清理补偿失败: device_id=%s, retry_count=%d, 下次重试: %.0fs后",
-                        device_id, retry_count + 1, backoff,
+                        device_id,
+                        retry_count + 1,
+                        backoff,
                     )
         except Exception as e:
             logger.error("补偿任务扫描异常: %s", e, exc_info=True)
@@ -1594,9 +1633,7 @@ class TemplateRepo(BaseRepo):
     async def get(self, name: str) -> dict | None:
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(DeviceTemplateORM).where(DeviceTemplateORM.name == name)
-                )
+                result = await session.execute(select(DeviceTemplateORM).where(DeviceTemplateORM.name == name))
                 orm = result.scalar_one_or_none()
                 return _orm_to_template(orm) if orm else None
         except Exception as e:
@@ -1620,7 +1657,7 @@ class TemplateRepo(BaseRepo):
                 conditions = []
                 if created_by:
                     conditions.append(DeviceTemplateORM.created_by == created_by)
-                
+
                 # 总数查询
                 count_query = select(func.count()).select_from(DeviceTemplateORM)
                 for cond in conditions:
@@ -1631,13 +1668,13 @@ class TemplateRepo(BaseRepo):
                 query = select(DeviceTemplateORM).order_by(DeviceTemplateORM.created_at.desc())
                 for cond in conditions:
                     query = query.where(cond)
-                
+
                 # 向后兼容：如果传了 limit 且没传 page/size，使用 limit
                 actual_size = limit if limit is not None and page == 1 and size == 50 else size
                 actual_size = max(1, min(actual_size, 5000))
                 offset = (page - 1) * actual_size
                 query = query.offset(offset).limit(actual_size)
-                
+
                 result = await session.execute(query)
                 rows = result.scalars().all()
                 items = [_orm_to_template(r) for r in rows]
@@ -1649,9 +1686,7 @@ class TemplateRepo(BaseRepo):
     async def delete(self, name: str) -> bool:
         try:
             async with self._write_write_lock(), self._auto_session() as session:
-                result = await session.execute(
-                    delete(DeviceTemplateORM).where(DeviceTemplateORM.name == name)
-                )
+                result = await session.execute(delete(DeviceTemplateORM).where(DeviceTemplateORM.name == name))
                 await session.commit()
                 return result.rowcount > 0
         except Exception as e:
@@ -1664,15 +1699,15 @@ class TemplateRepo(BaseRepo):
         try:
             async with self._write_write_lock():
                 async with self._auto_session() as session:
-                    result = await session.execute(
-                        select(DeviceTemplateORM).where(DeviceTemplateORM.name == name)
-                    )
+                    result = await session.execute(select(DeviceTemplateORM).where(DeviceTemplateORM.name == name))
                     orm = result.scalar_one_or_none()
                     if orm is None:
                         return None
                     old_version = data.get("_version")
                     if old_version is not None and orm.version != old_version:
-                        raise StaleDataError(f"Template {name} version conflict: expected={old_version}, actual={orm.version}")
+                        raise StaleDataError(
+                            f"Template {name} version conflict: expected={old_version}, actual={orm.version}"
+                        )
                     if "protocol" in data:
                         orm.protocol = data["protocol"]
                     if "config_template" in data:
@@ -1748,16 +1783,11 @@ class RuleRepo(BaseRepo):
             async with self._write_write_lock(), self._auto_session() as session:
                 # 事务内检查单设备规则数量
                 count_result = await session.execute(
-                    select(func.count())
-                    .select_from(RuleORM)
-                    .where(RuleORM.device_id == device_id)
+                    select(func.count()).select_from(RuleORM).where(RuleORM.device_id == device_id)
                 )
                 existing = count_result.scalar() or 0
                 if existing >= max_rules:
-                    raise ValueError(
-                        f"Rule limit reached for device {device_id}: "
-                        f"{existing}/{max_rules}"
-                    )
+                    raise ValueError(f"Rule limit reached for device {device_id}: {existing}/{max_rules}")
                 # 同一事务内创建
                 rule_id = _uuid()
                 now = _now()
@@ -1808,9 +1838,7 @@ class RuleRepo(BaseRepo):
             return []
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(RuleORM).where(RuleORM.rule_id.in_(rule_ids))
-                )
+                result = await session.execute(select(RuleORM).where(RuleORM.rule_id.in_(rule_ids)))
                 rows = result.scalars().all()
                 return [_orm_to_rule(r) for r in rows]
         except Exception as e:
@@ -1885,8 +1913,12 @@ class RuleRepo(BaseRepo):
     ) -> tuple[list[dict], int] | tuple[list[dict], int, str | None]:
         """FIXED-P0: 添加 list_all 方法，多个Service调用此方法但之前不存在"""
         return await self.list(
-            page=page, size=size, device_id=device_id,
-            search=search, severity=severity, created_by=created_by,
+            page=page,
+            size=size,
+            device_id=device_id,
+            search=search,
+            severity=severity,
+            created_by=created_by,
             cursor=cursor,
         )
 
@@ -1900,9 +1932,13 @@ class RuleRepo(BaseRepo):
                     orm = result.scalar_one_or_none()
                     if orm is None:
                         return None
-                    old_version = data.get("version") or data.get("_version")  # FIXED-BugR4X: 原问题-_orm_to_rule输出的是"version"键但此处读"_version"导致乐观锁校验失效；修复-优先读"version"再回退"_version"
+                    old_version = (
+                        data.get("version") or data.get("_version")
+                    )  # FIXED-BugR4X: 原问题-_orm_to_rule输出的是"version"键但此处读"_version"导致乐观锁校验失效；修复-优先读"version"再回退"_version"
                     if old_version is not None and orm.version != old_version:
-                        raise StaleDataError(f"Rule {rule_id} version conflict: expected={old_version}, actual={orm.version}")
+                        raise StaleDataError(
+                            f"Rule {rule_id} version conflict: expected={old_version}, actual={orm.version}"
+                        )
                     for key in ("name", "device_id", "logic", "duration", "severity"):
                         if key in data:
                             setattr(orm, key, data[key])
@@ -1938,9 +1974,7 @@ class RuleRepo(BaseRepo):
         try:
             async with self._write_write_lock():
                 async with self._auto_session() as session:
-                    await session.execute(
-                        delete(AlarmORM).where(AlarmORM.rule_id == rule_id)
-                    )
+                    await session.execute(delete(AlarmORM).where(AlarmORM.rule_id == rule_id))
                     result = await session.execute(delete(RuleORM).where(RuleORM.rule_id == rule_id))
                     if result.rowcount > 0:
                         # FIXED-BugR4X: 原问题-先清理edge_rules.db再commit主库，主库commit失败时两库不一致；修复-先commit主库再清理edge_rules.db，edge清理失败只记日志不回滚
@@ -1959,11 +1993,14 @@ class RuleRepo(BaseRepo):
         # FIXED-BugR4X: 原问题-清理失败抛异常会回滚主库commit造成两库不一致；修复-主库已commit，edge清理失败只记日志不回滚(允许短暂残留孤儿规则，由后续同步任务补偿)
         try:
             from edgelite.app import _app_state
+
             rule_store = getattr(_app_state, "rule_store", None)
             if rule_store is not None:
                 rule_store.delete_rule(rule_id)
         except Exception as e:
-            logger.error("Edge rule cleanup for %s failed: %s", rule_id, e)  # FIXED-P0: 原问题-cleanup异常仅log.debug，运维无法发现孤儿规则；升级为log.error
+            logger.error(
+                "Edge rule cleanup for %s failed: %s", rule_id, e
+            )  # FIXED-P0: 原问题-cleanup异常仅log.debug，运维无法发现孤儿规则；升级为log.error
 
     async def list_by_device(self, device_id: str) -> list[dict]:
         # FIXED: 原问题-RuleRepo.list_by_device无try-except保护，被evaluator调用
@@ -1986,10 +2023,7 @@ class RuleRepo(BaseRepo):
                 )
                 rows = result.scalars().all()
                 rules = [_orm_to_rule(r) for r in rows]
-                return [
-                    r for r in rules
-                    if any(c.get("point") == point_name for c in r.get("conditions", []))
-                ]
+                return [r for r in rules if any(c.get("point") == point_name for c in r.get("conditions", []))]
         except Exception as e:
             logger.error("RuleRepo.list_enabled_by_point failed: %s", e)
             raise RuntimeError(f"RuleRepo.list_enabled_by_point failed for device_id={device_id}: {e}") from e
@@ -2019,9 +2053,7 @@ class RuleRepo(BaseRepo):
         all_rule_ids = [r["rule_id"] for r in records if r.get("rule_id")]
         existing_rules_map: dict[str, RuleORM] = {}
         if all_rule_ids:
-            existing_result = await session.execute(
-                select(RuleORM).where(RuleORM.rule_id.in_(all_rule_ids))
-            )
+            existing_result = await session.execute(select(RuleORM).where(RuleORM.rule_id.in_(all_rule_ids)))
             for row in existing_result.scalars().all():
                 existing_rules_map[row.rule_id] = row
 
@@ -2042,9 +2074,7 @@ class RuleRepo(BaseRepo):
                     orm.duration = record.get("duration", orm.duration)
                     orm.severity = record.get("severity", orm.severity)
                     orm.enabled = record.get("enabled", orm.enabled)
-                    orm.notify_channels = json.dumps(
-                        record.get("notify_channels", []), ensure_ascii=False
-                    )
+                    orm.notify_channels = json.dumps(record.get("notify_channels", []), ensure_ascii=False)
                 else:
                     now = _now()
                     session.add(
@@ -2057,9 +2087,7 @@ class RuleRepo(BaseRepo):
                             duration=record.get("duration", 0),
                             severity=record.get("severity", ""),
                             enabled=record.get("enabled", True),
-                            notify_channels=json.dumps(
-                                record.get("notify_channels", []), ensure_ascii=False
-                            ),
+                            notify_channels=json.dumps(record.get("notify_channels", []), ensure_ascii=False),
                             created_at=now,
                         )
                     )
@@ -2123,9 +2151,7 @@ class AlarmRepo(BaseRepo):
         # FIXED: 原问题-查询操作无try-except保护
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(AlarmORM).where(AlarmORM.alarm_id == alarm_id)
-                )
+                result = await session.execute(select(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                 orm = result.scalar_one_or_none()
                 return _orm_to_alarm(orm) if orm else None
         except Exception as e:
@@ -2206,9 +2232,8 @@ class AlarmRepo(BaseRepo):
         """
         try:
             async with self._auto_session() as session:
-                query = (
-                    select(AlarmORM.status, AlarmORM.severity, func.count().label("count"))
-                    .group_by(AlarmORM.status, AlarmORM.severity)
+                query = select(AlarmORM.status, AlarmORM.severity, func.count().label("count")).group_by(
+                    AlarmORM.status, AlarmORM.severity
                 )
                 if device_ids:
                     query = query.where(AlarmORM.device_id.in_(device_ids))
@@ -2218,14 +2243,14 @@ class AlarmRepo(BaseRepo):
             logger.error("AlarmRepo.count_by_status_and_severity failed: %s", e)
             raise RuntimeError(f"AlarmRepo.count_by_status_and_severity failed: {e}") from e
 
-    @retry_on_stale(base_delay=0.1)  # FIXED-P1: 原问题-ack无乐观锁重试，与recover/update_trigger_count不一致，并发确认时StaleDataError直接抛出无重试
+    @retry_on_stale(
+        base_delay=0.1
+    )  # FIXED-P1: 原问题-ack无乐观锁重试，与recover/update_trigger_count不一致，并发确认时StaleDataError直接抛出无重试
     async def ack(self, alarm_id: str, ack_by: str) -> dict | None:
         try:
             async with self._write_write_lock():  # FIXED-P0: 原问题-ack无写锁保护，并发确认可覆盖状态
                 async with self._auto_session() as session:
-                    result = await session.execute(
-                        select(AlarmORM).where(AlarmORM.alarm_id == alarm_id)
-                    )
+                    result = await session.execute(select(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                     orm = result.scalar_one_or_none()
                     if orm is None or orm.status != "firing":
                         # FIXED-BugR13: 区分"不存在"和"已确认"，避免多客户端确认返回 404
@@ -2252,9 +2277,7 @@ class AlarmRepo(BaseRepo):
         try:
             async with self._write_write_lock():  # FIXED-P0: 原问题-recover无写锁保护，并发恢复可覆盖状态
                 async with self._auto_session() as session:
-                    result = await session.execute(
-                        select(AlarmORM).where(AlarmORM.alarm_id == alarm_id)
-                    )
+                    result = await session.execute(select(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                     orm = result.scalar_one_or_none()
                     if orm is None or orm.status not in ("firing", "acknowledged"):
                         # FIXED-BugR13: 区分"不存在"和"已恢复"
@@ -2284,9 +2307,7 @@ class AlarmRepo(BaseRepo):
         try:
             async with self._write_write_lock(), self._auto_session() as session:
                 # 仅删除告警记录本身；alarm_silences 为独立前瞻性配置，不随单条告警删除
-                result = await session.execute(
-                    delete(AlarmORM).where(AlarmORM.alarm_id == alarm_id)
-                )
+                result = await session.execute(delete(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                 await session.commit()
                 return result.rowcount > 0
         except Exception as e:
@@ -2296,11 +2317,11 @@ class AlarmRepo(BaseRepo):
     @retry_on_stale(base_delay=0.1)
     async def update_trigger_count(self, alarm_id: str, trigger_value: dict) -> None:
         try:
-            async with self._write_write_lock():  # FIXED-P0: 原问题-update_trigger_count无写锁保护，高频触发时计数可丢失
+            async with (
+                self._write_write_lock()
+            ):  # FIXED-P0: 原问题-update_trigger_count无写锁保护，高频触发时计数可丢失
                 async with self._auto_session() as session:
-                    result = await session.execute(
-                        select(AlarmORM).where(AlarmORM.alarm_id == alarm_id)
-                    )
+                    result = await session.execute(select(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                     orm = result.scalar_one_or_none()
                     if orm:
                         orm.trigger_count = (orm.trigger_count or 0) + 1
@@ -2317,9 +2338,7 @@ class AlarmRepo(BaseRepo):
         try:
             async with self._write_write_lock():  # FIXED-P0: 原问题-update_severity无写锁保护，并发修改可覆盖
                 async with self._auto_session() as session:
-                    result = await session.execute(
-                        select(AlarmORM).where(AlarmORM.alarm_id == alarm_id)
-                    )
+                    result = await session.execute(select(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                     orm = result.scalar_one_or_none()
                     if orm:
                         orm.severity = severity
@@ -2335,11 +2354,13 @@ class AlarmRepo(BaseRepo):
         try:
             async with self._auto_session() as session:
                 result = await session.execute(
-                    select(AlarmORM).where(
+                    select(AlarmORM)
+                    .where(
                         AlarmORM.rule_id == rule_id,
                         AlarmORM.device_id == device_id,
                         AlarmORM.status.in_(("firing", "acknowledged")),
-                    ).order_by(AlarmORM.fired_at.desc())
+                    )
+                    .order_by(AlarmORM.fired_at.desc())
                 )
                 orm = result.scalars().first()
                 return _orm_to_alarm(orm) if orm else None
@@ -2355,7 +2376,9 @@ class AlarmRepo(BaseRepo):
         try:
             async with self._auto_session() as session:
                 result = await session.execute(
-                    select(func.count()).select_from(AlarmORM).where(
+                    select(func.count())
+                    .select_from(AlarmORM)
+                    .where(
                         AlarmORM.rule_id == rule_id,
                         AlarmORM.status.in_(("firing", "acknowledged")),
                     )
@@ -2431,9 +2454,7 @@ class AlarmRepo(BaseRepo):
                     .order_by(hour_expr)
                 )
                 hour_result = await session.execute(hour_query)
-                alarm_counts_by_hour = [
-                    {"hour": row.hour, "count": row.count} for row in hour_result
-                ]
+                alarm_counts_by_hour = [{"hour": row.hour, "count": row.count} for row in hour_result]
 
                 # Severity distribution from database
                 sev_query = (
@@ -2453,9 +2474,7 @@ class AlarmRepo(BaseRepo):
                     .limit(10)
                 )
                 dev_result = await session.execute(dev_query)
-                top_devices = [
-                    {"device_id": row.device_id, "count": row.count} for row in dev_result
-                ]
+                top_devices = [{"device_id": row.device_id, "count": row.count} for row in dev_result]
 
                 # Top 10 rules by alarm count
                 rule_query = (
@@ -2466,9 +2485,7 @@ class AlarmRepo(BaseRepo):
                     .limit(10)
                 )
                 rule_result = await session.execute(rule_query)
-                top_rules = [
-                    {"rule_id": row.rule_id, "count": row.count} for row in rule_result
-                ]
+                top_rules = [{"rule_id": row.rule_id, "count": row.count} for row in rule_result]
 
                 return {
                     "period_hours": hours,
@@ -2511,9 +2528,7 @@ class AlarmRepo(BaseRepo):
                 if device_ids:
                     dev_query = dev_query.where(AlarmORM.device_id.in_(device_ids))
                 dev_result = await session.execute(dev_query)
-                top_devices = [
-                    {"device_id": row.device_id, "count": row.count} for row in dev_result
-                ]
+                top_devices = [{"device_id": row.device_id, "count": row.count} for row in dev_result]
 
                 # Top N rules by alarm count
                 rule_query = (
@@ -2526,9 +2541,7 @@ class AlarmRepo(BaseRepo):
                 if device_ids:
                     rule_query = rule_query.where(AlarmORM.device_id.in_(device_ids))
                 rule_result = await session.execute(rule_query)
-                top_rules = [
-                    {"rule_id": row.rule_id, "count": row.count} for row in rule_result
-                ]
+                top_rules = [{"rule_id": row.rule_id, "count": row.count} for row in rule_result]
 
                 return {"top_devices": top_devices, "top_rules": top_rules}
         except Exception as e:
@@ -2568,17 +2581,17 @@ class AlarmRepo(BaseRepo):
                         # 查询构造时即抛 AttributeError，被外层 except 捕获后 re-raise 为 RuntimeError，
                         # 导致历史告警清理功能完全失效。修复：改用 AlarmORM.alarm_id 作为主键引用。
                         ids_result = await session.execute(
-                            select(AlarmORM.alarm_id).where(
+                            select(AlarmORM.alarm_id)
+                            .where(
                                 AlarmORM.status.in_(["recovered", "acknowledged"]),
                                 AlarmORM.fired_at < cutoff,
-                            ).limit(batch_size)
+                            )
+                            .limit(batch_size)
                         )
                         batch_ids = [row[0] for row in ids_result]
                         if not batch_ids:
                             break
-                        result = await session.execute(
-                            delete(AlarmORM).where(AlarmORM.alarm_id.in_(batch_ids))
-                        )
+                        result = await session.execute(delete(AlarmORM).where(AlarmORM.alarm_id.in_(batch_ids)))
                         await session.commit()
                         total_deleted += result.rowcount
                         if len(batch_ids) < batch_size:
@@ -2586,7 +2599,9 @@ class AlarmRepo(BaseRepo):
             if total_deleted > 0:
                 logger.info(
                     "Cleaned up %d old alarms (retention=%d days, batch_size=%d)",
-                    total_deleted, retention_days, batch_size,
+                    total_deleted,
+                    retention_days,
+                    batch_size,
                 )
             return total_deleted
         except Exception as e:
@@ -2758,8 +2773,12 @@ class UserRepo(BaseRepo):
                     if orm is None:
                         return None
                     old_version = data.get("_version")
-                    if old_version is not None and orm.version != old_version:  # FIXED-P1: 原问题-UserRepo.update无乐观锁冲突检测
-                        raise StaleDataError(f"User {user_id} version conflict: expected={old_version}, actual={orm.version}")
+                    if (
+                        old_version is not None and orm.version != old_version
+                    ):  # FIXED-P1: 原问题-UserRepo.update无乐观锁冲突检测
+                        raise StaleDataError(
+                            f"User {user_id} version conflict: expected={old_version}, actual={orm.version}"
+                        )
                     for key in ("password", "role"):
                         if key in data:
                             setattr(orm, key, data[key])
@@ -2793,14 +2812,14 @@ class UserRepo(BaseRepo):
                     # 2. 删除登录限流/锁定记录
                     await session.execute(delete(LoginAttemptORM).where(LoginAttemptORM.user_id == user_id))
                     await session.execute(delete(AccountLockoutORM).where(AccountLockoutORM.user_id == user_id))
-                    await session.execute(delete(PasswordResetAttemptORM).where(PasswordResetAttemptORM.user_id == user_id))
+                    await session.execute(
+                        delete(PasswordResetAttemptORM).where(PasswordResetAttemptORM.user_id == user_id)
+                    )
                     # 3. 设备/规则的 created_by 置 NULL（保留数据，不删除业务实体）
                     await session.execute(
                         update(DeviceORM).where(DeviceORM.created_by == user_id).values(created_by=None)
                     )
-                    await session.execute(
-                        update(RuleORM).where(RuleORM.created_by == user_id).values(created_by=None)
-                    )
+                    await session.execute(update(RuleORM).where(RuleORM.created_by == user_id).values(created_by=None))
                     # 4. 告警的 acknowledged_by 置 NULL（若有该字段）
                     try:
                         await session.execute(
@@ -2869,8 +2888,12 @@ class UserRepo(BaseRepo):
                     if orm is None:
                         return None
                     old_version = data.get("_version")
-                    if old_version is not None and orm.version != old_version:  # FIXED-P1: 原问题-UserRepo.update_user无乐观锁冲突检测
-                        raise StaleDataError(f"User {username} version conflict: expected={old_version}, actual={orm.version}")
+                    if (
+                        old_version is not None and orm.version != old_version
+                    ):  # FIXED-P1: 原问题-UserRepo.update_user无乐观锁冲突检测
+                        raise StaleDataError(
+                            f"User {username} version conflict: expected={old_version}, actual={orm.version}"
+                        )
                     for key in ("password", "role"):
                         if key in data:
                             setattr(orm, key, data[key])
@@ -2892,9 +2915,7 @@ class UserRepo(BaseRepo):
         # FIXED: 原问题-UserRepo.count_by_role无try-except保护
         try:
             async with self._auto_session() as session:
-                result = await session.execute(
-                    select(func.count()).select_from(UserORM).where(UserORM.role == role)
-                )
+                result = await session.execute(select(func.count()).select_from(UserORM).where(UserORM.role == role))
                 return result.scalar() or 0
         except Exception as e:
             logger.error("UserRepo.count_by_role failed: %s", e)
@@ -2911,12 +2932,8 @@ def _orm_to_device(orm: DeviceORM) -> dict:
         "points": _safe_json_loads(orm.points, [], "device.points"),
         "collect_interval": orm.collect_interval,
         "created_by": orm.created_by,
-        "created_at": orm.created_at.isoformat()
-        if isinstance(orm.created_at, datetime)
-        else str(orm.created_at),
-        "updated_at": orm.updated_at.isoformat()
-        if isinstance(orm.updated_at, datetime)
-        else str(orm.updated_at),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
+        "updated_at": orm.updated_at.isoformat() if isinstance(orm.updated_at, datetime) else str(orm.updated_at),
         "version": getattr(orm, "version", 1),  # FIXED-P0: 返回乐观锁版本号
     }
 
@@ -2928,9 +2945,7 @@ def _orm_to_template(orm: DeviceTemplateORM) -> dict:
         "config_template": _safe_json_loads(orm.config_template, {}, "template.config_template"),
         "point_templates": _safe_json_loads(orm.point_templates, [], "template.point_templates"),
         "created_by": orm.created_by,
-        "created_at": orm.created_at.isoformat()
-        if isinstance(orm.created_at, datetime)
-        else str(orm.created_at),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
         "version": getattr(orm, "version", 1),  # FIXED-P1: 返回乐观锁版本号
     }
 
@@ -2950,9 +2965,7 @@ def _orm_to_rule(orm: RuleORM) -> dict:
         "script": getattr(orm, "script", "") or "",
         "rule_type": getattr(orm, "rule_type", "threshold") or "threshold",
         "created_by": orm.created_by,
-        "created_at": orm.created_at.isoformat()
-        if isinstance(orm.created_at, datetime)
-        else str(orm.created_at),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
         "version": getattr(orm, "version", 1),  # FIXED-P0: 返回乐观锁版本号
     }
 
@@ -2968,17 +2981,15 @@ def _orm_to_alarm(orm: AlarmORM) -> dict:
         "trigger_value": _safe_json_loads(orm.trigger_value, field_name="alarm.trigger_value"),
         "trigger_count": orm.trigger_count,
         "rule_type": orm.rule_type,
-        "fired_at": orm.fired_at.isoformat()
-        if isinstance(orm.fired_at, datetime)
-        else str(orm.fired_at),
+        "fired_at": orm.fired_at.isoformat() if isinstance(orm.fired_at, datetime) else str(orm.fired_at),
         "acknowledged_at": orm.acknowledged_at.isoformat()
         if isinstance(orm.acknowledged_at, datetime)
         else orm.acknowledged_at,
         "acknowledged_by": orm.acknowledged_by,
-        "recovered_at": orm.recovered_at.isoformat()
-        if isinstance(orm.recovered_at, datetime)
-        else orm.recovered_at,
-        "version": getattr(orm, "version", 1),  # FIXED-P1: 原问题-_orm_to_alarm缺version字段，客户端无法对告警进行乐观锁检测
+        "recovered_at": orm.recovered_at.isoformat() if isinstance(orm.recovered_at, datetime) else orm.recovered_at,
+        "version": getattr(
+            orm, "version", 1
+        ),  # FIXED-P1: 原问题-_orm_to_alarm缺version字段，客户端无法对告警进行乐观锁检测
     }
 
 
@@ -2992,9 +3003,7 @@ def _orm_to_user(orm: UserORM) -> dict:
         "password_changed_at": orm.password_changed_at.isoformat()
         if hasattr(orm, "password_changed_at") and isinstance(orm.password_changed_at, datetime)
         else getattr(orm, "password_changed_at", None),
-        "created_at": orm.created_at.isoformat()
-        if isinstance(orm.created_at, datetime)
-        else str(orm.created_at),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
         "updated_at": orm.updated_at.isoformat()
         if hasattr(orm, "updated_at") and isinstance(orm.updated_at, datetime)
         else str(getattr(orm, "updated_at", "")),
@@ -3013,9 +3022,7 @@ def _orm_to_user_full(orm: UserORM) -> dict:
         "password_changed_at": orm.password_changed_at.isoformat()
         if hasattr(orm, "password_changed_at") and isinstance(orm.password_changed_at, datetime)
         else getattr(orm, "password_changed_at", None),
-        "created_at": orm.created_at.isoformat()
-        if isinstance(orm.created_at, datetime)
-        else str(orm.created_at),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
         "updated_at": orm.updated_at.isoformat()
         if hasattr(orm, "updated_at") and isinstance(orm.updated_at, datetime)
         else str(getattr(orm, "updated_at", "")),
@@ -3033,9 +3040,7 @@ def _orm_to_user_safe(orm: UserORM) -> dict:
         "password_changed_at": orm.password_changed_at.isoformat()
         if hasattr(orm, "password_changed_at") and isinstance(orm.password_changed_at, datetime)
         else getattr(orm, "password_changed_at", None),
-        "created_at": orm.created_at.isoformat()
-        if isinstance(orm.created_at, datetime)
-        else str(orm.created_at),
+        "created_at": orm.created_at.isoformat() if isinstance(orm.created_at, datetime) else str(orm.created_at),
         "updated_at": orm.updated_at.isoformat()
         if hasattr(orm, "updated_at") and isinstance(orm.updated_at, datetime)
         else str(getattr(orm, "updated_at", "")),
@@ -3074,9 +3079,7 @@ class RateLimitRepo:
             async with db.write_lock:  # FIXED-P1: 原问题-read-modify-write无锁保护，并发更新可丢失attempt_count
                 async with db.get_session() as session:
                     # Get current attempt record
-                    result = await session.execute(
-                        select(LoginAttemptORM).where(LoginAttemptORM.ip == ip)
-                    )
+                    result = await session.execute(select(LoginAttemptORM).where(LoginAttemptORM.ip == ip))
                     record = result.scalar_one_or_none()
 
                     if record is None:
@@ -3121,9 +3124,7 @@ class RateLimitRepo:
                 return 0
 
             async with db.write_lock, db.get_session() as session:
-                result = await session.execute(
-                    select(LoginAttemptORM).where(LoginAttemptORM.ip == ip)
-                )
+                result = await session.execute(select(LoginAttemptORM).where(LoginAttemptORM.ip == ip))
                 record = result.scalar_one_or_none()
 
                 if record is None:
@@ -3151,9 +3152,7 @@ class RateLimitRepo:
                 return
 
             async with db.write_lock, db.get_session() as session:
-                await session.execute(
-                    delete(LoginAttemptORM).where(LoginAttemptORM.ip == ip)
-                )
+                await session.execute(delete(LoginAttemptORM).where(LoginAttemptORM.ip == ip))
                 await session.commit()
         except Exception as e:
             logger.warning("RateLimitRepo.clear_login_attempts failed: %s", e)
@@ -3241,11 +3240,15 @@ class RateLimitRepo:
                         fail_count = record.fail_count + 1
                         record.fail_count = fail_count
 
-                    if fail_count >= threshold:  # FIXED-P1: 原问题-fail_count和lockout_until分两次session更新非原子，合并为单次commit
+                    if (
+                        fail_count >= threshold
+                    ):  # FIXED-P1: 原问题-fail_count和lockout_until分两次session更新非原子，合并为单次commit
                         record.lockout_until = now + lockout_minutes * 60
                         logger.warning(
                             "Account locked for user %s from IP %s for %d minutes",
-                            username, ip, lockout_minutes,
+                            username,
+                            ip,
+                            lockout_minutes,
                         )
 
                     await session.commit()
@@ -3274,9 +3277,7 @@ class RateLimitRepo:
                 return
 
             async with db.get_session() as session:
-                await session.execute(
-                    delete(AccountLockoutORM).where(AccountLockoutORM.lockout_key == lockout_key)
-                )
+                await session.execute(delete(AccountLockoutORM).where(AccountLockoutORM.lockout_key == lockout_key))
                 await session.commit()
         except Exception as e:
             logger.warning("RateLimitRepo.clear_lockout failed: %s", e)
@@ -3309,15 +3310,11 @@ class RateLimitRepo:
                 deleted_attempts = result1.rowcount
 
                 # Clean up expired lockouts
-                result2 = await session.execute(
-                    delete(AccountLockoutORM).where(AccountLockoutORM.lockout_until < now)
-                )
+                result2 = await session.execute(delete(AccountLockoutORM).where(AccountLockoutORM.lockout_until < now))
                 deleted_lockouts = result2.rowcount
 
                 # FIXED-M03: Clean up expired global lockouts
-                await session.execute(
-                    delete(GlobalAccountLockoutORM).where(GlobalAccountLockoutORM.locked_until < now)
-                )
+                await session.execute(delete(GlobalAccountLockoutORM).where(GlobalAccountLockoutORM.locked_until < now))
 
                 # Clean up old global failure records (older than 1 hour)
                 cutoff = now - 3600
@@ -3331,7 +3328,9 @@ class RateLimitRepo:
                 if deleted_attempts > 0 or deleted_lockouts > 0 or deleted_global_failures > 0:
                     logger.debug(
                         "Rate limit cleanup: %d attempts, %d lockouts, %d global failures removed",
-                        deleted_attempts, deleted_lockouts, deleted_global_failures
+                        deleted_attempts,
+                        deleted_lockouts,
+                        deleted_global_failures,
                     )
 
         except Exception as e:
@@ -3374,9 +3373,9 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    select(func.count()).select_from(GlobalLoginFailureORM).where(
-                        GlobalLoginFailureORM.timestamp >= window_start
-                    )
+                    select(func.count())
+                    .select_from(GlobalLoginFailureORM)
+                    .where(GlobalLoginFailureORM.timestamp >= window_start)
                 )
                 return result.scalar() or 0
         except Exception as e:
@@ -3497,11 +3496,15 @@ class RateLimitRepo:
                             record.fail_count = record.fail_count + 1
                         record.last_attempt_at = now
 
-                    if record.fail_count >= threshold:  # FIXED-P1: 原问题-fail_count和locked_until分两次session更新非原子，合并为单次commit
+                    if (
+                        record.fail_count >= threshold
+                    ):  # FIXED-P1: 原问题-fail_count和locked_until分两次session更新非原子，合并为单次commit
                         record.locked_until = now + lockout_duration * 60
                         logger.warning(
                             "Global account locked for username %s for %d minutes (failures: %d)",
-                            username, lockout_duration, record.fail_count,
+                            username,
+                            lockout_duration,
+                            record.fail_count,
                         )
 
                     await session.commit()
@@ -3598,9 +3601,7 @@ class RateLimitRepo:
                 return 0, 0
 
             async with db.get_session() as session:
-                result = await session.execute(
-                    select(PasswordResetAttemptORM).where(PasswordResetAttemptORM.ip == ip)
-                )
+                result = await session.execute(select(PasswordResetAttemptORM).where(PasswordResetAttemptORM.ip == ip))
                 record = result.scalar_one_or_none()
 
                 if record is None:
@@ -3642,9 +3643,7 @@ class RateLimitRepo:
                 return 0
 
             async with db.get_session() as session:
-                result = await session.execute(
-                    select(PasswordResetAttemptORM).where(PasswordResetAttemptORM.ip == ip)
-                )
+                result = await session.execute(select(PasswordResetAttemptORM).where(PasswordResetAttemptORM.ip == ip))
                 record = result.scalar_one_or_none()
 
                 if record is None:
@@ -3694,9 +3693,7 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    select(PasswordResetUserRateORM).where(
-                        PasswordResetUserRateORM.username == username
-                    )
+                    select(PasswordResetUserRateORM).where(PasswordResetUserRateORM.username == username)
                 )
                 record = result.scalar_one_or_none()
 
@@ -3738,9 +3735,7 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    select(PasswordResetUserRateORM).where(
-                        PasswordResetUserRateORM.username == username
-                    )
+                    select(PasswordResetUserRateORM).where(PasswordResetUserRateORM.username == username)
                 )
                 record = result.scalar_one_or_none()
 
@@ -3791,16 +3786,12 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result1 = await session.execute(
-                    delete(PasswordResetAttemptORM).where(
-                        PasswordResetAttemptORM.last_attempt_at < ip_cutoff
-                    )
+                    delete(PasswordResetAttemptORM).where(PasswordResetAttemptORM.last_attempt_at < ip_cutoff)
                 )
                 ip_deleted = result1.rowcount
 
                 result2 = await session.execute(
-                    delete(PasswordResetUserRateORM).where(
-                        PasswordResetUserRateORM.last_attempt_at < user_cutoff
-                    )
+                    delete(PasswordResetUserRateORM).where(PasswordResetUserRateORM.last_attempt_at < user_cutoff)
                 )
                 user_deleted = result2.rowcount
 
@@ -3830,9 +3821,7 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    select(UsedPasswordResetTokenORM).where(
-                        UsedPasswordResetTokenORM.token_hash == token_hash
-                    )
+                    select(UsedPasswordResetTokenORM).where(UsedPasswordResetTokenORM.token_hash == token_hash)
                 )
                 return result.scalar_one_or_none() is not None
         except Exception as e:
@@ -3840,9 +3829,7 @@ class RateLimitRepo:
             return False
 
     @classmethod
-    async def mark_password_reset_token_used(
-        cls, token_hash: str, username: str
-    ) -> bool:
+    async def mark_password_reset_token_used(cls, token_hash: str, username: str) -> bool:
         """Mark a password reset token as used.
 
         Args:
@@ -3863,9 +3850,7 @@ class RateLimitRepo:
             async with db.get_session() as session:
                 # Check if already exists
                 result = await session.execute(
-                    select(UsedPasswordResetTokenORM).where(
-                        UsedPasswordResetTokenORM.token_hash == token_hash
-                    )
+                    select(UsedPasswordResetTokenORM).where(UsedPasswordResetTokenORM.token_hash == token_hash)
                 )
                 existing = result.scalar_one_or_none()
                 if existing:
@@ -3912,9 +3897,7 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    select(PasswordResetIPAttemptORM).where(
-                        PasswordResetIPAttemptORM.ip == ip
-                    )
+                    select(PasswordResetIPAttemptORM).where(PasswordResetIPAttemptORM.ip == ip)
                 )
                 record = result.scalar_one_or_none()
 
@@ -3927,9 +3910,7 @@ class RateLimitRepo:
                     return 0, 0
 
                 if record.attempt_count >= _AUTH_RESET_IP_MAX_ATTEMPTS:
-                    retry_after = int(
-                        record.last_attempt_at + _AUTH_RESET_IP_WINDOW_SECONDS - now
-                    )
+                    retry_after = int(record.last_attempt_at + _AUTH_RESET_IP_WINDOW_SECONDS - now)
                     return -1, max(1, retry_after)
 
                 return record.attempt_count, 0
@@ -3961,9 +3942,7 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    select(PasswordResetIPAttemptORM).where(
-                        PasswordResetIPAttemptORM.ip == ip
-                    )
+                    select(PasswordResetIPAttemptORM).where(PasswordResetIPAttemptORM.ip == ip)
                 )
                 record = result.scalar_one_or_none()
 
@@ -4010,9 +3989,7 @@ class RateLimitRepo:
 
             async with db.get_session() as session:
                 result = await session.execute(
-                    delete(UsedPasswordResetTokenORM).where(
-                        UsedPasswordResetTokenORM.used_at < cutoff
-                    )
+                    delete(UsedPasswordResetTokenORM).where(UsedPasswordResetTokenORM.used_at < cutoff)
                 )
                 deleted = result.rowcount or 0
                 await session.commit()
@@ -4098,16 +4075,18 @@ class ResourceShareRepo(BaseRepo):
                     ResourceShareORM.resource_id == resource_id,
                 )
                 # 总数
-                count_query = select(func.count()).select_from(ResourceShareORM).where(
-                    ResourceShareORM.resource_type == resource_type,
-                    ResourceShareORM.resource_id == resource_id,
+                count_query = (
+                    select(func.count())
+                    .select_from(ResourceShareORM)
+                    .where(
+                        ResourceShareORM.resource_type == resource_type,
+                        ResourceShareORM.resource_id == resource_id,
+                    )
                 )
                 total = await session.scalar(count_query) or 0
                 # 分页
                 offset = (page - 1) * size
-                result = await session.execute(
-                    base_query.offset(offset).limit(size)
-                )
+                result = await session.execute(base_query.offset(offset).limit(size))
                 items = [self._orm_to_dict(orm) for orm in result.scalars().all()]
                 return items, total
         except Exception as e:
@@ -4131,9 +4110,7 @@ class ResourceShareRepo(BaseRepo):
                 count_query = select(func.count()).select_from(ResourceShareORM).where(*conditions)
                 total = await session.scalar(count_query) or 0
                 offset = (page - 1) * size
-                result = await session.execute(
-                    base_query.offset(offset).limit(size)
-                )
+                result = await session.execute(base_query.offset(offset).limit(size))
                 items = [self._orm_to_dict(orm) for orm in result.scalars().all()]
                 return items, total
         except Exception as e:

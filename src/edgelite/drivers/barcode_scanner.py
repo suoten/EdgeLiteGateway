@@ -34,10 +34,35 @@ class BarcodeScannerDriver(DriverPlugin):
     config_schema = {
         "description": "USB/Serial barcode scanner, automatically parses barcode data",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "port", "type": "string", "label": "Serial Port", "description": "Scanner serial port, e.g. COM1 or /dev/ttyUSB0", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "baudrate", "type": "integer", "label": "Baud Rate", "description": "Scanner serial baud rate", "default": 9600},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "prefix", "type": "string", "label": "Barcode Prefix", "description": "Barcode data prefix identifier for filtering", "default": ""},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "suffix", "type": "string", "label": "Barcode Suffix", "description": "Barcode end character, usually \\r", "default": "\\r"},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "string",
+                "label": "Serial Port",
+                "description": "Scanner serial port, e.g. COM1 or /dev/ttyUSB0",
+                "default": "COM1",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "baudrate",
+                "type": "integer",
+                "label": "Baud Rate",
+                "description": "Scanner serial baud rate",
+                "default": 9600,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "prefix",
+                "type": "string",
+                "label": "Barcode Prefix",
+                "description": "Barcode data prefix identifier for filtering",
+                "default": "",
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "suffix",
+                "type": "string",
+                "label": "Barcode Suffix",
+                "description": "Barcode end character, usually \\r",
+                "default": "\\r",
+            },  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 

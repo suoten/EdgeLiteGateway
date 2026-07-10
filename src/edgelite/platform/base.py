@@ -141,7 +141,7 @@ class PlatformHandler(ABC):
         flushed = 0
         for topic, payload, qos in queue:
             try:
-                if hasattr(self, '_pub_queue') and self._pub_queue:
+                if hasattr(self, "_pub_queue") and self._pub_queue:
                     self._pub_queue.put_nowait((topic, payload, qos))
                     flushed += 1
                 else:

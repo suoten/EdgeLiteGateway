@@ -85,12 +85,14 @@ class SqliteTimeSeriesStorage:
             try:
                 # 使用同步sqlite3在独立线程中执行完整性检查，避免aiosqlite在uvloop下线程冲突
                 import concurrent.futures
+
                 def _check_integrity(db_path):
                     conn = sqlite3.connect(db_path)
                     try:
                         return conn.execute("PRAGMA integrity_check").fetchone()
                     finally:
                         conn.close()
+
                 loop = asyncio.get_running_loop()
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     row = await loop.run_in_executor(executor, _check_integrity, self._db_path)
@@ -99,6 +101,7 @@ class SqliteTimeSeriesStorage:
                     corrupt_backup = f"{self._db_path}.corrupt.{int(time.time())}"
                     try:
                         import shutil
+
                         shutil.move(self._db_path, corrupt_backup)
                         logger.warning("损坏时序DB已备份到: %s", corrupt_backup)
                     except Exception:
@@ -110,8 +113,11 @@ class SqliteTimeSeriesStorage:
                         db_name = Path(self._db_path).name
                         if backup_dir.exists():
                             backup_files = sorted(
-                                (f for f in backup_dir.glob(f"{db_name}.backup.*")
-                                 if not f.name.endswith(("-wal", "-shm"))),
+                                (
+                                    f
+                                    for f in backup_dir.glob(f"{db_name}.backup.*")
+                                    if not f.name.endswith(("-wal", "-shm"))
+                                ),
                                 key=lambda p: p.stat().st_mtime,
                                 reverse=True,
                             )
@@ -120,16 +126,20 @@ class SqliteTimeSeriesStorage:
                                 logger.info("SQLite时序DB从备份恢复: %s", backup_files[0])
                                 # FIXED-P2: 恢复后验证备份完整性（使用同步sqlite3，在独立线程中执行避免与aiosqlite冲突）
                                 import concurrent.futures
+
                                 def _verify_integrity(db_path):
                                     conn = sqlite3.connect(db_path)
                                     try:
                                         return conn.execute("PRAGMA integrity_check").fetchone()
                                     finally:
                                         conn.close()
+
                                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                                     vr = executor.submit(_verify_integrity, self._db_path).result()
                                 if not vr or vr[0] != "ok":
-                                    logger.warning("恢复的备份完整性检查失败: %s，删除并重建空库", vr[0] if vr else "None")
+                                    logger.warning(
+                                        "恢复的备份完整性检查失败: %s，删除并重建空库", vr[0] if vr else "None"
+                                    )
                                     Path(self._db_path).unlink(missing_ok=True)
                     except Exception as restore_err:
                         logger.warning("SQLite时序DB从备份恢复失败: %s", restore_err)
@@ -180,9 +190,7 @@ class SqliteTimeSeriesStorage:
         if not self._db:
             return
         try:
-            cursor = await self._db.execute(
-                "SELECT value FROM _meta WHERE key = 'sync_offset'"
-            )
+            cursor = await self._db.execute("SELECT value FROM _meta WHERE key = 'sync_offset'")
             row = await cursor.fetchone()
             if row and row[0]:
                 self._sync_offset = int(row[0])
@@ -191,9 +199,7 @@ class SqliteTimeSeriesStorage:
         except Exception as e:
             logger.debug("从meta表读取sync_offset失败: %s，尝试fallback", e)
         try:
-            cursor = await self._db.execute(
-                "SELECT COALESCE(MAX(id), 0) FROM device_points"
-            )
+            cursor = await self._db.execute("SELECT COALESCE(MAX(id), 0) FROM device_points")
             row = await cursor.fetchone()
             if row:
                 self._sync_offset = row[0]
@@ -228,6 +234,7 @@ class SqliteTimeSeriesStorage:
             return
         try:
             import shutil
+
             backup_path = Path(backup_dir)
             backup_path.mkdir(parents=True, exist_ok=True)
             db_name = Path(self._db_path).name
@@ -279,6 +286,7 @@ class SqliteTimeSeriesStorage:
         tags_json = None
         if tags:
             import json
+
             tags_json = json.dumps(tags, ensure_ascii=False)
 
         try:
@@ -359,6 +367,7 @@ class SqliteTimeSeriesStorage:
             tags_json = None
             if tags:
                 import json
+
                 tags_json = json.dumps(tags, ensure_ascii=False)
 
             rows.append(
@@ -486,20 +495,20 @@ class SqliteTimeSeriesStorage:
                 for row in rows:
                     window_start = row[0]
                     ts = datetime.fromtimestamp(window_start / 1e9, tz=UTC).isoformat()
-                    results.append({
-                        "time": ts,
-                        "value": row[1],
-                        # FIXED-P2: 原问题-quality不在GROUP BY中导致SQL错误；改为固定值"good"
-                        "quality": "good",
-                    })
+                    results.append(
+                        {
+                            "time": ts,
+                            "value": row[1],
+                            # FIXED-P2: 原问题-quality不在GROUP BY中导致SQL错误；改为固定值"good"
+                            "quality": "good",
+                        }
+                    )
                 return results
         except Exception as e:
             logger.error("SQLite聚合查询失败: %s", e)
             return []
 
-    async def query_latest(
-        self, device_id: str, point_names: list[str]
-    ) -> dict[str, dict]:
+    async def query_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict]:
         """Query latest values for points"""
         if not self._db or not point_names:
             return {}
@@ -530,11 +539,13 @@ class SqliteTimeSeriesStorage:
                 for row in rows:
                     pn = row[0]
                     ts = datetime.fromtimestamp(row[1] / 1e9, tz=UTC).isoformat()
-                    value = row[2] if row[2] is not None else (
-                        row[3] if row[3] is not None else (
-                            row[4] if row[4] is not None else (
-                                bool(row[5]) if row[5] is not None else None
-                            )
+                    value = (
+                        row[2]
+                        if row[2] is not None
+                        else (
+                            row[3]
+                            if row[3] is not None
+                            else (row[4] if row[4] is not None else (bool(row[5]) if row[5] is not None else None))
                         )
                     )
                     result[pn] = {
@@ -553,9 +564,7 @@ class SqliteTimeSeriesStorage:
             return 0
         try:
             async with self._db_lock:  # FIXED-P1: 原问题-读取操作使用_write_lock导致读读互斥；改为_read_lock
-                cursor = await self._db.execute(
-                    "SELECT COUNT(*) FROM device_points WHERE id > ?", (self._sync_offset,)
-                )
+                cursor = await self._db.execute("SELECT COUNT(*) FROM device_points WHERE id > ?", (self._sync_offset,))
                 row = await cursor.fetchone()
                 return row[0] if row else 0
         except Exception as e:
@@ -588,31 +597,36 @@ class SqliteTimeSeriesStorage:
                 rows = await cursor.fetchall()
                 results = []
                 for row in rows:
-                    value = row[5] if row[5] is not None else (
-                        row[6] if row[6] is not None else (
-                            row[7] if row[7] is not None else (
-                                bool(row[8]) if row[8] is not None else None
-                            )
+                    value = (
+                        row[5]
+                        if row[5] is not None
+                        else (
+                            row[6]
+                            if row[6] is not None
+                            else (row[7] if row[7] is not None else (bool(row[8]) if row[8] is not None else None))
                         )
                     )
                     tags = None
                     if row[9]:
                         import json
+
                         try:
                             tags = json.loads(row[9])
                         except (json.JSONDecodeError, TypeError):
                             tags = None
 
-                    results.append({
-                        "id": row[0],
-                        "measurement": row[1],
-                        "device_id": row[2],
-                        "point_name": row[3],
-                        "quality": row[4],
-                        "value": value,
-                        "tags": tags,
-                        "timestamp_ns": row[10],
-                    })
+                    results.append(
+                        {
+                            "id": row[0],
+                            "measurement": row[1],
+                            "device_id": row[2],
+                            "point_name": row[3],
+                            "quality": row[4],
+                            "value": value,
+                            "tags": tags,
+                            "timestamp_ns": row[10],
+                        }
+                    )
                 return results
         except Exception as e:
             logger.error("SQLite获取未同步记录失败: %s", e)
@@ -668,9 +682,7 @@ class SqliteTimeSeriesStorage:
                     )
 
                     # Step 2: Delete synced records
-                    cursor = await self._db.execute(
-                        "DELETE FROM device_points WHERE id <= ?", (max_id,)
-                    )
+                    cursor = await self._db.execute("DELETE FROM device_points WHERE id <= ?", (max_id,))
                     deleted = cursor.rowcount
 
                     # Step 3: Commit both changes atomically
@@ -682,7 +694,8 @@ class SqliteTimeSeriesStorage:
                     if deleted > 0:
                         logger.info(
                             "SQLite原子同步完成: 更新offset=%d, 删除%d条记录",
-                            max_id, deleted,
+                            max_id,
+                            deleted,
                         )
                     else:
                         logger.debug(
@@ -742,7 +755,12 @@ class SqliteTimeSeriesStorage:
                 if batch_deleted < batch_size:
                     break
             if total_deleted > 0:
-                logger.info("SQLite清理旧数据: 删除%d条 (retention=%d天, batch_size=%d)", total_deleted, retention_days, batch_size)
+                logger.info(
+                    "SQLite清理旧数据: 删除%d条 (retention=%d天, batch_size=%d)",
+                    total_deleted,
+                    retention_days,
+                    batch_size,
+                )
             return total_deleted
         except Exception as e:
             logger.error("SQLite清理旧数据失败: %s", e)
@@ -757,9 +775,7 @@ class SqliteTimeSeriesStorage:
             return 0
         try:
             async with self._db_lock:
-                cursor = await self._db.execute(
-                    "DELETE FROM device_points WHERE device_id = ?", (device_id,)
-                )
+                cursor = await self._db.execute("DELETE FROM device_points WHERE device_id = ?", (device_id,))
                 await self._db.commit()
                 deleted = cursor.rowcount
             if deleted > 0:
@@ -789,9 +805,7 @@ class SqliteTimeSeriesStorage:
                 if os.path.exists(self._db_path):
                     db_size = os.path.getsize(self._db_path)
 
-                cursor = await self._db.execute(
-                    "SELECT MIN(timestamp_ns), MAX(timestamp_ns) FROM device_points"
-                )
+                cursor = await self._db.execute("SELECT MIN(timestamp_ns), MAX(timestamp_ns) FROM device_points")
                 row = await cursor.fetchone()
                 oldest = None
                 newest = None
@@ -824,11 +838,13 @@ class SqliteTimeSeriesStorage:
         """Convert a query row to a result dict"""
         ts_ns = row[0]
         ts = datetime.fromtimestamp(ts_ns / 1e9, tz=UTC).isoformat()
-        value = row[1] if row[1] is not None else (
-            row[2] if row[2] is not None else (
-                row[3] if row[3] is not None else (
-                    bool(row[4]) if row[4] is not None else None
-                )
+        value = (
+            row[1]
+            if row[1] is not None
+            else (
+                row[2]
+                if row[2] is not None
+                else (row[3] if row[3] is not None else (bool(row[4]) if row[4] is not None else None))
             )
         )
         return {

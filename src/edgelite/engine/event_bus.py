@@ -157,6 +157,7 @@ class EventBus:
         应在应用启动早期（bootstrap）调用，随后调用 replay_pending_alarms() 重放历史。
         """
         from edgelite.engine.alarm_outbox import AlarmOutbox
+
         self._alarm_outbox = AlarmOutbox(db_path)
         if self._alarm_outbox._conn is not None:
             logger.info("Alarm outbox persistence enabled: %s", db_path)
@@ -178,9 +179,7 @@ class EventBus:
             except Exception as e:
                 logger.warning("AlarmOutbox replay publish failed: %s", e)
 
-        return await loop.run_in_executor(
-            None, self._alarm_outbox.replay_and_clear, _sync_publish
-        )
+        return await loop.run_in_executor(None, self._alarm_outbox.replay_and_clear, _sync_publish)
 
     async def subscribe(self, name: str) -> asyncio.Queue:
         """订阅事件，返回独立队列"""
@@ -224,9 +223,7 @@ class EventBus:
         """注销事件处理器"""
         with self._handlers_lock:  # FIXED-P0: 加锁防止与publish并发修改导致竞态
             if event_type in self._handlers:
-                self._handlers[event_type] = [
-                    h for h in self._handlers[event_type] if h is not handler
-                ]
+                self._handlers[event_type] = [h for h in self._handlers[event_type] if h is not handler]
                 if not self._handlers[event_type]:
                     del self._handlers[event_type]
 
@@ -267,20 +264,29 @@ class EventBus:
                 self._seen_event_ids.popitem(last=False)  # FIFO 淘汰最旧条目
         # FIXED-P0: AlarmEvent优先保留，队列满时优先丢弃非告警事件
         is_alarm = isinstance(event, AlarmEvent)
-        # FIXED: AlarmEvent 持久化兜底 — 入队前先落盘 outbox，进程崩溃后重启可重放 [2026-06-29]
-        # best-effort: DB 异常仅记录日志，不阻塞主流程；persist 失败仍继续 enqueue
+        # FIXED-P0 (并发安全#4): AlarmEvent 持久化兜底 — 先落盘后投递，维护 outbox 一致性
+        # 原问题: persist (best-effort) 吞掉异常/超时后仍继续投递，进程崩溃后 outbox 中无此事件
+        #         但已投递给订阅者，重启重放时遗漏 (outbox 无记录) 或重复 (outbox 有记录但已投递过)。
+        # 修复: persist 返回 False / 超时 / 抛异常 → 不投递 (return)，
+        #       确保已投递的事件一定在 outbox 中有记录 (可通过 replay 重放)。
         if is_alarm and self._alarm_outbox is not None:
+            persisted = False
             try:
-                await asyncio.wait_for(
-                    asyncio.get_running_loop().run_in_executor(
-                        None, self._alarm_outbox.persist, event
-                    ),
+                persisted = await asyncio.wait_for(
+                    asyncio.get_running_loop().run_in_executor(None, self._alarm_outbox.persist, event),
                     timeout=0.5,
                 )
             except TimeoutError:
-                logger.warning("Alarm outbox persist timed out (best-effort), continue enqueue")
+                logger.warning("Alarm outbox persist timed out, event not delivered to maintain outbox consistency")
+                return
             except Exception as e:
-                logger.warning("Alarm outbox persist failed (best-effort): %s", e)
+                logger.warning("Alarm outbox persist failed, event not delivered to maintain outbox consistency: %s", e)
+                return
+            if not persisted:
+                logger.warning(
+                    "Alarm outbox persist returned False, event not delivered to maintain outbox consistency"
+                )
+                return
         # FIXED-P1: 整个发布过程在锁内进行，防止subscribe/disconnect并发修改
         async with self._subscribers_lock:
             subscriber_items = list(self._subscribers.items())
@@ -296,19 +302,23 @@ class EventBus:
                     # 超时后降级为 put_nowait 尝试非阻塞写入（可能丢弃）
                     logger.critical(
                         "Alarm event enqueue timed out after 1s, subscriber=%s type=%s — degrading to put_nowait",
-                        name, type(event).__name__,
+                        name,
+                        type(event).__name__,
                     )
                     try:
                         queue.put_nowait(event)
                     except asyncio.QueueFull:
                         logger.critical(
                             "Alarm event DROPPED (queue full after timeout): subscriber=%s type=%s",
-                            name, type(event).__name__,
+                            name,
+                            type(event).__name__,
                         )
                 except Exception as e:
                     logger.error(
                         "Failed to enqueue alarm event: subscriber=%s type=%s error=%s",
-                        name, type(event).__name__, e,
+                        name,
+                        type(event).__name__,
+                        e,
                     )
             else:
                 # S-02修复: 非关键事件（如 metrics、status）队列满时丢弃并计数
@@ -328,7 +338,9 @@ class EventBus:
                             dropped_total = self._dropped_count
                         logger.warning(
                             "Event queue full, non-critical event dropped: subscriber=%s type=%s dropped_total=%d",
-                            name, type(event).__name__, dropped_total,
+                            name,
+                            type(event).__name__,
+                            dropped_total,
                         )
 
         # 调用注册的处理器
@@ -346,10 +358,13 @@ class EventBus:
                 # FIXED-P1: handler 超时记录 warning，不重试（超时通常意味着 handler 死锁或卡死）
                 logger.warning(
                     "Event handler timed out after %.1fs: %s - %s",
-                    self._handler_timeout, event_type, getattr(handler, '__name__', repr(handler)),
+                    self._handler_timeout,
+                    event_type,
+                    getattr(handler, "__name__", repr(handler)),
                 )
             except Exception as e:
                 logger.error("Event handler execution failed: %s - %s", event_type, e)
+
                 # FIXED-P2: 原问题-handler失败后sleep(0.1)重试阻塞publish流程，改为fire-and-forget后台重试
                 # FIXED-P2: 原问题-重试task无done_callback，异常被吞没且可能task泄漏
                 # FIXED-P1: 使用 Semaphore(50) 限制并发重试 task 数量，防止无界 task 导致内存溢出
@@ -364,11 +379,14 @@ class EventBus:
                         except Exception as retry_e:
                             logger.error(
                                 "Event handler retry also failed: %s - %s",
-                                _et, retry_e,
+                                _et,
+                                retry_e,
                             )
+
                 retry_task = asyncio.create_task(_retry_handler(), name=f"event_retry_{event_type}")
                 # 并发安全: 跟踪重试任务，shutdown 时统一取消，防止 fire-and-forget 任务泄漏
                 self._retry_tasks.add(retry_task)
+
                 # BUG-005: 重试Task异常记录日志，而非静默吞没
                 def _on_retry_done(t: asyncio.Task, _tasks=self._retry_tasks):
                     # 并发安全: 任务完成后从跟踪集合移除
@@ -378,6 +396,7 @@ class EventBus:
                     exc = t.exception()
                     if exc:
                         logger.error("Event handler retry task failed: %s", exc)
+
                 retry_task.add_done_callback(_on_retry_done)
 
     async def start_handler_loop(self, subscriber_name: str, handler: Callable) -> None:
@@ -442,7 +461,8 @@ class EventBus:
                 except Exception as e:
                     logger.error(
                         "Event handler loop exception: %s - %s",
-                        subscriber_name, e,
+                        subscriber_name,
+                        e,
                     )  # FIXED-P3: 中文日志→英文
         except asyncio.CancelledError:
             logger.info(

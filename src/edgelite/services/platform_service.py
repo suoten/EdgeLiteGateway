@@ -45,6 +45,7 @@ def _mask_sensitive_config_fields(config: Any) -> Any:
         return [_mask_sensitive_config_fields(item) for item in config]
     return config
 
+
 _BROKER_PATTERN = re.compile(
     r"^(mqtt[s]?://)?"
     r"([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*"
@@ -54,27 +55,63 @@ _BROKER_PATTERN = re.compile(
 )
 
 _MQTT_COMMON_FIELDS = [
-    {"name": "broker", "type": "string", "label": "MQTT Broker Address", "placeholder": "e.g. 192.168.1.100 or mqtt.example.com", "required": True},
+    {
+        "name": "broker",
+        "type": "string",
+        "label": "MQTT Broker Address",
+        "placeholder": "e.g. 192.168.1.100 or mqtt.example.com",
+        "required": True,
+    },
     {"name": "port", "type": "integer", "label": "Port", "default": 1883, "required": True},
     {"name": "username", "type": "string", "label": "Username"},
     {"name": "password", "type": "string", "label": "Password", "secret": True},
     {"name": "client_id", "type": "string", "label": "Client ID", "placeholder": "Auto-generated if empty"},
     {"name": "keepalive", "type": "integer", "label": "Keepalive (s)", "default": 60},
-    {"name": "clean_session", "type": "string", "label": "Clean Session", "default": "true", "placeholder": "true/false"},
-    {"name": "protocol_version", "type": "integer", "label": "Protocol Version", "default": 4, "placeholder": "4=MQTT 3.1.1, 5=MQTT 5.0"},
+    {
+        "name": "clean_session",
+        "type": "string",
+        "label": "Clean Session",
+        "default": "true",
+        "placeholder": "true/false",
+    },
+    {
+        "name": "protocol_version",
+        "type": "integer",
+        "label": "Protocol Version",
+        "default": 4,
+        "placeholder": "4=MQTT 3.1.1, 5=MQTT 5.0",
+    },
     {"name": "transport", "type": "string", "label": "Transport", "default": "tcp", "placeholder": "tcp / websockets"},
 ]
 
 _MQTT_TLS_FIELDS = [
-    {"name": "tls_enabled", "type": "string", "label": "Enable TLS/SSL", "default": "false", "placeholder": "true/false"},
+    {
+        "name": "tls_enabled",
+        "type": "string",
+        "label": "Enable TLS/SSL",
+        "default": "false",
+        "placeholder": "true/false",
+    },
     {"name": "ca_cert", "type": "string", "label": "CA Certificate (PEM)", "placeholder": "Path or paste PEM content"},
     {"name": "client_cert", "type": "string", "label": "Client Certificate (PEM)", "placeholder": "For mTLS"},
     {"name": "client_key", "type": "string", "label": "Client Key (PEM)", "secret": True, "placeholder": "For mTLS"},
-    {"name": "verify_server", "type": "string", "label": "Verify Server Cert", "default": "true", "placeholder": "true/false"},
+    {
+        "name": "verify_server",
+        "type": "string",
+        "label": "Verify Server Cert",
+        "default": "true",
+        "placeholder": "true/false",
+    },
 ]
 
 _MQTT_WILL_FIELDS = [
-    {"name": "will_enabled", "type": "string", "label": "Enable Last Will", "default": "false", "placeholder": "true/false"},
+    {
+        "name": "will_enabled",
+        "type": "string",
+        "label": "Enable Last Will",
+        "default": "false",
+        "placeholder": "true/false",
+    },
     {"name": "will_topic", "type": "string", "label": "Will Topic", "placeholder": "e.g. edgelite/status"},
     {"name": "will_payload", "type": "string", "label": "Will Payload", "default": "offline"},
     {"name": "will_qos", "type": "integer", "label": "Will QoS", "default": 1},
@@ -82,7 +119,12 @@ _MQTT_WILL_FIELDS = [
 ]
 
 _MQTT5_FIELDS = [
-    {"name": "message_expiry_interval", "type": "integer", "label": "Message Expiry (s)", "placeholder": "Seconds, empty=never"},
+    {
+        "name": "message_expiry_interval",
+        "type": "integer",
+        "label": "Message Expiry (s)",
+        "placeholder": "Seconds, empty=never",
+    },
     {"name": "content_type", "type": "string", "label": "Content Type", "placeholder": "e.g. application/json"},
     {"name": "response_topic", "type": "string", "label": "Response Topic"},
     {"name": "correlation_data", "type": "string", "label": "Correlation Data"},
@@ -90,15 +132,38 @@ _MQTT5_FIELDS = [
 
 _TOPIC_TEMPLATE_FIELDS = [
     {"name": "topic_prefix", "type": "string", "label": "Topic Prefix", "default": "edgelite"},
-    {"name": "topic_template", "type": "string", "label": "Topic Template", "default": "{prefix}/{device_id}/{point_id}", "placeholder": "Variables: {prefix}, {device_id}, {point_id}, {quality}"},
-    {"name": "status_topic_template", "type": "string", "label": "Status Topic Template", "default": "{prefix}/{device_id}/status"},
+    {
+        "name": "topic_template",
+        "type": "string",
+        "label": "Topic Template",
+        "default": "{prefix}/{device_id}/{point_id}",
+        "placeholder": "Variables: {prefix}, {device_id}, {point_id}, {quality}",
+    },
+    {
+        "name": "status_topic_template",
+        "type": "string",
+        "label": "Status Topic Template",
+        "default": "{prefix}/{device_id}/status",
+    },
 ]
 
 _PAYLOAD_FIELDS = [
-    {"name": "payload_format", "type": "string", "label": "Payload Format", "default": "json", "placeholder": "json / cbor / protobuf / custom"},
+    {
+        "name": "payload_format",
+        "type": "string",
+        "label": "Payload Format",
+        "default": "json",
+        "placeholder": "json / cbor / protobuf / custom",
+    },
     {"name": "custom_template", "type": "string", "label": "Custom Template", "placeholder": "Only for custom format"},
     {"name": "compress_threshold", "type": "integer", "label": "Compression Threshold (bytes)", "default": 1024},
-    {"name": "enable_compression", "type": "string", "label": "Enable Compression", "default": "true", "placeholder": "true/false"},
+    {
+        "name": "enable_compression",
+        "type": "string",
+        "label": "Enable Compression",
+        "default": "true",
+        "placeholder": "true/false",
+    },
 ]
 
 _QOS_FIELDS = [
@@ -140,13 +205,31 @@ def _ensure_registry() -> dict[str, dict]:
                 "north_adapter": "edgelite.platform.north_adapters",
                 "north_class": "IoTSharpNorthAdapter",
                 "base_fields": [
-                    {"name": "broker", "type": "string", "label": "MQTT Broker Address", "placeholder": "e.g. iotsharp.example.com", "required": True},
+                    {
+                        "name": "broker",
+                        "type": "string",
+                        "label": "MQTT Broker Address",
+                        "placeholder": "e.g. iotsharp.example.com",
+                        "required": True,
+                    },
                     {"name": "port", "type": "integer", "label": "MQTT Port", "default": 1883, "required": True},
                     {"name": "device_token", "type": "string", "label": "Device Token", "required": True},
                     {"name": "username", "type": "string", "label": "MQTT Username"},
                     {"name": "password", "type": "string", "label": "MQTT Password", "secret": True},
-                    {"name": "shadow_enabled", "type": "string", "label": "Enable Device Shadow", "default": "true", "placeholder": "true/false"},
-                    {"name": "attribute_publish", "type": "string", "label": "Attribute Publish", "default": "true", "placeholder": "true/false"},
+                    {
+                        "name": "shadow_enabled",
+                        "type": "string",
+                        "label": "Enable Device Shadow",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "attribute_publish",
+                        "type": "string",
+                        "label": "Attribute Publish",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
                 ],
             },
             "thingsboard": {
@@ -157,24 +240,93 @@ def _ensure_registry() -> dict[str, dict]:
                 "north_adapter": "edgelite.platform.north_adapters",
                 "north_class": "ThingsBoardNorthAdapter",
                 "base_fields": [
-                    {"name": "broker", "type": "string", "label": "MQTT Broker Address", "placeholder": "e.g. thingsboard.example.com", "required": True},
+                    {
+                        "name": "broker",
+                        "type": "string",
+                        "label": "MQTT Broker Address",
+                        "placeholder": "e.g. thingsboard.example.com",
+                        "required": True,
+                    },
                     {"name": "port", "type": "integer", "label": "MQTT Port", "default": 1883, "required": True},
                     {"name": "token", "type": "string", "label": "Gateway Access Token", "required": True},
-                    {"name": "server_url", "type": "string", "label": "ThingsBoard HTTP URL", "placeholder": "e.g. http://thingsboard.example.com:8080"},
-                    {"name": "auth_mode", "type": "string", "label": "Auth Mode", "default": "access_token", "placeholder": "access_token / basic"},
-                    {"name": "tb_admin_token", "type": "string", "label": "Admin JWT Token (for HTTP API)", "placeholder": "For device auto-registration"},
+                    {
+                        "name": "server_url",
+                        "type": "string",
+                        "label": "ThingsBoard HTTP URL",
+                        "placeholder": "e.g. http://thingsboard.example.com:8080",
+                    },
+                    {
+                        "name": "auth_mode",
+                        "type": "string",
+                        "label": "Auth Mode",
+                        "default": "access_token",
+                        "placeholder": "access_token / basic",
+                    },
+                    {
+                        "name": "tb_admin_token",
+                        "type": "string",
+                        "label": "Admin JWT Token (for HTTP API)",
+                        "placeholder": "For device auto-registration",
+                    },
                     {"name": "tb_username", "type": "string", "label": "TB Username (Basic Auth)"},
                     {"name": "tb_password", "type": "string", "label": "TB Password (Basic Auth)", "secret": True},
-                    {"name": "transport_mode", "type": "string", "label": "Transport Mode", "default": "mqtt", "placeholder": "mqtt / http / both"},
+                    {
+                        "name": "transport_mode",
+                        "type": "string",
+                        "label": "Transport Mode",
+                        "default": "mqtt",
+                        "placeholder": "mqtt / http / both",
+                    },
                     {"name": "http_pool_size", "type": "integer", "label": "HTTP Pool Size", "default": 50},
                     {"name": "http_timeout", "type": "integer", "label": "HTTP Timeout (s)", "default": 10},
-                    {"name": "auto_register", "type": "string", "label": "Auto Register Devices", "default": "true", "placeholder": "true/false"},
-                    {"name": "name_template", "type": "string", "label": "Device Name Template", "default": "EdgeLite-{device_id}"},
-                    {"name": "attr_sync_enabled", "type": "string", "label": "Attribute Sync", "default": "true", "placeholder": "true/false"},
-                    {"name": "server_attributes", "type": "string", "label": "Server Attributes", "default": "model,location,firmware_version", "placeholder": "Comma-separated"},
-                    {"name": "shared_attributes", "type": "string", "label": "Shared Attributes", "default": "report_interval,collect_interval", "placeholder": "Comma-separated"},
-                    {"name": "rpc_enabled", "type": "string", "label": "RPC Enabled", "default": "true", "placeholder": "true/false"},
-                    {"name": "alarm_sync_enabled", "type": "string", "label": "Alarm Sync", "default": "true", "placeholder": "true/false"},
+                    {
+                        "name": "auto_register",
+                        "type": "string",
+                        "label": "Auto Register Devices",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "name_template",
+                        "type": "string",
+                        "label": "Device Name Template",
+                        "default": "EdgeLite-{device_id}",
+                    },
+                    {
+                        "name": "attr_sync_enabled",
+                        "type": "string",
+                        "label": "Attribute Sync",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "server_attributes",
+                        "type": "string",
+                        "label": "Server Attributes",
+                        "default": "model,location,firmware_version",
+                        "placeholder": "Comma-separated",
+                    },
+                    {
+                        "name": "shared_attributes",
+                        "type": "string",
+                        "label": "Shared Attributes",
+                        "default": "report_interval,collect_interval",
+                        "placeholder": "Comma-separated",
+                    },
+                    {
+                        "name": "rpc_enabled",
+                        "type": "string",
+                        "label": "RPC Enabled",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "alarm_sync_enabled",
+                        "type": "string",
+                        "label": "Alarm Sync",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
                 ],
             },
             "huawei_iotda": {
@@ -185,20 +337,81 @@ def _ensure_registry() -> dict[str, dict]:
                 "north_adapter": "edgelite.platform.north_adapters",
                 "north_class": "HuaweiIoTDANorthAdapter",
                 "base_fields": [
-                    {"name": "broker", "type": "string", "label": "MQTT Broker", "placeholder": "e.g. a123b456c.iot-mqtts.cn-north-4.myhuaweicloud.com", "required": True},
+                    {
+                        "name": "broker",
+                        "type": "string",
+                        "label": "MQTT Broker",
+                        "placeholder": "e.g. a123b456c.iot-mqtts.cn-north-4.myhuaweicloud.com",
+                        "required": True,
+                    },
                     {"name": "port", "type": "integer", "label": "Port", "default": 8883},
                     {"name": "hw_device_id", "type": "string", "label": "Huawei Device ID", "required": True},
-                    {"name": "node_id", "type": "string", "label": "Node ID", "placeholder": "For ID mapping: {node_id}_{device_id}"},
+                    {
+                        "name": "node_id",
+                        "type": "string",
+                        "label": "Node ID",
+                        "placeholder": "For ID mapping: {node_id}_{device_id}",
+                    },
                     {"name": "secret", "type": "string", "label": "Device Secret (HMAC)", "secret": True},
-                    {"name": "auth_mode", "type": "string", "label": "Auth Mode", "default": "secret", "placeholder": "secret / certificate"},
-                    {"name": "timestamp_check", "type": "string", "label": "Timestamp Check", "default": "0", "placeholder": "0=no verify / 1=verify"},
-                    {"name": "ca_cert", "type": "string", "label": "CA Certificate (PEM)", "placeholder": "For MQTTS/certificate auth"},
-                    {"name": "client_cert", "type": "string", "label": "Client Certificate (PEM)", "placeholder": "For X.509 certificate auth"},
-                    {"name": "client_key", "type": "string", "label": "Client Key (PEM)", "secret": True, "placeholder": "For X.509 certificate auth"},
-                    {"name": "verify_server", "type": "string", "label": "Verify Server Cert", "default": "true", "placeholder": "true/false"},
-                    {"name": "shadow_enabled", "type": "string", "label": "Enable Device Shadow", "default": "true", "placeholder": "true/false"},
-                    {"name": "device_id_mapping", "type": "string", "label": "Device ID Mapping (JSON)", "placeholder": "e.g. {\"d1\":\"hw_d1\"}"},
-                    {"name": "node_id_mapping", "type": "string", "label": "Node ID Mapping (JSON)", "placeholder": "e.g. {\"d1\":\"node1\"}"},
+                    {
+                        "name": "auth_mode",
+                        "type": "string",
+                        "label": "Auth Mode",
+                        "default": "secret",
+                        "placeholder": "secret / certificate",
+                    },
+                    {
+                        "name": "timestamp_check",
+                        "type": "string",
+                        "label": "Timestamp Check",
+                        "default": "0",
+                        "placeholder": "0=no verify / 1=verify",
+                    },
+                    {
+                        "name": "ca_cert",
+                        "type": "string",
+                        "label": "CA Certificate (PEM)",
+                        "placeholder": "For MQTTS/certificate auth",
+                    },
+                    {
+                        "name": "client_cert",
+                        "type": "string",
+                        "label": "Client Certificate (PEM)",
+                        "placeholder": "For X.509 certificate auth",
+                    },
+                    {
+                        "name": "client_key",
+                        "type": "string",
+                        "label": "Client Key (PEM)",
+                        "secret": True,
+                        "placeholder": "For X.509 certificate auth",
+                    },
+                    {
+                        "name": "verify_server",
+                        "type": "string",
+                        "label": "Verify Server Cert",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "shadow_enabled",
+                        "type": "string",
+                        "label": "Enable Device Shadow",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "device_id_mapping",
+                        "type": "string",
+                        "label": "Device ID Mapping (JSON)",
+                        "placeholder": 'e.g. {"d1":"hw_d1"}',
+                    },
+                    {
+                        "name": "node_id_mapping",
+                        "type": "string",
+                        "label": "Node ID Mapping (JSON)",
+                        "placeholder": 'e.g. {"d1":"node1"}',
+                    },
                 ],
             },
             "thingscloud": {
@@ -209,13 +422,37 @@ def _ensure_registry() -> dict[str, dict]:
                 "north_adapter": "edgelite.platform.north_adapters",
                 "north_class": "ThingsCloudNorthAdapter",
                 "base_fields": [
-                    {"name": "broker", "type": "string", "label": "MQTT Broker", "placeholder": "e.g. mqtt.thingscloud.cn", "required": True},
+                    {
+                        "name": "broker",
+                        "type": "string",
+                        "label": "MQTT Broker",
+                        "placeholder": "e.g. mqtt.thingscloud.cn",
+                        "required": True,
+                    },
                     {"name": "port", "type": "integer", "label": "Port", "default": 1883},
                     {"name": "access_key", "type": "string", "label": "Access Key (ProjectId)", "required": True},
-                    {"name": "access_secret", "type": "string", "label": "Access Secret", "secret": True, "required": True},
+                    {
+                        "name": "access_secret",
+                        "type": "string",
+                        "label": "Access Secret",
+                        "secret": True,
+                        "required": True,
+                    },
                     {"name": "project_id", "type": "string", "label": "Project ID"},
-                    {"name": "command_enabled", "type": "string", "label": "Enable Command Receive", "default": "true", "placeholder": "true/false"},
-                    {"name": "status_report", "type": "string", "label": "Device Status Report", "default": "true", "placeholder": "true/false"},
+                    {
+                        "name": "command_enabled",
+                        "type": "string",
+                        "label": "Enable Command Receive",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "status_report",
+                        "type": "string",
+                        "label": "Device Status Report",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
                 ],
             },
             "thingspanel": {
@@ -226,39 +463,117 @@ def _ensure_registry() -> dict[str, dict]:
                 "north_adapter": "edgelite.platform.north_adapters",
                 "north_class": "ThingsPanelNorthAdapter",
                 "base_fields": [
-                    {"name": "broker", "type": "string", "label": "MQTT Broker", "placeholder": "e.g. mqtt.thingspanel.cn", "required": True},
+                    {
+                        "name": "broker",
+                        "type": "string",
+                        "label": "MQTT Broker",
+                        "placeholder": "e.g. mqtt.thingspanel.cn",
+                        "required": True,
+                    },
                     {"name": "port", "type": "integer", "label": "Port", "default": 1883},
                     {"name": "device_token", "type": "string", "label": "Device Token", "required": True},
-                    {"name": "api_url", "type": "string", "label": "HTTP API URL", "placeholder": "e.g. http://thingspanel:8080"},
+                    {
+                        "name": "api_url",
+                        "type": "string",
+                        "label": "HTTP API URL",
+                        "placeholder": "e.g. http://thingspanel:8080",
+                    },
                     {"name": "api_key", "type": "string", "label": "API Key (Bearer Token)", "secret": True},
                     {"name": "username", "type": "string", "label": "MQTT Username"},
                     {"name": "password", "type": "string", "label": "MQTT Password", "secret": True},
-                    {"name": "alarm_push", "type": "string", "label": "Enable Alarm Push (HTTP)", "default": "true", "placeholder": "true/false"},
-                    {"name": "auto_register", "type": "string", "label": "Auto Register Devices", "default": "true", "placeholder": "true/false"},
+                    {
+                        "name": "alarm_push",
+                        "type": "string",
+                        "label": "Enable Alarm Push (HTTP)",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "auto_register",
+                        "type": "string",
+                        "label": "Auto Register Devices",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
                 ],
             },
             "custom": {
                 "label": "Custom MQTT",
-                "description": "Highly configurable custom MQTT adapter with template engine, script extension, multi-broker support",
+                "description": "Highly configurable custom MQTT adapter with template engine, script extension, multi-broker support",  # noqa: E501
                 "module": "edgelite.platform.custom_mqtt",
                 "class": "CustomMqttHandler",
                 "north_adapter": "edgelite.platform.north_adapters",
                 "north_class": "CustomMqttNorthAdapter",
                 "base_fields": [
-                    {"name": "broker", "type": "string", "label": "MQTT Broker", "placeholder": "e.g. 192.168.1.100 or mqtt.example.com", "required": True},
+                    {
+                        "name": "broker",
+                        "type": "string",
+                        "label": "MQTT Broker",
+                        "placeholder": "e.g. 192.168.1.100 or mqtt.example.com",
+                        "required": True,
+                    },
                     {"name": "port", "type": "integer", "label": "Port", "default": 1883},
                     {"name": "username", "type": "string", "label": "Username"},
                     {"name": "password", "type": "string", "label": "Password", "secret": True},
                     {"name": "topic_prefix", "type": "string", "label": "Topic Prefix", "default": "edgelite"},
-                    {"name": "topic_template", "type": "string", "label": "Topic Template", "default": "{prefix}/{device_id}/{point_id}", "placeholder": "Variables: {device_id}, {point_id}, {value}, {quality}, etc."},
-                    {"name": "payload_template", "type": "string", "label": "Payload Template", "placeholder": "JSON template with {device_id}, {value}, {timestamp}, etc."},
-                    {"name": "batch_payload_template", "type": "string", "label": "Batch Payload Template", "placeholder": "{for point in points}...{/for}"},
-                    {"name": "gateway_id", "type": "string", "label": "Gateway ID", "placeholder": "Auto-generated if empty"},
-                    {"name": "script_enabled", "type": "string", "label": "Enable Script Transform", "default": "false", "placeholder": "true/false"},
-                    {"name": "script_code", "type": "string", "label": "JavaScript Script", "placeholder": "function transform(payload, context) { return payload; }"},
-                    {"name": "payload_format", "type": "string", "label": "Payload Format", "default": "custom", "placeholder": "json / cbor / protobuf / custom"},
-                    {"name": "enable_compression", "type": "string", "label": "Enable Compression", "default": "true", "placeholder": "true/false"},
-                    {"name": "compress_threshold", "type": "integer", "label": "Compression Threshold (bytes)", "default": 1024},
+                    {
+                        "name": "topic_template",
+                        "type": "string",
+                        "label": "Topic Template",
+                        "default": "{prefix}/{device_id}/{point_id}",
+                        "placeholder": "Variables: {device_id}, {point_id}, {value}, {quality}, etc.",
+                    },
+                    {
+                        "name": "payload_template",
+                        "type": "string",
+                        "label": "Payload Template",
+                        "placeholder": "JSON template with {device_id}, {value}, {timestamp}, etc.",
+                    },
+                    {
+                        "name": "batch_payload_template",
+                        "type": "string",
+                        "label": "Batch Payload Template",
+                        "placeholder": "{for point in points}...{/for}",
+                    },
+                    {
+                        "name": "gateway_id",
+                        "type": "string",
+                        "label": "Gateway ID",
+                        "placeholder": "Auto-generated if empty",
+                    },
+                    {
+                        "name": "script_enabled",
+                        "type": "string",
+                        "label": "Enable Script Transform",
+                        "default": "false",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "script_code",
+                        "type": "string",
+                        "label": "JavaScript Script",
+                        "placeholder": "function transform(payload, context) { return payload; }",
+                    },
+                    {
+                        "name": "payload_format",
+                        "type": "string",
+                        "label": "Payload Format",
+                        "default": "custom",
+                        "placeholder": "json / cbor / protobuf / custom",
+                    },
+                    {
+                        "name": "enable_compression",
+                        "type": "string",
+                        "label": "Enable Compression",
+                        "default": "true",
+                        "placeholder": "true/false",
+                    },
+                    {
+                        "name": "compress_threshold",
+                        "type": "integer",
+                        "label": "Compression Threshold (bytes)",
+                        "default": 1024,
+                    },
                     {"name": "dedup_window_seconds", "type": "integer", "label": "Dedup Window (s)", "default": 300},
                 ],
             },
@@ -355,27 +670,28 @@ class PlatformService:
         for name, h in self._handlers.items():
             adapter = self._adapters.get(name)
             if adapter:
-                result.append({
-                    "name": getattr(adapter, "platform_name", name),
-                    "version": getattr(adapter, "platform_version", "1.0.0"),
-                    "connected": adapter._connected,
-                    "state": adapter._state,
-                })
+                result.append(
+                    {
+                        "name": getattr(adapter, "platform_name", name),
+                        "version": getattr(adapter, "platform_version", "1.0.0"),
+                        "connected": adapter._connected,
+                        "state": adapter._state,
+                    }
+                )
             else:
-                result.append({
-                    "name": getattr(h, "platform_name", name),
-                    "version": getattr(h, "platform_version", "1.0.0"),
-                    "connected": getattr(h, "_connected", False),
-                    "state": "unknown",
-                })
+                result.append(
+                    {
+                        "name": getattr(h, "platform_name", name),
+                        "version": getattr(h, "platform_version", "1.0.0"),
+                        "connected": getattr(h, "_connected", False),
+                        "state": "unknown",
+                    }
+                )
         return result
 
     def list_supported(self) -> list[dict[str, str]]:
         registry = _ensure_registry()
-        return [
-            {"name": k, "label": v["label"], "description": v["description"]}
-            for k, v in registry.items()
-        ]
+        return [{"name": k, "label": v["label"], "description": v["description"]} for k, v in registry.items()]
 
     def get_config_schema(self, platform_name: str) -> dict | None:
         registry = _ensure_registry()
@@ -419,7 +735,17 @@ class PlatformService:
                 errors.append("ERR_PLATFORM_VALIDATION_PORT_NUMBER")
 
         # FIXED: PEM 证书、脚本代码等长文本字段允许更大长度
-        _LONG_TEXT_FIELDS = {"ca_cert", "client_cert", "client_key", "script_code", "custom_template", "password", "auth_token", "auth_key", "secret"}
+        _LONG_TEXT_FIELDS = {
+            "ca_cert",
+            "client_cert",
+            "client_key",
+            "script_code",
+            "custom_template",
+            "password",
+            "auth_token",
+            "auth_key",
+            "secret",
+        }
         for f in base_fields:
             name = f["name"]
             val = config.get(name)
@@ -430,6 +756,7 @@ class PlatformService:
         topic_template = config.get("topic_template")
         if topic_template:
             from edgelite.platform.mqtt_utils import TopicTemplateEngine
+
             valid, template_errors = TopicTemplateEngine.validate_template(topic_template)
             if not valid:
                 for te in template_errors:
@@ -607,7 +934,10 @@ class PlatformService:
             return {"success": False, "message": "Connection test failed, check logs for details"}
 
     async def _test_north_adapter(
-        self, adapter_cls: type, platform_name: str, config: dict,
+        self,
+        adapter_cls: type,
+        platform_name: str,
+        config: dict,
     ) -> dict[str, Any]:
         north_config = _build_north_config(platform_name, config)
         adapter = adapter_cls(north_config)
@@ -649,6 +979,7 @@ class PlatformService:
 
     def validate_topic_template(self, template: str) -> dict:
         from edgelite.platform.mqtt_utils import TopicTemplateEngine
+
         valid, errors = TopicTemplateEngine.validate_template(template)
         variables = TopicTemplateEngine.extract_variables(template)
         return {
@@ -679,8 +1010,15 @@ class PlatformService:
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_sync_status"):
             return adapter.get_sync_status()
-        return {"total_devices": 0, "registered_devices": 0, "pending_devices": 0,
-                "last_sync_ts": 0.0, "rpc_pending": 0, "rpc_completed": 0, "alarms_synced": 0}
+        return {
+            "total_devices": 0,
+            "registered_devices": 0,
+            "pending_devices": 0,
+            "last_sync_ts": 0.0,
+            "rpc_pending": 0,
+            "rpc_completed": 0,
+            "alarms_synced": 0,
+        }
 
     def get_platform_shadow(self, platform_name: str) -> dict:
         adapter = self._adapters.get(platform_name)
@@ -706,7 +1044,9 @@ class PlatformService:
             return adapter.get_device_mapping()
         return []
 
-    async def get_dashboard_data(self) -> list[dict[str, Any]]:  # FIXED-P0: 适配BaseNorthAdapter.get_dashboard_data改为async
+    async def get_dashboard_data(
+        self,
+    ) -> list[dict[str, Any]]:  # FIXED-P0: 适配BaseNorthAdapter.get_dashboard_data改为async
         registry = _ensure_registry()
         result = []
         all_names = set(list(self._adapters.keys()) + list(self._handlers.keys()))
@@ -719,30 +1059,34 @@ class PlatformService:
                 handler = self._handlers.get(name)
                 if handler:
                     label = registry.get(name, {}).get("label", name)
-                    result.append({
+                    result.append(
+                        {
+                            "platform_name": name,
+                            "label": label,
+                            "state": "unknown",
+                            "connected": getattr(handler, "_connected", False),
+                            "messages_today": 0,
+                            "error_rate": 0.0,
+                            "queue_backlog": 0,
+                            "last_heartbeat": None,
+                            "latency_ms": 0.0,
+                        }
+                    )
+        for name, entry in registry.items():
+            if name not in all_names:
+                result.append(
+                    {
                         "platform_name": name,
-                        "label": label,
-                        "state": "unknown",
-                        "connected": getattr(handler, "_connected", False),
+                        "label": entry["label"],
+                        "state": "disconnected",
+                        "connected": False,
                         "messages_today": 0,
                         "error_rate": 0.0,
                         "queue_backlog": 0,
                         "last_heartbeat": None,
                         "latency_ms": 0.0,
-                    })
-        for name, entry in registry.items():
-            if name not in all_names:
-                result.append({
-                    "platform_name": name,
-                    "label": entry["label"],
-                    "state": "disconnected",
-                    "connected": False,
-                    "messages_today": 0,
-                    "error_rate": 0.0,
-                    "queue_backlog": 0,
-                    "last_heartbeat": None,
-                    "latency_ms": 0.0,
-                })
+                    }
+                )
         return result
 
     def export_config(self, platform_name: str) -> dict:
@@ -789,15 +1133,29 @@ class PlatformService:
             result["brokers"] = brokers
             if brokers:
                 primary = brokers[0]
-                for key in ("broker_host", "broker_port", "username", "password",
-                            "client_id", "keepalive", "clean_session", "protocol_version", "transport"):
+                for key in (
+                    "broker_host",
+                    "broker_port",
+                    "username",
+                    "password",
+                    "client_id",
+                    "keepalive",
+                    "clean_session",
+                    "protocol_version",
+                    "transport",
+                ):
                     if key in primary:
                         mapped = key if key != "broker_host" else "broker"
                         result[mapped] = primary[key]
         template = nested.get("template", {})
         if template:
-            for key in ("topic_template", "payload_template", "batch_payload_template",
-                        "status_topic_template", "topic_prefix"):
+            for key in (
+                "topic_template",
+                "payload_template",
+                "batch_payload_template",
+                "status_topic_template",
+                "topic_prefix",
+            ):
                 if key in template:
                     result[key] = template[key]
         script = nested.get("script", {})
@@ -808,8 +1166,7 @@ class PlatformService:
                 result["script_code"] = script["script"]
             if "script_language" in script:
                 result["script_language"] = script["script_language"]
-        for key in ("gateway_id", "payload_format", "enable_compression",
-                     "compress_threshold", "dedup_window_seconds"):
+        for key in ("gateway_id", "payload_format", "enable_compression", "compress_threshold", "dedup_window_seconds"):
             if key in nested:
                 result[key] = nested[key]
         user_props = nested.get("user_properties", [])
@@ -831,6 +1188,7 @@ class PlatformService:
 
     def validate_advanced_template(self, template: str, template_type: str = "payload") -> dict:
         from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
+
         valid, errors = AdvancedTemplateEngine.validate_template(template)
         variables = AdvancedTemplateEngine.extract_variables(template)
         return {
@@ -842,6 +1200,7 @@ class PlatformService:
 
     def preview_template(self, template: str, test_data: dict, template_type: str = "payload") -> dict:
         from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
+
         engine = AdvancedTemplateEngine(gateway_id=test_data.get("gateway_id", ""))
         try:
             if template_type == "topic":
@@ -858,12 +1217,14 @@ class PlatformService:
 
     def validate_script(self, script: str) -> dict:
         from edgelite.platform.js_sandbox import JsSandbox
+
         sandbox = JsSandbox()
         valid, errors = sandbox.validate_script(script)
         return {"valid": valid, "errors": errors}
 
     async def test_script(self, script: str, test_payload: dict, test_context: dict | None = None) -> dict:
         from edgelite.platform.js_sandbox import JsSandbox
+
         sandbox = JsSandbox()
         result = await sandbox.execute(script, test_payload, test_context or {})
         return {

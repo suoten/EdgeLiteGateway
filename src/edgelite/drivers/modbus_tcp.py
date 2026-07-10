@@ -34,6 +34,24 @@ from edgelite.drivers.edge_rule_engine import (
 )
 from edgelite.drivers.edge_triggers import EdgeTriggerExecutor
 from edgelite.drivers.modbus_audit import ModbusAudit, ModbusAuditAction
+
+# FIXED-P2 (Task #17): 共享常量与函数统一从 modbus_base 导入，消除 TCP/RTU 重复定义，
+# 确保 `modbus_tcp.X is modbus_base.X` 同一性检查通过。
+from edgelite.drivers.modbus_base import (
+    _BYTE_ORDER_FMT,
+    _MODBUS_EXCEPTION_CODES,
+    DATA_TYPE_REGS,
+    REGISTER_TYPES,
+    _detect_slave_kwarg_name,
+    _parse_modbus_exception,
+    _set_client_slave_id,
+)
+from edgelite.drivers.modbus_base import (
+    _read_kwargs as _read_kwargs_base,
+)
+from edgelite.drivers.modbus_base import (
+    _slave_kwarg as _slave_kwarg_base,
+)
 from edgelite.drivers.modbus_config_version import ModbusConfigVersion
 from edgelite.drivers.modbus_ts_store import ModbusTsStore
 from edgelite.drivers.offline_sync import OfflineSyncManager
@@ -63,109 +81,23 @@ _SINGLE_POINT_RETRY_DELAYS = (1, 2, 4)
 # MTCP-009: _last_values 最大容量（LRU 淘汰）
 _MAX_LAST_VALUES = 10000
 
-# _SLAVE_KWARG_NAME: "slave"(pymodbus 2.x) | "unit"(pymodbus 3.0~3.6) | "slave"(pymodbus 3.7+)
-# FIXED-MT2-H03: pymodbus 3.7+ 仍接受slave 关键字参数，per-call 传递避免共享连接竞态
-_SLAVE_KWARG_NAME: str | None = None
-
-# Modbus异常码映射
-_MODBUS_EXCEPTION_CODES = {
-    0x81: "Illegal Function (0x01)",
-    0x82: "Illegal Data Address (0x02)",
-    0x83: "Illegal Data Value (0x03)",
-    0x84: "Server Device Failure (0x04)",
-    0x85: "Acknowledge (0x05)",
-    0x86: "Server Device Busy (0x06)",
-    0x87: "Negative Acknowledge (0x07)",
-    0x88: "Memory Parity Error (0x08)",
-    0x8A: "Gateway Path Unavailable (0x0A)",
-    0x8B: "Gateway Target Device Failed (0x0B)",
-    0xAB: "Extended Exception (0x2B)",
-}
-
-
-def _detect_slave_kwarg_name() -> str | None:
-    """根据pymodbus版本号检测正确的slave参数名称
-    pymodbus 2.x: slave
-    pymodbus 3.0~3.6: unit
-    pymodbus 3.7+: slave (per-call传递，避免共享连接slave_id竞态）
-    """
-    if _PYMODBUS_MAJOR < 3:
-        return "slave"
-    if _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 7:
-        return "unit"
-    return "slave"
+# _SLAVE_KWARG_NAME / _detect_slave_kwarg_name / _set_client_slave_id 由 modbus_base 维护，
+# TCP 不再持有本地副本（FIXED-P2 Task #17），消除 TCP/RTU 间重复定义与版本检测漂移。
 
 
 def _slave_kwarg(slave_id: int) -> dict:
-    """返回正确的Modbus 设备 ID 参数，所有版本均 per-call 传递"""
-    if slave_id != 0 and not 1 <= slave_id <= 247:
-        raise ValueError(f"Modbus config invalid: slave_id must be 0-247, got {slave_id}")
-    global _SLAVE_KWARG_NAME
-    if _SLAVE_KWARG_NAME is None:
-        _SLAVE_KWARG_NAME = _detect_slave_kwarg_name()
-    if _SLAVE_KWARG_NAME is None:
-        return {}
-    return {_SLAVE_KWARG_NAME: slave_id}
+    """返回正确的 Modbus 设备 ID 参数（TCP 模式：允许 slave_id=0 广播写）
 
-
-def _set_client_slave_id(client: AsyncModbusTcpClient, slave_id: int) -> None:
-    """为pymodbus 3.7+ 设置 client.slave_id（现在per-call 传递，此函数为兼容保留）"""
-    if _SLAVE_KWARG_NAME is None and hasattr(client, "slave_id"):
-        client.slave_id = slave_id
+    所有 pymodbus 版本均 per-call 传递 slave 参数，避免共享连接 slave_id 竞态。
+    TCP 模式允许 slave_id=0（广播地址），其余值需 1-247。
+    """
+    return _slave_kwarg_base(slave_id, allow_broadcast=True)
 
 
 def _read_kwargs(count: int, slave_id: int) -> dict:
-    """返回正确的读取方法关键字参数"""
-    kwargs = _slave_kwarg(slave_id)
-    kwargs["count"] = count  # FIXED: 始终传count，旧版本默认count=1导致float32等类型读取不完整
-    return kwargs
+    """返回正确的读取方法关键字参数（TCP 模式：允许 slave_id=0 广播读）"""
+    return _read_kwargs_base(count, slave_id, allow_broadcast=True)
 
-
-def _parse_modbus_exception(result: Any) -> str | None:
-    """解析Modbus错误响应中的异常码，返回异常码描述或None"""
-    try:
-        raw = getattr(result, "raw", None) or getattr(result, "value", None)
-        if raw and isinstance(raw, (bytes, list)):
-            data = raw if isinstance(raw, bytes) else bytes(raw)
-            if len(data) >= 2:
-                exc_code = data[1] | 0x80
-                return _MODBUS_EXCEPTION_CODES.get(exc_code)
-        err_str = str(result)
-        for code, desc in _MODBUS_EXCEPTION_CODES.items():
-            if hex(code) in err_str or desc.split("(")[0].strip() in err_str:
-                return desc
-    except Exception as e:
-        logger.debug("Failed to parse modbus exception: %s", e)
-    return None
-
-
-# 寄存器类型映射
-REGISTER_TYPES = {
-    "coil": (0, 1),  # 0x01 → read_coils, → write_coil
-    "discrete": (1, 1),  # 1x → read_discrete inputs
-    "holding": (3, 2),  # 3x → read_holding_registers, → write_register
-    "input": (4, 2),  # 4x → read_input_registers
-}
-
-# 数据类型→寄存器数量映射
-DATA_TYPE_REGS = {
-    "bool": 1,
-    "int16": 1,
-    "uint16": 1,
-    "int32": 2,
-    "uint32": 2,
-    "float32": 2,
-    "float64": 4,
-    "string": 1,  # 每个寄存器2字节
-}
-
-# 字节序→(寄存器打包格式, 浮点/整数解包格式)
-_BYTE_ORDER_FMT = {
-    "ABCD": (">", ">"),
-    "BADC": ("<", ">"),
-    "CDAB": (">", "<"),
-    "DCBA": ("<", "<"),
-}
 
 _EXCEPTION_ERROR_CODE_MAP: dict[type, str] = {
     ModbusException: ModbusDriverErrors.READ_EXCEPTION,
@@ -198,41 +130,309 @@ class ModbusTcpDriver(DriverPlugin):
     config_schema = {
         "description": "Modbus TCP industrial standard protocol for reading/writing PLC/instrument coils and registers",
         "required": ["host", "port", "slave_id"],
-        "properties": {"host": {"type": "string", "description": "PLC/gateway IP address", "format": "ipv4"}, "host_backup": {"type": "string", "description": "Backup IP address for link redundancy", "format": "ipv4"}, "port": {"type": "integer", "description": "Modbus TCP port", "minimum": 1, "maximum": 65535}, "slave_id": {"type": "integer", "description": "Device slave address (Unit ID)", "minimum": 1, "maximum": 247}, "timeout": {"type": "number", "description": "Connection and read timeout", "minimum": 0.1, "maximum": 60, "default": 3.0}, "byte_order": {"type": "string", "description": "Multi-register byte order", "enum": ["ABCD", "BADC", "CDAB", "DCBA"], "default": "ABCD"}, "reconnect_interval": {"type": "number", "description": "Seconds between reconnection attempts", "minimum": 1, "maximum": 300, "default": 10.0}, "max_reconnect_attempts": {"type": "integer", "description": "Maximum consecutive reconnection attempts", "minimum": 1, "maximum": 100, "default": 10}, "batch_read_size": {"type": "integer", "description": "Maximum registers per read request", "minimum": 1, "maximum": 125, "default": 125}, "function_code": {"type": "string", "description": "Default Modbus function code", "enum": ["01", "02", "03", "04", "05", "06", "15", "16"], "default": "03"}, "broadcast": {"type": "boolean", "description": "Allow writing to slave_id=0 (broadcast)", "default": False}, "deadband": {"type": "number", "description": "Deadband filter threshold", "minimum": 0}, "deadband_type": {"type": "string", "description": "Deadband type: absolute or percent", "enum": ["absolute", "percent"]}, "scaling": {"type": "object", "description": "Linear scaling transformation", "properties": {"ratio": {"type": "number", "default": 1.0}, "offset": {"type": "number", "default": 0.0}}}, "clamp": {"type": "object", "description": "Value range validation", "properties": {"min": {"type": "number"}, "max": {"type": "number"}}}, "max_retry_interval": {"type": "integer", "description": "Maximum retry backoff interval in seconds", "minimum": 1, "maximum": 300, "default": 60}, "jitter_enable": {"type": "boolean", "description": "Enable jitter on retry backoff to prevent thundering herd", "default": True}, "rate_of_change_threshold": {"type": "number", "description": "Rate of change threshold for data credibility check", "minimum": 0}, "frozen_threshold": {"type": "integer", "description": "Consecutive identical readings to detect frozen value", "minimum": 1, "maximum": 1000, "default": 10}, "write_verify": {"type": "boolean", "description": "Enable read-verify-write", "default": False}, "write_rate_limit": {"type": "number", "description": "Minimum interval between writes to same register (seconds)", "minimum": 0.1, "maximum": 60, "default": 1.0}, "write_audit": {"type": "boolean", "description": "Enable write operation audit logging", "default": True}},
+        "properties": {
+            "host": {"type": "string", "description": "PLC/gateway IP address", "format": "ipv4"},
+            "host_backup": {"type": "string", "description": "Backup IP address for link redundancy", "format": "ipv4"},
+            "port": {"type": "integer", "description": "Modbus TCP port", "minimum": 1, "maximum": 65535},
+            "slave_id": {
+                "type": "integer",
+                "description": "Device slave address (Unit ID)",
+                "minimum": 1,
+                "maximum": 247,
+            },
+            "timeout": {
+                "type": "number",
+                "description": "Connection and read timeout",
+                "minimum": 0.1,
+                "maximum": 60,
+                "default": 3.0,
+            },
+            "byte_order": {
+                "type": "string",
+                "description": "Multi-register byte order",
+                "enum": ["ABCD", "BADC", "CDAB", "DCBA"],
+                "default": "ABCD",
+            },
+            "reconnect_interval": {
+                "type": "number",
+                "description": "Seconds between reconnection attempts",
+                "minimum": 1,
+                "maximum": 300,
+                "default": 10.0,
+            },
+            "max_reconnect_attempts": {
+                "type": "integer",
+                "description": "Maximum consecutive reconnection attempts",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 10,
+            },
+            "batch_read_size": {
+                "type": "integer",
+                "description": "Maximum registers per read request",
+                "minimum": 1,
+                "maximum": 125,
+                "default": 125,
+            },
+            "function_code": {
+                "type": "string",
+                "description": "Default Modbus function code",
+                "enum": ["01", "02", "03", "04", "05", "06", "15", "16"],
+                "default": "03",
+            },
+            "broadcast": {
+                "type": "boolean",
+                "description": "Allow writing to slave_id=0 (broadcast)",
+                "default": False,
+            },
+            "deadband": {"type": "number", "description": "Deadband filter threshold", "minimum": 0},
+            "deadband_type": {
+                "type": "string",
+                "description": "Deadband type: absolute or percent",
+                "enum": ["absolute", "percent"],
+            },
+            "scaling": {
+                "type": "object",
+                "description": "Linear scaling transformation",
+                "properties": {
+                    "ratio": {"type": "number", "default": 1.0},
+                    "offset": {"type": "number", "default": 0.0},
+                },
+            },
+            "clamp": {
+                "type": "object",
+                "description": "Value range validation",
+                "properties": {"min": {"type": "number"}, "max": {"type": "number"}},
+            },
+            "max_retry_interval": {
+                "type": "integer",
+                "description": "Maximum retry backoff interval in seconds",
+                "minimum": 1,
+                "maximum": 300,
+                "default": 60,
+            },
+            "jitter_enable": {
+                "type": "boolean",
+                "description": "Enable jitter on retry backoff to prevent thundering herd",
+                "default": True,
+            },
+            "rate_of_change_threshold": {
+                "type": "number",
+                "description": "Rate of change threshold for data credibility check",
+                "minimum": 0,
+            },
+            "frozen_threshold": {
+                "type": "integer",
+                "description": "Consecutive identical readings to detect frozen value",
+                "minimum": 1,
+                "maximum": 1000,
+                "default": 10,
+            },
+            "write_verify": {"type": "boolean", "description": "Enable read-verify-write", "default": False},
+            "write_rate_limit": {
+                "type": "number",
+                "description": "Minimum interval between writes to same register (seconds)",
+                "minimum": 0.1,
+                "maximum": 60,
+                "default": 1.0,
+            },
+            "write_audit": {"type": "boolean", "description": "Enable write operation audit logging", "default": True},
+        },
         "fields": [
-            {"name": "host", "type": "string", "label": "IP Address", "description": "PLC or gateway IP address", "default": "", "required": True},  # FIXED-P1: 默认IP改为空
-            {"name": "host_backup", "type": "string", "label": "Backup IP", "description": "Backup IP for link redundancy, auto-switch after 3 primary failures", "default": None},
-            {"name": "port", "type": "integer", "label": "Port", "description": "Modbus TCP port, default 502", "default": 502, "required": True},
-            {"name": "slave_id", "type": "integer", "label": "Slave ID", "description": "Device slave address (Unit ID), usually 1", "default": 1, "required": True},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "Connection and read timeout", "default": 3.0},
-            {"name": "byte_order", "type": "string", "label": "Byte Order", "description": "Multi-register byte order: ABCD(Big-Endian), BADC, CDAB, DCBA(Little-Endian)", "default": "ABCD", "options": ["ABCD", "BADC", "CDAB", "DCBA"]},
-            {"name": "reconnect_interval", "type": "number", "label": "Reconnect Interval (s)", "description": "Seconds between reconnection attempts", "default": 10.0},
-            {"name": "max_reconnect_attempts", "type": "integer", "label": "Max Reconnect Attempts", "description": "Maximum consecutive reconnection attempts (default 10)", "default": 10},
-            {"name": "max_retry_interval", "type": "integer", "label": "Max Retry Interval (s)", "description": "Maximum retry backoff interval in seconds (1-300)", "default": 60, "min": 1, "max": 300},
-            {"name": "jitter_enable", "type": "boolean", "label": "Enable Jitter", "description": "Enable jitter on retry backoff to prevent thundering herd", "default": True},
-            {"name": "batch_read_size", "type": "integer", "label": "Batch Read Size", "description": "Maximum registers per read request (1-125)", "default": 125, "min": 1, "max": 125},
-            {"name": "function_code", "type": "string", "label": "Function Code", "description": "Default Modbus function code", "default": "03", "options": ["01", "02", "03", "04", "05", "06", "15", "16"]},
-            {"name": "broadcast", "type": "boolean", "label": "Enable Broadcast Write", "description": "Allow writing to slave_id=0 (broadcast address). Note: broadcast writes have no response and cannot be verified", "default": False},
-            {"name": "rate_of_change_threshold", "type": "number", "label": "Rate of Change Threshold", "description": "Rate of change threshold for data credibility, mark quality=uncertain when exceeded", "default": None},
-            {"name": "frozen_threshold", "type": "integer", "label": "Frozen Detection Count", "description": "Consecutive identical readings to detect frozen value (1-1000)", "default": 10, "min": 1, "max": 1000},
-            {"name": "watchdog_threshold", "type": "integer", "label": "Watchdog Threshold", "description": "Watchdog disconnect detection threshold in seconds (detection_interval * fail_count >= threshold), default 30s", "default": 30, "min": 10, "max": 300},
-            {"name": "write_verify", "type": "boolean", "label": "Write Verify", "description": "Enable read-verify-write: read back after write and compare", "default": False},
-            {"name": "write_rate_limit", "type": "number", "label": "Write Rate Limit (s)", "description": "Minimum interval between writes to same register (seconds)", "default": 1.0},
-            {"name": "write_audit", "type": "boolean", "label": "Write Audit", "description": "Enable write operation audit logging", "default": True},
-            {"name": "deadband", "type": "number", "label": "Deadband", "description": "Deadband filter threshold, suppress updates when change < deadband", "default": None},
-            {"name": "scaling", "type": "object", "label": "Scaling", "description": "Linear scaling: y = x * ratio + offset", "default": None, "fields": [
-                {"name": "ratio", "type": "number", "label": "Ratio", "description": "Scaling ratio (multiplier)", "default": 1.0},
-                {"name": "offset", "type": "number", "label": "Offset", "description": "Scaling offset (addend)", "default": 0.0},
-            ]},
-            {"name": "clamp", "type": "object", "label": "Clamp", "description": "Value range validation, mark quality=bad when out of range", "default": None, "fields": [
-                {"name": "min", "type": "number", "label": "Min", "description": "Minimum allowed value"},
-                {"name": "max", "type": "number", "label": "Max", "description": "Maximum allowed value"},
-            ]},
+            {
+                "name": "host",
+                "type": "string",
+                "label": "IP Address",
+                "description": "PLC or gateway IP address",
+                "default": "",
+                "required": True,
+            },  # FIXED-P1: 默认IP改为空
+            {
+                "name": "host_backup",
+                "type": "string",
+                "label": "Backup IP",
+                "description": "Backup IP for link redundancy, auto-switch after 3 primary failures",
+                "default": None,
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "Modbus TCP port, default 502",
+                "default": 502,
+                "required": True,
+            },
+            {
+                "name": "slave_id",
+                "type": "integer",
+                "label": "Slave ID",
+                "description": "Device slave address (Unit ID), usually 1",
+                "default": 1,
+                "required": True,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "Connection and read timeout",
+                "default": 3.0,
+            },
+            {
+                "name": "byte_order",
+                "type": "string",
+                "label": "Byte Order",
+                "description": "Multi-register byte order: ABCD(Big-Endian), BADC, CDAB, DCBA(Little-Endian)",
+                "default": "ABCD",
+                "options": ["ABCD", "BADC", "CDAB", "DCBA"],
+            },
+            {
+                "name": "reconnect_interval",
+                "type": "number",
+                "label": "Reconnect Interval (s)",
+                "description": "Seconds between reconnection attempts",
+                "default": 10.0,
+            },
+            {
+                "name": "max_reconnect_attempts",
+                "type": "integer",
+                "label": "Max Reconnect Attempts",
+                "description": "Maximum consecutive reconnection attempts (default 10)",
+                "default": 10,
+            },
+            {
+                "name": "max_retry_interval",
+                "type": "integer",
+                "label": "Max Retry Interval (s)",
+                "description": "Maximum retry backoff interval in seconds (1-300)",
+                "default": 60,
+                "min": 1,
+                "max": 300,
+            },
+            {
+                "name": "jitter_enable",
+                "type": "boolean",
+                "label": "Enable Jitter",
+                "description": "Enable jitter on retry backoff to prevent thundering herd",
+                "default": True,
+            },
+            {
+                "name": "batch_read_size",
+                "type": "integer",
+                "label": "Batch Read Size",
+                "description": "Maximum registers per read request (1-125)",
+                "default": 125,
+                "min": 1,
+                "max": 125,
+            },
+            {
+                "name": "function_code",
+                "type": "string",
+                "label": "Function Code",
+                "description": "Default Modbus function code",
+                "default": "03",
+                "options": ["01", "02", "03", "04", "05", "06", "15", "16"],
+            },
+            {
+                "name": "broadcast",
+                "type": "boolean",
+                "label": "Enable Broadcast Write",
+                "description": "Allow writing to slave_id=0 (broadcast address). Note: broadcast writes have no response and cannot be verified",
+                "default": False,
+            },
+            {
+                "name": "rate_of_change_threshold",
+                "type": "number",
+                "label": "Rate of Change Threshold",
+                "description": "Rate of change threshold for data credibility, mark quality=uncertain when exceeded",
+                "default": None,
+            },
+            {
+                "name": "frozen_threshold",
+                "type": "integer",
+                "label": "Frozen Detection Count",
+                "description": "Consecutive identical readings to detect frozen value (1-1000)",
+                "default": 10,
+                "min": 1,
+                "max": 1000,
+            },
+            {
+                "name": "watchdog_threshold",
+                "type": "integer",
+                "label": "Watchdog Threshold",
+                "description": "Watchdog disconnect detection threshold in seconds (detection_interval * fail_count >= threshold), default 30s",
+                "default": 30,
+                "min": 10,
+                "max": 300,
+            },
+            {
+                "name": "write_verify",
+                "type": "boolean",
+                "label": "Write Verify",
+                "description": "Enable read-verify-write: read back after write and compare",
+                "default": False,
+            },
+            {
+                "name": "write_rate_limit",
+                "type": "number",
+                "label": "Write Rate Limit (s)",
+                "description": "Minimum interval between writes to same register (seconds)",
+                "default": 1.0,
+            },
+            {
+                "name": "write_audit",
+                "type": "boolean",
+                "label": "Write Audit",
+                "description": "Enable write operation audit logging",
+                "default": True,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband",
+                "description": "Deadband filter threshold, suppress updates when change < deadband",
+                "default": None,
+            },
+            {
+                "name": "scaling",
+                "type": "object",
+                "label": "Scaling",
+                "description": "Linear scaling: y = x * ratio + offset",
+                "default": None,
+                "fields": [
+                    {
+                        "name": "ratio",
+                        "type": "number",
+                        "label": "Ratio",
+                        "description": "Scaling ratio (multiplier)",
+                        "default": 1.0,
+                    },
+                    {
+                        "name": "offset",
+                        "type": "number",
+                        "label": "Offset",
+                        "description": "Scaling offset (addend)",
+                        "default": 0.0,
+                    },
+                ],
+            },
+            {
+                "name": "clamp",
+                "type": "object",
+                "label": "Clamp",
+                "description": "Value range validation, mark quality=bad when out of range",
+                "default": None,
+                "fields": [
+                    {"name": "min", "type": "number", "label": "Min", "description": "Minimum allowed value"},
+                    {"name": "max", "type": "number", "label": "Max", "description": "Maximum allowed value"},
+                ],
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=True, read=True, write=True, subscribe=False, batch_read=True, batch_write=True)
+    capabilities = DriverCapabilities(
+        discover=True, read=True, write=True, subscribe=False, batch_read=True, batch_write=True
+    )
     constraints = ()  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     def __init__(self):
@@ -252,7 +452,9 @@ class ModbusTcpDriver(DriverPlugin):
         self._device_points: dict[str, list[dict]] = {}
         self._retry_count: dict[str, int] = {}
         self._retry_lock = asyncio.Lock()
-        self._read_fail_tracker: OrderedDict[tuple[str, str], tuple[float, float]] = OrderedDict()  # FIXED-P1: 改为OrderedDict支持LRU淘汰
+        self._read_fail_tracker: OrderedDict[tuple[str, str], tuple[float, float]] = (
+            OrderedDict()
+        )  # FIXED-P1: 改为OrderedDict支持LRU淘汰
         self._MAX_TRACKER_ENTRIES = 20000  # FIXED-P1: 容量上限，与RTU驱动一致
         self._circuit_open: set[str] = set()  # FIXED-P1: 熔断状态设备集合，阻止无限递归重连
         # FIXED-P2: 删除遮蔽基类_health_stats的初始化（super().__init__()已正确初始化为dict[str, DriverHealthStats]）
@@ -261,7 +463,9 @@ class ModbusTcpDriver(DriverPlugin):
         self._device_watchdog_tasks: dict[str, asyncio.Task] = {}  # MTCP-003: 每个设备独立的watchdog task
         self._reconnect_tasks: dict[str, asyncio.Task] = {}  # FIXED-P0: 非阻塞重连任务追踪
         # MTCP-007: 单点读取缓存和后台重试
-        self._single_point_cache: OrderedDict[tuple[str, str], Any] = OrderedDict()  # FIXED-P2: 改为OrderedDict支持LRU淘汰
+        self._single_point_cache: OrderedDict[tuple[str, str], Any] = (
+            OrderedDict()
+        )  # FIXED-P2: 改为OrderedDict支持LRU淘汰
         self._SINGLE_POINT_CACHE_MAX = 10000  # FIXED-P2: 单点缓存容量上限
         self._point_retry_tasks: dict[tuple[str, str], asyncio.Task] = {}  # {(device_id, point_name): retry_task}
         # MTCP-009: 使用 OrderedDict 实现 LRU，超过容量时淘汰最旧条目
@@ -317,7 +521,9 @@ class ModbusTcpDriver(DriverPlugin):
         self._config_version = ModbusConfigVersion()
         self._audit = ModbusAudit()
         # FIXED-P1: MTCP-01 启动stale client定期清理任务
-        self._stale_cleanup_task = asyncio.create_task(self._stale_client_cleanup_loop(), name="modbus-tcp-stale-cleanup")
+        self._stale_cleanup_task = asyncio.create_task(
+            self._stale_client_cleanup_loop(), name="modbus-tcp-stale-cleanup"
+        )
         logger.info("Modbus TCP驱动启动")
 
     async def stop(self) -> None:
@@ -408,7 +614,12 @@ class ModbusTcpDriver(DriverPlugin):
         slave_id = config.get("slave_id", 1)
         broadcast_enabled = config.get("broadcast", False)
         if not broadcast_enabled and not (1 <= slave_id <= 247):
-            logger.error("[modbus_tcp] device=%s code=%s slave_id=%d out of range [1-247]", device_id, ModbusDriverErrors.CONFIG_INVALID, slave_id)
+            logger.error(
+                "[modbus_tcp] device=%s code=%s slave_id=%d out of range [1-247]",
+                device_id,
+                ModbusDriverErrors.CONFIG_INVALID,
+                slave_id,
+            )
             raise ValueError(f"Modbus TCP config invalid: slave_id must be 1-247, got {slave_id}")
         if broadcast_enabled and slave_id == 0:
             logger.warning("[modbus_tcp] device=%s code=BROADCAST_ENABLED slave_id=0 broadcast mode", device_id)
@@ -453,7 +664,10 @@ class ModbusTcpDriver(DriverPlugin):
                     self._device_pool_key[device_id] = pool_key
                     logger.info(
                         "Modbus TCP reused pooled connection: %s (%s:%d, ref_count=%d)",
-                        device_id, host, port, ref_count + 1,
+                        device_id,
+                        host,
+                        port,
+                        ref_count + 1,
                     )
                     self._retry_count[device_id] = 0
                     self._start_watchdog(device_id)
@@ -477,7 +691,14 @@ class ModbusTcpDriver(DriverPlugin):
         except Exception as e:
             connected = False
             connect_error = str(e)
-            logger.warning("[modbus_tcp] connection failed: device=%s host=%s port=%d error=%s", device_id, host, port, e, exc_info=True)
+            logger.warning(
+                "[modbus_tcp] connection failed: device=%s host=%s port=%d error=%s",
+                device_id,
+                host,
+                port,
+                e,
+                exc_info=True,
+            )
 
         # FIXED-P0: 修复连接池TOCTOU竞态和引用计数虚高 — 二次检查：连接创建期间另一个协程可能已添加同pool_key
         # 仅在连接成功时递增引用计数，避免连接失败导致引用计数虚高
@@ -541,7 +762,9 @@ class ModbusTcpDriver(DriverPlugin):
                     try:
                         failed_client.close()
                     except Exception as e:
-                        logger.warning("[modbus_tcp] operation failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                        logger.warning(
+                            "[modbus_tcp] operation failed: %s", e
+                        )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
             if connect_error:
                 self._log_error(device_id, ModbusDriverErrors.CONN_FAILED, connect_error)
             else:
@@ -550,7 +773,9 @@ class ModbusTcpDriver(DriverPlugin):
     async def remove_device(self, device_id: str) -> None:
         """移除设备（引用计数-1，最后一个设备移除时才关闭连接）"""
         self._stop_watchdog(device_id)
-        self._clients.pop(device_id, None)  # FIXED-P3: 原问题-client赋值后未使用(ruff F841); 修复-移除无用变量绑定，后续使用连接池中的pooled_client
+        self._clients.pop(
+            device_id, None
+        )  # FIXED-P3: 原问题-client赋值后未使用(ruff F841); 修复-移除无用变量绑定，后续使用连接池中的pooled_client
         pool_key = self._device_pool_key.pop(device_id, None)
 
         # FIXED-P2: 与add_device() 一致，在_pool_lock 保护下操作引用计数
@@ -567,12 +792,17 @@ class ModbusTcpDriver(DriverPlugin):
                                 # 避免嵌套获取_lease_lock导致与_stale_client_cleanup_loop的ABBA死锁
                                 if pooled_client not in self._leased_clients:
                                     pooled_client.close()
-                                    logger.info("Modbus TCP pool connection closed: %s (pool_key=%s)", device_id, pool_key)
+                                    logger.info(
+                                        "Modbus TCP pool connection closed: %s (pool_key=%s)", device_id, pool_key
+                                    )
                                 else:
                                     # client 正在被使用，延迟关闭
                                     # MTCP-MED-002: 记录stale client的添加时间
                                     self._stale_clients[pooled_client] = time.monotonic()
-                                    logger.warning("Modbus TCP: client still in use, marked stale for deferred close: %s", device_id)
+                                    logger.warning(
+                                        "Modbus TCP: client still in use, marked stale for deferred close: %s",
+                                        device_id,
+                                    )
                         except Exception:
                             logger.debug("Modbus TCP: pooled_client already closed or invalid: %s", device_id)
                     self._stale_clients.pop(pooled_client, None)  # MTCP-002/MTCP-MED-002: 清理过期标记
@@ -591,7 +821,9 @@ class ModbusTcpDriver(DriverPlugin):
                         logger.info("Modbus TCP stale client closed after last reference released: %s", device_id)
                     logger.info(
                         "Modbus TCP pool connection kept: %s (pool_key=%s, ref_count=%d)",
-                        device_id, pool_key, ref_count - 1,
+                        device_id,
+                        pool_key,
+                        ref_count - 1,
                     )
 
         self._device_configs.pop(device_id, None)
@@ -668,9 +900,13 @@ class ModbusTcpDriver(DriverPlugin):
                             continue
                         try:
                             client.close()
-                            logger.info("[modbus_tcp] stale client force-closed after %.0fs timeout", self._STALE_CLIENT_TIMEOUT)
+                            logger.info(
+                                "[modbus_tcp] stale client force-closed after %.0fs timeout", self._STALE_CLIENT_TIMEOUT
+                            )
                         except Exception as e:
-                            logger.warning("[modbus_tcp] stale_client_cleanup_loop failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[modbus_tcp] stale_client_cleanup_loop failed: %s", e
+                            )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
                         self._stale_clients.pop(client, None)
                         # FIXED-P1: 从_clients中移除已关闭的stale client引用，移入lease_lock内与read_points的get+lease原子互斥
                         # 之前：_clients.pop在锁外执行，read_points可能在get与lease之间获取到已关闭client
@@ -742,16 +978,20 @@ class ModbusTcpDriver(DriverPlugin):
                 if current_client is None or not current_client.connected:
                     state = self._conn_state.get(device_id, ConnectionState.DISCONNECTED.value)
                     if state != ConnectionState.CONNECTING.value:
-                        self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "connection lost before read")
+                        self._transition_state(
+                            device_id, ConnectionState.DISCONNECTED.value, "connection lost before read"
+                        )
                     # FIXED-Bug2: 去重检查，避免重复创建重连任务（与 read_points 开头行为一致）
                     existing = self._reconnect_tasks.get(device_id)
                     if existing is None or existing.done():
                         task = asyncio.ensure_future(self._try_reconnect(device_id))
+
                         def _log_reconnect_exc(t):
                             if not t.cancelled():
                                 exc = t.exception()
                                 if exc:
                                     logger.warning("[modbus_tcp] reconnect task failed: %s", exc)
+
                         task.add_done_callback(_log_reconnect_exc)
                         self._reconnect_tasks[device_id] = task
                         # FIXED-P1: 将重连Task纳入_background_tasks管理，stop()时可取消，防止孤立Task创建泄漏连接
@@ -767,7 +1007,9 @@ class ModbusTcpDriver(DriverPlugin):
                     await self._release_client(client)
                     client = current_client
                     if not await self._lease_client(client):
-                        self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "client closed during re-lease")
+                        self._transition_state(
+                            device_id, ConnectionState.DISCONNECTED.value, "client closed during re-lease"
+                        )
                         await self._try_reconnect(device_id)
                         skip = True
                 if skip:
@@ -785,7 +1027,9 @@ class ModbusTcpDriver(DriverPlugin):
                     value = self._apply_pipeline(value, pt_def, device_id, point_name)
                     result[point_name] = value
                     self._read_fail_tracker.pop((device_id, point_name), None)
-                    await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+                    await self._record_read_success(
+                        device_id
+                    )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
                     latency = (time.monotonic() - t0) * 1000
                     if not (isinstance(value, PointValue) and value.quality == "bad"):
                         self._record_point_success(device_id, point_name, latency)
@@ -796,10 +1040,14 @@ class ModbusTcpDriver(DriverPlugin):
                     self._record_point_failure(device_id, point_name)
                     cached = self._single_point_cache.get((device_id, point_name))
                     if cached is not None:
-                        result[point_name] = PointValue(value=cached, quality="uncertain",
-                                                        timestamp=datetime.now(UTC), source="cached")
-                        logger.debug("[modbus_tcp] device=%s point=%s returning cached value (ModbusException)",
-                                    device_id, point_name)
+                        result[point_name] = PointValue(
+                            value=cached, quality="uncertain", timestamp=datetime.now(UTC), source="cached"
+                        )
+                        logger.debug(
+                            "[modbus_tcp] device=%s point=%s returning cached value (ModbusException)",
+                            device_id,
+                            point_name,
+                        )
                     else:
                         self._log_throttled(device_id, point_name, e, ModbusDriverErrors.READ_EXCEPTION)
                         result[point_name] = _bad_pv(ModbusDriverErrors.READ_EXCEPTION)
@@ -808,25 +1056,41 @@ class ModbusTcpDriver(DriverPlugin):
                     self._record_point_failure(device_id, point_name)
                     cached = self._single_point_cache.get((device_id, point_name))
                     if cached is not None:
-                        result[point_name] = PointValue(value=cached, quality="uncertain",
-                                                        timestamp=datetime.now(UTC), source="cached")
-                        logger.debug("[modbus_tcp] device=%s point=%s returning cached value (TimeoutError)",
-                                    device_id, point_name)
+                        result[point_name] = PointValue(
+                            value=cached, quality="uncertain", timestamp=datetime.now(UTC), source="cached"
+                        )
+                        logger.debug(
+                            "[modbus_tcp] device=%s point=%s returning cached value (TimeoutError)",
+                            device_id,
+                            point_name,
+                        )
                     else:
-                        self._log_error(device_id, ModbusDriverErrors.READ_TIMEOUT, f"Read timeout ({read_timeout}s) for {point_name}")
+                        self._log_error(
+                            device_id,
+                            ModbusDriverErrors.READ_TIMEOUT,
+                            f"Read timeout ({read_timeout}s) for {point_name}",
+                        )
                         result[point_name] = _bad_pv(ModbusDriverErrors.READ_TIMEOUT)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
                     self._record_read_failure(device_id)
                     self._record_point_failure(device_id, point_name)
-                    logger.warning("[modbus_tcp] single point read failed: device=%s point=%s error=%s", device_id, point_name, e, exc_info=True)
+                    logger.warning(
+                        "[modbus_tcp] single point read failed: device=%s point=%s error=%s",
+                        device_id,
+                        point_name,
+                        e,
+                        exc_info=True,
+                    )
                     cached = self._single_point_cache.get((device_id, point_name))
                     if cached is not None:
-                        result[point_name] = PointValue(value=cached, quality="uncertain",
-                                                        timestamp=datetime.now(UTC), source="cached")
-                        logger.debug("[modbus_tcp] device=%s point=%s returning cached value (Exception)",
-                                    device_id, point_name)
+                        result[point_name] = PointValue(
+                            value=cached, quality="uncertain", timestamp=datetime.now(UTC), source="cached"
+                        )
+                        logger.debug(
+                            "[modbus_tcp] device=%s point=%s returning cached value (Exception)", device_id, point_name
+                        )
                     else:
                         self._log_throttled(device_id, point_name, e, ModbusDriverErrors.READ_FAILED)
                         result[point_name] = _bad_pv(ModbusDriverErrors.READ_FAILED)
@@ -838,7 +1102,9 @@ class ModbusTcpDriver(DriverPlugin):
                     await self._release_client(client)
                     client = current_client
                     if not await self._lease_client(client):
-                        self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "client closed during re-lease")
+                        self._transition_state(
+                            device_id, ConnectionState.DISCONNECTED.value, "client closed during re-lease"
+                        )
                         await self._try_reconnect(device_id)
                         skip = True
                 if skip:
@@ -855,7 +1121,9 @@ class ModbusTcpDriver(DriverPlugin):
                         )
                     except TimeoutError:  # FIXED-P1: 兼容Python<3.11
                         self._record_read_failure(device_id)
-                        self._log_error(device_id, ModbusDriverErrors.READ_TIMEOUT, f"Batch read timeout ({read_timeout}s)")
+                        self._log_error(
+                            device_id, ModbusDriverErrors.READ_TIMEOUT, f"Batch read timeout ({read_timeout}s)"
+                        )
                         batch_result = {name: _bad_pv(ModbusDriverErrors.READ_TIMEOUT) for name in reg_points}
                     except Exception as e:
                         # FIXED-P1: 原问题-非超时异常(如ModbusException/ConnectionException)未被捕获，
@@ -879,7 +1147,9 @@ class ModbusTcpDriver(DriverPlugin):
                                 self._record_point_failure(device_id, point_name)
                         self._read_fail_tracker.pop((device_id, point_name), None)
                     if batch_result:
-                        await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+                        await self._record_read_success(
+                            device_id
+                        )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
                     else:
                         self._record_read_failure(device_id)
 
@@ -896,8 +1166,12 @@ class ModbusTcpDriver(DriverPlugin):
             await self._release_client(client)
 
     async def _batch_read_points(
-        self, client: AsyncModbusTcpClient, slave_id: int,
-        point_defs: dict[str, dict], byte_order: str, device_id: str,
+        self,
+        client: AsyncModbusTcpClient,
+        slave_id: int,
+        point_defs: dict[str, dict],
+        byte_order: str,
+        device_id: str,
     ) -> dict[str, Any]:
         """批量合并读取寄存器测点，自动分包（125寄存器自动拆分）
 
@@ -977,13 +1251,13 @@ class ModbusTcpDriver(DriverPlugin):
         failed_points: dict[str, Exception] = {}
 
         async def _read_segment(
-            start_addr: int, count: int, items: list[tuple[str, dict]],
+            start_addr: int,
+            count: int,
+            items: list[tuple[str, dict]],
         ) -> None:
             _set_client_slave_id(client, slave_id)
             try:
-                read_result = await client.read_holding_registers(
-                    start_addr, **_read_kwargs(count, slave_id)
-                )
+                read_result = await client.read_holding_registers(start_addr, **_read_kwargs(count, slave_id))
                 if read_result.isError():
                     # 解析Modbus异常码
                     exc_desc = _parse_modbus_exception(read_result)
@@ -993,19 +1267,24 @@ class ModbusTcpDriver(DriverPlugin):
                         if exc_desc.startswith("Server Device Failure") or exc_desc.startswith("Server Device Busy"):
                             # MTCP-007: 总超时10秒，指数退避1s, 2s, 4s
                             retry_start = time.monotonic()
-                            for _idx, delay in enumerate(_SINGLE_POINT_RETRY_DELAYS):  # FIXED(P3): 原问题-B007循环变量idx未使用; 修复-改为_idx
+                            for _idx, delay in enumerate(
+                                _SINGLE_POINT_RETRY_DELAYS
+                            ):  # FIXED(P3): 原问题-B007循环变量idx未使用; 修复-改为_idx
                                 if time.monotonic() - retry_start > _SINGLE_POINT_RETRY_TIMEOUT:
-                                    logger.warning("[modbus_tcp] device=%s retry loop exceeded %ds, aborting",
-                                                   device_id, _SINGLE_POINT_RETRY_TIMEOUT)
+                                    logger.warning(
+                                        "[modbus_tcp] device=%s retry loop exceeded %ds, aborting",
+                                        device_id,
+                                        _SINGLE_POINT_RETRY_TIMEOUT,
+                                    )
                                     break
                                 await asyncio.sleep(delay)
                                 # FIXED-Bug4: 单次 I/O 超时不超过剩余预算，与 _read_single_point 行为一致
-                                _remaining_budget = max(1.0, _SINGLE_POINT_RETRY_TIMEOUT - (time.monotonic() - retry_start))
+                                _remaining_budget = max(
+                                    1.0, _SINGLE_POINT_RETRY_TIMEOUT - (time.monotonic() - retry_start)
+                                )
                                 try:
                                     retry_result = await asyncio.wait_for(
-                                        client.read_holding_registers(
-                                            start_addr, **_read_kwargs(count, slave_id)
-                                        ),
+                                        client.read_holding_registers(start_addr, **_read_kwargs(count, slave_id)),
                                         timeout=_remaining_budget,
                                     )
                                 except TimeoutError:
@@ -1020,15 +1299,22 @@ class ModbusTcpDriver(DriverPlugin):
                                         data_type = pt_def.get("data_type", "float32")
                                         n_regs = DATA_TYPE_REGS.get(data_type, 1)
                                         offset = addr - start_addr
-                                        if offset < 0 or offset + n_regs > len(registers):  # FIXED-P2: 增加offset<0检查，防止负索引返回错误数据
+                                        if offset < 0 or offset + n_regs > len(
+                                            registers
+                                        ):  # FIXED-P2: 增加offset<0检查，防止负索引返回错误数据
                                             failed_points[name] = ModbusException("Insufficient registers in batch")
                                             continue
-                                        pt_regs = registers[offset:offset + n_regs]
+                                        pt_regs = registers[offset : offset + n_regs]
                                         try:
                                             value = self._decode_point_value(pt_regs, data_type, byte_order)
                                             result[name] = value
                                         except Exception as e:
-                                            logger.warning("[modbus_tcp] point decode failed: device=%s point=%s error=%s", device_id, name, e)
+                                            logger.warning(
+                                                "[modbus_tcp] point decode failed: device=%s point=%s error=%s",
+                                                device_id,
+                                                name,
+                                                e,
+                                            )
                                             failed_points[name] = e
                                     return
                     for name, _ in items:
@@ -1046,19 +1332,23 @@ class ModbusTcpDriver(DriverPlugin):
                     if offset < 0 or offset + n_regs > len(registers):  # FIXED-P2: 添加offset负值检查
                         failed_points[name] = ModbusException("Insufficient registers in batch")
                         continue
-                    pt_regs = registers[offset:offset + n_regs]
+                    pt_regs = registers[offset : offset + n_regs]
                     try:
                         value = self._decode_point_value(pt_regs, data_type, byte_order)
                         result[name] = value
                     except asyncio.CancelledError:
                         raise
                     except Exception as e:
-                        logger.warning("[modbus_tcp] point decode failed: device=%s point=%s error=%s", device_id, name, e)
+                        logger.warning(
+                            "[modbus_tcp] point decode failed: device=%s point=%s error=%s", device_id, name, e
+                        )
                         failed_points[name] = e
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.warning("[modbus_tcp] batch read segment failed: device=%s error=%s", device_id, e, exc_info=True)
+                logger.warning(
+                    "[modbus_tcp] batch read segment failed: device=%s error=%s", device_id, e, exc_info=True
+                )
                 for name, _ in items:
                     failed_points[name] = e
 
@@ -1088,7 +1378,9 @@ class ModbusTcpDriver(DriverPlugin):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.warning("[modbus_tcp] input register read failed: device=%s point=%s error=%s", device_id, name, e)
+                logger.warning(
+                    "[modbus_tcp] input register read failed: device=%s point=%s error=%s", device_id, name, e
+                )
                 failed_points[name] = e
 
         # 记录失败的测点
@@ -1119,15 +1411,15 @@ class ModbusTcpDriver(DriverPlugin):
         elif data_type == "float64":
             return self._decode_registers(registers, byte_order, "d", 4)
         elif data_type == "string":
-            raw_bytes = b''.join(struct.pack('>H', r) for r in registers)
+            raw_bytes = b"".join(struct.pack(">H", r) for r in registers)
             try:
-                decoded = raw_bytes.decode('utf-8', errors='strict').rstrip('\x00')
+                decoded = raw_bytes.decode("utf-8", errors="strict").rstrip("\x00")
             except UnicodeDecodeError as e:
                 logger.warning("[modbus_tcp] string解码失败: %s", e)  # FIXED-P2: string解码使用strict并记录warning
-                decoded = raw_bytes.decode('utf-8', errors='ignore').rstrip('\x00')
+                decoded = raw_bytes.decode("utf-8", errors="ignore").rstrip("\x00")
             # FIXED-P2: string解码无长度限制，超出256字节截断并标记uncertain
-            if len(decoded.encode('utf-8')) > 256:
-                decoded = decoded.encode('utf-8')[:256].decode('utf-8', errors='ignore')
+            if len(decoded.encode("utf-8")) > 256:
+                decoded = decoded.encode("utf-8")[:256].decode("utf-8", errors="ignore")
                 logger.warning("[modbus_tcp] string解码超256字节，已截断: len=%d", len(raw_bytes))
             return decoded  # FIXED-P0: 字符串截断时返回原始值而非PointValue，防止调用方双重包装导致PointValue(value=PointValue(...), quality="good")
         else:
@@ -1135,7 +1427,9 @@ class ModbusTcpDriver(DriverPlugin):
 
     _READ_LOG_INTERVAL = 60.0
 
-    def _log_throttled(self, device_id: str, point_name: str, error: Exception, error_code: str = ModbusDriverErrors.READ_FAILED) -> None:
+    def _log_throttled(
+        self, device_id: str, point_name: str, error: Exception, error_code: str = ModbusDriverErrors.READ_FAILED
+    ) -> None:
         key = (device_id, point_name)
         now = time.monotonic()
         # FIXED-P1: 容量超限时淘汰最旧条目，与RTU驱动一致
@@ -1144,22 +1438,38 @@ class ModbusTcpDriver(DriverPlugin):
         first_time, last_log = self._read_fail_tracker.get(key, (now, 0.0))
         level = logging.WARNING if now - first_time < 5.0 else logging.DEBUG
         if now - last_log >= self._READ_LOG_INTERVAL:
-            logging.getLogger(__name__).log(level, "[%s] device=%s code=%s point=%s msg=%s", self.plugin_name, device_id, error_code, point_name, error)
+            logging.getLogger(__name__).log(
+                level,
+                "[%s] device=%s code=%s point=%s msg=%s",
+                self.plugin_name,
+                device_id,
+                error_code,
+                point_name,
+                error,
+            )
             self._read_fail_tracker[key] = (first_time, now)
         else:
             self._read_fail_tracker[key] = (first_time, last_log)
 
     async def write_point(self, device_id: str, point: str, value: Any) -> bool:
-        if not await self.check_permission(Permission.DEVICE_WRITE_POINT):  # FIXED-P1: 写入操作添加权限检查，与RTU驱动一致
+        if not await self.check_permission(
+            Permission.DEVICE_WRITE_POINT
+        ):  # FIXED-P1: 写入操作添加权限检查，与RTU驱动一致
             self._log_error(device_id, "WRITE_DENIED", f"role={self._current_user_role} lacks device:write")
             return False
-        client = self._clients.get(device_id)
-        if client is None or not client.connected:
-            return False
-
-        # MTCP-MED-001: 租用client，防止在写入期间被关闭
-        if not await self._lease_client(client):
-            self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "client closed during lease")
+        # FIXED-TOCTOU (并发安全 #1): 原子 get+lease，在 _lease_lock 内完成 client 获取与租用，
+        # 防止 _stale_client_cleanup_loop 在 get 与 _lease_client 之间关闭/移除 client。
+        # 之前: client = self._clients.get(device_id) (无锁) → _lease_client (加锁)，
+        #       cleanup_loop 可在两步之间 close(client) 并从 _clients 移除，导致 use-after-close。
+        # 之后: get+check+lease 在同一个 _lease_lock 内原子完成，与 cleanup_loop 的 close 互斥。
+        async with self._lease_lock:
+            client = self._clients.get(device_id)
+            if client is None or not client.connected:
+                client = None
+            else:
+                self._leased_clients.add(client)
+        if client is None:
+            self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "client not connected")
             return False
 
         try:
@@ -1181,23 +1491,50 @@ class ModbusTcpDriver(DriverPlugin):
             old_value = self._last_values.get((device_id, point))
 
             if not self._check_write_value_range(value, clamp):
-                self._log_error(device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point}: write value {value} out of range {clamp}")
+                self._log_error(
+                    device_id,
+                    ModbusDriverErrors.VALUE_OUT_OF_RANGE,
+                    f"{point}: write value {value} out of range {clamp}",
+                )
                 self._audit_write(device_id, point, old_value, value, "rejected", "value out of clamp range")
                 return False
 
             # FIXED-P1: 检查NaN/Inf，防止异常值写入设备（NaN比较始终为False可绕过clamp检查）
-            if isinstance(value, float) and (value != value or value == float('inf') or value == float('-inf')):
-                self._log_error(device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point}: write value {value} is NaN/Inf, rejected")
+            if isinstance(value, float) and (value != value or value == float("inf") or value == float("-inf")):
+                self._log_error(
+                    device_id,
+                    ModbusDriverErrors.VALUE_OUT_OF_RANGE,
+                    f"{point}: write value {value} is NaN/Inf, rejected",
+                )
                 self._audit_write(device_id, point, old_value, value, "rejected", "NaN/Inf value")
                 return False
 
             if not self._check_write_rate_limit(device_id, point, write_rate_limit):
-                self._log_error(device_id, ModbusDriverErrors.WRITE_FAILED, f"{point}: write rate limited (min interval {write_rate_limit}s)")
+                self._log_error(
+                    device_id,
+                    ModbusDriverErrors.WRITE_FAILED,
+                    f"{point}: write rate limited (min interval {write_rate_limit}s)",
+                )
                 self._audit_write(device_id, point, old_value, value, "rejected", "write rate limited")
                 return False
 
+            # FIXED-BCAST (并发安全 #2): 广播路径仅由 slave_id==0 决定，broadcast 配置仅作为"允许广播"开关。
+            # 之前: `if slave_id == 0 or broadcast_enabled` 会在 broadcast_enabled=True 时
+            #       把 slave_id=1-247 的单播错误地走广播路径 (slave_id=0)，写入总线上所有设备。
+            # 之后:
+            #   - slave_id=0 + broadcast_enabled=True  → 广播写入 (slave_id=0)
+            #   - slave_id=0 + broadcast_enabled=False → 拒绝写入 (BCAST_NOT_ENABLED)
+            #   - slave_id=1-247 (任意 broadcast_enabled) → 正常单播写入
             broadcast_enabled = config.get("broadcast", False)
-            if slave_id == 0 or broadcast_enabled:
+            if slave_id == 0:
+                if not broadcast_enabled:
+                    self._log_error(
+                        device_id,
+                        ModbusDriverErrors.BCAST_NOT_ENABLED,
+                        f"{point}: slave_id=0 but broadcast not enabled in config",
+                    )
+                    self._audit_write(device_id, point, old_value, value, "rejected", "broadcast not enabled")
+                    return False
                 try:
                     ok = await asyncio.wait_for(  # FIXED-P0: 广播写入添加超时保护，与普通写入一致，防止TCP挂起时client租用无法释放
                         self._broadcast_write(client, address, data_type, value, byte_order, device_id, point),
@@ -1205,7 +1542,11 @@ class ModbusTcpDriver(DriverPlugin):
                     )
                 except TimeoutError:
                     ok = False
-                    self._log_error(device_id, ModbusDriverErrors.WRITE_TIMEOUT, f"{point}: broadcast write timeout ({write_timeout}s)")
+                    self._log_error(
+                        device_id,
+                        ModbusDriverErrors.WRITE_TIMEOUT,
+                        f"{point}: broadcast write timeout ({write_timeout}s)",
+                    )
                 self._audit_write(device_id, point, old_value, value, "ok" if ok else "failed")
                 return ok
 
@@ -1240,10 +1581,16 @@ class ModbusTcpDriver(DriverPlugin):
                 record_packet("rx", self.plugin_name, device_id, rx_data)
 
                 if write_verify:
-                    verified = await self._read_verify_write(client, slave_id, address, data_type, byte_order, value, device_id)
+                    verified = await self._read_verify_write(
+                        client, slave_id, address, data_type, byte_order, value, device_id
+                    )
                     if not verified:
                         self._record_write_failure(device_id)
-                        self._log_error(device_id, ModbusDriverErrors.WRITE_FAILED, f"{point}: write verify failed (read-back mismatch)")
+                        self._log_error(
+                            device_id,
+                            ModbusDriverErrors.WRITE_FAILED,
+                            f"{point}: write verify failed (read-back mismatch)",
+                        )
                         self._audit_write(device_id, point, old_value, value, "verify_failed", "read-back mismatch")
                         return False
 
@@ -1254,12 +1601,16 @@ class ModbusTcpDriver(DriverPlugin):
                 return True
             except TimeoutError:  # FIXED-P1: 兼容Python<3.11
                 self._record_write_failure(device_id)
-                self._log_error(device_id, ModbusDriverErrors.WRITE_TIMEOUT, f"{point}: write timeout ({write_timeout}s)")
+                self._log_error(
+                    device_id, ModbusDriverErrors.WRITE_TIMEOUT, f"{point}: write timeout ({write_timeout}s)"
+                )
                 self._audit_write(device_id, point, old_value, value, "failed", "timeout")
                 return False
             except Exception as e:
                 self._record_write_failure(device_id)
-                logger.warning("[modbus_tcp] write failed: device=%s point=%s error=%s", device_id, point, e, exc_info=True)
+                logger.warning(
+                    "[modbus_tcp] write failed: device=%s point=%s error=%s", device_id, point, e, exc_info=True
+                )
                 self._log_error(device_id, ModbusDriverErrors.WRITE_FAILED, f"{point}: {e}")
                 self._audit_write(device_id, point, old_value, value, "failed", str(e))
                 return False
@@ -1271,13 +1622,16 @@ class ModbusTcpDriver(DriverPlugin):
         if not await self.check_permission(Permission.DEVICE_WRITE_POINT):  # FIXED-P1: 批量写入同样需要权限检查
             self._log_error(device_id, "WRITE_DENIED", f"role={self._current_user_role} lacks device:write")
             return {name: False for name in points}
-        client = self._clients.get(device_id)
-        if client is None or not client.connected:
-            return {name: False for name in points}
-
-        # MTCP-MED-001: 租用client，防止在写入期间被关闭
-        if not await self._lease_client(client):
-            self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "client closed during lease")
+        # FIXED-TOCTOU (并发安全 #1): 原子 get+lease，与 write_point 一致，
+        # 防止 _stale_client_cleanup_loop 在 get 与 lease 之间关闭/移除 client。
+        async with self._lease_lock:
+            client = self._clients.get(device_id)
+            if client is None or not client.connected:
+                client = None
+            else:
+                self._leased_clients.add(client)
+        if client is None:
+            self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "client not connected")
             return {name: False for name in points}
 
         try:
@@ -1298,9 +1652,20 @@ class ModbusTcpDriver(DriverPlugin):
 
             for point_name, value in points.items():
                 # FIXED-P2: 批量写入前检查NaN/Inf，防止异常浮点值写入设备
-                if isinstance(value, float) and (value != value or value == float('inf') or value == float('-inf')):
-                    self._log_error(device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point_name}: batch write value {value} is NaN/Inf")
-                    self._audit_write(device_id, point_name, self._last_values.get((device_id, point_name)), value, "rejected", "NaN/Inf value")
+                if isinstance(value, float) and (value != value or value == float("inf") or value == float("-inf")):
+                    self._log_error(
+                        device_id,
+                        ModbusDriverErrors.VALUE_OUT_OF_RANGE,
+                        f"{point_name}: batch write value {value} is NaN/Inf",
+                    )
+                    self._audit_write(
+                        device_id,
+                        point_name,
+                        self._last_values.get((device_id, point_name)),
+                        value,
+                        "rejected",
+                        "NaN/Inf value",
+                    )
                     continue
                 pt_def = pt_defs.get(point_name)
                 if pt_def is None:
@@ -1308,11 +1673,29 @@ class ModbusTcpDriver(DriverPlugin):
                     continue
                 clamp = pt_def.get("clamp", config.get("clamp"))
                 if not self._check_write_value_range(value, clamp):
-                    self._log_error(device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point_name}: batch write value {value} out of range")
-                    self._audit_write(device_id, point_name, self._last_values.get((device_id, point_name)), value, "rejected", "value out of clamp range")
+                    self._log_error(
+                        device_id,
+                        ModbusDriverErrors.VALUE_OUT_OF_RANGE,
+                        f"{point_name}: batch write value {value} out of range",
+                    )
+                    self._audit_write(
+                        device_id,
+                        point_name,
+                        self._last_values.get((device_id, point_name)),
+                        value,
+                        "rejected",
+                        "value out of clamp range",
+                    )
                     continue
                 if not self._check_write_rate_limit(device_id, point_name, write_rate_limit):
-                    self._audit_write(device_id, point_name, self._last_values.get((device_id, point_name)), value, "rejected", "write rate limited")
+                    self._audit_write(
+                        device_id,
+                        point_name,
+                        self._last_values.get((device_id, point_name)),
+                        value,
+                        "rejected",
+                        "write rate limited",
+                    )
                     continue
                 data_type = pt_def.get("data_type", "float32")
                 address = int(pt_def.get("address", 0))
@@ -1327,7 +1710,18 @@ class ModbusTcpDriver(DriverPlugin):
                 # MTCP-MED-001: 这里复用 client 租用，但 write_point 会先尝试租用
                 # 由于当前协程已经持有租用，write_point 中的租用检查会失败
                 # 所以需要直接执行单点写入
-                ok = await self._write_single_point_no_lease(client, device_id, point_name, value, config, pt_defs, write_timeout, write_verify, slave_id, byte_order)
+                ok = await self._write_single_point_no_lease(
+                    client,
+                    device_id,
+                    point_name,
+                    value,
+                    config,
+                    pt_defs,
+                    write_timeout,
+                    write_verify,
+                    slave_id,
+                    byte_order,
+                )
                 results[point_name] = ok
 
             if not batch_candidates:
@@ -1399,10 +1793,14 @@ class ModbusTcpDriver(DriverPlugin):
                             pt_def = pt_defs.get(point_name, {})
                             addr_v = int(pt_def.get("address", 0))
                             dtype_v = pt_def.get("data_type", "float32")
-                            verified = await self._read_verify_write(client, slave_id, addr_v, dtype_v, byte_order, val, device_id)
+                            verified = await self._read_verify_write(
+                                client, slave_id, addr_v, dtype_v, byte_order, val, device_id
+                            )
                             if not verified:
                                 results[point_name] = False
-                                self._audit_write(device_id, point_name, old_val, val, "verify_failed", "read-back mismatch")
+                                self._audit_write(
+                                    device_id, point_name, old_val, val, "verify_failed", "read-back mismatch"
+                                )
                                 continue
                         results[point_name] = True
                         self._record_write_success(device_id)
@@ -1413,7 +1811,14 @@ class ModbusTcpDriver(DriverPlugin):
                         results[point_name] = False
                         self._record_write_failure(device_id)
                         self._log_error(device_id, ModbusDriverErrors.WRITE_FAILED, f"batch write: {e}")
-                        self._audit_write(device_id, point_name, self._last_values.get((device_id, point_name)), point_map[point_name], "failed", str(e))
+                        self._audit_write(
+                            device_id,
+                            point_name,
+                            self._last_values.get((device_id, point_name)),
+                            point_map[point_name],
+                            "failed",
+                            str(e),
+                        )
 
             return results
         finally:
@@ -1421,9 +1826,17 @@ class ModbusTcpDriver(DriverPlugin):
             await self._release_client(client)
 
     async def _write_single_point_no_lease(
-        self, client: AsyncModbusTcpClient, device_id: str, point: str, value: Any,
-        config: dict, pt_defs: dict, write_timeout: float, write_verify: bool,
-        slave_id: int, byte_order: str,
+        self,
+        client: AsyncModbusTcpClient,
+        device_id: str,
+        point: str,
+        value: Any,
+        config: dict,
+        pt_defs: dict,
+        write_timeout: float,
+        write_verify: bool,
+        slave_id: int,
+        byte_order: str,
     ) -> bool:
         """单点写入（不申请租用，调用方已持有租用）"""
         pt_def = pt_defs.get(point)
@@ -1436,7 +1849,9 @@ class ModbusTcpDriver(DriverPlugin):
         old_value = self._last_values.get((device_id, point))
 
         if not self._check_write_value_range(value, clamp):
-            self._log_error(device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point}: write value {value} out of range {clamp}")
+            self._log_error(
+                device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point}: write value {value} out of range {clamp}"
+            )
             self._audit_write(device_id, point, old_value, value, "rejected", "value out of clamp range")
             return False
 
@@ -1465,7 +1880,9 @@ class ModbusTcpDriver(DriverPlugin):
         try:
             await asyncio.wait_for(_do_write(), timeout=write_timeout)
             if write_verify:
-                verified = await self._read_verify_write(client, slave_id, address, data_type, byte_order, value, device_id)
+                verified = await self._read_verify_write(
+                    client, slave_id, address, data_type, byte_order, value, device_id
+                )
                 if not verified:
                     self._record_write_failure(device_id)
                     self._log_error(device_id, ModbusDriverErrors.WRITE_FAILED, f"{point}: write verify failed")
@@ -1481,7 +1898,13 @@ class ModbusTcpDriver(DriverPlugin):
             return False
         except Exception as e:
             self._record_write_failure(device_id)
-            logger.warning("[modbus_tcp] single point write failed: device=%s point=%s error=%s", device_id, point, e, exc_info=True)
+            logger.warning(
+                "[modbus_tcp] single point write failed: device=%s point=%s error=%s",
+                device_id,
+                point,
+                e,
+                exc_info=True,
+            )
             self._log_error(device_id, ModbusDriverErrors.WRITE_FAILED, f"{point}: {e}")
             self._audit_write(device_id, point, old_value, value, "failed", str(e))
             return False
@@ -1517,10 +1940,13 @@ class ModbusTcpDriver(DriverPlugin):
             "[modbus_tcp] device=%s code=BROADCAST_WRITE point=%s addr=%d type=%s val=%s "
             "msg=Broadcast write (slave_id=0) sent, no response expected. "
             "Success cannot be guaranteed - use with caution.",
-            device_id, point, address, data_type, value,
+            device_id,
+            point,
+            address,
+            data_type,
+            value,
         )
-        record_packet("tx", self.plugin_name, device_id,
-                      f"BCAST addr={address} type={data_type} val={value}")
+        record_packet("tx", self.plugin_name, device_id, f"BCAST addr={address} type={data_type} val={value}")
         try:
             if data_type == "bool":
                 await client.write_coil(address, bool(value), **_slave_kwarg(0))
@@ -1543,7 +1969,9 @@ class ModbusTcpDriver(DriverPlugin):
             # 广播写入无法确认，假设成功
             return True
         except Exception as e:
-            logger.warning("[modbus_tcp] broadcast write failed: device=%s point=%s error=%s", device_id, point, e, exc_info=True)
+            logger.warning(
+                "[modbus_tcp] broadcast write failed: device=%s point=%s error=%s", device_id, point, e, exc_info=True
+            )
             self._log_error(device_id, ModbusDriverErrors.BCAST_WRITE_FAILED, f"{point}: {e}")
             return False
 
@@ -1611,7 +2039,9 @@ class ModbusTcpDriver(DriverPlugin):
         # 之后：最多256个Task，分批执行避免同时创建大量Task
         _MAX_DISCOVER_TASKS = 256
         if len(tasks) > _MAX_DISCOVER_TASKS:
-            logger.warning("[modbus_tcp] discover too many probes (%d), truncating to %d", len(tasks), _MAX_DISCOVER_TASKS)
+            logger.warning(
+                "[modbus_tcp] discover too many probes (%d), truncating to %d", len(tasks), _MAX_DISCOVER_TASKS
+            )
             tasks = tasks[:_MAX_DISCOVER_TASKS]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
@@ -1634,7 +2064,7 @@ class ModbusTcpDriver(DriverPlugin):
                 network = ipaddress.ip_network(host, strict=False)
                 hosts = [str(ip) for ip in network.hosts()]
                 if len(hosts) > ModbusTcpDriver._MAX_EXPAND_HOSTS:  # FIXED-P2: 限制展开IP数量
-                    hosts = hosts[:ModbusTcpDriver._MAX_EXPAND_HOSTS]
+                    hosts = hosts[: ModbusTcpDriver._MAX_EXPAND_HOSTS]
                 return hosts
             except ValueError:
                 return [host.split("/")[0]]
@@ -1680,7 +2110,9 @@ class ModbusTcpDriver(DriverPlugin):
         if byte_order not in _BYTE_ORDER_FMT:
             raise ValueError(f"Invalid byte_order '{byte_order}', must be one of {list(_BYTE_ORDER_FMT.keys())}")
         reg_pack, val_unpack = _BYTE_ORDER_FMT[byte_order]
-        raw = struct.pack(f"{val_unpack}{fmt_char}", value)  # FIXED-P0: 缺少此行导致raw未定义，int32/uint32/float32/float64写入必定NameError
+        raw = struct.pack(
+            f"{val_unpack}{fmt_char}", value
+        )  # FIXED-P0: 缺少此行导致raw未定义，int32/uint32/float32/float64写入必定NameError
         return list(struct.unpack(f"{reg_pack}{'H' * n_regs}", raw))
 
     _DEGRADE_INTERVALS = (1, 5, 30, 60)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
@@ -1691,7 +2123,9 @@ class ModbusTcpDriver(DriverPlugin):
 
     def _record_point_success(self, device_id: str, point_name: str, latency_ms: float) -> None:
         key = (device_id, point_name)
-        h = self._point_health.setdefault(key, {"success": 0, "fail": 0, "total": 0, "consecutive_fails": 0, "latencies": []})
+        h = self._point_health.setdefault(
+            key, {"success": 0, "fail": 0, "total": 0, "consecutive_fails": 0, "latencies": []}
+        )
         self._point_health.move_to_end(key)  # FIXED-P1: LRU淘汰-访问时移到末尾
         if len(self._point_health) > 15000:  # FIXED-P2: LRU淘汰阈值调整为1.5万(15000)，减少热路径淘汰频率
             for _ in range(2000):
@@ -1713,7 +2147,9 @@ class ModbusTcpDriver(DriverPlugin):
 
     def _record_point_failure(self, device_id: str, point_name: str) -> None:
         key = (device_id, point_name)
-        h = self._point_health.setdefault(key, {"success": 0, "fail": 0, "total": 0, "consecutive_fails": 0, "latencies": []})
+        h = self._point_health.setdefault(
+            key, {"success": 0, "fail": 0, "total": 0, "consecutive_fails": 0, "latencies": []}
+        )
         self._point_health.move_to_end(key)  # FIXED-P1: LRU淘汰-访问时移到末尾
         if len(self._point_health) > 15000:  # FIXED-P2: LRU淘汰阈值调整为1.5万(15000)，减少热路径淘汰频率
             for _ in range(2000):
@@ -1740,7 +2176,7 @@ class ModbusTcpDriver(DriverPlugin):
         if not h or not h["latencies"]:
             return 0.0
         self._point_health.move_to_end(key)  # FIXED-P1: LRU淘汰-访问时移到末尾
-        recent = h["latencies"][-self._HEALTH_WINDOW:]
+        recent = h["latencies"][-self._HEALTH_WINDOW :]
         return sum(recent) / len(recent)
 
     def _check_degradation(self, device_id: str) -> int:
@@ -1759,12 +2195,24 @@ class ModbusTcpDriver(DriverPlugin):
         if avg_rate < self._DEGRADE_FAIL_THRESHOLD and current_level < len(self._DEGRADE_INTERVALS) - 1:
             new_level = current_level + 1
             self._degrade_level[device_id] = new_level
-            logger.warning("[modbus_tcp] device=%s degraded: level=%d interval=%ds avg_rate=%.2f", device_id, new_level, self._DEGRADE_INTERVALS[new_level], avg_rate)
+            logger.warning(
+                "[modbus_tcp] device=%s degraded: level=%d interval=%ds avg_rate=%.2f",
+                device_id,
+                new_level,
+                self._DEGRADE_INTERVALS[new_level],
+                avg_rate,
+            )
             return new_level
         if avg_rate > self._DEGRADE_SUCCESS_THRESHOLD and current_level > 0:
             new_level = current_level - 1
             self._degrade_level[device_id] = new_level
-            logger.info("[modbus_tcp] device=%s recovered: level=%d interval=%ds avg_rate=%.2f", device_id, new_level, self._DEGRADE_INTERVALS[new_level], avg_rate)
+            logger.info(
+                "[modbus_tcp] device=%s recovered: level=%d interval=%ds avg_rate=%.2f",
+                device_id,
+                new_level,
+                self._DEGRADE_INTERVALS[new_level],
+                avg_rate,
+            )
             return new_level
         return current_level
 
@@ -1790,7 +2238,9 @@ class ModbusTcpDriver(DriverPlugin):
             self._last_values.pop(oldest_key)
             logger.debug("[modbus_tcp] LRU evicted oldest key: %s", oldest_key)
 
-    def _check_rate_of_change(self, value: Any, last_value: Any, last_ts: float, threshold: float | None) -> tuple[Any, str]:
+    def _check_rate_of_change(
+        self, value: Any, last_value: Any, last_ts: float, threshold: float | None
+    ) -> tuple[Any, str]:
         if threshold is None or last_value is None or value is None:
             return value, "good"
         if not isinstance(value, (int, float)) or not isinstance(last_value, (int, float)):
@@ -1804,12 +2254,19 @@ class ModbusTcpDriver(DriverPlugin):
             return value, "uncertain"
         return value, "good"
 
-    def _check_frozen_value(self, device_id: str, point_name: str, value: Any, threshold: int | None) -> tuple[Any, str]:
+    def _check_frozen_value(
+        self, device_id: str, point_name: str, value: Any, threshold: int | None
+    ) -> tuple[Any, str]:
         if threshold is None or threshold <= 0:
             return value, "good"
         key = (device_id, point_name)
         last = self._last_values.get(key)
-        if value is not None and last is not None and isinstance(value, (int, float)) and isinstance(last, (int, float)):
+        if (
+            value is not None
+            and last is not None
+            and isinstance(value, (int, float))
+            and isinstance(last, (int, float))
+        ):
             if abs(value - last) < 1e-9:
                 count = self._frozen_count.get(key, 0) + 1
                 self._frozen_count[key] = count
@@ -1850,7 +2307,9 @@ class ModbusTcpDriver(DriverPlugin):
         value, in_range = self._apply_clamp(value, clamp)
         if not in_range:
             self._record_point_failure(device_id, point_name)
-            self._log_error(device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point_name}: value out of clamp range {clamp}")
+            self._log_error(
+                device_id, ModbusDriverErrors.VALUE_OUT_OF_RANGE, f"{point_name}: value out of clamp range {clamp}"
+            )
             return _bad_pv(ModbusDriverErrors.VALUE_OUT_OF_RANGE)
 
         value, frozen_quality = self._check_frozen_value(device_id, point_name, value, frozen_threshold)
@@ -1875,9 +2334,17 @@ class ModbusTcpDriver(DriverPlugin):
     _PRIMARY_FAIL_THRESHOLD = 3
     _VALID_TRANSITIONS: dict[str, set[str]] = {
         ConnectionState.DISCONNECTED.value: {ConnectionState.CONNECTING.value},
-        ConnectionState.CONNECTING.value: {ConnectionState.CONNECTED.value, ConnectionState.DISCONNECTED.value, ConnectionState.OFFLINE.value},
+        ConnectionState.CONNECTING.value: {
+            ConnectionState.CONNECTED.value,
+            ConnectionState.DISCONNECTED.value,
+            ConnectionState.OFFLINE.value,
+        },
         ConnectionState.CONNECTED.value: {ConnectionState.DISCONNECTED.value, ConnectionState.DEGRADED.value},
-        ConnectionState.DEGRADED.value: {ConnectionState.CONNECTED.value, ConnectionState.DISCONNECTED.value, ConnectionState.OFFLINE.value},
+        ConnectionState.DEGRADED.value: {
+            ConnectionState.CONNECTED.value,
+            ConnectionState.DISCONNECTED.value,
+            ConnectionState.OFFLINE.value,
+        },
         ConnectionState.OFFLINE.value: {ConnectionState.CONNECTING.value},
     }
 
@@ -1892,7 +2359,9 @@ class ModbusTcpDriver(DriverPlugin):
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             except RuntimeError as e:
-                logger.debug("[modbus_tcp] transition_state failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                logger.debug(
+                    "[modbus_tcp] transition_state failed: %s", e
+                )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
             logger.info("[modbus_tcp] device=%s state: %s->%s reason=%s", device_id, current, target, reason)
         elif target == current:
             return
@@ -1904,8 +2373,12 @@ class ModbusTcpDriver(DriverPlugin):
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             except RuntimeError as e:
-                logger.debug("[modbus_tcp] transition_state failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
-            logger.warning("[modbus_tcp] device=%s state: %s->%s (forced) reason=%s", device_id, current, target, reason)
+                logger.debug(
+                    "[modbus_tcp] transition_state failed: %s", e
+                )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+            logger.warning(
+                "[modbus_tcp] device=%s state: %s->%s (forced) reason=%s", device_id, current, target, reason
+            )
         if current != target and self._event_bus:
             event = DeviceStatusEvent(
                 device_id=device_id,
@@ -1918,13 +2391,17 @@ class ModbusTcpDriver(DriverPlugin):
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             except RuntimeError as e:
-                logger.debug("[modbus_tcp] transition_state failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                logger.debug(
+                    "[modbus_tcp] transition_state failed: %s", e
+                )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
 
-    def _calc_backoff_delay(self, pool_key: str, device_id: str = '') -> float:
+    def _calc_backoff_delay(self, pool_key: str, device_id: str = "") -> float:
         config = self._device_configs.get(device_id, {})
         max_delay = float(config.get("max_retry_interval", self._BACKOFF_MAX_DELAY))
-        count = min(self._pool_backoff.get(pool_key, 0), 20)  # FIXED-P1: 限制指数退避上限为2^20，防止count过大导致2**count溢出或延迟过大
-        delay = min(1.0 * (2 ** count), max_delay)
+        count = min(
+            self._pool_backoff.get(pool_key, 0), 20
+        )  # FIXED-P1: 限制指数退避上限为2^20，防止count过大导致2**count溢出或延迟过大
+        delay = min(1.0 * (2**count), max_delay)
         if config.get("jitter_enable", True):
             jitter = random.uniform(0, 1.0)
             return delay + jitter
@@ -1944,7 +2421,12 @@ class ModbusTcpDriver(DriverPlugin):
             fail_count = self._primary_fail_count.get(device_id, 0)
             if fail_count >= self._PRIMARY_FAIL_THRESHOLD and backup:
                 self._active_host[device_id] = backup
-                logger.warning("[modbus_tcp] device=%s primary failed %d times, switching to backup %s", device_id, fail_count, backup)
+                logger.warning(
+                    "[modbus_tcp] device=%s primary failed %d times, switching to backup %s",
+                    device_id,
+                    fail_count,
+                    backup,
+                )
                 return backup
         return active
 
@@ -1973,7 +2455,16 @@ class ModbusTcpDriver(DriverPlugin):
             return False
         return not (max_val is not None and value > max_val)
 
-    def _audit_write(self, device_id: str, point_name: str, old_value: Any, new_value: Any, result: str, error_msg: str = "", user: str = "") -> None:
+    def _audit_write(
+        self,
+        device_id: str,
+        point_name: str,
+        old_value: Any,
+        new_value: Any,
+        result: str,
+        error_msg: str = "",
+        user: str = "",
+    ) -> None:
         config = self._device_configs.get(device_id, {})
         if not config.get("write_audit", True):
             return
@@ -1984,6 +2475,7 @@ class ModbusTcpDriver(DriverPlugin):
         if not user:
             try:
                 from edgelite.services.device_service import _current_write_user_var
+
                 user = _current_write_user_var.get("")
             except Exception as ctx_err:
                 logger.debug("contextvars user lookup failed: %s", ctx_err)
@@ -2001,16 +2493,27 @@ class ModbusTcpDriver(DriverPlugin):
         }
         self._write_audit_log.append(entry)
 
-    async def _read_verify_write(self, client: AsyncModbusTcpClient, slave_id: int, address: int, data_type: str, byte_order: str, expected_value: Any, device_id: str) -> bool:
+    async def _read_verify_write(
+        self,
+        client: AsyncModbusTcpClient,
+        slave_id: int,
+        address: int,
+        data_type: str,
+        byte_order: str,
+        expected_value: Any,
+        device_id: str,
+    ) -> bool:
         await asyncio.sleep(self._WRITE_VERIFY_DELAY_MS / 1000.0)
         _set_client_slave_id(client, slave_id)
         n_regs = DATA_TYPE_REGS.get(data_type, 1)
         reg_type = "coil" if data_type == "bool" else "holding"
         try:
             if reg_type == "coil":
-                result = await asyncio.wait_for(  # FIXED-P0: 写后回读验证添加超时保护，防止TCP挂起时持有client租用无法释放
-                    client.read_coils(address, **_read_kwargs(n_regs, slave_id)),
-                    timeout=5.0,
+                result = (
+                    await asyncio.wait_for(  # FIXED-P0: 写后回读验证添加超时保护，防止TCP挂起时持有client租用无法释放
+                        client.read_coils(address, **_read_kwargs(n_regs, slave_id)),
+                        timeout=5.0,
+                    )
                 )
                 if result.isError():
                     return False
@@ -2043,7 +2546,11 @@ class ModbusTcpDriver(DriverPlugin):
         # CROSS-004: 添加 exc_info=True 以包含异常堆栈，便于生产环境故障排查
         logger.error(
             "[%s] device=%s code=%s i18n=%s msg=%s",
-            self.plugin_name, device_id, error_code, i18n_msg, message,
+            self.plugin_name,
+            device_id,
+            error_code,
+            i18n_msg,
+            message,
             exc_info=exc_info,
         )
 
@@ -2054,8 +2561,13 @@ class ModbusTcpDriver(DriverPlugin):
             self._single_point_cache.popitem(last=False)
 
     async def _read_single_point(
-        self, client: AsyncModbusTcpClient, slave_id: int, pt_def: dict,
-        byte_order: str = "ABCD", device_id: str = "", point_name: str = "",
+        self,
+        client: AsyncModbusTcpClient,
+        slave_id: int,
+        pt_def: dict,
+        byte_order: str = "ABCD",
+        device_id: str = "",
+        point_name: str = "",
     ) -> Any:
         """读取单个测点（MTCP-007: 添加缓存和快速失败机制）"""
         address = int(pt_def.get("address", 0))
@@ -2115,9 +2627,7 @@ class ModbusTcpDriver(DriverPlugin):
             )
         else:
             result = await asyncio.wait_for(  # FIXED-P2: 初始读取添加超时保护
-                client.read_holding_registers(
-                    address, **_read_kwargs(reg_count, slave_id)
-                ),
+                client.read_holding_registers(address, **_read_kwargs(reg_count, slave_id)),
                 timeout=10.0,
             )
 
@@ -2130,10 +2640,15 @@ class ModbusTcpDriver(DriverPlugin):
                 if exc_desc.startswith("Server Device Failure") or exc_desc.startswith("Server Device Busy"):
                     # MTCP-007: 总超时10秒，指数退避1s, 2s, 4s
                     retry_start = time.monotonic()
-                    for _idx, delay in enumerate(_SINGLE_POINT_RETRY_DELAYS):  # FIXED(P3): 原问题-B007循环变量idx未使用; 修复-改为_idx
+                    for _idx, delay in enumerate(
+                        _SINGLE_POINT_RETRY_DELAYS
+                    ):  # FIXED(P3): 原问题-B007循环变量idx未使用; 修复-改为_idx
                         if time.monotonic() - retry_start > _SINGLE_POINT_RETRY_TIMEOUT:
-                            logger.warning("[modbus_tcp] device=%s retry loop exceeded %ds, aborting",
-                                           device_id, _SINGLE_POINT_RETRY_TIMEOUT)
+                            logger.warning(
+                                "[modbus_tcp] device=%s retry loop exceeded %ds, aborting",
+                                device_id,
+                                _SINGLE_POINT_RETRY_TIMEOUT,
+                            )
                             break
                         await asyncio.sleep(delay)
                         # FIXED-P1: 单次I/O超时不超过剩余预算，防止总耗时远超SINGLE_POINT_RETRY_TIMEOUT
@@ -2211,8 +2726,12 @@ class ModbusTcpDriver(DriverPlugin):
         async with self._retry_lock:
             count = self._retry_count.get(device_id, 0)
             if count >= max_attempts:
-                self._transition_state(device_id, ConnectionState.OFFLINE.value, f"exceeded max reconnect attempts ({max_attempts})")
-                self._log_error(device_id, ModbusDriverErrors.CONN_FAILED, f"exceeded max reconnect attempts ({max_attempts})")
+                self._transition_state(
+                    device_id, ConnectionState.OFFLINE.value, f"exceeded max reconnect attempts ({max_attempts})"
+                )
+                self._log_error(
+                    device_id, ModbusDriverErrors.CONN_FAILED, f"exceeded max reconnect attempts ({max_attempts})"
+                )
                 self._circuit_open.add(device_id)  # FIXED-P1: 熔断，不再递归调度_delayed_reconnect
                 self._retry_count[device_id] = 0
                 logger.warning("[modbus_tcp] circuit open for device=%s, watchdog will probe recovery", device_id)
@@ -2273,7 +2792,9 @@ class ModbusTcpDriver(DriverPlugin):
                     try:
                         new_client.close()
                     except Exception as e:
-                        logger.warning("[modbus_tcp] operation failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                        logger.warning(
+                            "[modbus_tcp] operation failed: %s", e
+                        )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
                     return
                 new_pool_key = f"{host}:{port}"
                 async with self._pool_lock:
@@ -2304,7 +2825,9 @@ class ModbusTcpDriver(DriverPlugin):
                         try:
                             new_client.close()
                         except Exception as e:
-                            logger.warning("[modbus_tcp] operation failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[modbus_tcp] operation failed: %s", e
+                            )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
                     else:
                         self._clients[device_id] = new_client
                         new_ref = existing_ref + 1
@@ -2329,7 +2852,9 @@ class ModbusTcpDriver(DriverPlugin):
                 self._primary_fail_count[device_id] = self._primary_fail_count.get(device_id, 0) + 1
                 if self._redundancy_mgr:
                     self._redundancy_mgr.record_failure(device_id)
-                self._transition_state(device_id, ConnectionState.DISCONNECTED.value, f"connect failed to {host}:{port}")
+                self._transition_state(
+                    device_id, ConnectionState.DISCONNECTED.value, f"connect failed to {host}:{port}"
+                )
                 self._log_error(device_id, ModbusDriverErrors.CONN_FAILED, f"connect failed to {host}:{port}")
 
     def _start_watchdog(self, device_id: str) -> None:
@@ -2383,8 +2908,11 @@ class ModbusTcpDriver(DriverPlugin):
                     expired_keys = [k for k, (c, _) in self._connection_pool.items() if c in stale_to_close]
                     for k in expired_keys:
                         self._connection_pool.pop(k, None)
-                logger.info("[modbus_tcp] MTCP-MED-002: cleaned up %d stale clients (timeout=%.0fs)",
-                           closed_count, self._STALE_CLIENT_TIMEOUT)
+                logger.info(
+                    "[modbus_tcp] MTCP-MED-002: cleaned up %d stale clients (timeout=%.0fs)",
+                    closed_count,
+                    self._STALE_CLIENT_TIMEOUT,
+                )
 
     async def _watchdog_loop(self, device_id: str) -> None:
         """设备连接看门狗循环（MTCP-003: 每个设备独立的watchdog loop）
@@ -2417,16 +2945,20 @@ class ModbusTcpDriver(DriverPlugin):
                     self._watchdog_fail_count[device_id] = self._watchdog_fail_count.get(device_id, 0) + 1
                     state = self._conn_state.get(device_id, ConnectionState.DISCONNECTED.value)
                     if state == ConnectionState.CONNECTED.value:
-                        self._transition_state(device_id, ConnectionState.DISCONNECTED.value, "watchdog detected disconnect")
+                        self._transition_state(
+                            device_id, ConnectionState.DISCONNECTED.value, "watchdog detected disconnect"
+                        )
                     if self._watchdog_fail_count[device_id] >= fail_count_limit:  # MTCP-LOW-001: 使用配置的阈值
-                        logger.warning("[modbus_tcp] device=%s disconnected for >%ds, triggering reconnect", device_id, threshold_seconds)
+                        logger.warning(
+                            "[modbus_tcp] device=%s disconnected for >%ds, triggering reconnect",
+                            device_id,
+                            threshold_seconds,
+                        )
                         self._watchdog_fail_count[device_id] = 0
                         # FIXED-P2: 非阻塞调度重连，避免watchdog阻塞
                         _rtask = self._reconnect_tasks.get(device_id)
                         if not _rtask or _rtask.done():
-                            self._reconnect_tasks[device_id] = (
-                                asyncio.create_task(self._try_reconnect(device_id))
-                            )
+                            self._reconnect_tasks[device_id] = asyncio.create_task(self._try_reconnect(device_id))
                 else:
                     self._watchdog_fail_count[device_id] = 0
                     # FIXED-P1: 心跳成功时解除熔断，允许后续重连
@@ -2446,7 +2978,9 @@ class ModbusTcpDriver(DriverPlugin):
         async with self._role_lock:
             return has_permission(self._current_user_role, permission)
 
-    async def set_user_role(self, role: str) -> None:  # FIXED-P0: 改为async并使用_role_lock，与RTU驱动和check_permission一致
+    async def set_user_role(
+        self, role: str
+    ) -> None:  # FIXED-P0: 改为async并使用_role_lock，与RTU驱动和check_permission一致
         async with self._role_lock:
             self._current_user_role = role
 
@@ -2455,7 +2989,9 @@ class ModbusTcpDriver(DriverPlugin):
         client = self._clients.get(device_id)
         if client is None or not client.connected:
             return False
-        if not await self._lease_client(client):  # FIXED-P0: 添加租用保护，防止health_check期间client被另一协程关闭导致use-after-close
+        if not await self._lease_client(
+            client
+        ):  # FIXED-P0: 添加租用保护，防止health_check期间client被另一协程关闭导致use-after-close
             return False
         try:
             config = self._device_configs.get(device_id, {})
@@ -2469,7 +3005,9 @@ class ModbusTcpDriver(DriverPlugin):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.warning("[modbus_tcp] health_check failed: %s", e)  # FIXED-P2: 原问题-日志消息误写为"write_point failed"，实际是health_check方法
+            logger.warning(
+                "[modbus_tcp] health_check failed: %s", e
+            )  # FIXED-P2: 原问题-日志消息误写为"write_point failed"，实际是health_check方法
             return False
         finally:
             await self._release_client(client)
@@ -2491,7 +3029,9 @@ class ModbusTcpDriver(DriverPlugin):
         slave_id = config.get("slave_id", 1)
         probe_client = AsyncModbusTcpClient(host=primary_host, port=port, timeout=timeout)
         try:
-            connected = await asyncio.wait_for(probe_client.connect(), timeout=timeout)  # FIXED-P0: 探测连接添加超时保护
+            connected = await asyncio.wait_for(
+                probe_client.connect(), timeout=timeout
+            )  # FIXED-P0: 探测连接添加超时保护
             if connected:
                 _set_client_slave_id(probe_client, slave_id)
                 result = await asyncio.wait_for(  # FIXED-P0: 探测读取添加超时保护
@@ -2509,7 +3049,9 @@ class ModbusTcpDriver(DriverPlugin):
             try:
                 probe_client.close()
             except Exception as e:
-                logger.warning("[modbus_tcp] probe_primary_link failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                logger.warning(
+                    "[modbus_tcp] probe_primary_link failed: %s", e
+                )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
 
     def _publish_point_updates(self, device_id: str, result: dict[str, Any]) -> None:
         if not self._event_bus:
@@ -2534,7 +3076,9 @@ class ModbusTcpDriver(DriverPlugin):
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             except RuntimeError as e:
-                logger.debug("[modbus_tcp] publish_point_updates failed: %s", e)  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
+                logger.debug(
+                    "[modbus_tcp] publish_point_updates failed: %s", e
+                )  # FIXED-P2: 原问题：异常被静默吞没，添加日志记录
 
     async def _evaluate_edge_rules(self, device_id: str, result: dict[str, Any]) -> None:
         if not self._edge_rule_engine:
@@ -2614,9 +3158,14 @@ class ModbusTcpDriver(DriverPlugin):
         if not self._ts_store:
             return []
         return await self._ts_store.query(
-            device_id, point_name, start_time, end_time,
-            quality=quality, aggregate=aggregate,
-            window_seconds=window_seconds, limit=limit,
+            device_id,
+            point_name,
+            start_time,
+            end_time,
+            quality=quality,
+            aggregate=aggregate,
+            window_seconds=window_seconds,
+            limit=limit,
         )
 
     async def query_ts_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict]:
@@ -2636,7 +3185,12 @@ class ModbusTcpDriver(DriverPlugin):
         if not self._ts_store:
             return []
         return await self._ts_store.query_by_quality(
-            device_id, point_name, start_time, end_time, quality=quality, limit=limit,
+            device_id,
+            point_name,
+            start_time,
+            end_time,
+            quality=quality,
+            limit=limit,
         )
 
     def set_offline_sync_online(self, online: bool) -> None:

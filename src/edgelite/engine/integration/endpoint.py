@@ -167,7 +167,9 @@ class IntegrationEndpoint:
         expired = [
             sid
             for sid, info in list(self._sessions.items())
-            if sid not in self._connections and now - info.get("last_activity", info.get("connected_at", 0)) > self.SESSION_TTL  # FIXED-P2: 清理基于last_activity而非connected_at，活跃心跳的session不会被误清理
+            if sid not in self._connections
+            and now - info.get("last_activity", info.get("connected_at", 0))
+            > self.SESSION_TTL  # FIXED-P2: 清理基于last_activity而非connected_at，活跃心跳的session不会被误清理
         ]
         for sid in expired:
             self._sessions.pop(sid, None)

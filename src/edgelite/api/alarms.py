@@ -90,12 +90,14 @@ async def get_alarm_statistics(
         trend = await svc.get_trend(hours=days * 24, device_ids=owned_device_ids)
         # 修复7: 添加 Top10 报警设备/规则排名
         top_data = await svc.get_top_alarms(hours=days * 24, device_ids=owned_device_ids, limit=10)
-        return ApiResponse(data={
-            "summary": stats,
-            "trend": trend,
-            "top_devices": top_data.get("top_devices", []),
-            "top_rules": top_data.get("top_rules", []),
-        })
+        return ApiResponse(
+            data={
+                "summary": stats,
+                "trend": trend,
+                "top_devices": top_data.get("top_devices", []),
+                "top_rules": top_data.get("top_rules", []),
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -128,7 +130,7 @@ async def get_alarm_trend(
 async def list_alarms(
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_READ)),
-    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）
+    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
     # FIXED(一般): 枚举值未校验，恶意用户可传任意字符串绕过过滤；改为 Literal 校验
     status: Literal["firing", "acknowledged", "recovered"] | None = None,
     severity: Literal["critical", "major", "warning", "minor", "info"] | None = None,
@@ -141,13 +143,17 @@ async def list_alarms(
             owned_device_ids = await _get_accessible_device_ids_for_alarms(user)
             if device_id and device_id not in owned_device_ids:
                 raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
-        alarms, total = await svc.list_alarms(pagination.page, pagination.size, status, severity, device_id, search, device_ids=owned_device_ids)
+        alarms, total = await svc.list_alarms(
+            pagination.page, pagination.size, status, severity, device_id, search, device_ids=owned_device_ids
+        )
         return PagedResponse(data=alarms, total=total, page=pagination.page, size=pagination.size)
     except HTTPException:
         raise
     except Exception as e:
         logger.error("list_alarms failed: %s", e)
-        raise HTTPException(status_code=500, detail=AlarmErrors.LIST_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=AlarmErrors.LIST_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/silence", response_model=PagedResponse)
@@ -177,7 +183,8 @@ async def list_alarm_silences(
         if status == "expired":
             now = datetime.now(UTC)
             silences = [
-                s for s in silences
+                s
+                for s in silences
                 if _parse_silence_end_time(s.get("end_time")) is not None
                 and _parse_silence_end_time(s.get("end_time")) < now
             ]
@@ -212,7 +219,9 @@ async def get_alarm_correlations(
         groups = manager.get_groups(limit=limit, offset=offset)
         if user["role"] != "admin":
             accessible_device_ids = await _get_accessible_device_ids_for_alarms(user)
-            groups = [g for g in groups if not g.get("root_device_id") or g.get("root_device_id") in accessible_device_ids]
+            groups = [
+                g for g in groups if not g.get("root_device_id") or g.get("root_device_id") in accessible_device_ids
+            ]
         return ApiResponse(data={"groups": groups, "limit": limit, "offset": offset})
     except Exception as e:
         logger.error("Get alarm correlations failed: %s", e)
@@ -236,7 +245,9 @@ async def get_alarm(
         raise
     except Exception as e:
         logger.error("get_alarm failed: %s", e)
-        raise HTTPException(status_code=500, detail=AlarmErrors.GET_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=AlarmErrors.GET_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.get("/history/{rule_id}", response_model=ApiResponse)
@@ -281,10 +292,19 @@ async def ack_alarm(
             raise HTTPException(status_code=409, detail=AlarmErrors.ALREADY_ACKNOWLEDGED)
         try:
             from edgelite.services.audit_service import AuditAction
+
             # 补充ip_address和user_agent用于审计追溯
             ip_address = request.client.host if request and request.client else None
             user_agent = request.headers.get("User-Agent") if request else None
-            await audit_svc.log(AuditAction.ALARM_ACK, user_id=user["user_id"], username=user["username"], resource_type="alarm", resource_id=alarm_id, ip_address=ip_address, user_agent=user_agent)
+            await audit_svc.log(
+                AuditAction.ALARM_ACK,
+                user_id=user["user_id"],
+                username=user["username"],
+                resource_type="alarm",
+                resource_id=alarm_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=alarm)
@@ -292,7 +312,9 @@ async def ack_alarm(
         raise
     except Exception as e:
         logger.error("ack_alarm failed: %s", e)
-        raise HTTPException(status_code=500, detail=AlarmErrors.ACK_FAILED) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
+        raise HTTPException(
+            status_code=500, detail=AlarmErrors.ACK_FAILED
+        ) from e  # FIXED: 原问题-中文硬编码detail，改为error_code
 
 
 @router.put("/{alarm_id}/recover", response_model=ApiResponse[AlarmResponse])
@@ -316,10 +338,20 @@ async def recover_alarm(
             raise HTTPException(status_code=409, detail=AlarmErrors.ALREADY_RECOVERED)
         try:
             from edgelite.services.audit_service import AuditAction
+
             # 补充ip_address和user_agent用于审计追溯
             ip_address = request.client.host if request and request.client else None
             user_agent = request.headers.get("User-Agent") if request else None
-            await audit_svc.log(AuditAction.ALARM_ACK, user_id=user["user_id"], username=user["username"], resource_type="alarm", resource_id=alarm_id, ip_address=ip_address, user_agent=user_agent, details="recover")
+            await audit_svc.log(
+                AuditAction.ALARM_ACK,
+                user_id=user["user_id"],
+                username=user["username"],
+                resource_type="alarm",
+                resource_id=alarm_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details="recover",
+            )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
         return ApiResponse(data=alarm)
@@ -351,6 +383,7 @@ async def delete_alarm(
     # 先审计后业务：先写审计日志（status=pending），审计失败则不执行删除（fail-safe）
     try:
         from edgelite.services.audit_service import AuditAction
+
         await audit_svc.log(
             AuditAction.ALARM_DELETE,
             user_id=user["user_id"],
@@ -463,6 +496,7 @@ async def suppress_alarm(
         try:
             from edgelite.api.auth import _get_client_ip
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request) if request else ""
             user_agent = request.headers.get("User-Agent") if request else None
             await audit_svc.log(
@@ -530,6 +564,7 @@ async def create_alarm_silence(
         try:
             from edgelite.api.auth import _get_client_ip
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request) if request else ""
             user_agent = request.headers.get("User-Agent") if request else None
             await audit_svc.log(
@@ -602,6 +637,7 @@ async def delete_alarm_silence(
         try:
             from edgelite.api.auth import _get_client_ip
             from edgelite.services.audit_service import AuditAction
+
             client_ip = _get_client_ip(request) if request else ""
             user_agent = request.headers.get("User-Agent") if request else None
             await audit_svc.log(

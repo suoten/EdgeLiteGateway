@@ -1,7 +1,9 @@
 """Minimal SQLite test to isolate 'database is locked' issue."""
 import asyncio
 import os
+
 import aiosqlite
+
 
 async def test_minimal():
     db_path = 'data/test_minimal.db'

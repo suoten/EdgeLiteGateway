@@ -6,11 +6,9 @@ The database URL is loaded from the application config.
 
 from logging.config import fileConfig
 from pathlib import Path
-from typing import Any
 
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection, Engine
-from sqlalchemy import engine_from_config
+from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import Engine
 
 from alembic import context
 
@@ -21,6 +19,7 @@ if config.config_file_name is not None:
 
 # Import target metadata from the ORM models
 from edgelite.models.db import Base
+
 target_metadata = Base.metadata
 
 
@@ -33,8 +32,9 @@ def get_database_url() -> str:
         return env_url
 
     try:
-        from edgelite.config import get_config
         from urllib.parse import quote_plus
+
+        from edgelite.config import get_config
 
         app_config = get_config()
         backend = app_config.database.backend.lower()

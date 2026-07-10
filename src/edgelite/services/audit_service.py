@@ -146,7 +146,9 @@ class AuditService:
         self._login_fail_max_keys = 10000
         self._on_audit_alert: Any = None
         self._conn: Any = None  # FIXED-P2: 持久化数据库连接，避免每次操作新建连接
-        self._db_lock = threading.Lock()  # FIXED-P1: 原问题-AuditService无并发锁保护，多线程同时写sqlite3.Connection时"database is locked"
+        self._db_lock = (
+            threading.Lock()
+        )  # FIXED-P1: 原问题-AuditService无并发锁保护，多线程同时写sqlite3.Connection时"database is locked"
         # S-09: 保护 _check_login_anomaly 中 _login_fail_counts 的读-改-写临界区，
         # 避免并发协程导致计数器丢失更新和重复告警
         self._login_anomaly_lock = asyncio.Lock()
@@ -297,11 +299,26 @@ class AuditService:
 
     # R5-S-27 修复(严重): 审计日志 before_value/after_value 中的敏感字段未脱敏，
     # 密码/token/secret 等明文写入审计文件造成二次泄露。
-    _SENSITIVE_FIELD_PATTERNS = frozenset({
-        "password", "passwd", "pwd", "secret", "token", "access_token",
-        "refresh_token", "api_key", "apikey", "private_key", "client_secret",
-        "authorization", "credential", "credentials", "master_key", "kdf_salt",
-    })
+    _SENSITIVE_FIELD_PATTERNS = frozenset(
+        {
+            "password",
+            "passwd",
+            "pwd",
+            "secret",
+            "token",
+            "access_token",
+            "refresh_token",
+            "api_key",
+            "apikey",
+            "private_key",
+            "client_secret",
+            "authorization",
+            "credential",
+            "credentials",
+            "master_key",
+            "kdf_salt",
+        }
+    )
 
     @classmethod
     def _mask_sensitive(cls, value: Any) -> Any:
@@ -310,7 +327,9 @@ class AuditService:
             masked = {}
             for k, v in value.items():
                 key_lower = str(k).lower()
-                if key_lower in cls._SENSITIVE_FIELD_PATTERNS or any(p in key_lower for p in cls._SENSITIVE_FIELD_PATTERNS):
+                if key_lower in cls._SENSITIVE_FIELD_PATTERNS or any(
+                    p in key_lower for p in cls._SENSITIVE_FIELD_PATTERNS
+                ):
                     masked[k] = "***REDACTED***" if v else v
                 else:
                     masked[k] = cls._mask_sensitive(v)
@@ -343,7 +362,9 @@ class AuditService:
         before_value = self._mask_sensitive(before_value) if before_value is not None else before_value
         after_value = self._mask_sensitive(after_value) if after_value is not None else after_value
         details_json = json.dumps(details, ensure_ascii=False) if details else None
-        before_value_json = json.dumps(before_value, ensure_ascii=False, default=str) if before_value is not None else None
+        before_value_json = (
+            json.dumps(before_value, ensure_ascii=False, default=str) if before_value is not None else None
+        )
         after_value_json = json.dumps(after_value, ensure_ascii=False, default=str) if after_value is not None else None
 
         # FIX-P0: 原代码在 _db_lock 外读取 prev_hash(=self._last_hash) 并在写后更新
@@ -424,6 +445,7 @@ class AuditService:
                 # S-10: 写入失败后重建连接路径，必须配置 PRAGMA，否则默认 rollback
                 # journal 模式会导致性能下降和高并发下 "database is locked"
                 import sqlite3
+
                 logger.warning("审计数据库连接为空，重建连接: %s", self._db_path)
                 conn = sqlite3.connect(self._db_path, check_same_thread=False)
                 # S-10: 重建后立即执行 PRAGMA 配置，复用辅助方法确保一致性
@@ -679,9 +701,7 @@ class AuditService:
 
         return {"valid": len(broken_at) == 0, "total": total, "broken_at": broken_at}
 
-    async def export_csv(
-        self, start_time: datetime | None = None, end_time: datetime | None = None
-    ) -> str:
+    async def export_csv(self, start_time: datetime | None = None, end_time: datetime | None = None) -> str:
         return await asyncio.to_thread(self._sync_export_csv, start_time, end_time)
 
     def _sync_export_csv(self, start_time, end_time) -> str:

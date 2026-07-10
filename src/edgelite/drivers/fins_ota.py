@@ -70,7 +70,9 @@ class FinsOtaManager:
         has_update = bool(package.version) and package.version != self._current_version
         logger.info(
             "[fins-ota] 检查更新: current=%s target=%s available=%s",
-            self._current_version, package.version, has_update,
+            self._current_version,
+            package.version,
+            has_update,
         )
         return has_update
 
@@ -113,7 +115,8 @@ class FinsOtaManager:
             self._current_version = target_version
             logger.info(
                 "[fins-ota] OTA升级成功: %s -> %s",
-                self._previous_version, target_version,
+                self._previous_version,
+                target_version,
             )
             return True
         except Exception as e:  # noqa: BLE001

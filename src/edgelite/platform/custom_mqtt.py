@@ -70,7 +70,9 @@ class CustomMqttHandler(PlatformHandler):
             self._connect_loop(broker, port, username, password),
             name="custom-mqtt-connect",
         )
-        logger.info("Custom MQTT platform started: %s:%d, prefix: %s", broker, port, self._topic_prefix)  # FIXED-P3: 中文日志→英文
+        logger.info(
+            "Custom MQTT platform started: %s:%d, prefix: %s", broker, port, self._topic_prefix
+        )  # FIXED-P3: 中文日志→英文
 
     async def disconnect(self) -> None:
         self._running = False
@@ -89,7 +91,8 @@ class CustomMqttHandler(PlatformHandler):
             if not self._connected:
                 self._enqueue_offline(
                     self._render_topic("telemetry", device_id),
-                    self._render_payload(data, device_id).encode("utf-8"), 1,
+                    self._render_payload(data, device_id).encode("utf-8"),
+                    1,
                 )  # FIXED-P2: 断线时缓存到离线队列
             return
         topic = self._render_topic("telemetry", device_id)
@@ -104,7 +107,8 @@ class CustomMqttHandler(PlatformHandler):
             if not self._connected:
                 self._enqueue_offline(
                     self._render_topic("attributes", device_id),
-                    self._render_payload(attrs, device_id).encode("utf-8"), 1,
+                    self._render_payload(attrs, device_id).encode("utf-8"),
+                    1,
                 )  # FIXED-P2: 断线时缓存到离线队列
             return
         topic = self._render_topic("attributes", device_id)
@@ -175,9 +179,16 @@ class CustomMqttHandler(PlatformHandler):
                 raise
             except Exception as e:
                 self._consecutive_failures += 1
-                delay = min(_MQTT_RECONNECT_DELAY * (2 ** (self._consecutive_failures - 1)), _PLATFORM_RECONNECT_MAX_BACKOFF)
+                delay = min(
+                    _MQTT_RECONNECT_DELAY * (2 ** (self._consecutive_failures - 1)), _PLATFORM_RECONNECT_MAX_BACKOFF
+                )
                 delay *= 0.5 + random.random() * 0.5  # 指数退避+jitter
-                logger.error("Custom MQTT connection error: %s, retrying in %.1fs (failures=%d)", e, delay, self._consecutive_failures)
+                logger.error(
+                    "Custom MQTT connection error: %s, retrying in %.1fs (failures=%d)",
+                    e,
+                    delay,
+                    self._consecutive_failures,
+                )
                 self._connected = False
                 await asyncio.sleep(delay)
 
@@ -188,7 +199,9 @@ class CustomMqttHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                    )  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 # 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)
@@ -256,7 +269,9 @@ class CustomMqttHandler(PlatformHandler):
         if self._topic_template:
             try:
                 return self._topic_template.format(
-                    prefix=self._topic_prefix, device_id=device_id, suffix=suffix,
+                    prefix=self._topic_prefix,
+                    device_id=device_id,
+                    suffix=suffix,
                 )
             except (KeyError, IndexError):
                 pass
@@ -267,7 +282,8 @@ class CustomMqttHandler(PlatformHandler):
         if self._payload_template:
             try:
                 rendered = self._payload_template.format(
-                    device_id=device_id, data=json.dumps(data, ensure_ascii=False, default=str),
+                    device_id=device_id,
+                    data=json.dumps(data, ensure_ascii=False, default=str),
                 )
                 return rendered
             except (KeyError, IndexError):

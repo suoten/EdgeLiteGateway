@@ -21,9 +21,7 @@ MODBUS_EXCEPTION_CN = {
 }
 
 
-def map_device_data_fast(
-    points: dict, holding_regs: list, input_regs: list, coils: list, base_address: int = 0
-) -> int:
+def map_device_data_fast(points: dict, holding_regs: list, input_regs: list, coils: list, base_address: int = 0) -> int:
     """将设备测点数据映射到Modbus寄存器（纯Python版）"""
     offset = base_address
 

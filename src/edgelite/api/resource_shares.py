@@ -124,9 +124,7 @@ async def list_my_shares(
     try:
         repo = _repo(database)
         # FIXED: [P0 无分页] 原 list_shared_with_user 无 LIMIT，全量加载有 OOM 风险 [2026-06-30]
-        shares, total = await repo.list_shared_with_user(
-            user["user_id"], resource_type, page=page, size=size
-        )
+        shares, total = await repo.list_shared_with_user(user["user_id"], resource_type, page=page, size=size)
         return ApiResponse(
             data={
                 "shares": shares,
@@ -157,9 +155,7 @@ async def list_shares_for_resource(
     try:
         repo = _repo(database)
         # FIXED: [P0 无分页] 原 list_shares_for_resource 无 LIMIT，全量加载有 OOM 风险 [2026-06-30]
-        shares, total = await repo.list_shares_for_resource(
-            resource_type, resource_id, page=page, size=size
-        )
+        shares, total = await repo.list_shares_for_resource(resource_type, resource_id, page=page, size=size)
         return ApiResponse(
             data={
                 "shares": shares,

@@ -82,8 +82,8 @@ def _knx_address_to_bytes(address: str) -> bytes:
         area = int(addr[0])
         line = int(addr[1])
         member = int(addr[2])
-    except ValueError:
-        raise ValueError(f"无效的KNX地址: {address}")
+    except ValueError as err:
+        raise ValueError(f"无效的KNX地址格式: {address}") from err
 
     # KNX地址格式: 0xAAALL (area=5位, line=3位, member=8位)
     return bytes([(area << 3) | line, member])
@@ -155,14 +155,16 @@ class KNXClient:
         结构: MsgCode(1) + AddInfoLen(1) + Ctrl1(1) + Ctrl2(1) + SrcAddr(2) + DstAddr(2) + PayloadLen(1) + TPDU
         PayloadLen = len(TPDU) - 1 (首字节为 APCI)
         """
-        cemi = bytes([
-            0x11,  # Message code: L_Data.req
-            0x00,  # Additional info length
-            0xBC,  # Control field 1
-            0x60,  # Control field 2: group addressing
-        ])
+        cemi = bytes(
+            [
+                0x11,  # Message code: L_Data.req
+                0x00,  # Additional info length
+                0xBC,  # Control field 1
+                0x60,  # Control field 2: group addressing
+            ]
+        )
         cemi += bytes([0x00, 0x00])  # Source address (placeholder)
-        cemi += knx_addr             # Destination address
+        cemi += knx_addr  # Destination address
         cemi += bytes([len(tpdu) - 1])  # Payload length (APCI 占首字节)
         cemi += tpdu
         return cemi
@@ -237,7 +239,8 @@ class KNXClient:
 
     async def _search_gateway(self) -> bool:
         """搜索KNX网关"""
-        header = struct.pack(">BBHH",
+        header = struct.pack(
+            ">BBHH",
             KNXNETIP_VERSION,
             0x02,  # Header size
             SERVICE_TYPE_SEARCH_REQUEST,
@@ -247,7 +250,8 @@ class KNXClient:
         # Search request body: discovery endpoint
         body = struct.pack(">HH", 3671, 0x08)  # port, protocol
 
-        header = struct.pack(">BBHH",
+        header = struct.pack(
+            ">BBHH",
             KNXNETIP_VERSION,
             0x0A,
             SERVICE_TYPE_SEARCH_REQUEST,
@@ -265,7 +269,7 @@ class KNXClient:
         try:
             await asyncio.wait_for(future, timeout=5.0)
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
         finally:
             self._pending.pop(0, None)
@@ -273,7 +277,8 @@ class KNXClient:
     async def _connect_request(self) -> bool:
         """发送连接请求"""
         # 连接请求头
-        header = struct.pack(">BBHH",
+        header = struct.pack(
+            ">BBHH",
             KNXNETIP_VERSION,
             0x06,  # Header size
             SERVICE_TYPE_CONNECT_REQUEST,
@@ -281,15 +286,26 @@ class KNXClient:
         )
 
         # 连接请求数据
-        body = bytes([
-            0x08, 0x01,  # IP address length, protocol (TCP)
-            0x00, 0x00, 0x00, 0x00,  # Local IP (placeholder)
-            0x00, 0x00,  # Local port (placeholder)
-            0x04, 0x04,  # Connection type: Tunnel
-            0x0C, 0x4B,  # Connection type data length
-            0x02, 0x00,  # LinkLayer (0x02)
-            0x01, 0x10,  # Maximum APDU length: 0x010F = 271
-        ])
+        body = bytes(
+            [
+                0x08,
+                0x01,  # IP address length, protocol (TCP)
+                0x00,
+                0x00,
+                0x00,
+                0x00,  # Local IP (placeholder)
+                0x00,
+                0x00,  # Local port (placeholder)
+                0x04,
+                0x04,  # Connection type: Tunnel
+                0x0C,
+                0x4B,  # Connection type data length
+                0x02,
+                0x00,  # LinkLayer (0x02)
+                0x01,
+                0x10,  # Maximum APDU length: 0x010F = 271
+            ]
+        )
 
         frame = header + body
 
@@ -302,7 +318,7 @@ class KNXClient:
         try:
             result = await asyncio.wait_for(future, timeout=10.0)
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
         finally:
             self._pending.pop(1, None)
@@ -326,15 +342,19 @@ class KNXClient:
             addr_bytes = knx_addr
 
             # CEMI头
-            cemi = bytes([
-                0x11,  # Message code: L_Data.req
-                0x00, 0xBC,  # Additional info length
-                0xE0,  # Control field 1: priority=low, group addressing
-                0xE0,  # Control field 2
-                0x00, 0x00,  # Destination address (placeholder)
-                0x11,  # Source address length
-                0x00,  # Source address (0 = from bus)
-            ])
+            cemi = bytes(
+                [
+                    0x11,  # Message code: L_Data.req
+                    0x00,
+                    0xBC,  # Additional info length
+                    0xE0,  # Control field 1: priority=low, group addressing
+                    0xE0,  # Control field 2
+                    0x00,
+                    0x00,  # Destination address (placeholder)
+                    0x11,  # Source address length
+                    0x00,  # Source address (0 = from bus)
+                ]
+            )
             cemi += bytes([0x00]) * 2  # Padding
             cemi += addr_bytes
 
@@ -346,7 +366,8 @@ class KNXClient:
             # 封装Tunnel Request
             tunnel_req = struct.pack(">BBH", self._channel_id, 0x00, len(cemi)) + cemi
 
-            header = struct.pack(">BBHH",
+            header = struct.pack(
+                ">BBHH",
                 KNXNETIP_VERSION,
                 0x06,
                 SERVICE_TYPE_TUNNEL_REQUEST,
@@ -366,9 +387,7 @@ class KNXClient:
             logger.error("KNX读取失败 %s: %s", group_address, e)
             return None
 
-    async def write_group_value(
-        self, group_address: str, value: Any, data_type: str = DATA_TYPE_SWITCH
-    ) -> bool:
+    async def write_group_value(self, group_address: str, value: Any, data_type: str = DATA_TYPE_SWITCH) -> bool:
         """写入KNX组地址值
 
         Args:
@@ -391,11 +410,12 @@ class KNXClient:
             tunnel_req = bytes([self._channel_id, 0x00, 0x00]) + cemi
 
             # KNXnet/IP header: version(1) + header_len(1) + service_type(2) + total_len(2)
-            header = struct.pack(">BBHH",
-                KNXNETIP_VERSION,           # KNXnet/IP version (0x10)
-                0x06,                       # Header length
+            header = struct.pack(
+                ">BBHH",
+                KNXNETIP_VERSION,  # KNXnet/IP version (0x10)
+                0x06,  # Header length
                 SERVICE_TYPE_TUNNEL_REQUEST,
-                6 + len(tunnel_req),        # Total length
+                6 + len(tunnel_req),  # Total length
             )
 
             frame = header + tunnel_req
@@ -520,17 +540,25 @@ class KNXClient:
         HPAI: structure_length(1) + protocol(1) + IP(4) + port(2) = 8字节
         """
         # HPAI (Host Protocol Address Information)
-        hpai = bytes([
-            0x08,  # structure_length
-            0x01,  # host_protocol_code: IPv4 UDP
-            0, 0, 0, 0,  # IP address (0.0.0.0)
-            0, 0,  # Port (0)
-        ])
+        hpai = bytes(
+            [
+                0x08,  # structure_length
+                0x01,  # host_protocol_code: IPv4 UDP
+                0,
+                0,
+                0,
+                0,  # IP address (0.0.0.0)
+                0,
+                0,  # Port (0)
+            ]
+        )
         # ChannelID + Reserved
         body = hpai + bytes([self._channel_id, 0x00])
         # KNXnet/IP header
-        header = struct.pack(">BBHH",
-            KNXNETIP_VERSION, 0x06,
+        header = struct.pack(
+            ">BBHH",
+            KNXNETIP_VERSION,
+            0x06,
             SERVICE_TYPE_CONNECTIONSTATE_REQUEST,
             6 + len(body),
         )
@@ -557,7 +585,7 @@ class KNXClient:
                 timeout=self._heartbeat_timeout,
             )
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
         finally:
             self._heartbeat_response_future = None
@@ -631,16 +659,41 @@ class KNXDriver(DriverPlugin):
     config_schema = {
         "description": "KNX building automation protocol for HVAC/Lighting/Control",
         "fields": [
-            {"name": "gateway_host", "type": "string", "label": "KNX Gateway IP",
-             "description": "KNXnet/IP gateway IP address", "default": "192.168.1.100"},
-            {"name": "gateway_port", "type": "integer", "label": "Gateway Port",
-             "description": "KNXnet/IP port (default 3671)", "default": 3671},
-            {"name": "local_port", "type": "integer", "label": "Local Port",
-             "description": "Local UDP port (0=random)", "default": 0},
-            {"name": "enable_events", "type": "boolean", "label": "Enable Event Subscription",
-             "description": "Enable group address event subscription for real-time updates", "default": True},
-            {"name": "heartbeat_interval", "type": "number", "label": "Heartbeat Interval",
-             "description": "ConnectionState heartbeat interval in seconds (0=disabled)", "default": 60.0},
+            {
+                "name": "gateway_host",
+                "type": "string",
+                "label": "KNX Gateway IP",
+                "description": "KNXnet/IP gateway IP address",
+                "default": "192.168.1.100",
+            },
+            {
+                "name": "gateway_port",
+                "type": "integer",
+                "label": "Gateway Port",
+                "description": "KNXnet/IP port (default 3671)",
+                "default": 3671,
+            },
+            {
+                "name": "local_port",
+                "type": "integer",
+                "label": "Local Port",
+                "description": "Local UDP port (0=random)",
+                "default": 0,
+            },
+            {
+                "name": "enable_events",
+                "type": "boolean",
+                "label": "Enable Event Subscription",
+                "description": "Enable group address event subscription for real-time updates",
+                "default": True,
+            },
+            {
+                "name": "heartbeat_interval",
+                "type": "number",
+                "label": "Heartbeat Interval",
+                "description": "ConnectionState heartbeat interval in seconds (0=disabled)",
+                "default": 60.0,
+            },
         ],
     }
 
@@ -680,8 +733,12 @@ class KNXDriver(DriverPlugin):
             if connected:
                 self._running = True
                 self._reconnect_count = 0
-                logger.info("KNX驱动启动成功: %s:%d, events=%s",
-                           gateway_host, gateway_port, "enabled" if self._enable_events else "disabled")
+                logger.info(
+                    "KNX驱动启动成功: %s:%d, events=%s",
+                    gateway_host,
+                    gateway_port,
+                    "enabled" if self._enable_events else "disabled",
+                )
             else:
                 logger.error("KNX驱动连接失败")
         except Exception as e:
@@ -744,7 +801,7 @@ class KNXDriver(DriverPlugin):
             return {}
 
         device_info = self._device_points.get(device_id, {})
-        device_config = device_info.get("config", {})
+        device_info.get("config", {})
         device_pts = device_info.get("points", {})
 
         result = {}
@@ -771,7 +828,7 @@ class KNXDriver(DriverPlugin):
             tasks.append(self._client.read_group_value(point_addr, data_type))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        return {p: r if not isinstance(r, Exception) else None for p, r in zip(points, results)}
+        return {p: r if not isinstance(r, Exception) else None for p, r in zip(points, results, strict=False)}
 
     def get_event_status(self) -> dict:
         """获取事件订阅状态"""
@@ -786,7 +843,7 @@ class KNXDriver(DriverPlugin):
             return False
 
         device_info = self._device_points.get(device_id, {})
-        device_config = device_info.get("config", {})
+        device_info.get("config", {})
         device_pts = device_info.get("points", {})
         pt_def = device_pts.get(point, {})
         data_type = pt_def.get("data_type", DATA_TYPE_SWITCH)

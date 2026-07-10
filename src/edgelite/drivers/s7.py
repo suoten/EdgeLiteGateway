@@ -54,7 +54,9 @@ class PointHealthStats:
     last_value: Any = None
     last_timestamp: float = 0.0
     same_value_count: int = 0
-    _latency_samples: deque = field(default_factory=lambda: deque(maxlen=20))  # FIXED-P2: S7-03 改为deque避免列表切片内存分配
+    _latency_samples: deque = field(
+        default_factory=lambda: deque(maxlen=20)
+    )  # FIXED-P2: S7-03 改为deque避免列表切片内存分配
 
     @property
     def success_rate(self) -> float:
@@ -102,31 +104,150 @@ class S7Driver(DriverPlugin):
     config_schema = {
         "description": "Siemens S7 PLC protocol (S7-200 Smart/300/400/1200/1500)",
         "required": ["ip"],
-        "properties": {"ip": {"type": "string", "description": "PLC IP address", "format": "ipv4"}, "port": {"type": "integer", "description": "S7 TCP port", "minimum": 1, "maximum": 65535}, "rack": {"type": "integer", "description": "Hardware rack number", "minimum": 0, "maximum": 7}, "slot": {"type": "integer", "description": "CPU slot number", "minimum": 0, "maximum": 31}},
+        "properties": {
+            "ip": {"type": "string", "description": "PLC IP address", "format": "ipv4"},
+            "port": {"type": "integer", "description": "S7 TCP port", "minimum": 1, "maximum": 65535},
+            "rack": {"type": "integer", "description": "Hardware rack number", "minimum": 0, "maximum": 7},
+            "slot": {"type": "integer", "description": "CPU slot number", "minimum": 0, "maximum": 31},
+        },
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP Address", "description": "PLC IP address", "default": "", "required": True},  # FIXED-P1: 默认IP改为空
-            {"name": "port", "type": "integer", "label": "Port", "description": "S7 TCP port (default 102, ISO-on-TCP)", "default": 102},
-            {"name": "rack", "type": "integer", "label": "Rack", "description": "Hardware rack number (0-7). S7-200 Smart/300/400/1200/1500 usually 0", "default": 0},
-            {"name": "slot", "type": "integer", "label": "Slot", "description": "CPU slot number (0-31). S7-200 Smart: 0, S7-300: 2, S7-1200/1500: 1", "default": 1},
-            {"name": "connect_timeout", "type": "integer", "label": "Connection Timeout (s)", "description": "TCP connection timeout in seconds (default 5, increase for remote/cloud connections)", "default": 5},
-            {"name": "heartbeat_interval", "type": "integer", "label": "Heartbeat Interval (s)", "description": "Seconds between heartbeat checks (default 30)", "default": 30},
-            {"name": "pdu_size", "type": "integer", "label": "PDU Size", "description": "Desired PDU size in bytes (0=auto-negotiate, default 0)", "default": 0},
-            {"name": "plc_model", "type": "string", "label": "PLC Model", "description": "PLC model (auto-detected on connect, or set manually). For S7-200 SMART, set to 'S7-200 SMART' to enable TSAP connection mode", "default": "auto", "options": ["auto", "S7-200 SMART", "S7-300", "S7-400", "S7-1200", "S7-1500"]},
-            {"name": "optimized_db", "type": "boolean", "label": "Optimized DB Access", "description": "Enable optimized DB block reading for S7-1200/1500 (merges adjacent addresses)", "default": True},
-            {"name": "db_number", "type": "integer", "label": "DB Number", "description": "Default data block number for reading/writing", "default": 1, "min": 1, "max": 65535},
-            {"name": "password", "type": "string", "label": "Password", "description": "S7 PLC access password (required for S7-200 SMART with password protection). 8 hex characters, e.g. '01234567' or 'FFFFFFFF' to disable", "default": "", "secret": True},
-            {"name": "local_tsap", "type": "integer", "label": "Local TSAP", "description": "Local TSAP for S7-200 SMART TSAP connection (default 0x1000). Only used when rack=0 and slot=0 or plc_model=S7-200", "default": 4096},
-            {"name": "remote_tsap", "type": "integer", "label": "Remote TSAP", "description": "Remote TSAP for S7-200 SMART TSAP connection (default 0x0200). Only used when rack=0 and slot=0 or plc_model=S7-200", "default": 512},
-            {"name": "deadband", "type": "number", "label": "Deadband", "description": "Value change deadband filter (0=disabled)", "default": 0},
-            {"name": "scaling", "type": "object", "label": "Scaling", "description": "Linear scaling: {ratio: 1.0, offset: 0.0}", "default": {}},
-            {"name": "clamp", "type": "object", "label": "Clamp", "description": "Value clamping: {min: null, max: null}", "default": {}},
-            {"name": "backup_ip", "type": "string", "label": "Backup IP", "description": "Redundant link IP address (failover target when primary fails 3 times)", "default": ""},
+            {
+                "name": "ip",
+                "type": "string",
+                "label": "IP Address",
+                "description": "PLC IP address",
+                "default": "",
+                "required": True,
+            },  # FIXED-P1: 默认IP改为空
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "S7 TCP port (default 102, ISO-on-TCP)",
+                "default": 102,
+            },
+            {
+                "name": "rack",
+                "type": "integer",
+                "label": "Rack",
+                "description": "Hardware rack number (0-7). S7-200 Smart/300/400/1200/1500 usually 0",
+                "default": 0,
+            },
+            {
+                "name": "slot",
+                "type": "integer",
+                "label": "Slot",
+                "description": "CPU slot number (0-31). S7-200 Smart: 0, S7-300: 2, S7-1200/1500: 1",
+                "default": 1,
+            },
+            {
+                "name": "connect_timeout",
+                "type": "integer",
+                "label": "Connection Timeout (s)",
+                "description": "TCP connection timeout in seconds (default 5, increase for remote/cloud connections)",
+                "default": 5,
+            },
+            {
+                "name": "heartbeat_interval",
+                "type": "integer",
+                "label": "Heartbeat Interval (s)",
+                "description": "Seconds between heartbeat checks (default 30)",
+                "default": 30,
+            },
+            {
+                "name": "pdu_size",
+                "type": "integer",
+                "label": "PDU Size",
+                "description": "Desired PDU size in bytes (0=auto-negotiate, default 0)",
+                "default": 0,
+            },
+            {
+                "name": "plc_model",
+                "type": "string",
+                "label": "PLC Model",
+                "description": "PLC model (auto-detected on connect, or set manually). For S7-200 SMART, set to 'S7-200 SMART' to enable TSAP connection mode",
+                "default": "auto",
+                "options": ["auto", "S7-200 SMART", "S7-300", "S7-400", "S7-1200", "S7-1500"],
+            },
+            {
+                "name": "optimized_db",
+                "type": "boolean",
+                "label": "Optimized DB Access",
+                "description": "Enable optimized DB block reading for S7-1200/1500 (merges adjacent addresses)",
+                "default": True,
+            },
+            {
+                "name": "db_number",
+                "type": "integer",
+                "label": "DB Number",
+                "description": "Default data block number for reading/writing",
+                "default": 1,
+                "min": 1,
+                "max": 65535,
+            },
+            {
+                "name": "password",
+                "type": "string",
+                "label": "Password",
+                "description": "S7 PLC access password (required for S7-200 SMART with password protection). 8 hex characters, e.g. '01234567' or 'FFFFFFFF' to disable",
+                "default": "",
+                "secret": True,
+            },
+            {
+                "name": "local_tsap",
+                "type": "integer",
+                "label": "Local TSAP",
+                "description": "Local TSAP for S7-200 SMART TSAP connection (default 0x1000). Only used when rack=0 and slot=0 or plc_model=S7-200",
+                "default": 4096,
+            },
+            {
+                "name": "remote_tsap",
+                "type": "integer",
+                "label": "Remote TSAP",
+                "description": "Remote TSAP for S7-200 SMART TSAP connection (default 0x0200). Only used when rack=0 and slot=0 or plc_model=S7-200",
+                "default": 512,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband",
+                "description": "Value change deadband filter (0=disabled)",
+                "default": 0,
+            },
+            {
+                "name": "scaling",
+                "type": "object",
+                "label": "Scaling",
+                "description": "Linear scaling: {ratio: 1.0, offset: 0.0}",
+                "default": {},
+            },
+            {
+                "name": "clamp",
+                "type": "object",
+                "label": "Clamp",
+                "description": "Value clamping: {min: null, max: null}",
+                "default": {},
+            },
+            {
+                "name": "backup_ip",
+                "type": "string",
+                "label": "Backup IP",
+                "description": "Redundant link IP address (failover target when primary fails 3 times)",
+                "default": "",
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=True)
-    constraints = ({"type": "protocol_note", "message": "S7-200 SMART, optimized block access, and PUT/GET permission differences vary by model"},)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    capabilities = DriverCapabilities(
+        discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=True
+    )
+    constraints = (
+        {
+            "type": "protocol_note",
+            "message": "S7-200 SMART, optimized block access, and PUT/GET permission differences vary by model",
+        },
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     _MAX_RECONNECT_ATTEMPTS = 3
     _RECONNECT_BASE_DELAY = 1.0
@@ -178,7 +299,9 @@ class S7Driver(DriverPlugin):
         self._client = None
         self._config: dict = {}
         self._lock = asyncio.Lock()
-        self._sync_lock = threading.RLock()  # FIXED-P0: 改为RLock防止死锁，之前Lock不可重入导致旧线程持锁时新线程永久阻塞
+        self._sync_lock = (
+            threading.RLock()
+        )  # FIXED-P0: 改为RLock防止死锁，之前Lock不可重入导致旧线程持锁时新线程永久阻塞
         self._reconnect_count: int = 0
         self._reconnect_delay: float = self._RECONNECT_BASE_DELAY
         self._devices: dict[str, dict] = {}
@@ -253,7 +376,7 @@ class S7Driver(DriverPlugin):
 
     async def _run_in_s7_thread_async(self, func, *args, **kwargs):
         """Run a snap7 operation in the dedicated single thread executor (async)."""
-        timeout = kwargs.pop('timeout', 30.0)  # FIXED-P1: 从kwargs中提取timeout，防止被submit吞没
+        timeout = kwargs.pop("timeout", 30.0)  # FIXED-P1: 从kwargs中提取timeout，防止被submit吞没
         async with self._s7_executor_lock:  # FIXED-P0: executor重建+submit原子性保护，防止并发重建
             # FIXED-P1: 超时后重建executor，避免卡死线程阻塞所有后续操作
             if self._s7_executor_failed:
@@ -272,7 +395,9 @@ class S7Driver(DriverPlugin):
                         )
                     # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
                     except Exception as e:
-                        logger.debug("[s7] code=DISCONNECT_CLEANUP_FAILED msg=old_client disconnect cleanup failed: %s", e)
+                        logger.debug(
+                            "[s7] code=DISCONNECT_CLEANUP_FAILED msg=old_client disconnect cleanup failed: %s", e
+                        )
                 elif old_client is not None:
                     with contextlib.suppress(Exception):
                         await asyncio.wait_for(
@@ -285,7 +410,9 @@ class S7Driver(DriverPlugin):
                     try:
                         old_executor.shutdown(wait=False, cancel_futures=True)
                     except Exception as e:
-                        logger.warning("[s7] run_in_s7_thread_async failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                        logger.warning(
+                            "[s7] run_in_s7_thread_async failed: %s", e
+                        )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 logger.warning("[s7] code=EXECUTOR_REBUILT msg=S7 executor rebuilt after timeout")
             future = self._get_s7_executor().submit(func, *args, **kwargs)
         try:
@@ -319,7 +446,9 @@ class S7Driver(DriverPlugin):
         try:
             await asyncio.wait_for(self._run_in_s7_thread_async(func, *args), timeout=timeout)
         except TimeoutError:
-            logger.error("[s7] code=SNAP7_CALL_TIMEOUT msg=Snap7 operation timed out after %.1fs: %s", timeout, func.__name__)
+            logger.error(
+                "[s7] code=SNAP7_CALL_TIMEOUT msg=Snap7 operation timed out after %.1fs: %s", timeout, func.__name__
+            )
             self._s7_executor_failed = True  # FIXED-P1: 标记executor线程可能卡死，下次调用时重建
             self._set_conn_state(ConnectionState.DISCONNECTED.value)
             raise
@@ -352,7 +481,9 @@ class S7Driver(DriverPlugin):
                         client.set_timeout(old_timeout)
                     # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
                     except Exception as e:
-                        logger.debug("[s7] code=SET_TIMEOUT_RESTORE_FAILED msg=client.set_timeout(old_timeout) failed: %s", e)
+                        logger.debug(
+                            "[s7] code=SET_TIMEOUT_RESTORE_FAILED msg=client.set_timeout(old_timeout) failed: %s", e
+                        )
 
     def _sync_db_write(self, db_number, byte_offset, data):
         with self._sync_lock:
@@ -377,7 +508,9 @@ class S7Driver(DriverPlugin):
                         client.set_timeout(old_timeout)
                     # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
                     except Exception as e:
-                        logger.debug("[s7] code=SET_TIMEOUT_RESTORE_FAILED msg=client.set_timeout(old_timeout) failed: %s", e)
+                        logger.debug(
+                            "[s7] code=SET_TIMEOUT_RESTORE_FAILED msg=client.set_timeout(old_timeout) failed: %s", e
+                        )
 
     def _sync_get_cpu_info(self):
         with self._sync_lock:
@@ -402,8 +535,7 @@ class S7Driver(DriverPlugin):
             import snap7
         except ImportError:
             raise ImportError(
-                "snap7未安装，请执行: pip install python-snap7。"
-                "同时需要下载snap7动态库: https://snap7.sourceforge.net/"
+                "snap7未安装，请执行: pip install python-snap7。同时需要下载snap7动态库: https://snap7.sourceforge.net/"
             ) from None
 
         self._config = config
@@ -429,6 +561,7 @@ class S7Driver(DriverPlugin):
         )
         try:
             from edgelite.engine.event_bus import EventBus
+
             event_bus = EventBus.instance()
         except Exception:
             event_bus = None
@@ -458,15 +591,9 @@ class S7Driver(DriverPlugin):
             raise ValueError("S7 driver config missing 'ip' parameter")
 
         if not (0 <= rack <= 7):
-            raise ValueError(
-                f"S7 rack out of range [0-7], got {rack}. "
-                f"Common: S7-300/400 rack=0, S7-1200/1500 rack=0"
-            )
+            raise ValueError(f"S7 rack out of range [0-7], got {rack}. Common: S7-300/400 rack=0, S7-1200/1500 rack=0")
         if not (0 <= slot <= 31):
-            raise ValueError(
-                f"S7 slot out of range [0-31], got {slot}. "
-                f"Common: S7-300 slot=2, S7-1200/1500 slot=1"
-            )
+            raise ValueError(f"S7 slot out of range [0-31], got {slot}. Common: S7-300 slot=2, S7-1200/1500 slot=1")
 
         self._heartbeat_interval = int(config.get("heartbeat_interval", 30))
 
@@ -478,7 +605,11 @@ class S7Driver(DriverPlugin):
         # 保存密码（用于连接后协商）
         self._password = str(config.get("password", "")).strip()
         if self._password and len(self._password) not in (0, 8):
-            logger.warning("[s7] device=%s code=PASSWORD_INVALID msg=密码长度应为8位十六进制字符（0-9/A-F），当前长度=%d", ip, len(self._password))  # FIXED-P2: 日志中不打印明文密码
+            logger.warning(
+                "[s7] device=%s code=PASSWORD_INVALID msg=密码长度应为8位十六进制字符（0-9/A-F），当前长度=%d",
+                ip,
+                len(self._password),
+            )  # FIXED-P2: 日志中不打印明文密码
             self._password = ""
 
         try:
@@ -490,7 +621,12 @@ class S7Driver(DriverPlugin):
                 remote_tsap = config.get("remote_tsap", 0x0200)
                 timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
                 self._client.set_connection_params(ip, local_tsap, remote_tsap, timeout)
-                logger.info("[s7] device=%s code=S7_200_SMART msg=使用S7-200 SMART TSAP连接模式 (local_tsap=0x%04X, remote_tsap=0x%04X)", ip, local_tsap, remote_tsap)
+                logger.info(
+                    "[s7] device=%s code=S7_200_SMART msg=使用S7-200 SMART TSAP连接模式 (local_tsap=0x%04X, remote_tsap=0x%04X)",
+                    ip,
+                    local_tsap,
+                    remote_tsap,
+                )
             else:
                 timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
                 self._client.set_connection_params(ip, 0, 0, timeout)
@@ -503,7 +639,7 @@ class S7Driver(DriverPlugin):
             try:
                 # FIXED-P2: 使用专用_s7_executor而非asyncio.to_thread默认线程池
                 info = await self._run_in_s7_thread_async(self._sync_get_cpu_info)
-                self._plc_model = info.ModuleName if hasattr(info, 'ModuleName') else "Unknown"
+                self._plc_model = info.ModuleName if hasattr(info, "ModuleName") else "Unknown"
                 if any(kw in self._plc_model.upper() for kw in ["SMART", "S7-200"]):
                     self._is_s7_200_smart = True
                 logger.info("[s7] device=%s code=PLC_DETECTED msg=Model: %s", ip, self._plc_model)
@@ -521,7 +657,11 @@ class S7Driver(DriverPlugin):
             self._circuit_open.discard(ip)  # FIXED-P1: 首次连接成功时移除熔断状态
             logger.info(
                 "[s7] device=%s code=CONN_OK msg=Connected (rack=%d, slot=%d, pdu=%d, model=%s, password=%s)",
-                ip, rack, slot, self._pdu_size, self._plc_model,
+                ip,
+                rack,
+                slot,
+                self._pdu_size,
+                self._plc_model,
                 "enabled" if self._password else "none",
             )
 
@@ -533,6 +673,7 @@ class S7Driver(DriverPlugin):
 
             try:
                 from edgelite.engine.event_bus import EventBus
+
                 event_bus = EventBus.instance()
             except Exception:
                 event_bus = None
@@ -579,7 +720,9 @@ class S7Driver(DriverPlugin):
                 self._heartbeat_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._heartbeat_task
-            if self._delayed_reconnect_task and not self._delayed_reconnect_task.done():  # FIXED-P1: 移除hasattr检查，_delayed_reconnect_task已在__init__中初始化
+            if (
+                self._delayed_reconnect_task and not self._delayed_reconnect_task.done()
+            ):  # FIXED-P1: 移除hasattr检查，_delayed_reconnect_task已在__init__中初始化
                 self._delayed_reconnect_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._delayed_reconnect_task
@@ -654,9 +797,13 @@ class S7Driver(DriverPlugin):
             self._hb_reconnect_count = 0
             self._hb_exhausted = False
             self._hb_permanent_offline = False  # FIXED-P2: 重置永久离线标记，允许restart后心跳启动
-            await asyncio.to_thread(self._save_permanent_offline_state)  # FIXED-P0: 持久化清除，防止重启后从JSON加载旧状态导致驱动永远无法重连
+            await asyncio.to_thread(
+                self._save_permanent_offline_state
+            )  # FIXED-P0: 持久化清除，防止重启后从JSON加载旧状态导致驱动永远无法重连
             self._long_retry_level = 0  # FIXED-P2: 重置渐进式重连等级，防止restart后首次重连间隔过长
-            self._hb_first_fail_time = 0.0  # FIXED-P0: 重置首次失败时间，与__init__类型一致，避免restart后time.monotonic()-None抛TypeError
+            self._hb_first_fail_time = (
+                0.0  # FIXED-P0: 重置首次失败时间，与__init__类型一致，避免restart后time.monotonic()-None抛TypeError
+            )
 
             logger.info("[s7] code=STOPPED msg=Driver stopped")
             # FIXED-P1: S7-R01 调用基类stop()确保_shutdown_executor和_cancel_background_tasks执行
@@ -698,7 +845,10 @@ class S7Driver(DriverPlugin):
             async with self._hb_task_lock:
                 if self._running and (self._heartbeat_task is None or self._heartbeat_task.done()):
                     self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-            logger.info("[s7] device=%s code=HB_PERMANENT_RECOVERED msg=Connection recovered from permanent offline, heartbeat restarted", device_id)
+            logger.info(
+                "[s7] device=%s code=HB_PERMANENT_RECOVERED msg=Connection recovered from permanent offline, heartbeat restarted",
+                device_id,
+            )
 
         # Check connection quality before reading
         quality = self.get_connection_quality(device_id)
@@ -709,20 +859,28 @@ class S7Driver(DriverPlugin):
             if new_quality > 80:
                 logger.info("[s7] device=%s code=QUALITY_RECOVERED quality=%.1f->%.1f", device_id, quality, new_quality)
             else:
-                await self._set_connection_state(device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold after reconnect")
-                logger.warning("[s7] device=%s code=QUALITY_DEGRADED quality=%.1f after reconnect", device_id, new_quality)
+                await self._set_connection_state(
+                    device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold after reconnect"
+                )
+                logger.warning(
+                    "[s7] device=%s code=QUALITY_DEGRADED quality=%.1f after reconnect", device_id, new_quality
+                )
 
         if not self._running or not self._client:
             await self._try_reconnect(device_id)
             return {name: _bad_pv(S7DriverErrors.CONN_FAILED) for name in points}
 
         if self._password and time.time() < self._auth_locked_until:
-            self._log_error(device_id, S7DriverErrors.AUTH_LOCKED, f"Auth locked, retry after {self._auth_locked_until - time.time():.0f}s")
+            self._log_error(
+                device_id,
+                S7DriverErrors.AUTH_LOCKED,
+                f"Auth locked, retry after {self._auth_locked_until - time.time():.0f}s",
+            )
             return {name: _bad_pv(S7DriverErrors.AUTH_LOCKED) for name in points}
 
         result = {}
         start_time = time.monotonic()
-        max_total_timeout = self._MAX_BATCH_RETRY_TIMEOUT if hasattr(self, '_MAX_BATCH_RETRY_TIMEOUT') else 30
+        max_total_timeout = self._MAX_BATCH_RETRY_TIMEOUT if hasattr(self, "_MAX_BATCH_RETRY_TIMEOUT") else 30
 
         try:
             async with self._lock:
@@ -740,13 +898,21 @@ class S7Driver(DriverPlugin):
             for retry in range(self._BATCH_RETRY_MAX):
                 elapsed = time.monotonic() - start_time
                 if elapsed >= max_total_timeout:
-                    logger.warning("[s7] device=%s code=MAX_RETRY_TIMEOUT msg=Total retry timeout (%.1fs) reached, giving up", device_id, elapsed)
+                    logger.warning(
+                        "[s7] device=%s code=MAX_RETRY_TIMEOUT msg=Total retry timeout (%.1fs) reached, giving up",
+                        device_id,
+                        elapsed,
+                    )
                     break
                 segment_bytes = max(segment_bytes // 2, 16)
                 remaining_timeout = max_total_timeout - elapsed
                 logger.warning(
                     "[s7] device=%s code=BATCH_RETRY msg=Retry with reduced segment %d bytes (attempt %d/%d), remaining time %.1fs",
-                    device_id, segment_bytes, retry + 1, self._BATCH_RETRY_MAX, remaining_timeout
+                    device_id,
+                    segment_bytes,
+                    retry + 1,
+                    self._BATCH_RETRY_MAX,
+                    remaining_timeout,
                 )
                 await asyncio.sleep(0.1)
                 try:
@@ -761,7 +927,9 @@ class S7Driver(DriverPlugin):
                 except Exception as retry_err:
                     logger.warning(
                         "[s7] device=%s code=BATCH_RETRY_FAIL msg=Retry attempt %d failed: %s",
-                        device_id, retry + 1, retry_err,
+                        device_id,
+                        retry + 1,
+                        retry_err,
                     )
                     continue
             if not result:
@@ -777,7 +945,12 @@ class S7Driver(DriverPlugin):
             for point_addr in points:
                 elapsed = time.monotonic() - start_time
                 if elapsed >= max_total_timeout:  # FIXED-P2: 逐点读取总超时保护
-                    logger.warning("[s7] device=%s code=PER_POINT_TIMEOUT msg=Total elapsed %.1fs exceeds limit, skipping remaining %d points", device_id, elapsed, len(points) - len(result))
+                    logger.warning(
+                        "[s7] device=%s code=PER_POINT_TIMEOUT msg=Total elapsed %.1fs exceeds limit, skipping remaining %d points",
+                        device_id,
+                        elapsed,
+                        len(points) - len(result),
+                    )
                     result[point_addr] = _bad_pv(S7DriverErrors.READ_TIMEOUT)
                     continue
                 try:
@@ -787,15 +960,24 @@ class S7Driver(DriverPlugin):
                     )
                     result[point_addr] = value
                 except TimeoutError:  # FIXED-P1: 兼容Python<3.11
-                    logger.warning("[s7] device=%s code=READ_TIMEOUT msg=Point read timeout %s (%ds)", device_id, point_addr, self._READ_TIMEOUT)
+                    logger.warning(
+                        "[s7] device=%s code=READ_TIMEOUT msg=Point read timeout %s (%ds)",
+                        device_id,
+                        point_addr,
+                        self._READ_TIMEOUT,
+                    )
                     result[point_addr] = _bad_pv(S7DriverErrors.READ_TIMEOUT)
                 except Exception as e2:
-                    logger.warning("[s7] device=%s code=READ_ERROR msg=Point read failed %s - %s", device_id, point_addr, e2)
+                    logger.warning(
+                        "[s7] device=%s code=READ_ERROR msg=Point read failed %s - %s", device_id, point_addr, e2
+                    )
                     result[point_addr] = _bad_pv(S7DriverErrors.READ_FAILED)
 
         # success rule: any non-None value counts as success
         if any(not isinstance(v, PointValue) or v.quality != "bad" for v in result.values()):
-            await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+            await self._record_read_success(
+                device_id
+            )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
         else:
             self._record_read_failure(device_id)
 
@@ -840,7 +1022,9 @@ class S7Driver(DriverPlugin):
                 if pt_clamp:
                     raw, ok = self._apply_clamp(raw, pt_clamp)
                     if not ok:
-                        processed[name] = PointValue(value=raw, quality="bad", timestamp=now, source=f"s7:{S7DriverErrors.VALUE_OUT_OF_RANGE}")
+                        processed[name] = PointValue(
+                            value=raw, quality="bad", timestamp=now, source=f"s7:{S7DriverErrors.VALUE_OUT_OF_RANGE}"
+                        )
                         ph.record_failure()
                         continue
                 if pt_roc and ph.last_value is not None and ph.last_timestamp > 0:
@@ -848,12 +1032,22 @@ class S7Driver(DriverPlugin):
                     if dt > 0:
                         roc = abs(raw - ph.last_value) / dt
                         if roc > pt_roc:
-                            processed[name] = PointValue(value=raw, timestamp=now, quality="uncertain", source=f"s7:{S7DriverErrors.RATE_OF_CHANGE}")
+                            processed[name] = PointValue(
+                                value=raw,
+                                timestamp=now,
+                                quality="uncertain",
+                                source=f"s7:{S7DriverErrors.RATE_OF_CHANGE}",
+                            )
                             ph.record_success()
                             good_count += 1
                             continue
                 # BUG-004: 应用deadband死区过滤，值变化小于死区时跳过上报
-                if pt_deadband and ph.last_value is not None and isinstance(raw, (int, float)) and isinstance(ph.last_value, (int, float)):
+                if (
+                    pt_deadband
+                    and ph.last_value is not None
+                    and isinstance(raw, (int, float))
+                    and isinstance(ph.last_value, (int, float))
+                ):
                     if abs(raw - ph.last_value) <= pt_deadband:
                         ph.record_success()
                         good_count += 1
@@ -863,12 +1057,16 @@ class S7Driver(DriverPlugin):
                 else:
                     ph.same_value_count = 0
                 if ph.same_value_count >= frozen_threshold and isinstance(raw, (int, float)):
-                    processed[name] = PointValue(value=raw, timestamp=now, quality="uncertain", source=f"s7:{S7DriverErrors.FROZEN_VALUE}")
+                    processed[name] = PointValue(
+                        value=raw, timestamp=now, quality="uncertain", source=f"s7:{S7DriverErrors.FROZEN_VALUE}"
+                    )
                     ph.record_success()
                     good_count += 1
                     continue
             elif isinstance(raw, float) and (math.isnan(raw) or math.isinf(raw)):
-                processed[name] = PointValue(value=None, quality="bad", timestamp=now, source=f"s7:{S7DriverErrors.NAN_INF}")
+                processed[name] = PointValue(
+                    value=None, quality="bad", timestamp=now, source=f"s7:{S7DriverErrors.NAN_INF}"
+                )
                 ph.record_failure()
                 continue
 
@@ -876,7 +1074,9 @@ class S7Driver(DriverPlugin):
             if isinstance(v, PointValue) and v.quality not in ("bad",):
                 quality = v.quality
             if isinstance(v, PointValue):
-                processed[name] = PointValue(value=raw, timestamp=v.timestamp or now, quality=quality, source=v.source, latency_ms=v.latency_ms)
+                processed[name] = PointValue(
+                    value=raw, timestamp=v.timestamp or now, quality=quality, source=v.source, latency_ms=v.latency_ms
+                )
             else:
                 processed[name] = PointValue(value=raw, timestamp=now, quality=quality, source="device")
             ph.last_value = raw
@@ -891,11 +1091,22 @@ class S7Driver(DriverPlugin):
             if rate < self._DEGRADE_SUCCESS_THRESHOLD and not self._degraded:
                 self._degraded = True
                 self._collect_interval_multiplier = 2.0
-                logger.warning("[s7] device=%s code=DEGRADE_ACTIVE msg=Success rate %.1f%% < %.0f%%, interval x%.1f", device_id, rate * 100, self._DEGRADE_SUCCESS_THRESHOLD * 100, self._collect_interval_multiplier)
+                logger.warning(
+                    "[s7] device=%s code=DEGRADE_ACTIVE msg=Success rate %.1f%% < %.0f%%, interval x%.1f",
+                    device_id,
+                    rate * 100,
+                    self._DEGRADE_SUCCESS_THRESHOLD * 100,
+                    self._collect_interval_multiplier,
+                )
             elif rate > self._RECOVER_SUCCESS_THRESHOLD and self._degraded:
                 self._degraded = False
                 self._collect_interval_multiplier = 1.0
-                logger.info("[s7] device=%s code=DEGRADE_RECOVERED msg=Success rate %.1f%% > %.0f%%, interval restored", device_id, rate * 100, self._RECOVER_SUCCESS_THRESHOLD * 100)
+                logger.info(
+                    "[s7] device=%s code=DEGRADE_RECOVERED msg=Success rate %.1f%% > %.0f%%, interval restored",
+                    device_id,
+                    rate * 100,
+                    self._RECOVER_SUCCESS_THRESHOLD * 100,
+                )
 
         await self._evaluate_edge_rules(device_id, result)
 
@@ -927,7 +1138,13 @@ class S7Driver(DriverPlugin):
                                 logger.warning("[s7] code=DECODE_ERROR msg=Extract value failed %s - %s", addr, e)
                                 result[addr] = _bad_pv(S7DriverErrors.DECODE_FAILED)
                     except Exception as e:
-                        logger.warning("[s7] code=READ_ERROR msg=DB read failed DB%d.%d+%d - %s", db_number, start_offset, total_bytes, e)
+                        logger.warning(
+                            "[s7] code=READ_ERROR msg=DB read failed DB%d.%d+%d - %s",
+                            db_number,
+                            start_offset,
+                            total_bytes,
+                            e,
+                        )
                         for addr, _, _, _, _ in items:
                             result[addr] = _bad_pv(S7DriverErrors.READ_FAILED)
                 return result
@@ -985,7 +1202,9 @@ class S7Driver(DriverPlugin):
 
         return db_number, type_char, byte_offset, bit_offset, size
 
-    def _optimize_db_reads(self, addresses: list[str], max_segment_bytes: int | None = None) -> list[tuple[int, int, int, list[tuple[str, int, int, str, int]]]]:
+    def _optimize_db_reads(
+        self, addresses: list[str], max_segment_bytes: int | None = None
+    ) -> list[tuple[int, int, int, list[tuple[str, int, int, str, int]]]]:
         parsed = []
         for addr in addresses:
             db, type_char, byte_offset, bit_offset, size = self._parse_address(addr)
@@ -1041,13 +1260,13 @@ class S7Driver(DriverPlugin):
         if type_char == "X":
             return bool(data[offset] & (1 << bit_offset))
         elif type_char == "B":
-            return int.from_bytes(data[offset:offset + 1], byteorder="big", signed=True)
+            return int.from_bytes(data[offset : offset + 1], byteorder="big", signed=True)
         elif type_char == "W":
-            return int.from_bytes(data[offset:offset + 2], byteorder="big", signed=True)
+            return int.from_bytes(data[offset : offset + 2], byteorder="big", signed=True)
         elif type_char == "D":
-            return int.from_bytes(data[offset:offset + 4], byteorder="big", signed=True)
+            return int.from_bytes(data[offset : offset + 4], byteorder="big", signed=True)
         elif type_char == "R":
-            val = struct.unpack(">f", data[offset:offset + 4])[0]
+            val = struct.unpack(">f", data[offset : offset + 4])[0]
             if math.isnan(val) or math.isinf(val):
                 raise ValueError(f"NaN/Inf detected: {val}")
             return val
@@ -1152,10 +1371,14 @@ class S7Driver(DriverPlugin):
         last = self._write_timestamps.get(address, 0.0)
         elapsed_ms = (now - last) * 1000
         if elapsed_ms < self._WRITE_RATE_LIMIT_MS:
-            raise self.WriteRateLimitedError(f"Write rate limited for {address}, elapsed {elapsed_ms:.0f}ms < {self._WRITE_RATE_LIMIT_MS}ms")
+            raise self.WriteRateLimitedError(
+                f"Write rate limited for {address}, elapsed {elapsed_ms:.0f}ms < {self._WRITE_RATE_LIMIT_MS}ms"
+            )
         self._write_timestamps.set(address, now)  # FIXED-P1: LRUCache使用set()而非[]赋值
 
-    def _audit_write(self, device_id: str, point: str, old_value: Any, new_value: Any, result: str, error_code: str = "") -> None:
+    def _audit_write(
+        self, device_id: str, point: str, old_value: Any, new_value: Any, result: str, error_code: str = ""
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "device_id": device_id,
@@ -1167,7 +1390,9 @@ class S7Driver(DriverPlugin):
         }
         self._write_audit_log.append(entry)
 
-    async def _verify_write(self, point: str, value: Any, type_char: str, db_number: int, byte_offset: int, bit_offset: int) -> None:
+    async def _verify_write(
+        self, point: str, value: Any, type_char: str, db_number: int, byte_offset: int, bit_offset: int
+    ) -> None:
         await asyncio.sleep(self._WRITE_VERIFY_DELAY_MS / 1000.0)
         read_back = await asyncio.wait_for(
             self._run_in_s7_thread_async(self._read_point, point),
@@ -1187,9 +1412,14 @@ class S7Driver(DriverPlugin):
         # SEC-FIX(修复2): 驱动层写入权限检查，防止内部服务绕过 API 层鉴权直接写入
         if hasattr(self, "check_permission"):
             from edgelite.security.rbac import Permission
+
             if not await self.check_permission(Permission.DEVICE_WRITE_POINT):
-                logger.warning("[s7] write denied: role=%s lacks device:write_point, device=%s point=%s",
-                               getattr(self, "_current_user_role", "unknown"), device_id, point)
+                logger.warning(
+                    "[s7] write denied: role=%s lacks device:write_point, device=%s point=%s",
+                    getattr(self, "_current_user_role", "unknown"),
+                    device_id,
+                    point,
+                )
                 return False
         if not self._running or not self._client:
             await self._try_reconnect(device_id)
@@ -1243,7 +1473,9 @@ class S7Driver(DriverPlugin):
                     except self.WriteVerifyError as e:
                         self._record_write_failure(device_id)
                         self._log_error(device_id, S7DriverErrors.WRITE_VERIFY_FAILED, str(e))
-                        self._audit_write(device_id, point, old_value, value, "verify_failed", S7DriverErrors.WRITE_VERIFY_FAILED)
+                        self._audit_write(
+                            device_id, point, old_value, value, "verify_failed", S7DriverErrors.WRITE_VERIFY_FAILED
+                        )
                         return False
             self._record_write_success(device_id)
             self._audit_write(device_id, point, old_value, value, "ok")
@@ -1314,7 +1546,9 @@ class S7Driver(DriverPlugin):
                             client.set_timeout(old_timeout)
                         # FIXED-P1: 原问题-except Exception: pass 静默吞没异常，改为至少 logger.debug
                         except Exception as e:
-                            logger.debug("[s7] code=SET_TIMEOUT_RESTORE_FAILED msg=client.set_timeout(old_timeout) failed: %s", e)
+                            logger.debug(
+                                "[s7] code=SET_TIMEOUT_RESTORE_FAILED msg=client.set_timeout(old_timeout) failed: %s", e
+                            )
         elif type_char == "B":
             data = bytearray([int(value) & 0xFF])
             self._sync_db_write(db_number, byte_offset, data)
@@ -1330,7 +1564,9 @@ class S7Driver(DriverPlugin):
             data = struct.pack(">f", float(value))
             self._sync_db_write(db_number, byte_offset, data)
         else:
-            raise ValueError(f"Unsupported S7 data type for write: {type_char}")  # FIXED-P2: 不支持的类型抛出异常而非静默跳过
+            raise ValueError(
+                f"Unsupported S7 data type for write: {type_char}"
+            )  # FIXED-P2: 不支持的类型抛出异常而非静默跳过
 
     async def batch_write_points(self, device_id, writes):
         if not self._running or not self._client:
@@ -1369,7 +1605,9 @@ class S7Driver(DriverPlugin):
                 return True
             except TimeoutError:  # FIXED-P1: 兼容Python<3.11
                 self._record_write_failure(device_id)
-                self._log_error(device_id, S7DriverErrors.WRITE_TIMEOUT, f"Write timeout {point} ({self._WRITE_TIMEOUT}s)")
+                self._log_error(
+                    device_id, S7DriverErrors.WRITE_TIMEOUT, f"Write timeout {point} ({self._WRITE_TIMEOUT}s)"
+                )
                 self._audit_write(device_id, point, None, value, "timeout", S7DriverErrors.WRITE_TIMEOUT)
                 return False
             except Exception as e:
@@ -1437,7 +1675,11 @@ class S7Driver(DriverPlugin):
                 net = ipaddress.ip_network(network, strict=False)
                 # FIXED-P1: 先用num_addresses预判网段大小，防止/8等大网段先生成全部IP再截断导致OOM
                 if net.num_addresses > 1026:
-                    logger.error("[s7] code=NETWORK_TOO_LARGE msg=Network %s has %d addresses, max 1026", network, net.num_addresses)
+                    logger.error(
+                        "[s7] code=NETWORK_TOO_LARGE msg=Network %s has %d addresses, max 1026",
+                        network,
+                        net.num_addresses,
+                    )
                     return []
                 ips = [str(ip) for ip in net.hosts()]
 
@@ -1497,13 +1739,19 @@ class S7Driver(DriverPlugin):
                             try:
                                 client.destroy()  # FIXED-P2: disconnect超时后仍调用destroy释放C层资源
                             except Exception as e:
-                                logger.warning("[s7] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                                logger.warning(
+                                    "[s7] operation failed: %s", e
+                                )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                         except Exception as e:
-                            logger.warning("[s7] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[s7] operation failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                         try:
                             client.destroy()
                         except Exception as e:
-                            logger.warning("[s7] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.warning(
+                                "[s7] operation failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
 
         tasks = [_probe(ip) for ip in ips]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1546,11 +1794,19 @@ class S7Driver(DriverPlugin):
             pdu = await self._run_in_s7_thread_async(client.get_pdu_size)
             if pdu and pdu > 0:
                 if not (128 <= pdu <= 65535):
-                    logger.warning("[s7] device=%s code=PDU_OUT_OF_RANGE msg=Negotiated PDU size %d out of range [128-65535], using default 240", self._config.get("ip", "unknown"), pdu)
+                    logger.warning(
+                        "[s7] device=%s code=PDU_OUT_OF_RANGE msg=Negotiated PDU size %d out of range [128-65535], using default 240",
+                        self._config.get("ip", "unknown"),
+                        pdu,
+                    )
                     return 240
                 return pdu
         except Exception:
-            self._log_error(self._config.get("ip", "unknown"), S7DriverErrors.PDU_FAILED, "Failed to get PDU size, using default 240")
+            self._log_error(
+                self._config.get("ip", "unknown"),
+                S7DriverErrors.PDU_FAILED,
+                "Failed to get PDU size, using default 240",
+            )
         return 240
 
     def _resolve_pdu_by_model(self, model: str) -> int:
@@ -1572,7 +1828,9 @@ class S7Driver(DriverPlugin):
 
     async def _negotiate_password(self, ip: str) -> None:
         if time.time() < self._auth_locked_until:
-            self._log_error(ip, S7DriverErrors.AUTH_LOCKED, f"Auth locked, {self._auth_locked_until - time.time():.0f}s remaining")
+            self._log_error(
+                ip, S7DriverErrors.AUTH_LOCKED, f"Auth locked, {self._auth_locked_until - time.time():.0f}s remaining"
+            )
             raise RuntimeError(f"S7 auth locked for {ip}")
 
         if not self._password:
@@ -1581,6 +1839,7 @@ class S7Driver(DriverPlugin):
 
         try:
             import snap7
+
             password_bytes = bytes.fromhex(self._password)
             if len(password_bytes) != 8:
                 logger.warning("[s7] device=%s code=PASSWORD_INVALID msg=密码应为8字节十六进制", ip)
@@ -1588,12 +1847,12 @@ class S7Driver(DriverPlugin):
                 return
 
             client = self._client  # FIXED-P1: 快照client引用，防止重连期间使用被替换的client
-            if hasattr(client, 'set_password'):
+            if hasattr(client, "set_password"):
                 await self._run_in_s7_thread_async(client.set_password, password_bytes)
                 logger.info("[s7] device=%s code=PASSWORD_SET msg=密码已设置，正在验证访问权限...", ip)
                 self._password_negotiated = True
                 self._password_fail_count = 0
-            elif hasattr(client, 'password'):
+            elif hasattr(client, "password"):
                 client.password = password_bytes
                 logger.info("[s7] device=%s code=PASSWORD_SET_LEGACY msg=密码已设置（legacy模式）", ip)
                 self._password_negotiated = True
@@ -1603,7 +1862,7 @@ class S7Driver(DriverPlugin):
                     "[s7] device=%s code=PASSWORD_NOT_SUPPORTED "
                     "msg=当前snap7版本不支持密码协商，尝试直接访问。 "
                     "如需密码保护，请升级 python-snap7>=1.2.0",
-                    ip
+                    ip,
                 )
                 self._password_negotiated = False
 
@@ -1611,9 +1870,17 @@ class S7Driver(DriverPlugin):
             self._password_fail_count += 1
             if self._password_fail_count >= self._PASSWORD_FAIL_THRESHOLD:
                 self._auth_locked_until = time.time() + self._AUTH_LOCK_DURATION
-                self._log_error(ip, S7DriverErrors.AUTH_LOCKED, f"Password failed {self._password_fail_count} times, locked for {self._AUTH_LOCK_DURATION}s")
+                self._log_error(
+                    ip,
+                    S7DriverErrors.AUTH_LOCKED,
+                    f"Password failed {self._password_fail_count} times, locked for {self._AUTH_LOCK_DURATION}s",
+                )
                 raise RuntimeError(f"S7 auth locked for {ip}") from e
-            self._log_error(ip, S7DriverErrors.PASSWORD_FAILED, f"Password negotiation failed ({self._password_fail_count}/{self._PASSWORD_FAIL_THRESHOLD}) - {e}")
+            self._log_error(
+                ip,
+                S7DriverErrors.PASSWORD_FAILED,
+                f"Password negotiation failed ({self._password_fail_count}/{self._PASSWORD_FAIL_THRESHOLD}) - {e}",
+            )
             self._password_negotiated = False
 
     def _compute_adaptive_hb_interval(self) -> int:
@@ -1700,20 +1967,24 @@ class S7Driver(DriverPlugin):
                             if self._LONG_RETRY_PROGRESSIVE:
                                 # 渐进式增长: 1h → 2h → 4h → 8h (上限)
                                 backoff_delay = min(
-                                    self._LONG_RETRY_INITIAL * (2 ** self._long_retry_level),
-                                    self._LONG_RETRY_MAX
+                                    self._LONG_RETRY_INITIAL * (2**self._long_retry_level), self._LONG_RETRY_MAX
                                 )
                                 logger.warning(
                                     "[s7] device=%s code=HB_LONG_RETRY msg=Heartbeat exhausted, "
                                     "progressive long retry level=%d delay=%.0fs (%.2fh)",
-                                    device_id, self._long_retry_level, backoff_delay, backoff_delay / 3600
+                                    device_id,
+                                    self._long_retry_level,
+                                    backoff_delay,
+                                    backoff_delay / 3600,
                                 )
                             else:
                                 backoff_delay = self._HB_LONG_RETRY_INTERVAL
                                 logger.warning(
                                     "[s7] device=%s code=HB_RECONNECT_EXHAUSTED msg=Heartbeat reconnect exhausted, "
                                     "long retry in %.0fs (attempt #%d)",
-                                    device_id, backoff_delay, self._hb_reconnect_count
+                                    device_id,
+                                    backoff_delay,
+                                    self._hb_reconnect_count,
                                 )
                             await asyncio.sleep(backoff_delay)
                             await self._try_reconnect(device_id)
@@ -1725,8 +1996,14 @@ class S7Driver(DriverPlugin):
                                 self._long_retry_level = min(self._long_retry_level + 1, 3)
                             continue
 
-                        backoff_delay = min(2 ** self._hb_reconnect_backoff, 60)
-                        logger.warning("[s7] device=%s code=OFFLINE_TOO_LONG msg=Offline for %.1fs, reconnect with backoff %ds (attempt #%d)", device_id, offline_duration, backoff_delay, self._hb_reconnect_count + 1)
+                        backoff_delay = min(2**self._hb_reconnect_backoff, 60)
+                        logger.warning(
+                            "[s7] device=%s code=OFFLINE_TOO_LONG msg=Offline for %.1fs, reconnect with backoff %ds (attempt #%d)",
+                            device_id,
+                            offline_duration,
+                            backoff_delay,
+                            self._hb_reconnect_count + 1,
+                        )
                         await asyncio.sleep(backoff_delay)
                         self._hb_reconnect_backoff += 1
                         await self._try_reconnect(device_id)
@@ -1739,8 +2016,12 @@ class S7Driver(DriverPlugin):
                             self._long_retry_level = 0  # S7-MED-001: 重置渐进等级
                             self._hb_first_fail_time = 0.0  # FIXED-P1: 重置首次失败时间
                             self._hb_permanent_offline = False  # FIXED-P1: 重连成功清除永久离线标记
-                            await asyncio.to_thread(self._save_permanent_offline_state)  # FIXED-P1: 同步清除持久化的永久离线状态
-                            logger.info("[s7] device=%s code=RECONNECT_OK msg=Reconnected after watchdog trigger", device_id)
+                            await asyncio.to_thread(
+                                self._save_permanent_offline_state
+                            )  # FIXED-P1: 同步清除持久化的永久离线状态
+                            logger.info(
+                                "[s7] device=%s code=RECONNECT_OK msg=Reconnected after watchdog trigger", device_id
+                            )
                         else:
                             # S7-002: 重连失败，递增计数
                             self._hb_reconnect_count += 1
@@ -1748,22 +2029,38 @@ class S7Driver(DriverPlugin):
                                 self._hb_first_fail_time = time.monotonic()  # FIXED-P1: 记录首次失败时间
                             elif (time.monotonic() - self._hb_first_fail_time) > self._HB_MAX_TOTAL_RECONNECT_DURATION:
                                 self._hb_permanent_offline = True  # FIXED-P1: 超过24小时标记永久离线
-                                await asyncio.to_thread(self._save_permanent_offline_state)  # FIXED-P1: 持久化永久离线状态，进程重启后保留
+                                await asyncio.to_thread(
+                                    self._save_permanent_offline_state
+                                )  # FIXED-P1: 持久化永久离线状态，进程重启后保留
                                 self._set_conn_state(ConnectionState.OFFLINE.value)
-                                self._log_error(device_id, S7DriverErrors.RECONNECT_FAILED, f"Heartbeat reconnect exceeded {self._HB_MAX_TOTAL_RECONNECT_DURATION}s, marking permanently offline")
+                                self._log_error(
+                                    device_id,
+                                    S7DriverErrors.RECONNECT_FAILED,
+                                    f"Heartbeat reconnect exceeded {self._HB_MAX_TOTAL_RECONNECT_DURATION}s, marking permanently offline",
+                                )
                                 break
                             if self._hb_reconnect_count >= self._HB_RECONNECT_MAX_ATTEMPTS:
                                 self._hb_exhausted = True
                                 self._long_retry_level = 0  # S7-MED-001: 重置渐进等级
-                                self._log_error(device_id, S7DriverErrors.RECONNECT_FAILED, f"Heartbeat reconnect exhausted after {self._hb_reconnect_count} attempts, entering long retry mode")
-                                logger.error("[s7] device=%s code=HB_RECONNECT_EXHAUSTED msg=Heartbeat reconnect exhausted after %d attempts, entering long retry mode", device_id, self._hb_reconnect_count)
+                                self._log_error(
+                                    device_id,
+                                    S7DriverErrors.RECONNECT_FAILED,
+                                    f"Heartbeat reconnect exhausted after {self._hb_reconnect_count} attempts, entering long retry mode",
+                                )
+                                logger.error(
+                                    "[s7] device=%s code=HB_RECONNECT_EXHAUSTED msg=Heartbeat reconnect exhausted after %d attempts, entering long retry mode",
+                                    device_id,
+                                    self._hb_reconnect_count,
+                                )
                 else:
                     with self._stats_lock:  # FIXED-P0: _offline_since pop纳入_stats_lock，与写入路径锁保护一致
                         self._offline_since.pop(device_id, None)
                     hb_start = time.monotonic()
                     try:
                         await asyncio.wait_for(
-                            self._run_in_s7_thread_async(self._sync_get_cpu_info),  # FIXED-P2: 心跳通过executor序列化，避免与读写操作并发访问snap7 client
+                            self._run_in_s7_thread_async(
+                                self._sync_get_cpu_info
+                            ),  # FIXED-P2: 心跳通过executor序列化，避免与读写操作并发访问snap7 client
                             timeout=5.0,
                         )
                     except TimeoutError:
@@ -1775,9 +2072,10 @@ class S7Driver(DriverPlugin):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                if not self._handle_watchdog_exception(e, "s7_heartbeat"):  # FIXED-P1: 使用基类分级异常处理，连续异常触发健康统计和熔断
+                if not self._handle_watchdog_exception(
+                    e, "s7_heartbeat"
+                ):  # FIXED-P1: 使用基类分级异常处理，连续异常触发健康统计和熔断
                     break
-
 
     def _set_conn_state(self, new_state: str) -> None:
         """设置连接状态，同步更新_conn_state和基类_connection_statuses"""
@@ -1785,7 +2083,11 @@ class S7Driver(DriverPlugin):
         with self._conn_state_lock:
             self._conn_state = new_state
         # FIXED-P1: _devices为空时使用config中的device_id作为回退
-        device_ids = list(self._devices.keys()) if self._devices else [self._config.get("device_id", self._config.get("ip", "default"))]
+        device_ids = (
+            list(self._devices.keys())
+            if self._devices
+            else [self._config.get("device_id", self._config.get("ip", "default"))]
+        )
         for device_id in device_ids:
             # FIXED-P3: 使用主事件循环引用，避免get_event_loop()回退丢失状态更新
             loop = self._main_loop
@@ -1793,9 +2095,7 @@ class S7Driver(DriverPlugin):
                 logger.warning("[s7] set_conn_state failed: no event loop available")
                 return
             if loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    self._set_connection_state(device_id, new_state), loop
-                )
+                asyncio.run_coroutine_threadsafe(self._set_connection_state(device_id, new_state), loop)
 
     def _log_error(self, device_id: str, error_code: str, message: str) -> None:
         i18n_msg = _t(error_code) if error_code.startswith("ERR_") else error_code
@@ -1809,7 +2109,9 @@ class S7Driver(DriverPlugin):
             return False
         if not self._backup_ip:
             return False
-        for _ in range(self._redundancy_config.failover_threshold if self._redundancy_config else self._PRIMARY_FAIL_THRESHOLD):
+        for _ in range(
+            self._redundancy_config.failover_threshold if self._redundancy_config else self._PRIMARY_FAIL_THRESHOLD
+        ):
             self._redundancy.record_failure(device_id)
         active_role = self._redundancy.get_active_role(device_id)
         if active_role == LinkRole.BACKUP:
@@ -1820,10 +2122,13 @@ class S7Driver(DriverPlugin):
 
     def _on_redundancy_switch(self, device_id: str, old_host: str, new_host: str) -> None:
         self._active_ip = new_host
-        self._using_backup = (new_host == self._backup_ip)
+        self._using_backup = new_host == self._backup_ip
         logger.info(
             "[s7] device=%s code=REDUNDANCY_SWITCH msg=%s -> %s (backup=%s)",
-            device_id, old_host, new_host, self._using_backup,
+            device_id,
+            old_host,
+            new_host,
+            self._using_backup,
         )
 
     async def _ensure_heartbeat_task_locked(self) -> None:
@@ -1860,20 +2165,19 @@ class S7Driver(DriverPlugin):
             # FIXED: 原问题-RuntimeError被静默吞掉，但日志仍声称已触发重连。添加warning日志并回退到_main_loop
             logger.warning(
                 "[s7] device=%s code=MANUAL_RECONNECT_NO_LOOP msg=No running event loop: %s, fallback to _main_loop",
-                device_id, e
+                device_id,
+                e,
             )
             loop = self._main_loop
             if loop is not None and loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    self._ensure_heartbeat_task_locked(), loop
-                )
+                asyncio.run_coroutine_threadsafe(self._ensure_heartbeat_task_locked(), loop)
         logger.info(
-            "[s7] device=%s code=MANUAL_RECONNECT msg=Manual reconnect triggered, reset heartbeat state",
-            device_id
+            "[s7] device=%s code=MANUAL_RECONNECT msg=Manual reconnect triggered, reset heartbeat state", device_id
         )
 
     async def _do_connect(self, ip: str, rack: int, slot: int) -> None:
         import snap7
+
         with self._sync_lock:
             old_client = self._client
         # FIXED-P0: 先断开旧client再创建新client，避免新client连接失败时C层资源泄漏
@@ -1937,15 +2241,24 @@ class S7Driver(DriverPlugin):
         if device_id in self._circuit_open:
             open_since = self._circuit_open_since.get(device_id, 0.0)
             if time.monotonic() - open_since < self._CIRCUIT_RECOVERY_SECONDS:
-                logger.warning("[s7] device=%s code=CIRCUIT_OPEN msg=Device is circuit-broken, skipping reconnect", device_id)
+                logger.warning(
+                    "[s7] device=%s code=CIRCUIT_OPEN msg=Device is circuit-broken, skipping reconnect", device_id
+                )
                 return
             # FIXED-P0: half-open恢复，熔断超时后允许试探连接
-            logger.info("[s7] device=%s code=CIRCUIT_HALF_OPEN msg=Circuit breaker recovery timeout reached, attempting probe", device_id)
+            logger.info(
+                "[s7] device=%s code=CIRCUIT_HALF_OPEN msg=Circuit breaker recovery timeout reached, attempting probe",
+                device_id,
+            )
 
         self._reconnect_count += 1
         if self._reconnect_count > self._MAX_RECONNECT_ATTEMPTS:
             self._set_conn_state(ConnectionState.OFFLINE.value)
-            self._log_error(device_id, S7DriverErrors.RECONNECT_FAILED, f"Max attempts reached ({self._reconnect_count}), circuit breaker activated")
+            self._log_error(
+                device_id,
+                S7DriverErrors.RECONNECT_FAILED,
+                f"Max attempts reached ({self._reconnect_count}), circuit breaker activated",
+            )
             await self._set_connection_state(device_id, ConnectionState.OFFLINE.value)
             if self._redundancy:
                 self._redundancy.record_failure(device_id)
@@ -1960,7 +2273,10 @@ class S7Driver(DriverPlugin):
         total_delay = delay + jitter
         logger.warning(
             "[s7] device=%s code=RECONNECTING msg=Connection lost, retry in %.3fs (attempt #%d, jitter=%.3fs)",
-            device_id, total_delay, self._reconnect_count, jitter,
+            device_id,
+            total_delay,
+            self._reconnect_count,
+            jitter,
         )
         await asyncio.sleep(total_delay)
         self._reconnect_delay *= 2
@@ -1981,13 +2297,15 @@ class S7Driver(DriverPlugin):
         try:
             self._set_conn_state(ConnectionState.CONNECTING.value)
             await self._do_connect(ip, rack, slot)
-            if not self._shutdown_requested.is_set():  # FIXED-P0: 仅在未请求关闭时设置_running，防止覆盖stop()的停止指令
+            if (
+                not self._shutdown_requested.is_set()
+            ):  # FIXED-P0: 仅在未请求关闭时设置_running，防止覆盖stop()的停止指令
                 self._running = True
             self._reconnect_count = 0
             self._reconnect_delay = self._RECONNECT_BASE_DELAY
             if self._redundancy:
                 self._redundancy.record_success(device_id)
-                self._using_backup = (self._redundancy.get_active_role(device_id) == LinkRole.BACKUP)
+                self._using_backup = self._redundancy.get_active_role(device_id) == LinkRole.BACKUP
                 self._active_ip = self._redundancy.get_active_host(device_id)
             if self._using_backup:
                 logger.info("[s7] device=%s code=FAILOVER_ACTIVE msg=Using backup IP %s", device_id, ip)
@@ -1995,7 +2313,7 @@ class S7Driver(DriverPlugin):
             try:
                 # FIXED-P2: 重连路径也使用专用_s7_executor
                 info = await self._run_in_s7_thread_async(self._sync_get_cpu_info)
-                self._plc_model = info.ModuleName if hasattr(info, 'ModuleName') else "Unknown"
+                self._plc_model = info.ModuleName if hasattr(info, "ModuleName") else "Unknown"
                 logger.info("[s7] device=%s code=PLC_DETECTED msg=Model: %s", ip, self._plc_model)
             except Exception:
                 self._plc_model = "Unknown"
@@ -2016,7 +2334,11 @@ class S7Driver(DriverPlugin):
             self._circuit_open_since.pop(device_id, None)  # FIXED-P0: 连接成功时清除熔断时间记录
             logger.info(
                 "[s7] device=%s code=RECONNECT_OK msg=Reconnected (rack=%d, slot=%d, pdu=%d, model=%s)",
-                ip, rack, slot, self._pdu_size, self._plc_model,
+                ip,
+                rack,
+                slot,
+                self._pdu_size,
+                self._plc_model,
             )
         except asyncio.CancelledError:
             raise
@@ -2029,7 +2351,11 @@ class S7Driver(DriverPlugin):
             if not self._using_backup:
                 failed_over = await self._try_failover(device_id)
                 if failed_over and _failover_depth < 1:
-                    self._log_error(device_id, S7DriverErrors.FAILOVER_TRIGGERED, f"Primary failed, retry with backup {self._backup_ip}")
+                    self._log_error(
+                        device_id,
+                        S7DriverErrors.FAILOVER_TRIGGERED,
+                        f"Primary failed, retry with backup {self._backup_ip}",
+                    )
                     self._reconnect_count = 0
                     self._reconnect_delay = self._RECONNECT_BASE_DELAY
                     # FIXED-P2: 直接调用_do_try_reconnect而非_try_reconnect，避免递归获取不可重入的asyncio.Lock导致故障转移重连被跳过
@@ -2087,6 +2413,7 @@ class S7Driver(DriverPlugin):
             rack = int(self._config.get("rack", 0))
             slot = int(self._config.get("slot", 1))
             import snap7
+
             probe_client = snap7.client.Client()
             timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
             probe_client.set_connection_params(self._primary_ip, 0, 0, timeout)
@@ -2107,7 +2434,9 @@ class S7Driver(DriverPlugin):
                 try:
                     probe_client.destroy()
                 except Exception as e:
-                    logger.warning("[s7] probe_primary_link failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                    logger.warning(
+                        "[s7] probe_primary_link failed: %s", e
+                    )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
 
     async def _evaluate_edge_rules(self, device_id: str, result: dict[str, Any]) -> None:
         if not self._edge_rule_engine:
@@ -2180,7 +2509,9 @@ class S7Driver(DriverPlugin):
     ) -> list[dict]:
         if not self._ts_store:
             return []
-        return await self._ts_store.query(device_id, point_name, start_time, end_time, quality, aggregate, window_seconds, limit)
+        return await self._ts_store.query(
+            device_id, point_name, start_time, end_time, quality, aggregate, window_seconds, limit
+        )
 
     async def query_ts_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict]:
         if not self._ts_store:
@@ -2268,6 +2599,7 @@ class S7Driver(DriverPlugin):
         if not self._ota_mgr:
             return {"update_available": False, "error": "ota not initialized"}
         from edgelite.drivers.s7_ota import OtaPackage
+
         pkg = OtaPackage(
             package_id=package_info.get("package_id", ""),
             version=package_info.get("version", ""),
@@ -2281,6 +2613,7 @@ class S7Driver(DriverPlugin):
         if not self._ota_mgr:
             return {"ok": False, "error": "ota not initialized"}
         from edgelite.drivers.s7_ota import OtaPackage
+
         pkg = OtaPackage(
             package_id=package_info.get("package_id", ""),
             version=package_info.get("version", ""),

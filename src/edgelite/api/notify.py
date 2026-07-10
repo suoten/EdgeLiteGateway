@@ -66,12 +66,19 @@ def _mask_webhook_url(url: str | None) -> str | None:
 
 
 async def _audit_notify_channel(
-    audit_svc, action, user, request, channel_id,
-    before_value=None, after_value=None, details=None,
+    audit_svc,
+    action,
+    user,
+    request,
+    channel_id,
+    before_value=None,
+    after_value=None,
+    details=None,
 ):
     """记录通知渠道操作审计日志的辅助函数（非阻塞，失败仅记日志）。"""
     try:
         from edgelite.api.auth import _get_client_ip
+
         client_ip = _get_client_ip(request) if request else ""
         user_agent = request.headers.get("User-Agent") if request else None
         await audit_svc.log(
@@ -92,6 +99,7 @@ async def _audit_notify_channel(
 
 class DingTalkConfigUpdate(BaseModel):
     """钉钉配置"""
+
     enabled: bool = True
     name: str = "钉钉通知"
     webhook_url: str = Field(..., description="钉钉机器人Webhook地址")
@@ -104,6 +112,7 @@ class DingTalkConfigUpdate(BaseModel):
 
 class WeComConfigUpdate(BaseModel):
     """企业微信配置"""
+
     enabled: bool = True
     name: str = "企业微信通知"
     webhook_url: str = Field(..., description="企业微信机器人Webhook地址")
@@ -113,6 +122,7 @@ class WeComConfigUpdate(BaseModel):
 
 class EmailConfigUpdate(BaseModel):
     """邮件配置"""
+
     enabled: bool = True
     name: str = "邮件通知"
     smtp_host: str = Field(..., description="SMTP服务器地址")
@@ -129,6 +139,7 @@ class EmailConfigUpdate(BaseModel):
 
 class WebhookConfigUpdate(BaseModel):
     """自定义Webhook配置"""
+
     enabled: bool = True
     name: str = "自定义Webhook"
     url: str = Field(..., description="Webhook地址")
@@ -144,6 +155,7 @@ class WebhookConfigUpdate(BaseModel):
 
 class ChannelStatus(BaseModel):
     """渠道状态"""
+
     id: str
     name: str
     type: str
@@ -155,11 +167,13 @@ class ChannelStatus(BaseModel):
 
 class ChannelTestRequest(BaseModel):
     """通知渠道测试请求体（支持按渠道类型传入任意覆盖字段）"""
+
     model_config = {"extra": "allow"}
 
 
 class ChannelEnableRequest(BaseModel):
     """通知渠道启用/禁用请求体"""
+
     enabled: bool = True
 
 
@@ -175,67 +189,79 @@ async def list_channels(
         channels = []
 
         # 钉钉
-        channels.append(ChannelStatus(
-            id="dingtalk",
-            name="钉钉通知",
-            type="dingtalk",
-            enabled=bool(notify_config.dingtalk.webhook_url),
-            status="configured" if notify_config.dingtalk.webhook_url else "not_configured",
-            config={
-                "webhook_url": _mask_webhook_url(notify_config.dingtalk.webhook_url),
-                "secret": "***" if notify_config.dingtalk.secret else "",
-            }
-        ))
+        channels.append(
+            ChannelStatus(
+                id="dingtalk",
+                name="钉钉通知",
+                type="dingtalk",
+                enabled=bool(notify_config.dingtalk.webhook_url),
+                status="configured" if notify_config.dingtalk.webhook_url else "not_configured",
+                config={
+                    "webhook_url": _mask_webhook_url(notify_config.dingtalk.webhook_url),
+                    "secret": "***" if notify_config.dingtalk.secret else "",
+                },
+            )
+        )
 
         # 企业微信
-        channels.append(ChannelStatus(
-            id="wecom",
-            name="企业微信",
-            type="wecom",
-            enabled=bool(notify_config.wechat.webhook_url),
-            status="configured" if notify_config.wechat.webhook_url else "not_configured",
-            config={
-                "webhook_url": _mask_webhook_url(notify_config.wechat.webhook_url),
-            }
-        ))
+        channels.append(
+            ChannelStatus(
+                id="wecom",
+                name="企业微信",
+                type="wecom",
+                enabled=bool(notify_config.wechat.webhook_url),
+                status="configured" if notify_config.wechat.webhook_url else "not_configured",
+                config={
+                    "webhook_url": _mask_webhook_url(notify_config.wechat.webhook_url),
+                },
+            )
+        )
 
         # 邮件
-        channels.append(ChannelStatus(
-            id="email",
-            name="邮件通知",
-            type="email",
-            enabled=bool(notify_config.email.smtp_host),
-            status="configured" if notify_config.email.smtp_host else "not_configured",
-            config={
-                "smtp_host": notify_config.email.smtp_host,
-                "smtp_port": notify_config.email.smtp_port,
-                "from_address": notify_config.email.from_addr,
-                "to_addresses": notify_config.email.to_addrs,
-            }
-        ))
+        channels.append(
+            ChannelStatus(
+                id="email",
+                name="邮件通知",
+                type="email",
+                enabled=bool(notify_config.email.smtp_host),
+                status="configured" if notify_config.email.smtp_host else "not_configured",
+                config={
+                    "smtp_host": notify_config.email.smtp_host,
+                    "smtp_port": notify_config.email.smtp_port,
+                    "from_address": notify_config.email.from_addr,
+                    "to_addresses": notify_config.email.to_addrs,
+                },
+            )
+        )
 
         # Webhook
-        channels.append(ChannelStatus(
-            id="webhook",
-            name="自定义Webhook",
-            type="webhook",
-            enabled=bool(notify_config.webhook.url),
-            status="configured" if notify_config.webhook.url else "not_configured",
-            config={
-                "url": _mask_webhook_url(notify_config.webhook.url),
-                "method": notify_config.webhook.method,
-            }
-        ))
+        channels.append(
+            ChannelStatus(
+                id="webhook",
+                name="自定义Webhook",
+                type="webhook",
+                enabled=bool(notify_config.webhook.url),
+                status="configured" if notify_config.webhook.url else "not_configured",
+                config={
+                    "url": _mask_webhook_url(notify_config.webhook.url),
+                    "method": notify_config.webhook.method,
+                },
+            )
+        )
 
         return ApiResponse(data={"channels": channels})
     except HTTPException:
         raise
     except ValueError as e:
         logger.warning("list_channels validation error: %s", e)
-        raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=400, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
     except Exception as e:
         logger.error("list_channels failed: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
 
 
 @router.post("/channels/dingtalk", response_model=ApiResponse)
@@ -276,6 +302,7 @@ async def update_dingtalk(
 
         # 第四轮修复: 审计日志
         from edgelite.services.audit_service import AuditAction
+
         after_value = {
             "enabled": cfg.enabled,
             "name": cfg.name,
@@ -283,8 +310,13 @@ async def update_dingtalk(
             "secret": cfg.secret,
         }
         await _audit_notify_channel(
-            audit_svc, AuditAction.NOTIFY_CONFIG_UPDATE, user, request,
-            "dingtalk", before_value=before_value, after_value=after_value,
+            audit_svc,
+            AuditAction.NOTIFY_CONFIG_UPDATE,
+            user,
+            request,
+            "dingtalk",
+            before_value=before_value,
+            after_value=after_value,
         )
 
         return ApiResponse(data={"channel": "dingtalk", "updated": True})
@@ -295,7 +327,9 @@ async def update_dingtalk(
         raise HTTPException(status_code=422, detail=CommonErrors.VALIDATION_FAILED) from e
     except Exception as e:
         logger.error("Failed to save DingTalk config: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
 
 
 @router.post("/channels/wecom", response_model=ApiResponse)
@@ -331,14 +365,20 @@ async def update_wecom(
 
         # 第四轮修复: 审计日志
         from edgelite.services.audit_service import AuditAction
+
         after_value = {
             "enabled": cfg.enabled,
             "name": cfg.name,
             "webhook_url": cfg.webhook_url,
         }
         await _audit_notify_channel(
-            audit_svc, AuditAction.NOTIFY_CONFIG_UPDATE, user, request,
-            "wecom", before_value=before_value, after_value=after_value,
+            audit_svc,
+            AuditAction.NOTIFY_CONFIG_UPDATE,
+            user,
+            request,
+            "wecom",
+            before_value=before_value,
+            after_value=after_value,
         )
 
         return ApiResponse(data={"channel": "wecom", "updated": True})
@@ -349,7 +389,9 @@ async def update_wecom(
         raise HTTPException(status_code=422, detail=CommonErrors.VALIDATION_FAILED) from e
     except Exception as e:
         logger.error("Failed to save WeCom config: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
 
 
 @router.post("/channels/email", response_model=ApiResponse)
@@ -392,6 +434,7 @@ async def update_email(
 
         # 第四轮修复: 审计日志
         from edgelite.services.audit_service import AuditAction
+
         after_value = {
             "enabled": cfg.enabled,
             "name": cfg.name,
@@ -402,8 +445,13 @@ async def update_email(
             "from_address": cfg.from_address,
         }
         await _audit_notify_channel(
-            audit_svc, AuditAction.NOTIFY_CONFIG_UPDATE, user, request,
-            "email", before_value=before_value, after_value=after_value,
+            audit_svc,
+            AuditAction.NOTIFY_CONFIG_UPDATE,
+            user,
+            request,
+            "email",
+            before_value=before_value,
+            after_value=after_value,
         )
 
         return ApiResponse(data={"channel": "email", "updated": True})
@@ -414,7 +462,9 @@ async def update_email(
         raise HTTPException(status_code=422, detail=CommonErrors.VALIDATION_FAILED) from e
     except Exception as e:
         logger.error("Failed to save Email config: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
 
 
 @router.post("/channels/webhook", response_model=ApiResponse)
@@ -459,6 +509,7 @@ async def update_webhook(
 
         # 第四轮修复: 审计日志
         from edgelite.services.audit_service import AuditAction
+
         after_value = {
             "url": cfg.url,
             "method": cfg.method,
@@ -468,8 +519,13 @@ async def update_webhook(
             "auth_password": cfg.auth_password,
         }
         await _audit_notify_channel(
-            audit_svc, AuditAction.NOTIFY_CONFIG_UPDATE, user, request,
-            "webhook", before_value=before_value, after_value=after_value,
+            audit_svc,
+            AuditAction.NOTIFY_CONFIG_UPDATE,
+            user,
+            request,
+            "webhook",
+            before_value=before_value,
+            after_value=after_value,
         )
 
         return ApiResponse(data={"channel": "webhook", "updated": True})
@@ -480,7 +536,9 @@ async def update_webhook(
         raise HTTPException(status_code=422, detail=CommonErrors.VALIDATION_FAILED) from e
     except Exception as e:
         logger.error("Failed to save Webhook config: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
 
 
 @router.post("/channels/{channel_id}/test", response_model=ApiResponse)
@@ -501,8 +559,12 @@ async def test_channel(
             # Use override values if provided, otherwise fall back to saved config
             webhook_url = (config_override or {}).get("webhook_url") or notify_config.dingtalk.webhook_url
             secret = (config_override or {}).get("secret", "") if config_override else notify_config.dingtalk.secret
-            at_mobiles = (config_override or {}).get("at_mobiles", []) if config_override else notify_config.dingtalk.at_mobiles
-            is_at_all = (config_override or {}).get("is_at_all", False) if config_override else notify_config.dingtalk.is_at_all
+            at_mobiles = (
+                (config_override or {}).get("at_mobiles", []) if config_override else notify_config.dingtalk.at_mobiles
+            )
+            is_at_all = (
+                (config_override or {}).get("is_at_all", False) if config_override else notify_config.dingtalk.is_at_all
+            )
 
             if not webhook_url:
                 raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_NOT_CONFIGURED)
@@ -529,9 +591,17 @@ async def test_channel(
         elif channel_id == "email":
             smtp_host = (config_override or {}).get("smtp_host") or notify_config.email.smtp_host
             smtp_port = (config_override or {}).get("smtp_port") or notify_config.email.smtp_port
-            smtp_user = (config_override or {}).get("smtp_user", "") if config_override else notify_config.email.smtp_user
-            smtp_password = (config_override or {}).get("smtp_password", "") if config_override else notify_config.email.smtp_password
-            from_address = (config_override or {}).get("from_address", "") if config_override else notify_config.email.from_addr
+            smtp_user = (
+                (config_override or {}).get("smtp_user", "") if config_override else notify_config.email.smtp_user
+            )
+            smtp_password = (
+                (config_override or {}).get("smtp_password", "")
+                if config_override
+                else notify_config.email.smtp_password
+            )
+            from_address = (
+                (config_override or {}).get("from_address", "") if config_override else notify_config.email.from_addr
+            )
             to_addresses = (config_override or {}).get("to_addresses") or notify_config.email.to_addrs
             use_tls = (config_override or {}).get("use_tls", True) if config_override else notify_config.email.use_tls
             use_ssl = (config_override or {}).get("use_ssl", False) if config_override else notify_config.email.use_ssl
@@ -555,8 +625,12 @@ async def test_channel(
             url = (config_override or {}).get("url") or notify_config.webhook.url
             method = (config_override or {}).get("method", "POST") if config_override else notify_config.webhook.method
             headers = (config_override or {}).get("headers", {}) if config_override else notify_config.webhook.headers
-            auth_type = (config_override or {}).get("auth_type", "none") if config_override else notify_config.webhook.auth_type
-            auth_token = (config_override or {}).get("auth_token", "") if config_override else notify_config.webhook.auth_token
+            auth_type = (
+                (config_override or {}).get("auth_type", "none") if config_override else notify_config.webhook.auth_type
+            )
+            auth_token = (
+                (config_override or {}).get("auth_token", "") if config_override else notify_config.webhook.auth_token
+            )
 
             if not url:
                 raise HTTPException(status_code=400, detail=NotifyErrors.WEBHOOK_NOT_CONFIGURED)
@@ -577,9 +651,14 @@ async def test_channel(
 
         # 第四轮修复: 审计日志记录渠道测试结果
         from edgelite.services.audit_service import AuditAction
+
         await _audit_notify_channel(
-            audit_svc, AuditAction.NOTIFY_CHANNEL_TEST, user, request,
-            channel_id, details={"success": success},
+            audit_svc,
+            AuditAction.NOTIFY_CHANNEL_TEST,
+            user,
+            request,
+            channel_id,
+            details={"success": success},
         )
 
         if success:
@@ -587,15 +666,21 @@ async def test_channel(
             return ApiResponse(data={"channel": channel_id, "success": True, "message": message})
         else:
             logger.warning("Channel %s test failed by %s: %s", channel_id, user["username"], message)
-            raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_TEST_FAILED)  # FIXED-P1: 原问题-detail=message可能泄露内部信息，改用错误码
+            raise HTTPException(
+                status_code=400, detail=NotifyErrors.CHANNEL_TEST_FAILED
+            )  # FIXED-P1: 原问题-detail=message可能泄露内部信息，改用错误码
     except HTTPException:
         raise
     except ValueError as e:
         logger.warning("test_channel validation error: %s", e)
-        raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_TEST_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=400, detail=NotifyErrors.CHANNEL_TEST_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
     except Exception as e:
         logger.error("test_channel failed: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_TEST_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_TEST_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
 
 
 @router.post("/channels/{channel_id}/enable", response_model=ApiResponse)
@@ -611,14 +696,18 @@ async def enable_channel(
         enabled = req.enabled if req else True
         manager = get_notification_manager()
 
-        if hasattr(manager, 'set_channel_enabled'):
+        if hasattr(manager, "set_channel_enabled"):
             result = manager.set_channel_enabled(channel_id, enabled)
             if result:
                 logger.info("Channel %s %s by %s", channel_id, "enabled" if enabled else "disabled", user["username"])
                 # 第四轮修复: 审计日志记录启用/禁用操作
                 from edgelite.services.audit_service import AuditAction
+
                 await _audit_notify_channel(
-                    audit_svc, AuditAction.NOTIFY_CHANNEL_TOGGLE, user, request,
+                    audit_svc,
+                    AuditAction.NOTIFY_CHANNEL_TOGGLE,
+                    user,
+                    request,
                     channel_id,
                     before_value={"enabled": not enabled},
                     after_value={"enabled": enabled},
@@ -632,10 +721,14 @@ async def enable_channel(
         raise
     except ValueError as e:
         logger.warning("enable_channel validation error: %s", e)
-        raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=400, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
     except Exception as e:
         logger.error("enable_channel failed: %s", e)
-        raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=500, detail=NotifyErrors.CHANNEL_SAVE_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
 
 
 @router.delete("/channels/{channel_id}", response_model=ApiResponse)
@@ -684,9 +777,14 @@ async def delete_channel(
 
         # 第四轮修复: 审计日志记录渠道删除操作
         from edgelite.services.audit_service import AuditAction
+
         await _audit_notify_channel(
-            audit_svc, AuditAction.NOTIFY_CHANNEL_DELETE, user, request,
-            channel_id, before_value=before_value,
+            audit_svc,
+            AuditAction.NOTIFY_CHANNEL_DELETE,
+            user,
+            request,
+            channel_id,
+            before_value=before_value,
         )
 
         return ApiResponse(data={"channel": channel_id, "deleted": True})
@@ -694,7 +792,9 @@ async def delete_channel(
         raise
     except ValueError as e:
         logger.warning("delete_channel validation error: %s", e)
-        raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_DELETE_FAILED) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
+        raise HTTPException(
+            status_code=400, detail=NotifyErrors.CHANNEL_DELETE_FAILED
+        ) from e  # FIXED-P1: 原问题-detail=str(e)泄露内部错误
     except Exception as e:
         logger.error("Failed to delete channel config: %s", e)
         raise HTTPException(status_code=500, detail=NotifyErrors.CHANNEL_DELETE_FAILED) from e

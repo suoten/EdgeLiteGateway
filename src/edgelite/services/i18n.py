@@ -22,6 +22,7 @@ SUPPORTED_LANGUAGES = ["en", "zh"]
 @dataclass
 class TranslationStrings:
     """Container for all translatable strings"""
+
     # System
     APP_NAME: str = "EdgeLiteGateway"
     VERSION: str = "Version"
@@ -611,25 +612,21 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     # System
     APP_NAME="EdgeLiteGateway",
     VERSION="版本",
-
     # Device status
     STATUS_ONLINE="在线",
     STATUS_OFFLINE="离线",
     STATUS_DEGRADED="降级",
-
     # Alarm severity
     SEVERITY_CRITICAL="紧急",
     SEVERITY_MAJOR="重要",
     SEVERITY_MINOR="次要",
     SEVERITY_WARNING="警告",
     SEVERITY_INFO="信息",
-
     # Alarm actions
     ACTION_FIRING="告警触发",
     ACTION_RECOVERED="告警恢复",
     ACTION_ACKNOWLEDGED="告警确认",
     ACTION_ESCALATED="告警升级",
-
     # Common
     DEVICE="设备",
     RULE="规则",
@@ -645,7 +642,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     REFRESH="刷新",
     EXPORT="导出",
     IMPORT="导入",
-
     # Error messages
     ERR_CONNECTION_FAILED="连接失败",
     ERR_TIMEOUT="请求超时",
@@ -654,7 +650,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_NOT_FOUND="资源未找到",
     ERR_VALIDATION_FAILED="验证失败",
     ERR_INTERNAL_ERROR="服务器内部错误",
-
     # Device management
     DEVICE_ID="设备ID",
     DEVICE_NAME="设备名称",
@@ -665,7 +660,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     DELETE_DEVICE="删除设备",
     DEVICE_TEMPLATES="设备模板",
     DEVICE_GROUPS="设备分组",
-
     # Rule management
     RULE_ID="规则ID",
     RULE_NAME="规则名称",
@@ -676,7 +670,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     DELETE_RULE="删除规则",
     RULE_ENABLED="已启用",
     RULE_DISABLED="已禁用",
-
     # Alarm management
     ALARM_ID="告警ID",
     TRIGGER_VALUE="触发值",
@@ -690,7 +683,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     MTBF="平均故障间隔时间",
     ALARM_COUNT="告警数量",
     ALARM_TREND="告警趋势",
-
     # Notification channels
     NOTIFICATION_CHANNELS="通知渠道",
     DINGTALK="钉钉",
@@ -701,7 +693,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     CHANNEL_DISABLED="渠道已禁用",
     TEST_CHANNEL="测试渠道",
     CONFIGURE_CHANNEL="配置渠道",
-
     # System management
     SYSTEM_CONFIG="系统配置",
     BACKUP_CONFIG="备份配置",
@@ -711,21 +702,18 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     LOG_ROTATION="日志轮转",
     MAX_LOG_SIZE="最大日志大小",
     BACKUP_COUNT="备份数量",
-
     # Data management
     DATA_QUERY="数据查询",
     TIME_RANGE="时间范围",
     AGGREGATION="聚合",
     EXPORT_DATA="导出数据",
     IMPORT_DATA="导入数据",
-
     # Command control
     COMMAND_CONTROL="指令控制",
     SEND_COMMAND="发送指令",
     COMMAND_HISTORY="指令历史",
     APPROVAL_REQUIRED="需要审批",
     PENDING_APPROVAL="待审批",
-
     ERR_MODBUS_CONN_FAILED="Modbus TCP连接失败",
     ERR_MODBUS_CONN_TIMEOUT="Modbus TCP连接超时",
     ERR_MODBUS_READ_FAILED="Modbus TCP读取失败",
@@ -827,7 +815,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_MQTT_MESSAGE_PARSE_ERROR="MQTT消息解析失败",
     ERR_MQTT_QUEUE_FULL="MQTT发布队列满",
     ERR_MQTT_OFFLINE_BAD_QUALITY="MQTT离线，测点标记为坏质量",
-
     ERR_OPCUA_CONN_FAILED="OPC UA连接失败",
     ERR_OPCUA_CONN_TIMEOUT="OPC UA连接超时",
     ERR_OPCUA_READ_FAILED="OPC UA读取失败",
@@ -895,7 +882,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_OPCUA_OTA_IN_PROGRESS="OPC UA OTA升级正在进行",
     ERR_OPCUA_RBAC_DENIED="OPC UA RBAC权限被拒绝",
     ERR_OPCUA_AUDIT_LOG_OK="OPC UA审计日志已记录",
-
     ERR_FINS_CONN_FAILED="FINS连接失败",
     ERR_FINS_CONN_TIMEOUT="FINS连接超时",
     ERR_FINS_READ_FAILED="FINS读取失败",
@@ -957,7 +943,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_FINS_OTA_COMPLETED="FINS OTA升级完成",
     ERR_FINS_OTA_FAILED="FINS OTA升级失败",
     ERR_FINS_OTA_ROLLBACK="FINS OTA回滚",
-
     ERR_MC_CONN_FAILED="MC连接失败",
     ERR_MC_CONN_TIMEOUT="MC连接超时",
     ERR_MC_CONN_LOST="MC连接丢失",
@@ -1006,7 +991,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_MC_RBAC_DENIED="MC RBAC权限拒绝",
     ERR_MC_CONFIG_ROLLBACK_OK="MC配置回滚完成",
     ERR_MC_CONFIG_ROLLBACK_FAILED="MC配置回滚失败",
-
     ERR_WEBHOOK_OFFLINE_BAD_QUALITY="HTTP Webhook离线，测点标记为坏质量",
     ERR_WEBHOOK_READ_TIMEOUT="HTTP Webhook读取超时，无数据可用",
     ERR_WEBHOOK_WRITE_FAILED="HTTP Webhook写入/推送失败",
@@ -1028,7 +1012,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_WEBHOOK_WRITE_CLIENT_ERROR="HTTP Webhook写入客户端错误（4xx）",
     ERR_WEBHOOK_WRITE_RETRY="HTTP Webhook写入重试中",
     ERR_WEBHOOK_WRITE_SERVER_ERROR="HTTP Webhook写入服务器错误（5xx）",
-
     ERR_AB_CONN_FAILED="AB连接失败",
     ERR_AB_CONN_TIMEOUT="AB连接超时",
     ERR_AB_CONN_LOST="AB连接丢失",
@@ -1103,7 +1086,6 @@ ZH_CHINESE_STRINGS = TranslationStrings(
     ERR_SIM_VALUE_OUT_OF_RANGE="模拟器数值超出限幅范围",
     ERR_SIM_CONFIG_INVALID="模拟器配置无效",
     ERR_SIM_FORMULA_EVAL_FAILED="模拟器公式计算失败",
-
     ERR_OPCDA_CONN_FAILED="OPC DA连接失败",
     ERR_OPCDA_CONN_TIMEOUT="OPC DA连接超时",
     ERR_OPCDA_CONN_LOST="OPC DA连接丢失",
@@ -1290,11 +1272,7 @@ def get_translatable_keys() -> list[str]:
     # R11-SVC-07: 基于 isinstance 类型过滤，仅返回值为 str 的属性，
     # 避免 dir() 返回的非翻译属性（方法、类变量等）混入翻译键列表
     cls = TranslationStrings
-    return [
-        attr for attr in dir(cls)
-        if not attr.startswith("_")
-        and isinstance(getattr(cls, attr), str)
-    ]
+    return [attr for attr in dir(cls) if not attr.startswith("_") and isinstance(getattr(cls, attr), str)]
 
 
 class LanguageMiddleware:
@@ -1306,10 +1284,7 @@ class LanguageMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] in ("http", "websocket"):
-            headers = dict(
-                (k.decode("latin-1").lower(), v.decode("latin-1"))
-                for k, v in scope.get("headers", [])
-            )
+            headers = dict((k.decode("latin-1").lower(), v.decode("latin-1")) for k, v in scope.get("headers", []))
             accept_language = headers.get("accept-language", "")
             resolved = self._resolve_language(accept_language)
             scope["accept_language"] = resolved

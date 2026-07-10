@@ -1,0 +1,46 @@
+# Alerting rules for EdgeLite Gateway
+
+groups:
+  - name: edgelite-alerts
+    rules:
+      # Service down — no metrics scraped for 2 minutes
+      - alert: EdgeLiteDown
+        expr: up{job="edgelite"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EdgeLite Gateway is down"
+          description: "EdgeLite has been unreachable for more than 2 minutes."
+
+      # High error rate — 5xx responses exceed 5% over 5 minutes
+      - alert: EdgeLiteHighErrorRate
+        expr: |
+          rate(http_requests_total{job="edgelite",status=~"5.."}[5m])
+          / rate(http_requests_total{job="edgelite"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "5xx error rate is above 5% for the last 5 minutes."
+
+      # Driver connection failures
+      - alert: EdgeLiteDriverConnectionFailures
+        expr: rate(edgelite_driver_connection_failures_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Driver connection failures detected"
+          description: "Driver connection failure rate exceeds 0.5/s over 5 minutes."
+
+      # Event queue backlog growing
+      - alert: EdgeLiteEventQueueBacklog
+        expr: edgelite_event_queue_size > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event queue backlog growing"
+          description: "Event queue size exceeds 10000 for more than 5 minutes."

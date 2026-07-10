@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OpcDaSubscription:
     """OPC DA订阅"""
+
     group_name: str
     items: list[str]
     callback: Any = None
@@ -278,14 +279,34 @@ class OpcDaGatewayDriver(DriverPlugin):
     config_schema = {
         "description": "OPC DA Gateway driver - cross-platform OPC DA access via HTTP proxy",
         "fields": [
-            {"name": "proxy_url", "type": "string", "label": "Proxy URL",
-             "description": "OPC DA proxy service URL (e.g. http://192.168.1.100:8081)", "default": "http://localhost:8081"},
-            {"name": "timeout", "type": "integer", "label": "Timeout (s)",
-             "description": "Request timeout in seconds", "default": 10},
-            {"name": "default_server", "type": "string", "label": "Default Server",
-             "description": "Default OPC DA server ProgID to connect", "default": ""},
-            {"name": "default_host", "type": "string", "label": "Default Host",
-             "description": "Default OPC server host (for server discovery)", "default": "localhost"},
+            {
+                "name": "proxy_url",
+                "type": "string",
+                "label": "Proxy URL",
+                "description": "OPC DA proxy service URL (e.g. http://192.168.1.100:8081)",
+                "default": "http://localhost:8081",
+            },
+            {
+                "name": "timeout",
+                "type": "integer",
+                "label": "Timeout (s)",
+                "description": "Request timeout in seconds",
+                "default": 10,
+            },
+            {
+                "name": "default_server",
+                "type": "string",
+                "label": "Default Server",
+                "description": "Default OPC DA server ProgID to connect",
+                "default": "",
+            },
+            {
+                "name": "default_host",
+                "type": "string",
+                "label": "Default Host",
+                "description": "Default OPC server host (for server discovery)",
+                "default": "localhost",
+            },
         ],
     }
 
@@ -442,8 +463,7 @@ class OpcDaGatewayDriver(DriverPlugin):
             return
 
         delay = min(self._reconnect_delay, self._RECONNECT_MAX_DELAY)
-        logger.warning("OPC DA Gateway connection lost, retrying in %.1fs (attempt %d)",
-                      delay, self._reconnect_count)
+        logger.warning("OPC DA Gateway connection lost, retrying in %.1fs (attempt %d)", delay, self._reconnect_count)
         await asyncio.sleep(delay)
         self._reconnect_delay *= 2
 

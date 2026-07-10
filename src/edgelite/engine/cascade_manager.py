@@ -30,6 +30,7 @@ _MDNS_SERVICE_TYPE = "_edgelite._tcp.local."
 
 class TopologyStatus(StrEnum):
     """拓扑节点角色"""
+
     STANDALONE = "standalone"
     PARENT = "parent"
     CHILD = "child"
@@ -39,6 +40,7 @@ class TopologyStatus(StrEnum):
 @dataclass
 class NeighborInfo:
     """邻居网关信息"""
+
     neighbor_id: str
     host: str
     port: int
@@ -50,6 +52,7 @@ class NeighborInfo:
 @dataclass
 class CascadeTopology:
     """级联拓扑数据"""
+
     local_id: str
     status: TopologyStatus = TopologyStatus.STANDALONE
     parent_id: str | None = None
@@ -152,7 +155,9 @@ class CascadeManager:
             if self._parent_host:
                 self._topology.status = TopologyStatus.CHILD
                 self._topology.parent_id = f"{self._parent_host}:{self._parent_port or 8080}"
-                self._discover_task = asyncio.create_task(self._maintain_parent_connection(), name="cascade-parent-maintain")
+                self._discover_task = asyncio.create_task(
+                    self._maintain_parent_connection(), name="cascade-parent-maintain"
+                )
 
             logger.info("CascadeManager started: local_id=%s role=%s", self._local_id, self._topology.status)
 
@@ -190,9 +195,7 @@ class CascadeManager:
         self._browser = None
         logger.info("CascadeManager stopped")
 
-    def _on_service_state_change(
-        self, zeroconf: Any, service_type: str, name: str, state_change: Any
-    ) -> None:
+    def _on_service_state_change(self, zeroconf: Any, service_type: str, name: str, state_change: Any) -> None:
         """mDNS服务状态变更回调。"""
         try:
             from zeroconf import ServiceStateChange
@@ -225,7 +228,9 @@ class CascadeManager:
                             properties=props,
                         )
                     self._rebuild_topology()
-                    logger.info("Neighbor discovered: id=%s host=%s:%d", neighbor_id, host, port)  # FIXED-P3: 中文日志→英文
+                    logger.info(
+                        "Neighbor discovered: id=%s host=%s:%d", neighbor_id, host, port
+                    )  # FIXED-P3: 中文日志→英文
 
             elif state_change == ServiceStateChange.Removed:
                 # 并发安全: 加锁保护 _neighbors 删除操作，使用 list 快照迭代
@@ -251,16 +256,10 @@ class CascadeManager:
         if self._topology.parent_id:
             # FIXED-P2: 原实现parent_id格式为"host:port"，而_neighbors的key是neighbor_id，格式不匹配导致永远找不到父节点
             # 改为检查父节点的host:port是否匹配任何邻居的host:port
-            parent_found = any(
-                f"{n.host}:{n.port}" == self._topology.parent_id
-                for n in neighbors_snapshot
-            )
+            parent_found = any(f"{n.host}:{n.port}" == self._topology.parent_id for n in neighbors_snapshot)
             if not parent_found:
                 logger.debug("Parent node %s not found in neighbors", self._topology.parent_id)
-            self._topology.children = [
-                n.neighbor_id for n in neighbors_snapshot
-                if n.role == "child"
-            ]
+            self._topology.children = [n.neighbor_id for n in neighbors_snapshot if n.role == "child"]
         self._topology.updated_at = time.time()
 
     async def discover_neighbors(self, timeout: float = 5.0) -> list[NeighborInfo]:
@@ -329,17 +328,18 @@ class CascadeManager:
                     if self._http_session is None or self._http_session.closed:
                         # R6-S-01 修复(严重): 原 ClientSession() 无默认超时，DNS 解析或 TCP 握手
                         # 阶段可能长时间挂起。修复-会话级兜底超时 total=10s, connect=5s。
-                        self._http_session = aiohttp.ClientSession(
-                            timeout=aiohttp.ClientTimeout(total=10, connect=5)
-                        )
+                        self._http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10, connect=5))
             url = f"{self._parent_scheme}://{self._parent_host}:{self._parent_port}/api/v1/integration/cascade/forward"
             # FIXED(编号6): 序列化请求体用于 HMAC 签名，发送原始字符串确保签名一致
             import json as _json
+
             body_str = _json.dumps(forward_data, ensure_ascii=False, default=str)
             headers = self._build_cascade_headers(body_str.encode("utf-8"))
             headers["Content-Type"] = "application/json"
             async with self._http_session.post(
-                url, data=body_str, headers=headers,
+                url,
+                data=body_str,
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 return resp.status == 200
@@ -375,7 +375,9 @@ class CascadeManager:
             self._topology.parent_id = f"{self._parent_host}:{self._parent_port or 8080}"
             self._topology.status = TopologyStatus.CHILD
         self._rebuild_topology()
-        logger.info("Cascade config updated: parent=%s:%s role=%s", self._parent_host, self._parent_port, self._topology.status)  # FIXED-P3: 中文日志→英文
+        logger.info(
+            "Cascade config updated: parent=%s:%s role=%s", self._parent_host, self._parent_port, self._topology.status
+        )  # FIXED-P3: 中文日志→英文
 
     async def remove_neighbor(self, neighbor_id: str) -> bool:
         """移除指定邻居。
@@ -404,7 +406,9 @@ class CascadeManager:
                 if self._parent_host:
                     success = await self.forward_to_parent({"type": "heartbeat", "local_id": self._local_id})
                     if not success:
-                        logger.debug("Parent heartbeat failed: %s:%s", self._parent_host, self._parent_port)  # FIXED-P3: 中文日志→英文
+                        logger.debug(
+                            "Parent heartbeat failed: %s:%s", self._parent_host, self._parent_port
+                        )  # FIXED-P3: 中文日志→英文
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -455,18 +459,14 @@ class CascadeManager:
         timestamp = str(int(time.time()))
         nonce = secrets.token_hex(16)
         message = f"{timestamp}{nonce}".encode() + body
-        signature = hmac.new(
-            self._cascade_token.encode("utf-8"), message, hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self._cascade_token.encode("utf-8"), message, hashlib.sha256).hexdigest()
         return {
             "X-Cascade-Token": signature,
             "X-Cascade-Timestamp": timestamp,
             "X-Cascade-Nonce": nonce,
         }
 
-    def verify_cascade_request(
-        self, headers: dict[str, str], body: bytes
-    ) -> tuple[bool, str]:
+    def verify_cascade_request(self, headers: dict[str, str], body: bytes) -> tuple[bool, str]:
         """校验级联转发请求的 HMAC 签名、时间戳有效性(接收端调用)。
 
         Args:
@@ -506,9 +506,7 @@ class CascadeManager:
                 self._seen_nonces.add(nonce)
         # 重算签名并比对(常量时间比较)
         message = f"{timestamp_str}{nonce}".encode() + body
-        expected = hmac.new(
-            self._cascade_token.encode("utf-8"), message, hashlib.sha256
-        ).hexdigest()
+        expected = hmac.new(self._cascade_token.encode("utf-8"), message, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(signature, expected):
             return False, "signature mismatch"
         return True, ""
@@ -529,7 +527,8 @@ class CascadeManager:
         if hop > _CASCADE_HOP_LIMIT:
             logger.error(
                 "Cascade hop count %d exceeded limit %d, dropping (possible topology loop)",
-                hop, _CASCADE_HOP_LIMIT,
+                hop,
+                _CASCADE_HOP_LIMIT,
             )
             return False, hop
         return True, hop

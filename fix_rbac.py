@@ -62,7 +62,7 @@ def ensure_depends_import(content: str) -> str:
 
 def process_file(fpath: str) -> int:
     """处理单个文件，返回替换数量。"""
-    with open(fpath, "r", encoding="utf-8") as f:
+    with open(fpath, encoding="utf-8") as f:
         content = f.read()
 
     matches = PATTERN.findall(content)

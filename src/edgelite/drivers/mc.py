@@ -46,39 +46,214 @@ class McDriver(DriverPlugin):
     config_schema = {
         "description": "Mitsubishi MC protocol (MELSEC Communication), supports Q/L/FX/iQ-R/iQ-F series PLC. FX5U uses SLMP on port 5001",
         "required": ["host"],
-        "properties": {"host": {"type": "string", "description": "PLC IP address", "format": "ipv4"}, "port": {"type": "integer", "description": "MC protocol port", "minimum": 1, "maximum": 65535}},
+        "properties": {
+            "host": {"type": "string", "description": "PLC IP address", "format": "ipv4"},
+            "port": {"type": "integer", "description": "MC protocol port", "minimum": 1, "maximum": 65535},
+        },
         "fields": [
-            {"name": "host", "type": "string", "label": "IP Address", "description": "PLC IP address", "default": "", "required": True},  # FIXED-P1: 默认IP改为空
-            {"name": "backup_host", "type": "string", "label": "Backup IP", "description": "Backup PLC IP for link redundancy (auto failover after 3 primary failures, target <3s)", "default": ""},
-            {"name": "port", "type": "integer", "label": "Port", "description": "MC protocol port: 5007 for Q/L/iQ-R, 5001 for FX5U (SLMP)", "default": 5007},
-            {"name": "plc_type", "type": "string", "label": "PLC Type", "description": "Q series=Q, L series=L, FX5U=Fx5U, iQ-R=iQ-R", "default": "Q", "options": ["iQ-R", "Q", "L", "Fx5U", "FX5U"]},
-            {"name": "frame_type", "type": "string", "label": "Frame Format", "description": "MC frame format: 3E (default, supports Q/L/FX5U), 4E (with network), or auto", "default": "3E", "options": ["3E", "4E", "auto"]},
-            {"name": "network_no", "type": "integer", "label": "Network No.", "description": "Network number (Q series default 1, FX5U/iQ-R default 0)", "default": 0},
-            {"name": "pc_no", "type": "integer", "label": "PC No.", "description": "PC number (default 255, FX5U SLMP usually 255)", "default": 255, "min": 0, "max": 255},
-            {"name": "device_type", "type": "string", "label": "Device Type", "description": "Default device type for point addresses", "default": "D", "options": ["X", "Y", "M", "D", "W", "R"]},
-            {"name": "batch_size", "type": "integer", "label": "Batch Size", "description": "Number of points to read in parallel (default 10)", "default": 10},
-            {"name": "timeout", "type": "number", "label": "Timeout (s)", "default": 5, "description": "Connection timeout in seconds"},
-            {"name": "slmp_direct_mode", "type": "boolean", "label": "SLMP Direct Mode (FX5U)", "description": "Enable SLMP direct mode for FX5U (uses station number 0xFF instead of network/pc_no). Required for FX5U Ethernet port direct connection", "default": False},
-            {"name": "deadband", "type": "number", "label": "Deadband", "description": "Absolute deadband threshold (disabled if 0)", "default": 0},
-            {"name": "scaling_ratio", "type": "number", "label": "Scaling Ratio", "description": "Linear scaling ratio (y = ratio * x + offset)", "default": 1.0},
-            {"name": "scaling_offset", "type": "number", "label": "Scaling Offset", "description": "Linear scaling offset", "default": 0.0},
-            {"name": "clamp_min", "type": "number", "label": "Clamp Min", "description": "Min valid value (below = bad quality)", "default": None},
-            {"name": "clamp_max", "type": "number", "label": "Clamp Max", "description": "Max valid value (above = bad quality)", "default": None},
-            {"name": "rate_of_change_threshold", "type": "number", "label": "Rate of Change Threshold", "description": "Max allowed value change per second (0=disabled)", "default": 0},
-            {"name": "frozen_value_count", "type": "integer", "label": "Frozen Value Count", "description": "Consecutive same-value count to detect frozen (0=disabled)", "default": 5},
-            {"name": "collect_interval", "type": "number", "label": "Collect Interval (s)", "description": "Base collection interval in seconds", "default": 1},
-            {"name": "byte_order", "type": "string", "label": "Byte Order", "description": "Word byte order for 32-bit values: big (default) or little (FX5U). FX5U auto-detects as little", "default": "big", "options": ["big", "little"]},
-            {"name": "ts_storage_enabled", "type": "boolean", "label": "TS Storage Enabled", "description": "Enable local time-series storage (InfluxDB/SQLite) with offline queue", "default": False},
-            {"name": "ts_influx_url", "type": "string", "label": "InfluxDB URL", "description": "InfluxDB URL (empty = SQLite fallback)", "default": ""},
-            {"name": "ts_influx_org", "type": "string", "label": "InfluxDB Org", "description": "InfluxDB organization", "default": "edgelite"},
-            {"name": "ts_influx_bucket", "type": "string", "label": "InfluxDB Bucket", "description": "InfluxDB bucket", "default": "edgelite"},
-            {"name": "ts_influx_token", "type": "string", "label": "InfluxDB Token", "description": "InfluxDB API token", "default": ""},
+            {
+                "name": "host",
+                "type": "string",
+                "label": "IP Address",
+                "description": "PLC IP address",
+                "default": "",
+                "required": True,
+            },  # FIXED-P1: 默认IP改为空
+            {
+                "name": "backup_host",
+                "type": "string",
+                "label": "Backup IP",
+                "description": "Backup PLC IP for link redundancy (auto failover after 3 primary failures, target <3s)",
+                "default": "",
+            },
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "MC protocol port: 5007 for Q/L/iQ-R, 5001 for FX5U (SLMP)",
+                "default": 5007,
+            },
+            {
+                "name": "plc_type",
+                "type": "string",
+                "label": "PLC Type",
+                "description": "Q series=Q, L series=L, FX5U=Fx5U, iQ-R=iQ-R",
+                "default": "Q",
+                "options": ["iQ-R", "Q", "L", "Fx5U", "FX5U"],
+            },
+            {
+                "name": "frame_type",
+                "type": "string",
+                "label": "Frame Format",
+                "description": "MC frame format: 3E (default, supports Q/L/FX5U), 4E (with network), or auto",
+                "default": "3E",
+                "options": ["3E", "4E", "auto"],
+            },
+            {
+                "name": "communication_mode",
+                "type": "string",
+                "label": "Communication Mode",
+                "description": "MC communication mode: binary (default, compact 2-byte/word frame) or ascii (text 4-byte/word frame, for legacy Q series via serial gateway/modem link)",
+                "default": "binary",
+                "options": ["binary", "ascii"],
+            },
+            {
+                "name": "network_no",
+                "type": "integer",
+                "label": "Network No.",
+                "description": "Network number (Q series default 1, FX5U/iQ-R default 0)",
+                "default": 0,
+            },
+            {
+                "name": "pc_no",
+                "type": "integer",
+                "label": "PC No.",
+                "description": "PC number (default 255, FX5U SLMP usually 255)",
+                "default": 255,
+                "min": 0,
+                "max": 255,
+            },
+            {
+                "name": "device_type",
+                "type": "string",
+                "label": "Device Type",
+                "description": "Default device type for point addresses",
+                "default": "D",
+                "options": ["X", "Y", "M", "D", "W", "R"],
+            },
+            {
+                "name": "batch_size",
+                "type": "integer",
+                "label": "Batch Size",
+                "description": "Number of points to read in parallel (default 10)",
+                "default": 10,
+            },
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "default": 5,
+                "description": "Connection timeout in seconds",
+            },
+            {
+                "name": "slmp_direct_mode",
+                "type": "boolean",
+                "label": "SLMP Direct Mode (FX5U)",
+                "description": "Enable SLMP direct mode for FX5U (uses station number 0xFF instead of network/pc_no). Required for FX5U Ethernet port direct connection",
+                "default": False,
+            },
+            {
+                "name": "deadband",
+                "type": "number",
+                "label": "Deadband",
+                "description": "Absolute deadband threshold (disabled if 0)",
+                "default": 0,
+            },
+            {
+                "name": "scaling_ratio",
+                "type": "number",
+                "label": "Scaling Ratio",
+                "description": "Linear scaling ratio (y = ratio * x + offset)",
+                "default": 1.0,
+            },
+            {
+                "name": "scaling_offset",
+                "type": "number",
+                "label": "Scaling Offset",
+                "description": "Linear scaling offset",
+                "default": 0.0,
+            },
+            {
+                "name": "clamp_min",
+                "type": "number",
+                "label": "Clamp Min",
+                "description": "Min valid value (below = bad quality)",
+                "default": None,
+            },
+            {
+                "name": "clamp_max",
+                "type": "number",
+                "label": "Clamp Max",
+                "description": "Max valid value (above = bad quality)",
+                "default": None,
+            },
+            {
+                "name": "rate_of_change_threshold",
+                "type": "number",
+                "label": "Rate of Change Threshold",
+                "description": "Max allowed value change per second (0=disabled)",
+                "default": 0,
+            },
+            {
+                "name": "frozen_value_count",
+                "type": "integer",
+                "label": "Frozen Value Count",
+                "description": "Consecutive same-value count to detect frozen (0=disabled)",
+                "default": 5,
+            },
+            {
+                "name": "collect_interval",
+                "type": "number",
+                "label": "Collect Interval (s)",
+                "description": "Base collection interval in seconds",
+                "default": 1,
+            },
+            {
+                "name": "byte_order",
+                "type": "string",
+                "label": "Byte Order",
+                "description": "Word byte order for 32-bit values: big (default) or little (FX5U). FX5U auto-detects as little",
+                "default": "big",
+                "options": ["big", "little"],
+            },
+            {
+                "name": "ts_storage_enabled",
+                "type": "boolean",
+                "label": "TS Storage Enabled",
+                "description": "Enable local time-series storage (InfluxDB/SQLite) with offline queue",
+                "default": False,
+            },
+            {
+                "name": "ts_influx_url",
+                "type": "string",
+                "label": "InfluxDB URL",
+                "description": "InfluxDB URL (empty = SQLite fallback)",
+                "default": "",
+            },
+            {
+                "name": "ts_influx_org",
+                "type": "string",
+                "label": "InfluxDB Org",
+                "description": "InfluxDB organization",
+                "default": "edgelite",
+            },
+            {
+                "name": "ts_influx_bucket",
+                "type": "string",
+                "label": "InfluxDB Bucket",
+                "description": "InfluxDB bucket",
+                "default": "edgelite",
+            },
+            {
+                "name": "ts_influx_token",
+                "type": "string",
+                "label": "InfluxDB Token",
+                "description": "InfluxDB API token",
+                "default": "",
+            },
         ],
     }
 
     experimental = False
-    capabilities = DriverCapabilities(discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=True)
-    constraints = ({"type": "protocol_note", "message": "Model differences (Q/L/FX/iQ-R) affect address ranges and supported commands"},)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    capabilities = DriverCapabilities(
+        discover=False, read=True, write=True, subscribe=False, batch_read=True, batch_write=True
+    )
+    constraints = (
+        {
+            "type": "protocol_note",
+            "message": "Model differences (Q/L/FX/iQ-R) affect address ranges and supported commands",
+        },
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     _MAX_RECONNECT_ATTEMPTS = 3
     _RECONNECT_BASE_DELAY = 1.0
@@ -111,6 +286,7 @@ class McDriver(DriverPlugin):
         self._pc_no: int = 255
         self._is_fx5u: bool = False
         self._slmp_direct_mode: bool = False
+        self._communication_mode: str = "binary"  # 通信模式: binary (默认) 或 ascii (旧式 Q 系列串口网关)
         self._fx5u_lock = asyncio.Lock()
         self._active_ip: str = ""
         self._backup_ip: str = ""
@@ -181,13 +357,55 @@ class McDriver(DriverPlugin):
 
         return await self._run_in_executor(_locked_call, timeout=timeout)
 
-    def _sync_write_point(self, address, value):  # FIXED-P0: 移除 _sync_lock，由 _call_sync 的 _locked_call 统一加锁，避免 threading.Lock 不可重入死锁
+    def _sync_write_point(
+        self, address, value
+    ):  # FIXED-P0: 移除 _sync_lock，由 _call_sync 的 _locked_call 统一加锁，避免 threading.Lock 不可重入死锁
         return self._write_point(address, value)
 
-    def _sync_write_device(self, addr, values_list):  # FIXED-P0: 移除 _sync_lock，由 _call_sync 的 _locked_call 统一加锁，避免 threading.Lock 不可重入死锁
+    def _sync_write_device(
+        self, addr, values_list
+    ):  # FIXED-P0: 移除 _sync_lock，由 _call_sync 的 _locked_call 统一加锁，避免 threading.Lock 不可重入死锁
         if self._client is None:
             raise RuntimeError("MC client not connected")
         return self._client.write_device(addr, values_list)
+
+    def _apply_comm_mode(self, client, mode: str | None = None) -> None:
+        """应用通信模式 (binary/ascii) 到 pymcprotocol client。
+
+        MC协议支持两种帧格式 (MELSEC Communication Protocol Reference):
+        - binary: 紧凑帧, 2字节/word, 子头部 0x5000(3E)/0x5400(4E) 二进制编码 (pymcprotocol 默认)
+        - ascii:  文本帧, 4字节/word (十六进制文本), 子头部 "5000"/"5400" ASCII编码
+                  用于旧式 Q 系列 PLC 通过串口网关/调制解调器链路通信的场景
+
+        行为:
+        - binary 模式: 短路优化, 不调用 setaccessopt (pymcprotocol 默认即为 binary)
+        - ascii 模式: 调用 client.setaccessopt(commtype='ascii') 切换帧格式,
+                      仅设置 commtype, 不修改 network/pc 等其他访问参数
+        - setaccessopt 失败时优雅降级: 记录警告日志, 保持 client 在默认 binary 模式,
+          不抛出异常以确保已建立的连接仍可用
+
+        Args:
+            client: pymcprotocol Type3E/Type4E 实例 (二者均通过继承提供 setaccessopt)
+            mode: 通信模式 ('binary' 或 'ascii'); 为 None 时使用 self._communication_mode
+        """
+        if mode is None:
+            mode = getattr(self, "_communication_mode", "binary")
+        mode = str(mode).lower() if mode else "binary"
+        if mode not in ("binary", "ascii"):
+            logger.warning("[mc] 通信模式无效: %s，回退到 binary", mode)
+            mode = "binary"
+
+        # binary 模式短路优化: pymcprotocol 默认即为 binary, 无需调用 setaccessopt
+        if mode == "binary":
+            return
+
+        # ascii 模式: 仅切换 commtype (同步切换 commtype 和 _wordsize), 不修改其他访问参数
+        try:
+            client.setaccessopt(commtype="ascii")
+            logger.info("[mc] 通信模式切换为 ascii (文本帧, 4字节/word)")
+        except Exception as e:
+            # 优雅降级: setaccessopt 失败时保持 client 默认 binary 模式, 不中断已建立的连接
+            logger.warning("[mc] 通信模式切换 ascii 失败, 保持默认 binary 模式: %s", e)
 
     async def start(self, config: dict) -> None:
         """启动MC驱动连接"""
@@ -221,7 +439,9 @@ class McDriver(DriverPlugin):
         if frame_type == "auto":
             frame_type = "3E"
 
-        network_no = int(config.get("network_no", 0 if "R" in plc_type or "Fx5U" in plc_type or "FX" in plc_type.upper() else 1))
+        network_no = int(
+            config.get("network_no", 0 if "R" in plc_type or "Fx5U" in plc_type or "FX" in plc_type.upper() else 1)
+        )
         pc_no = int(config.get("pc_no", 255))
         self._network_no = network_no
         self._pc_no = pc_no
@@ -230,6 +450,13 @@ class McDriver(DriverPlugin):
         self._is_fx5u = plc_type.upper() in ("FX5U", "FX5", "FX5U SLMP", "FX3U")
         self._slmp_direct_mode = slmp_direct_mode
         self._byte_order = config.get("byte_order", "little" if self._is_fx5u else "big")
+
+        # 通信模式解析: binary (默认, 向后兼容) 或 ascii (旧式 Q 系列串口网关)
+        communication_mode = str(config.get("communication_mode", "binary")).lower()
+        if communication_mode not in ("binary", "ascii"):
+            logger.warning("[mc] 通信模式无效: %s，回退到 binary", communication_mode)
+            communication_mode = "binary"
+        self._communication_mode = communication_mode
 
         if self._is_fx5u:
             # FX5U 默认端口 5001（SLMP）
@@ -243,11 +470,15 @@ class McDriver(DriverPlugin):
         try:
             if frame_type == "4E":
                 from pymcprotocol import Type4E
+
                 self._client = Type4E(plctype=plc_type)
             else:
                 from pymcprotocol import Type3E
+
                 self._client = Type3E(plctype=plc_type)
             await self._call_sync(self._client.connect, ip, port, write=True)  # FIXED-P1: 连接操作修改client状态，持锁
+            # 连接成功后应用通信模式 (binary/ascii); ascii 切换失败时优雅降级为 binary
+            self._apply_comm_mode(self._client)
             self._running = True
             self._circuit_open.discard(ip)  # FIXED-P1: 首次连接成功时移除熔断状态
             self._set_conn_state(ConnectionState.CONNECTED.value)
@@ -257,7 +488,15 @@ class McDriver(DriverPlugin):
             self._init_ota(config)
             self._init_config_version()
             self._init_audit()
-            logger.info("MC驱动连接成功: %s:%d (%s, frame=%s, fx5u=%s, slmp_direct=%s)", ip, port, plc_type, frame_type, self._is_fx5u, self._slmp_direct_mode)
+            logger.info(
+                "MC驱动连接成功: %s:%d (%s, frame=%s, fx5u=%s, slmp_direct=%s)",
+                ip,
+                port,
+                plc_type,
+                frame_type,
+                self._is_fx5u,
+                self._slmp_direct_mode,
+            )
         except Exception as e:
             self._log_error(ip, McDriverErrors.CONN_FAILED, str(e))
             try:
@@ -268,11 +507,15 @@ class McDriver(DriverPlugin):
 
     async def stop(self) -> None:
         await self._stop_watchdog()
-        if self._delayed_reconnect_task and not self._delayed_reconnect_task.done():  # FIXED-P1: 移除hasattr检查，_delayed_reconnect_task已在__init__中初始化
+        if (
+            self._delayed_reconnect_task and not self._delayed_reconnect_task.done()
+        ):  # FIXED-P1: 移除hasattr检查，_delayed_reconnect_task已在__init__中初始化
             self._delayed_reconnect_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._delayed_reconnect_task
-        for _device_id, task in list(self._reconnect_tasks.items()):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
+        for _device_id, task in list(
+            self._reconnect_tasks.items()
+        ):  # FIXED(P3): 原问题-B007循环变量device_id未使用; 修复-改为_device_id
             if task and not task.done():
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -282,7 +525,9 @@ class McDriver(DriverPlugin):
         try:
             if self._client:
                 try:
-                    await self._call_sync(self._client.close, timeout=5.0, write=True)  # FIXED-P1: 关闭操作修改client状态，持锁
+                    await self._call_sync(
+                        self._client.close, timeout=5.0, write=True
+                    )  # FIXED-P1: 关闭操作修改client状态，持锁
                 except TimeoutError:
                     logger.warning("[mc] MC client close timeout (5s)")
                 except Exception as e:
@@ -376,8 +621,12 @@ class McDriver(DriverPlugin):
             if new_quality > 80:
                 logger.info("[mc] device=%s code=QUALITY_RECOVERED quality=%.1f->%.1f", device_id, quality, new_quality)
             else:
-                await self._set_connection_state(device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold after reconnect")
-                logger.warning("[mc] device=%s code=QUALITY_DEGRADED quality=%.1f after reconnect", device_id, new_quality)
+                await self._set_connection_state(
+                    device_id, ConnectionState.DEGRADED.value, "Connection quality below threshold after reconnect"
+                )
+                logger.warning(
+                    "[mc] device=%s code=QUALITY_DEGRADED quality=%.1f after reconnect", device_id, new_quality
+                )
 
         if not self._running or not self._client:
             self._log_error(device_id, McDriverErrors.CONN_LOST, "not running or no client")
@@ -398,7 +647,7 @@ class McDriver(DriverPlugin):
         result = {}
 
         for i in range(0, len(points), batch_size):
-            batch = points[i:i + batch_size]
+            batch = points[i : i + batch_size]
             try:
                 batch_result = await asyncio.wait_for(
                     self._read_points_batch(batch),
@@ -406,7 +655,9 @@ class McDriver(DriverPlugin):
                 )
                 bad_count = sum(1 for v in batch_result.values() if isinstance(v, PointValue) and v.quality == "bad")
                 if bad_count == len(batch) and batch_size > 1:
-                    self._log_error(device_id, McDriverErrors.BATCH_RETRY, "all bad, retry with batch_size=1")  # FIXED-P3: 原问题-f-string无占位符(ruff F541); 修复-移除多余f前缀
+                    self._log_error(
+                        device_id, McDriverErrors.BATCH_RETRY, "all bad, retry with batch_size=1"
+                    )  # FIXED-P3: 原问题-f-string无占位符(ruff F541); 修复-移除多余f前缀
                     self._effective_batch_size = max(1, batch_size // 2)
                     retry_result = {}
                     # FIXED-P1: 逐点重试增加总超时预算(60秒)，防止设备离线时N个点阻塞N*30秒
@@ -418,7 +669,9 @@ class McDriver(DriverPlugin):
                             continue
                         try:
                             _remaining = max(1.0, _retry_deadline - time.monotonic())
-                            single_r = await asyncio.wait_for(self._read_points_batch([single_p]), timeout=min(self._READ_TIMEOUT, _remaining))
+                            single_r = await asyncio.wait_for(
+                                self._read_points_batch([single_p]), timeout=min(self._READ_TIMEOUT, _remaining)
+                            )
                             retry_result.update(single_r)
                         except Exception:
                             now = datetime.now(UTC)
@@ -443,7 +696,9 @@ class McDriver(DriverPlugin):
         if result:
             good_count = sum(1 for v in result.values() if isinstance(v, PointValue) and v.quality == "good")
             if good_count:
-                await self._record_read_success(device_id)  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
+                await self._record_read_success(
+                    device_id
+                )  # #[AUDIT-FIX] _record_read_success is async, must await (was no-op coroutine)
             else:
                 self._record_read_failure(device_id)
         else:
@@ -459,7 +714,9 @@ class McDriver(DriverPlugin):
         roc_threshold = self._config.get("rate_of_change_threshold", 0) or None
         frozen_count = self._config.get("frozen_value_count", self._FROZEN_VALUE_WINDOW)
         out: dict[str, Any] = {}
-        for p, r in zip(points, results, strict=True):  # FIXED(P2): 原问题-B905 zip无strict; 修复-添加strict=True(points与results等长)
+        for p, r in zip(
+            points, results, strict=True
+        ):  # FIXED(P2): 原问题-B905 zip无strict; 修复-添加strict=True(points与results等长)
             pcfg = self._get_point_config(p)
             p_deadband = pcfg.get("deadband", self._config.get("deadband", 0)) or None
             p_scaling = None
@@ -502,7 +759,12 @@ class McDriver(DriverPlugin):
             last_val = self._last_values.get(p)
             if p in self._last_values:
                 self._last_values.move_to_end(p)  # FIXED-P1: 读取时也更新LRU顺序，避免FIFO淘汰重要测点
-            if p_deadband and last_val is not None and isinstance(clamped_val, (int, float)) and isinstance(last_val, (int, float)):
+            if (
+                p_deadband
+                and last_val is not None
+                and isinstance(clamped_val, (int, float))
+                and isinstance(last_val, (int, float))
+            ):
                 clamped_val = self._apply_deadband(clamped_val, last_val, p_deadband)
             # CROSS-003: LRU 缓存更新
             if p in self._last_values:
@@ -529,9 +791,13 @@ class McDriver(DriverPlugin):
             record_packet("tx", "mc", "", f"MC Read: {address}")
             if self._is_fx5u:
                 async with self._fx5u_lock:
-                    result = await self._call_sync(self._read_point, address)  # FIXED-P0: _sync_read_point不存在，应为_read_point
+                    result = await self._call_sync(
+                        self._read_point, address
+                    )  # FIXED-P0: _sync_read_point不存在，应为_read_point
             else:
-                result = await self._call_sync(self._read_point, address)  # FIXED-P0: _sync_read_point不存在，应为_read_point
+                result = await self._call_sync(
+                    self._read_point, address
+                )  # FIXED-P0: _sync_read_point不存在，应为_read_point
             record_packet("rx", "mc", "", f"MC Read: {address} = {result}")
             return result
         except asyncio.CancelledError:
@@ -647,12 +913,12 @@ class McDriver(DriverPlugin):
 
             # FX5U SLMP 直接模式
             # 通过 set_accessopt 设置直接模式
-            if hasattr(c, 'set_accessopt'):
+            if hasattr(c, "set_accessopt"):
                 # FIXED-P0: 保存完整的accessopt参数，而非依赖私有属性_accessopt
                 # 之前：getattr(c, '_accessopt', None)获取私有属性，空字典时set_accessopt(**{})重置为默认值
                 # 之后：保存实际传入的参数，恢复时使用保存的参数确保一致性
-                old_accessopt = getattr(c, '_accessopt', None)
-                had_accessopt = hasattr(c, '_accessopt')
+                old_accessopt = getattr(c, "_accessopt", None)
+                had_accessopt = hasattr(c, "_accessopt")
                 # 保存旧参数的深拷贝，防止引用被修改
                 saved_accessopt = dict(old_accessopt) if old_accessopt else None
                 c.set_accessopt(module=module_no, device_type="G")
@@ -666,11 +932,11 @@ class McDriver(DriverPlugin):
                         return values[0] if values else None
                 finally:
                     try:
-                        if hasattr(c, 'set_accessopt') and had_accessopt and saved_accessopt:
+                        if hasattr(c, "set_accessopt") and had_accessopt and saved_accessopt:
                             c.set_accessopt(**saved_accessopt)
-                        elif hasattr(c, 'set_accessopt') and had_accessopt and not saved_accessopt:
+                        elif hasattr(c, "set_accessopt") and had_accessopt and not saved_accessopt:
                             # 旧accessopt为空字典，说明之前未设置accessopt，重置为默认
-                            if hasattr(c, 'reset_accessopt'):
+                            if hasattr(c, "reset_accessopt"):
                                 c.reset_accessopt()
                     except Exception as e:
                         logger.warning("[mc] FX5U accessopt restore failed: %s", e)
@@ -680,14 +946,20 @@ class McDriver(DriverPlugin):
                 if not values:  # FIXED-P1: 空值检查
                     raise ValueError(f"Empty response from read_device({addr}, 1)")
                 return values[0]
-        except (ConnectionError, OSError, TimeoutError):  # FIXED-P3: 原问题-as e绑定异常对象但e未使用(ruff F841); 修复-移除as e绑定  # FIXED-P2: 连接类异常直接向上抛出，不回退到标准读取（回退同样会失败且掩盖连接错误）
+        except (
+            ConnectionError,
+            OSError,
+            TimeoutError,
+        ):  # FIXED-P3: 原问题-as e绑定异常对象但e未使用(ruff F841); 修复-移除as e绑定  # FIXED-P2: 连接类异常直接向上抛出，不回退到标准读取（回退同样会失败且掩盖连接错误）
             raise
         except Exception as e:
             logger.warning("[mc] FX5U SLMP直接模式读取失败 %s: %s", addr, e, exc_info=True)
             # 回退：使用标准读取
             values = c.read_device(addr.replace("\\", ""), 1)
             if not values:  # FIXED-P1: 空值检查
-                raise ValueError(f"Empty response from read_device({addr}, 1)") from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+                raise ValueError(
+                    f"Empty response from read_device({addr}, 1)"
+                ) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
             return values[0]
 
     def _read_fx5u_network(self, addr: str, suffix: str, client: Any = None) -> Any:
@@ -712,9 +984,9 @@ class McDriver(DriverPlugin):
                 return values[0]
 
             # 通过 pymcprotocol 的网络访问功能
-            if hasattr(c, 'set_accessopt'):
-                old_opt = getattr(c, '_accessopt', None)
-                had_opt = hasattr(c, '_accessopt')  # FIXED-P1: 记录原始状态
+            if hasattr(c, "set_accessopt"):
+                old_opt = getattr(c, "_accessopt", None)
+                had_opt = hasattr(c, "_accessopt")  # FIXED-P1: 记录原始状态
                 c.set_accessopt(network_no=network_no)
                 try:
                     if suffix == "bit":
@@ -724,7 +996,7 @@ class McDriver(DriverPlugin):
                         return values[0] if values else None
                 finally:
                     try:
-                        if had_opt and hasattr(c, 'set_accessopt'):  # FIXED-P1: 用had_opt替代old_opt真值判断
+                        if had_opt and hasattr(c, "set_accessopt"):  # FIXED-P1: 用had_opt替代old_opt真值判断
                             c.set_accessopt(**old_opt)
                     except Exception as e:
                         logger.warning("[mc] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -733,13 +1005,19 @@ class McDriver(DriverPlugin):
                 if not values:  # FIXED-P1: 空值检查
                     raise ValueError(f"Empty response from read_device({addr}, 1)")
                 return values[0]
-        except (ConnectionError, OSError, TimeoutError):  # FIXED-P3: 原问题-as e绑定异常对象但e未使用(ruff F841); 修复-移除as e绑定  # FIXED-P2: 连接类异常直接向上抛出，不回退
+        except (
+            ConnectionError,
+            OSError,
+            TimeoutError,
+        ):  # FIXED-P3: 原问题-as e绑定异常对象但e未使用(ruff F841); 修复-移除as e绑定  # FIXED-P2: 连接类异常直接向上抛出，不回退
             raise
         except Exception as e:
             logger.warning("[mc] FX5U网络读取失败 %s: %s", addr, e, exc_info=True)
             values = c.read_device(addr.replace("\\", ""), 1)
             if not values:  # FIXED-P1: 空值检查
-                raise ValueError(f"Empty response from read_device({addr}, 1)") from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
+                raise ValueError(
+                    f"Empty response from read_device({addr}, 1)"
+                ) from e  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from e
             return values[0]
 
     def _parse_address(self, address: str) -> tuple[str, str]:
@@ -773,7 +1051,24 @@ class McDriver(DriverPlugin):
         # 根据设备类型判断默认读取方式
         device_type = addr[0].upper() if addr else ""
         # FX5U SLMP 位软元件列表
-        bit_devices = ("M", "X", "Y", "SM", "SD", "L", "F", "V", "B", "SB", "DX", "DY", "S", "J", "K", "U")  # FIXED-P1: 移除Z（变址寄存器是字设备）
+        bit_devices = (
+            "M",
+            "X",
+            "Y",
+            "SM",
+            "SD",
+            "L",
+            "F",
+            "V",
+            "B",
+            "SB",
+            "DX",
+            "DY",
+            "S",
+            "J",
+            "K",
+            "U",
+        )  # FIXED-P1: 移除Z（变址寄存器是字设备）
         # FX5U 字软元件列表 (FIXED-P3: 原问题-word_devices赋值后未使用(ruff F841); 修复-移除无用变量，字设备判断走默认return addr, "word")
         if device_type in bit_devices:
             return addr, "bit"
@@ -797,7 +1092,9 @@ class McDriver(DriverPlugin):
         now_mono = time.monotonic()
         last_write = self._write_rate_limits.get(point, 0.0)
         if now_mono - last_write < self._WRITE_RATE_MIN_INTERVAL:
-            self._log_error(device_id, McDriverErrors.WRITE_RATE_LIMITED, f"{point} interval={now_mono - last_write:.3f}s")
+            self._log_error(
+                device_id, McDriverErrors.WRITE_RATE_LIMITED, f"{point} interval={now_mono - last_write:.3f}s"
+            )
             return False
         old_value = None
         try:
@@ -818,7 +1115,9 @@ class McDriver(DriverPlugin):
             try:
                 record_packet("tx", "mc", device_id, f"MC Write: {point} = {value}")
                 async with self._lock:
-                    await self._call_sync(self._sync_write_point, point, value, timeout=self._WRITE_TIMEOUT, write=True)  # FIXED-P1: 写操作持锁
+                    await self._call_sync(
+                        self._sync_write_point, point, value, timeout=self._WRITE_TIMEOUT, write=True
+                    )  # FIXED-P1: 写操作持锁
                 record_packet("rx", "mc", device_id, f"MC Write: {point} = {value} OK")
                 self._write_rate_limits[point] = time.monotonic()
                 # FIXED-P2: 辅助字典容量淘汰
@@ -850,11 +1149,15 @@ class McDriver(DriverPlugin):
             await asyncio.sleep(self._WRITE_VERIFY_DELAY)
             verify_pv = await self._read_points_batch([point])
             verify_val = verify_pv.get(point)
-            read_back = verify_val.value if isinstance(verify_val, PointValue) and verify_val.quality == "good" else None
+            read_back = (
+                verify_val.value if isinstance(verify_val, PointValue) and verify_val.quality == "good" else None
+            )
             expected = int(value) if suffix != "bit" else int(bool(value))
             if read_back is not None and isinstance(read_back, (int, float)) and isinstance(expected, (int, float)):
                 if abs(read_back - expected) > 1:
-                    self._log_error(device_id, McDriverErrors.WRITE_VERIFY_FAILED, f"{point} wrote={expected} read={read_back}")
+                    self._log_error(
+                        device_id, McDriverErrors.WRITE_VERIFY_FAILED, f"{point} wrote={expected} read={read_back}"
+                    )
                     verify_ok = False
         except Exception:
             verify_ok = False  # FIXED-P2: 验证异常时verify_ok应为False，而非默认True
@@ -879,7 +1182,7 @@ class McDriver(DriverPlugin):
         elif suffix in ("B", "byte", "int8"):
             # FIXED-P0: 字节类型写入，仅写入低8位到指定地址，避免覆盖相邻寄存器
             client.write_device(addr, [int(value) & 0xFF])
-        elif suffix == "long" or (hasattr(self, '_point_types') and self._point_types.get(address) == 'long'):
+        elif suffix == "long" or (hasattr(self, "_point_types") and self._point_types.get(address) == "long"):
             word_val = int(value) & 0xFFFFFFFF
             hi = (word_val >> 16) & 0xFFFF
             lo = word_val & 0xFFFF
@@ -888,7 +1191,7 @@ class McDriver(DriverPlugin):
                 client.write_device(addr, [lo, hi])
             else:
                 client.write_device(addr, [hi, lo])
-        elif suffix == "float" or (hasattr(self, '_point_types') and self._point_types.get(address) == 'float'):
+        elif suffix == "float" or (hasattr(self, "_point_types") and self._point_types.get(address) == "float"):
             if self._byte_order == "little":
                 raw = struct.pack("<f", float(value))
                 lo = struct.unpack("<H", raw[0:2])[0]
@@ -928,7 +1231,9 @@ class McDriver(DriverPlugin):
             try:
                 record_packet("tx", "mc", device_id, f"MC Batch Write: {addr} x{len(values_list)}")
                 async with self._lock:
-                    await self._call_sync(self._sync_write_device, addr, values_list, timeout=self._WRITE_TIMEOUT, write=True)  # FIXED-P1: 写操作持锁
+                    await self._call_sync(
+                        self._sync_write_device, addr, values_list, timeout=self._WRITE_TIMEOUT, write=True
+                    )  # FIXED-P1: 写操作持锁
                 record_packet("rx", "mc", device_id, f"MC Batch Write: {addr} x{len(values_list)} OK")
                 self._record_write_success(device_id)
                 return True
@@ -994,7 +1299,9 @@ class McDriver(DriverPlugin):
                     if _suffix_of(items[j]["point"]) in _MULTI_REGISTER_SUFFIXES:
                         break
                     try:
-                        int(items[j]["value"])  # FIXED-P3: 原问题-iv赋值后未使用(ruff F841); 修复-仅保留int()调用用于类型校验，不绑定变量
+                        int(
+                            items[j]["value"]
+                        )  # FIXED-P3: 原问题-iv赋值后未使用(ruff F841); 修复-仅保留int()调用用于类型校验，不绑定变量
                         group.append(items[j])
                         j += 1
                     except (ValueError, TypeError):
@@ -1017,13 +1324,15 @@ class McDriver(DriverPlugin):
                         result.append(it)
                     i = j
                     continue
-                result.append({
-                    "merged": True,
-                    "key": key,
-                    "addr": group[0]["key"][0] + str(group[0]["key"][1]),
-                    "values": values_list,
-                    "points": [it["point"] for it in group],
-                })
+                result.append(
+                    {
+                        "merged": True,
+                        "key": key,
+                        "addr": group[0]["key"][0] + str(group[0]["key"][1]),
+                        "values": values_list,
+                        "points": [it["point"] for it in group],
+                    }
+                )
                 i = j
             else:
                 result.append(items[i])
@@ -1033,7 +1342,9 @@ class McDriver(DriverPlugin):
     async def _try_reconnect(self, device_id: str) -> None:
         if not self._config:
             return
-        lock = self._reconnect_locks.setdefault(device_id, asyncio.Lock())  # FIXED-P1: setdefault 原子操作，避免创建与检查的竞态
+        lock = self._reconnect_locks.setdefault(
+            device_id, asyncio.Lock()
+        )  # FIXED-P1: setdefault 原子操作，避免创建与检查的竞态
         if lock.locked():
             return
         # FIXED-P0: _is_reconnecting 标志在锁内设置/重置，避免竞态条件
@@ -1052,13 +1363,20 @@ class McDriver(DriverPlugin):
         if device_id in self._circuit_open:
             open_since = self._circuit_open_since.get(device_id, 0.0)
             if time.monotonic() - open_since < self._CIRCUIT_RECOVERY_SECONDS:
-                logger.warning("[mc] device=%s code=CIRCUIT_OPEN msg=Device is circuit-broken, skipping reconnect", device_id)
+                logger.warning(
+                    "[mc] device=%s code=CIRCUIT_OPEN msg=Device is circuit-broken, skipping reconnect", device_id
+                )
                 return
-            logger.info("[mc] device=%s code=CIRCUIT_HALF_OPEN msg=Circuit breaker recovery timeout reached, attempting probe", device_id)
+            logger.info(
+                "[mc] device=%s code=CIRCUIT_HALF_OPEN msg=Circuit breaker recovery timeout reached, attempting probe",
+                device_id,
+            )
         count = self._reconnect_count.get(device_id, 0) + 1
         self._reconnect_count[device_id] = count
         if count > self._MAX_RECONNECT_ATTEMPTS:
-            self._log_error(device_id, McDriverErrors.RECONNECT_FAILED, f"max attempts reached: {count}, circuit breaker activated")
+            self._log_error(
+                device_id, McDriverErrors.RECONNECT_FAILED, f"max attempts reached: {count}, circuit breaker activated"
+            )
             self._set_conn_state(ConnectionState.OFFLINE.value)
             self._circuit_open.add(device_id)  # FIXED-P1: 加入熔断状态，不再调度_delayed_reconnect递归
             self._circuit_open_since[device_id] = time.monotonic()  # FIXED-P2: 记录熔断开始时间，用于half-open恢复
@@ -1072,7 +1390,14 @@ class McDriver(DriverPlugin):
             delay = min(self._RECONNECT_BASE_DELAY * (2 ** (count - 1)), self._RECONNECT_MAX_DELAY)
         jitter_ms = random.randint(0, 200 if has_backup else 1000)
         total_delay = delay + jitter_ms / 1000.0
-        logger.warning("[mc] reconnect in %.2fs (attempt %d, fast=%s, jitter=%dms): %s", total_delay, count, has_backup, jitter_ms, device_id)
+        logger.warning(
+            "[mc] reconnect in %.2fs (attempt %d, fast=%s, jitter=%dms): %s",
+            total_delay,
+            count,
+            has_backup,
+            jitter_ms,
+            device_id,
+        )
         self._set_conn_state(ConnectionState.CONNECTING.value)
         if self._failover_start_mono == 0.0 and has_backup:
             self._failover_start_mono = time.monotonic()
@@ -1089,9 +1414,17 @@ class McDriver(DriverPlugin):
                 self._last_failover_duration_ms = failover_dur
                 self._last_failover_time = datetime.now(UTC).isoformat()
                 self._failover_start_mono = 0.0
-                self._log_error(device_id, McDriverErrors.FAILOVER_TRIGGERED, f"primary->{self._backup_ip} duration={failover_dur:.0f}ms")
+                self._log_error(
+                    device_id,
+                    McDriverErrors.FAILOVER_TRIGGERED,
+                    f"primary->{self._backup_ip} duration={failover_dur:.0f}ms",
+                )
                 if failover_dur > self._FAILOVER_MAX_DURATION_MS:
-                    self._log_error(device_id, McDriverErrors.FAILOVER_FAST, f"failover took {failover_dur:.0f}ms > {self._FAILOVER_MAX_DURATION_MS}ms")
+                    self._log_error(
+                        device_id,
+                        McDriverErrors.FAILOVER_FAST,
+                        f"failover took {failover_dur:.0f}ms > {self._FAILOVER_MAX_DURATION_MS}ms",
+                    )
         elif self._using_backup:
             pass
         else:
@@ -1106,7 +1439,9 @@ class McDriver(DriverPlugin):
                 self._using_backup = True
                 self._failover_count += 1
                 self._last_failover_time = datetime.now(UTC).isoformat()
-                self._log_error(device_id, McDriverErrors.FAILOVER_NO_BACKUP, "no primary, fallback to backup")  # FIXED-P3: 原问题-f-string无占位符(ruff F541); 修复-移除多余f前缀
+                self._log_error(
+                    device_id, McDriverErrors.FAILOVER_NO_BACKUP, "no primary, fallback to backup"
+                )  # FIXED-P3: 原问题-f-string无占位符(ruff F541); 修复-移除多余f前缀
             else:
                 return
         # FIXED-P0: CAS模式 - 先创建新client，成功后再替换旧client，避免窗口期self._client指向已关闭对象
@@ -1118,15 +1453,19 @@ class McDriver(DriverPlugin):
                 frame_type = "3E"
             if frame_type == "4E":
                 from pymcprotocol import Type4E
+
                 new_client = Type4E(plctype=plc_type)
             else:
                 from pymcprotocol import Type3E
+
                 new_client = Type3E(plctype=plc_type)
             if self._is_fx5u and port == 5007:
                 port = 5001
             t0 = time.monotonic()
             await self._call_sync(new_client.connect, target_ip, port, timeout=5.0)
             self._last_latency_ms = (time.monotonic() - t0) * 1000
+            # 重连后应用通信模式 (binary/ascii); ascii 切换失败时优雅降级为 binary
+            self._apply_comm_mode(new_client)
             # FIXED-P0: 连接成功后在_sync_lock内替换旧client，防止与_call_sync的_locked_call并发访问竞态
             with self._sync_lock:
                 self._client = new_client
@@ -1140,9 +1479,9 @@ class McDriver(DriverPlugin):
                     # 之前：close失败仅记录warning，旧TCP连接可能仍存活占用PLC连接槽位
                     # 之后：close失败时尝试关闭底层socket，确保释放连接资源
                     try:
-                        sock = getattr(old_client, 'socket', None)
+                        sock = getattr(old_client, "socket", None)
                         if sock is None:
-                            sock = getattr(getattr(old_client, '_socket', None), '_sock', None)
+                            sock = getattr(getattr(old_client, "_socket", None), "_sock", None)
                         if sock is not None:
                             sock.settimeout(0.5)
                             sock.close()
@@ -1152,7 +1491,9 @@ class McDriver(DriverPlugin):
             # FIXED-P0: 重连成功时检查stop()是否已调用，防止stop后驱动恢复运行
             if not self._running:
                 try:
-                    await self._call_sync(self._client.close, timeout=5.0, write=True)  # FIXED-P1: 关闭操作修改client状态，持锁
+                    await self._call_sync(
+                        self._client.close, timeout=5.0, write=True
+                    )  # FIXED-P1: 关闭操作修改client状态，持锁
                 except Exception as e:
                     logger.warning("[mc] operation failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 self._client = None
@@ -1164,7 +1505,14 @@ class McDriver(DriverPlugin):
             self._circuit_open.discard(device_id)  # FIXED-P1: 连接成功时移除熔断状态
             self._circuit_open_since.pop(device_id, None)  # FIXED-P2: 连接成功时清除熔断时间
             self._set_conn_state(ConnectionState.CONNECTED.value)
-            logger.info("MC reconnect OK: %s:%d (fx5u=%s backup=%s latency=%.0fms)", target_ip, port, self._is_fx5u, self._using_backup, self._last_latency_ms)
+            logger.info(
+                "MC reconnect OK: %s:%d (fx5u=%s backup=%s latency=%.0fms)",
+                target_ip,
+                port,
+                self._is_fx5u,
+                self._using_backup,
+                self._last_latency_ms,
+            )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -1173,14 +1521,20 @@ class McDriver(DriverPlugin):
                 try:
                     await self._call_sync(new_client.close, timeout=5.0)
                 except Exception as e:
-                    logger.warning("[mc] new client close failed during reconnect: %s", e)  # FIXED-P2: 原问题-close异常被静默吞没，添加日志记录
+                    logger.warning(
+                        "[mc] new client close failed during reconnect: %s", e
+                    )  # FIXED-P2: 原问题-close异常被静默吞没，添加日志记录
             # 旧client仍然可用（未关闭），恢复引用
             self._client = old_client
             # FIXED-P1: half-open试探失败后重置熔断计时，防止立即再次试探导致快速循环
             if device_id in self._circuit_open:
                 self._circuit_open_since[device_id] = time.monotonic()
             self._log_error(target_ip, McDriverErrors.RECONNECT_FAILED, str(e))
-            self._set_conn_state(ConnectionState.DEGRADED.value if self._reconnect_count.get(device_id, 0) < self._MAX_RECONNECT_ATTEMPTS else ConnectionState.OFFLINE.value)
+            self._set_conn_state(
+                ConnectionState.DEGRADED.value
+                if self._reconnect_count.get(device_id, 0) < self._MAX_RECONNECT_ATTEMPTS
+                else ConnectionState.OFFLINE.value
+            )
 
     async def _delayed_reconnect(self, delay: float, device_id: str = "") -> None:
         try:
@@ -1278,7 +1632,10 @@ class McDriver(DriverPlugin):
                         logger.debug("[mc] error: %s", e)
                     return {
                         "device_id": f"mc_{ip_addr.replace('.', '_')}",
-                        "name": f"Mitsubishi PLC ({ip_addr})" + (" [FX5U]" if is_fx5u else ""),  # FIXED-P3: 原问题-f-string无占位符(ruff F541); 修复-移除多余f前缀
+                        "name": f"Mitsubishi PLC ({ip_addr})"
+                        + (
+                            " [FX5U]" if is_fx5u else ""
+                        ),  # FIXED-P3: 原问题-f-string无占位符(ruff F541); 修复-移除多余f前缀
                         "protocol": "mc",
                         "config": {
                             "host": ip_addr,
@@ -1334,14 +1691,21 @@ class McDriver(DriverPlugin):
                         probe = None  # FIXED-P2: 初始化probe变量，确保except分支也能关闭
                         try:
                             from pymcprotocol import Type3E
+
                             probe = Type3E(plctype=self._config.get("plc_type", "iQ-R"))
-                            await self._run_in_executor(probe.connect, self._primary_ip, int(self._config.get("port", 5007)), timeout=3.0)
+                            await self._run_in_executor(
+                                probe.connect, self._primary_ip, int(self._config.get("port", 5007)), timeout=3.0
+                            )
                             try:
                                 await self._run_in_executor(probe.close, timeout=2.0)
                             except TimeoutError:
-                                logger.warning("[mc] code=PROBE_CLOSE_TIMEOUT msg=Probe close timed out after 2s, continuing")
+                                logger.warning(
+                                    "[mc] code=PROBE_CLOSE_TIMEOUT msg=Probe close timed out after 2s, continuing"
+                                )
                             except Exception as e:
-                                logger.warning("[mc] watchdog_loop failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                                logger.warning(
+                                    "[mc] watchdog_loop failed: %s", e
+                                )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                             self._probe_fail_count = 0
                             await self._try_revert_primary(list(self._devices.keys())[0] if self._devices else "")
                         except Exception:
@@ -1350,16 +1714,22 @@ class McDriver(DriverPlugin):
                                 try:
                                     await asyncio.to_thread(probe.close)
                                 except Exception as e:
-                                    logger.warning("[mc] watchdog_loop failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                                    logger.warning(
+                                        "[mc] watchdog_loop failed: %s", e
+                                    )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 else:
                     self._probe_fail_count += 1
                 for device_id in list(self._devices.keys()):
                     if not connected:
                         with self._stats_lock:  # FIXED-P0: _offline_since读写纳入_stats_lock，与写入路径锁保护一致
                             if device_id not in self._offline_since:
-                                self._offline_since[device_id] = datetime.now(UTC)  # FIXED-P0: _offline_since统一使用datetime类型
+                                self._offline_since[device_id] = datetime.now(
+                                    UTC
+                                )  # FIXED-P0: _offline_since统一使用datetime类型
                                 self._set_conn_state(ConnectionState.DEGRADED.value)
-                            elif (datetime.now(UTC) - self._offline_since[device_id]).total_seconds() > 30:  # FIXED-P0: _offline_since统一使用datetime类型
+                            elif (
+                                datetime.now(UTC) - self._offline_since[device_id]
+                            ).total_seconds() > 30:  # FIXED-P0: _offline_since统一使用datetime类型
                                 self._set_conn_state(ConnectionState.OFFLINE.value)
                                 # MC-002: 检查是否正在重连，避免重复触发
                                 if not self._is_reconnecting:
@@ -1402,7 +1772,9 @@ class McDriver(DriverPlugin):
         async with self._role_lock:
             return has_permission(self._current_user_role, permission)
 
-    async def set_user_role(self, role: str) -> None:  # FIXED-P1: 改为async并使用_role_lock，与check_permission和TCP驱动一致
+    async def set_user_role(
+        self, role: str
+    ) -> None:  # FIXED-P1: 改为async并使用_role_lock，与check_permission和TCP驱动一致
         async with self._role_lock:
             self._current_user_role = role
 
@@ -1425,9 +1797,21 @@ class McDriver(DriverPlugin):
         with self._sync_lock:  # FIXED-P1: _conn_state赋值加锁保护，防止watchdog与重连并发读写竞态
             valid_transitions = {
                 ConnectionState.DISCONNECTED.value: {ConnectionState.CONNECTING.value},
-                ConnectionState.CONNECTING.value: {ConnectionState.CONNECTED.value, ConnectionState.DISCONNECTED.value, ConnectionState.OFFLINE.value},
-                ConnectionState.CONNECTED.value: {ConnectionState.DEGRADED.value, ConnectionState.DISCONNECTED.value, ConnectionState.CONNECTING.value},
-                ConnectionState.DEGRADED.value: {ConnectionState.CONNECTED.value, ConnectionState.OFFLINE.value, ConnectionState.CONNECTING.value},
+                ConnectionState.CONNECTING.value: {
+                    ConnectionState.CONNECTED.value,
+                    ConnectionState.DISCONNECTED.value,
+                    ConnectionState.OFFLINE.value,
+                },
+                ConnectionState.CONNECTED.value: {
+                    ConnectionState.DEGRADED.value,
+                    ConnectionState.DISCONNECTED.value,
+                    ConnectionState.CONNECTING.value,
+                },
+                ConnectionState.DEGRADED.value: {
+                    ConnectionState.CONNECTED.value,
+                    ConnectionState.OFFLINE.value,
+                    ConnectionState.CONNECTING.value,
+                },
                 ConnectionState.OFFLINE.value: {ConnectionState.CONNECTING.value, ConnectionState.DISCONNECTED.value},
             }
             allowed = valid_transitions.get(self._conn_state, set())
@@ -1443,7 +1827,9 @@ class McDriver(DriverPlugin):
                             self._background_tasks.add(task)
                             task.add_done_callback(self._background_tasks.discard)
                         except RuntimeError as e:
-                            logger.debug("[mc] set_conn_state failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+                            logger.debug(
+                                "[mc] set_conn_state failed: %s", e
+                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
             else:
                 logger.warning("[mc] state transition blocked: %s -> %s", self._conn_state, new_state)
 
@@ -1463,7 +1849,9 @@ class McDriver(DriverPlugin):
         }
 
     def _update_point_stats(self, point: str, success: bool) -> None:
-        s = self._point_stats.setdefault(point, {"success_count": 0, "fail_count": 0, "consecutive_fails": 0, "latency_samples": deque(maxlen=20)})
+        s = self._point_stats.setdefault(
+            point, {"success_count": 0, "fail_count": 0, "consecutive_fails": 0, "latency_samples": deque(maxlen=20)}
+        )
         if success:
             s["success_count"] += 1
             s["consecutive_fails"] = 0
@@ -1553,21 +1941,35 @@ class McDriver(DriverPlugin):
             elapsed_minutes = (time.monotonic() - self._degrade_enter_time) / 60.0
             if elapsed_minutes >= self._DEGRADE_RECOVERY_MINUTES and success_rate >= 0.8:
                 new_level = max(0, self._degrade_level - 1)
-                logger.info("[mc] degrade time-based recovery: level %d->%d after %.1f min (success_rate=%.2f)", self._degrade_level, new_level, elapsed_minutes, success_rate)
+                logger.info(
+                    "[mc] degrade time-based recovery: level %d->%d after %.1f min (success_rate=%.2f)",
+                    self._degrade_level,
+                    new_level,
+                    elapsed_minutes,
+                    success_rate,
+                )
                 if new_level == 0:
                     self._degrade_enter_time = 0.0
         if new_level != self._degrade_level:
-            old_interval = self._DEGRADE_LEVELS[self._degrade_level] if self._degrade_level < len(self._DEGRADE_LEVELS) else 60
+            old_interval = (
+                self._DEGRADE_LEVELS[self._degrade_level] if self._degrade_level < len(self._DEGRADE_LEVELS) else 60
+            )
             self._degrade_level = new_level
             new_interval = self._DEGRADE_LEVELS[new_level] if new_level < len(self._DEGRADE_LEVELS) else 60
             if new_level > 0:
                 self._set_conn_state(ConnectionState.DEGRADED.value)
-                self._log_error(device_id, McDriverErrors.DEGRADE_ACTIVE, f"success_rate={success_rate:.2f} interval={new_interval}s")
+                self._log_error(
+                    device_id,
+                    McDriverErrors.DEGRADE_ACTIVE,
+                    f"success_rate={success_rate:.2f} interval={new_interval}s",
+                )
             else:
                 if self._conn_state == ConnectionState.DEGRADED.value:
                     self._set_conn_state(ConnectionState.CONNECTED.value)
                     self._log_error(device_id, McDriverErrors.DEGRADE_RECOVERED, f"success_rate={success_rate:.2f}")
-            logger.info("[mc] degrade_level: %d->%d interval: %ds->%ds", new_level, new_level, old_interval, new_interval)
+            logger.info(
+                "[mc] degrade_level: %d->%d interval: %ds->%ds", new_level, new_level, old_interval, new_interval
+            )
 
     def get_degrade_interval(self) -> float:
         if self._degrade_level < len(self._DEGRADE_LEVELS):
@@ -1588,7 +1990,11 @@ class McDriver(DriverPlugin):
             # FIXED-P0: Python float类型值(如3.14)通过int()不抛异常但被静默截断，需前置检查
             if isinstance(value, float) and value != iv and suffix in ("word", "uword", "long", "B", "byte", "int8"):
                 return False
-        except (ValueError, TypeError, OverflowError):  # FIXED-P0: OverflowError在int(float('inf'))时抛出，需捕获防止write_point崩溃
+        except (
+            ValueError,
+            TypeError,
+            OverflowError,
+        ):  # FIXED-P0: OverflowError在int(float('inf'))时抛出，需捕获防止write_point崩溃
             try:
                 fv = float(value)
                 if math.isnan(fv) or math.isinf(fv):
@@ -1614,7 +2020,9 @@ class McDriver(DriverPlugin):
         else:
             return -32768 <= iv <= 65535
 
-    def _record_write_audit(self, device_id: str, point: str, address: str, area_code: str, old_value: Any, new_value: Any, result: str) -> None:
+    def _record_write_audit(
+        self, device_id: str, point: str, address: str, area_code: str, old_value: Any, new_value: Any, result: str
+    ) -> None:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "user": "",
@@ -1639,8 +2047,10 @@ class McDriver(DriverPlugin):
             from edgelite.drivers.edge_rule_engine import ModbusEdgeRuleEngine
             from edgelite.drivers.edge_triggers import EdgeTriggerExecutor
             from edgelite.drivers.rule_store import RuleStore
+
             try:
                 from edgelite.engine.event_bus import EventBus
+
                 event_bus = EventBus.instance()
             except Exception:
                 event_bus = None
@@ -1655,10 +2065,12 @@ class McDriver(DriverPlugin):
             # 补偿 RuleRepo.delete 跨库清理失败的情况
             try:
                 from edgelite.app import _app_state
+
                 _db = getattr(_app_state, "database", None)
                 _db_path = getattr(_db, "db_path", None) if _db else None
                 if _db_path:
                     import sqlite3 as _sqlite3
+
                     _conn = _sqlite3.connect(f"file:{_db_path}?mode=ro", uri=True)
                     try:
                         _cursor = _conn.execute("SELECT rule_id FROM rules")
@@ -1718,6 +2130,7 @@ class McDriver(DriverPlugin):
         if not self._rule_engine or not self._rule_store:
             return False
         from edgelite.drivers.edge_rule_engine import EdgeRule, EdgeRuleOperator, EdgeRuleType
+
         try:
             rule = EdgeRule(
                 rule_id=rule_dict["rule_id"],
@@ -1763,7 +2176,9 @@ class McDriver(DriverPlugin):
             return {}
         return self._rule_engine.get_stats()
 
-    async def _init_ts_storage(self, config: dict) -> None:  # FIXED-P0: 改为async方法，设置属性后调用connect()初始化InfluxDB客户端
+    async def _init_ts_storage(
+        self, config: dict
+    ) -> None:  # FIXED-P0: 改为async方法，设置属性后调用connect()初始化InfluxDB客户端
         ts_config = config.get("ts_storage", {})
         if not ts_config:
             ts_config = {
@@ -1778,17 +2193,21 @@ class McDriver(DriverPlugin):
             return
         try:
             from edgelite.storage.influx_storage import InfluxDBStorage
+
             self._ts_storage = InfluxDBStorage()
             self._ts_storage._url = ts_config.get("influx_url", "")
             self._ts_storage._org = ts_config.get("influx_org", "edgelite")
             self._ts_storage._bucket = ts_config.get("influx_bucket", "edgelite")
             self._ts_storage._token = ts_config.get("influx_token", "")
-            await self._ts_storage.connect()  # FIXED-P0: 原代码绕过connect()直接设置私有属性，导致_client为None、_available为False，时序存储始终降级
+            await (
+                self._ts_storage.connect()
+            )  # FIXED-P0: 原代码绕过connect()直接设置私有属性，导致_client为None、_available为False，时序存储始终降级
             self._persist_enabled = True
             logger.info("[mc] ts storage: InfluxDB mode")
         except Exception:
             try:
                 from edgelite.storage.sqlite_ts import SqliteTimeSeriesStorage
+
                 self._ts_storage = SqliteTimeSeriesStorage(db_path=ts_config.get("sqlite_path", "data/mc_ts.db"))
                 self._persist_enabled = True
                 logger.info("[mc] ts storage: SQLite fallback mode")
@@ -1798,6 +2217,7 @@ class McDriver(DriverPlugin):
                 self._ts_storage = None
         try:
             from edgelite.storage.offline_queue import OfflineQueue
+
             self._offline_queue = OfflineQueue(
                 db_path=ts_config.get("offline_db_path", "data/mc_offline.db"),
                 max_size_mb=ts_config.get("offline_max_mb", 200),
@@ -1815,13 +2235,15 @@ class McDriver(DriverPlugin):
             if not isinstance(pv, PointValue):
                 continue
             ts = pv.timestamp.isoformat() if pv.timestamp else now_iso
-            records.append({
-                "device_id": device_id,
-                "point_name": point_name,
-                "value": pv.value,
-                "quality": pv.quality,
-                "timestamp": ts,
-            })
+            records.append(
+                {
+                    "device_id": device_id,
+                    "point_name": point_name,
+                    "value": pv.value,
+                    "quality": pv.quality,
+                    "timestamp": ts,
+                }
+            )
         if not records:
             return
         try:
@@ -1881,13 +2303,16 @@ class McDriver(DriverPlugin):
             except Exception as e:
                 logger.debug("[mc] upload loop error: %s", e)
 
-    async def _upload_send_callback(self, topic: str, payload: Any) -> bool:  # FIXED-P0: 回调签名与offline_queue.flush(send_callback(item["topic"], item["payload"]))不匹配，原签名(self, record: dict)导致TypeError
+    async def _upload_send_callback(
+        self, topic: str, payload: Any
+    ) -> bool:  # FIXED-P0: 回调签名与offline_queue.flush(send_callback(item["topic"], item["payload"]))不匹配，原签名(self, record: dict)导致TypeError
         if not self._ts_storage:
             return False
         try:
             record = payload if isinstance(payload, dict) else {"topic": topic, "payload": payload}
             if isinstance(record.get("payload"), str):
                 import json
+
                 record["payload"] = json.loads(record["payload"])
             p = record.get("payload", record)
             if hasattr(self._ts_storage, "write_points_batch"):
@@ -1933,6 +2358,7 @@ class McDriver(DriverPlugin):
     def _init_ota(self, config: dict) -> None:
         try:
             from edgelite.drivers.mc_ota import McOtaManager
+
             self._ota_manager = McOtaManager()
             version = config.get("firmware_version", "1.0.0")
             self._ota_manager.set_current_version(version)
@@ -1944,6 +2370,7 @@ class McDriver(DriverPlugin):
     def _init_config_version(self) -> None:
         try:
             from edgelite.drivers.mc_config_version import McConfigVersionManager
+
             self._config_version_mgr = McConfigVersionManager()
             logger.info("[mc] config version manager initialized")
         except Exception as e:
@@ -1953,9 +2380,11 @@ class McDriver(DriverPlugin):
     def _init_audit(self) -> None:
         try:
             from edgelite.drivers.mc_audit import McAudit
+
             audit_svc = None
             try:
                 from edgelite.services.audit_service import AuditService
+
                 audit_svc = AuditService()
             except Exception as e:
                 logger.warning("[mc] init_audit failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
@@ -1975,7 +2404,9 @@ class McDriver(DriverPlugin):
             return None
         result = await self._config_version_mgr.rollback(device_id, target_version, operator=operator)
         if result and self._mc_audit:
-            self._mc_audit.log_config_version(device_id, "mc_config_rollback", target_version, result.get("version", 0), operator)
+            self._mc_audit.log_config_version(
+                device_id, "mc_config_rollback", target_version, result.get("version", 0), operator
+            )
         return result
 
     async def get_config_versions(self, device_id: str, limit: int = 50) -> list[dict]:
@@ -1991,6 +2422,7 @@ class McDriver(DriverPlugin):
     def check_rbac(self, device_id: str, permission: str, role: str) -> bool:
         try:
             from edgelite.security.rbac import has_permission
+
             granted = has_permission(role, permission)
         except Exception:
             granted = False  # FIXED-P0: 安全模块不可用时默认拒绝(fail-closed)，而非默认放行

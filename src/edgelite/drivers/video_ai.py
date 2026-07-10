@@ -31,13 +31,14 @@ _onnx_model = None
 
 try:
     import onnxruntime as ort
+
     ONNXRUNTIME_AVAILABLE = True
     logger.info("ONNX Runtime available: %s", ort.get_available_providers())
 except ImportError:
     logger.debug("ONNX Runtime not available, using simulation mode")
 
 _ALLOWED_INPUT_DTYPES = {"tensor(float)", "tensor(uint8)", "tensor(int64)", "tensor(int32)"}
-_ONNX_MAGIC_BYTES = b'\x08\x07'
+_ONNX_MAGIC_BYTES = b"\x08\x07"
 _DEFAULT_MODEL_DIRS: list[str] = []
 
 
@@ -51,7 +52,9 @@ def validate_model_path(
     norm_path = os.path.normpath(os.path.abspath(model_path))
 
     if ".." in model_path or ".." in norm_path:
-        return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_PATH_TRAVERSAL", detail=f"Path traversal detected: {model_path}")
+        return ModelValidateResult(
+            ok=False, error_code="ERR_VAI_MODEL_PATH_TRAVERSAL", detail=f"Path traversal detected: {model_path}"
+        )
 
     dirs = allowed_dirs if allowed_dirs else _DEFAULT_MODEL_DIRS
     if dirs:
@@ -62,10 +65,16 @@ def validate_model_path(
                 in_allowed = True
                 break
         if not in_allowed:
-            return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_PATH_NOT_ALLOWED", detail=f"Path not in allowed directories: {model_path}")
+            return ModelValidateResult(
+                ok=False,
+                error_code="ERR_VAI_MODEL_PATH_NOT_ALLOWED",
+                detail=f"Path not in allowed directories: {model_path}",
+            )
 
     if not model_path.lower().endswith(".onnx"):
-        return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_FORMAT_INVALID", detail=f"File extension not .onnx: {model_path}")
+        return ModelValidateResult(
+            ok=False, error_code="ERR_VAI_MODEL_FORMAT_INVALID", detail=f"File extension not .onnx: {model_path}"
+        )
 
     if os.path.isfile(norm_path):
         try:
@@ -74,9 +83,15 @@ def validate_model_path(
                 if len(header) >= 2 and header[:2] == _ONNX_MAGIC_BYTES:
                     pass
                 elif len(header) >= 2:
-                    return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_HEADER_INVALID", detail=f"File header does not match ONNX protobuf magic: {header[:2].hex()}")
+                    return ModelValidateResult(
+                        ok=False,
+                        error_code="ERR_VAI_MODEL_HEADER_INVALID",
+                        detail=f"File header does not match ONNX protobuf magic: {header[:2].hex()}",
+                    )
         except OSError as e:
-            return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=f"Cannot read model file: {e}")
+            return ModelValidateResult(
+                ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=f"Cannot read model file: {e}"
+            )
 
     return ModelValidateResult(ok=True)
 
@@ -143,19 +158,26 @@ def validate_onnx_model(
     expected_input_dtype: str | None = None,
 ) -> ModelValidateResult:
     if not ONNXRUNTIME_AVAILABLE:
-        return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail="ONNX Runtime not available")
+        return ModelValidateResult(
+            ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail="ONNX Runtime not available"
+        )
 
     if not model_path or not os.path.isfile(model_path):
-        return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=f"Model file not found: {model_path}")
+        return ModelValidateResult(
+            ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=f"Model file not found: {model_path}"
+        )
 
     try:
         import onnx
+
         onnx_model = onnx.load(model_path)
         onnx.checker.check_model(onnx_model, full_check=False)
     except ImportError:
         pass
     except Exception as e:
-        return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=f"Invalid ONNX format: {e}")
+        return ModelValidateResult(
+            ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=f"Invalid ONNX format: {e}"
+        )
 
     try:
         sess_options = ort.SessionOptions()
@@ -164,7 +186,9 @@ def validate_onnx_model(
 
         inputs = session.get_inputs()
         if not inputs:
-            return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_INPUT_MISMATCH", detail="Model has no inputs")
+            return ModelValidateResult(
+                ok=False, error_code="ERR_VAI_MODEL_VALIDATE_INPUT_MISMATCH", detail="Model has no inputs"
+            )
 
         inp = inputs[0]
         shape = inp.shape
@@ -189,14 +213,18 @@ def validate_onnx_model(
 
         outputs = session.get_outputs()
         if not outputs:
-            return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_OUTPUT_MISMATCH", detail="Model has no outputs")
+            return ModelValidateResult(
+                ok=False, error_code="ERR_VAI_MODEL_VALIDATE_OUTPUT_MISMATCH", detail="Model has no outputs"
+            )
 
         del session
         return ModelValidateResult(ok=True)
 
     except Exception as e:
         logger.error("Model validation failed: %s", e)
-        return ModelValidateResult(ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=type(e).__name__)  # FIXED-P2: 仅返回异常类型名，防止泄露模型路径/内部详情
+        return ModelValidateResult(
+            ok=False, error_code="ERR_VAI_MODEL_VALIDATE_FAILED", detail=type(e).__name__
+        )  # FIXED-P2: 仅返回异常类型名，防止泄露模型路径/内部详情
 
 
 def resolve_device(requested_device: str) -> tuple[str, bool]:
@@ -272,7 +300,9 @@ class VideoAIModel:
             self._output_names = [out.name for out in self._session.get_outputs()]
 
             self._initialized = True
-            logger.info("AI model loaded: %s (input: %s, device: %s)", self._config.model_path, self._input_name, actual_device)
+            logger.info(
+                "AI model loaded: %s (input: %s, device: %s)", self._config.model_path, self._input_name, actual_device
+            )
             return True
 
         except Exception as e:
@@ -393,17 +423,15 @@ class VideoAIModel:
                 x2 = min(orig_w, int(x2))
                 y2 = min(orig_h, int(y2))
                 cid_int = int(cid)
-                class_name = (
-                    self._config.labels[cid_int]
-                    if cid_int < len(self._config.labels)
-                    else f"class_{cid_int}"
+                class_name = self._config.labels[cid_int] if cid_int < len(self._config.labels) else f"class_{cid_int}"
+                results.append(
+                    DetectionResult(
+                        class_id=str(cid_int),
+                        class_name=class_name,
+                        confidence=float(score),
+                        bbox=(int(x1), int(y1), int(x2), int(y2)),
+                    )
                 )
-                results.append(DetectionResult(
-                    class_id=str(cid_int),
-                    class_name=class_name,
-                    confidence=float(score),
-                    bbox=(int(x1), int(y1), int(x2), int(y2)),
-                ))
 
         return results
 
@@ -419,13 +447,14 @@ class VideoAIModel:
             preprocessed = self.preprocess(image)
 
             def _run_inference():
-                return self._session.run(
-                    self._output_names,
-                    {self._input_name: preprocessed}
-                )
+                return self._session.run(self._output_names, {self._input_name: preprocessed})
 
-            outputs = await asyncio.wait_for(asyncio.to_thread(_run_inference), timeout=self._config.inference_timeout)  # FIXED-P2: 原问题-硬编码30s超时，应使用config中的inference_timeout
-            results = self.postprocess([out for out in outputs], original_shape, confidence_threshold=confidence_threshold)
+            outputs = await asyncio.wait_for(
+                asyncio.to_thread(_run_inference), timeout=self._config.inference_timeout
+            )  # FIXED-P2: 原问题-硬编码30s超时，应使用config中的inference_timeout
+            results = self.postprocess(
+                [out for out in outputs], original_shape, confidence_threshold=confidence_threshold
+            )
             return results
 
         except Exception as e:
@@ -473,10 +502,7 @@ class VideoAIModel:
             original_shape = (image.shape[0], image.shape[1])
 
             def _run_inference():
-                return self._session.run(
-                    self._output_names,
-                    {self._input_name: preprocessed}
-                )
+                return self._session.run(self._output_names, {self._input_name: preprocessed})
 
             timeout = self._config.inference_timeout
             outputs = await asyncio.wait_for(
@@ -484,13 +510,17 @@ class VideoAIModel:
                 timeout=timeout,
             )
 
-            detections = self.postprocess([out for out in outputs], original_shape, confidence_threshold=confidence_threshold)
+            detections = self.postprocess(
+                [out for out in outputs], original_shape, confidence_threshold=confidence_threshold
+            )
             inference_time_ms = (time.time() - start_time) * 1000
 
             boxes = [
                 {
-                    "x1": d.bbox[0], "y1": d.bbox[1],
-                    "x2": d.bbox[2], "y2": d.bbox[3],
+                    "x1": d.bbox[0],
+                    "y1": d.bbox[1],
+                    "x2": d.bbox[2],
+                    "y2": d.bbox[3],
                     "class": d.class_name,
                     "confidence": round(d.confidence, 4),
                 }
@@ -542,8 +572,10 @@ class VideoAIModel:
 
         boxes = [
             {
-                "x1": d.bbox[0], "y1": d.bbox[1],
-                "x2": d.bbox[2], "y2": d.bbox[3],
+                "x1": d.bbox[0],
+                "y1": d.bbox[1],
+                "x2": d.bbox[2],
+                "y2": d.bbox[3],
                 "class": d.class_name,
                 "confidence": round(d.confidence, 4),
             }
@@ -585,12 +617,14 @@ class VideoAIModel:
             x2 = min(x2, w)
             y2 = min(y2, h)
 
-            results.append(DetectionResult(
-                class_id=str(rng.integers(0, max(1, len(labels)))),
-                class_name=rng.choice(labels),
-                confidence=rng.uniform(0.6, 0.95),
-                bbox=(int(x1), int(y1), int(x2), int(y2)),
-            ))
+            results.append(
+                DetectionResult(
+                    class_id=str(rng.integers(0, max(1, len(labels)))),
+                    class_name=rng.choice(labels),
+                    confidence=rng.uniform(0.6, 0.95),
+                    bbox=(int(x1), int(y1), int(x2), int(y2)),
+                )
+            )
 
         return results
 
@@ -680,9 +714,8 @@ class VideoAIAnalyzer:
             self._stats["total_detections"] += len(results)
             self._stats["last_inference_time"] = inference_time
             self._stats["avg_inference_time"] = (
-                (self._stats["avg_inference_time"] * (current_total - 1) + inference_time)
-                / current_total
-            )
+                self._stats["avg_inference_time"] * (current_total - 1) + inference_time
+            ) / current_total
 
         return results
 

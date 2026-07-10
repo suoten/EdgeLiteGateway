@@ -8,16 +8,16 @@ FIXED-P2: 原问题-RuleTemplate/DeviceGroup纯内存存储，进程重启丢失
 改为ORM持久化，添加对应数据库表。
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "006_rule_templates_device_groups"
-down_revision: Union[str, None] = "005_password_reset_tables"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "005_password_reset_tables"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

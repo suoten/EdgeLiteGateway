@@ -54,9 +54,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
         # base64.b64encode(hmac.new(timestamp.encode(), secret.encode(), hashlib.sha256).digest()).decode()
         # 即 key=timestamp, message=secret。原代码 key=secret, message=timestamp 导致认证失败。
         # 时间戳使用毫秒级 str(timestamp_ms())，由调用方传入。
-        hmac_code = hmac.new(
-            timestamp.encode("utf-8"), secret.encode("utf-8"), hashlib.sha256
-        ).digest()
+        hmac_code = hmac.new(timestamp.encode("utf-8"), secret.encode("utf-8"), hashlib.sha256).digest()
         return base64.b64encode(hmac_code).decode("utf-8")
 
     async def connect(self, config: dict) -> None:
@@ -178,9 +176,7 @@ class HuaweiIoTDAHandler(PlatformHandler):
             self._enqueue_offline(topic, payload.encode("utf-8"), 1)  # FIXED-P2#26
             logger.warning("Huawei IoTDA pub queue full, enqueued offline")  # FIXED-P3: 中文日志→英文
 
-    async def _connect_loop(
-        self, broker: str, port: int, device_id: str, secret: str
-    ) -> None:
+    async def _connect_loop(self, broker: str, port: int, device_id: str, secret: str) -> None:
         import aiomqtt
 
         while self._running:
@@ -237,7 +233,12 @@ class HuaweiIoTDAHandler(PlatformHandler):
                 self._consecutive_failures += 1
                 delay = min(5 * (2 ** (self._consecutive_failures - 1)), 60)
                 delay *= 0.5 + random.random() * 0.5  # FIXED-P2: 原问题-重连固定延迟无退避无抖动，改为指数退避+jitter
-                logger.error("Huawei IoTDA MQTT connection error: %s, retrying in %.1fs (failures=%d)", e, delay, self._consecutive_failures)  # FIXED-P3: 中文日志→英文
+                logger.error(
+                    "Huawei IoTDA MQTT connection error: %s, retrying in %.1fs (failures=%d)",
+                    e,
+                    delay,
+                    self._consecutive_failures,
+                )  # FIXED-P3: 中文日志→英文
                 self._connected = False
                 await asyncio.sleep(delay)
 
@@ -248,7 +249,9 @@ class HuaweiIoTDAHandler(PlatformHandler):
                     await asyncio.sleep(0.1)
                     continue
                 try:
-                    item = await asyncio.wait_for(self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT)  # FIXED: 原问题-timeout=1.0魔法数字
+                    item = await asyncio.wait_for(
+                        self._pub_queue.get(), timeout=_QUEUE_POLL_TIMEOUT
+                    )  # FIXED: 原问题-timeout=1.0魔法数字
                 except TimeoutError:
                     continue
                 # FIXED-P0: 兼容4元组(topic, payload, qos, retry_count)和3元组(topic, payload, qos)
@@ -275,7 +278,9 @@ class HuaweiIoTDAHandler(PlatformHandler):
                             # FIXED-P1: 原问题-重入队列失败时仅log不入离线队列，消息永久丢失
                             # 修复：重入队列失败时调用_enqueue_offline缓存到离线队列，网络恢复后重试
                             self._enqueue_offline(topic, payload, qos)
-                            logger.error("Huawei IoTDA re-enqueue failed, enqueued offline: %s", qe)  # FIXED-P2: 原问题-重入队列失败时pass吞没异常，消息永久丢失无感知
+                            logger.error(
+                                "Huawei IoTDA re-enqueue failed, enqueued offline: %s", qe
+                            )  # FIXED-P2: 原问题-重入队列失败时pass吞没异常，消息永久丢失无感知
         except asyncio.CancelledError:
             pass
 

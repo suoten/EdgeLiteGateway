@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RpcCommand:
     """RPC指令数据类"""
+
     method: str
     device_id: str
     params: dict[str, Any] = field(default_factory=dict)
@@ -29,6 +30,7 @@ class RpcCommand:
 @dataclass
 class RpcResult:
     """RPC执行结果数据类"""
+
     command_id: str
     success: bool
     result: Any = None
@@ -127,19 +129,23 @@ class BackhaulManager:
                         elapsed = (time.time() - start) * 1000
                         logger.warning(
                             "RPC command blocked by write-protection policy: id=%s device=%s point=%s",
-                            command.command_id, command.device_id, point,
+                            command.command_id,
+                            command.device_id,
+                            point,
                         )
                         async with self._state_lock:
-                            self._rpc_history.append({
-                                "command_id": command.command_id,
-                                "method": command.method,
-                                "device_id": command.device_id,
-                                "params": command.params,
-                                "success": False,
-                                "elapsed_ms": elapsed,
-                                "timestamp": time.time(),
-                                "error": "write_protection_blocked",
-                            })
+                            self._rpc_history.append(
+                                {
+                                    "command_id": command.command_id,
+                                    "method": command.method,
+                                    "device_id": command.device_id,
+                                    "params": command.params,
+                                    "success": False,
+                                    "elapsed_ms": elapsed,
+                                    "timestamp": time.time(),
+                                    "error": "write_protection_blocked",
+                                }
+                            )
                         return RpcResult(
                             command_id=command.command_id,
                             success=False,
@@ -150,7 +156,8 @@ class BackhaulManager:
                 elapsed = (time.time() - start) * 1000
                 logger.warning(
                     "RPC check_write_allowed raised: id=%s error=%s",
-                    command.command_id, check_e,
+                    command.command_id,
+                    check_e,
                 )
                 return RpcResult(
                     command_id=command.command_id,
@@ -159,9 +166,7 @@ class BackhaulManager:
                     elapsed_ms=elapsed,
                 )
 
-            success = await device_service.write_point(
-                command.device_id, point, value, user=rpc_user
-            )
+            success = await device_service.write_point(command.device_id, point, value, user=rpc_user)
 
             elapsed = (time.time() - start) * 1000
             result = RpcResult(
@@ -174,19 +179,24 @@ class BackhaulManager:
 
             # FIXED(一般): 使用_state_lock保护_rpc_history并发写入
             async with self._state_lock:
-                self._rpc_history.append({
-                    "command_id": command.command_id,
-                    "method": command.method,
-                    "device_id": command.device_id,
-                    "params": command.params,
-                    "success": success,
-                    "elapsed_ms": elapsed,
-                    "timestamp": time.time(),
-                })
+                self._rpc_history.append(
+                    {
+                        "command_id": command.command_id,
+                        "method": command.method,
+                        "device_id": command.device_id,
+                        "params": command.params,
+                        "success": success,
+                        "elapsed_ms": elapsed,
+                        "timestamp": time.time(),
+                    }
+                )
 
             logger.info(
                 "RPC command executed: id=%s method=%s device=%s success=%s",
-                command.command_id, command.method, command.device_id, success,
+                command.command_id,
+                command.method,
+                command.device_id,
+                success,
             )
             return result
 
@@ -326,15 +336,18 @@ class BackhaulManager:
             # FIXED(严重): _fallback_buffer 读写加 _fallback_lock 保护，避免与 flush_buffer 并发导致 deque 竞态
             async with self._fallback_lock:
                 logger.error(
-                    "Backhaul: offline queue enqueue failed, writing to fallback buffer. type=%s fallback_size=%d error=%s",
-                    msg_type, len(self._fallback_buffer), e,
+                    "Backhaul: offline queue enqueue failed, writing to fallback buffer. type=%s fallback_size=%d error=%s",  # noqa: E501
+                    msg_type,
+                    len(self._fallback_buffer),
+                    e,
                 )
                 try:
                     self._fallback_buffer.append({"type": msg_type, "message": message})
                 except Exception as fallback_e:
                     logger.error(
                         "Backhaul: fallback buffer also failed, data lost. type=%s error=%s",
-                        msg_type, fallback_e,
+                        msg_type,
+                        fallback_e,
                     )
         # FIXED-P2: 原问题-同时写入离线队列和内存缓冲区导致重复存储；改为只写入离线队列
 
@@ -364,7 +377,11 @@ class BackhaulManager:
                 else:
                     consecutive_failures += 1
                     if consecutive_failures >= max_retries:
-                        logger.warning("Backhaul flush: message dropped after %d consecutive failures (buffer=%d)", max_retries, len(self._fallback_buffer))
+                        logger.warning(
+                            "Backhaul flush: message dropped after %d consecutive failures (buffer=%d)",
+                            max_retries,
+                            len(self._fallback_buffer),
+                        )
                         consecutive_failures = 0
                     else:
                         async with self._fallback_lock:
@@ -372,7 +389,12 @@ class BackhaulManager:
             except Exception as e:
                 consecutive_failures += 1
                 if consecutive_failures >= max_retries:
-                    logger.warning("Backhaul flush: message dropped after %d consecutive exceptions: %s (buffer=%d)", max_retries, e, len(self._fallback_buffer))
+                    logger.warning(
+                        "Backhaul flush: message dropped after %d consecutive exceptions: %s (buffer=%d)",
+                        max_retries,
+                        e,
+                        len(self._fallback_buffer),
+                    )
                     consecutive_failures = 0
                 else:
                     async with self._fallback_lock:
@@ -384,7 +406,7 @@ class BackhaulManager:
         consecutive_failures = 0  # FIXED-P3: 原问题-固定间隔重试无退避，添加指数退避
         while self._running:
             try:
-                interval = self._resend_interval * min(2 ** consecutive_failures, 10)
+                interval = self._resend_interval * min(2**consecutive_failures, 10)
                 interval *= 0.5 + random.random() * 0.5  # FIXED-P3: 退避抖动
                 await asyncio.sleep(interval)
                 if not self._running:

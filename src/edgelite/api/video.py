@@ -57,6 +57,7 @@ class VideoWebhookEvent(BaseModel):
 
 class AIAnalyzeRequest(BaseModel):
     """AI分析请求"""
+
     image_data: str = Field(..., description="Base64编码的图像数据")
     model_name: str = Field(default="default", description="模型名称")
     device_id: str = Field(default="", description="关联设备ID")
@@ -64,6 +65,7 @@ class AIAnalyzeRequest(BaseModel):
 
 class AIAnalyzeResponse(BaseModel):
     """AI分析响应"""
+
     detections: list[dict] = Field(default_factory=list, description="检测结果列表")
     stats: dict = Field(default_factory=dict, description="分析统计")
     error: str | None = Field(default=None, description="错误信息")
@@ -71,6 +73,7 @@ class AIAnalyzeResponse(BaseModel):
 
 class AIModelConfig(BaseModel):
     """AI模型配置"""
+
     name: str = Field(..., description="模型名称")
     model_path: str = Field(..., description="ONNX模型文件路径")
     model_type: str = Field(default="object_detection", description="模型类型")
@@ -80,11 +83,8 @@ class AIModelConfig(BaseModel):
 
 def _verify_webhook_key(config=Depends(ConfigDep), x_api_key: str = Header(default="")) -> None:
     import hmac
-    if (
-        config
-        and getattr(config, "server", None)
-        and getattr(config.server, "webhook_api_key", None)
-    ):
+
+    if config and getattr(config, "server", None) and getattr(config.server, "webhook_api_key", None):
         if not x_api_key or not hmac.compare_digest(x_api_key, config.server.webhook_api_key):
             raise HTTPException(status_code=401, detail=VideoErrors.API_KEY_INVALID)
     else:
@@ -104,6 +104,7 @@ async def get_stream_url(
         # 任意设备的视频流 URL（IDOR 越权）。视频流 URL 通常包含认证凭证，泄露后可被未授权观看
         # 修复：复用 devices.py 的设备归属校验逻辑
         from edgelite.api.devices import _check_device_owner
+
         await _check_device_owner(device_svc, device_id, user)
         url = await svc.get_stream_url(device_id, channel_id)
         if not url:
@@ -130,6 +131,7 @@ async def ptz_control(
         # 任意设备的 PTZ（IDOR 越权）。PTZ 控制是物理操作，越权控制可能影响监控覆盖范围
         # 修复：复用 devices.py 的设备归属校验逻辑
         from edgelite.api.devices import _check_device_owner
+
         await _check_device_owner(device_svc, device_id, user)
         success = await svc.ptz_control(device_id, channel_id, action)
         if not success:
@@ -159,6 +161,7 @@ async def video_webhook(
 
 
 # ============= AI视频分析API =============
+
 
 @router.post("/ai/analyze", response_model=ApiResponse)
 async def ai_analyze(
@@ -203,8 +206,10 @@ async def ai_analyze_upload(
         _, ext = os.path.splitext(file.filename or "")
         if ext.lower() not in _ALLOWED_IMAGE_EXTENSIONS:
             raise HTTPException(status_code=400, detail=AiErrors.INFERENCE_FAILED)
-        contents = await file.read()
         # FIXED-P0: 原问题-上传文件无大小限制，可导致OOM
+        # 修复: 使用 file.read(_MAX_IMAGE_SIZE + 1) 限制单次读取字节数，
+        # 仅读取比上限多 1 字节即可判断是否超限，避免恶意超大文件撑爆内存
+        contents = await file.read(_MAX_IMAGE_SIZE + 1)
         if len(contents) > _MAX_IMAGE_SIZE:
             raise HTTPException(status_code=413, detail=AiErrors.INFERENCE_FAILED)
         image_b64 = base64.b64encode(contents).decode("utf-8")
@@ -234,10 +239,17 @@ async def ai_load_model(
         from pathlib import Path
 
         from edgelite.drivers.video_ai import InferenceConfig, InferenceTask, get_video_analyzer
+
         if not config.model_path:
             raise HTTPException(status_code=400, detail=AiErrors.MODEL_LOAD_FAILED)
         _model_path = Path(config.model_path)
-        if _model_path.is_absolute() or ".." in config.model_path or ":" in config.model_path[:3] or "\\\\" in config.model_path or len(config.model_path) > 512:
+        if (
+            _model_path.is_absolute()
+            or ".." in config.model_path
+            or ":" in config.model_path[:3]
+            or "\\\\" in config.model_path
+            or len(config.model_path) > 512
+        ):
             raise HTTPException(status_code=400, detail=AiErrors.MODEL_LOAD_FAILED)
         # 校验扩展名
         if _model_path.suffix.lower() not in (".onnx", ".tflite", ".pmml"):

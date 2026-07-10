@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 
 # FIXED(严重): 使用 contextvars 隔离协程级用户上下文，避免多协程并发写入
 # 同一设备时 driver._current_write_user 实例属性被互相覆盖，导致审计日志记录错误用户
-_current_write_user_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "current_write_user", default=""
-)
+_current_write_user_var: contextvars.ContextVar[str] = contextvars.ContextVar("current_write_user", default="")
 
 
 class DeviceService:
@@ -96,9 +94,7 @@ class DeviceService:
             raise ValueError("Missing required field: protocol")
         driver_class = self._registry.get_driver_class(protocol)
         if driver_class is None and protocol != "simulator":
-            raise ValueError(
-                f"Unsupported protocol: {protocol}"
-            )
+            raise ValueError(f"Unsupported protocol: {protocol}")
 
         device = await self._repo.create(data, created_by=created_by)
 
@@ -108,7 +104,9 @@ class DeviceService:
             if protocol == "simulator":
                 _is_simulator = True
                 driver = await self._get_simulator_driver()
-                await driver.add_device(device["device_id"], {}, data.get("points", []))  # FIXED: 补充 await 并修正参数顺序
+                await driver.add_device(
+                    device["device_id"], {}, data.get("points", [])
+                )  # FIXED: 补充 await 并修正参数顺序
                 self._driver_instances[device["device_id"]] = driver
                 await self._lifecycle.on_device_online(device["device_id"])
                 await self._repo.update_status(device["device_id"], "online")
@@ -132,9 +130,7 @@ class DeviceService:
                         data.get("points", []),
                     )
                 self._driver_instances[device["device_id"]] = driver
-                connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(
-                    device["device_id"]
-                )
+                connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(device["device_id"])
                 if connected:
                     await self._lifecycle.on_device_online(device["device_id"])
                     await self._repo.update_status(device["device_id"], "online")
@@ -149,25 +145,26 @@ class DeviceService:
             else:
                 logger.warning(
                     "Device created: %s (protocol=%s, no registered driver)",
-                    device["device_id"], protocol,
+                    device["device_id"],
+                    protocol,
                 )
         except Exception as e:
             logger.error(
                 "Device driver start failed, rolling back database record: %s - %s",
-                device["device_id"], e,
+                device["device_id"],
+                e,
             )
             await self._repo.delete(device["device_id"])
             # R8-S-03 修复: 回滚仅删除 DB 记录和停止 driver，不调用 scheduler.stop_collect，
             # 若 start_collect 已部分启动采集任务则会留下僵尸采集任务持续占用资源。
             # 此处防御性调用 stop_collect（幂等，无任务时不会报错），加 5s 超时避免阻塞回滚。
             try:
-                await asyncio.wait_for(
-                    self._scheduler.stop_collect(device["device_id"]), timeout=5.0
-                )
+                await asyncio.wait_for(self._scheduler.stop_collect(device["device_id"]), timeout=5.0)
             except Exception as stop_collect_err:
                 logger.debug(
                     "stop_collect failed during rollback for %s: %s",
-                    device["device_id"], stop_collect_err,
+                    device["device_id"],
+                    stop_collect_err,
                 )
             # FIXED: 若driver.start()成功但后续步骤失败，需停止已启动的driver防止资源泄漏
             # simulator驱动是共享单例，不能stop，但需移除设备映射
@@ -186,9 +183,7 @@ class DeviceService:
                     await _driver_instance.stop()
                 except Exception as stop_err:
                     logger.debug("Driver stop failed (during rollback): %s", stop_err)
-            raise ValueError(
-                f"Device driver start failed: {e}"
-            ) from e  # FIXED: 原问题-中文硬编码错误消息
+            raise ValueError(f"Device driver start failed: {e}") from e  # FIXED: 原问题-中文硬编码错误消息
 
         return device
 
@@ -205,7 +200,9 @@ class DeviceService:
         created_by: str | None = None,
         collect_status: str | None = None,
     ) -> tuple[list[dict], int]:
-        return await self._repo.list_all(page, size, status, protocol, search, created_by, collect_status=collect_status)
+        return await self._repo.list_all(
+            page, size, status, protocol, search, created_by, collect_status=collect_status
+        )
 
     async def list_device_ids_by_owner(self, created_by: str) -> list[str]:
         return await self._repo.list_device_ids_by_owner(created_by)
@@ -320,9 +317,7 @@ class DeviceService:
         active_rules = [r for r in rules if r.get("enabled", False)]
         if active_rules:
             rule_names = ", ".join(r["name"] for r in active_rules[:3])
-            return False, (
-                f"Device referenced by rules: {rule_names}"
-            )  # FIXED: 原问题-中文硬编码错误消息
+            return False, (f"Device referenced by rules: {rule_names}")  # FIXED: 原问题-中文硬编码错误消息
 
         # 先删除数据库记录（快速操作），再异步清理资源
         # 这样即使后续清理超时，设备记录也已删除，用户不会看到超时
@@ -345,6 +340,7 @@ class DeviceService:
         FIXED(致命): 增加 expected_driver 参数，cleanup 时校验 _driver_instances[device_id]
         是否仍为同一实例，避免误删删除后新建的同 device_id 设备的 driver。
         """
+
         async def _cleanup():
             try:
                 try:
@@ -411,7 +407,9 @@ class DeviceService:
                 if exc is not None:
                     logger.error(
                         "Cleanup task %s failed with exception: %s",
-                        t.get_name(), exc, exc_info=exc,
+                        t.get_name(),
+                        exc,
+                        exc_info=exc,
                     )
 
             task.add_done_callback(_on_cleanup_done)
@@ -427,9 +425,14 @@ class DeviceService:
             if cached:
                 # 将缓存中的原始值包装为PointValue，与驱动路径返回类型一致
                 from edgelite.drivers.base import PointValue
+
                 now = datetime.now(UTC)
-                return {k: v if isinstance(v, PointValue) else PointValue(value=v, quality="good", timestamp=now, source="cache")
-                        for k, v in cached.items()}
+                return {
+                    k: v
+                    if isinstance(v, PointValue)
+                    else PointValue(value=v, quality="good", timestamp=now, source="cache")
+                    for k, v in cached.items()
+                }
 
         # 2. 缓存无数据时走驱动实时读取（可能较慢或失败）
         driver = self._driver_instances.get(device_id)
@@ -446,9 +449,14 @@ class DeviceService:
             result = await driver.read_points(device_id, point_names)
             # 归一化：将驱动返回中的原始值包装为PointValue
             from edgelite.drivers.base import PointValue
+
             now = datetime.now(UTC)
-            return {k: v if isinstance(v, PointValue) else PointValue(value=v, quality="good", timestamp=now, source="device")
-                    for k, v in result.items()}
+            return {
+                k: v
+                if isinstance(v, PointValue)
+                else PointValue(value=v, quality="good", timestamp=now, source="device")
+                for k, v in result.items()
+            }
         except Exception as e:
             # FIXED: 驱动读取异常时返回空数据而非传播异常，避免前端无限等待
             logger.warning("Driver read points error %s: %s", device_id, e)
@@ -796,7 +804,17 @@ class DeviceService:
             if stats:
                 return {"point_name": name, **stats}
             else:
-                return {"point_name": name, "success_count": 0, "fail_count": 0, "avg_latency_ms": 0, "consecutive_fails": 0, "success_rate": 1.0, "quality_history": [], "current_quality": "good", "last_success_at": None}
+                return {
+                    "point_name": name,
+                    "success_count": 0,
+                    "fail_count": 0,
+                    "avg_latency_ms": 0,
+                    "consecutive_fails": 0,
+                    "success_rate": 1.0,
+                    "quality_history": [],
+                    "current_quality": "good",
+                    "last_success_at": None,
+                }
 
         result = await asyncio.gather(*[_get_one_point_stats(pt) for pt in device_points])
         return list(result)
@@ -824,7 +842,11 @@ class DeviceService:
         return logs[-limit:]
 
     async def save_config_version(
-        self, device_id: str, config: dict, change_summary: str = "", operator: str = "",
+        self,
+        device_id: str,
+        config: dict,
+        change_summary: str = "",
+        operator: str = "",
     ) -> int:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "save_config_version"):
@@ -874,8 +896,7 @@ class DeviceService:
         immutable_changes: list[str] = []
         if isinstance(current_points, list) and isinstance(target_points, list):
             cur_map = {
-                (p.get("name") if isinstance(p, dict) else None): p
-                for p in current_points if isinstance(p, dict)
+                (p.get("name") if isinstance(p, dict) else None): p for p in current_points if isinstance(p, dict)
             }
             for new_pt in target_points:
                 if not isinstance(new_pt, dict):
@@ -890,13 +911,14 @@ class DeviceService:
                     old_val = old_pt.get(sensitive_field)
                     new_val = new_pt.get(sensitive_field)
                     if old_val != new_val:
-                        immutable_changes.append(
-                            f"point {pt_name}.{sensitive_field}: {old_val!r} -> {new_val!r}"
-                        )
+                        immutable_changes.append(f"point {pt_name}.{sensitive_field}: {old_val!r} -> {new_val!r}")
         if immutable_changes:
             logger.warning(
                 "rollback_config: %s 回滚到 v%s 将修改点位不可变字段: %s (operator=%s)",
-                device_id, target_version, immutable_changes, operator or "system",
+                device_id,
+                target_version,
+                immutable_changes,
+                operator or "system",
             )
 
         result = driver.rollback_config(device_id, target_version, operator)
@@ -906,9 +928,11 @@ class DeviceService:
         # SEC-FIX: 回滚后记录审计日志（管理员操作允许，但需审计）
         try:
             from edgelite.app import _app_state
+
             audit_service = getattr(_app_state, "audit_service", None)
             if audit_service is not None:
                 from edgelite.services.audit_service import AuditAction
+
                 await audit_service.log(
                     action=AuditAction.CONFIG_VERSION_ROLLBACK,
                     user_id=None,
@@ -1041,30 +1065,13 @@ class DeviceService:
 
             entry = {
                 "is_connected": is_connected,
-                "connection_quality_score": (
-                    getattr(stats, "connection_quality_score", None)
-                    if stats else None
-                ),
-                "consecutive_failures": (
-                    getattr(stats, "consecutive_failures", None)
-                    if stats else None
-                ),
-                "total_reads": (
-                    getattr(stats, "total_reads", None) if stats else None
-                ),
-                "failed_reads": (
-                    getattr(stats, "failed_reads", None) if stats else None
-                ),
-                "total_writes": (
-                    getattr(stats, "total_writes", None) if stats else None
-                ),
-                "failed_writes": (
-                    getattr(stats, "failed_writes", None) if stats else None
-                ),
-                "last_success_read": _dt(
-                    getattr(stats, "last_success_read", None)
-                    if stats else None
-                ),
+                "connection_quality_score": (getattr(stats, "connection_quality_score", None) if stats else None),
+                "consecutive_failures": (getattr(stats, "consecutive_failures", None) if stats else None),
+                "total_reads": (getattr(stats, "total_reads", None) if stats else None),
+                "failed_reads": (getattr(stats, "failed_reads", None) if stats else None),
+                "total_writes": (getattr(stats, "total_writes", None) if stats else None),
+                "failed_writes": (getattr(stats, "failed_writes", None) if stats else None),
+                "last_success_read": _dt(getattr(stats, "last_success_read", None) if stats else None),
             }
             return device_id, entry
 
@@ -1083,7 +1090,6 @@ class DeviceService:
             if entry is not None:
                 result[device_id] = entry
         return result
-
 
     async def batch_delete_devices(
         self,
@@ -1107,9 +1113,7 @@ class DeviceService:
             async with sem:
                 try:
                     if user_id is not None:
-                        success, error = await self._delete_device_with_owner_check(
-                            device_id, user_id, is_admin
-                        )
+                        success, error = await self._delete_device_with_owner_check(device_id, user_id, is_admin)
                     else:
                         success, error = await self.delete_device(device_id)
                     return device_id, (success, error)
@@ -1139,9 +1143,7 @@ class DeviceService:
             rule_names = ", ".join(r["name"] for r in active_rules[:3])
             return False, f"Device referenced by rules: {rule_names}"
 
-        delete_result = await self._repo.delete_with_owner_check(
-            device_id, user_id, is_admin
-        )
+        delete_result = await self._repo.delete_with_owner_check(device_id, user_id, is_admin)
 
         if delete_result == "not_authorized":
             return False, "Not authorized to delete this device"
@@ -1225,9 +1227,7 @@ class DeviceService:
                         # R8-S-01 修复: 与 create_device 保持一致，driver.start() 加 30s 超时保护，
                         # 避免单个设备驱动启动无限阻塞导致其余设备无法恢复采集。
                         try:
-                            await asyncio.wait_for(
-                                driver.start(device.get("config", {})), timeout=30.0
-                            )
+                            await asyncio.wait_for(driver.start(device.get("config", {})), timeout=30.0)
                         except TimeoutError:
                             logger.warning(
                                 "Driver start timed out for device %s, skipping",
@@ -1241,9 +1241,9 @@ class DeviceService:
                                 device.get("points", []),
                             )
                         self._driver_instances[device["device_id"]] = driver
-                        connected = hasattr(
-                            driver, "is_device_connected"
-                        ) and driver.is_device_connected(device["device_id"])
+                        connected = hasattr(driver, "is_device_connected") and driver.is_device_connected(
+                            device["device_id"]
+                        )
                         if connected:
                             await self._lifecycle.on_device_online(device["device_id"])
                             await self._repo.update_status(device["device_id"], "online")
@@ -1258,7 +1258,8 @@ class DeviceService:
                 except Exception as e:
                     logger.warning(
                         "Failed to restore device collection %s: %s",
-                        device.get("device_id", "<unknown>"), e,
+                        device.get("device_id", "<unknown>"),
+                        e,
                     )
 
         while True:
@@ -1386,18 +1387,22 @@ class DeviceService:
 
         export_data = []
         for device in devices:
-            export_data.append({
-                "device_id": device["device_id"],
-                "name": device["name"],
-                "protocol": device["protocol"],
-                "config": device.get("config", {}),
-                "points": device.get("points", []),
-                "collect_interval": device.get("collect_interval", 5),
-            })
+            export_data.append(
+                {
+                    "device_id": device["device_id"],
+                    "name": device["name"],
+                    "protocol": device["protocol"],
+                    "config": device.get("config", {}),
+                    "points": device.get("points", []),
+                    "collect_interval": device.get("collect_interval", 5),
+                }
+            )
 
         return export_data
 
-    async def import_devices(self, devices_data: list[dict], overwrite: bool = False, atomic: bool = False, created_by: str | None = None) -> dict:
+    async def import_devices(
+        self, devices_data: list[dict], overwrite: bool = False, atomic: bool = False, created_by: str | None = None
+    ) -> dict:
         """从设备字典列表导入设备
 
         R9-S-07 修复: 原实现接受 JSON 字符串并 json.loads 解析，API 层需先 json.dumps，
@@ -1413,7 +1418,12 @@ class DeviceService:
             dict with success, failed, errors, and mode fields
         """
         if not isinstance(devices_data, list):
-            return {"success": 0, "failed": 0, "errors": ["Expected a list of devices"], "mode": "partial" if not atomic else "atomic"}
+            return {
+                "success": 0,
+                "failed": 0,
+                "errors": ["Expected a list of devices"],
+                "mode": "partial" if not atomic else "atomic",
+            }
 
         supported_protocols = set(self._registry.get_all_protocol_keys())
         supported_protocols.update({"simulator", "video", "modbus_rtu"})
@@ -1421,7 +1431,9 @@ class DeviceService:
         # FIXED-ATOMIC-IMPORT: 原子模式使用单一事务
         if atomic:
             # FIXED-Bug24: 传递 created_by，避免非管理员导入后看不到自己的设备
-            return await self._import_devices_atomic(devices_data, overwrite, supported_protocols, created_by=created_by)
+            return await self._import_devices_atomic(
+                devices_data, overwrite, supported_protocols, created_by=created_by
+            )
 
         # 部分成功模式（原逻辑）
         success = 0
@@ -1471,10 +1483,7 @@ class DeviceService:
                         else:
                             success += 1
                     else:
-                        errors.append(
-                            f"{device_id}: Device already exists "
-                            "(use overwrite=true to update)"
-                        )
+                        errors.append(f"{device_id}: Device already exists (use overwrite=true to update)")
                         failed += 1
                     continue
 
@@ -1529,9 +1538,7 @@ class DeviceService:
 
                     from edgelite.models.db import DeviceORM
 
-                    _import_device_ids = [
-                        item.get("device_id") for item in devices_data if item.get("device_id")
-                    ]
+                    _import_device_ids = [item.get("device_id") for item in devices_data if item.get("device_id")]
                     existing_devices_map: dict[str, DeviceORM] = {}
                     if _import_device_ids:
                         existing_result = await session.execute(
@@ -1564,6 +1571,7 @@ class DeviceService:
                         # 与 DeviceRepo.create 保持一致，防止非法配置（如端口越界、缺 serial_port）入库
                         try:
                             from edgelite.storage.sqlite_repo import _validate_device_data
+
                             _validate_device_data(item)
                         except ValueError as ve:
                             errors.append(f"{device_id}: {ve}")
@@ -1574,10 +1582,7 @@ class DeviceService:
 
                         if existing is not None:
                             if not overwrite:
-                                errors.append(
-                                    f"{device_id}: Device already exists "
-                                    "(use overwrite=true to update)"
-                                )
+                                errors.append(f"{device_id}: Device already exists (use overwrite=true to update)")
                                 continue
                             # SEC-FIX: overwrite 时校验点位不可变字段（address/data_type/access_mode）
                             # 若已存在点位的不可变字段被修改，跳过该设备导入并记录错误，
@@ -1589,7 +1594,8 @@ class DeviceService:
                             new_points = item.get("points", []) or []
                             existing_pt_map = {
                                 (p.get("name") if isinstance(p, dict) else None): p
-                                for p in existing_points if isinstance(p, dict)
+                                for p in existing_points
+                                if isinstance(p, dict)
                             }
                             immutable_violations: list[str] = []
                             for new_pt in new_points:
@@ -1606,8 +1612,7 @@ class DeviceService:
                                     new_val = new_pt.get(sensitive_field)
                                     if old_val != new_val:
                                         immutable_violations.append(
-                                            f"point {pt_name}.{sensitive_field}: "
-                                            f"{old_val!r} -> {new_val!r}"
+                                            f"point {pt_name}.{sensitive_field}: {old_val!r} -> {new_val!r}"
                                         )
                             if immutable_violations:
                                 errors.append(
@@ -1617,7 +1622,8 @@ class DeviceService:
                                 )
                                 logger.warning(
                                     "Import overwrite blocked for %s: immutable fields changed: %s",
-                                    device_id, immutable_violations,
+                                    device_id,
+                                    immutable_violations,
                                 )
                                 continue
                             # 更新现有设备
@@ -1631,6 +1637,7 @@ class DeviceService:
                         else:
                             # 创建新设备
                             from datetime import UTC
+
                             now = datetime.now(UTC)
                             orm = DeviceORM(
                                 device_id=item["device_id"],
@@ -1720,13 +1727,16 @@ class DeviceService:
         driver = None
         if protocol == "simulator":
             driver = await self._get_simulator_driver()
-            await driver.add_device(device["device_id"], {}, device.get("points", []))  # FIXED: 补充 await 并修正参数顺序
+            await driver.add_device(
+                device["device_id"], {}, device.get("points", [])
+            )  # FIXED: 补充 await 并修正参数顺序
         else:
             driver_class = self._registry.get_driver_class(protocol)
             if driver_class is None:
                 logger.warning(
                     "No registered driver for protocol %s, device %s skipped",
-                    protocol, device.get("device_id"),
+                    protocol,
+                    device.get("device_id"),
                 )
                 return
             driver = driver_class()

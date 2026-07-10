@@ -1,0 +1,27 @@
+# Prometheus scrape configuration for EdgeLite Gateway
+# Scrapes the /metrics endpoint exposed by the FastAPI application.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: "edgelite-monitor"
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  # ── EdgeLite application metrics ────────────────────────────────────
+  - job_name: "edgelite"
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["edgelite:8080"]
+        labels:
+          service: "edgelite-gateway"
+          environment: "production"
+
+  # ── Prometheus self-monitoring ──────────────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

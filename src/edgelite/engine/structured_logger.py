@@ -113,16 +113,14 @@ class StructuredLogger:
 
         # FIXED-P2: 无条件清除所有handler可能移除第三方库(如uvicorn)的handler，改为只移除自己添加的
         for h in list(root_logger.handlers):
-            if getattr(h, '_edgelite_handler', False):
+            if getattr(h, "_edgelite_handler", False):
                 root_logger.removeHandler(h)
 
         console_handler = logging.StreamHandler()
         if self._json_format:
             console_handler.setFormatter(StructuredFormatter())
         else:
-            console_handler.setFormatter(
-                logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
-            )
+            console_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
         console_handler.addFilter(self._context_filter)
         console_handler._edgelite_handler = True  # FIXED-P2: 标记edgelite自己的handler，便于后续只移除自己的
         root_logger.addHandler(console_handler)

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -16,35 +15,36 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from httpx import ASGITransport, AsyncClient
 
-from edgelite.api.deps import get_current_user
-from edgelite.api.health import router as health_router
-from edgelite.api.auth import router as auth_router
-from edgelite.api.devices import router as devices_router
-from edgelite.api.rules import router as rules_router
-from edgelite.api.alarms import router as alarms_router
-from edgelite.api.data import router as data_router
 from edgelite.api.ai_models import router as ai_router
-from edgelite.api.system import router as system_router
-from edgelite.api.users import router as users_router
-from edgelite.api.services import router as services_router
+from edgelite.api.alarms import router as alarms_router
+from edgelite.api.audit import router as audit_router
+from edgelite.api.auth import router as auth_router
+from edgelite.api.data import router as data_router
+from edgelite.api.debug import router as debug_router
+from edgelite.api.deps import get_current_user
+from edgelite.api.devices import router as devices_router
 from edgelite.api.drivers import router as drivers_router
-from edgelite.api.notify import router as notify_router
+from edgelite.api.expressions import router as expressions_router
+from edgelite.api.grafana import router as grafana_router
+from edgelite.api.health import router as health_router
+from edgelite.api.integration import router as integration_router
+from edgelite.api.mcp import router as mcp_router
+from edgelite.api.metrics import router as metrics_router
+from edgelite.api.modbus_slave import router as modbus_slave_router
+
 # NOTE: platforms_router 因 edgelite.models.north 缺失无法导入，记录为 P0 Bug
 from edgelite.api.mqtt_forwarder import router as mqtt_forwarder_router
 from edgelite.api.mqtt_server import router as mqtt_server_router
-from edgelite.api.mcp import router as mcp_router
-from edgelite.api.grafana import router as grafana_router
-from edgelite.api.audit import router as audit_router
+from edgelite.api.notify import router as notify_router
 from edgelite.api.preprocess import router as preprocess_router
-from edgelite.api.expressions import router as expressions_router
-from edgelite.api.modbus_slave import router as modbus_slave_router
-from edgelite.api.serial_bridge import router as serial_bridge_router
-from edgelite.api.video import router as video_router
-from edgelite.api.scada import router as scada_router
-from edgelite.api.integration import router as integration_router
-from edgelite.api.debug import router as debug_router
-from edgelite.api.metrics import router as metrics_router
 from edgelite.api.resource_shares import router as resource_shares_router
+from edgelite.api.rules import router as rules_router
+from edgelite.api.scada import router as scada_router
+from edgelite.api.serial_bridge import router as serial_bridge_router
+from edgelite.api.services import router as services_router
+from edgelite.api.system import router as system_router
+from edgelite.api.users import router as users_router
+from edgelite.api.video import router as video_router
 
 # ── 测试常量 ──
 
@@ -76,11 +76,13 @@ def _make_mock_database() -> MagicMock:
     db.get_session = MagicMock(return_value=_SessionCM())
     db.audit_db_path = "data/test_audit.db"
     # 添加 get_lock_status 方法用于 locks 端点
-    db.get_lock_status = MagicMock(return_value={
-        "global_locks": {},
-        "table_locks": {},
-        "write_lock_active": False,
-    })
+    db.get_lock_status = MagicMock(
+        return_value={
+            "global_locks": {},
+            "table_locks": {},
+            "write_lock_active": False,
+        }
+    )
     return db
 
 
@@ -157,7 +159,12 @@ def _make_mock_alarm_service() -> AsyncMock:
         "rule_type": "threshold",
         "version": 1,
     }
-    _ack_data = {**_alarm_data, "status": "acknowledged", "acknowledged_by": "testadmin", "acknowledged_at": "2026-01-01T00:00:01Z"}
+    _ack_data = {
+        **_alarm_data,
+        "status": "acknowledged",
+        "acknowledged_by": "testadmin",
+        "acknowledged_at": "2026-01-01T00:00:01Z",
+    }
     _rec_data = {**_alarm_data, "status": "recovered", "recovered_at": "2026-01-01T00:00:02Z"}
     svc.list_alarms = AsyncMock(return_value=([_alarm_data], 1))
     svc.get_alarm = AsyncMock(return_value=_alarm_data)
@@ -183,23 +190,25 @@ def _make_mock_data_service() -> AsyncMock:
 
 def _make_mock_system_service() -> AsyncMock:
     svc = AsyncMock()
-    svc.get_status = AsyncMock(return_value={
-        "cpu_percent": 10.0,
-        "memory_total": 16384,
-        "memory_used": 8192,
-        "memory_percent": 50.0,
-        "disk_total": 100000,
-        "disk_used": 50000,
-        "disk_percent": 50.0,
-        "device_total": 0,
-        "device_online": 0,
-        "rule_total": 0,
-        "rule_enabled": 0,
-        "alarm_firing": 0,
-        "collect_task_count": 0,
-        "uptime": 100,
-        "version": "1.0.0",
-    })
+    svc.get_status = AsyncMock(
+        return_value={
+            "cpu_percent": 10.0,
+            "memory_total": 16384,
+            "memory_used": 8192,
+            "memory_percent": 50.0,
+            "disk_total": 100000,
+            "disk_used": 50000,
+            "disk_percent": 50.0,
+            "device_total": 0,
+            "device_online": 0,
+            "rule_total": 0,
+            "rule_enabled": 0,
+            "alarm_firing": 0,
+            "collect_task_count": 0,
+            "uptime": 100,
+            "version": "1.0.0",
+        }
+    )
     svc.collect_resources = AsyncMock(return_value={"cpu": 10, "memory": 50})
     return svc
 
@@ -243,13 +252,33 @@ def _build_test_app(role: str = "admin") -> FastAPI:
 
     # 注册所有路由
     for r in [
-        health_router, auth_router, devices_router, rules_router, alarms_router,
-        data_router, ai_router, system_router, users_router, services_router,
-        drivers_router, notify_router, mqtt_forwarder_router,
-        mqtt_server_router, mcp_router, grafana_router, audit_router,
-        preprocess_router, expressions_router, modbus_slave_router,
-        serial_bridge_router, video_router, scada_router, integration_router,
-        debug_router, metrics_router, resource_shares_router,
+        health_router,
+        auth_router,
+        devices_router,
+        rules_router,
+        alarms_router,
+        data_router,
+        ai_router,
+        system_router,
+        users_router,
+        services_router,
+        drivers_router,
+        notify_router,
+        mqtt_forwarder_router,
+        mqtt_server_router,
+        mcp_router,
+        grafana_router,
+        audit_router,
+        preprocess_router,
+        expressions_router,
+        modbus_slave_router,
+        serial_bridge_router,
+        video_router,
+        scada_router,
+        integration_router,
+        debug_router,
+        metrics_router,
+        resource_shares_router,
         # platforms_router 排除: edgelite.models.north 模块缺失
     ]:
         app.include_router(r)
@@ -274,7 +303,9 @@ def _build_test_app(role: str = "admin") -> FastAPI:
     app.state.influx_storage = MagicMock()
     app.state.mqtt_forwarder = None
     app.state.config = MagicMock()
-    app.state.config.influxdb = MagicMock(token="test-token", url="http://localhost:8086", org="edgelite", bucket="edgelite")
+    app.state.config.influxdb = MagicMock(
+        token="test-token", url="http://localhost:8086", org="edgelite", bucket="edgelite"
+    )
     app.state.config.security = MagicMock(
         secret_key=_TEST_SECRET,
         access_token_expire_minutes=30,
@@ -295,8 +326,11 @@ def _build_test_app(role: str = "admin") -> FastAPI:
     app.state.config.mqtt_forwarder = MagicMock(enabled=False)
     app.state.config.websocket = MagicMock(max_connections=100)
     app.state.config.backup = MagicMock(
-        enabled=False, backup_dir="data/backups",
-        interval_hours=24, retain_days=7, min_free_mb=100,
+        enabled=False,
+        backup_dir="data/backups",
+        interval_hours=24,
+        retain_days=7,
+        min_free_mb=100,
     )
     app.state.config.cache = MagicMock(ring_buffer_capacity=1000)
     app.state.config.ota_update_url = ""
@@ -305,8 +339,17 @@ def _build_test_app(role: str = "admin") -> FastAPI:
     # 同步 mock 服务到 _app_state (某些 API 端点直接访问模块级 _app_state)
     try:
         from edgelite.app import _app_state as global_app_state
-        for key in ["device_service", "rule_service", "alarm_service", "data_service", 
-                    "system_service", "database", "config", "audit_service"]:
+
+        for key in [
+            "device_service",
+            "rule_service",
+            "alarm_service",
+            "data_service",
+            "system_service",
+            "database",
+            "config",
+            "audit_service",
+        ]:
             if hasattr(app.state, key):
                 setattr(global_app_state, key, getattr(app.state, key))
     except Exception:

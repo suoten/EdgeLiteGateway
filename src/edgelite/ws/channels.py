@@ -100,7 +100,9 @@ class WebSocketChannels:
         self._tasks.append(
             asyncio.create_task(
                 self._channel_loop(
-                    "integration", integration_queue, self._format_integration,
+                    "integration",
+                    integration_queue,
+                    self._format_integration,
                     filter_fn=lambda meta: meta.get("role") in ("admin", "operator"),
                 ),
                 name="ws-integration",
@@ -146,8 +148,9 @@ class WebSocketChannels:
                 queue_size = queue.qsize()
                 if queue_size > 100:
                     logger.warning(
-                        "WebSocket channel %s queue backlog: %d events pending, "
-                        "broadcast may be too slow", channel, queue_size
+                        "WebSocket channel %s queue backlog: %d events pending, broadcast may be too slow",
+                        channel,
+                        queue_size,
                     )
                 data = formatter(event)
                 if data:

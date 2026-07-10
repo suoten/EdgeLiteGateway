@@ -37,12 +37,28 @@ DRIVER_DISPLAY_NAMES = {
 }
 
 # FIXED-P0: 内置协议集合，防止自定义驱动覆盖内置协议导致协议劫持
-_BUILTIN_PROTOCOLS = frozenset({
-    "modbus_tcp", "modbus_rtu", "mqtt_client", "http_webhook",
-    "opcua", "s7", "mc", "omron_fins", "fins",
-    "allen_bradley", "ab", "ab_cip", "ab_pccc",
-    "opc_da", "onvif", "video_ai", "modbus_slave", "simulator",
-})
+_BUILTIN_PROTOCOLS = frozenset(
+    {
+        "modbus_tcp",
+        "modbus_rtu",
+        "mqtt_client",
+        "http_webhook",
+        "opcua",
+        "s7",
+        "mc",
+        "omron_fins",
+        "fins",
+        "allen_bradley",
+        "ab",
+        "ab_cip",
+        "ab_pccc",
+        "opc_da",
+        "onvif",
+        "video_ai",
+        "modbus_slave",
+        "simulator",
+    }
+)
 
 
 def get_driver_display_name(plugin_name: str, language: str = "en") -> str:
@@ -83,7 +99,8 @@ class DriverRegistry:
             if not val:
                 logger.warning(
                     "[registry] %s missing required attribute '%s', skipping",
-                    driver_class.__name__, attr,
+                    driver_class.__name__,
+                    attr,
                 )
                 return
 
@@ -91,17 +108,21 @@ class DriverRegistry:
             if protocol in self._drivers and self._drivers[protocol] is not driver_class:
                 existing_cls = self._drivers[protocol]
                 # FIXED-P2: 内置协议不允许被自定义驱动覆盖，防止协议劫持
-                if protocol in _BUILTIN_PROTOCOLS and not getattr(driver_class, '_is_builtin', False):
+                if protocol in _BUILTIN_PROTOCOLS and not getattr(driver_class, "_is_builtin", False):
                     logger.error(
                         "[registry] Protocol %s is a built-in protocol registered by %s, custom driver %s cannot override it",
-                        protocol, existing_cls.plugin_name, driver_class.plugin_name,
+                        protocol,
+                        existing_cls.plugin_name,
+                        driver_class.plugin_name,
                     )
                     continue
                 logger.warning(
                     "Protocol %s already registered by %s v%s, overriding with %s v%s",
                     protocol,
-                    existing_cls.plugin_name, existing_cls.plugin_version,
-                    driver_class.plugin_name, driver_class.plugin_version,
+                    existing_cls.plugin_name,
+                    existing_cls.plugin_version,
+                    driver_class.plugin_name,
+                    driver_class.plugin_version,
                 )
             self._drivers[protocol] = driver_class
             logger.info(
@@ -217,20 +238,25 @@ class DriverRegistry:
             driver_cls = getattr(module, class_name)
             self.register(driver_cls)
             self._load_status[label] = {
-                "loaded": True, "error": None,
-                "module": module_path, "class": class_name,
+                "loaded": True,
+                "error": None,
+                "module": module_path,
+                "class": class_name,
             }
             return True
         except ImportError as e:
             # FIXED-P2: 记录error日志包含异常堆栈信息，原问题-仅记录warning无堆栈
             logger.error(
                 "[registry] %s driver import failed (missing dependency): %s",
-                label, e, exc_info=True,
+                label,
+                e,
+                exc_info=True,
             )
             self._load_status[label] = {
                 "loaded": False,
                 "error": f"Missing dependency: {e}",
-                "module": module_path, "class": class_name,
+                "module": module_path,
+                "class": class_name,
             }
             return self._make_error_plugin_info(label, module_path, class_name, f"Missing dependency: {e}")
         except AttributeError as e:
@@ -239,7 +265,8 @@ class DriverRegistry:
             self._load_status[label] = {
                 "loaded": False,
                 "error": f"Class not found: {e}",
-                "module": module_path, "class": class_name,
+                "module": module_path,
+                "class": class_name,
             }
             return self._make_error_plugin_info(label, module_path, class_name, f"Class not found: {e}")
         except Exception as e:
@@ -247,7 +274,8 @@ class DriverRegistry:
             if isinstance(e, UnicodeDecodeError):
                 logger.warning(
                     "[registry] %s driver load failed (encoding error, clearing __pycache__): %s",
-                    label, e,
+                    label,
+                    e,
                 )
                 # Clear entire __pycache__ directory for the module and retry
                 try:
@@ -260,11 +288,11 @@ class DriverRegistry:
 
                     # Find and remove the entire __pycache__ directory for this package
                     pycache_cleared = False
-                    if cached_module and hasattr(cached_module, '__cached__'):
+                    if cached_module and hasattr(cached_module, "__cached__"):
                         pyc_path = cached_module.__cached__
                         if pyc_path and os.path.exists(pyc_path):
                             pycache_dir = os.path.dirname(pyc_path)
-                            if os.path.basename(pycache_dir) == '__pycache__':
+                            if os.path.basename(pycache_dir) == "__pycache__":
                                 shutil.rmtree(pycache_dir, ignore_errors=True)
                                 logger.info("[registry] Cleared __pycache__: %s", pycache_dir)
                                 pycache_cleared = True
@@ -296,18 +324,18 @@ class DriverRegistry:
                     # 用 errors='replace' 读取并重写，将损坏字节替换为 U+FFFD
                     try:
                         spec = importlib.util.find_spec(module_path)
-                        if spec and spec.origin and spec.origin.endswith('.py'):
+                        if spec and spec.origin and spec.origin.endswith(".py"):
                             src_path = spec.origin
                             # R5-S-15: 使用with语句确保文件句柄正确关闭，防止泄漏
-                            with open(src_path, 'rb') as f:
+                            with open(src_path, "rb") as f:
                                 raw = f.read()
                             try:
-                                raw.decode('utf-8')  # 测试是否需要修复
+                                raw.decode("utf-8")  # 测试是否需要修复
                             except UnicodeDecodeError:
-                                text = raw.decode('utf-8', errors='replace')
-                                fixed = text.encode('utf-8')
+                                text = raw.decode("utf-8", errors="replace")
+                                fixed = text.encode("utf-8")
                                 # R5-S-15: 使用with语句确保文件句柄正确关闭，防止泄漏
-                                with open(src_path, 'wb') as f:
+                                with open(src_path, "wb") as f:
                                     f.write(fixed)
                                 logger.info("[registry] Fixed UTF-8 corruption in source: %s", src_path)
                     except Exception as fix_err:
@@ -318,8 +346,10 @@ class DriverRegistry:
                     driver_cls = getattr(module, class_name)
                     self.register(driver_cls)
                     self._load_status[label] = {
-                        "loaded": True, "error": None,
-                        "module": module_path, "class": class_name,
+                        "loaded": True,
+                        "error": None,
+                        "module": module_path,
+                        "class": class_name,
                     }
                     logger.info("[registry] %s driver loaded successfully after cache clear", label)
                     return True
@@ -328,8 +358,10 @@ class DriverRegistry:
             # FIXED-P2: 记录error日志包含异常堆栈信息，原问题-仅记录warning无堆栈且静默返回False
             logger.error("[registry] %s driver load failed: %s", label, e, exc_info=True)
             self._load_status[label] = {
-                "loaded": False, "error": str(e),
-                "module": module_path, "class": class_name,
+                "loaded": False,
+                "error": str(e),
+                "module": module_path,
+                "class": class_name,
             }
             return self._make_error_plugin_info(label, module_path, class_name, str(e))
 
@@ -340,6 +372,7 @@ class DriverRegistry:
         """
         try:
             from edgelite.engine.plugin_manager import PluginInfo
+
             return PluginInfo(
                 name=label,
                 module_path=module_path,
@@ -388,7 +421,8 @@ class DriverRegistry:
             if not is_available:
                 logger.warning(
                     "[registry] Driver %s has missing dependencies: %s, marking as unavailable",
-                    plugin_name, missing,
+                    plugin_name,
+                    missing,
                 )
 
     def get_dependency_results(self) -> dict[str, dict]:
@@ -427,7 +461,10 @@ class DriverRegistry:
             resolved = custom_path.resolve()
             resolved.relative_to(_SAFE_BASE)
         except ValueError:
-            logger.error("[registry] Custom driver directory %s is outside edgelite package directory, rejecting for security", custom_dir)
+            logger.error(
+                "[registry] Custom driver directory %s is outside edgelite package directory, rejecting for security",
+                custom_dir,
+            )
             return
 
         logger.info("Scanning custom driver directory: %s", custom_dir)
@@ -440,7 +477,9 @@ class DriverRegistry:
                 resolved_file = py_file.resolve()
                 resolved_file.relative_to(_SAFE_BASE)
             except ValueError:
-                logger.error("[registry] Custom driver %s resolves outside safe directory, rejecting for security", py_file.name)
+                logger.error(
+                    "[registry] Custom driver %s resolves outside safe directory, rejecting for security", py_file.name
+                )
                 continue
             # FIXED-P1: 校验驱动文件哈希，防止被篡改的驱动被加载
             try:
@@ -458,80 +497,77 @@ class DriverRegistry:
                 # FIXED-P0: 自定义驱动导入改用白名单机制，仅允许已知安全模块
                 # 之前：使用 _DANGEROUS_MODULES 黑名单，无法覆盖 ctypes/cffi/pickle/marshal 等危险模块
                 # 之后：使用 _ALLOWED_MODULES 白名单，仅允许 asyncio/logging/datetime/struct/collections 等安全模块
-                _ALLOWED_MODULES = frozenset({
-                    "asyncio", "logging", "datetime", "struct", "collections",
-                    "math", "json", "time", "uuid", "hashlib", "base64",
-                    "decimal", "fractions", "statistics", "itertools", "functools",
-                    "operator", "enum", "dataclasses", "typing", "abc",
-                    "re", "string", "textwrap", "pprint", "copy",
-                    "_io",  # FIXED: _io 是 open() 等内置函数的底层实现，标准库依赖
-                    "edgelite",  # 允许访问 edgelite 包内模块（受 DriverPlugin 基类约束）
-                })
+                _ALLOWED_MODULES = frozenset(
+                    {
+                        "asyncio",
+                        "logging",
+                        "datetime",
+                        "struct",
+                        "collections",
+                        "math",
+                        "json",
+                        "time",
+                        "uuid",
+                        "hashlib",
+                        "base64",
+                        "decimal",
+                        "fractions",
+                        "statistics",
+                        "itertools",
+                        "functools",
+                        "operator",
+                        "enum",
+                        "dataclasses",
+                        "typing",
+                        "abc",
+                        "re",
+                        "string",
+                        "textwrap",
+                        "pprint",
+                        "copy",
+                        "_io",  # FIXED: _io 是 open() 等内置函数的底层实现，标准库依赖
+                        "edgelite",  # 允许访问 edgelite 包内模块（受 DriverPlugin 基类约束）
+                    }
+                )
                 _orig_import = builtins.__import__
+
                 # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用关键字参数默认值绑定当前 _ALLOWED_MODULES 和 _orig_import
                 def _restricted_import(name, *args, _allowed=_ALLOWED_MODULES, _orig=_orig_import, **kwargs):
                     top_level = name.split(".")[0]
                     if top_level not in _allowed:
-                        raise ImportError(f"Import of '{name}' is not in the allowed modules whitelist for custom drivers")
+                        raise ImportError(
+                            f"Import of '{name}' is not in the allowed modules whitelist for custom drivers"
+                        )
                     return _orig(name, *args, **kwargs)
-                # FIXED-P0: 同时拦截 importlib.import_module 和 sys.modules 绕过
-                _orig_import_module = importlib.import_module
-                # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用关键字参数默认值绑定当前 _ALLOWED_MODULES 和 _orig_import_module
-                def _restricted_import_module(name, *args, _allowed=_ALLOWED_MODULES, _orig=_orig_import_module, **kwargs):
-                    top_level = name.split(".")[0]
-                    if top_level not in _allowed:
-                        raise ImportError(f"Import of '{name}' is not in the allowed modules whitelist for custom drivers")
-                    return _orig(name, *args, **kwargs)
-                # FIXED-P0: 拦截 importlib.util.spec_from_file_location 绕过路径
-                _orig_spec_from_file = importlib.util.spec_from_file_location
-                # FIXED(P1): 原问题-B023 循环变量捕获; 修复-使用关键字参数默认值绑定当前 _ALLOWED_MODULES 和 _orig_spec_from_file
-                def _restricted_spec_from_file(name, *args, _allowed=_ALLOWED_MODULES, _orig=_orig_spec_from_file, **kwargs):
-                    top_level = name.split(".")[0] if name else ""
-                    if top_level and top_level not in _allowed:
-                        raise ImportError(f"spec_from_file_location for '{name}' is not in the allowed modules whitelist for custom drivers")
-                    return _orig(name, *args, **kwargs)
-                # FIXED-P0: 拦截 sys.modules 字典访问绕过，将非白名单模块替换为哨兵
-                import sys as _sys
-                _SUSPENDED_MODULES = {}
-                for _mod_name in list(_sys.modules):
-                    if _mod_name.split(".")[0] not in _ALLOWED_MODULES:
-                        _SUSPENDED_MODULES[_mod_name] = _sys.modules.pop(_mod_name)
-                try:
-                    # FIXED-P0: 仅在模块级替换__import__，而非全局替换builtins
-                    # 之前：全局替换builtins.__import__且永不恢复，整个应用import os会抛ImportError
-                    # 之后：通过module.__builtins__限制仅在自定义驱动模块内拦截，全局builtins执行后恢复
-                    builtins.__import__ = _restricted_import
-                    importlib.import_module = _restricted_import_module
-                    importlib.util.spec_from_file_location = _restricted_spec_from_file
-                    spec.loader.exec_module(module)
-                    # FIXED-P0: 为已加载模块设置独立的__builtins__，使模块内后续延迟导入也受限
-                    module.__builtins__ = dict(builtins.__dict__)
-                    module.__builtins__["__import__"] = _restricted_import
-                finally:
-                    # FIXED-P0: 恢复全局builtins.__import__和importlib，不再永久污染全局命名空间
-                    builtins.__import__ = _orig_import
-                    importlib.import_module = _orig_import_module
-                    importlib.util.spec_from_file_location = _orig_spec_from_file
-                    # 恢复被挂起的sys.modules（白名单外的模块恢复回 sys.modules）
-                    for _mod_name, _mod_obj in _SUSPENDED_MODULES.items():
-                        _sys.modules[_mod_name] = _mod_obj
+
+                # FIXED-P0 (并发安全#9): 通过 module.__builtins__ 命名空间隔离，不修改全局 builtins/importlib/sys.modules
+                # 原问题: exec_module 期间全局替换 builtins.__import__ / importlib.import_module /
+                #         importlib.util.spec_from_file_location / 挂起 sys.modules 中非白名单模块，
+                #         在 exec_module 窗口期影响整个应用，其他线程/coroutine 的 import 受限或失败 (TOCTOU 竞态)。
+                # 修复: 仅设置 module.__builtins__ 为受限 dict，模块内 __import__ 受限，
+                #       全局 builtins / importlib / sys.modules 完全不受影响，并发 import 安全。
+                restricted_builtins = dict(builtins.__dict__)
+                restricted_builtins["__import__"] = _restricted_import
+                # exec_module 前设置 module.__builtins__，使模块级 import 和运行时延迟 import 均受限
+                module.__builtins__ = restricted_builtins
+                spec.loader.exec_module(module)
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (
-                        isinstance(attr, type)
-                        and issubclass(attr, DriverPlugin)
-                        and attr is not DriverPlugin
-                    ):
+                    if isinstance(attr, type) and issubclass(attr, DriverPlugin) and attr is not DriverPlugin:
                         if not self._validate_plugin_class(attr, py_file.name):
                             continue
                         self.register(attr)
                         loaded += 1
             except UnicodeDecodeError as e:
-                logger.error("[registry] Custom driver file corrupted (encoding error): %s - try reinstalling or clearing __pycache__", e)
+                logger.error(
+                    "[registry] Custom driver file corrupted (encoding error): %s - try reinstalling or clearing __pycache__",
+                    e,
+                )
             except Exception as e:
                 logger.warning(
                     "[registry] Custom driver %s failed to load: %s",
-                    py_file.name, e,
+                    py_file.name,
+                    e,
                 )
 
         if loaded > 0:
@@ -546,7 +582,9 @@ class DriverRegistry:
             if not val:
                 logger.warning(
                     "[registry] Custom driver %s from %s missing required attribute '%s', skipping",
-                    cls.__name__, source, attr,
+                    cls.__name__,
+                    source,
+                    attr,
                 )
                 return False
         return True

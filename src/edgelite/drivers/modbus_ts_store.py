@@ -85,7 +85,8 @@ class ModbusTsStore:
 
             logger.info(
                 "[modbus_ts_store] 已启动: %s retention=%dd",
-                self._db_path, self._retention_days,
+                self._db_path,
+                self._retention_days,
             )
         except Exception:
             if self._db is not None:
@@ -106,6 +107,7 @@ class ModbusTsStore:
             await self._db.close()
             self._db = None
         logger.info("[modbus_ts_store] 已关闭")
+
     # ------------------------------------------------------------------
     # 写入
     # ------------------------------------------------------------------
@@ -126,8 +128,10 @@ class ModbusTsStore:
         裸值（int/float/str/bool/None）直接使用，quality 默认 good，timestamp 用 now。
         """
         # duck typing 识别 PointValue-like 对象
-        if hasattr(value, "value") and hasattr(value, "quality") and not isinstance(
-            value, (int, float, str, bool, bytes, type(None), dict, list, tuple)
+        if (
+            hasattr(value, "value")
+            and hasattr(value, "quality")
+            and not isinstance(value, (int, float, str, bool, bytes, type(None), dict, list, tuple))
         ):
             raw = value.value
             quality = getattr(value, "quality", "good") or "good"
@@ -153,9 +157,7 @@ class ModbusTsStore:
             value_str = str(value) if value is not None else None
         return value_real, value_int, value_str, value_bool
 
-    async def write_read_result(
-        self, device_id: str, result: dict[str, Any]
-    ) -> None:
+    async def write_read_result(self, device_id: str, result: dict[str, Any]) -> None:
         """写入一次读取结果
 
         result 是 dict[str, PointValue | 裸值]，key 为 point_name。
@@ -172,9 +174,7 @@ class ModbusTsStore:
                 continue
             raw, quality, ts_ns = self._extract_point_value(value)
             v_real, v_int, v_str, v_bool = self._value_to_columns(raw)
-            rows.append(
-                (device_id, point_name, quality, v_real, v_int, v_str, v_bool, ts_ns, now_created)
-            )
+            rows.append((device_id, point_name, quality, v_real, v_int, v_str, v_bool, ts_ns, now_created))
 
         if not rows:
             return
@@ -221,6 +221,7 @@ class ModbusTsStore:
                 logger.debug("[modbus_ts_store] 清理过期数据 %d 条", deleted)
         except Exception as e:
             logger.warning("[modbus_ts_store] 清理过期数据失败: %s", e)
+
     # ------------------------------------------------------------------
     # 查询
     # ------------------------------------------------------------------
@@ -233,11 +234,13 @@ class ModbusTsStore:
         v_int = row["value_int"]
         v_str = row["value_str"]
         v_bool = row["value_bool"]
-        value = v_real if v_real is not None else (
-            v_int if v_int is not None else (
-                v_str if v_str is not None else (
-                    bool(v_bool) if v_bool is not None else None
-                )
+        value = (
+            v_real
+            if v_real is not None
+            else (
+                v_int
+                if v_int is not None
+                else (v_str if v_str is not None else (bool(v_bool) if v_bool is not None else None))
             )
         )
         return {
@@ -346,9 +349,8 @@ class ModbusTsStore:
         except Exception as e:
             logger.error("[modbus_ts_store] 聚合查询失败: %s", e)
             return []
-    async def query_latest(
-        self, device_id: str, point_names: list[str]
-    ) -> dict[str, dict[str, Any]]:
+
+    async def query_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict[str, Any]]:
         """查询多个点位的最新值"""
         if not self._db or not point_names:
             return {}
@@ -379,11 +381,13 @@ class ModbusTsStore:
                     v_int = row["value_int"]
                     v_str = row["value_str"]
                     v_bool = row["value_bool"]
-                    value = v_real if v_real is not None else (
-                        v_int if v_int is not None else (
-                            v_str if v_str is not None else (
-                                bool(v_bool) if v_bool is not None else None
-                            )
+                    value = (
+                        v_real
+                        if v_real is not None
+                        else (
+                            v_int
+                            if v_int is not None
+                            else (v_str if v_str is not None else (bool(v_bool) if v_bool is not None else None))
                         )
                     )
                     result[pn] = {"time": ts, "value": value, "quality": row["quality"] or "good"}

@@ -35,8 +35,21 @@ class KukaDriver(DriverPlugin):
     config_schema = {
         "description": "KUKA robot Ethernet KRL XML protocol for reading and writing robot variables",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "ip", "type": "string", "label": "IP Address", "description": "KUKA controller IP address", "default": "192.168.1.100", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "port", "type": "integer", "label": "Port", "description": "EKRL port, default 54600", "default": 54600},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "ip",
+                "type": "string",
+                "label": "IP Address",
+                "description": "KUKA controller IP address",
+                "default": "192.168.1.100",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "integer",
+                "label": "Port",
+                "description": "EKRL port, default 54600",
+                "default": 54600,
+            },  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -85,9 +98,7 @@ class KukaDriver(DriverPlugin):
         ip = self._config.get("ip", "")
         port = int(self._config.get("port", DEFAULT_EKRL_PORT))
         try:
-            self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(ip, port), timeout=5.0
-            )
+            self._reader, self._writer = await asyncio.wait_for(asyncio.open_connection(ip, port), timeout=5.0)
             self._connected = True
             self._backoff_delay = BACKOFF_BASE
             logger.info("KUKA连接成功: %s:%d", ip, port)
@@ -318,9 +329,7 @@ class KukaDriver(DriverPlugin):
                 self._writer.write(request_xml.encode("utf-8"))
                 await self._writer.drain()
 
-                response_data = await asyncio.wait_for(
-                    self._reader.read(RECV_BUFFER_SIZE), timeout=5.0
-                )
+                response_data = await asyncio.wait_for(self._reader.read(RECV_BUFFER_SIZE), timeout=5.0)
                 if not response_data:
                     return False
 

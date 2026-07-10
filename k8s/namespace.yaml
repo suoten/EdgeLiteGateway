@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edgelite
+  labels:
+    app.kubernetes.io/name: edgelite
+    app.kubernetes.io/part-of: edgelite-gateway

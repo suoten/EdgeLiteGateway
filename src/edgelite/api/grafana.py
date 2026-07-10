@@ -60,8 +60,6 @@ def _is_grafana_url_safe(url: str) -> bool:
     return True
 
 
-
-
 def _get_grafana_config():
     try:
         from edgelite.config import get_config
@@ -87,7 +85,9 @@ async def get_grafana_config(
 
         grafana_config = _get_grafana_config()
         # Flatten GrafanaConfig fields for the response, so frontend gets url/datasource/api_key directly
-        grafana_url = getattr(grafana_config, "url", "http://localhost:3001") if grafana_config else "http://localhost:3001"
+        grafana_url = (
+            getattr(grafana_config, "url", "http://localhost:3001") if grafana_config else "http://localhost:3001"
+        )
         grafana_datasource = getattr(grafana_config, "datasource", "InfluxDB") if grafana_config else "InfluxDB"
         grafana_api_key = getattr(grafana_config, "api_key", "") if grafana_config else ""
         # current_config must include url and datasource so the frontend can load them
@@ -104,8 +104,7 @@ async def get_grafana_config(
                 "datasource": grafana_datasource,
                 "api_key": "***configured***" if grafana_api_key else "",
                 "dependencies": [
-                    {"package": d.package, "installed": d.installed, "version": d.version}
-                    for d in info.dependencies
+                    {"package": d.package, "installed": d.installed, "version": d.version} for d in info.dependencies
                 ],
                 "current_config": current_cfg,
             }
@@ -129,8 +128,12 @@ async def list_grafana_dashboards(
     api_key = getattr(grafana_config, "api_key", "")
 
     if not api_key:
-        logger.warning("Grafana api_key is empty, cannot authenticate, please set grafana.api_key in config")  # FIXED-P3: 中文日志→英文
-        raise HTTPException(status_code=503, detail=GrafanaErrors.API_KEY_MISSING)  # FIXED: 原问题-403 Forbidden暗示权限不足，实际是配置缺失，改为503 Service Unavailable更准确
+        logger.warning(
+            "Grafana api_key is empty, cannot authenticate, please set grafana.api_key in config"
+        )  # FIXED-P3: 中文日志→英文
+        raise HTTPException(
+            status_code=503, detail=GrafanaErrors.API_KEY_MISSING
+        )  # FIXED: 原问题-403 Forbidden暗示权限不足，实际是配置缺失，改为503 Service Unavailable更准确
 
     # FIXED-P1: 原问题-grafana_url未校验格式，可能含恶意字符或缺少scheme；
     # 改为：校验URL必须以http://或https://开头

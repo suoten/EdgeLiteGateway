@@ -65,7 +65,8 @@ class ModbusSlaveConfigModel(BaseModel):
             logger.warning(
                 "[modbus_slave] code=NON_LOOPBACK_EXPOSED host=%s whitelist_count=%d "
                 "msg=Modbus Slave exposed to non-loopback address (no protocol-level auth)",
-                self.host, len(self.ip_whitelist),
+                self.host,
+                len(self.ip_whitelist),
             )
         return self
 

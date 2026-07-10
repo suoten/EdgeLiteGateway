@@ -15,16 +15,16 @@ import sys
 sys.path.insert(0, "src")
 
 from edgelite.drivers.knx import (
-    DEFAULT_HEARTBEAT_INTERVAL,
-    DEFAULT_HEARTBEAT_MAX_FAILURES,
     DATA_TYPE_PERCENT,
     DATA_TYPE_SWITCH,
     DATA_TYPE_U16,
-    KNXClient,
+    DEFAULT_HEARTBEAT_INTERVAL,
+    DEFAULT_HEARTBEAT_MAX_FAILURES,
     KNX_CEMI_L_BUS_INDICATION,
     SERVICE_TYPE_CONNECTIONSTATE_REQUEST,
     SERVICE_TYPE_CONNECTIONSTATE_RESPONSE,
     SERVICE_TYPE_TUNNEL_REQUEST,
+    KNXClient,
     _bytes_to_knx_address,
     _knx_address_to_bytes,
 )

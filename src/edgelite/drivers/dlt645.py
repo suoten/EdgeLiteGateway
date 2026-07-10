@@ -54,10 +54,36 @@ class Dlt645Driver(DriverPlugin):
     config_schema = {
         "description": "DL/T 645-2007 multi-function energy meter communication protocol, collect meter data via RS485 serial",  # FIXED: 原问题-中文硬编码description
         "fields": [
-            {"name": "port", "type": "string", "label": "Serial Port", "description": "RS485 serial device path", "default": "COM1", "required": True},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "baud_rate", "type": "integer", "label": "Baud Rate", "description": "Meter communication baud rate, default 2400", "default": 2400},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "parity", "type": "string", "label": "Parity", "description": "E=Even (default)", "default": "E", "options": ["E", "N", "O"]},  # FIXED: 原问题-中文硬编码label/description
-            {"name": "timeout", "type": "number", "label": "Timeout (s)", "description": "Communication timeout", "default": 5.0},  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "port",
+                "type": "string",
+                "label": "Serial Port",
+                "description": "RS485 serial device path",
+                "default": "COM1",
+                "required": True,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "baud_rate",
+                "type": "integer",
+                "label": "Baud Rate",
+                "description": "Meter communication baud rate, default 2400",
+                "default": 2400,
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "parity",
+                "type": "string",
+                "label": "Parity",
+                "description": "E=Even (default)",
+                "default": "E",
+                "options": ["E", "N", "O"],
+            },  # FIXED: 原问题-中文硬编码label/description
+            {
+                "name": "timeout",
+                "type": "number",
+                "label": "Timeout (s)",
+                "description": "Communication timeout",
+                "default": 5.0,
+            },  # FIXED: 原问题-中文硬编码label/description
         ],
     }
 
@@ -132,9 +158,7 @@ class Dlt645Driver(DriverPlugin):
         self._devices.clear()
         logger.info("DL/T 645驱动已停止")
 
-    async def add_device(
-        self, device_id: str, config: dict, points: list[dict] | None = None
-    ) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         address = config.get("address", "")
         if not address:
             raise ValueError(f"设备 {device_id} 缺少电表地址(address)")
@@ -412,7 +436,7 @@ class Dlt645Driver(DriverPlugin):
                 return None
 
             length = frame[9]  # FIXED: 数据长度在 frame[9]，不是 frame[10]
-            data_start = 10    # FIXED: 数据起始在 frame[10]，不是 frame[11]
+            data_start = 10  # FIXED: 数据起始在 frame[10]，不是 frame[11]
             data_end = data_start + length
 
             if data_end > len(frame) - 2:
@@ -474,6 +498,7 @@ class Dlt645Driver(DriverPlugin):
                                 return
                     else:
                         import time as _time
+
                         _time.sleep(0.01)
             except Exception:
                 pass

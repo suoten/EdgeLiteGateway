@@ -8,13 +8,10 @@ from __future__ import annotations
 import asyncio
 import statistics
 import time
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-
 from test_acceptance_smoke import _build_test_app
-
 
 # ═══════════════════════════════════════════════════════════════
 # 模块 5: 性能测试 (PERFORMANCE)
@@ -189,7 +186,7 @@ class TestStabilityUnderLoad:
     async def test_perf3_01_sustained_requests(self, client):
         """持续 100 次请求 — 无内存泄漏迹象（全部成功）"""
         success = 0
-        for i in range(100):
+        for _i in range(100):
             resp = await client.get("/api/v1/devices")
             if resp.status_code == 200:
                 success += 1

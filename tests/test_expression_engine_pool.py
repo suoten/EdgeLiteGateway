@@ -35,7 +35,6 @@ sys.path.insert(0, "src")
 from edgelite.constants import _EXPRESSION_EVAL_MAX_WORKERS, _EXPRESSION_EVAL_TIMEOUT
 from edgelite.engine.expression_engine import ExpressionEngine
 
-
 # ════════════════════════════════════════════════════════════════════════
 # 1. 线程池扩容: 可配置 max_workers (并发安全 #6)
 # ════════════════════════════════════════════════════════════════════════
@@ -307,9 +306,8 @@ class TestPoolLockProtection:
         # 验证: rebuild 期间持有锁 → 另一线程的 submit 被阻塞
         # 通过监控 _pool_lock 的状态
         rebuild_holding = threading.Event()
-        submit_can_proceed = threading.Event()
+        threading.Event()
 
-        original_rebuild = engine._rebuild_eval_pool
 
         def slow_rebuild():
             with engine._pool_lock:
@@ -320,7 +318,7 @@ class TestPoolLockProtection:
             # 锁释放后 submit 应能继续
 
         # 直接测试: 持有 _pool_lock 时 submit 被阻塞
-        submit_blocked = threading.Event()
+        threading.Event()
         submit_done = threading.Event()
 
         def hold_and_submit():

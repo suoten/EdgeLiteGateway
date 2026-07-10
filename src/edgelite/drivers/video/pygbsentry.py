@@ -18,15 +18,9 @@ class PyGBSentryProvider(VideoProvider):
 
     def __init__(self, config: dict | None = None):
         app_config = get_config()
-        self._endpoint = (
-            config.get("endpoint", "") if config else app_config.video.pygbsentry.endpoint
-        )
-        self._api_key = (
-            config.get("api_key", "") if config else app_config.video.pygbsentry.api_key
-        )
-        self._timeout = (
-            config.get("timeout", 10) if config else app_config.video.pygbsentry.timeout
-        )
+        self._endpoint = config.get("endpoint", "") if config else app_config.video.pygbsentry.endpoint
+        self._api_key = config.get("api_key", "") if config else app_config.video.pygbsentry.api_key
+        self._timeout = config.get("timeout", 10) if config else app_config.video.pygbsentry.timeout
         self._client: httpx.AsyncClient | None = None
         self._alarm_callback: Callable | None = None
 
@@ -67,9 +61,7 @@ class PyGBSentryProvider(VideoProvider):
                 logger.info("视频设备注册成功: %s", device_id)
                 return True
             else:
-                logger.warning(
-                    "视频设备在PyGBSentry中不存在: %s (status=%d)", device_id, resp.status_code
-                )
+                logger.warning("视频设备在PyGBSentry中不存在: %s (status=%d)", device_id, resp.status_code)
                 return False
         except Exception as e:
             logger.error("视频设备注册失败: %s - %s", device_id, e)
@@ -80,9 +72,7 @@ class PyGBSentryProvider(VideoProvider):
         if not self._client:
             return ""
         try:
-            resp = await self._client.get(
-                f"/api/v1/devices/{device_id}/channels/{channel_id}/stream"
-            )
+            resp = await self._client.get(f"/api/v1/devices/{device_id}/channels/{channel_id}/stream")
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("data", {}).get("url", "")

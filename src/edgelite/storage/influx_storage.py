@@ -65,14 +65,12 @@ class InfluxDBStorage:
         # FIXED-P1: 记录已上传但sync_completed失败的max_id，防止重复上传
         self._last_uploaded_max_id = 0
         # 降级统计
-        self._stats_fallback_count = 0       # 降级次数
-        self._stats_cached_count = 0         # 缓存数据量（写入SQLite的总条数）
-        self._stats_sync_success = 0         # 同步成功数
-        self._stats_sync_fail = 0            # 同步失败数
+        self._stats_fallback_count = 0  # 降级次数
+        self._stats_cached_count = 0  # 缓存数据量（写入SQLite的总条数）
+        self._stats_sync_success = 0  # 同步成功数
+        self._stats_sync_fail = 0  # 同步失败数
         self._emergency_buffer: deque = deque(maxlen=10000)
-        self._emergency_db_path: str = os.path.join(
-            os.environ.get("EDGELITE_DATA_DIR", "data"), "emergency_buffer.db"
-        )
+        self._emergency_db_path: str = os.path.join(os.environ.get("EDGELITE_DATA_DIR", "data"), "emergency_buffer.db")
         self._emergency_db: sqlite3.Connection | None = None
         # FIXED-EMERGENCY-RETRY: Metrics counter for monitoring SQLite write failures
         self._emergency_sqlite_failures: int = 0
@@ -92,7 +90,9 @@ class InfluxDBStorage:
     def _init_emergency_db(self) -> None:  # FIXED-P2: 紧急缓冲添加SQLite持久化
         try:
             os.makedirs(os.path.dirname(self._emergency_db_path), exist_ok=True)
-            self._emergency_db = sqlite3.connect(self._emergency_db_path, check_same_thread=False)  # FIXED-P1: 原问题-未设check_same_thread=False，asyncio.to_thread工作线程中抛ProgrammingError
+            self._emergency_db = sqlite3.connect(
+                self._emergency_db_path, check_same_thread=False
+            )  # FIXED-P1: 原问题-未设check_same_thread=False，asyncio.to_thread工作线程中抛ProgrammingError
             self._emergency_db.execute("PRAGMA journal_mode=WAL")
             # R8-S-DB1 修复(严重): 补全 PRAGMA 配置，与主库保持一致，
             # 避免高并发下 "database is locked" 和写入性能问题
@@ -106,6 +106,7 @@ class InfluxDBStorage:
                 corrupt_backup = f"{self._emergency_db_path}.corrupt.{int(time.time())}"
                 try:
                     import shutil
+
                     shutil.move(self._emergency_db_path, corrupt_backup)
                     logger.warning("Corrupt emergency DB moved to: %s", corrupt_backup)
                 except Exception as e:
@@ -165,7 +166,8 @@ class InfluxDBStorage:
             if overflow > 0:
                 logger.warning(
                     "紧急缓冲区已满(maxlen=%d)，%d条旧数据从内存deque淘汰（SQLite保留）",
-                    self._emergency_buffer.maxlen, overflow,
+                    self._emergency_buffer.maxlen,
+                    overflow,
                 )
                 # FIXED-PROD: 原代码 from edgelite.services.event_bus import get_event_bus 路径错误
                 # (该模块不存在) 且 publish(string, dict) API 用法错误 (EventBus.publish 需要 Event 对象)。
@@ -173,11 +175,14 @@ class InfluxDBStorage:
                 if self._event_bus is not None:
                     try:
                         from edgelite.engine.event_bus import InfluxDBFallbackEvent
-                        await self._event_bus.publish(InfluxDBFallbackEvent(
-                            action="buffer_overflow",
-                            reason=f"emergency buffer full, maxlen={self._emergency_buffer.maxlen}",
-                            cached_count=overflow,
-                        ))
+
+                        await self._event_bus.publish(
+                            InfluxDBFallbackEvent(
+                                action="buffer_overflow",
+                                reason=f"emergency buffer full, maxlen={self._emergency_buffer.maxlen}",
+                                cached_count=overflow,
+                            )
+                        )
                     except Exception as e:
                         # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                         logger.warning("发布缓冲区溢出事件失败: %s", e)
@@ -195,13 +200,13 @@ class InfluxDBStorage:
                         if attempt < 2:
                             await asyncio.sleep(attempt * 2 + 1)
                         else:
-                            logger.error(
-                                "紧急缓冲SQLite写入失败(3次重试后): %s", db_err
-                            )
+                            logger.error("紧急缓冲SQLite写入失败(3次重试后): %s", db_err)
                             self._emergency_sqlite_failures += 1
                 if not write_success:
                     self._emergency_buffer.pop()
-                    await self._emergency_fallback_file_write(item)  # FIXED-P4: 原问题-SQLite写入全失败时数据仅存内存，崩溃即丢失；改为追加写入fallback文件
+                    await self._emergency_fallback_file_write(
+                        item
+                    )  # FIXED-P4: 原问题-SQLite写入全失败时数据仅存内存，崩溃即丢失；改为追加写入fallback文件
                     logger.error(
                         "紧急缓冲SQLite写入失败，已回滚deque append，数据写入fallback文件: %s",
                         last_error,
@@ -243,9 +248,7 @@ class InfluxDBStorage:
                         if attempt < 2:
                             await asyncio.sleep(attempt * 2 + 1)
                         else:
-                            logger.error(
-                                "紧急缓冲批量SQLite写入失败(3次重试后): %s", db_err
-                            )
+                            logger.error("紧急缓冲批量SQLite写入失败(3次重试后): %s", db_err)
                             self._emergency_sqlite_failures += 1
                 if not write_success:
                     # FIXED-P0: 仅回滚实际新增的数量，避免多pop原有数据
@@ -256,7 +259,8 @@ class InfluxDBStorage:
                         await self._emergency_fallback_file_write(item)
                     logger.error(
                         "紧急缓冲批量SQLite写入失败，已回滚deque extend(%d条)，数据写入fallback文件: %s",
-                        actual_added, last_error,
+                        actual_added,
+                        last_error,
                     )
 
     async def _buffer_drain_all(self) -> list[dict]:
@@ -304,7 +308,7 @@ class InfluxDBStorage:
             rows = await asyncio.to_thread(  # FIXED-P2: 仅SQLite读取在线程池，deque操作在事件循环线程
                 self._emergency_db.execute,
                 # FIXED-BugR4X: 原问题-SELECT不获取id，恢复后无法删除已恢复行；修复-获取id用于删除
-                "SELECT id, data FROM emergency_buffer ORDER BY id ASC"
+                "SELECT id, data FROM emergency_buffer ORDER BY id ASC",
             )
             row_list = rows.fetchall()
             if not row_list:
@@ -372,8 +376,7 @@ class InfluxDBStorage:
         # InfluxDB token 相当于长期凭据，明文 HTTP 传输可被中间人嗅探
         if self._token and not str(self._url).startswith("https://"):
             logger.warning(
-                "InfluxDB token sent over plaintext HTTP - use HTTPS in production "
-                "(url=%s)",
+                "InfluxDB token sent over plaintext HTTP - use HTTPS in production (url=%s)",
                 str(self._url).split("?")[0],
             )
         try:
@@ -416,9 +419,10 @@ class InfluxDBStorage:
                 flush_interval = max(100, min(60000, raw_flush))
                 if flush_interval != raw_flush:
                     logger.warning(
-                        "InfluxDB flush_interval=%d (原始配置%d) "
-                        "超出安全范围[100,60000]，已调整为%d",
-                        raw_flush, flush_interval, flush_interval,
+                        "InfluxDB flush_interval=%d (原始配置%d) 超出安全范围[100,60000]，已调整为%d",
+                        raw_flush,
+                        flush_interval,
+                        flush_interval,
                     )
                 self._write_api = self._client.write_api(
                     write_options=WriteOptions(
@@ -430,7 +434,9 @@ class InfluxDBStorage:
                 self._sync_write_api = self._client.write_api(write_options=SYNCHRONOUS)
                 self._query_api = self._client.query_api()
                 self._buckets_api = self._client.buckets_api()
-                logger.info("InfluxDB连接成功(health+ping验证通过): %s", self._url.split("?")[0])  # FIXED-P1: 脱敏URL，移除查询参数
+                logger.info(
+                    "InfluxDB连接成功(health+ping验证通过): %s", self._url.split("?")[0]
+                )  # FIXED-P1: 脱敏URL，移除查询参数
                 await self._ensure_retention_policy()
             else:
                 logger.warning("InfluxDB不可用(验证未通过)，将使用SQLite降级模式")
@@ -458,9 +464,7 @@ class InfluxDBStorage:
         if config.influxdb.fallback_backend == "sqlite":
             # FIXED-BugR4X: 原问题-先赋值self._sqlite_ts再start()，start()失败后_sqlite_ts指向损坏实例，_ensure_sqlite_started不会重试
             # 修复-先用临时变量candidate创建和start()，成功后才赋值给self._sqlite_ts；失败时cleanup candidate并保持self._sqlite_ts = None
-            candidate = SqliteTimeSeriesStorage(
-                db_path=config.influxdb.sqlite_ts_path
-            )
+            candidate = SqliteTimeSeriesStorage(db_path=config.influxdb.sqlite_ts_path)
             try:
                 await candidate.start()
             except Exception:
@@ -479,7 +483,8 @@ class InfluxDBStorage:
         await self._init_sqlite_fallback()
         logger.warning(
             "InfluxDB降级到SQLite模式 (原因: %s, 第%d次降级)",
-            reason, self._stats_fallback_count,
+            reason,
+            self._stats_fallback_count,
         )
         await self._publish_fallback_event("degraded", reason)
 
@@ -496,7 +501,9 @@ class InfluxDBStorage:
         await self._publish_fallback_event("recovered", "", cached)
 
     async def _publish_fallback_event(
-        self, action: str, reason: str = "",
+        self,
+        action: str,
+        reason: str = "",
         cached_count: int = 0,
     ) -> None:
         """发布降级/恢复事件到EventBus"""
@@ -525,9 +532,7 @@ class InfluxDBStorage:
         if not self._client or not self._buckets_api:
             return
         try:
-            bucket = await asyncio.to_thread(
-                self._buckets_api.find_bucket_by_name, self._bucket
-            )
+            bucket = await asyncio.to_thread(self._buckets_api.find_bucket_by_name, self._bucket)
             if bucket:
                 current_rp = getattr(bucket, "retention_rules", None)
                 expected_secs = self._retention_days * 86400
@@ -535,27 +540,31 @@ class InfluxDBStorage:
                     secs = current_rp.retention_secs
                     if secs > 0 and secs != expected_secs:
                         logger.info(
-                            "InfluxDB retention: %s current=%d days, configured=%d days, "
-                            "applying update",
-                            self._bucket, secs // 86400, self._retention_days,
+                            "InfluxDB retention: %s current=%d days, configured=%d days, applying update",
+                            self._bucket,
+                            secs // 86400,
+                            self._retention_days,
                         )
                         await self._apply_retention_policy(bucket, expected_secs)
                     elif secs == 0:
                         logger.info(
                             "InfluxDB retention: %s unlimited, configured=%d days, applying update",
-                            self._bucket, self._retention_days,
+                            self._bucket,
+                            self._retention_days,
                         )
                         await self._apply_retention_policy(bucket, expected_secs)
                     else:
                         logger.debug(
                             "InfluxDB retention policy already correct: %s (%d days)",
-                            self._bucket, self._retention_days,
+                            self._bucket,
+                            self._retention_days,
                         )
                 else:
                     # No retention rules set, apply configured policy
                     logger.info(
                         "InfluxDB retention: %s no rules set, applying %d days",
-                        self._bucket, self._retention_days,
+                        self._bucket,
+                        self._retention_days,
                     )
                     await self._apply_retention_policy(bucket, expected_secs)
             else:
@@ -575,10 +584,12 @@ class InfluxDBStorage:
             from influxdb_client.domain.patch_retention_rule import PatchRetentionRule
 
             patch_request = PatchBucketRequest(
-                retention_rules=[PatchRetentionRule(
-                    type="expire",
-                    every_seconds=expected_secs,
-                )]
+                retention_rules=[
+                    PatchRetentionRule(
+                        type="expire",
+                        every_seconds=expected_secs,
+                    )
+                ]
             )
             await asyncio.to_thread(
                 self._buckets_api._buckets_service.patch_buckets_id,
@@ -587,7 +598,8 @@ class InfluxDBStorage:
             )
             logger.info(
                 "InfluxDB retention policy updated: %s -> %d days",
-                self._bucket, expected_secs // 86400,
+                self._bucket,
+                expected_secs // 86400,
             )
         except Exception as e:
             logger.error("Failed to update InfluxDB retention policy: %s", e)
@@ -651,7 +663,8 @@ class InfluxDBStorage:
 
             logger.info(
                 "InfluxDB expired data cleaned up (raw retention=%d days, downsampled retention=%d days)",
-                self._retention_days, downsample_retention_days,
+                self._retention_days,
+                downsample_retention_days,
             )
             return 1
         except Exception as e:
@@ -797,13 +810,16 @@ class InfluxDBStorage:
                 if attempt < max_retries - 1:
                     logger.warning(
                         "InfluxDB write attempt %d/%d failed (transient): %s",
-                        attempt + 1, max_retries, e,
+                        attempt + 1,
+                        max_retries,
+                        e,
                     )
-                    await asyncio.sleep(min(2 ** attempt, 10))  # 指数退避
+                    await asyncio.sleep(min(2**attempt, 10))  # 指数退避
                 else:
                     logger.error(
                         "InfluxDB write failed after %d attempts: %s",
-                        max_retries, e,
+                        max_retries,
+                        e,
                     )
             except ValueError:
                 # 数据校验错误不重试
@@ -854,10 +870,10 @@ class InfluxDBStorage:
             if timestamp:
                 point = point.time(timestamp)
 
-            await asyncio.to_thread(
-                self._write_api.write, bucket=self._bucket, record=point
-            )
-            async with self._state_lock:  # FIXED-P2: _fail_count修改移入_state_lock，与available()/check_health()锁保护读取一致
+            await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=point)
+            async with (
+                self._state_lock
+            ):  # FIXED-P2: _fail_count修改移入_state_lock，与available()/check_health()锁保护读取一致
                 self._fail_count = 0
             return True
         except Exception as e:
@@ -906,12 +922,12 @@ class InfluxDBStorage:
         except Exception as e:
             # FIXED(严重): 原问题-except Exception 未捕获异常变量，logger.error 不带异常信息与堆栈
             # 修复：捕获异常变量 e，日志中输出异常消息并带 exc_info 保留完整堆栈
-            logger.error(
-                "SQLite降级写入失败: 数据可能在InfluxDB中断期间丢失: %s", e, exc_info=True
-            )
+            logger.error("SQLite降级写入失败: 数据可能在InfluxDB中断期间丢失: %s", e, exc_info=True)
             buf_item = {
-                "device_id": device_id, "point_name": point_name,
-                "value": value, "quality": quality,
+                "device_id": device_id,
+                "point_name": point_name,
+                "value": value,
+                "quality": quality,
                 "timestamp": timestamp.isoformat() if timestamp else None,
             }
             await self._buffer_append_with_db(buf_item)  # FIXED-EMERGENCY-RACE
@@ -930,7 +946,9 @@ class InfluxDBStorage:
                 # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 logger.warning("紧急缓冲SQLite写入失败: %s", e)
 
-    def _emergency_db_write_batch(self, batch_items: list[dict]) -> None:  # FIXED-P2: 原问题-批量emergency_db同步操作无锁保护
+    def _emergency_db_write_batch(
+        self, batch_items: list[dict]
+    ) -> None:  # FIXED-P2: 原问题-批量emergency_db同步操作无锁保护
         with self._emergency_db_lock:
             if self._emergency_db is None:
                 return
@@ -975,7 +993,8 @@ class InfluxDBStorage:
             # FIXED(严重): 原问题-except Exception 未捕获异常变量，logger.error 不带异常信息与堆栈
             logger.error(
                 "Cache fallback failed: data may be lost during InfluxDB outage: %s",
-                e, exc_info=True,
+                e,
+                exc_info=True,
             )
             return False
 
@@ -1029,9 +1048,7 @@ class InfluxDBStorage:
 
             if not points:
                 return True
-            await asyncio.to_thread(
-                self._write_api.write, bucket=self._bucket, record=points
-            )
+            await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=points)
             async with self._state_lock:  # FIXED-P2: _fail_count修改移入_state_lock
                 self._fail_count = 0
             return True
@@ -1065,26 +1082,29 @@ class InfluxDBStorage:
                         timestamp_ns = int(ts.timestamp() * 1e9)
                     elif isinstance(ts, (int, float)):
                         timestamp_ns = int(ts)
-                sqlite_points.append({
-                    "measurement": "device_points",
-                    "device_id": rec.get("device_id", ""),
-                    "point_name": rec.get("point_name", ""),
-                    "value": rec.get("value"),
-                    "quality": rec.get("quality", "good"),
-                    "timestamp_ns": timestamp_ns,
-                    "tags": {
+                sqlite_points.append(
+                    {
+                        "measurement": "device_points",
                         "device_id": rec.get("device_id", ""),
                         "point_name": rec.get("point_name", ""),
+                        "value": rec.get("value"),
                         "quality": rec.get("quality", "good"),
-                    },
-                })
+                        "timestamp_ns": timestamp_ns,
+                        "tags": {
+                            "device_id": rec.get("device_id", ""),
+                            "point_name": rec.get("point_name", ""),
+                            "quality": rec.get("quality", "good"),
+                        },
+                    }
+                )
             await self._sqlite_ts.write_points_batch(sqlite_points)
             self._stats_cached_count += len(sqlite_points)
         except Exception as e:
             # FIXED(严重): 原问题-except Exception 未捕获异常变量，logger.error 不带异常信息与堆栈
             logger.error(
                 "SQLite降级批量写入失败: 数据可能在InfluxDB中断期间丢失: %s",
-                e, exc_info=True,
+                e,
+                exc_info=True,
             )
             batch_items = []
             for rec in records:
@@ -1094,7 +1114,9 @@ class InfluxDBStorage:
                         "device_id": rec.get("device_id", ""),
                         "point_name": rec.get("point_name", ""),
                         "value": rec.get("value"),
-                        "timestamp_ns": int(rec["timestamp"].timestamp() * 1e9) if isinstance(rec.get("timestamp"), datetime) else rec.get("timestamp"),
+                        "timestamp_ns": int(rec["timestamp"].timestamp() * 1e9)
+                        if isinstance(rec.get("timestamp"), datetime)
+                        else rec.get("timestamp"),
                     }
                     batch_items.append(buf_item)
                 except Exception as e:
@@ -1106,12 +1128,7 @@ class InfluxDBStorage:
     @staticmethod
     def _escape_flux_value(value: str) -> str:
         """转义 Flux 查询中的字符串值，使用单引号（Flux 要求单引号包裹字符串字面量）"""
-        escaped = (
-            value.replace("\\", "\\\\")
-            .replace("'", "\\'")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-        )
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
         return f"'{escaped}'"
 
     async def query_points(
@@ -1153,8 +1170,7 @@ class InfluxDBStorage:
         time_range_re = re.compile(r"^-?\d+[smhdwMy]$|^\d{4}-\d{2}-\d{2}")
         for param_name, param_val in [("start", start), ("stop", stop)]:
             if param_val and not (
-                time_range_re.match(param_val)
-                or param_val.lstrip("-").replace(".", "", 1).isdigit()
+                time_range_re.match(param_val) or param_val.lstrip("-").replace(".", "", 1).isdigit()
             ):
                 logger.error("非法的时间范围参数 %s: %s", param_name, param_val)
                 return []
@@ -1184,10 +1200,7 @@ from(bucket: {safe_bucket})
             _valid_flux_fns = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
             if _flux_fn not in _valid_flux_fns:
                 _flux_fn = "mean"
-            flux += (
-                f"  |> aggregateWindow(every: {aggregate},"
-                f" fn: {_flux_fn}, createEmpty: false)\n"
-            )
+            flux += f"  |> aggregateWindow(every: {aggregate}, fn: {_flux_fn}, createEmpty: false)\n"
             # R9-S-16: Flux limit 支持 offset 参数，用于流式分批查询
             flux += f"  |> limit(n: {max_points}, offset: {offset})\n"
             flux += '  |> yield(name: "result")'
@@ -1200,9 +1213,7 @@ from(bucket: {safe_bucket})
             # FIXED-Bug30: 添加 30 秒超时保护，避免大范围查询永久挂起导致连接池耗尽
             # 对比 query_latest 已有 10 秒超时，query_points 缺失超时保护
             tables = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._query_api.query, flux, self._org
-                ),
+                asyncio.to_thread(self._query_api.query, flux, self._org),
                 timeout=30.0,
             )
             results = []
@@ -1221,7 +1232,9 @@ from(bucket: {safe_bucket})
         except TimeoutError:
             logger.warning(
                 "InfluxDB查询超时(30s): device=%s point=%s start=%s",
-                device_id, point_name, start,
+                device_id,
+                point_name,
+                start,
             )
             return []
         except Exception as e:
@@ -1269,9 +1282,7 @@ from(bucket: {safe_bucket})
             logger.error("SQLite降级查询失败: %s", e)
             return []
 
-    async def query_latest(
-        self, device_id: str, point_names: list[str] | None = None
-    ) -> dict[str, Any]:
+    async def query_latest(self, device_id: str, point_names: list[str] | None = None) -> dict[str, Any]:
         """查询设备最新测点值，InfluxDB不可用时从SQLite查询"""
         # FIXED-P0: _available读取通过await available()加锁保护
         if not await self.available() or not self._query_api:
@@ -1282,12 +1293,11 @@ from(bucket: {safe_bucket})
         if point_names:
             safe_names = ", ".join(self._escape_flux_value(n) for n in point_names)
             # FIXED: P2-1 Flux point_name filter now uses single-quoted escaped values
-            point_filter = (
-                f"  |> filter(fn: (r) => contains("
-                f"value: r.point_name, set: [{safe_names}]))\n"
-            )
+            point_filter = f"  |> filter(fn: (r) => contains(value: r.point_name, set: [{safe_names}]))\n"
 
-        safe_bucket = self._escape_flux_value(self._bucket)  # FIXED-P1: 原问题-query_latest中bucket未转义，与query_points不一致
+        safe_bucket = self._escape_flux_value(
+            self._bucket
+        )  # FIXED-P1: 原问题-query_latest中bucket未转义，与query_points不一致
         flux = f"""
 from(bucket: {safe_bucket})
   |> range(start: -1h)
@@ -1299,9 +1309,7 @@ from(bucket: {safe_bucket})
 
         try:
             tables = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._query_api.query, flux, self._org
-                ),
+                asyncio.to_thread(self._query_api.query, flux, self._org),
                 timeout=10.0,
             )
             result = {}
@@ -1325,9 +1333,7 @@ from(bucket: {safe_bucket})
             logger.error("InfluxDB最新值查询失败: %s", e)
             return {}
 
-    async def _fallback_query_latest(
-        self, device_id: str, point_names: list[str] | None = None
-    ) -> dict[str, Any]:
+    async def _fallback_query_latest(self, device_id: str, point_names: list[str] | None = None) -> dict[str, Any]:
         """InfluxDB不可用时从SQLite查询最新测点值"""
         if not self._sqlite_ts or not point_names:
             return {}
@@ -1348,8 +1354,13 @@ from(bucket: {safe_bucket})
             amount = int(rel_match.group(1))
             unit = rel_match.group(2)
             multipliers = {
-                "s": 1, "m": 60, "h": 3600, "d": 86400,
-                "w": 604800, "M": 2592000, "y": 31536000,
+                "s": 1,
+                "m": 60,
+                "h": 3600,
+                "d": 86400,
+                "w": 604800,
+                "M": 2592000,
+                "y": 31536000,
             }
             seconds = amount * multipliers.get(unit, 1)
             return now_ns - int(seconds * 1e9)
@@ -1390,9 +1401,7 @@ from(bucket: {safe_bucket})
                 return
             self._sync_running = True
             config = get_config()
-            self._sync_task = asyncio.create_task(
-                self._sync_loop(interval=config.influxdb.sync_interval)
-            )
+            self._sync_task = asyncio.create_task(self._sync_loop(interval=config.influxdb.sync_interval))
         logger.info(
             "SQLite->InfluxDB增量同步已启动 (间隔=%ds)",
             config.influxdb.sync_interval,
@@ -1445,19 +1454,21 @@ from(bucket: {safe_bucket})
                                         timestamp_ns = int(ts.timestamp() * 1e9)
                                     except (ValueError, TypeError):
                                         timestamp_ns = None
-                                batch_points.append({
-                                    "measurement": "device_points",
-                                    "device_id": item.get("device_id", ""),
-                                    "point_name": item.get("point_name", ""),
-                                    "value": item.get("value"),
-                                    "quality": item.get("quality", "good"),
-                                    "timestamp_ns": timestamp_ns,
-                                    "tags": {
+                                batch_points.append(
+                                    {
+                                        "measurement": "device_points",
                                         "device_id": item.get("device_id", ""),
                                         "point_name": item.get("point_name", ""),
+                                        "value": item.get("value"),
                                         "quality": item.get("quality", "good"),
-                                    },
-                                })
+                                        "timestamp_ns": timestamp_ns,
+                                        "tags": {
+                                            "device_id": item.get("device_id", ""),
+                                            "point_name": item.get("point_name", ""),
+                                            "quality": item.get("quality", "good"),
+                                        },
+                                    }
+                                )
                             except Exception as conv_err:
                                 logger.error("紧急缓冲数据转换失败: %s", conv_err)
                         if batch_points:
@@ -1517,6 +1528,7 @@ from(bucket: {safe_bucket})
                         continue
 
                     import math
+
                     try:
                         float_val = float(value)
                         if math.isnan(float_val) or math.isinf(float_val):
@@ -1545,9 +1557,7 @@ from(bucket: {safe_bucket})
                         # 防御性兜底：连接恢复路径未重建时按需创建
                         self._sync_write_api = self._client.write_api(write_options=SYNCHRONOUS)
                     try:
-                        await asyncio.to_thread(
-                            self._sync_write_api.write, bucket=self._bucket, record=points
-                        )
+                        await asyncio.to_thread(self._sync_write_api.write, bucket=self._bucket, record=points)
                     except Exception as write_err:
                         logger.error("增量同步写入InfluxDB失败，保留SQLite源数据: %s", write_err)
                         self._last_uploaded_max_id = max(self._last_uploaded_max_id, max_id)
@@ -1560,14 +1570,16 @@ from(bucket: {safe_bucket})
                         self._stats_sync_success += len(points)
                         logger.info(
                             "增量同步: %d条数据已同步到InfluxDB (max_id=%d)",
-                            len(points), max_id,
+                            len(points),
+                            max_id,
                         )
                     else:
                         # FIXED-P1: sync_completed失败时记录已上传max_id，防止下次重复上传
                         self._last_uploaded_max_id = max(self._last_uploaded_max_id, max_id)
                         logger.warning(
                             "增量同步: SQLite原子同步失败，数据将在下次重试 (max_id=%d, last_uploaded_max_id=%d)",
-                            max_id, self._last_uploaded_max_id,
+                            max_id,
+                            self._last_uploaded_max_id,
                         )
                     return len(points)
 
@@ -1594,13 +1606,15 @@ from(bucket: {safe_bucket})
             base_stats = await self._sqlite_ts.get_stats()
         # R11-DRV-04: _fallback_mode 通过 await fallback_mode() 加锁读取，避免无锁读取竞态
         fallback_mode = await self.fallback_mode()
-        base_stats.update({
-            "fallback_mode": fallback_mode,
-            "fallback_count": self._stats_fallback_count,
-            "cached_count": self._stats_cached_count,
-            "sync_success_count": self._stats_sync_success,
-            "sync_fail_count": self._stats_sync_fail,
-        })
+        base_stats.update(
+            {
+                "fallback_mode": fallback_mode,
+                "fallback_count": self._stats_fallback_count,
+                "cached_count": self._stats_cached_count,
+                "sync_success_count": self._stats_sync_success,
+                "sync_fail_count": self._stats_sync_fail,
+            }
+        )
         return base_stats
 
     async def _get_probe_client(self):
@@ -1632,7 +1646,9 @@ from(bucket: {safe_bucket})
                 if resp.status_code == 200:
                     return "online"
             except Exception as e:
-                logger.warning("Network check failed, returning weak: %s", e)  # FIXED-P1: 原问题-网络检查异常返回weak无日志
+                logger.warning(
+                    "Network check failed, returning weak: %s", e
+                )  # FIXED-P1: 原问题-网络检查异常返回weak无日志
                 return "weak"
             return "weak"
         elif success_count == 1:
@@ -1661,7 +1677,10 @@ from(bucket: {safe_bucket})
         fallback_mode = await self.fallback_mode()
         if not self._sqlite_ts:
             return {
-                "count": 0, "size_mb": 0, "last_sync": None, "pending": 0,
+                "count": 0,
+                "size_mb": 0,
+                "last_sync": None,
+                "pending": 0,
                 "fallback_mode": fallback_mode,
                 "fallback_count": self._stats_fallback_count,
             }

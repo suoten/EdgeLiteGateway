@@ -11,16 +11,16 @@ Create Date: 2026-06-20
 # 为主库 rules 表新增 rule_versions 版本快照表，支持版本历史查询与回滚。
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "010_rule_versions"
-down_revision: Union[str, None] = "009_ai_logs_indexes_and_sessions"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "009_ai_logs_indexes_and_sessions"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

@@ -2,7 +2,6 @@
 import asyncio
 import os
 import sys
-import time
 
 sys.path.insert(0, 'src')
 os.environ.setdefault('EDGELITE_CONFIG_PATH', 'configs/config.example.yaml')

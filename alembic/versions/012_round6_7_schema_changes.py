@@ -34,16 +34,16 @@ Create Date: 2026-06-20
 #    原问题: 缺少唯一约束，可插入重复版本记录
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "012_round6_7_schema_changes"
-down_revision: Union[str, None] = "011_rule_script_columns"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "011_rule_script_columns"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
