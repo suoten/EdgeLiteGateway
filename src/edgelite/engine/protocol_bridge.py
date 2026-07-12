@@ -245,7 +245,7 @@ class ProtocolBridgeManager:
                 # 触发转换回调
                 for callback in self._transform_callbacks:
                     try:
-                        if asyncio.iscoroutine_function(callback):
+                        if asyncio.iscoroutinefunction(callback):
                             await callback(result)
                         else:
                             callback(result)

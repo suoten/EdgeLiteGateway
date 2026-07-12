@@ -96,13 +96,16 @@ class TestDetectSlaveKwargName:
             assert result == "slave"
         elif _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 7:
             assert result == "unit"
-        else:
+        elif _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 8:
             assert result == "slave"
+        else:
+            # pymodbus 3.8+: slave 被重命名为 device_id (3.12+ 彻底移除 slave 关键字)
+            assert result == "device_id"
 
     def test_result_is_valid_kwarg_name(self):
         result = _detect_slave_kwarg_name()
         if result is not None:
-            assert result in ("slave", "unit")
+            assert result in ("slave", "unit", "device_id")
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -152,11 +155,11 @@ class TestSlaveKwargBroadcast:
             _slave_kwarg(248, allow_broadcast=True)
 
     def test_returns_dict_with_correct_key(self):
-        """返回的字典键应为 'slave' 或 'unit' (取决于 pymodbus 版本)"""
+        """返回的字典键应为 'slave'/'unit'/'device_id' (取决于 pymodbus 版本)"""
         kw = _slave_kwarg(1, allow_broadcast=False)
         assert len(kw) == 1
         key = next(iter(kw))
-        assert key in ("slave", "unit")
+        assert key in ("slave", "unit", "device_id")
 
 
 # ════════════════════════════════════════════════════════════════════════

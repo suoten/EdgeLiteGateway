@@ -555,6 +555,8 @@ async def test_rule(
             raise HTTPException(status_code=404, detail=RuleErrors.NOT_FOUND)
         await _check_rule_access(rule, user)
         result = await svc.test_rule(rule_id, body.point_values)
+    except HTTPException:
+        raise
     except ValueError as e:
         # FIXED-P2: 原问题-ValueError返回404 NOT_FOUND语义错误，ValueError表示测试输入无效而非规则不存在
         raise HTTPException(

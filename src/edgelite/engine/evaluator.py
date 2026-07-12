@@ -629,10 +629,10 @@ class RuleEvaluator:
                  修复：抽取公共沙箱执行器 edgelite.engine.sandbox.run_script_safely，
                  使用 asyncio.to_thread + asyncio.wait_for(timeout=3s) + resource.setrlimit。
         """
-        from edgelite.engine.sandbox import run_script_safely
-
         namespace = {"point_values": point_values, "result": False}
         try:
+            from edgelite.engine.sandbox import run_script_safely
+
             result = await run_script_safely(
                 script,
                 namespace,

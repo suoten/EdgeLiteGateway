@@ -289,8 +289,13 @@ class TestUnicastPathNotBroadcast:
 
         # 检查 write_coil 调用参数 — slave 应为 42, 不是 0
         call_kwargs = client.write_coil.call_args.kwargs
-        # pymodbus 使用 slave 或 slave_id 参数
-        slave_value = call_kwargs.get("slave") or call_kwargs.get("slave_id")
+        # pymodbus 使用 slave/slave_id/device_id 参数 (取决于版本)
+        slave_value = (
+            call_kwargs.get("slave")
+            or call_kwargs.get("slave_id")
+            or call_kwargs.get("device_id")
+            or call_kwargs.get("unit")
+        )
         assert slave_value == 42, f"Expected slave_id=42, got {slave_value}"
 
     async def test_unicast_float32_write(self):

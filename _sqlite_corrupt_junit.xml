@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="2.184" timestamp="2026-07-11T07:59:15.557530+08:00" hostname="85D83CFAC341E71"><testcase classname="tests.test_sqlite_ts.TestCorruptDb" name="test_corrupt_recovers_to_fresh_db" time="1.661" /></testsuite></testsuites>

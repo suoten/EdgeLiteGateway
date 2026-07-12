@@ -33,6 +33,32 @@ def _safe_json_loads(value: Any, default: Any = None) -> Any:
     return value
 
 
+# FIXED-P0: 原问题-CacheQueueORM.timestamp 列为 Float，但调用方(scheduler/influx_storage)
+# 传入 ISO 字符串，导致 add_to_cache 始终抛 "could not convert string to float"，
+# 断网缓存完全失效。同时消费方(scheduler._flush_from_ring_buffer)用 datetime.fromisoformat
+# 期望 ISO 字符串。统一：存储时 ISO→epoch float（支持数值比较/索引），读取时 float→ISO 字符串。
+def _ts_to_epoch(ts: Any) -> float:
+    """将时间戳（ISO 字符串/数值/datetime）归一化为 epoch 浮点秒。"""
+    if isinstance(ts, (int, float)):
+        return float(ts)
+    if isinstance(ts, datetime):
+        return ts.timestamp()
+    try:
+        s = str(ts)
+        # 兼容带 'Z' 结尾的 UTC ISO 时间
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError):
+        return time.time()
+
+
+def _epoch_to_iso(ts: Any) -> str:
+    """将 epoch 浮点秒转回 ISO 字符串（消费方 datetime.fromisoformat 契约）。"""
+    try:
+        return datetime.fromtimestamp(float(ts), tz=UTC).isoformat()
+    except (ValueError, TypeError, OSError):
+        return datetime.now(UTC).isoformat()
+
+
 class CacheManager:
     """InfluxDB不可用时的数据缓存管理
 
@@ -199,7 +225,7 @@ class CacheManager:
                         measurement=measurement,
                         tags=json.dumps(tags, ensure_ascii=False),
                         fields=json.dumps(fields, ensure_ascii=False),
-                        timestamp=timestamp,
+                        timestamp=_ts_to_epoch(timestamp),  # FIXED-P0: ISO→epoch float
                         created_at=datetime.now(UTC),
                     )
                     session.add(orm)
@@ -282,7 +308,7 @@ class CacheManager:
                         "measurement": r.measurement,
                         "tags": _safe_json_loads(r.tags, {}),
                         "fields": _safe_json_loads(r.fields, {}),
-                        "timestamp": r.timestamp,
+                        "timestamp": _epoch_to_iso(r.timestamp),  # FIXED-P0: float→ISO
                         "retry_count": r.retry_count,
                         "status": r.status,
                     }
@@ -310,7 +336,7 @@ class CacheManager:
                         "measurement": r.measurement,
                         "tags": _safe_json_loads(r.tags, {}),
                         "fields": _safe_json_loads(r.fields, {}),
-                        "timestamp": r.timestamp,
+                        "timestamp": _epoch_to_iso(r.timestamp),  # FIXED-P0: float→ISO
                         "retry_count": r.retry_count,
                         "status": r.status,
                     }
@@ -337,7 +363,7 @@ class CacheManager:
                         "measurement": r.measurement,
                         "tags": _safe_json_loads(r.tags, {}),
                         "fields": _safe_json_loads(r.fields, {}),
-                        "timestamp": r.timestamp,
+                        "timestamp": _epoch_to_iso(r.timestamp),  # FIXED-P0: float→ISO
                         "retry_count": r.retry_count,
                         "status": r.status,
                     }

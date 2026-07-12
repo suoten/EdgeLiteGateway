@@ -667,7 +667,9 @@ class PlatformService:
 
     def list_platforms(self) -> list[dict[str, Any]]:
         result = []
+        seen: set[str] = set()
         for name, h in self._handlers.items():
+            seen.add(name)
             adapter = self._adapters.get(name)
             if adapter:
                 result.append(
@@ -687,6 +689,18 @@ class PlatformService:
                         "state": "unknown",
                     }
                 )
+        # FIXED: 原代码仅遍历 _handlers，遗漏仅有 adapter 而无对应 handler 的平台条目
+        for name, adapter in self._adapters.items():
+            if name in seen:
+                continue
+            result.append(
+                {
+                    "name": getattr(adapter, "platform_name", name),
+                    "version": getattr(adapter, "platform_version", "1.0.0"),
+                    "connected": adapter._connected,
+                    "state": adapter._state,
+                }
+            )
         return result
 
     def list_supported(self) -> list[dict[str, str]]:
@@ -828,7 +842,8 @@ class PlatformService:
         async with self._lock:
             adapter = self._adapters.pop(platform_name, None)
             self._adapter_configs.pop(platform_name, None)
-            handler = self._handlers.get(platform_name) if adapter is None else None
+            # FIXED: 原代码使用 .get() 未移除 handler，导致 disconnect 后 handler 仍残留在 _handlers 中
+            handler = self._handlers.pop(platform_name, None) if adapter is None else None
 
         if adapter:
             try:
@@ -1117,7 +1132,9 @@ class PlatformService:
         if not entry:
             raise ValueError(f"Unsupported platform: {platform_name}")
         imported_config = config_data.get("config", config_data)
-        if isinstance(imported_config, dict):
+        # FIXED: 原代码对所有平台都调用 _flatten_custom_config，导致非 custom 平台的
+        # 有效配置字段（broker/port/device_token 等）被剥离。仅 custom 平台使用嵌套结构。
+        if platform_name == "custom" and isinstance(imported_config, dict):
             flat_config = self._flatten_custom_config(imported_config)
         else:
             flat_config = imported_config
@@ -1145,7 +1162,9 @@ class PlatformService:
                     "transport",
                 ):
                     if key in primary:
-                        mapped = key if key != "broker_host" else "broker"
+                        # FIXED: 原代码仅映射 broker_host→broker，遗漏 broker_port→port，
+                        # 导致导入的 custom 嵌套配置端口字段名不正确
+                        mapped = {"broker_host": "broker", "broker_port": "port"}.get(key, key)
                         result[mapped] = primary[key]
         template = nested.get("template", {})
         if template:

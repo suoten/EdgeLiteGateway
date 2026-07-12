@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
@@ -72,8 +73,6 @@ class MemoryRateLimitBackend(RateLimitBackend):
     """
 
     def __init__(self) -> None:
-        import threading
-
         self._buckets: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
 
@@ -178,7 +177,9 @@ class _suppress_conn_errors:
 # 后端工厂（项4: 环境变量驱动，零代码切换）
 # ──────────────────────────────────────────────────────────────
 _backend: RateLimitBackend | None = None
-_backend_lock_init = False
+# FIXED(F4): 原实现 _backend_lock_init 标志位被设置但从未用于加锁（死代码），
+# 多线程并发首次调用可创建多个后端实例（竞态）。改为真正的双检查锁。
+_backend_lock = threading.Lock()
 
 
 def get_rate_limit_backend() -> RateLimitBackend:
@@ -192,34 +193,36 @@ def get_rate_limit_backend() -> RateLimitBackend:
         EDGELITE_RATE_LIMIT_BACKEND=redis
         EDGELITE_RATE_LIMIT_REDIS_URL=redis://:password@redis-host:6379/0
     """
-    global _backend, _backend_lock_init
+    global _backend
     if _backend is not None:
         return _backend
 
-    if not _backend_lock_init:
-        _backend_lock_init = True
-    backend_type = os.environ.get("EDGELITE_RATE_LIMIT_BACKEND", "memory").strip().lower()
-    if backend_type == "redis":
-        redis_url = os.environ.get("EDGELITE_RATE_LIMIT_REDIS_URL", "").strip()
-        if not redis_url:
-            logger.warning(
-                "EDGELITE_RATE_LIMIT_BACKEND=redis but EDGELITE_RATE_LIMIT_REDIS_URL unset; "
-                "falling back to MemoryRateLimitBackend"
-            )
-            _backend = MemoryRateLimitBackend()
-        else:
-            try:
-                _backend = RedisRateLimitBackend(redis_url)
-            except Exception as e:
-                logger.error(
-                    "RedisRateLimitBackend init failed (%s); falling back to memory. "
-                    "Multi-instance rate limiting will NOT be shared!",
-                    e,
+    # F4: 双检查锁保护单例创建，消除并发竞态
+    with _backend_lock:
+        if _backend is not None:
+            return _backend
+        backend_type = os.environ.get("EDGELITE_RATE_LIMIT_BACKEND", "memory").strip().lower()
+        if backend_type == "redis":
+            redis_url = os.environ.get("EDGELITE_RATE_LIMIT_REDIS_URL", "").strip()
+            if not redis_url:
+                logger.warning(
+                    "EDGELITE_RATE_LIMIT_BACKEND=redis but EDGELITE_RATE_LIMIT_REDIS_URL unset; "
+                    "falling back to MemoryRateLimitBackend"
                 )
                 _backend = MemoryRateLimitBackend()
-    else:
-        _backend = MemoryRateLimitBackend()
-    return _backend
+            else:
+                try:
+                    _backend = RedisRateLimitBackend(redis_url)
+                except Exception as e:
+                    logger.error(
+                        "RedisRateLimitBackend init failed (%s); falling back to memory. "
+                        "Multi-instance rate limiting will NOT be shared!",
+                        e,
+                    )
+                    _backend = MemoryRateLimitBackend()
+        else:
+            _backend = MemoryRateLimitBackend()
+        return _backend
 
 
 def _reset_backend_for_tests() -> None:

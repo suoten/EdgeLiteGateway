@@ -363,6 +363,8 @@ class ConfigHotReloader:
 
     async def _backup_config(self, file_path: str, content: str) -> None:
         """备份配置"""
+        if not self._config.auto_backup:
+            return
         try:
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             backup_name = f"{Path(file_path).stem}_{timestamp}{Path(file_path).suffix}"
@@ -374,6 +376,7 @@ class ConfigHotReloader:
             # FIXED(严重): 原问题-同步文件IO(open/write/fsync/replace)阻塞事件循环;
             # 修复-用asyncio.to_thread包装同步文件写入操作
             def _do_backup():
+                self._backup_dir.mkdir(parents=True, exist_ok=True)
                 with open(tmp_path, "w", encoding="utf-8") as f:
                     f.write(content)
                     f.flush()
@@ -425,7 +428,7 @@ class ConfigHotReloader:
         # 先触发特定类型的回调
         for callback in callbacks_snapshot.get(config_type, []):
             try:
-                if asyncio.iscoroutine_function(callback):
+                if asyncio.iscoroutinefunction(callback):
                     await callback(change)
                 else:
                     callback(change)
@@ -435,7 +438,7 @@ class ConfigHotReloader:
         # 再触发通配符回调
         for callback in callbacks_snapshot.get("*", []):
             try:
-                if asyncio.iscoroutine_function(callback):
+                if asyncio.iscoroutinefunction(callback):
                     await callback(change)
                 else:
                     callback(change)

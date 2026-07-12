@@ -53,12 +53,16 @@ class DeviceService:
         self._sidecar_compensation_task: asyncio.Task | None = None  # FIXED-P0: 跨库级联清理补偿任务
 
     async def _get_simulator_driver(self) -> SimulatorDriver:
-        """获取模拟器驱动实例"""
+        """获取模拟器驱动实例（线程安全，获取 self._lock）"""
         async with self._lock:
-            if self._simulator_driver is None:
-                self._simulator_driver = SimulatorDriver()
-                await self._simulator_driver.start({})
-            return self._simulator_driver
+            return await self._get_simulator_driver_unlocked()
+
+    async def _get_simulator_driver_unlocked(self) -> SimulatorDriver:
+        """获取模拟器驱动实例（调用者必须已持有 self._lock）"""
+        if self._simulator_driver is None:
+            self._simulator_driver = SimulatorDriver()
+            await self._simulator_driver.start({})
+        return self._simulator_driver
 
     async def get_driver_instance(self, device_id: str) -> Any:
         """FIXED-P0: 公开访问器，替代直接访问_driver_instances私有属性，确保锁保护。
@@ -103,7 +107,10 @@ class DeviceService:
         try:
             if protocol == "simulator":
                 _is_simulator = True
-                driver = await self._get_simulator_driver()
+                # FIXED-P0: 原代码调用 _get_simulator_driver() 会再次获取 self._lock，
+                # 但 asyncio.Lock 不可重入，导致死锁。改为调用 _get_simulator_driver_unlocked()，
+                # 因为 _create_device_unlocked 的调用者 create_device 已持有 self._lock。
+                driver = await self._get_simulator_driver_unlocked()
                 await driver.add_device(
                     device["device_id"], {}, data.get("points", [])
                 )  # FIXED: 补充 await 并修正参数顺序

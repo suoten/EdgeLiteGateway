@@ -254,6 +254,12 @@ class SecurityConfig(BaseModel):
     # FIXED-M04: 受保护的角色的敏感字段修改保护
     # 这些角色的用户无法通过 API 修改敏感字段（password, enabled, role, must_change_password）
     protected_roles: list[str] = Field(default_factory=lambda: ["admin"])
+    # FIXED(F5): CSRF 签名密钥（独立于 JWT secret_key，避免密钥复用）。
+    # 为空时回退到 secret_key（向后兼容，不拒绝启动）；显式配置即与 JWT 密钥分离。
+    csrf_secret: str = ""
+    # FIXED(F2): CSRF cookie 的 Secure 标记。生产环境（HTTPS 部署）应置 True，
+    # 确保 cookie 仅通过加密通道传输。默认 False（开发/反向代理终结 TLS 场景）。
+    cookie_secure: bool = False
 
     # 复用模块级不安全默认值黑名单，并补充带尖括号的占位符形式
     _PLACEHOLDER_VALUES = _INSECURE_DEFAULT_VALUES | {
@@ -291,6 +297,30 @@ class SecurityConfig(BaseModel):
                 f"JWT tokens can be brute-forced! Generate a random key: "
                 f'python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
+        # FIXED(F5): csrf_secret 仅在非空时校验强度（空值回退 secret_key，不拒绝启动）。
+        # 防止用户显式配置了弱 CSRF 密钥却未被发现。
+        if self.csrf_secret:
+            if self.csrf_secret.startswith("${") and self.csrf_secret.endswith("}"):
+                raise ValueError(
+                    f"security.csrf_secret contains unresolved env placeholder '{self.csrf_secret}' — "
+                    f"CSRF tokens can be forged with a known placeholder! "
+                    f"Set EDGELITE_SECURITY__CSRF_SECRET environment variable."
+                )
+            if (
+                self.csrf_secret.strip("<>") in self._PLACEHOLDER_VALUES
+                or self.csrf_secret.lower() in self._PLACEHOLDER_VALUES
+            ):
+                raise ValueError(
+                    f"security.csrf_secret is set to a placeholder value '{self.csrf_secret}' — "
+                    f"This is insecure! Generate a random key: "
+                    f'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+                )
+            if len(self.csrf_secret) < 32:
+                raise ValueError(
+                    f"security.csrf_secret is too short ({len(self.csrf_secret)} chars, minimum 32) — "
+                    f"CSRF tokens can be brute-forced! Generate a random key: "
+                    f'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+                )
         return self
 
 

@@ -4,6 +4,8 @@
   bit0=保留, bit1=OV, bit2=BL, bit3=SB, bit4=NT, bit5=IV, bits6-7=保留
 """
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import struct

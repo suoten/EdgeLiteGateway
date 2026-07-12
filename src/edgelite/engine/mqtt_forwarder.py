@@ -676,8 +676,10 @@ class MqttForwarder:
         if not self._offline_db:
             return
         try:
+            # FIXED: SQLite 不支持 DELETE ... ORDER BY ... LIMIT 语法，使用子查询删除最旧记录
             cursor = self._offline_db.execute(
-                "DELETE FROM offline_queue WHERE status='pending' ORDER BY created_at ASC LIMIT 1"
+                "DELETE FROM offline_queue WHERE id IN "
+                "(SELECT id FROM offline_queue WHERE status='pending' ORDER BY created_at ASC LIMIT 1)"
             )
             self._offline_db.commit()
             if cursor.rowcount > 0:

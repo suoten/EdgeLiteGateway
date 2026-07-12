@@ -190,6 +190,13 @@ class CircuitBreaker:
             await self._on_success()
             return result
         except Exception as e:
+            # FIXED: 原代码静默吞掉异常只计数不记录，导致 _on_failure 触发的熔断
+            # 无法排查根因。现在记录异常类型和消息便于生产环境故障定位。
+            logger.warning(
+                "Circuit breaker [%s] caught exception: %s: %s",
+                self.name, type(e).__name__, str(e)[:300],
+                exc_info=True,
+            )
             await self._on_failure(e)
             if fallback:
                 try:

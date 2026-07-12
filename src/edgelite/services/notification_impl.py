@@ -82,6 +82,8 @@ class _SafeDict(dict):
 
 def _check_dingtalk_host(url: str) -> bool:
     """钉钉 webhook 仅允许官方域名 oapi.dingtalk.com"""
+    if not isinstance(url, str):
+        return False
     try:
         hostname = urlparse(url).hostname
     except (ValueError, TypeError):
@@ -226,7 +228,7 @@ class NotificationChannel(ABC):
     def _check_rate_limit(self, key: str = "default") -> bool:
         """Check if rate limit is exceeded. Returns True if can send."""
         now = datetime.now(UTC).timestamp()
-        minute_key = f"{key}:{int(now / 60)}"
+        minute_key = str(int(now / 60))
 
         # Reset counter if minute changed
         if minute_key != self._last_sent.get("_minute"):
@@ -286,8 +288,10 @@ class NotificationChannel(ABC):
             logger.debug("[%s] Cooldown active for %s", self.name, key)
             return False
 
-        if not self._check_rate_limit(key):
-            logger.warning("[%s] Rate limit exceeded for %s", self.name, key)
+        # FIXED(一般): 速率限制按 action 维度计数（而非 per-alarm_id），避免大量不同告警
+        # 各自独立消耗配额导致总发送量失控。冷却仍按 alarm_id:action 维度独立计时。
+        if not self._check_rate_limit(notification.action):
+            logger.warning("[%s] Rate limit exceeded for %s", self.name, notification.action)
             return False
 
         # R6-S-08: 统一重试逻辑（指数退避+抖动），覆盖 DingTalk/WeCom/Email 渠道
@@ -826,6 +830,12 @@ Time: {notification.timestamp}
             return f"{seconds / 86400:.1f} days"
 
 
+# FIXED(P1): 允许的 HTTP 方法白名单。原 send()/test() 仅依赖
+# getattr(session, method.lower()) 是否为 None 判断方法合法性，但测试中使用
+# MagicMock 时任意属性访问均返回可调用对象，导致非法方法无法被拦截。
+_VALID_HTTP_METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
+
+
 class WebhookChannel(NotificationChannel):
     """Generic webhook notification channel"""
 
@@ -889,7 +899,9 @@ class WebhookChannel(NotificationChannel):
             return False
 
         # FIXED(安全): SSRF 防护 - 自定义 webhook 调用 _validate_webhook_url 完整校验
-        if not _validate_webhook_url(self._url):
+        # FIXED(严重): _validate_webhook_url 是协程函数，原代码未 await，导致校验
+        # 协程对象恒为真值，SSRF 防护实际从未执行。
+        if not await _validate_webhook_url(self._url):
             logger.warning("[Webhook] URL rejected by SSRF protection: %s", self._url)
             return False
 
@@ -948,7 +960,12 @@ class WebhookChannel(NotificationChannel):
         last_error = None
         session = self._get_session()
         # FIXED-P1: 原代码 getattr(session, self._method.lower()) 可能返回 None，
-        # 调用 None() 会抛出 TypeError。添加方法有效性检查
+        # 调用 None() 会抛出 TypeError。添加方法有效性检查。
+        # 先用白名单显式校验方法，避免依赖 session 属性结构（MagicMock 会自动创建任意属性）。
+        if self._method not in _VALID_HTTP_METHODS:
+            last_error = f"Invalid HTTP method: {self._method}"
+            logger.error("[Webhook] %s", last_error)
+            return False
         method_func = getattr(session, self._method.lower(), None)
         if method_func is None or not callable(method_func):
             last_error = f"Invalid HTTP method: {self._method}"
@@ -994,7 +1011,9 @@ class WebhookChannel(NotificationChannel):
             return False, "Webhook URL not configured"
 
         # FIXED(安全): SSRF 防护 - 自定义 webhook 调用 _validate_webhook_url 完整校验
-        if not _validate_webhook_url(self._url):
+        # FIXED(严重): _validate_webhook_url 是协程函数，原代码未 await，导致校验
+        # 协程对象恒为真值，SSRF 防护实际从未执行。
+        if not await _validate_webhook_url(self._url):
             return False, "Webhook URL rejected by SSRF protection"
 
         # FIXED(安全): DNS Rebinding 防护 - 使用校验时缓存的 IP 构造请求 URL，避免 aiohttp 重新解析 DNS 绕过 SSRF
@@ -1022,7 +1041,10 @@ class WebhookChannel(NotificationChannel):
         try:
             session = self._get_session()
             # FIXED(P1): 原问题-test()方法getattr(session, self._method.lower())未做None/可调用性检查，
-            # 与send()方法修复不一致；非法method会抛TypeError。修复-对齐send()方法的校验逻辑
+            # 与send()方法修复不一致；非法method会抛TypeError。修复-对齐send()方法的校验逻辑。
+            # 先用白名单显式校验方法，避免依赖 session 属性结构（MagicMock 会自动创建任意属性）。
+            if self._method not in _VALID_HTTP_METHODS:
+                return False, f"Invalid HTTP method: {self._method}"
             method_func = getattr(session, self._method.lower(), None)
             if method_func is None or not callable(method_func):
                 return False, f"Invalid HTTP method: {self._method}"
@@ -1058,26 +1080,32 @@ class NotificationManager:
             "warning": 3600,  # 1 hour
         }
 
-    def register_channel(self, channel_id: str, channel: NotificationChannel) -> None:
+    async def register_channel(self, channel_id: str, channel: NotificationChannel) -> None:
         """Register a notification channel"""
         # FIX-EL-SEVERE: 覆盖旧渠道前必须关闭其 ClientSession，否则 TCP 连接池/TLS 上下文泄漏。
         # 配置热重载时 init_notification_manager 会重新注册所有渠道，旧渠道 session 永不释放。
+        # FIXED(严重): 原实现为同步方法且用 asyncio.ensure_future(old.close()) 仅调度不等待，
+        # 导致旧渠道 session 在测试/调用方检查时尚未真正关闭。改为 async 并 await close()。
         old = self._channels.get(channel_id)
         if old is not None:
             try:
-                asyncio.ensure_future(old.close())
+                await old.close()
                 logger.info("Closed old channel session before re-register: %s", channel_id)
             except Exception as _close_err:
                 logger.warning("Failed to close old channel %s: %s", channel_id, _close_err)
         self._channels[channel_id] = channel
         logger.info("Notification channel registered: %s (%s)", channel_id, channel.name)
 
-    def unregister_channel(self, channel_id: str) -> None:
+    async def unregister_channel(self, channel_id: str) -> None:
         """Unregister a notification channel"""
         if channel_id in self._channels:
             channel = self._channels.pop(channel_id)
             # 清理该渠道共享的 aiohttp.ClientSession，释放连接池资源
-            asyncio.ensure_future(channel.close())
+            # FIXED(严重): 原实现用 asyncio.ensure_future 仅调度不等待，改为 await 确保资源真正释放。
+            try:
+                await channel.close()
+            except Exception as _close_err:
+                logger.warning("Failed to close channel %s: %s", channel_id, _close_err)
             logger.info("Notification channel unregistered: %s", channel_id)
 
     def get_channel(self, channel_id: str) -> NotificationChannel | None:
@@ -1369,7 +1397,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
                 message_template=cfg.get("message_template", ""),
             )
             channel = DingTalkChannel(channel_config)
-            manager.register_channel(f"dingtalk-{i}", channel)
+            await manager.register_channel(f"dingtalk-{i}", channel)
 
     # Load WeCom channels
     wecom_configs = config.get("wecom", [])
@@ -1384,7 +1412,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
                 message_template=cfg.get("message_template", ""),
             )
             channel = WeComChannel(channel_config)
-            manager.register_channel(f"wecom-{i}", channel)
+            await manager.register_channel(f"wecom-{i}", channel)
 
     # Load Email channels
     email_configs = config.get("email", [])
@@ -1406,7 +1434,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
                 message_template=cfg.get("message_template", ""),
             )
             channel = EmailChannel(channel_config)
-            manager.register_channel(f"email-{i}", channel)
+            await manager.register_channel(f"email-{i}", channel)
 
     # Load Webhook channels
     webhook_configs = config.get("webhook", [])
@@ -1429,7 +1457,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
                 message_template=cfg.get("message_template", ""),
             )
             channel = WebhookChannel(channel_config)
-            manager.register_channel(f"webhook-{i}", channel)
+            await manager.register_channel(f"webhook-{i}", channel)
 
     # Load escalation thresholds
     escalation_config = config.get("escalation", {})

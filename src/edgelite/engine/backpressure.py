@@ -319,6 +319,23 @@ class BackpressureController:
         self._acquired_count -= 1
         self._semaphore.release()
 
+    async def _notify_callbacks(self, queue_id: str, event_type: str, item: Any) -> None:
+        """通知队列事件回调（dropped/warning）。
+
+        FIXED(严重): 原问题-enqueue 调用 self._notify_callbacks 但该方法从未定义，
+        导致背压触发时抛 AttributeError 使入队操作崩溃。
+        修复-新增占位实现。当前 register_callback 注册的是状态变更回调
+        (签名为 old_state/new_state/ratio)，与此处 per-event 通知语义不同，
+        故此处保留接口但不触发状态回调，避免签名不匹配；为未来 per-event
+        回调注册预留扩展点。
+        """
+        # 预留扩展点：未来可维护独立的 per-event 回调列表
+        logger.debug(
+            "Backpressure event: queue=%s type=%s (per-event callbacks not registered)",
+            queue_id,
+            event_type,
+        )
+
     @property
     def state(self) -> BackpressureState:
         """获取当前背压状态"""

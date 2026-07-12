@@ -48,14 +48,38 @@ _COOKIE_NAME = "csrf_token"
 _HEADER_NAME = "X-CSRF-Token"
 
 
-def _get_secret() -> str:
-    """从配置获取 CSRF 签名密钥"""
+def _get_secret() -> str | None:
+    """从配置获取 CSRF 签名密钥（fail-closed，绝不回退硬编码弱密钥）。
+
+    FIXED(F1/F5): 原实现配置异常/空时回退硬编码 "edgelite-csrf-default-do-not-use-in-prod"，
+    攻击者知晓该默认值即可伪造 CSRF token。改为 fail-closed：
+    - 优先使用 security.csrf_secret（独立于 JWT 的密钥）
+    - csrf_secret 为空时回退 security.secret_key（向后兼容）+ debug 日志
+    - 两者皆空或配置加载异常时返回 None，调用方据此拒绝签发/校验
+    """
     try:
         from edgelite.config import get_config
 
-        return get_config().security.secret_key or "edgelite-csrf-default-do-not-use-in-prod"
+        cfg = get_config()
+        if cfg.security.csrf_secret:
+            return cfg.security.csrf_secret
+        if cfg.security.secret_key:
+            logger.debug("CSRF using security.secret_key fallback (csrf_secret not configured)")
+            return cfg.security.secret_key
+        return None
+    except Exception as e:  # noqa: BLE001 - 启动早期/配置加载失败时 fail-closed
+        logger.error("CSRF secret unavailable, config load failed: %s (fail-closed)", e)
+        return None
+
+
+def _get_cookie_secure() -> bool:
+    """从配置获取 CSRF cookie 的 Secure 标记（F2: 配置驱动，原硬编码 False）。"""
+    try:
+        from edgelite.config import get_config
+
+        return bool(get_config().security.cookie_secure)
     except Exception:
-        return "edgelite-csrf-default-do-not-use-in-prod"
+        return False
 
 
 def generate_csrf_token(user_id: str = "") -> str:
@@ -65,9 +89,12 @@ def generate_csrf_token(user_id: str = "") -> str:
         user_id: 用户 ID（在无状态模式下仅用于日志，不参与签名）
 
     Returns:
-        base64(exp).base64(hmac(secret, exp)) 格式的 token
+        base64(exp).base64(hmac(secret, exp)) 格式的 token；密钥不可用时返回空串
     """
     secret = _get_secret()
+    if not secret:
+        logger.error("CSRF token generation skipped: secret unavailable (fail-closed)")
+        return ""
     token = _sign(secret, int(time.time()) + _TOKEN_TTL)
     logger.debug("CSRF token generated for user_id=%s", user_id)
     return token
@@ -110,16 +137,18 @@ def _verify(secret: str, token: str, now: int) -> bool:
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
-    """无状态 CSRF 防护中间件。"""
+    """无状态 CSRF 防护中间件。
 
-    def __init__(self, app: ASGIApp, secret_key: str = "") -> None:
+    FIXED(F1/F3): 密钥不再在 init 时缓存为 self._secret（原实现导致密钥轮换后签发与校验
+    不一致，且 init 缺省时回退硬编码弱密钥）。改为签发/校验时统一调用模块级 _get_secret()
+    运行时读取配置，支持热轮换；密钥不可用时 fail-closed（不签发、unsafe 方法 403）。
+    """
+
+    def __init__(self, app: ASGIApp, secret_key: str = "") -> None:  # noqa: ARG002 - 保留参数向后兼容
         super().__init__(app)
-        self._secret = secret_key or "edgelite-csrf-default-do-not-use-in-prod"
-        if not secret_key:
-            logger.warning(
-                "CSRFMiddleware initialized without secret_key; using insecure default. "
-                "Set EDGELITE_SECURITY__SECRET_KEY for production."
-            )
+        # 不再缓存 secret_key；运行时统一从 _get_secret() 读取，支持热轮换
+        if secret_key:
+            logger.debug("CSRFMiddleware received explicit secret_key param; ignored in favor of runtime config")
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         method = request.method.upper()
@@ -130,11 +159,15 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return response
 
+        # 运行时读取密钥（F3: 统一来源，支持热轮换）
+        secret = _get_secret()
+
         # unsafe 方法校验 X-CSRF-Token
         if method not in _SAFE_METHODS:
             token = request.headers.get(_HEADER_NAME, "")
             now = int(time.time())
-            if not _verify(self._secret, token, now):
+            # F1: 密钥不可用时 fail-closed（拒绝），绝不回退弱密钥放行
+            if not secret or not _verify(secret, token, now):
                 logger.warning("CSRF token invalid/missing: path=%s method=%s", path, method)
                 return JSONResponse(
                     status_code=403,
@@ -147,15 +180,15 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
         # safe 方法响应自动签发/刷新 CSRF token（双重提交: 头 + Cookie）
-        if method in _SAFE_METHODS and self._secret:
-            token = _sign(self._secret, int(time.time()) + _TOKEN_TTL)
+        if method in _SAFE_METHODS and secret:
+            token = _sign(secret, int(time.time()) + _TOKEN_TTL)
             response.headers[_HEADER_NAME] = token
             response.set_cookie(
                 _COOKIE_NAME,
                 token,
                 httponly=True,
                 samesite="strict",
-                secure=False,  # 生产环境应在 TLS 后部署，由反向代理终结 TLS
+                secure=_get_cookie_secure(),  # F2: 配置驱动，原硬编码 False
                 max_age=_TOKEN_TTL,
                 path="/",
             )

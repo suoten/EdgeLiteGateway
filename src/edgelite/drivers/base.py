@@ -158,6 +158,11 @@ class DriverHealthStats:
     _latency_samples: deque = field(
         default_factory=lambda: deque(maxlen=100)
     )  # FIXED-P2: 使用deque替代列表切片，避免频繁内存分配
+    # FIXED: _record_latency 使用 self._stats_lock 保护 _latency_samples 并发写入，
+    # 但 _stats_lock 原本只定义在 BaseDriver 上，DriverHealthStats 实例没有该属性，
+    # 导致每次 _record_point_success → stats._record_latency 抛出 AttributeError，
+    # 异常传播到 read_points → 熔断器 _on_failure，5次后熔断器 OPEN 阻断所有采集。
+    _stats_lock: RLock = field(default_factory=RLock, repr=False, compare=False)
     _MOVING_AVG_WINDOW = 20
 
     @property

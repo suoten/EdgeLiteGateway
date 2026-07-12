@@ -753,7 +753,8 @@ async def simulate_signal(
     protocol: Literal["modbus_tcp", "modbus_rtu", "opcua", "mqtt", "http"] = Query(..., description="Protocol type"),
     device_id: str = Query(..., description="Device ID"),
     # R11-API-14: operation 添加 Literal 约束，与文档描述 read/write/discover 一致
-    operation: Literal["read", "write", "discover"] = Query("read", description="Operation: read/write/discover"),
+    # "test" 作为 connect 的别名（下方转换为 "connect"），需在 Literal 中放行
+    operation: Literal["read", "write", "discover", "test"] = Query("read", description="Operation: read/write/discover"),
     params: SimulateParams | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:

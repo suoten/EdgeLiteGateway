@@ -58,13 +58,16 @@ def _detect_slave_kwarg_name() -> str | None:
 
     pymodbus 2.x: slave
     pymodbus 3.0~3.6: unit
-    pymodbus 3.7+: slave (per-call传递，避免共享连接slave_id竞态）
+    pymodbus 3.7~3.7.x: slave (per-call传递，避免共享连接slave_id竞态）
+    pymodbus 3.8+: device_id (slave 被重命名为 device_id；3.12+ 彻底移除 slave 关键字)
     """
     if _PYMODBUS_MAJOR < 3:
         return "slave"
     if _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 7:
         return "unit"
-    return "slave"
+    if _PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR < 8:
+        return "slave"
+    return "device_id"
 
 
 def _slave_kwarg(slave_id: int, allow_broadcast: bool = False) -> dict:

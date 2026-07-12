@@ -1,0 +1,1 @@
+﻿-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

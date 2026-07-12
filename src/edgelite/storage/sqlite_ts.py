@@ -144,7 +144,18 @@ class SqliteTimeSeriesStorage:
                     except Exception as restore_err:
                         logger.warning("SQLite时序DB从备份恢复失败: %s", restore_err)
             except Exception as e:
-                logger.warning("SQLite时序DB完整性预检失败: %s", e)
+                # FIXED-P2: 原问题-完整性预检抛异常（如严重损坏的 DatabaseError）时仅记录日志，
+                # 未备份/删除损坏文件，导致后续 aiosqlite.connect 在同一损坏文件上崩溃。
+                # 修复-预检异常视为损坏，执行与 integrity_check != 'ok' 相同的备份+重建流程。
+                logger.warning("SQLite时序DB完整性预检失败: %s，备份并重建", e)
+                corrupt_backup = f"{self._db_path}.corrupt.{int(time.time())}"
+                try:
+                    import shutil
+
+                    shutil.move(self._db_path, corrupt_backup)
+                    logger.warning("损坏时序DB已备份到: %s", corrupt_backup)
+                except Exception:
+                    path.unlink(missing_ok=True)
 
         try:
             self._db = await aiosqlite.connect(self._db_path)

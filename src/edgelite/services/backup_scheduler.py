@@ -141,6 +141,10 @@ class DatabaseBackupScheduler:
             start_ts = time.monotonic()
             results: list[BackupResult] = []
             try:
+                # FIXED: 原问题-run_backup 未确保备份目录存在，手动触发备份(未先 start)时
+                # shutil.copy2 因目标目录缺失抛 WinError 3。start() 会建目录，但 run_backup
+                # 作为公开方法应能独立调用。
+                self._backup_dir.mkdir(parents=True, exist_ok=True)
                 sources = self._discover_sqlite_files()
                 for src in sources:
                     results.append(await self._backup_one(src))
@@ -245,21 +249,26 @@ class DatabaseBackupScheduler:
         """返回当前备份目录中的备份文件清单（按时间倒序）。"""
         if not self._backup_dir.exists():
             return []
-        items: list[dict[str, Any]] = []
+        # FIXED: 原问题-按 isoformat(seconds) 字符串排序，同秒内创建的文件排序键相同，
+        # 稳定排序退化为文件系统迭代顺序，导致"倒序"不可靠。改为按浮点 mtime 排序。
+        entries: list[tuple[float, dict[str, Any]]] = []
         for f in self._backup_dir.iterdir():
             if not f.is_file() or f.suffix == ".tmp":
                 continue
             st = f.stat()
-            items.append(
-                {
-                    "name": f.name,
-                    "path": str(f),
-                    "size_bytes": st.st_size,
-                    "modified": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
-                }
+            entries.append(
+                (
+                    st.st_mtime,
+                    {
+                        "name": f.name,
+                        "path": str(f),
+                        "size_bytes": st.st_size,
+                        "modified": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
+                    },
+                )
             )
-        items.sort(key=lambda x: x["modified"], reverse=True)
-        return items
+        entries.sort(key=lambda x: x[0], reverse=True)
+        return [item for _, item in entries]
 
 
 class _contextlib_suppress:
