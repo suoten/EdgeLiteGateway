@@ -111,3 +111,18 @@ test_screenshots/
 test_screenshots_v2/
 audit_i18n_report.json
 fix_north_adapters.py
+
+# ConvergeLoop 自动补充（防止 git add -A 卡死）
+site-packages/
+.tox/
+.eggs/
+.next/
+.nuxt/
+.output/
+vendor/
+target/
+*.dll
+*.dylib
+*.exe
+*.bin
+.convergeloop/
