@@ -153,7 +153,7 @@ services:
 
   # ── Monitoring: Prometheus metrics scraper ──────────────────────────
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.45.0
     container_name: edgelite-prometheus
     profiles:
       - monitoring
@@ -186,7 +186,7 @@ services:
 
   # ── Monitoring: Grafana visualization dashboard ─────────────────────
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.4.0
     container_name: edgelite-grafana
     profiles:
       - monitoring
