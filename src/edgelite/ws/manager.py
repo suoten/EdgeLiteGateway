@@ -72,7 +72,8 @@ class ConnectionManager:
             return True  # 开发模式不校验
         try:
             origin = websocket.headers.get("origin", "") or websocket.headers.get("Origin", "")
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to read Origin header: %s", e)
             origin = ""
         if not origin:
             # 非浏览器客户端（如 curl/Postman）无 Origin 头，允许通过（依赖 token 认证）
@@ -96,8 +97,9 @@ class ConnectionManager:
         if token:
             try:
                 payload = verify_token(token, token_type="access")
-            except Exception:
+            except Exception as e:
                 # FIXED-P1: accept/close可能因客户端已断开而失败，需捕获异常防止未处理异常
+                logger.debug("Token verification failed: %s", e)
                 try:
                     await websocket.accept()
                     try:

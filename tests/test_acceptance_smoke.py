@@ -32,7 +32,8 @@ from edgelite.api.mcp import router as mcp_router
 from edgelite.api.metrics import router as metrics_router
 from edgelite.api.modbus_slave import router as modbus_slave_router
 
-# NOTE: platforms_router 因 edgelite.models.north 缺失无法导入，记录为 P0 Bug
+# FIXED: edgelite.models.north 模块已创建，platforms_router 现可正常导入
+from edgelite.api.platforms import router as platforms_router
 from edgelite.api.mqtt_forwarder import router as mqtt_forwarder_router
 from edgelite.api.mqtt_server import router as mqtt_server_router
 from edgelite.api.notify import router as notify_router
@@ -279,7 +280,7 @@ def _build_test_app(role: str = "admin") -> FastAPI:
         debug_router,
         metrics_router,
         resource_shares_router,
-        # platforms_router 排除: edgelite.models.north 模块缺失
+        platforms_router,
     ]:
         app.include_router(r)
 
