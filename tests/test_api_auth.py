@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿"""认证 API 辅助函数测试 - IP 解析/Cookie/限流辅助
+"""认证 API 辅助函数测试 - IP 解析/Cookie/限流辅助
 
 覆盖 api/auth.py：
 - _is_dev_mode: 开发模式判断

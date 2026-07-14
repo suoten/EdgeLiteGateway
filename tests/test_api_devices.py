@@ -1,4 +1,4 @@
-﻿"""设备管理 API 端点测试。"""
+"""设备管理 API 端点测试。"""
 from __future__ import annotations
 
 import sys

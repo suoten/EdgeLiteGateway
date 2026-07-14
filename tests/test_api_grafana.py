@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿"""Grafana 集成 API 路由测试
+"""Grafana 集成 API 路由测试
 
 覆盖 src/edgelite/api/grafana.py：
 - _is_grafana_url_safe: SSRF 校验 (内网/环回/链路本地/保留/组播/域名解析)

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿"""断网缓存管理扩展测试 - 补充 cache.py 未覆盖的分支"""
+"""断网缓存管理扩展测试 - 补充 cache.py 未覆盖的分支"""
 
 from __future__ import annotations
 

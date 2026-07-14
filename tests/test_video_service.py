@@ -1,4 +1,4 @@
-﻿"""视频接入服务测试
+"""视频接入服务测试
 
 覆盖 services/video_service.py：
 - VideoService: init_provider / close 生命周期

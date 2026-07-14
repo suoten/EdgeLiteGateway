@@ -1,4 +1,4 @@
-﻿"""数据查询业务逻辑测试
+"""数据查询业务逻辑测试
 
 覆盖 services/data_service.py：
 - _sanitize_csv_cell: CSV 注入防护

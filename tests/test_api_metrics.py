@@ -1,4 +1,4 @@
-﻿"""Prometheus metrics endpoint unit tests - covers api/metrics.py"""
+"""Prometheus metrics endpoint unit tests - covers api/metrics.py"""
 
 from __future__ import annotations
 

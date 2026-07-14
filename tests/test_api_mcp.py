@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿"""MCP (Model Context Protocol) API 路由测试
+"""MCP (Model Context Protocol) API 路由测试
 
 覆盖 src/edgelite/api/mcp.py：
 - _consume_sse_ticket: SSE 一次性 ticket 校验
