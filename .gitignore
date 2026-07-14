@@ -100,6 +100,37 @@ scripts/fix_api_detail.py
 # ---------- 验证/测试临时文件 ----------
 _*.py
 _*.txt
+_*.err
+_*.log
+pyright_*.log
+pyright_*.json
+pyright_*.txt
+pytest_*.txt
+test_*.txt
+test_full_output*.txt
+test_smoke_output.txt
+test_stdout.txt
+test_all*.txt
+test_result*.txt
+test_minimal_sqlite.py
+test_storage_smoke.py
+test_ts_debug*.py
+test_write.py
+test_api.py
+test_core.py
+test_patch.py
+run_test_patch.py
+.read_helper.py
+
+# ---------- 引擎/工具内部文件 ----------
+.loopengine/
+.ab-home/
+.trae/
+.convergeloop/
+fix_bom.py
+count_docstrings.py
+parse_results.py
+fix_rbac.py
 
 # ---------- 发布前清理追加 (P2) ----------
 *.tmp
