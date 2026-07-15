@@ -77,6 +77,7 @@ class MemoryRateLimitBackend(RateLimitBackend):
         self._lock = threading.Lock()
 
     def allow(self, key: str, limit: int, window_seconds: float) -> bool:
+        """检查指定 key 在时间窗口内是否允许通过（内存滑动窗口）。"""
         now = time.monotonic()
         cutoff = now - window_seconds
         with self._lock:
@@ -90,6 +91,7 @@ class MemoryRateLimitBackend(RateLimitBackend):
             return True
 
     def cleanup(self) -> None:
+        """清理过期桶，防止内存无限增长。"""
         now = time.monotonic()
         with self._lock:
             # 清理空桶或 6 倍窗口未活跃的桶
@@ -148,6 +150,7 @@ return 1
         return url
 
     def allow(self, key: str, limit: int, window_seconds: float) -> bool:
+        """检查指定 key 在时间窗口内是否允许通过（Redis 滑动窗口）。"""
         now_ms = int(time.time() * 1000)
         cutoff_ms = int((time.time() - window_seconds) * 1000)
         ttl_ms = int(window_seconds * 1000 * 2)
@@ -159,6 +162,7 @@ return 1
         return bool(int(result))
 
     def close(self) -> None:
+        """关闭 Redis 连接。"""
         with _suppress_conn_errors():
             self._redis.close()
 
@@ -260,6 +264,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._last_cleanup = 0.0
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """对每个请求执行速率限制检查，超限返回 429。"""
         # 豁免探针/文档路径
         path = request.url.path
         if any(path.startswith(p) for p in _EXEMPT_PREFIXES):

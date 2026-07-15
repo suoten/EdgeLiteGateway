@@ -151,6 +151,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             logger.debug("CSRFMiddleware received explicit secret_key param; ignored in favor of runtime config")
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """对非安全方法（POST/PUT/DELETE 等）校验 CSRF Token，豁免 GET/HEAD/OPTIONS。"""
         method = request.method.upper()
         path = request.url.path
 

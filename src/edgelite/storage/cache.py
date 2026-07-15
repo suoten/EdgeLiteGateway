@@ -201,6 +201,7 @@ class CacheManager:
         fields: dict,
         timestamp: str,
     ) -> dict[str, bool]:
+        """将一条数据点写入本地缓存队列，供 InfluxDB 恢复后重发。"""
         self._ensure_ring_buffer()
         if not measurement:
             logger.warning("CacheManager.add_to_cache: empty measurement, skipping")
@@ -297,6 +298,7 @@ class CacheManager:
         return {"sqlite_ok": sqlite_ok, "ring_ok": ring_ok}
 
     async def get_cached_records(self, limit: int = 1000) -> list[dict]:
+        """从缓存队列获取最多 limit 条待重发记录。"""
         # FIXED: 原问题-get_cached_records无try-except保护
         try:
             async with self._database.get_session() as session:
@@ -510,6 +512,7 @@ class CacheManager:
             return 0
 
     async def delete_cached(self, ids: list[int]) -> None:
+        """按 ID 列表批量删除已成功重发的缓存记录。"""
         if not ids:
             return
         try:
@@ -532,6 +535,7 @@ class CacheManager:
             logger.error("CacheManager.delete_cached failed: %s", e)
 
     async def increment_retry(self, ids: list[int]) -> None:
+        """将指定记录的重试计数加一，用于追踪重发失败次数。"""
         if not ids:
             return
         try:
@@ -546,6 +550,7 @@ class CacheManager:
             logger.error("CacheManager.increment_retry failed: %s", e)
 
     async def get_cache_count(self) -> int:
+        """返回当前缓存队列中的待重发记录总数。"""
         try:
             async with self._database.get_session() as session:
                 result = await session.execute(select(func.count()).select_from(CacheQueueORM))
@@ -704,6 +709,7 @@ class CacheManager:
                 logger.error("Orphan compaction loop error: %s", e)
 
     def stop_orphan_compaction(self) -> None:
+        """停止孤儿记录压缩后台任务。"""
         if self._orphan_compaction_task is not None:
             self._orphan_compaction_task.cancel()
             self._orphan_compaction_task = None

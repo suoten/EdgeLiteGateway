@@ -51,6 +51,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         self._header_name = header_name
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """为每个请求生成/继承 request_id 并注入 contextvar。"""
         raw = request.headers.get(self._header_name)
         rid = _sanitize_request_id(raw)
         # 设置 contextvar，下游所有日志记录均能通过 Filter 读取
@@ -71,5 +72,6 @@ class RequestIdFilter(logging.Filter):
     """
 
     def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003 - logging API
+        """将 contextvar 中的 request_id 附加到日志记录。"""
         record.request_id = request_id_ctx.get()
         return True

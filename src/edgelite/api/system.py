@@ -95,6 +95,7 @@ async def get_system_status(
     svc: SystemServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
 ):
+    """获取系统运行状态概览（运行时长、版本、服务状态等）。"""
     try:
         status_data = await svc.get_status()
         return ApiResponse(data=status_data)
@@ -111,6 +112,7 @@ async def get_system_resources(
     svc: SystemServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
 ):
+    """获取系统资源使用情况（CPU、内存、磁盘、网络）。"""
     try:
         resources_data = await svc.collect_resources()
         return ApiResponse(data=resources_data)
@@ -127,6 +129,7 @@ async def list_backups(
     svc: SystemServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
+    """列出所有可用的系统配置备份。"""
     try:
         backups = await svc.list_backups()
         return ApiResponse(data=backups)
@@ -142,6 +145,7 @@ async def create_backup(
     audit_svc: AuditServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
+    """创建系统配置备份，记录审计日志。"""
     # 第三轮审计修复: 记录备份创建审计日志
     from edgelite.api.auth import _get_client_ip
     from edgelite.services.audit_service import AuditAction
@@ -191,6 +195,7 @@ async def restore_backup(
     confirm: bool = Body(..., embed=True),
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
+    """从备份恢复系统配置，需二次确认。"""
     # 第三轮审计修复: 高风险操作二次确认
     if not confirm:
         raise HTTPException(status_code=400, detail="请确认操作")

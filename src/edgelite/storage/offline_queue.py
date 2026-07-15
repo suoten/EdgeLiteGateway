@@ -161,6 +161,7 @@ class OfflineQueue:
         return cur.rowcount or 0
 
     async def count(self) -> int:
+        """返回离线队列中的待重发记录总数。"""
         await self._ensure_started()
         _cur = await self._db.execute("SELECT COUNT(*) FROM offline_records")
         row = await _cur.fetchone()

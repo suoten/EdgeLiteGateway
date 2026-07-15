@@ -659,13 +659,16 @@ class PlatformService:
 
     @property
     def handlers(self) -> dict[str, PlatformHandler]:
+        """返回已注册的平台处理器字典。"""
         return self._handlers
 
     @property
     def adapters(self) -> dict[str, BaseNorthAdapter]:
+        """返回已连接的北向适配器字典。"""
         return self._adapters
 
     def list_platforms(self) -> list[dict[str, Any]]:
+        """列出所有已注册和已连接的平台及其状态。"""
         result = []
         seen: set[str] = set()
         for name, h in self._handlers.items():
@@ -704,10 +707,12 @@ class PlatformService:
         return result
 
     def list_supported(self) -> list[dict[str, str]]:
+        """列出所有支持的平台类型及其描述。"""
         registry = _ensure_registry()
         return [{"name": k, "label": v["label"], "description": v["description"]} for k, v in registry.items()]
 
     def get_config_schema(self, platform_name: str) -> dict | None:
+        """获取指定平台的配置字段 schema。"""
         registry = _ensure_registry()
         entry = registry.get(platform_name)
         if not entry:
@@ -716,6 +721,7 @@ class PlatformService:
         return _build_full_schema(base_fields)
 
     def validate_config(self, platform_name: str, config: dict) -> list[str]:
+        """校验平台配置，返回错误码列表（空列表表示通过）。"""
         registry = _ensure_registry()
         entry = registry.get(platform_name)
         if not entry:
@@ -779,6 +785,7 @@ class PlatformService:
         return errors
 
     async def connect(self, platform_name: str, config: dict) -> dict[str, Any]:
+        """连接到指定平台，创建并启动北向适配器或平台处理器。"""
         # R8-S-08: 持锁保护 check-then-act，避免并发 connect 重复创建适配器。
         # 平台连接频率低，持锁等待可接受。
         async with self._lock:
@@ -838,6 +845,7 @@ class PlatformService:
             return {"status": "connecting"}
 
     async def disconnect(self, platform_name: str) -> dict[str, Any]:
+        """断开指定平台的连接，清理适配器和处理器资源。"""
         # R8-S-08: 锁内获取引用并移除，锁外执行 stop/disconnect（耗时操作）
         async with self._lock:
             adapter = self._adapters.pop(platform_name, None)
@@ -865,6 +873,7 @@ class PlatformService:
         return {"status": "disconnected"}
 
     def get_status(self, platform_name: str) -> dict[str, Any]:
+        """获取指定平台的连接状态和运行指标。"""
         adapter = self._adapters.get(platform_name)
         if adapter:
             return {
@@ -890,6 +899,7 @@ class PlatformService:
         }
 
     async def test_connection(self, platform_name: str, config: dict) -> dict[str, Any]:
+        """测试平台连接配置是否有效（不持久化连接）。"""
         registry = _ensure_registry()
         entry = registry.get(platform_name)
         if not entry:
@@ -975,12 +985,14 @@ class PlatformService:
             return {"success": False, "message": "Connection test failed, check logs for details"}
 
     def get_message_preview(self, platform_name: str) -> list[dict]:
+        """获取平台最近发送的消息预览列表。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_message_preview"):
             return adapter.get_message_preview()
         return []
 
     def get_broker_quality(self, platform_name: str) -> dict:
+        """获取 MQTT broker 的网络质量指标（延迟、丢包等）。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_broker_quality"):
             return adapter.get_broker_quality()
@@ -993,6 +1005,7 @@ class PlatformService:
         }
 
     def validate_topic_template(self, template: str) -> dict:
+        """校验 MQTT 主题模板语法并提取变量列表。"""
         from edgelite.platform.mqtt_utils import TopicTemplateEngine
 
         valid, errors = TopicTemplateEngine.validate_template(template)
@@ -1004,24 +1017,28 @@ class PlatformService:
         }
 
     def get_tb_devices(self, platform_name: str) -> list[dict]:
+        """获取平台已注册的设备列表。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_device_list"):
             return adapter.get_device_list()
         return []
 
     def get_tb_rpc_logs(self, platform_name: str) -> list[dict]:
+        """获取平台 RPC 调用日志。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_rpc_logs"):
             return adapter.get_rpc_logs()
         return []
 
     def get_tb_alarm_records(self, platform_name: str) -> list[dict]:
+        """获取平台告警记录。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_alarm_records"):
             return adapter.get_alarm_records()
         return []
 
     def get_tb_sync_status(self, platform_name: str) -> dict:
+        """获取平台设备同步状态（已注册/待同步数量等）。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_sync_status"):
             return adapter.get_sync_status()
@@ -1036,24 +1053,28 @@ class PlatformService:
         }
 
     def get_platform_shadow(self, platform_name: str) -> dict:
+        """获取平台设备影子数据。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_shadow_cache"):
             return adapter.get_shadow_cache()
         return {}
 
     def get_platform_command_logs(self, platform_name: str) -> list[dict]:
+        """获取平台下发命令的执行日志。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_command_logs"):
             return adapter.get_command_logs()
         return []
 
     def get_platform_alarm_records(self, platform_name: str) -> list[dict]:
+        """获取平台告警记录列表。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_alarm_records"):
             return adapter.get_alarm_records()
         return []
 
     def get_platform_device_mapping(self, platform_name: str) -> list[dict]:
+        """获取平台设备与本地设备的映射关系。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_device_mapping"):
             return adapter.get_device_mapping()
@@ -1061,7 +1082,8 @@ class PlatformService:
 
     async def get_dashboard_data(
         self,
-    ) -> list[dict[str, Any]]:  # FIXED-P0: 适配BaseNorthAdapter.get_dashboard_data改为async
+    ) -> list[dict[str, Any]]:
+        """获取所有平台的仪表盘概览数据（消息量、错误率、延迟等）。"""
         registry = _ensure_registry()
         result = []
         all_names = set(list(self._adapters.keys()) + list(self._handlers.keys()))
@@ -1105,6 +1127,7 @@ class PlatformService:
         return result
 
     def export_config(self, platform_name: str) -> dict:
+        """导出平台配置（敏感字段已脱敏）。"""
         # FIXED(安全): 对返回的 config 中的敏感字段（password, secret, api_key, token, access_secret）
         # 进行脱敏，防止 VIEWER 角色通过导出接口获取 MQTT broker 密码、ThingsBoard token 等明文凭据
         adapter = self._adapters.get(platform_name)
@@ -1127,6 +1150,7 @@ class PlatformService:
         return {"platform_name": platform_name, "config": {}, "exported_at": time.time()}
 
     def import_config(self, platform_name: str, config_data: dict) -> dict:
+        """导入平台配置，校验后返回规范化配置。"""
         registry = _ensure_registry()
         entry = registry.get(platform_name)
         if not entry:
@@ -1200,12 +1224,14 @@ class PlatformService:
         return result
 
     def get_broker_status(self, platform_name: str) -> list[dict]:
+        """获取平台多 broker 实例的连接状态。"""
         adapter = self._adapters.get(platform_name)
         if adapter and hasattr(adapter, "get_broker_status"):
             return adapter.get_broker_status()
         return []
 
     def validate_advanced_template(self, template: str, template_type: str = "payload") -> dict:
+        """校验高级模板（payload/topic/batch）语法并提取变量。"""
         from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
 
         valid, errors = AdvancedTemplateEngine.validate_template(template)
@@ -1218,6 +1244,7 @@ class PlatformService:
         }
 
     def preview_template(self, template: str, test_data: dict, template_type: str = "payload") -> dict:
+        """使用测试数据预览模板渲染结果。"""
         from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
 
         engine = AdvancedTemplateEngine(gateway_id=test_data.get("gateway_id", ""))
@@ -1235,6 +1262,7 @@ class PlatformService:
             return {"success": False, "error": str(e)}
 
     def validate_script(self, script: str) -> dict:
+        """校验 JavaScript 脚本语法是否合法。"""
         from edgelite.platform.js_sandbox import JsSandbox
 
         sandbox = JsSandbox()
@@ -1242,6 +1270,7 @@ class PlatformService:
         return {"valid": valid, "errors": errors}
 
     async def test_script(self, script: str, test_payload: dict, test_context: dict | None = None) -> dict:
+        """在沙箱中执行 JavaScript 脚本并返回测试结果。"""
         from edgelite.platform.js_sandbox import JsSandbox
 
         sandbox = JsSandbox()
@@ -1254,6 +1283,7 @@ class PlatformService:
         }
 
     async def mqtt_test_publish(self, platform_name: str, topic: str, payload: str, qos: int = 0) -> dict:
+        """向指定平台发送 MQTT 测试消息（禁止通配符 topic）。"""
         # FIXED(严重): 原问题-topic无校验可含MQTT通配符(#/+)，可能导致意外广播;
         # 修复-禁止MQTT通配符
         if "#" in topic or "+" in topic:
@@ -1272,12 +1302,14 @@ class PlatformService:
             return {"success": False, "error": str(e)}
 
     def get_north_metrics(self) -> str:
+        """获取所有北向适配器的 Prometheus 格式指标。"""
         lines = []
         for adapter in self._adapters.values():
             lines.append(adapter.get_prometheus_metrics())
         return "\n".join(lines)
 
     async def reload_config(self, platform_name: str, config: dict) -> dict[str, Any]:
+        """热重载平台配置（不断开连接，先停止旧适配器再启动新配置）。"""
         # FIX-P1: 原代码未获取 self._lock，与 connect/disconnect 并发修改 _adapters/
         # _adapter_configs 时状态不一致。reload 频率低，持锁保护 check-then-act
         # 与 connect/disconnect 串行化，避免竞态。

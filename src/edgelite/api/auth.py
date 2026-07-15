@@ -243,6 +243,12 @@ def _get_client_ip(request: Request) -> str:
 
 @router.post("/login", response_model=ApiResponse[TokenResponse])
 async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc: AuditServiceDep):
+    """用户登录端点。
+
+    支持用户名密码认证，包含全局失败速率检查、账户级锁定、
+    初次登录强制改密、审计日志记录等安全机制。
+    成功后返回 access_token 和 refresh_token（通过 HttpOnly Cookie 下发）。
+    """
     try:
         client_ip = _get_client_ip(request)
 
@@ -433,6 +439,11 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
 async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(None, embed=True)):
+    """刷新 access_token。
+
+    使用 refresh_token 换取新的 access_token，支持从请求体或 HttpOnly Cookie 读取。
+    旧 refresh_token 会被吊销，实现轮换防重放。
+    """
     # LP-02: 优先从请求体读取 refresh_token，fallback 到 HttpOnly Cookie
     if not refresh:
         refresh = request.cookies.get(_AUTH_COOKIE_REFRESH)
@@ -571,6 +582,7 @@ async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(N
 
 @router.get("/me", response_model=ApiResponse[UserInfoResponse])
 async def get_current_user_info(user: CurrentUser, db: DatabaseDep):
+    """获取当前登录用户的详细信息，包含角色和是否需要强制改密。"""
     try:
         from edgelite.storage.sqlite_repo import UserRepo
 
@@ -1141,6 +1153,10 @@ async def reset_password(
 
 @router.post("/logout", response_model=ApiResponse)
 async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep):
+    """用户登出端点。
+
+    吊销当前 access_token 并清除 HttpOnly Cookie，记录审计日志。
+    """
     try:
         from edgelite.security.jwt import decode_token
         from edgelite.security.token_revocation import revoke_token

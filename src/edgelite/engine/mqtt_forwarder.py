@@ -93,6 +93,7 @@ class MqttForwarder:
         self._offline_db_sync_lock = threading.Lock()  # FIXED-P2: W11 同步方法DB操作锁
 
     async def start(self, event_bus: Any = None) -> None:
+        """启动 MQTT 转发器：连接 broker、注册事件处理器、启动后台任务。"""
         config = get_config()
         if not config.mqtt.broker:
             logger.info("MQTT Broker未配置，北向转发不启动")
@@ -189,6 +190,7 @@ class MqttForwarder:
                     logger.warning("释放离线数据库同步锁失败: %s", e)
 
     async def stop(self) -> None:
+        """停止 MQTT 转发器：断开连接、注销处理器、清理后台任务。"""
         self._running = False
 
         if self._handlers_registered and self._event_bus:
@@ -843,6 +845,7 @@ class MqttForwarder:
                 logger.warning("删除已发送SQLite离线消息失败: %s", e)
 
     def get_offline_queue_status(self) -> dict:
+        """返回离线缓存队列的状态信息（启用状态、积压数量、环形缓冲统计）。"""
         ring_stats = self._ring_buffer.get_stats() if self._ring_buffer else None
         if not self._offline_db:
             return {
@@ -880,4 +883,5 @@ class MqttForwarder:
 
     @property
     def is_connected(self) -> bool:
+        """返回 MQTT broker 连接状态。"""
         return self._connected

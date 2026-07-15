@@ -387,16 +387,19 @@ class Database:
 
     @property
     def backend(self) -> str:
+        """返回当前数据库后端类型（sqlite/mysql/postgres）。"""
         return self._backend
 
     @property
     def db_path(self) -> str:
+        """返回 SQLite 数据库文件的绝对路径（非 SQLite 后端返回空字符串）。"""
         if self._backend == "sqlite":
             return str(Path(self._config.database.sqlite_path).resolve())
         return ""
 
     @property
     def audit_db_path(self) -> str:
+        """返回审计数据库文件的绝对路径（与主库同目录下的 audit.db）。"""
         if self._backend == "sqlite":
             main_path = Path(self._config.database.sqlite_path).resolve()
             return str(main_path.parent / "audit.db")
@@ -404,6 +407,7 @@ class Database:
 
     @property
     def engine(self) -> AsyncEngine:
+        """返回 SQLAlchemy AsyncEngine，未初始化时抛出 RuntimeError。"""
         if self._engine is None:
             raise RuntimeError(DatabaseErrors.NOT_CONNECTED)
         return self._engine

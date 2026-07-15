@@ -18,6 +18,11 @@ if sys.platform == "win32":
 
 
 def main():
+    """EdgeLite Gateway CLI 入口函数。
+
+    解析命令行参数，注册信号处理器（SIGTERM 优雅关闭、SIGHUP 忽略），
+    启动 uvicorn ASGI 服务器。
+    """
     parser = argparse.ArgumentParser(description="EdgeLite Gateway")
     parser.add_argument("--host", default="127.0.0.1", help="监听地址")  # FIXED-P0: 默认仅监听localhost
     parser.add_argument("--port", type=int, default=8080, help="监听端口")

@@ -721,6 +721,7 @@ class InfluxDBStorage:
             logger.warning("时序存储备份跳过：SQLite降级存储未初始化")
 
     async def available(self) -> bool:
+        """返回 InfluxDB 当前是否可用（通过状态锁保护读取）。"""
         # FIXED-P0: _available读取通过_state_lock保护，防止读到不一致状态
         async with self._state_lock:
             return self._available

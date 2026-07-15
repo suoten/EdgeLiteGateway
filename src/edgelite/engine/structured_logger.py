@@ -28,6 +28,7 @@ class StructuredFormatter(logging.Formatter):
         self.include_traceback = include_traceback  # FIXED-P0: 默认不包含traceback，防止生产环境泄露内部路径
 
     def format(self, record: logging.LogRecord) -> str:
+        """将日志记录格式化为 JSON 字符串，包含时间戳、上下文和异常信息。"""
         log_entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
@@ -71,14 +72,17 @@ class ContextFilter(logging.Filter):
         self._lock = threading.Lock()  # FIXED-P2: 多线程并发调用set_context/filter时保护_context字典
 
     def set_context(self, **kwargs: Any) -> None:
+        """设置线程安全的上下文字段（request_id、user_id 等）。"""
         with self._lock:
             self._context.update(kwargs)
 
     def clear_context(self) -> None:
+        """清空所有上下文字段。"""
         with self._lock:
             self._context.clear()
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """将上下文字段注入日志记录（线程安全快照读取）。"""
         # FIXED-P2: 复制context快照，避免迭代期间其他线程修改字典导致RuntimeError
         with self._lock:
             context_snapshot = dict(self._context)
@@ -106,6 +110,7 @@ class StructuredLogger:
         self._context_filter = ContextFilter()
 
     def setup(self) -> None:
+        """配置根 logger：控制台 + 文件轮转 + 错误文件，均使用结构化 JSON 格式。"""
         self._log_dir.mkdir(parents=True, exist_ok=True)
 
         root_logger = logging.getLogger()
@@ -151,17 +156,21 @@ class StructuredLogger:
         root_logger.addHandler(error_handler)
 
     def set_context(self, **kwargs: Any) -> None:
+        """设置全局日志上下文字段（委托给 ContextFilter）。"""
         self._context_filter.set_context(**kwargs)
 
     def clear_context(self) -> None:
+        """清空全局日志上下文字段。"""
         self._context_filter.clear_context()
 
     @staticmethod
     def get_logger(name: str) -> logging.Logger:
+        """获取指定名称的 logger 实例。"""
         return logging.getLogger(name)
 
 
 def log_with_data(logger: logging.Logger, level: int, msg: str, **data: Any) -> None:
+    """记录一条带额外结构化数据的日志（数据以 ``data`` 字段嵌入 JSON）。"""
     record = logger.makeRecord(logger.name, level, "", 0, msg, (), None)
     record.extra_data = data
     logger.handle(record)

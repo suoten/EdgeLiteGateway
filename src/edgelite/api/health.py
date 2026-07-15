@@ -56,6 +56,7 @@ class _RateLimiter:
         self._buckets: dict[str, deque[float]] = defaultdict(deque)
 
     def allow(self, client_ip: str) -> bool:
+        """检查指定 IP 是否在速率限制窗口内允许通过。"""
         now = time.monotonic()
         bucket = self._buckets[client_ip]
         # 清理过期条目

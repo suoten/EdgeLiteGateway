@@ -154,9 +154,11 @@ class AuditService:
         self._login_anomaly_lock = asyncio.Lock()
 
     def set_alert_callback(self, callback: Any) -> None:
+        """设置审计告警回调函数（当检测到可疑操作时被调用）。"""
         self._on_audit_alert = callback
 
     async def close(self) -> None:
+        """关闭审计数据库连接并释放资源。"""
         if self._conn is not None:  # FIXED-P2: 关闭持久连接
             try:
                 self._conn.close()
@@ -167,6 +169,7 @@ class AuditService:
         self._initialized = False
 
     async def initialize(self) -> None:
+        """初始化审计数据库（建表、索引、PRAGMA），在后台线程中执行。"""
         await asyncio.to_thread(self._sync_initialize)
 
     def _apply_db_pragmas(self, conn) -> None:
@@ -353,6 +356,7 @@ class AuditService:
         before_value: Any | None = None,
         after_value: Any | None = None,
     ) -> None:
+        """记录一条审计日志，包含操作者、资源、变更前后值等完整上下文。"""
         if not self._initialized:
             await self.initialize()
 
@@ -572,6 +576,7 @@ class AuditService:
         page: int = 1,
         size: int = 20,
     ) -> tuple[list[dict], int]:
+        """分页查询审计日志，支持按用户/操作/资源类型/时间范围过滤。"""
         return await asyncio.to_thread(
             self._sync_query,
             user_id,
@@ -646,6 +651,7 @@ class AuditService:
                     conn.close()
 
     async def verify_integrity(self) -> dict:
+        """校验审计日志的完整性（检测篡改/删除），返回校验结果。"""
         return await asyncio.to_thread(self._sync_verify_integrity)
 
     def _sync_verify_integrity(self) -> dict:
@@ -702,6 +708,7 @@ class AuditService:
         return {"valid": len(broken_at) == 0, "total": total, "broken_at": broken_at}
 
     async def export_csv(self, start_time: datetime | None = None, end_time: datetime | None = None) -> str:
+        """导出指定时间范围内的审计日志为 CSV 字符串。"""
         return await asyncio.to_thread(self._sync_export_csv, start_time, end_time)
 
     def _sync_export_csv(self, start_time, end_time) -> str:
@@ -759,6 +766,7 @@ class AuditService:
                     conn.close()
 
     async def cleanup(self, retention_days: int = 90) -> int:
+        """清理超过保留期的审计日志，返回删除条数。"""
         return await asyncio.to_thread(self._sync_cleanup, retention_days)
 
     def _sync_cleanup(self, retention_days: int) -> int:

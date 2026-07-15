@@ -103,6 +103,7 @@ async def query_timeseries(
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     user: dict[str, str] = Depends(require_permission(Permission.DATA_READ)),
 ):
+    """查询设备位点的时序数据，支持聚合和分页。"""
     valid_aggregates = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
     if aggregate and aggregate.lower() not in valid_aggregates:
         raise HTTPException(
@@ -176,6 +177,7 @@ async def export_data(
     ),  # FIXED(严重): 原问题-export_data无limit参数,service层默认100000,大范围导出可致OOM;修复-API层添加limit参数,上限50000  # noqa: E501
     user: dict[str, str] = Depends(require_permission(Permission.DATA_EXPORT)),
 ):
+    """导出设备时序数据为 CSV 或 JSON 格式，支持流式输出防止 OOM。"""
     _fmt = _format
     await _check_device_owner(device_id, user)
 
@@ -208,6 +210,7 @@ async def export_data(
 async def get_collect_stats(
     user: dict[str, str] = Depends(require_permission(Permission.DATA_READ)),
 ):
+    """获取设备数据采集统计信息（采集频率、成功率、延迟等）。"""
     try:
         device_svc = _get_device_service()
         # R9-S-08 修复: 原问题-分页拉取全部设备到内存做聚合，设备数量大时内存占用高;

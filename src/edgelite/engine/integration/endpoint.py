@@ -26,17 +26,21 @@ class IntegrationEndpoint:
 
     @property
     def dispatcher(self) -> MessageDispatcher:
+        """返回消息分发器实例。"""
         return self._dispatcher
 
     @property
     def session_count(self) -> int:
+        """返回当前活跃会话数。"""
         return len(self._sessions)
 
     @property
     def has_connections(self) -> bool:
+        """返回是否仍有活跃的 WebSocket 连接。"""
         return len(self._connections) > 0
 
     async def handle_handshake(self, request: dict[str, Any]) -> dict[str, Any]:
+        """处理集成客户端握手请求，创建会话并返回支持的能力列表。"""
         async with self._lock:  # FIXED-P0: 加锁保护_sessions并发修改
             await self._cleanup_expired_sessions()
             session_id = uuid.uuid4().hex[:16]
@@ -73,6 +77,7 @@ class IntegrationEndpoint:
         return response
 
     async def register_connection(self, session_id: str, websocket: Any) -> None:
+        """注册 WebSocket 连接到会话，超限时驱逐最旧连接。"""
         async with self._lock:  # FIXED-P0: 加锁保护_connections并发修改
             if len(self._connections) >= self._max_sessions:
                 # FIXED-P0: 原问题-min(self._sessions,...)在_sessions为空时抛ValueError。
@@ -108,10 +113,12 @@ class IntegrationEndpoint:
         self._sessions.pop(session_id, None)
 
     async def unregister_connection(self, session_id: str) -> None:
+        """注销会话的 WebSocket 连接并清理资源。"""
         async with self._lock:  # FIXED-P0: 加锁保护
             await self._unregister_connection_unlocked(session_id)
 
     async def handle_message(self, session_id: str, raw_data: str) -> dict[str, Any] | None:
+        """处理来自集成客户端的消息，分发到对应处理器并返回响应。"""
         try:
             message = json.loads(raw_data)
         except json.JSONDecodeError:
@@ -138,6 +145,7 @@ class IntegrationEndpoint:
         return response
 
     async def send_to_session(self, session_id: str, message: dict[str, Any]) -> bool:
+        """向指定会话发送 JSON 消息，返回是否成功。"""
         # FIXED(严重): _connections无锁访问保护，锁内取ws快照后锁外发送避免长时间持锁
         async with self._lock:
             ws = self._connections.get(session_id)
@@ -151,6 +159,7 @@ class IntegrationEndpoint:
             return False
 
     async def broadcast(self, message: dict[str, Any]) -> int:
+        """向所有活跃连接广播消息，返回成功发送数。"""
         sent = 0
         # FIXED(严重): _connections无锁访问保护，锁内快照后锁外发送，避免与send_to_session死锁
         async with self._lock:

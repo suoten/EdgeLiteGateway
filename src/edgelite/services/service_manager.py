@@ -355,6 +355,7 @@ class ServiceManager:
         return _app_state
 
     def check_dependency(self, package_name: str) -> DependencyInfo:
+        """检查单个 pip 包是否已安装及其版本。"""
         import_name = _PIP_TO_IMPORT.get(package_name, package_name)
         try:
             mod = importlib.import_module(import_name)
@@ -364,15 +365,18 @@ class ServiceManager:
             return DependencyInfo(package=package_name, installed=False)
 
     def check_dependencies(self, service_name: str) -> list[DependencyInfo]:
+        """检查指定服务的所有依赖包安装状态。"""
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
             return []
         return [self.check_dependency(dep) for dep in svc_def["dependencies"]]
 
     def all_dependencies_met(self, service_name: str) -> bool:
+        """判断指定服务的所有依赖是否均已安装。"""
         return all(d.installed for d in self.check_dependencies(service_name))
 
     async def install_dependency(self, package_name: str) -> dict:
+        """通过 pip 安装单个依赖包（300 秒超时）。"""
         # FIXED-P1: 原代码无超时控制，pip install 可能长时间运行（网络问题/编译依赖）
         # 添加 300 秒超时，避免无限等待
         try:
@@ -416,6 +420,7 @@ class ServiceManager:
             return {"package": package_name, "success": False, "error": str(e)}
 
     async def install_service_dependencies(self, service_name: str) -> dict:
+        """安装指定服务的所有缺失依赖包。"""
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
             return {"error": ServiceErrors.UNKNOWN_SERVICE, "detail": service_name}
@@ -442,6 +447,7 @@ class ServiceManager:
         return {"service": service_name, "all_installed": all_ok, "results": results}
 
     def get_service_info(self, service_name: str) -> ServiceInfo:
+        """获取指定服务的运行状态信息（状态、依赖、配置等）。"""
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
             return ServiceInfo(
@@ -535,6 +541,7 @@ class ServiceManager:
         )
 
     def list_services(self) -> list[ServiceInfo]:
+        """列出所有已注册服务及其状态。"""
         return [self.get_service_info(name) for name in SERVICE_DEFINITIONS]
 
     def _get_instance(self, service_name: str) -> Any:
@@ -549,6 +556,7 @@ class ServiceManager:
             setattr(app_state, service_name, instance)
 
     async def enable_service(self, service_name: str, config_values: dict | None = None) -> dict:
+        """启用指定服务：校验依赖、写入配置、启动服务实例。"""
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
             return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE, "detail": service_name}
@@ -599,6 +607,7 @@ class ServiceManager:
         return {"success": True, "message": ServiceErrors.SERVICE_ENABLED_STARTED}
 
     async def disable_service(self, service_name: str) -> dict:
+        """禁用指定服务：停止实例并更新配置为 disabled。"""
         svc_def = SERVICE_DEFINITIONS.get(service_name)
         if not svc_def:
             return {"success": False, "error": ServiceErrors.UNKNOWN_SERVICE}
@@ -620,6 +629,7 @@ class ServiceManager:
         return {"success": True, "message": ServiceErrors.SERVICE_DISABLED}
 
     async def start_service(self, service_name: str) -> dict:
+        """启动指定服务实例（使用操作锁防止并发启动竞态）。"""
         # FIX-P1: 使用 _op_lock 串行化，避免 is_running 检查与 _start_service_instance
         # 之间的 TOCTOU 竞态（并发调用可能重复启动同一服务）。
         async with self._op_lock:
@@ -654,6 +664,7 @@ class ServiceManager:
                 }
 
     async def stop_service(self, service_name: str) -> dict:
+        """停止指定服务实例（使用操作锁防止并发停止/启动竞态）。"""
         # FIX-P1: 使用 _op_lock 串行化，与 start_service/update_service_config 互斥，
         # 避免 stop 与 start 并发导致状态不一致。
         async with self._op_lock:
@@ -784,6 +795,7 @@ class ServiceManager:
             self._set_instance(service_name, None)
 
     async def update_service_config(self, service_name: str, config_values: dict) -> dict:
+        """更新服务配置并热重载（停止旧实例→写入配置→启动新实例）。"""
         # FIX-P1: 使用 _op_lock 串行化，与 start_service/stop_service 互斥，
         # 避免配置更新时的 stop+start 与并发 start/stop 交错导致状态不一致。
         async with self._op_lock:
@@ -820,6 +832,7 @@ _service_manager: ServiceManager | None = None
 
 
 def get_service_manager() -> ServiceManager:
+    """获取全局 ServiceManager 单例。"""
     global _service_manager
     if _service_manager is None:
         _service_manager = ServiceManager()

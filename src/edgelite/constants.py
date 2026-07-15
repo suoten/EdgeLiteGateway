@@ -1,3 +1,9 @@
+"""EdgeLite 全局常量定义模块。
+
+集中管理 MQTT、HTTP、超时、协议别名等跨模块共享的常量，
+避免魔法数字分散在各业务代码中。
+"""
+
 _MQTT_KEEPALIVE = 60
 _MQTT_QUEUE_MAXSIZE = 10000
 _MQTT_RECONNECT_DELAY = 5

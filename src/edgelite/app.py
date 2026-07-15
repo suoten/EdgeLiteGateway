@@ -1,4 +1,22 @@
-"""FastAPI应用工厂"""
+"""FastAPI 应用工厂
+
+架构说明：
+    本模块维护一个模块级全局 ServiceContainer 实例 ``_app_state``，用于在
+    FastAPI 请求处理函数和后台任务中访问共享服务（数据库、EventBus、
+    调度器等）。
+
+    设计决策：
+    - 采用全局容器而非 FastAPI Depends 注入，因为后台任务（采集调度、
+      告警处理、WebSocket 推送）不在请求上下文中运行，无法使用 Depends。
+    - ``lifespan`` 上下文管理器负责 ``_app_state`` 的初始化和清理，
+      在多次 ``create_app`` 调用（测试/热重载）时自动检测并清理旧实例。
+    - 所有通过 ``from edgelite.app import _app_state`` 引用的模块应使用
+      ``getattr(_app_state, attr, None)`` 进行防御性访问。
+
+    已知限制：
+    - 模块级 global 在多进程环境下不共享，仅适用于单进程 uvicorn 部署。
+    - 测试中使用 ``create_app()`` 创建新实例时，``lifespan`` 会自动清理旧实例。
+"""
 
 from __future__ import annotations
 
@@ -16,11 +34,24 @@ from edgelite.config import get_config
 
 logger = logging.getLogger(__name__)
 
+# 模块级全局服务容器 — 详见模块文档字符串中的架构说明
+# lifespan 上下文管理器负责初始化和清理，支持多次 create_app 调用
 _app_state = ServiceContainer()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI 应用生命周期管理器。
+
+    负责应用的启动初始化和关闭清理：
+    - 启动时：检测并清理旧的 ``_app_state`` 实例，调用 ``bootstrap_all``
+      初始化所有服务，随后启动限流清理、备份调度等后置任务。
+    - 关闭时：按逆序停止后置任务并调用 ``teardown`` 清理服务，
+      整体超时 30 秒以防挂起。
+
+    Args:
+        app: FastAPI 应用实例。
+    """
     global _app_state  # 8#修复: 允许在 lifespan 中替换模块级 _app_state，避免旧实例残留
     config = get_config()
 
@@ -350,6 +381,11 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
     @app.websocket("/ws/v1/realtime")
     async def ws_realtime(websocket: WebSocket):
+        """实时数据 WebSocket 端点。
+
+        通过 Cookie 或首帧消息认证后，向客户端推送实时采集数据。
+        空闲超时 300 秒，消息大小限制 1 MB。
+        """
         await _app_state.ws_manager.connect(websocket, "realtime")
         token = await _recv_auth_token(websocket)
         if not token or not await _app_state.ws_manager.authenticate(websocket, "realtime", token):
@@ -382,6 +418,10 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
     @app.websocket("/ws/v1/alarm")
     async def ws_alarm(websocket: WebSocket):
+        """告警推送 WebSocket 端点。
+
+        认证后向客户端推送实时告警通知。空闲超时 300 秒，消息大小限制 1 MB。
+        """
         await _app_state.ws_manager.connect(websocket, "alarm")
         token = await _recv_auth_token(websocket)
         if not token or not await _app_state.ws_manager.authenticate(websocket, "alarm", token):
@@ -414,6 +454,10 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
     @app.websocket("/ws/v1/device")
     async def ws_device(websocket: WebSocket):
+        """设备状态 WebSocket 端点。
+
+        认证后向客户端推送设备上下线、状态变更等事件。空闲超时 300 秒。
+        """
         await _app_state.ws_manager.connect(websocket, "device")
         token = await _recv_auth_token(websocket)
         if not token or not await _app_state.ws_manager.authenticate(websocket, "device", token):
@@ -445,6 +489,12 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
     @app.websocket("/ws/v1/integration")
     async def ws_integration(websocket: WebSocket):
+        """集成平台 WebSocket 端点。
+
+        支持与第三方平台的双向通信，包含握手协议和消息分发。
+        认证后需发送 handshake 消息建立会话，随后可收发业务数据。
+        空闲超时 300 秒，消息大小限制 1 MB。
+        """
         if not _app_state.integration_endpoint:
             await websocket.accept()
             await websocket.close(code=1003, reason="Integration not available")
@@ -541,6 +591,11 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
     @app.websocket("/ws/v1/ai")
     async def ws_ai(websocket: WebSocket):
+        """AI 推理结果 WebSocket 端点。
+
+        认证后向客户端推送 AI 模型推理结果和异常检测结果。
+        空闲超时 300 秒，消息大小限制 1 MB。
+        """
         await _app_state.ws_manager.connect(websocket, "ai")
         token = await _recv_auth_token(websocket)
         if not token or not await _app_state.ws_manager.authenticate(websocket, "ai", token):
@@ -572,6 +627,23 @@ def _register_websocket_routes(app: FastAPI) -> None:
 
 
 def create_app() -> FastAPI:
+    """创建并配置 FastAPI 应用实例。
+
+    包含以下配置步骤：
+    1. CORS 中间件（生产环境精确域名 / 开发环境 localhost 正则 / 默认拒绝）
+    2. 安全中间件链（TokenRenewal → CSRF → RateLimit → RequestId）
+    3. 请求耗时记录与慢请求告警
+    4. 安全响应头（X-Content-Type-Options、X-Frame-Options 等）
+    5. TrustedHost 中间件（生产环境）
+    6. 请求体大小限制（10 MB）
+    7. 全局异常处理器（验证错误 / HTTP 异常 / 未捕获异常）
+    8. 路由注册（核心 + 可选 + 调试）
+    9. WebSocket 路由注册
+    10. 前端静态文件挂载
+
+    Returns:
+        配置完成的 FastAPI 应用实例。
+    """
     config = get_config()
 
     # FIXED(安全): 生产环境禁用 API 文档端点，防止攻击面泄露
@@ -664,6 +736,10 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def request_timing_middleware(request: Request, call_next):
+        """记录每个请求的处理耗时，注入 ``X-Response-Time`` 响应头。
+
+        超过 1 秒的请求以 warning 级别记录，便于监控慢请求。
+        """
         _start_ts = _time_mod.perf_counter()
         try:
             response = await call_next(request)
@@ -702,6 +778,7 @@ def create_app() -> FastAPI:
 
     class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
+            """添加安全响应头到每个 HTTP 响应。"""
             response = await call_next(request)
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["X-Frame-Options"] = "DENY"
@@ -738,6 +815,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def limit_request_body_size(request: Request, call_next):
+        """限制请求体大小为 10 MB，超限返回 413 状态码。"""
         from fastapi.responses import JSONResponse
 
         from edgelite.models.common import ApiResponse
@@ -761,6 +839,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def set_current_request(request: Request, call_next):
+        """将当前 Request 存入 contextvar，供非 Depends 路径获取；统一 404 响应格式。"""
         token = _current_request.set(request)
         try:
             response = await call_next(request)
@@ -868,6 +947,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
+        """全局未捕获异常处理器，返回 500 统一响应格式，避免堆栈泄露。"""
         if getattr(config.server, "debug_api_enabled", False):
             logger.exception("Unhandled exception: %s %s -> %s", request.method, request.url.path, exc)
         else:
@@ -918,6 +998,7 @@ def _mount_frontend(app: FastAPI) -> None:
 
         @app.get("/{path:path}", include_in_schema=False)
         async def serve_spa(path: str):
+            """SPA 前端静态文件服务，支持路径遍历防护和 index.html 不缓存。"""
             if path.startswith(("api/", "docs", "redoc", "openapi.json", "ws/")):
                 from fastapi.responses import JSONResponse
 
