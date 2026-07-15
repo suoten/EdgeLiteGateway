@@ -57,6 +57,7 @@ logs/
 *.sqlite3
 data/*.json
 data/*.csv
+.initial_admin_password
 
 # Frontend build artifacts (will be built inside Docker)
 web/node_modules

@@ -273,7 +273,7 @@ async def health_ready(request: Request) -> JSONResponse:
         return JSONResponse(status_code=429, content={"status": "rate_limited"})
 
     try:
-        sqlite_r, influx_r, disk_r = await asyncio.wait_for(
+        sqlite_r, influx_r = await asyncio.wait_for(
             asyncio.gather(_check_sqlite(), _check_influxdb(), return_exceptions=True),
             timeout=_HEALTH_CHECK_TIMEOUT_SECONDS,
         )

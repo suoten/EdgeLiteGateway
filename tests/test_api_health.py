@@ -253,6 +253,7 @@ class TestRunFullCheck:
             patch("edgelite.api.health._check_influxdb", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_mqtt", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_drivers", return_value={"status": "healthy"}),
+            patch("edgelite.api.health._check_disk_space", return_value={"status": "healthy"}),
         ):
             result = await _run_full_check()
             assert result["status"] == "unhealthy"
@@ -266,6 +267,7 @@ class TestRunFullCheck:
             patch("edgelite.api.health._check_influxdb", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_mqtt", return_value={"status": "degraded", "error": "x"}),
             patch("edgelite.api.health._check_drivers", return_value={"status": "healthy"}),
+            patch("edgelite.api.health._check_disk_space", return_value={"status": "healthy"}),
         ):
             result = await _run_full_check()
             assert result["status"] == "degraded"
@@ -278,12 +280,13 @@ class TestRunFullCheck:
             patch("edgelite.api.health._check_influxdb", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_mqtt", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_drivers", return_value={"status": "healthy"}),
+            patch("edgelite.api.health._check_disk_space", return_value={"status": "healthy"}),
         ):
             result = await _run_full_check()
             assert result["status"] == "healthy"
             assert "timestamp" in result
             assert "checks" in result
-            assert set(result["checks"].keys()) == {"sqlite", "influxdb", "mqtt", "drivers"}
+            assert set(result["checks"].keys()) == {"sqlite", "influxdb", "mqtt", "drivers", "disk"}
 
     @pytest.mark.asyncio
     async def test_exception_in_check_handled(self):
@@ -293,6 +296,7 @@ class TestRunFullCheck:
             patch("edgelite.api.health._check_influxdb", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_mqtt", return_value={"status": "healthy"}),
             patch("edgelite.api.health._check_drivers", return_value={"status": "healthy"}),
+            patch("edgelite.api.health._check_disk_space", return_value={"status": "healthy"}),
         ):
             result = await _run_full_check()
             # gather(return_exceptions=True) 捕获异常，转 unhealthy

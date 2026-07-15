@@ -65,7 +65,7 @@ services:
       - edgelite-net
 
   frontend:
-    image: nginx:alpine
+    image: nginx:1.27-alpine  # FIXED: 固定版本避免:latest标签漂移
     container_name: edgelite-frontend
     profiles:
       - nginx

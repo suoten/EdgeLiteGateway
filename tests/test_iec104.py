@@ -358,8 +358,11 @@ class TestIec104SboConfirmation:
             ])
 
         async def simulate_execute_confirm():
-            # 等 select 完成、execute 命令发出后回复确认
-            await asyncio.sleep(0.06)
+            # FIXED: 先等待 select 确认完成，再延迟触发 execute 确认
+            # 原问题: 两个模拟同时启动，execute 确认可能在 SBO 流程进入 execute 阶段前到达
+            # 导致确认被忽略，execute 超时失败（偶发竞态）
+            await d._sbo_select_event.wait()
+            await asyncio.sleep(0.02)
             d._handle_sbo_confirmation([
                 self._cmd_point(123, TI_C_SC_NA, 7, SBO_EXECUTE)
             ])

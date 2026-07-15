@@ -56,6 +56,7 @@ class ServiceContainer:
     inference_scheduler: Any = None  # FIXED: AI 推理调度器，注入 MCPToolService [2026-06-29]
     driver_watchdog: Any = None
     shadow_service: Any = None
+    disk_monitor: Any = None  # 磁盘空间监控器
 
     _repos: dict = field(default_factory=dict, repr=False)
     _initialized: list = field(default_factory=list, repr=False)
@@ -197,6 +198,18 @@ async def bootstrap_engine(c: ServiceContainer, config) -> None:
 
     c.lifecycle = DeviceLifecycleManager(event_bus)
     c.track("lifecycle", c.lifecycle)  # FIXED: P0-2 lifecycle需追踪
+
+    # 磁盘空间监控：定期检查磁盘使用率，超阈值时发布告警并触发 WAL checkpoint
+    try:
+        from edgelite.monitoring.disk_monitor import DiskSpaceMonitor
+
+        db_path = str(getattr(getattr(config, "database", None), "path", "data/edgelite.db"))
+        disk_monitor = DiskSpaceMonitor(event_bus=event_bus, db_path=db_path)
+        disk_monitor.start()
+        c.disk_monitor = disk_monitor
+        c.track("disk_monitor", disk_monitor)
+    except Exception as e:
+        logger.warning("DiskSpaceMonitor init failed (best-effort): %s", e)
 
 
 async def bootstrap_services(c: ServiceContainer, config) -> None:
@@ -1007,6 +1020,10 @@ async def teardown(c: ServiceContainer) -> None:
     # 1. 停止所有采集任务
     if c.scheduler:
         await _safe_stop(c.scheduler, "stop_all", "scheduler")
+
+    # 1.5 停止磁盘空间监控（在数据库关闭前停止，避免 WAL checkpoint 与 DB 关闭竞态）
+    if c.disk_monitor:
+        await _safe_stop(c.disk_monitor, "stop", "disk_monitor")
 
     # 2. 停止所有驱动
     driver_registry = getattr(c, "driver_registry", None)
