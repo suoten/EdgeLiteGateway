@@ -102,6 +102,7 @@ _*.py
 _*.txt
 _*.err
 _*.log
+_*.xml
 pyright_*.log
 pyright_*.json
 pyright_*.txt
@@ -121,6 +122,11 @@ test_core.py
 test_patch.py
 run_test_patch.py
 .read_helper.py
+failed_tests.txt
+fix_test.txt
+notif_part*.txt
+cov_baseline.txt
+test_reports_test/
 
 # ---------- 引擎/工具内部文件 ----------
 .loopengine/
@@ -131,6 +137,10 @@ fix_bom.py
 count_docstrings.py
 parse_results.py
 fix_rbac.py
+fix_typo.py
+report.md
+FIX_PROMPTS.md
+.uploads/
 
 # ---------- 发布前清理追加 (P2) ----------
 *.tmp
@@ -142,6 +152,9 @@ test_screenshots/
 test_screenshots_v2/
 audit_i18n_report.json
 fix_north_adapters.py
+coverage*.xml
+coverage_*.json
+cov_*.txt
 
 # ConvergeLoop 自动补充（防止 git add -A 卡死）
 site-packages/
