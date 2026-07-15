@@ -218,8 +218,11 @@ async def _run_full_check() -> dict[str, Any]:
     if isinstance(drivers_r, Exception):
         drivers_r = {"status": "unhealthy", "error": str(drivers_r)}
 
+    # 磁盘空间检查（同步、快速）
+    disk_r = _check_disk_space()
+
     # 综合状态判定：任一 unhealthy 即整体 unhealthy；仅有 degraded 则整体 degraded
-    statuses = [sqlite_r["status"], influx_r["status"], mqtt_r["status"], drivers_r["status"]]
+    statuses = [sqlite_r["status"], influx_r["status"], mqtt_r["status"], drivers_r["status"], disk_r["status"]]
     if "unhealthy" in statuses:
         overall = "unhealthy"
     elif "degraded" in statuses:
@@ -235,6 +238,7 @@ async def _run_full_check() -> dict[str, Any]:
             "influxdb": influx_r,
             "mqtt": mqtt_r,
             "drivers": drivers_r,
+            "disk": disk_r,
         },
     }
 
@@ -269,7 +273,7 @@ async def health_ready(request: Request) -> JSONResponse:
         return JSONResponse(status_code=429, content={"status": "rate_limited"})
 
     try:
-        sqlite_r, influx_r = await asyncio.wait_for(
+        sqlite_r, influx_r, disk_r = await asyncio.wait_for(
             asyncio.gather(_check_sqlite(), _check_influxdb(), return_exceptions=True),
             timeout=_HEALTH_CHECK_TIMEOUT_SECONDS,
         )
@@ -284,12 +288,15 @@ async def health_ready(request: Request) -> JSONResponse:
     if isinstance(influx_r, Exception):
         influx_r = {"status": "unhealthy", "error": str(influx_r)}
 
-    ready = sqlite_r["status"] == "healthy" and influx_r["status"] == "healthy"
+    # 磁盘空间检查（同步、快速，不纳入 async gather）
+    disk_r = _check_disk_space()
+
+    ready = sqlite_r["status"] == "healthy" and influx_r["status"] == "healthy" and disk_r["status"] != "unhealthy"
     return JSONResponse(
         status_code=200 if ready else 503,
         content={
             "status": "ready" if ready else "not_ready",
-            "checks": {"sqlite": sqlite_r, "influxdb": influx_r},
+            "checks": {"sqlite": sqlite_r, "influxdb": influx_r, "disk": disk_r},
         },
     )
 
