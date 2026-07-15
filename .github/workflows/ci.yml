@@ -36,8 +36,8 @@ jobs:
         run: pip install "ruff>=0.3.0"
       - name: Ruff check
         run: ruff check .
-      - name: Ruff format check (report-only, non-blocking)
-        run: ruff format --check . || true
+      - name: Ruff format check
+        run: ruff format --check .
 
   typecheck:
     name: Type check (pyright)
@@ -140,7 +140,7 @@ jobs:
       - name: Audit Python dependencies
         run: pip-audit --strict --desc
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: fs
           scan-ref: .
@@ -148,7 +148,7 @@ jobs:
           exit-code: 1
           format: table
       - name: Run Trivy Docker image scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: image
           scan-ref: edgelite:ci

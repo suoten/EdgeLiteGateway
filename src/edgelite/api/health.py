@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from collections import defaultdict, deque
 from typing import Any
@@ -36,6 +37,14 @@ router = APIRouter(tags=["Health"])
 _HEALTH_CHECK_TIMEOUT_SECONDS = 5  # 完整健康检查总超时（秒）
 _RATE_LIMIT_WINDOW_SECONDS = 10  # 速率限制时间窗口
 _RATE_LIMIT_MAX_REQUESTS = 60  # 每个 IP 在窗口内最大请求数
+_DISK_SPACE_CRITICAL_PERCENT = 90  # 磁盘使用率告警阈值（%）
+_DISK_SPACE_CRITICAL_FREE_BYTES = 1 * 1024 * 1024 * 1024  # 磁盘可用空间最低阈值（1GB）
+
+# psutil 可选依赖
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 
 # ── 简单内存速率限制器（token bucket per IP）──
@@ -146,6 +155,35 @@ async def _check_drivers() -> dict[str, Any]:
             return {"status": "degraded", "error": "driver_registry not initialized"}
         protocols = registry.get_all_protocol_keys() if hasattr(registry, "get_all_protocol_keys") else []
         return {"status": "healthy", "protocols": len(protocols)}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
+
+def _check_disk_space() -> dict[str, Any]:
+    """检查磁盘空间是否充足。
+
+    当磁盘使用率超过 90% 或可用空间低于 1GB 时返回 unhealthy。
+    readiness 探针据此返回 503，防止 K8s 向磁盘不足的节点调度流量。
+    """
+    if psutil is None:
+        return {"status": "degraded", "error": "psutil not available"}
+    try:
+        disk_path = "C:\\" if os.name == "nt" else "/"
+        usage = psutil.disk_usage(disk_path)
+        result = {
+            "status": "healthy",
+            "disk_total": usage.total,
+            "disk_used": usage.used,
+            "disk_free": usage.free,
+            "disk_percent": usage.percent,
+        }
+        if usage.percent >= _DISK_SPACE_CRITICAL_PERCENT:
+            result["status"] = "unhealthy"
+            result["error"] = f"disk usage {usage.percent:.1f}% exceeds threshold {_DISK_SPACE_CRITICAL_PERCENT}%"
+        elif usage.free < _DISK_SPACE_CRITICAL_FREE_BYTES:
+            result["status"] = "unhealthy"
+            result["error"] = f"disk free space {usage.free / 1024 / 1024:.0f}MB below 1GB threshold"
+        return result
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
 

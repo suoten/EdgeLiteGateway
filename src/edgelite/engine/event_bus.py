@@ -90,6 +90,24 @@ class InfluxDBFallbackEvent(Event):
 
 
 @dataclass
+class SystemAlertEvent(Event):
+    """系统级告警事件
+
+    用于磁盘空间不足、内存溢出、CPU 过载等系统资源告警。
+    由 DiskSpaceMonitor / 其他系统监控模块发布。
+    """
+
+    alert_type: str = ""  # "disk_space" / "memory" / "cpu" 等
+    severity: str = "warning"  # "warning" / "critical"
+    message: str = ""
+    details: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if not self.event_id:
+            self.event_id = f"system_alert:{self.alert_type}:{self.severity}"
+
+
+@dataclass
 class MqttForwardEvent(Event):  # FIXED-P0: device_linkage mqtt_publish需要Event子类
     """MQTT转发事件"""
 
