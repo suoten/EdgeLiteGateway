@@ -72,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AI stats endpoint: hasattr guard for model_dump() on dict responses
 
 ### DevOps
+- 依赖锁定文件生成脚本（generate_lockfile.sh + .ps1）和 Makefile target
+- requirements.txt 增加锁定文件生成文档
 - GitHub Actions CI workflow with 5 parallel jobs (lint, typecheck, test, build, docker)
 - GitHub Actions CD workflow with semantic version tagging and GHCR publishing
 - Docker multi-stage build (frontend-builder → python-builder → runtime)

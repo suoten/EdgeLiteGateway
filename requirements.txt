@@ -51,7 +51,14 @@ opencv-python-headless>=4.8.0,<5.0
 pytest>=8.0.0,<9.0
 pytest-asyncio>=0.23.0,<1.0
 
-# FIXED(低危): 原问题-无依赖锁定文件，构建不可复现且存在供应链风险;
-# 建议使用 pip-compile 生成 requirements.lock 并使用 pip install --require-hashes 安装
-# 生成锁定文件: pip-compile --generate-hashes --output-file=requirements.lock requirements.txt
-# 安装锁定依赖: pip install --require-hashes -r requirements.lock
+# FIXED(低危): 依赖锁定文件（供应链安全）
+# 为确保构建可复现和供应链安全，应生成锁定文件：
+#
+#   Bash:  bash scripts/generate_lockfile.sh
+#   PowerShell: powershell -ExecutionPolicy Bypass -File scripts/generate_lockfile.ps1
+#
+# 生成后使用锁定依赖安装:
+#   pip install --require-hashes -r requirements.lock
+#
+# 锁定文件包含所有依赖的确切版本和 SHA256 哈希值，
+# 防止依赖篡改、供应链攻击和版本漂移。
