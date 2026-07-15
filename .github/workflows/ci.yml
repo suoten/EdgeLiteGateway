@@ -74,8 +74,8 @@ jobs:
         run: |
           pytest --cov=edgelite --cov-report=xml:coverage.xml --cov-report=term-missing \
                  -p no:cacheprovider --timeout=60 -q
-      - name: Enforce coverage floor (60%)
-        run: pytest --cov=edgelite --cov-fail-under=60 --cov-report=term -q --no-header -p no:cacheprovider
+      - name: Enforce coverage floor (80%)
+        run: pytest --cov=edgelite --cov-fail-under=80 --cov-report=term -q --no-header -p no:cacheprovider
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,7 +128,7 @@ jobs:
   security:
     name: Security scan (trivy + pip-audit)
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [lint, docker]  # FIXED: 添加 docker 依赖，确保 Trivy 镜像扫描针对最新构建的镜像
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

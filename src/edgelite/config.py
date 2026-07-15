@@ -847,7 +847,7 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
 
     config = AppConfig(**config_data)
 
-    # FIXED(致命4): 生产环境（DEV_MODE=false）下强制拒绝 debug_api_enabled=true
+    # FIXED(安全): 生产环境（DEV_MODE=false）下强制拒绝 debug_api_enabled=true
     # debug_api_enabled=true 会注册 /debug/simulate、/debug/read、/debug/write 等端点
     # （可直接操控工业设备）并暴露 /docs、/redoc、/openapi.json，存在严重安全风险
     dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
@@ -856,6 +856,16 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
             "安全校验: 生产环境（DEV_MODE=false）下禁止开启 debug_api_enabled，已强制关闭。如需调试请设置 DEV_MODE=true"
         )
         config.server.debug_api_enabled = False
+
+    # FIXED(安全): 生产环境（DEV_MODE=false）下强制启用 cookie_secure
+    # cookie_secure=False 时 Cookie 可通过 HTTP 传输被中间人截获
+    # 生产环境必须通过 HTTPS 部署，Cookie 的 Secure 标记必须为 True
+    if not dev_mode and not config.security.cookie_secure:
+        logger.info(
+            "安全校验: 生产环境（DEV_MODE=false）下自动启用 cookie_secure=True，"
+            "确保 Cookie 仅通过 HTTPS 传输"
+        )
+        config.security.cookie_secure = True
 
     # FIXED(安全): 生产环境（DEV_MODE=false）下校验 CSRF_SECRET 不得为已知不安全默认值/占位符
     # CSRF_SECRET 为空时由中间件自动生成随机值（安全，但重启后 token 失效），仅记录提示

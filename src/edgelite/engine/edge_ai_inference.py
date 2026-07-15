@@ -261,8 +261,8 @@ class OnnxModelWrapper:
             try:
                 # ONNX Runtime InferenceSession 无标准 close()，通过 del 触发 __dealloc__
                 del self.session
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to release ONNX session for model %s: %s", getattr(self, 'model_name', 'unknown'), e)
         self.session = None
         self.status = "inactive"
         self.loaded_at = None

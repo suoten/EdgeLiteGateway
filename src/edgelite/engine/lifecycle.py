@@ -167,8 +167,8 @@ class DeviceLifecycleManager:
             await asyncio.to_thread(lambda: self._status_map.__setitem__(device_id, old_status))
             try:
                 await self._event_bus.publish(correction_event)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to publish correction event for device %s: %s", device_id, e)
             raise
         try:
             await self._event_bus.publish(event)

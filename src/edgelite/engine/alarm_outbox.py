@@ -198,5 +198,5 @@ class AlarmOutbox:
             if self._conn is not None:
                 self._conn.close()
                 self._conn = None
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("AlarmOutbox connection cleanup failed during __del__: %s", e)

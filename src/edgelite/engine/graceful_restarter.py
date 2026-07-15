@@ -75,6 +75,6 @@ class GracefulRestarter:
             # 即使读取失败也尝试清理
             try:
                 os.remove(marker_path)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to remove restart marker %s: %s", marker_path, e)
             return None

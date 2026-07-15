@@ -248,6 +248,6 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@(abc\\.)?abstractmethod",
 ]
-# 商业就绪基线：核心包行+分支覆盖率下限
-fail_under = 60
+# 完美版基线：核心包行+分支覆盖率下限（从60%提升至80%，匹配≥95分成熟度目标）
+fail_under = 80
 

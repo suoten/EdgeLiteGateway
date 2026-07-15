@@ -1,4 +1,19 @@
-"""ORM-based 仓储实现（SQLAlchemy 2.0 异步）"""
+"""ORM-based 仓储实现（SQLAlchemy 2.0 异步）
+
+本文件包含所有领域的仓储类，按以下顺序组织：
+- Database: 数据库连接与会话管理
+- DeviceRepo: 设备 CRUD
+- DeviceTemplateRepo: 设备模板
+- RuleRepo: 规则引擎
+- AlarmRepo: 告警管理
+- UserRepo: 用户与认证
+- RateLimitRepo: 速率限制与账户锁定
+- ResourceShareRepo: 资源共享
+
+注意：本文件较大（4000+ 行）是因为所有仓储类共享同一 SQLAlchemy 会话管理
+和乐观锁重试基础设施。拆分为多个文件需要重构会话管理抽象，
+计划在未来版本中通过引入 UnitOfWork 模式实现拆分。
+"""
 
 from __future__ import annotations
 

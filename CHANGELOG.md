@@ -5,6 +5,22 @@ All notable changes to EdgeLite Gateway are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- 完美版质量审计：11 维度全面评估（安全/功能/可运行/可部署/代码质量/架构/端到端/测试/性能/文档/DevOps）
+
+### Security
+- 生产环境（DEV_MODE=false）下自动启用 `cookie_secure=True`，确保 Cookie 仅通过 HTTPS 传输
+
+### Changed
+- 测试覆盖率基线从 60% 提升至 80%，匹配完美版（≥95 分）成熟度目标
+- CI 安全扫描 job 添加 `needs: [docker]` 依赖，确保 Trivy 镜像扫描针对最新构建的镜像
+
+### Fixed
+- 4 处 `except Exception: pass` 静默吞没异常改为 `logger.debug/warning` 记录（engine/lifecycle.py、engine/graceful_restarter.py、engine/edge_ai_inference.py、engine/alarm_outbox.py）
+- .gitignore 增加 data/ 目录测试输出文件的额外保护规则
+
 ## [1.0.0] - 2026-07-09
 
 ### Added
@@ -64,4 +80,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kubernetes manifests (Namespace, ConfigMap, Secret, Deployment, Service)
 - Helm chart with configurable values for production K8s deployment
 - Pre-commit hooks (secret detection, Pydantic/ORM consistency, exception handling)
-- ruff lint + format, pyright type checking, pytest-cov coverage (60% floor)
+- ruff lint + format, pyright type checking, pytest-cov coverage (80% floor)

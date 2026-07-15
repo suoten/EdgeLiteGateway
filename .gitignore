@@ -42,6 +42,8 @@ configs/config.local.yaml
 *.cert
 
 # ---------- 运行时数据 ----------
+# data/ 目录包含所有运行时数据库、日志、备份和测试输出文件
+# 测试输出文件（pytest_*.txt, pytest_*.xml, co_err.txt 等）不应提交到版本控制
 data/
 .initial_admin_password  # FIXED-P0: 明文初始管理员密码文件，禁止提交
 !web/src/views/data/
@@ -51,6 +53,9 @@ backups/
 *.db-journal
 *.db-wal
 *.db-shm
+# 额外保护：即使 data/ 规则被移除，测试输出文件仍被忽略
+data/pytest_*.xml
+data/co_err.txt
 
 # ---------- Docker运行时 ----------
 docker/data/
