@@ -155,6 +155,7 @@ fix_north_adapters.py
 coverage*.xml
 coverage_*.json
 cov_*.txt
+.git_commit_msg.txt
 
 # ConvergeLoop 自动补充（防止 git add -A 卡死）
 site-packages/
