@@ -25,7 +25,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from edgelite.api.platforms import router  # noqa: E402
 
-
 # -- helper: build a mock PlatformService instance ----------------------
 
 
@@ -42,9 +41,7 @@ def _make_mock_service() -> MagicMock:
     svc.mqtt_test_publish = AsyncMock(return_value={"published": True, "mid": 42})
     # sync methods
     svc.list_platforms = MagicMock(return_value=[{"name": "mqtt", "connected": True}])
-    svc.list_supported = MagicMock(
-        return_value=[{"name": "mqtt", "label": "MQTT", "description": "MQTT broker"}]
-    )
+    svc.list_supported = MagicMock(return_value=[{"name": "mqtt", "label": "MQTT", "description": "MQTT broker"}])
     svc.get_config_schema = MagicMock(return_value={"fields": [{"name": "broker"}]})
     svc.get_status = MagicMock(return_value={"connected": True, "state": "online"})
     svc.get_north_metrics = MagicMock(return_value="# HELP north_msgs total\n# TYPE north_msgs counter\n")
@@ -107,6 +104,8 @@ def make_app_with(mock_svc, audit_svc):
 def client(make_app_with):
     """Default admin-role sync TestClient."""
     return TestClient(make_app_with("admin"))
+
+
 # -- GET /list -----------------------------------------------------------
 
 
@@ -288,6 +287,8 @@ class TestTestConnection:
             json={"config": {"broker": "x"}},
         )
         assert resp.status_code == 403
+
+
 # -- GET /status / /dashboard / /metrics ---------------------------------
 
 
@@ -427,6 +428,8 @@ class TestValidateTopic:
         resp = client.post("/api/v1/platforms/validate-topic", json={"template": "a"})
         assert resp.status_code == 500
         assert resp.json()["detail"] == "ERR_PLATFORM_TEMPLATE_FAILED"
+
+
 # -- GET /export / POST /import ------------------------------------------
 
 

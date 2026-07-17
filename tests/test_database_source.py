@@ -24,7 +24,6 @@ sys.path.insert(0, "src")
 
 from edgelite.drivers.database_source import DatabaseSourceDriver
 
-
 # ── 辅助：构造 mock 数据库连接池与游标 ──
 
 
@@ -503,9 +502,7 @@ class TestStartStop:
 class TestExecuteQuery:
     async def test_mysql_execute_returns_dicts(self):
         drv = DatabaseSourceDriver()
-        pool, _, cursor = _make_mysql_pool_mock(
-            rows=[("v1",), ("v2",)], description=[("col1",)]
-        )
+        pool, _, cursor = _make_mysql_pool_mock(rows=[("v1",), ("v2",)], description=[("col1",)])
         drv._pool = pool
         drv._config = {"db_type": "mysql"}
         result = await drv._execute_query("SELECT col1 FROM t")
@@ -630,9 +627,7 @@ class TestReadPoints:
 
     async def test_single_row_multi_column_returns_dict_row(self):
         drv = DatabaseSourceDriver()
-        pool, _, _ = _make_mysql_pool_mock(
-            rows=[("v1", "v2")], description=[("col1",), ("col2",)]
-        )
+        pool, _, _ = _make_mysql_pool_mock(rows=[("v1", "v2")], description=[("col1",), ("col2",)])
         drv._pool = pool
         drv._running = True
         drv._config = {"db_type": "mysql", "queries": {"p": "SELECT col1, col2 FROM t"}}
@@ -641,9 +636,7 @@ class TestReadPoints:
 
     async def test_multi_row_returns_list(self):
         drv = DatabaseSourceDriver()
-        pool, _, _ = _make_mysql_pool_mock(
-            rows=[("v1",), ("v2",)], description=[("col1",)]
-        )
+        pool, _, _ = _make_mysql_pool_mock(rows=[("v1",), ("v2",)], description=[("col1",)])
         drv._pool = pool
         drv._running = True
         drv._config = {"db_type": "mysql", "queries": {"p": "SELECT col1 FROM t"}}
@@ -815,9 +808,7 @@ class TestAddRemoveDevice:
     async def test_add_device_merges_queries(self):
         drv = DatabaseSourceDriver()
         drv._config = {"queries": {"existing": "SELECT 1"}}
-        await drv.add_device(
-            "d1", {}, [{"name": "p1", "address": "SELECT 2"}]
-        )
+        await drv.add_device("d1", {}, [{"name": "p1", "address": "SELECT 2"}])
         assert drv._config["queries"]["existing"] == "SELECT 1"
         assert drv._config["queries"]["p1"] == "SELECT 2"
 
@@ -968,9 +959,7 @@ class TestDiscoverMysql:
 
     async def test_discover_with_specific_database(self):
         drv = DatabaseSourceDriver()
-        pool = _make_mysql_discover_pool(
-            fetchone_return=("8.0.0",), fetchall_return=[]
-        )
+        pool = _make_mysql_discover_pool(fetchone_return=("8.0.0",), fetchall_return=[])
         fake_mod = _make_fake_module(create_pool=AsyncMock(return_value=pool))
         with patch.dict(sys.modules, {"aiomysql": fake_mod}):
             result = await drv._discover_mysql("127.0.0.1", 3306, "u", "p", "mydb")
@@ -1036,9 +1025,7 @@ class TestDiscoverPostgresql:
         drv = DatabaseSourceDriver()
         conn = AsyncMock()
         conn.fetchval = AsyncMock(return_value="PostgreSQL 15.0")
-        conn.fetch = AsyncMock(
-            return_value=[{"datname": "db1"}, {"datname": "db2"}]
-        )
+        conn.fetch = AsyncMock(return_value=[{"datname": "db1"}, {"datname": "db2"}])
         conn.close = AsyncMock()
         fake_mod = _make_fake_module(connect=AsyncMock(return_value=conn))
         with patch.dict(sys.modules, {"asyncpg": fake_mod}):
@@ -1191,18 +1178,18 @@ class TestDiscoverMssql:
 class TestEndToEnd:
     async def test_mysql_start_read_stop(self):
         drv = DatabaseSourceDriver()
-        pool, _, _ = _make_mysql_pool_mock(
-            rows=[("42",)], description=[("val",)]
-        )
+        pool, _, _ = _make_mysql_pool_mock(rows=[("42",)], description=[("val",)])
         fake_mod = _make_fake_module(create_pool=AsyncMock(return_value=pool))
         with patch.dict(sys.modules, {"aiomysql": fake_mod}):
-            await drv.start({
-                "db_type": "mysql",
-                "host": "h",
-                "port": 3306,
-                "database": "db",
-                "queries": {"temp": "SELECT val FROM t"},
-            })
+            await drv.start(
+                {
+                    "db_type": "mysql",
+                    "host": "h",
+                    "port": 3306,
+                    "database": "db",
+                    "queries": {"temp": "SELECT val FROM t"},
+                }
+            )
             result = await drv.read_points("d1", ["temp"])
             assert result == {"temp": "42"}
             await drv.stop()
@@ -1213,11 +1200,13 @@ class TestEndToEnd:
         conn, _ = _make_sqlite_pool_mock(rows=[], description=None)
         fake_mod = _make_fake_module(connect=AsyncMock(return_value=conn))
         with patch.dict(sys.modules, {"aiosqlite": fake_mod}):
-            await drv.start({
-                "db_type": "sqlite",
-                "database": ":memory:",
-                "write_queries": {"set_v": "UPDATE t SET v={{value}}"},
-            })
+            await drv.start(
+                {
+                    "db_type": "sqlite",
+                    "database": ":memory:",
+                    "write_queries": {"set_v": "UPDATE t SET v={{value}}"},
+                }
+            )
             ok = await drv.write_point("d1", "set_v", 99)
             assert ok is True
             await drv.stop()

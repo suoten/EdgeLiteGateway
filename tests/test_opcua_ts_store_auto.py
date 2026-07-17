@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/opcua_ts_store.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.opcua_ts_store import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestOpcuaTsStoreAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_append_callable(self):
         """测试 append 可调用（异常即失败）"""
         append([])
@@ -34,15 +43,17 @@ class TestOpcuaTsStoreAuto:
     def test_start_callable(self):
         """测试 start 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(start())
 
     def test_stop_callable(self):
         """测试 stop 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(stop())
 
     def test_sync_now_callable(self):
         """测试 sync_now 可调用（异常即失败）"""
         import asyncio
-        asyncio.get_event_loop().run_until_complete(sync_now())
 
+        asyncio.get_event_loop().run_until_complete(sync_now())

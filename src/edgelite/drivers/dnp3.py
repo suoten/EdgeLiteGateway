@@ -597,7 +597,9 @@ class DNP3Client:
         except (TimeoutError, asyncio.IncompleteReadError, Exception):
             return None
 
-    _MAX_REASSEMBLE_FRAMES = 64  # FIXED(P1): 原问题-重组循环无帧数上限，恶意设备可无限续发导致内存耗尽; 修复-添加安全上限
+    _MAX_REASSEMBLE_FRAMES = (
+        64  # FIXED(P1): 原问题-重组循环无帧数上限，恶意设备可无限续发导致内存耗尽; 修复-添加安全上限
+    )
 
     async def _reassemble_response(self) -> bytes | None:
         """重组传输层分段响应，返回完整 user_data；失败返回 None"""

@@ -198,9 +198,7 @@ class TestSubmitCommand:
     @pytest.mark.asyncio
     async def test_submit_sets_expiry(self, svc):
         """应设置过期时间"""
-        req = await svc.submit_command(
-            "dev1", "D1", "write_point", {}, "alice", timeout_minutes=30
-        )
+        req = await svc.submit_command("dev1", "D1", "write_point", {}, "alice", timeout_minutes=30)
         assert req.expires_at != ""
         # 过期时间应大约在 30 分钟后
         expires = datetime.fromisoformat(req.expires_at)
@@ -227,7 +225,11 @@ class TestApproveCommand:
         )
         svc.create_approval_chain(chain)
         request = await svc.submit_command(
-            "dev1", "D1", "write_point", {"p": 1}, "alice",
+            "dev1",
+            "D1",
+            "write_point",
+            {"p": 1},
+            "alice",
             approval_chain_id="chain1",
         )
         # Mock _execute_command 避免实际执行
@@ -249,7 +251,11 @@ class TestApproveCommand:
         )
         svc.create_approval_chain(chain)
         request = await svc.submit_command(
-            "dev1", "D1", "write_point", {"p": 1}, "alice",
+            "dev1",
+            "D1",
+            "write_point",
+            {"p": 1},
+            "alice",
             approval_chain_id="chain1",
         )
         # 第一步审批
@@ -267,7 +273,11 @@ class TestApproveCommand:
         )
         svc.create_approval_chain(chain)
         request = await svc.submit_command(
-            "dev1", "D1", "write_point", {"p": 1}, "alice",
+            "dev1",
+            "D1",
+            "write_point",
+            {"p": 1},
+            "alice",
             approval_chain_id="chain1",
         )
         with patch.object(svc, "_execute_command", new=AsyncMock()):
@@ -293,7 +303,11 @@ class TestRejectCommand:
         )
         svc.create_approval_chain(chain)
         request = await svc.submit_command(
-            "dev1", "D1", "write_point", {"p": 1}, "alice",
+            "dev1",
+            "D1",
+            "write_point",
+            {"p": 1},
+            "alice",
             approval_chain_id="chain1",
         )
         result = await svc.reject_command(request.request_id, "supervisor1", "bad command")
@@ -309,7 +323,11 @@ class TestRejectCommand:
         )
         svc.create_approval_chain(chain)
         request = await svc.submit_command(
-            "dev1", "D1", "write_point", {"p": 1}, "alice",
+            "dev1",
+            "D1",
+            "write_point",
+            {"p": 1},
+            "alice",
             approval_chain_id="chain1",
         )
         with patch.object(svc, "_execute_command", new=AsyncMock()):
@@ -334,7 +352,11 @@ class TestCancelCommand:
         )
         svc.create_approval_chain(chain)
         request = await svc.submit_command(
-            "dev1", "D1", "write_point", {"p": 1}, "alice",
+            "dev1",
+            "D1",
+            "write_point",
+            {"p": 1},
+            "alice",
             approval_chain_id="chain1",
         )
         result = await svc.cancel_command(request.request_id, "alice")

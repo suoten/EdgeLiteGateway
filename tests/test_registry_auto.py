@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/registry.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.registry import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestRegistryAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_get_driver_display_name_callable(self):
         """测试 get_driver_display_name 可调用（异常即失败）"""
         get_driver_display_name("test", "")
@@ -62,4 +71,3 @@ class TestRegistryAuto:
     def test_get_dependency_results_callable(self):
         """测试 get_dependency_results 可调用（异常即失败）"""
         get_dependency_results()
-

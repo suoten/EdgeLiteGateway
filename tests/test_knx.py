@@ -34,7 +34,7 @@ class TestKnxAddressConversion:
     """KNX 地址编解码"""
 
     def test_address_to_bytes(self):
-        """"1/2/3" → [0x0A, 0x03] (area=1<<3|line=2=0x0A, member=3)"""
+        """ "1/2/3" → [0x0A, 0x03] (area=1<<3|line=2=0x0A, member=3)"""
         assert _knx_address_to_bytes("1/2/3") == bytes([0x0A, 0x03])
 
     def test_address_roundtrip(self):
@@ -106,7 +106,7 @@ class TestKnxCemiFrameStructure:
         """TPDU 紧跟 PayloadLen 之后"""
         tpdu = bytes([0x80, 0x42])
         cemi = KNXClient._build_cemi_l_data_req(b"\x00\x00", tpdu)
-        assert cemi[9:9 + len(tpdu)] == tpdu
+        assert cemi[9 : 9 + len(tpdu)] == tpdu
 
 
 class TestKnxTpduReadRequest:
@@ -115,7 +115,7 @@ class TestKnxTpduReadRequest:
     def test_read_tpdu_is_group_value_read(self):
         """GroupValue_Read TPDU = [0x00, 0x00]"""
         tpdu = bytes([0x00, 0x00])
-        cemi = KNXClient._build_cemi_l_data_req(b"\x0A\x03", tpdu)
+        cemi = KNXClient._build_cemi_l_data_req(b"\x0a\x03", tpdu)
         # TPDU 在 cEMI[9:]
         assert cemi[9:] == bytes([0x00, 0x00])
         # APCI 高 2 位 = 00 → GroupValue_Read
@@ -143,9 +143,7 @@ class TestKnxTpduWriteConstruction:
 
         loop = asyncio.new_event_loop()
         try:
-            loop.run_until_complete(
-                client.write_group_value(group_address, value, data_type)
-            )
+            loop.run_until_complete(client.write_group_value(group_address, value, data_type))
         finally:
             loop.close()
         return captured[0]
@@ -218,20 +216,26 @@ class TestKnxTunnelIndicationParse:
     """Tunnel Indication cEMI 解析 (目的地地址 + TPDU 数据提取)"""
 
     @staticmethod
-    def _build_tunnel_indication(
-        group_addr: str, apci_byte: int, data_bytes: bytes = b""
-    ) -> bytes:
+    def _build_tunnel_indication(group_addr: str, apci_byte: int, data_bytes: bytes = b"") -> bytes:
         """构建一个标准的 Tunnel Indication 帧"""
         # cEMI L_Data.ind
         dest = _knx_address_to_bytes(group_addr)
         tpdu = bytes([apci_byte]) + data_bytes
         payload_len = max(0, len(tpdu) - 1)
-        cemi = bytes([
-            KNX_CEMI_L_BUS_INDICATION,  # 0x2B
-            0x00,  # AddInfoLen
-            0xBC,  # Ctrl1
-            0x60,  # Ctrl2 (group)
-        ]) + b"\x00\x00" + dest + bytes([payload_len]) + tpdu
+        cemi = (
+            bytes(
+                [
+                    KNX_CEMI_L_BUS_INDICATION,  # 0x2B
+                    0x00,  # AddInfoLen
+                    0xBC,  # Ctrl1
+                    0x60,  # Ctrl2 (group)
+                ]
+            )
+            + b"\x00\x00"
+            + dest
+            + bytes([payload_len])
+            + tpdu
+        )
 
         # KNXnetIP header (6) + tunnel body (3) + cEMI
         total_len = 6 + 3 + len(cemi)
@@ -361,8 +365,7 @@ class TestKnxConnectionStateResponse:
 
         结构: KNXnetIP头(6) + ChannelID(1) + Status(1)
         """
-        header = struct.pack(">BBHH", 0x10, 0x06,
-                             SERVICE_TYPE_CONNECTIONSTATE_RESPONSE, 8)
+        header = struct.pack(">BBHH", 0x10, 0x06, SERVICE_TYPE_CONNECTIONSTATE_RESPONSE, 8)
         return header + bytes([channel_id, status])
 
     def _make_client(self, channel_id: int = 5) -> KNXClient:
@@ -617,6 +620,7 @@ class TestKnxHeartbeatConfig:
     def test_config_schema_includes_heartbeat_interval(self):
         """config_schema 包含 heartbeat_interval 字段"""
         from edgelite.drivers.knx import KNXDriver
+
         fields = KNXDriver.config_schema["fields"]
         names = [f["name"] for f in fields]
         assert "heartbeat_interval" in names

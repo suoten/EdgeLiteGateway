@@ -28,8 +28,7 @@ from httpx import ASGITransport, AsyncClient
 
 from edgelite.api import mcp as mcp_module
 from edgelite.api.error_codes import AuthzErrors, McpErrors
-from edgelite.api.mcp import _consume_sse_ticket, _sse_tickets, _sse_tickets_lock, router
-
+from edgelite.api.mcp import _consume_sse_ticket, _sse_tickets, router
 
 # -- helpers --
 
@@ -204,7 +203,9 @@ class TestCallTool:
     async def test_call_tool_validation_errors_returns_400(self, client):
         """validate_tool_call 返回错误时应返回 400 MISSING_PARAMS"""
         c, _ = client
-        with patch.object(mcp_module._mcp_tools, "validate_tool_call", return_value=["Missing required parameter: device_id"]):
+        with patch.object(
+            mcp_module._mcp_tools, "validate_tool_call", return_value=["Missing required parameter: device_id"]
+        ):
             resp = await c.post(
                 "/api/v1/mcp/call",
                 json={"name": "get_device_status", "arguments": {}},
@@ -491,6 +492,7 @@ class TestMcpSse:
             resp = await c.get("/api/v1/mcp/sse", headers={"Authorization": "Bearer fake-token"})
         assert resp.status_code == 401
 
+
 class TestMcpSseStream:
     """SSE 流内容测试 - 验证 connected 事件、headers、event_bus 处理器注册
 
@@ -554,7 +556,7 @@ class TestMcpSseStream:
         # 此时 handler 已注册完成
         try:
             await asyncio.wait_for(generator.__anext__(), timeout=0.1)
-        except (asyncio.TimeoutError, StopAsyncIteration):
+        except (TimeoutError, StopAsyncIteration):
             pass
 
         # 应注册 3 个事件处理器

@@ -13,12 +13,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
-
-import pytest
 
 from edgelite.drivers.opcua_server import OpcUaNode, OpcUaServerDriver, OpcUaSubscription
-
 
 # ── OpcUaNode 数据类 ──
 

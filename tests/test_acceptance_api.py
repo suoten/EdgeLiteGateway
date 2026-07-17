@@ -212,13 +212,16 @@ class TestAPI401Unauthorized:
 
     @pytest.mark.asyncio
     async def test_a3_05_create_device_no_token(self, no_auth_client):
-        resp = await no_auth_client.post("/api/v1/devices", json={
-            "device_id": "unauthorized-dev",
-            "name": "未授权设备",
-            "protocol": "modbus_tcp",
-            "config": {"slave_id": 1},
-            "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
-        })
+        resp = await no_auth_client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "unauthorized-dev",
+                "name": "未授权设备",
+                "protocol": "modbus_tcp",
+                "config": {"slave_id": 1},
+                "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
+            },
+        )
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
@@ -247,13 +250,16 @@ class TestAPI403Forbidden:
     @pytest.mark.asyncio
     async def test_a4_01_viewer_cannot_create_device(self, viewer_client):
         """viewer 角色不能创建设备"""
-        resp = await viewer_client.post("/api/v1/devices", json={
-            "device_id": "viewer-dev-test",
-            "name": "viewer设备",
-            "protocol": "modbus_tcp",
-            "config": {"slave_id": 1},
-            "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
-        })
+        resp = await viewer_client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "viewer-dev-test",
+                "name": "viewer设备",
+                "protocol": "modbus_tcp",
+                "config": {"slave_id": 1},
+                "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
+            },
+        )
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
@@ -265,12 +271,15 @@ class TestAPI403Forbidden:
     @pytest.mark.asyncio
     async def test_a4_03_viewer_cannot_create_rule(self, viewer_client):
         """viewer 角色不能创建规则"""
-        resp = await viewer_client.post("/api/v1/rules", json={
-            "name": "viewer规则",
-            "device_id": "any-device",
-            "severity": "critical",
-            "conditions": [{"point": "temp", "operator": ">", "threshold": 80, "type": "threshold"}],
-        })
+        resp = await viewer_client.post(
+            "/api/v1/rules",
+            json={
+                "name": "viewer规则",
+                "device_id": "any-device",
+                "severity": "critical",
+                "conditions": [{"point": "temp", "operator": ">", "threshold": 80, "type": "threshold"}],
+            },
+        )
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
@@ -356,27 +365,21 @@ class TestAPI500ServerError:
     @pytest.mark.asyncio
     async def test_a6_01_device_service_error(self, client, app):
         """设备服务内部异常返回 500"""
-        app.state.device_service.list_devices = AsyncMock(
-            side_effect=RuntimeError("DB connection lost")
-        )
+        app.state.device_service.list_devices = AsyncMock(side_effect=RuntimeError("DB connection lost"))
         resp = await client.get("/api/v1/devices")
         assert resp.status_code in (500, 503)  # mock 环境可能返回 503
 
     @pytest.mark.asyncio
     async def test_a6_02_rule_service_error(self, client, app):
         """规则服务内部异常返回 500"""
-        app.state.rule_service.list_rules = AsyncMock(
-            side_effect=RuntimeError("unexpected error")
-        )
+        app.state.rule_service.list_rules = AsyncMock(side_effect=RuntimeError("unexpected error"))
         resp = await client.get("/api/v1/rules")
         assert resp.status_code in (500, 503)
 
     @pytest.mark.asyncio
     async def test_a6_03_alarm_service_error(self, client, app):
         """告警服务内部异常返回 500"""
-        app.state.alarm_service.list_alarms = AsyncMock(
-            side_effect=RuntimeError("unexpected error")
-        )
+        app.state.alarm_service.list_alarms = AsyncMock(side_effect=RuntimeError("unexpected error"))
         resp = await client.get("/api/v1/alarms")
         assert resp.status_code in (500, 503)
 

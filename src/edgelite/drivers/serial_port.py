@@ -92,7 +92,11 @@ class SerialPortDriver(DriverPlugin):
 
     plugin_name = "serial_port"
     plugin_version = "1.0.0"
-    supported_protocols = ("serial", "serial_modbus_rtu", "serial_raw")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
+    supported_protocols = (
+        "serial",
+        "serial_modbus_rtu",
+        "serial_raw",
+    )  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "Serial communication (RS232/RS485), supports Modbus RTU and other protocols",  # FIXED: 原问题-中文硬编码description
         "fields": [

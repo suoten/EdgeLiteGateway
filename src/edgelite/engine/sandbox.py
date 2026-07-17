@@ -30,28 +30,82 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # ── 危险 AST 节点类型 ──────────────────────────────────────────────────
-_DANGEROUS_ATTRS: frozenset[str] = frozenset({
-    "__import__", "__builtins__", "__subclasses__", "__mro__", "__bases__",
-    "__class__", "__globals__", "__code__", "__func__", "__self__",
-    "__dict__", "__module__", "gi_frame", "gi_code", "cr_frame", "cr_code",
-    "f_locals", "f_globals", "f_builtins", "f_code",
-})
+_DANGEROUS_ATTRS: frozenset[str] = frozenset(
+    {
+        "__import__",
+        "__builtins__",
+        "__subclasses__",
+        "__mro__",
+        "__bases__",
+        "__class__",
+        "__globals__",
+        "__code__",
+        "__func__",
+        "__self__",
+        "__dict__",
+        "__module__",
+        "gi_frame",
+        "gi_code",
+        "cr_frame",
+        "cr_code",
+        "f_locals",
+        "f_globals",
+        "f_builtins",
+        "f_code",
+    }
+)
 
-_DANGEROUS_NAMES: frozenset[str] = frozenset({
-    "eval", "exec", "compile", "globals", "locals", "vars",
-    "dir", "type", "getattr", "setattr", "delattr", "hasattr",
-    "input", "breakpoint", "exit", "quit",
-    "__import__", "open", "memoryview",
-})
+_DANGEROUS_NAMES: frozenset[str] = frozenset(
+    {
+        "eval",
+        "exec",
+        "compile",
+        "globals",
+        "locals",
+        "vars",
+        "dir",
+        "type",
+        "getattr",
+        "setattr",
+        "delattr",
+        "hasattr",
+        "input",
+        "breakpoint",
+        "exit",
+        "quit",
+        "__import__",
+        "open",
+        "memoryview",
+    }
+)
 
 _ALLOWED_BUILTINS: dict[str, Any] = {
-    "abs": abs, "min": min, "max": max, "sum": sum,
-    "round": round, "len": len, "range": range,
-    "int": int, "float": float, "str": str, "bool": bool,
-    "list": list, "dict": dict, "tuple": tuple, "set": set,
-    "sorted": sorted, "reversed": reversed, "enumerate": enumerate,
-    "zip": zip, "map": map, "filter": filter, "any": any, "all": all,
-    "True": True, "False": False, "None": None,
+    "abs": abs,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "round": round,
+    "len": len,
+    "range": range,
+    "int": int,
+    "float": float,
+    "str": str,
+    "bool": bool,
+    "list": list,
+    "dict": dict,
+    "tuple": tuple,
+    "set": set,
+    "sorted": sorted,
+    "reversed": reversed,
+    "enumerate": enumerate,
+    "zip": zip,
+    "map": map,
+    "filter": filter,
+    "any": any,
+    "all": all,
+    "True": True,
+    "False": False,
+    "None": None,
     "print": lambda *a, **k: None,  # no-op print
 }
 
@@ -80,16 +134,12 @@ class _ScriptValidator(ast.NodeVisitor):
 
     def visit_Attribute(self, node: ast.Attribute) -> Any:
         if node.attr in _DANGEROUS_ATTRS:
-            self._dangerous.append(
-                f"dangerous attribute '{node.attr}' at line {node.lineno}"
-            )
+            self._dangerous.append(f"dangerous attribute '{node.attr}' at line {node.lineno}")
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> Any:
         if node.id in _DANGEROUS_NAMES:
-            self._dangerous.append(
-                f"dangerous name '{node.id}' at line {node.lineno}"
-            )
+            self._dangerous.append(f"dangerous name '{node.id}' at line {node.lineno}")
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> Any:

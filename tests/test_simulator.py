@@ -26,8 +26,16 @@ from edgelite.drivers.simulator import (
 class TestConstants:
     def test_wave_modes_contains_all(self):
         expected = {
-            "random", "sine", "square", "triangle", "sawtooth",
-            "random_walk", "ramp", "step", "formula", "fixed",
+            "random",
+            "sine",
+            "square",
+            "triangle",
+            "sawtooth",
+            "random_walk",
+            "ramp",
+            "step",
+            "formula",
+            "fixed",
         }
         assert set(_WAVE_MODES) == expected
 

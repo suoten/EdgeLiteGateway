@@ -1,7 +1,7 @@
 name: CI
 
 # FIXED: 补充 DevOps 维度 — 商业就绪所需的持续集成流水线
-# 覆盖：依赖缓存 → Lint(ruff) → 类型检查(pyright) → 测试+覆盖率 → 构建校验 → Docker 构建
+# 覆盖：依赖缓存 → Lint(ruff) → 类型检查(pyright) → 测试+覆盖率 → 构建校验 → Docker 构建 → 冒烟测试 → 安全扫描
 # 设计原则：失败快速暴露、产物可追溯、不依赖外部硬件/协议设备（测试全 mock 化）
 
 on:
@@ -67,15 +67,17 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: Run tests with coverage
+      - name: Run tests with coverage (enforce 80% floor)
         env:
           EDGELITE_SECURITY__SECRET_KEY: ${{ env.EDGELITE_SECURITY__SECRET_KEY }}
           EDGELITE_DB__PATH: ":memory:"
         run: |
-          pytest --cov=edgelite --cov-report=xml:coverage.xml --cov-report=term-missing \
-                 -p no:cacheprovider --timeout=60 -q
-      - name: Enforce coverage floor (80%)
-        run: pytest --cov=edgelite --cov-fail-under=80 --cov-report=term -q --no-header -p no:cacheprovider
+          pytest --cov=edgelite \
+                 --cov-report=xml:coverage.xml \
+                 --cov-report=term-missing \
+                 --cov-fail-under=80 \
+                 --timeout=60 -q \
+                 -p no:cacheprovider
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -125,20 +127,88 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  security:
-    name: Security scan (trivy + pip-audit)
+  smoke-test:
+    name: Smoke test (E2E)
     runs-on: ubuntu-latest
-    needs: [lint, docker]  # FIXED: 添加 docker 依赖，确保 Trivy 镜像扫描针对最新构建的镜像
+    needs: [docker]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - name: Install pip-audit
-        run: pip install pip-audit
+      - name: Install httpx for smoke test
+        run: pip install httpx
+      - name: Start EdgeLite container
+        run: |
+          docker run -d --name edgelite-smoke \
+            -p 8080:8080 \
+            -e EDGELITE_SECURITY__SECRET_KEY="${{ env.EDGELITE_SECURITY__SECRET_KEY }}" \
+            -e EDGELITE_ADMIN_PASSWORD="smoke-test-admin-pass" \
+            -e DEV_MODE=true \
+            edgelite:ci
+      - name: Wait for health check
+        run: |
+          echo "⏳ Waiting for EdgeLite to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+              echo "✅ EdgeLite is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ EdgeLite did not become healthy in 150s"
+          docker logs edgelite-smoke --tail=50
+          exit 1
+      - name: Run smoke tests
+        run: |
+          python scripts/smoke_test.py \
+            --base-url http://localhost:8080 \
+            --user admin \
+            --pass "smoke-test-admin-pass" \
+            --retry 3
+      - name: Cleanup
+        if: always()
+        run: docker rm -f edgelite-smoke || true
+
+  security:
+    name: Security scan (trivy + pip-audit + SBOM)
+    runs-on: ubuntu-latest
+    needs: [lint, docker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install package + security tools
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pip-audit cyclonedx-bom
       - name: Audit Python dependencies
         run: pip-audit --strict --desc
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          cyclonedx-py environment -o sbom.json --schema-version 1.5
+      - name: Upload SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Generate dependency lockfile
+        run: |
+          pip freeze --exclude-editable > requirements.lock
+      - name: Upload lockfile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: requirements-lock
+          path: requirements.lock
+          if-no-files-found: warn
+          retention-days: 30
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@0.24.0
         with:

@@ -24,35 +24,41 @@ class TestDeviceCRUD:
         app = _build_test_app("admin")
         # 覆盖 device_service mock 返回真实数据
         svc = app.state.device_service
-        svc.get_device = AsyncMock(return_value={
-            "device_id": "test-device-01",
-            "name": "温度传感器",
-            "protocol": "modbus_tcp",
-            "config": {"host": "127.0.0.1", "port": 5020, "slave_id": 1},
-            "points": [{"name": "temperature", "data_type": "float32", "address": "0"}],
-            "collect_interval": 5,
-            "status": "offline",
-            "created_by": "test-admin",
-            "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:00:00Z",
-            "version": 1,
-        })
-        svc.list_devices = AsyncMock(return_value=(
-            [{
+        svc.get_device = AsyncMock(
+            return_value={
                 "device_id": "test-device-01",
                 "name": "温度传感器",
                 "protocol": "modbus_tcp",
-                "enabled": True,
-                "status": "offline",
                 "config": {"host": "127.0.0.1", "port": 5020, "slave_id": 1},
                 "points": [{"name": "temperature", "data_type": "float32", "address": "0"}],
                 "collect_interval": 5,
+                "status": "offline",
+                "created_by": "test-admin",
                 "created_at": "2026-01-01T00:00:00Z",
                 "updated_at": "2026-01-01T00:00:00Z",
                 "version": 1,
-            }],
-            1,
-        ))
+            }
+        )
+        svc.list_devices = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "device_id": "test-device-01",
+                        "name": "温度传感器",
+                        "protocol": "modbus_tcp",
+                        "enabled": True,
+                        "status": "offline",
+                        "config": {"host": "127.0.0.1", "port": 5020, "slave_id": 1},
+                        "points": [{"name": "temperature", "data_type": "float32", "address": "0"}],
+                        "collect_interval": 5,
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                        "version": 1,
+                    }
+                ],
+                1,
+            )
+        )
         return app
 
     @pytest.fixture
@@ -148,30 +154,13 @@ class TestRuleCRUD:
     def rule_app(self):
         app = _build_test_app("admin")
         svc = app.state.rule_service
-        svc.get_rule = AsyncMock(return_value={
-            "rule_id": "test-rule-01",
-            "name": "高温告警",
-            "device_id": "test-device-01",
-            "conditions": [{"point": "temperature", "operator": ">", "threshold": 80, "type": "threshold"}],
-            "logic": "AND",
-            "duration": 0,
-            "severity": "critical",
-            "enabled": True,
-            "notify_channels": [],
-            "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:00:00Z",
-            "created_by": "test-admin",
-            "version": 1,
-            "inference_count": 0,
-            "error_count": 0,
-        })
-        svc.list_rules = AsyncMock(return_value=(
-            [{
+        svc.get_rule = AsyncMock(
+            return_value={
                 "rule_id": "test-rule-01",
                 "name": "高温告警",
                 "device_id": "test-device-01",
                 "conditions": [{"point": "temperature", "operator": ">", "threshold": 80, "type": "threshold"}],
-                "logic": "and",
+                "logic": "AND",
                 "duration": 0,
                 "severity": "critical",
                 "enabled": True,
@@ -182,9 +171,32 @@ class TestRuleCRUD:
                 "version": 1,
                 "inference_count": 0,
                 "error_count": 0,
-            }],
-            1,
-        ))
+            }
+        )
+        svc.list_rules = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "rule_id": "test-rule-01",
+                        "name": "高温告警",
+                        "device_id": "test-device-01",
+                        "conditions": [{"point": "temperature", "operator": ">", "threshold": 80, "type": "threshold"}],
+                        "logic": "and",
+                        "duration": 0,
+                        "severity": "critical",
+                        "enabled": True,
+                        "notify_channels": [],
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                        "created_by": "test-admin",
+                        "version": 1,
+                        "inference_count": 0,
+                        "error_count": 0,
+                    }
+                ],
+                1,
+            )
+        )
         return app
 
     @pytest.fixture
@@ -259,8 +271,31 @@ class TestAlarmManagement:
     def alarm_app(self):
         app = _build_test_app("admin")
         svc = app.state.alarm_service
-        svc.list_alarms = AsyncMock(return_value=(
-            [{
+        svc.list_alarms = AsyncMock(
+            return_value=(
+                [
+                    {
+                        "alarm_id": "alarm-001",
+                        "rule_id": "test-rule-01",
+                        "device_id": "test-device-01",
+                        "severity": "critical",
+                        "status": "firing",
+                        "message": "温度超限: 85.5 > 80",
+                        "trigger_value": {"point_name": "temperature", "value": 85.5},
+                        "trigger_count": 1,
+                        "fired_at": "2026-01-01T00:00:00Z",
+                        "acknowledged_at": None,
+                        "acknowledged_by": None,
+                        "recovered_at": None,
+                        "rule_type": "threshold",
+                        "version": 1,
+                    }
+                ],
+                1,
+            )
+        )
+        svc.get_alarm = AsyncMock(
+            return_value={
                 "alarm_id": "alarm-001",
                 "rule_id": "test-rule-01",
                 "device_id": "test-device-01",
@@ -275,25 +310,8 @@ class TestAlarmManagement:
                 "recovered_at": None,
                 "rule_type": "threshold",
                 "version": 1,
-            }],
-            1,
-        ))
-        svc.get_alarm = AsyncMock(return_value={
-            "alarm_id": "alarm-001",
-            "rule_id": "test-rule-01",
-            "device_id": "test-device-01",
-            "severity": "critical",
-            "status": "firing",
-            "message": "温度超限: 85.5 > 80",
-            "trigger_value": {"point_name": "temperature", "value": 85.5},
-            "trigger_count": 1,
-            "fired_at": "2026-01-01T00:00:00Z",
-            "acknowledged_at": None,
-            "acknowledged_by": None,
-            "recovered_at": None,
-            "rule_type": "threshold",
-            "version": 1,
-        })
+            }
+        )
         # API 使用 ack_alarm 和 clear_alarm，而不是 acknowledge_alarm 和 recover_alarm
         _ack_data = {
             "alarm_id": "alarm-001",
@@ -364,13 +382,17 @@ class TestDataQuery:
     def data_app(self):
         app = _build_test_app("admin")
         svc = app.state.data_service
-        svc.query_timeseries = AsyncMock(return_value=[
-            {"timestamp": "2026-01-01T00:00:00Z", "device_id": "dev-01", "point_name": "temp", "value": 25.5},
-            {"timestamp": "2026-01-01T00:01:00Z", "device_id": "dev-01", "point_name": "temp", "value": 26.0},
-        ])
-        svc.get_stats = AsyncMock(return_value={
-            "temp": {"min": 25.5, "max": 26.0, "avg": 25.75},
-        })
+        svc.query_timeseries = AsyncMock(
+            return_value=[
+                {"timestamp": "2026-01-01T00:00:00Z", "device_id": "dev-01", "point_name": "temp", "value": 25.5},
+                {"timestamp": "2026-01-01T00:01:00Z", "device_id": "dev-01", "point_name": "temp", "value": 26.0},
+            ]
+        )
+        svc.get_stats = AsyncMock(
+            return_value={
+                "temp": {"min": 25.5, "max": 26.0, "avg": 25.75},
+            }
+        )
         return app
 
     @pytest.fixture
@@ -382,11 +404,14 @@ class TestDataQuery:
     @pytest.mark.asyncio
     async def test_f4_01_query_timeseries(self, data_client):
         """F4-01: GET /api/v1/data/query — 时序数据查询"""
-        resp = await data_client.get("/api/v1/data/query", params={
-            "device_id": "dev-01",
-            "point_name": "temp",
-            "start": "-1h",
-        })
+        resp = await data_client.get(
+            "/api/v1/data/query",
+            params={
+                "device_id": "dev-01",
+                "point_name": "temp",
+                "start": "-1h",
+            },
+        )
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
@@ -395,6 +420,7 @@ class TestDataQuery:
         # stats 端点直接访问 _app_state，需要确保 device_service 有 get_status_counts 方法
         # 由 test_acceptance_smoke.py 的 _make_mock_device_service 提供
         from httpx import ASGITransport, AsyncClient
+
         transport = ASGITransport(app=data_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/v1/data/stats")
@@ -403,12 +429,15 @@ class TestDataQuery:
     @pytest.mark.asyncio
     async def test_f4_03_query_invalid_time_range(self, data_client):
         """F4-03: GET /api/v1/data/query — 非法时间范围返回 400"""
-        resp = await data_client.get("/api/v1/data/query", params={
-            "device_id": "dev-01",
-            "point_name": "temp",
-            "start": "invalid_time",
-            "stop": "now",
-        })
+        resp = await data_client.get(
+            "/api/v1/data/query",
+            params={
+                "device_id": "dev-01",
+                "point_name": "temp",
+                "start": "invalid_time",
+                "stop": "now",
+            },
+        )
         # mock 环境下可能不做时间验证，返回 200 是可接受的
         assert resp.status_code in (200, 400)
 
@@ -421,28 +450,35 @@ class TestAIInference:
         app = _build_test_app("admin")
         # 模拟 AI 服务已初始化
         ai_svc = AsyncMock()
-        ai_svc.list_models = AsyncMock(return_value={
-            "items": [
-                {"model_id": "elg-anomaly-v1", "status": "active", "type": "anomaly_detection"},
-                {"model_id": "elg-trend-v1", "status": "active", "type": "trend_prediction"},
-                {"model_id": "elg-threshold-v1", "status": "active", "type": "threshold"},
-            ],
-            "total": 3,
-        })
-        ai_svc.get_stats = AsyncMock(return_value={
-            "total_inferences": 100,
-            "avg_latency_ms": 15.5,
-            "success_rate": 0.98,
-        })
-        ai_svc.inference = AsyncMock(return_value={
-            "model_id": "elg-anomaly-v1",
-            "result": {"is_anomaly": False, "score": 0.12},
-            "latency_ms": 12.3,
-        })
+        ai_svc.list_models = AsyncMock(
+            return_value={
+                "items": [
+                    {"model_id": "elg-anomaly-v1", "status": "active", "type": "anomaly_detection"},
+                    {"model_id": "elg-trend-v1", "status": "active", "type": "trend_prediction"},
+                    {"model_id": "elg-threshold-v1", "status": "active", "type": "threshold"},
+                ],
+                "total": 3,
+            }
+        )
+        ai_svc.get_stats = AsyncMock(
+            return_value={
+                "total_inferences": 100,
+                "avg_latency_ms": 15.5,
+                "success_rate": 0.98,
+            }
+        )
+        ai_svc.inference = AsyncMock(
+            return_value={
+                "model_id": "elg-anomaly-v1",
+                "result": {"is_anomaly": False, "score": 0.12},
+                "latency_ms": 12.3,
+            }
+        )
         app.state.ai_service = ai_svc
         # AI 端点直接访问 _app_state，需要同步
         try:
             from edgelite.app import _app_state as global_app_state
+
             global_app_state.ai_service = ai_svc
         except Exception:
             pass

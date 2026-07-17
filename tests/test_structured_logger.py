@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 
 import pytest
 
@@ -100,8 +99,13 @@ class TestStructuredFormatter:
 
             exc_info = sys.exc_info()
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname=__file__, lineno=1,
-            msg="err", args=(), exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="err",
+            args=(),
+            exc_info=exc_info,
         )
         data = json.loads(fmt.format(record))
         assert "exception" in data
@@ -118,8 +122,13 @@ class TestStructuredFormatter:
 
             exc_info = sys.exc_info()
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname=__file__, lineno=1,
-            msg="err", args=(), exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="err",
+            args=(),
+            exc_info=exc_info,
         )
         data = json.loads(fmt.format(record))
         assert "traceback" in data["exception"]

@@ -14,15 +14,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import patch
 
 import pytest
 
 from edgelite.api.error_codes import ModbusDriverErrors
-from edgelite.drivers import modbus_tcp
 from edgelite.drivers.base import PointValue
 from edgelite.drivers.modbus_tcp import ModbusTcpDriver, _bad_pv, _read_kwargs, _resolve_error_code, _slave_kwarg
-
 
 # ── _slave_kwarg（TCP: allow_broadcast=True）──
 

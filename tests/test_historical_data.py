@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -35,7 +34,6 @@ from edgelite.services.historical_data import (
     Statistics,
     TimeRangeFormat,
 )
-
 
 # ──────────────────────────────────────────────────────────────────────
 # 辅助与夹具
@@ -322,7 +320,6 @@ class TestQuery:
 
     async def test_query_timeout_returns_empty(self, svc, mock_influx, monkeypatch):
         """InfluxDB 查询超时应返回空结果而非挂起。"""
-        import time
 
         async def slow_query(**kwargs):
             await asyncio.sleep(60)
@@ -427,9 +424,7 @@ class TestQueryAggregated:
         mock_influx.query_points.assert_awaited_once()
 
     async def test_custom_aggregation_type(self, svc, mock_influx):
-        await svc.query_aggregated(
-            "dev1", "temp", window="1h", aggregation=AggregationType.MAX
-        )
+        await svc.query_aggregated("dev1", "temp", window="1h", aggregation=AggregationType.MAX)
         mock_influx.query_points.assert_awaited_once()
 
 
@@ -637,12 +632,17 @@ class TestQueryCorrelation:
     async def test_duplicate_timestamps_averaged(self, svc, mock_influx):
         """相同时间戳应取均值避免覆盖。"""
         data1 = [
-            _point("t0", 1.0), _point("t0", 3.0),  # 均值 2.0
-            _point("t1", 2.0), _point("t1", 4.0),  # 均值 3.0
-            _point("t2", 3.0), _point("t2", 5.0),  # 均值 4.0
+            _point("t0", 1.0),
+            _point("t0", 3.0),  # 均值 2.0
+            _point("t1", 2.0),
+            _point("t1", 4.0),  # 均值 3.0
+            _point("t2", 3.0),
+            _point("t2", 5.0),  # 均值 4.0
         ]
         data2 = [
-            _point("t0", 2.0), _point("t1", 3.0), _point("t2", 4.0),
+            _point("t0", 2.0),
+            _point("t1", 3.0),
+            _point("t2", 4.0),
         ]
         mock_influx.query_points.side_effect = [data1, data2]
         result = await svc.query_correlation("dev1", "p1", "p2")
@@ -746,6 +746,7 @@ class TestDeviceShadowUpdate:
 
     async def test_callback_exception_swallowed(self, shadow_svc):
         """回调异常不应影响更新返回值。"""
+
         async def bad_cb(device_id, shadow):
             raise RuntimeError("cb fail")
 

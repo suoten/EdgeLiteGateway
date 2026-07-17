@@ -663,7 +663,9 @@ class SimulatorDriver(DriverPlugin):
 
         elif mode == "formula":
             formula = config.get("formula", "t")
-            t = time.monotonic()  # FIXED-P2: 原为 time.time() 返回 epoch 秒(约17亿)，用户写 sin(t) 频率极高；改为 monotonic 从0开始
+            t = (
+                time.monotonic()
+            )  # FIXED-P2: 原为 time.time() 返回 epoch 秒(约17亿)，用户写 sin(t) 频率极高；改为 monotonic 从0开始
             try:
                 from edgelite.drivers.edge_triggers import (
                     _safe_eval_expr,  # FIXED-P2: eval→AST安全求值，防止属性链逃逸

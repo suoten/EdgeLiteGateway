@@ -117,9 +117,7 @@ class TestRuleEngineE2E:
                 "rule_type": "threshold",
                 "severity": "critical",
                 "enabled": True,
-                "conditions": [
-                    {"point": "temperature", "operator": ">", "threshold": 80, "type": "threshold"}
-                ],
+                "conditions": [{"point": "temperature", "operator": ">", "threshold": 80, "type": "threshold"}],
                 "logic": "and",
                 "notify_channels": [],
             },

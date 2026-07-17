@@ -1,10 +1,11 @@
 """设备管理 API 端点测试。"""
+
 from __future__ import annotations
 
 import sys
+
 sys.path.insert(0, "src")
 
-import asyncio
 import socket
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -14,6 +15,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from edgelite.api.deps import get_current_user, get_optional_current_user
 from edgelite.api.devices import (
     _check_device_access,
     _check_device_owner,
@@ -21,7 +23,6 @@ from edgelite.api.devices import (
     _is_host_safe_for_device_test,
     router,
 )
-from edgelite.api.deps import get_current_user, get_optional_current_user
 from edgelite.models.db import StaleDataError
 
 ADMIN = {"user_id": "admin-1", "username": "admin", "role": "admin"}
@@ -79,8 +80,12 @@ def _make_client(role="admin", optional_user="__none__", webhook_key=""):
     app.state.scheduler = scheduler
     app.state.config = config
     return SimpleNamespace(
-        client=TestClient(app), svc=svc, audit=audit_svc,
-        scheduler=scheduler, config=config, app=app,
+        client=TestClient(app),
+        svc=svc,
+        audit=audit_svc,
+        scheduler=scheduler,
+        config=config,
+        app=app,
     )
 
 
@@ -95,13 +100,16 @@ def _non_admin_state():
     mock_db = MagicMock()
     mock_db.write_lock = MagicMock()
     mock_state = SimpleNamespace(database=mock_db)
-    with patch("edgelite.app._app_state", mock_state), \
-         patch("edgelite.storage.sqlite_repo.ResourceShareRepo") as RepoMock:
+    with (
+        patch("edgelite.app._app_state", mock_state),
+        patch("edgelite.storage.sqlite_repo.ResourceShareRepo") as RepoMock,
+    ):
         repo_instance = AsyncMock()
         repo_instance.check_user_has_access = AsyncMock(return_value=False)
         repo_instance.get_shared_resource_ids = AsyncMock(return_value=set())
         RepoMock.return_value = repo_instance
         yield repo_instance
+
 
 class TestHostSafety:
     def test_empty_host(self):
@@ -184,87 +192,135 @@ class TestCreateDevice:
     def test_create_success(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(return_value=DEVICE)
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}], "collect_interval": 5,
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+                "collect_interval": 5,
+            },
+        )
         assert r.status_code == 201
 
     def test_create_already_exists(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(side_effect=ValueError("Device already exists"))
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 409
 
     def test_create_unsupported_protocol(self):
         t = _make_client("admin")
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "unknown_proto",
-            "config": {}, "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "unknown_proto",
+                "config": {},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 422
 
     def test_create_missing_required(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(side_effect=ValueError("missing required field: host"))
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {}, "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 422
 
     def test_create_driver_start_failed(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(side_effect=ValueError("driver start failed: connection refused"))
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 409
 
     def test_create_generic_value_error(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(side_effect=ValueError("some other error"))
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 422
 
     def test_create_internal_error(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(side_effect=RuntimeError("unexpected"))
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 500
 
     def test_create_invalid_device_id(self):
         t = _make_client("admin")
-        r = t.client.post("/api/v1/devices", json={
-            "device_id": "Invalid!", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "Invalid!",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 422
 
     def test_create_audit_log_called(self):
         t = _make_client("admin")
         t.svc.create_device = AsyncMock(return_value=DEVICE)
-        t.client.post("/api/v1/devices", json={
-            "device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-            "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-            "points": [{"name": "temp"}],
-        })
+        t.client.post(
+            "/api/v1/devices",
+            json={
+                "device_id": "dev-1",
+                "name": "Test",
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                "points": [{"name": "temp"}],
+            },
+        )
         t.audit.log.assert_called_once()
 
 
@@ -273,17 +329,27 @@ class TestCreateSimulator:
         t = _make_client("admin")
         sim_device = {**DEVICE, "protocol": "simulator"}
         t.svc.create_simulator = AsyncMock(return_value=sim_device)
-        r = t.client.post("/api/v1/devices/simulator", json={
-            "device_id": "sim-1", "name": "Sim", "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices/simulator",
+            json={
+                "device_id": "sim-1",
+                "name": "Sim",
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 201
 
     def test_simulator_failure(self):
         t = _make_client("admin")
         t.svc.create_simulator = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/simulator", json={
-            "device_id": "sim-1", "name": "Sim", "points": [{"name": "temp"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices/simulator",
+            json={
+                "device_id": "sim-1",
+                "name": "Sim",
+                "points": [{"name": "temp"}],
+            },
+        )
         assert r.status_code == 500
 
 
@@ -291,49 +357,73 @@ class TestDiscover:
     def test_discover_success(self):
         t = _make_client("admin")
         t.svc.discover_devices = AsyncMock(return_value=[{"host": "192.168.1.2"}])
-        r = t.client.post("/api/v1/devices/discover", json={
-            "protocol": "modbus_tcp", "config": {"host": "192.168.1.1"},
-        })
+        r = t.client.post(
+            "/api/v1/devices/discover",
+            json={
+                "protocol": "modbus_tcp",
+                "config": {"host": "192.168.1.1"},
+            },
+        )
         assert r.status_code == 200
 
     def test_discover_failure(self):
         t = _make_client("admin")
         t.svc.discover_devices = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/discover", json={
-            "protocol": "modbus_tcp", "config": {},
-        })
+        r = t.client.post(
+            "/api/v1/devices/discover",
+            json={
+                "protocol": "modbus_tcp",
+                "config": {},
+            },
+        )
         assert r.status_code == 500
 
     def test_discover_viewer_forbidden(self):
         t = _make_client("viewer")
-        r = t.client.post("/api/v1/devices/discover", json={
-            "protocol": "modbus_tcp", "config": {},
-        })
+        r = t.client.post(
+            "/api/v1/devices/discover",
+            json={
+                "protocol": "modbus_tcp",
+                "config": {},
+            },
+        )
         assert r.status_code == 403
 
 
 class TestConnection:
     def test_serial_protocol(self):
         t = _make_client("admin")
-        r = t.client.post("/api/v1/devices/test-connection", json={
-            "protocol": "modbus_rtu", "config": {},
-        })
+        r = t.client.post(
+            "/api/v1/devices/test-connection",
+            json={
+                "protocol": "modbus_rtu",
+                "config": {},
+            },
+        )
         assert r.status_code == 200
         assert r.json()["data"]["supported"] is False
 
     def test_no_host(self):
         t = _make_client("admin")
-        r = t.client.post("/api/v1/devices/test-connection", json={
-            "protocol": "modbus_tcp", "config": {},
-        })
+        r = t.client.post(
+            "/api/v1/devices/test-connection",
+            json={
+                "protocol": "modbus_tcp",
+                "config": {},
+            },
+        )
         assert r.status_code == 200
         assert r.json()["data"]["success"] is False
 
     def test_ssrf_blocked(self):
         t = _make_client("admin")
-        r = t.client.post("/api/v1/devices/test-connection", json={
-            "protocol": "modbus_tcp", "config": {"host": "127.0.0.1", "port": 502},
-        })
+        r = t.client.post(
+            "/api/v1/devices/test-connection",
+            json={
+                "protocol": "modbus_tcp",
+                "config": {"host": "127.0.0.1", "port": 502},
+            },
+        )
         assert r.status_code == 200
         assert r.json()["data"]["success"] is False
 
@@ -342,31 +432,42 @@ class TestConnection:
         mock_writer = MagicMock()
         mock_writer.close = MagicMock()
         mock_writer.wait_closed = AsyncMock()
-        with patch("edgelite.api.devices.asyncio.open_connection",
-                   AsyncMock(return_value=(MagicMock(), mock_writer))):
-            r = t.client.post("/api/v1/devices/test-connection", json={
-                "protocol": "modbus_tcp", "config": {"host": "192.168.1.1", "port": 502},
-            })
+        with patch("edgelite.api.devices.asyncio.open_connection", AsyncMock(return_value=(MagicMock(), mock_writer))):
+            r = t.client.post(
+                "/api/v1/devices/test-connection",
+                json={
+                    "protocol": "modbus_tcp",
+                    "config": {"host": "192.168.1.1", "port": 502},
+                },
+            )
         assert r.status_code == 200
         assert r.json()["data"]["success"] is True
 
     def test_connection_refused(self):
         t = _make_client("admin")
-        with patch("edgelite.api.devices.asyncio.open_connection",
-                   AsyncMock(side_effect=ConnectionRefusedError("refused"))):
-            r = t.client.post("/api/v1/devices/test-connection", json={
-                "protocol": "modbus_tcp", "config": {"host": "192.168.1.1", "port": 502},
-            })
+        with patch(
+            "edgelite.api.devices.asyncio.open_connection", AsyncMock(side_effect=ConnectionRefusedError("refused"))
+        ):
+            r = t.client.post(
+                "/api/v1/devices/test-connection",
+                json={
+                    "protocol": "modbus_tcp",
+                    "config": {"host": "192.168.1.1", "port": 502},
+                },
+            )
         assert r.status_code == 200
         assert r.json()["data"]["success"] is False
 
     def test_connection_timeout(self):
         t = _make_client("admin")
-        with patch("edgelite.api.devices.asyncio.open_connection",
-                   AsyncMock(side_effect=TimeoutError("timed out"))):
-            r = t.client.post("/api/v1/devices/test-connection", json={
-                "protocol": "modbus_tcp", "config": {"host": "192.168.1.1", "port": 502},
-            })
+        with patch("edgelite.api.devices.asyncio.open_connection", AsyncMock(side_effect=TimeoutError("timed out"))):
+            r = t.client.post(
+                "/api/v1/devices/test-connection",
+                json={
+                    "protocol": "modbus_tcp",
+                    "config": {"host": "192.168.1.1", "port": 502},
+                },
+            )
         assert r.status_code == 200
         assert r.json()["data"]["success"] is False
 
@@ -405,8 +506,12 @@ class TestHealthAndStats:
     def test_collect_stats_admin(self):
         t = _make_client("admin")
         stat = SimpleNamespace(
-            device_id="dev-1", avg_latency_ms=10.5, max_latency_ms=20.0,
-            total_calls=100, timeout_count=2, last_collect_at="2025-01-01",
+            device_id="dev-1",
+            avg_latency_ms=10.5,
+            max_latency_ms=20.0,
+            total_calls=100,
+            timeout_count=2,
+            last_collect_at="2025-01-01",
         )
         t.scheduler.get_collect_stats = AsyncMock(return_value={"dev-1": stat})
         r = t.client.get("/api/v1/devices/collect-stats")
@@ -415,8 +520,12 @@ class TestHealthAndStats:
     def test_collect_stats_non_admin(self):
         t = _make_client("operator")
         stat = SimpleNamespace(
-            device_id="dev-1", avg_latency_ms=10.5, max_latency_ms=20.0,
-            total_calls=100, timeout_count=2, last_collect_at="2025-01-01",
+            device_id="dev-1",
+            avg_latency_ms=10.5,
+            max_latency_ms=20.0,
+            total_calls=100,
+            timeout_count=2,
+            last_collect_at="2025-01-01",
         )
         t.scheduler.get_collect_stats = AsyncMock(return_value={"dev-1": stat})
         t.svc.list_device_ids_by_owner = AsyncMock(return_value=["dev-1"])
@@ -428,8 +537,11 @@ class TestHealthAndStats:
     def test_quality_stats_admin(self):
         t = _make_client("admin")
         stat = SimpleNamespace(
-            device_id="dev-1", success_count=90, error_count=10,
-            total_count=100, error_rate=0.1,
+            device_id="dev-1",
+            success_count=90,
+            error_count=10,
+            total_count=100,
+            error_rate=0.1,
         )
         t.scheduler.get_device_quality_stats = AsyncMock(return_value={"dev-1": stat})
         r = t.client.get("/api/v1/devices/device-quality-stats")
@@ -457,9 +569,12 @@ class TestHealthAndStats:
 class TestBatchOps:
     def test_batch_delete_success(self):
         t = _make_client("admin")
-        t.svc.batch_delete_devices = AsyncMock(return_value={
-            "dev-1": (True, None), "dev-2": (False, "not found"),
-        })
+        t.svc.batch_delete_devices = AsyncMock(
+            return_value={
+                "dev-1": (True, None),
+                "dev-2": (False, "not found"),
+            }
+        )
         r = t.client.post("/api/v1/devices/batch/delete", json={"device_ids": ["dev-1", "dev-2"]})
         assert r.status_code == 200
         assert r.json()["data"]["success_count"] == 1
@@ -501,38 +616,61 @@ class TestBatchOps:
 
     def test_batch_deploy_success(self):
         t = _make_client("admin")
-        template_dev = {**DEVICE, "points": [{"name": "temp", "address": "0", "data_type": "float32", "access_mode": "rw"}]}
-        target_dev = {**DEVICE, "device_id": "dev-2", "points": [{"name": "temp", "address": "1", "data_type": "float32", "access_mode": "rw"}]}
+        template_dev = {
+            **DEVICE,
+            "points": [{"name": "temp", "address": "0", "data_type": "float32", "access_mode": "rw"}],
+        }
+        target_dev = {
+            **DEVICE,
+            "device_id": "dev-2",
+            "points": [{"name": "temp", "address": "1", "data_type": "float32", "access_mode": "rw"}],
+        }
         t.svc.get_device = AsyncMock(return_value=template_dev)
         t.svc.list_devices_by_ids = AsyncMock(return_value=[target_dev])
         t.svc.update_device = AsyncMock(return_value=target_dev)
-        r = t.client.post("/api/v1/devices/batch-deploy", json={
-            "template_device_id": "dev-1", "target_device_ids": ["dev-2"],
-        })
+        r = t.client.post(
+            "/api/v1/devices/batch-deploy",
+            json={
+                "template_device_id": "dev-1",
+                "target_device_ids": ["dev-2"],
+            },
+        )
         assert r.status_code == 200
 
     def test_batch_deploy_template_not_found(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=None)
-        r = t.client.post("/api/v1/devices/batch-deploy", json={
-            "template_device_id": "dev-1", "target_device_ids": ["dev-2"],
-        })
+        r = t.client.post(
+            "/api/v1/devices/batch-deploy",
+            json={
+                "template_device_id": "dev-1",
+                "target_device_ids": ["dev-2"],
+            },
+        )
         assert r.status_code == 404
 
     def test_batch_deploy_error(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/batch-deploy", json={
-            "template_device_id": "dev-1", "target_device_ids": ["dev-2"],
-        })
+        r = t.client.post(
+            "/api/v1/devices/batch-deploy",
+            json={
+                "template_device_id": "dev-1",
+                "target_device_ids": ["dev-2"],
+            },
+        )
         assert r.status_code == 500
 
     def test_batch_deploy_too_many(self):
         t = _make_client("admin")
         ids = [f"dev-{i}" for i in range(101)]
-        r = t.client.post("/api/v1/devices/batch-deploy", json={
-            "template_device_id": "dev-1", "target_device_ids": ids,
-        })
+        r = t.client.post(
+            "/api/v1/devices/batch-deploy",
+            json={
+                "template_device_id": "dev-1",
+                "target_device_ids": ids,
+            },
+        )
         assert r.status_code == 422
 
 
@@ -541,35 +679,51 @@ class TestTemplates:
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.create_template = AsyncMock(return_value=TEMPLATE)
-        r = t.client.post("/api/v1/devices/templates", json={
-            "device_id": "dev-1", "template_name": "tpl-1",
-        })
+        r = t.client.post(
+            "/api/v1/devices/templates",
+            json={
+                "device_id": "dev-1",
+                "template_name": "tpl-1",
+            },
+        )
         assert r.status_code == 201
 
     def test_create_template_device_not_found(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=None)
-        r = t.client.post("/api/v1/devices/templates", json={
-            "device_id": "missing", "template_name": "tpl-1",
-        })
+        r = t.client.post(
+            "/api/v1/devices/templates",
+            json={
+                "device_id": "missing",
+                "template_name": "tpl-1",
+            },
+        )
         assert r.status_code == 404
 
     def test_create_template_value_error(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.create_template = AsyncMock(side_effect=ValueError("exists"))
-        r = t.client.post("/api/v1/devices/templates", json={
-            "device_id": "dev-1", "template_name": "tpl-1",
-        })
+        r = t.client.post(
+            "/api/v1/devices/templates",
+            json={
+                "device_id": "dev-1",
+                "template_name": "tpl-1",
+            },
+        )
         assert r.status_code == 409
 
     def test_create_template_error(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.create_template = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/templates", json={
-            "device_id": "dev-1", "template_name": "tpl-1",
-        })
+        r = t.client.post(
+            "/api/v1/devices/templates",
+            json={
+                "device_id": "dev-1",
+                "template_name": "tpl-1",
+            },
+        )
         assert r.status_code == 500
 
     def test_list_templates_admin(self):
@@ -593,17 +747,27 @@ class TestTemplates:
     def test_create_from_template_success(self):
         t = _make_client("admin")
         t.svc.create_from_template = AsyncMock(return_value=DEVICE)
-        r = t.client.post("/api/v1/devices/from-template", json={
-            "template_name": "tpl-1", "device_id": "new-1", "name": "New",
-        })
+        r = t.client.post(
+            "/api/v1/devices/from-template",
+            json={
+                "template_name": "tpl-1",
+                "device_id": "new-1",
+                "name": "New",
+            },
+        )
         assert r.status_code == 201
 
     def test_create_from_template_value_error(self):
         t = _make_client("admin")
         t.svc.create_from_template = AsyncMock(side_effect=ValueError("bad"))
-        r = t.client.post("/api/v1/devices/from-template", json={
-            "template_name": "tpl-1", "device_id": "new-1", "name": "New",
-        })
+        r = t.client.post(
+            "/api/v1/devices/from-template",
+            json={
+                "template_name": "tpl-1",
+                "device_id": "new-1",
+                "name": "New",
+            },
+        )
         assert r.status_code == 409
 
     def test_delete_template_success(self):
@@ -634,40 +798,67 @@ class TestImportExport:
 
     def test_import_success(self):
         t = _make_client("admin")
-        t.svc.import_devices = AsyncMock(return_value={
-            "success": 1, "failed": 0, "errors": [],
-        })
-        r = t.client.post("/api/v1/devices/import", json={
-            "data": [{"device_id": "dev-1", "name": "Test", "protocol": "modbus_tcp",
-                      "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
-                      "points": [{"name": "temp"}]}],
-        })
+        t.svc.import_devices = AsyncMock(
+            return_value={
+                "success": 1,
+                "failed": 0,
+                "errors": [],
+            }
+        )
+        r = t.client.post(
+            "/api/v1/devices/import",
+            json={
+                "data": [
+                    {
+                        "device_id": "dev-1",
+                        "name": "Test",
+                        "protocol": "modbus_tcp",
+                        "config": {"host": "192.168.1.1", "port": 502, "slave_id": 1},
+                        "points": [{"name": "temp"}],
+                    }
+                ],
+            },
+        )
         assert r.status_code == 200
 
     def test_import_atomic_failure(self):
         t = _make_client("admin")
-        t.svc.import_devices = AsyncMock(return_value={
-            "success": 0, "failed": 1, "errors": ["bad"],
-        })
-        r = t.client.post("/api/v1/devices/import", json={
-            "data": [{"device_id": "dev-1"}], "atomic": True,
-        })
+        t.svc.import_devices = AsyncMock(
+            return_value={
+                "success": 0,
+                "failed": 1,
+                "errors": ["bad"],
+            }
+        )
+        r = t.client.post(
+            "/api/v1/devices/import",
+            json={
+                "data": [{"device_id": "dev-1"}],
+                "atomic": True,
+            },
+        )
         assert r.status_code == 400
 
     def test_import_timeout(self):
         t = _make_client("admin")
         t.svc.import_devices = AsyncMock(side_effect=TimeoutError("slow"))
-        r = t.client.post("/api/v1/devices/import", json={
-            "data": [{"device_id": "dev-1"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices/import",
+            json={
+                "data": [{"device_id": "dev-1"}],
+            },
+        )
         assert r.status_code == 504
 
     def test_import_error(self):
         t = _make_client("admin")
         t.svc.import_devices = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/import", json={
-            "data": [{"device_id": "dev-1"}],
-        })
+        r = t.client.post(
+            "/api/v1/devices/import",
+            json={
+                "data": [{"device_id": "dev-1"}],
+            },
+        )
         assert r.status_code == 500
 
     def test_import_empty_data(self):
@@ -755,9 +946,7 @@ class TestDeviceCrud:
         dev = {**DEVICE, "config": {"host": "192.168.1.1", "write_verify": True}}
         t.svc.get_device = AsyncMock(return_value=dev)
         t.svc.update_device = AsyncMock(return_value=dev)
-        r = t.client.put("/api/v1/devices/dev-1", json={
-            "config": {"host": "10.0.0.1", "write_verify": False}
-        })
+        r = t.client.put("/api/v1/devices/dev-1", json={"config": {"host": "10.0.0.1", "write_verify": False}})
         assert r.status_code == 200
         call_data = t.svc.update_device.call_args.args[1]
         cfg = call_data.get("config", {})
@@ -774,12 +963,16 @@ class TestDeviceCrud:
 
     def test_update_device_non_admin_immutable_point(self):
         t = _make_client("operator")
-        dev = {**DEVICE, "created_by": "op-1",
-               "points": [{"name": "temp", "address": "0", "data_type": "float32", "access_mode": "rw"}]}
+        dev = {
+            **DEVICE,
+            "created_by": "op-1",
+            "points": [{"name": "temp", "address": "0", "data_type": "float32", "access_mode": "rw"}],
+        }
         t.svc.get_device = AsyncMock(return_value=dev)
-        r = t.client.put("/api/v1/devices/dev-1", json={
-            "points": [{"name": "temp", "address": "999", "data_type": "float32", "access_mode": "rw"}]
-        })
+        r = t.client.put(
+            "/api/v1/devices/dev-1",
+            json={"points": [{"name": "temp", "address": "999", "data_type": "float32", "access_mode": "rw"}]},
+        )
         assert r.status_code == 403
 
     def test_update_device_admin_can_change_immutable(self):
@@ -787,9 +980,10 @@ class TestDeviceCrud:
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         updated = {**DEVICE, "points": [{"name": "temp", "address": "999"}]}
         t.svc.update_device = AsyncMock(return_value=updated)
-        r = t.client.put("/api/v1/devices/dev-1", json={
-            "points": [{"name": "temp", "address": "999", "data_type": "float32", "access_mode": "rw"}]
-        })
+        r = t.client.put(
+            "/api/v1/devices/dev-1",
+            json={"points": [{"name": "temp", "address": "999", "data_type": "float32", "access_mode": "rw"}]},
+        )
         assert r.status_code == 200
 
     def test_update_write_policy_success(self):
@@ -911,9 +1105,7 @@ class TestPushData:
         t = _make_client("admin", optional_user=ADMIN)
         t.svc._driver_instances = {"dev-1": MagicMock()}
         t.svc._driver_instances["dev-1"].receive_data = AsyncMock(return_value=None)
-        r = t.client.post("/api/v1/devices/dev-1/push", json={
-            "data": {"temp": {"value": 25.0}}
-        })
+        r = t.client.post("/api/v1/devices/dev-1/push", json={"data": {"temp": {"value": 25.0}}})
         assert r.status_code == 200
 
     def test_push_with_bearer_non_admin_owner(self):
@@ -922,18 +1114,14 @@ class TestPushData:
         t.svc.get_device = AsyncMock(return_value=dev)
         t.svc._driver_instances = {"dev-1": MagicMock()}
         t.svc._driver_instances["dev-1"].receive_data = AsyncMock(return_value=None)
-        r = t.client.post("/api/v1/devices/dev-1/push", json={
-            "data": {"temp": {"value": 25.0}}
-        })
+        r = t.client.post("/api/v1/devices/dev-1/push", json={"data": {"temp": {"value": 25.0}}})
         assert r.status_code == 200
 
     def test_push_with_bearer_non_admin_no_access(self):
         t = _make_client("operator", optional_user=OPERATOR)
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         with _non_admin_state():
-            r = t.client.post("/api/v1/devices/dev-1/push", json={
-                "data": {"temp": {"value": 25.0}}
-            })
+            r = t.client.post("/api/v1/devices/dev-1/push", json={"data": {"temp": {"value": 25.0}}})
         assert r.status_code == 403
 
     def test_push_with_api_key_valid(self):
@@ -941,32 +1129,32 @@ class TestPushData:
         t.svc._driver_instances = {"dev-1": MagicMock()}
         t.svc._driver_instances["dev-1"].receive_data = AsyncMock(return_value=None)
         with patch("edgelite.security.rbac.has_api_key_permission", return_value=True):
-            r = t.client.post("/api/v1/devices/dev-1/push",
-                              json={"data": {"temp": {"value": 25.0}}},
-                              headers={"X-API-Key": "test-key-123"})
+            r = t.client.post(
+                "/api/v1/devices/dev-1/push",
+                json={"data": {"temp": {"value": 25.0}}},
+                headers={"X-API-Key": "test-key-123"},
+            )
         assert r.status_code == 200
 
     def test_push_with_api_key_invalid(self):
         t = _make_client("admin", optional_user="__none__", webhook_key="correct-key")
         with patch("edgelite.security.rbac.has_api_key_permission", return_value=True):
-            r = t.client.post("/api/v1/devices/dev-1/push",
-                              json={"data": {"temp": {"value": 25.0}}},
-                              headers={"X-API-Key": "wrong-key"})
+            r = t.client.post(
+                "/api/v1/devices/dev-1/push",
+                json={"data": {"temp": {"value": 25.0}}},
+                headers={"X-API-Key": "wrong-key"},
+            )
         assert r.status_code == 401
 
     def test_push_no_auth(self):
         t = _make_client("admin", optional_user="__none__", webhook_key="")
-        r = t.client.post("/api/v1/devices/dev-1/push", json={
-            "data": {"temp": {"value": 25.0}}
-        })
+        r = t.client.post("/api/v1/devices/dev-1/push", json={"data": {"temp": {"value": 25.0}}})
         assert r.status_code == 401
 
     def test_push_driver_not_ready(self):
         t = _make_client("admin", optional_user=ADMIN)
         t.svc._driver_instances = {}
-        r = t.client.post("/api/v1/devices/dev-1/push", json={
-            "data": {"temp": {"value": 25.0}}
-        })
+        r = t.client.post("/api/v1/devices/dev-1/push", json={"data": {"temp": {"value": 25.0}}})
         assert r.status_code == 400
 
     def test_push_empty_data(self):
@@ -978,9 +1166,7 @@ class TestPushData:
         t = _make_client("admin", optional_user=ADMIN)
         t.svc._driver_instances = {"dev-1": MagicMock()}
         t.svc._driver_instances["dev-1"].receive_data = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/dev-1/push", json={
-            "data": {"temp": {"value": 25.0}}
-        })
+        r = t.client.post("/api/v1/devices/dev-1/push", json={"data": {"temp": {"value": 25.0}}})
         assert r.status_code == 500
 
 
@@ -1138,54 +1324,76 @@ class TestConfigVersions:
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.save_config_version = AsyncMock(return_value=2)
-        r = t.client.post("/api/v1/devices/dev-1/config-versions", json={
-            "config": {"host": "1.2.3.4"}, "change_summary": "update", "operator": "admin",
-        })
+        r = t.client.post(
+            "/api/v1/devices/dev-1/config-versions",
+            json={
+                "config": {"host": "1.2.3.4"},
+                "change_summary": "update",
+                "operator": "admin",
+            },
+        )
         assert r.status_code == 200
 
     def test_save_config_version_failed(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.save_config_version = AsyncMock(return_value=0)
-        r = t.client.post("/api/v1/devices/dev-1/config-versions", json={
-            "config": {"host": "1.2.3.4"}, "change_summary": "update",
-        })
+        r = t.client.post(
+            "/api/v1/devices/dev-1/config-versions",
+            json={
+                "config": {"host": "1.2.3.4"},
+                "change_summary": "update",
+            },
+        )
         assert r.status_code == 400
 
     def test_save_config_version_error(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.save_config_version = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/dev-1/config-versions", json={
-            "config": {"host": "1.2.3.4"},
-        })
+        r = t.client.post(
+            "/api/v1/devices/dev-1/config-versions",
+            json={
+                "config": {"host": "1.2.3.4"},
+            },
+        )
         assert r.status_code == 500
 
     def test_rollback_config(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.rollback_config = AsyncMock(return_value={"version": 3})
-        r = t.client.post("/api/v1/devices/dev-1/config-versions/rollback", json={
-            "target_version": 1, "operator": "admin",
-        })
+        r = t.client.post(
+            "/api/v1/devices/dev-1/config-versions/rollback",
+            json={
+                "target_version": 1,
+                "operator": "admin",
+            },
+        )
         assert r.status_code == 200
 
     def test_rollback_config_not_found(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.rollback_config = AsyncMock(return_value=None)
-        r = t.client.post("/api/v1/devices/dev-1/config-versions/rollback", json={
-            "target_version": 99,
-        })
+        r = t.client.post(
+            "/api/v1/devices/dev-1/config-versions/rollback",
+            json={
+                "target_version": 99,
+            },
+        )
         assert r.status_code == 404
 
     def test_rollback_config_error(self):
         t = _make_client("admin")
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.rollback_config = AsyncMock(side_effect=RuntimeError("fail"))
-        r = t.client.post("/api/v1/devices/dev-1/config-versions/rollback", json={
-            "target_version": 1,
-        })
+        r = t.client.post(
+            "/api/v1/devices/dev-1/config-versions/rollback",
+            json={
+                "target_version": 1,
+            },
+        )
         assert r.status_code == 500
 
 

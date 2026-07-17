@@ -112,8 +112,7 @@ class TestS7200SmartPrejudge:
     @staticmethod
     def _prejudge(plc_model: str, rack: int, slot: int) -> bool:
         """复现 start() line 462-464 的预判逻辑。"""
-        result = (plc_model.upper() in ("S7-200 SMART", "S7-200", "AUTO")
-                  and rack == 0 and slot == 0)
+        result = plc_model.upper() in ("S7-200 SMART", "S7-200", "AUTO") and rack == 0 and slot == 0
         if plc_model.upper() == "S7-200 SMART":
             result = True
         return result
@@ -257,6 +256,7 @@ class TestExecutorRebuildRaceCondition:
         def _hang_forever():
             """同步阻塞函数 — 模拟 snap7 C 层卡死 (executor 线程执行)。"""
             import time as _time
+
             _time.sleep(10)
 
         async def _run():
@@ -288,6 +288,7 @@ class TestExecutorRebuildRaceCondition:
         def _hang_forever():
             """同步阻塞函数 — 模拟 snap7 卡死。"""
             import time as _time
+
             _time.sleep(10)
 
         async def _run():
@@ -320,12 +321,11 @@ class TestExecutorRebuildRaceCondition:
         def _hang_forever():
             """同步阻塞函数 — 模拟 snap7 卡死。"""
             import time as _time
+
             _time.sleep(10)
 
         async def _runner():
-            task = asyncio.create_task(
-                driver._run_in_s7_thread_async(_hang_forever, timeout=30.0)
-            )
+            task = asyncio.create_task(driver._run_in_s7_thread_async(_hang_forever, timeout=30.0))
             await asyncio.sleep(0.05)  # 让任务 submit 完成
             task.cancel()
             try:

@@ -101,9 +101,14 @@ def _parse_data(data: bytes, offset: int, data_type: str, bit_length: int = 0) -
     原问题: len(data) < offset 仅检查 offset 在范围内，不保证有足够数据读取。
     """
     _TYPE_SIZES = {
-        "bool": 1, "int8": 1, "uint8": 1,
-        "int16": 2, "uint16": 2,
-        "int32": 4, "uint32": 4, "float": 4,
+        "bool": 1,
+        "int8": 1,
+        "uint8": 1,
+        "int16": 2,
+        "uint16": 2,
+        "int32": 4,
+        "uint32": 4,
+        "float": 4,
     }
     required = _TYPE_SIZES.get(data_type, 1)
     if len(data) < offset + required:

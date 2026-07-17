@@ -40,20 +40,18 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime, server_default=sa.func.now()),
     )
     _create_index_idempotent("idx_devices_created_by", "devices", ["created_by"])
+    _create_check_constraint_idempotent("ck_devices_collect_interval_positive", "devices", "collect_interval > 0")
     _create_check_constraint_idempotent(
-        "ck_devices_collect_interval_positive", "devices", "collect_interval > 0"
+        "ck_devices_status_valid", "devices", "status IN ('online', 'offline', 'error', 'unknown')"
     )
     _create_check_constraint_idempotent(
-        "ck_devices_status_valid", "devices",
-        "status IN ('online', 'offline', 'error', 'unknown')"
-    )
-    _create_check_constraint_idempotent(
-        "ck_devices_protocol_valid", "devices",
+        "ck_devices_protocol_valid",
+        "devices",
         "protocol IN ("
         "'modbus_tcp', 'modbus_rtu', 'simulator', 'mqtt_client', 'http_webhook', "
         "'opc_ua', 'siemens_s7', 'mitsubishi_mc', 'omron_fins', 'allen_bradley', "
         "'opc_da', 'onvif', 'video_ai', 'modbus_slave'"
-        ")"
+        ")",
     )
 
     # rules
@@ -70,16 +68,11 @@ def upgrade() -> None:
         sa.Column("notify_channels", sa.Text, nullable=False, server_default="[]"),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
+    _create_check_constraint_idempotent("ck_rules_logic_valid", "rules", "logic IN ('AND', 'OR', 'NOT')")
     _create_check_constraint_idempotent(
-        "ck_rules_logic_valid", "rules", "logic IN ('AND', 'OR', 'NOT')"
+        "ck_rules_severity_valid", "rules", "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
     )
-    _create_check_constraint_idempotent(
-        "ck_rules_severity_valid", "rules",
-        "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
-    )
-    _create_check_constraint_idempotent(
-        "ck_rules_duration_non_negative", "rules", "duration >= 0"
-    )
+    _create_check_constraint_idempotent("ck_rules_duration_non_negative", "rules", "duration >= 0")
 
     # alarms
     _create_table_if_not_exists(
@@ -99,12 +92,10 @@ def upgrade() -> None:
     _create_index_idempotent("idx_alarms_status", "alarms", ["status"])
     _create_index_idempotent("idx_alarms_device", "alarms", ["device_id"])
     _create_check_constraint_idempotent(
-        "ck_alarms_severity_valid", "alarms",
-        "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
+        "ck_alarms_severity_valid", "alarms", "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
     )
     _create_check_constraint_idempotent(
-        "ck_alarms_status_valid", "alarms",
-        "status IN ('firing', 'acknowledged', 'recovered')"
+        "ck_alarms_status_valid", "alarms", "status IN ('firing', 'acknowledged', 'recovered')"
     )
 
     # users
@@ -117,10 +108,7 @@ def upgrade() -> None:
         sa.Column("enabled", sa.Boolean, nullable=False, server_default="1"),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
-    _create_check_constraint_idempotent(
-        "ck_users_role_valid", "users",
-        "role IN ('admin', 'operator', 'viewer')"
-    )
+    _create_check_constraint_idempotent("ck_users_role_valid", "users", "role IN ('admin', 'operator', 'viewer')")
 
     # cache_queue
     _create_table_if_not_exists(

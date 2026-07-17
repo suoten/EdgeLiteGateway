@@ -30,7 +30,6 @@ from edgelite.services.notify_service import (
     _validate_webhook_url,
 )
 
-
 # ───────────────────────── 辅助函数 ─────────────────────────
 
 
@@ -90,11 +89,13 @@ def _mock_resp(status_code: int = 200, body=None):
 
 def _af_inet():
     import socket as _s
+
     return _s.AF_INET
 
 
 def _af_inet6():
     import socket as _s
+
     return _s.AF_INET6
 
 
@@ -174,37 +175,45 @@ class TestSanitizeEmailHeader:
 class TestIsIpSafeForWebhook:
     def test_private_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("10.0.0.1")) is False
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("192.168.1.1")) is False
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("172.16.0.1")) is False
 
     def test_loopback_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("127.0.0.1")) is False
 
     def test_link_local_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("169.254.1.1")) is False
 
     def test_unspecified_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("0.0.0.0")) is False
 
     def test_ipv6_unspecified_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("::")) is False
 
     def test_multicast_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("224.0.0.1")) is False
 
     def test_public_is_safe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("8.8.8.8")) is True
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("1.1.1.1")) is True
 
     def test_ipv6_loopback_is_unsafe(self):
         import ipaddress
+
         assert _is_ip_safe_for_webhook(ipaddress.ip_address("::1")) is False
 
 
@@ -261,6 +270,7 @@ class TestValidateWebhookUrl:
 
     async def test_rejects_when_dns_resolution_fails(self, clear_ip_cache):
         import socket as _socket
+
         with patch.object(ns.socket, "getaddrinfo", side_effect=_socket.gaierror("dns fail")):
             result = await _validate_webhook_url("https://nonexistent.invalid/hook")
         assert result is False
@@ -338,17 +348,18 @@ class TestNotifyServiceLifecycle:
 
 class TestSendNotification:
     async def test_parallel_dispatch_multiple_channels(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            dingtalk_url="https://oapi.dingtalk.com/robot/send",
-            smtp_host="smtp.example.com", to_addrs=["a@b.com"],
-            wechat_url="https://qyapi.weixin.qq.com/cgi-bin/webhook",
-            webhook_url="https://8.8.8.8/hook",
-        ))
+        patch_config(
+            _make_notify_config(
+                dingtalk_url="https://oapi.dingtalk.com/robot/send",
+                smtp_host="smtp.example.com",
+                to_addrs=["a@b.com"],
+                wechat_url="https://qyapi.weixin.qq.com/cgi-bin/webhook",
+                webhook_url="https://8.8.8.8/hook",
+            )
+        )
         svc._http_client.post = AsyncMock(return_value=_mock_resp(200, {"errcode": 0}))
         with patch.object(NotifyService, "_smtp_send", return_value=None):
-            result = await svc.send_notification(
-                ["dingtalk", "email", "wechat", "webhook"], _alarm_data()
-            )
+            result = await svc.send_notification(["dingtalk", "email", "wechat", "webhook"], _alarm_data())
         assert result == {"dingtalk": True, "email": True, "wechat": True, "webhook": True}
 
     async def test_unknown_channel_returns_false(self, svc, patch_config):
@@ -379,9 +390,7 @@ class TestSendNotification:
 
     async def test_retry_on_exception(self, svc, patch_config, fast_sleep):
         patch_config(_make_notify_config(dingtalk_url="https://oapi.dingtalk.com/robot/send"))
-        svc._http_client.post = AsyncMock(
-            side_effect=[ConnectionError("boom"), _mock_resp(200, {"errcode": 0})]
-        )
+        svc._http_client.post = AsyncMock(side_effect=[ConnectionError("boom"), _mock_resp(200, {"errcode": 0})])
         result = await svc.send_notification(["dingtalk"], _alarm_data(), retry_count=2)
         assert result == {"dingtalk": True}
 
@@ -424,10 +433,12 @@ class TestSendDingtalk:
         assert await svc._send_dingtalk(_alarm_data()) is True
 
     async def test_success_with_secret_signing(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            dingtalk_url="https://oapi.dingtalk.com/robot/send?access_token=x",
-            dingtalk_secret="SECabc",
-        ))
+        patch_config(
+            _make_notify_config(
+                dingtalk_url="https://oapi.dingtalk.com/robot/send?access_token=x",
+                dingtalk_secret="SECabc",
+            )
+        )
         svc._http_client.post = AsyncMock(return_value=_mock_resp(200, {"errcode": 0}))
         with patch("edgelite.services.notify_service.timestamp_ms", return_value=1700000000000):
             assert await svc._send_dingtalk(_alarm_data()) is True
@@ -476,24 +487,35 @@ class TestSendEmail:
         assert await svc._send_email(_alarm_data()) is True
 
     async def test_success(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            smtp_host="smtp.example.com", to_addrs=["a@b.com"], from_addr="from@x.com",
-        ))
+        patch_config(
+            _make_notify_config(
+                smtp_host="smtp.example.com",
+                to_addrs=["a@b.com"],
+                from_addr="from@x.com",
+            )
+        )
         with patch.object(NotifyService, "_smtp_send", return_value=None) as mock_smtp:
             assert await svc._send_email(_alarm_data()) is True
             mock_smtp.assert_called_once()
 
     async def test_failure_returns_false(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            smtp_host="smtp.example.com", to_addrs=["a@b.com"],
-        ))
+        patch_config(
+            _make_notify_config(
+                smtp_host="smtp.example.com",
+                to_addrs=["a@b.com"],
+            )
+        )
         with patch.object(NotifyService, "_smtp_send", side_effect=RuntimeError("smtp fail")):
             assert await svc._send_email(_alarm_data()) is False
 
     async def test_crlf_in_device_id_sanitized(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            smtp_host="smtp.example.com", to_addrs=["a@b.com"], from_addr="from@x.com",
-        ))
+        patch_config(
+            _make_notify_config(
+                smtp_host="smtp.example.com",
+                to_addrs=["a@b.com"],
+                from_addr="from@x.com",
+            )
+        )
         captured = {}
 
         def _capture(email_cfg, msg):
@@ -506,18 +528,25 @@ class TestSendEmail:
         assert "Bcc" in captured["subject"]
 
     async def test_severity_label_mapping(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            smtp_host="smtp.example.com", to_addrs=["a@b.com"],
-        ))
+        patch_config(
+            _make_notify_config(
+                smtp_host="smtp.example.com",
+                to_addrs=["a@b.com"],
+            )
+        )
         for sev in ("critical", "warning", "info", "unknown"):
             with patch.object(NotifyService, "_smtp_send", return_value=None):
                 assert await svc._send_email(_alarm_data(severity=sev)) is True
 
     async def test_from_addr_falls_back_to_smtp_user(self, svc, patch_config):
-        patch_config(_make_notify_config(
-            smtp_host="smtp.example.com", to_addrs=["a@b.com"],
-            smtp_user="user@x.com", from_addr="",
-        ))
+        patch_config(
+            _make_notify_config(
+                smtp_host="smtp.example.com",
+                to_addrs=["a@b.com"],
+                smtp_user="user@x.com",
+                from_addr="",
+            )
+        )
         captured = {}
 
         def _capture(email_cfg, msg):
@@ -534,15 +563,19 @@ class TestSendEmail:
 class TestSmtpSend:
     def _email_cfg(self, **kw):
         defaults = dict(
-            smtp_host="smtp.example.com", smtp_port=465,
-            smtp_user="user", smtp_password="pass",
-            use_tls=True, use_starttls=False,
+            smtp_host="smtp.example.com",
+            smtp_port=465,
+            smtp_user="user",
+            smtp_password="pass",
+            use_tls=True,
+            use_starttls=False,
         )
         defaults.update(kw)
         return SimpleNamespace(**defaults)
 
     def _msg(self):
         from email.mime.multipart import MIMEMultipart
+
         return MIMEMultipart("alternative")
 
     def test_tls_uses_smtp_ssl(self):
@@ -593,6 +626,7 @@ class TestSmtpSend:
 
     def test_smtp_timeout_constant_used(self):
         from edgelite.constants import _NOTIFY_SMTP_TIMEOUT
+
         cfg = self._email_cfg(use_tls=False)
         with patch("edgelite.services.notify_service.smtplib.SMTP") as mock_smtp:
             NotifyService._smtp_send(cfg, self._msg())
@@ -692,10 +726,12 @@ class TestSendWebhook:
         assert await s._send_webhook(_alarm_data()) is False
 
     async def test_custom_headers_merged(self, svc, patch_config, clear_ip_cache):
-        patch_config(_make_notify_config(
-            webhook_url="https://8.8.8.8/hook",
-            webhook_headers={"X-Token": "abc", "Authorization": "Bearer t"},
-        ))
+        patch_config(
+            _make_notify_config(
+                webhook_url="https://8.8.8.8/hook",
+                webhook_headers={"X-Token": "abc", "Authorization": "Bearer t"},
+            )
+        )
         svc._http_client.post = AsyncMock(return_value=_mock_resp(200, {}))
         await svc._send_webhook(_alarm_data())
         kwargs = svc._http_client.post.await_args.kwargs

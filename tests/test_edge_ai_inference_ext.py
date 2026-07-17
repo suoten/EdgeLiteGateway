@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import sys
-import types
 from datetime import UTC, datetime
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -41,7 +40,6 @@ from edgelite.engine.edge_ai_inference import (
     quantize_model_fp16,
     quantize_model_int8,
 )
-
 
 # ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1062,7 +1060,6 @@ class TestInfer:
             assert result.output_data == {"output_0": [0.0]}
 
     async def test_memory_error_unloads_model(self, tmp_path):
-        import numpy as np
 
         engine = _make_active_engine(tmp_path)
         w = _make_onnx_wrapper(status="active", input_schema={"shape": [1, 3]})

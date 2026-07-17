@@ -24,7 +24,6 @@ from edgelite.storage.sqlite_repo import (  # noqa: E402
     UserRepo,
 )
 
-
 # ──────────────────────────────── 夹具 ────────────────────────────────
 
 
@@ -80,12 +79,43 @@ def _user(**kw):
 
 def _setup_rule_device(db_session):
     """插入设备+规则，满足外键约束。"""
-    from edgelite.models.db import DeviceORM, RuleORM
     from datetime import UTC, datetime
 
+    from edgelite.models.db import DeviceORM, RuleORM
+
     now = datetime.now(UTC)
-    db_session.add(DeviceORM(device_id="d1", name="dev", protocol="simulator", status="online", config="{}", points="[]", collect_interval=5, created_at=now, updated_at=now, version=1))
-    db_session.add(RuleORM(rule_id="r1", name="rule", device_id="d1", conditions="[]", logic="AND", duration=0, severity="warning", enabled=True, notify_channels="[]", script="", rule_type="threshold", created_at=now, updated_at=now, version=1))
+    db_session.add(
+        DeviceORM(
+            device_id="d1",
+            name="dev",
+            protocol="simulator",
+            status="online",
+            config="{}",
+            points="[]",
+            collect_interval=5,
+            created_at=now,
+            updated_at=now,
+            version=1,
+        )
+    )
+    db_session.add(
+        RuleORM(
+            rule_id="r1",
+            name="rule",
+            device_id="d1",
+            conditions="[]",
+            logic="AND",
+            duration=0,
+            severity="warning",
+            enabled=True,
+            notify_channels="[]",
+            script="",
+            rule_type="threshold",
+            created_at=now,
+            updated_at=now,
+            version=1,
+        )
+    )
 
 
 # ════════════════════ AlarmRepo ════════════════════
@@ -699,6 +729,7 @@ class TestRateLimitRepo:
 
     async def test_cleanup_global_failures(self, fake_db):
         from edgelite.models.db import GlobalLoginFailureORM
+
         old_ts = time.time() - 7200
         async with fake_db.get_session() as session:
             session.add(GlobalLoginFailureORM(timestamp=old_ts, username="old", ip="1.2.3.4"))

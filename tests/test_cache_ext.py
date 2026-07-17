@@ -126,9 +126,8 @@ class TestEpochToIso:
 
     def test_oversized_float_returns_now(self):
         # 超大负时间戳在多数平台上触发 OSError: timestamp out of range
-        result = _epoch_to_iso(-2**40)
+        result = _epoch_to_iso(-(2**40))
         assert "T" in result
-
 
 
 class TestEnsureRingBuffer:
@@ -233,7 +232,6 @@ class TestRestoreFromSqlite:
         cache_manager_rb._ring_buffer = mock_rb
         result = await cache_manager_rb.restore_from_sqlite()
         assert result == 0
-
 
 
 class TestAddToCacheExtended:
@@ -373,7 +371,6 @@ class TestOrphanExceptionPaths:
 
     async def test_clear_orphan_ids_empty(self, cache_manager):
         await cache_manager.clear_orphan_ids([])
-
 
 
 class TestRingBufferIntegration:

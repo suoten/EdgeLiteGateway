@@ -6,6 +6,7 @@
 等价于:
     pip install -e . && python -m edgelite [选项]
 """
+
 import sys
 from pathlib import Path
 

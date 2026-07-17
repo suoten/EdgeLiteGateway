@@ -221,8 +221,7 @@ class TestDoConnectLockProtection:
 
         # 应多次获取 _sync_lock: 读 old_client + 写 new_client (+ 可能的异常路径写 None)
         assert tracking_lock.acquire_count >= 2, (
-            f"_do_connect should acquire _sync_lock at least twice (read+write), "
-            f"got {tracking_lock.acquire_count}"
+            f"_do_connect should acquire _sync_lock at least twice (read+write), got {tracking_lock.acquire_count}"
         )
 
     def test_do_connect_client_write_is_atomic(self):
@@ -394,9 +393,7 @@ class TestRunInS7ThreadTimeoutLockProtection:
                 )
 
         # 超时路径应获取 _sync_lock 读取 old_client
-        assert tracking_lock.acquire_count > 0, (
-            "timeout path should acquire _sync_lock to read _client"
-        )
+        assert tracking_lock.acquire_count > 0, "timeout path should acquire _sync_lock to read _client"
 
     @pytest.mark.asyncio
     async def test_executor_rebuild_path_reads_client_under_lock(self):
@@ -428,9 +425,7 @@ class TestRunInS7ThreadTimeoutLockProtection:
                     pass
 
         # 重建路径应获取 _sync_lock 读取 old_client
-        assert tracking_lock.acquire_count > 0, (
-            "rebuild path should acquire _sync_lock to read _client"
-        )
+        assert tracking_lock.acquire_count > 0, "rebuild path should acquire _sync_lock to read _client"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -460,9 +455,7 @@ class TestLockHierarchy:
         import inspect
 
         source = inspect.getsource(S7Driver.__init__)
-        assert "Lock Hierarchy" in source or "锁层级" in source, (
-            "__init__ should document lock hierarchy"
-        )
+        assert "Lock Hierarchy" in source or "锁层级" in source, "__init__ should document lock hierarchy"
 
     def test_sync_db_read_uses_sync_lock(self):
         """_sync_db_read 应在 _sync_lock 内访问 _client"""
@@ -577,6 +570,4 @@ class TestConcurrentConnectAndRead:
 
         # 不应有 AttributeError
         attr_errors = [e for e in errors if isinstance(e, AttributeError)]
-        assert len(attr_errors) == 0, (
-            f"Concurrent stop+read caused AttributeError: {attr_errors}"
-        )
+        assert len(attr_errors) == 0, f"Concurrent stop+read caused AttributeError: {attr_errors}"

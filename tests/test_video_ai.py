@@ -27,7 +27,6 @@ from edgelite.drivers.video_ai import (
     validate_model_path,
 )
 
-
 # --------------------------------------------------------------------------- #
 # validate_model_path
 # --------------------------------------------------------------------------- #
@@ -162,38 +161,47 @@ class TestResolveDevice:
             assert resolve_device("anything") == ("CPU", False)
 
     def test_cuda_available(self):
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort, "get_available_providers", return_value=["CUDAExecutionProvider", "CPUExecutionProvider"]
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(
+                video_ai.ort, "get_available_providers", return_value=["CUDAExecutionProvider", "CPUExecutionProvider"]
+            ),
         ):
             assert resolve_device("CUDA") == ("CUDA", False)
 
     def test_cuda_unavailable_degrades_to_cpu(self):
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]),
         ):
             device, degraded = resolve_device("CUDA")
             assert device == "CPU"
             assert degraded is True
 
     def test_tensorrt_available(self):
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort,
-            "get_available_providers",
-            return_value=["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(
+                video_ai.ort,
+                "get_available_providers",
+                return_value=["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+            ),
         ):
             assert resolve_device("TENSORRT") == ("TENSORRT", False)
 
     def test_tensorrt_unavailable_degrades_to_cpu(self):
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]),
         ):
             device, degraded = resolve_device("TENSORRT")
             assert device == "CPU"
             assert degraded is True
 
     def test_unknown_device_returns_cpu_not_degraded(self):
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]),
         ):
             assert resolve_device("TPU") == ("CPU", False)
             assert resolve_device("") == ("CPU", False)
@@ -288,8 +296,9 @@ class TestVideoAIModel:
         """model_path 为空 → 仿真模式"""
         cfg = InferenceConfig(model_path="")
         model = VideoAIModel(cfg)
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]),
         ):
             assert model.load() is True
             assert model._initialized is True
@@ -299,9 +308,11 @@ class TestVideoAIModel:
         """ONNX 可用但加载模型抛异常 → load 返回 False"""
         cfg = InferenceConfig(model_path="/fake/model.onnx")
         model = VideoAIModel(cfg)
-        with patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True), patch.object(
-            video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]
-        ), patch.object(video_ai.ort, "InferenceSession", side_effect=RuntimeError("bad model")):
+        with (
+            patch.object(video_ai, "ONNXRUNTIME_AVAILABLE", True),
+            patch.object(video_ai.ort, "get_available_providers", return_value=["CPUExecutionProvider"]),
+            patch.object(video_ai.ort, "InferenceSession", side_effect=RuntimeError("bad model")),
+        ):
             assert model.load() is False
             assert model._initialized is False
             assert model._session is None

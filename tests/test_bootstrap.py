@@ -60,8 +60,12 @@ def _make_config(**overrides):
         security=SimpleNamespace(secret_key="x" * 40),
         influxdb=SimpleNamespace(token="tok", url="http://localhost:8086", org="o", bucket="b"),
         logging=SimpleNamespace(
-            level="INFO", format="%(message)s", log_dir=None,
-            max_bytes=1024, backup_count=2, json_format=False,
+            level="INFO",
+            format="%(message)s",
+            log_dir=None,
+            max_bytes=1024,
+            backup_count=2,
+            json_format=False,
         ),
         server=SimpleNamespace(port=8000, cors_allowed_origins=[], dev_mode=True, websocket=None),
         preprocess=SimpleNamespace(enabled=False),
@@ -147,6 +151,7 @@ async def test_safe_stop_exception_swallowed():
     resource.shutdown = AsyncMock(side_effect=ValueError("boom"))
     await _safe_stop(resource, "shutdown", "bad")
     resource.shutdown.assert_awaited_once()
+
 
 # -- bootstrap_storage --
 
@@ -300,6 +305,7 @@ async def test_bootstrap_engine_outbox_persistence_failure():
         await bootstrap_engine(c, config)
 
     assert c.event_bus is mock_event_bus
+
 
 # -- bootstrap_services + _AlarmNameResolver --
 
@@ -469,8 +475,10 @@ async def test_bootstrap_ws_with_origin_whitelist():
     c.event_bus.replay_pending_alarms = AsyncMock(return_value=2)
     config = _make_config(
         server=SimpleNamespace(
-            port=8000, cors_allowed_origins=["http://localhost:3000"],
-            dev_mode=False, websocket=SimpleNamespace(max_connections=50),
+            port=8000,
+            cors_allowed_origins=["http://localhost:3000"],
+            dev_mode=False,
+            websocket=SimpleNamespace(max_connections=50),
         )
     )
     mock_ws_manager = MagicMock()
@@ -496,8 +504,10 @@ async def test_bootstrap_ws_dev_mode_no_whitelist():
     c.event_bus.replay_pending_alarms = AsyncMock(return_value=0)
     config = _make_config(
         server=SimpleNamespace(
-            port=8000, cors_allowed_origins=["http://localhost:3000"],
-            dev_mode=True, websocket=None,
+            port=8000,
+            cors_allowed_origins=["http://localhost:3000"],
+            dev_mode=True,
+            websocket=None,
         )
     )
     mock_ws_manager = MagicMock()
@@ -529,6 +539,7 @@ async def test_bootstrap_ws_replay_failure():
         patch("edgelite.ws.channels.WebSocketChannels", return_value=mock_ws_channels),
     ):
         await bootstrap_ws(c, config)
+
 
 # -- bootstrap_drivers --
 
@@ -600,8 +611,13 @@ async def test_bootstrap_mqtt_server_with_auth():
     c = ServiceContainer()
     config = _make_config()
     config.mqtt_server = SimpleNamespace(
-        enabled=True, username="user", password="pass",
-        allow_no_auth=False, host="0.0.0.0", port=1888, ws_port=None,
+        enabled=True,
+        username="user",
+        password="pass",
+        allow_no_auth=False,
+        host="0.0.0.0",
+        port=1888,
+        ws_port=None,
     )
     mock_forwarder = MagicMock()
     mock_forwarder.start = AsyncMock()
@@ -625,8 +641,13 @@ async def test_bootstrap_mqtt_server_no_auth_localhost_fallback():
     c = ServiceContainer()
     config = _make_config()
     config.mqtt_server = SimpleNamespace(
-        enabled=True, username="", password="",
-        allow_no_auth=False, host="0.0.0.0", port=1888, ws_port=None,
+        enabled=True,
+        username="",
+        password="",
+        allow_no_auth=False,
+        host="0.0.0.0",
+        port=1888,
+        ws_port=None,
     )
     mock_forwarder = MagicMock()
     mock_forwarder.start = AsyncMock()
@@ -647,8 +668,13 @@ async def test_bootstrap_mqtt_server_allow_no_auth():
     c = ServiceContainer()
     config = _make_config()
     config.mqtt_server = SimpleNamespace(
-        enabled=True, username="", password="",
-        allow_no_auth=True, host="0.0.0.0", port=1888, ws_port=None,
+        enabled=True,
+        username="",
+        password="",
+        allow_no_auth=True,
+        host="0.0.0.0",
+        port=1888,
+        ws_port=None,
     )
     mock_forwarder = MagicMock()
     mock_forwarder.start = AsyncMock()
@@ -726,9 +752,7 @@ async def test_bootstrap_modbus_slave_no_config():
 async def test_bootstrap_modbus_slave_enabled():
     c = ServiceContainer()
     config = _make_config()
-    config.modbus_slave = SimpleNamespace(
-        enabled=True, host="127.0.0.1", port=5020, holding_size=500, input_size=500
-    )
+    config.modbus_slave = SimpleNamespace(enabled=True, host="127.0.0.1", port=5020, holding_size=500, input_size=500)
     mock_slave = MagicMock()
     mock_slave.start = AsyncMock()
 
@@ -740,6 +764,7 @@ async def test_bootstrap_modbus_slave_enabled():
     call_args = mock_slave.start.call_args[0][0]
     assert call_args["host"] == "127.0.0.1"
     assert call_args["port"] == 5020
+
 
 # -- bootstrap_devices --
 
@@ -843,6 +868,7 @@ async def test_bootstrap_app_updater_success():
     c = ServiceContainer()
     try:
         import edgelite.engine.app_updater as _mod  # noqa: F401
+
         mock_updater = MagicMock()
         with patch("edgelite.engine.app_updater.AppUpdater", return_value=mock_updater):
             await bootstrap_app_updater(c, _make_config())
@@ -862,6 +888,7 @@ async def test_bootstrap_app_updater_exception():
     c = ServiceContainer()
     try:
         import edgelite.engine.app_updater as _mod  # noqa: F401
+
         with patch("edgelite.engine.app_updater.AppUpdater", side_effect=RuntimeError("init fail")):
             await bootstrap_app_updater(c, _make_config())
         assert c.app_updater is None
@@ -966,6 +993,7 @@ async def test_bootstrap_ai_empty_models_dir():
         await bootstrap_ai(c, config)
 
     assert c.ai_engine is mock_engine
+
 
 # -- bootstrap_video --
 
@@ -1208,16 +1236,19 @@ async def test_auto_install_deps_missing():
 
     with patch("importlib.import_module", side_effect=_mock_import_module):
         from edgelite.bootstrap import _auto_install_deps
+
         with pytest.raises(RuntimeError, match="onnxruntime"):
             await _auto_install_deps()
 
 
 async def test_auto_install_deps_all_present():
     from edgelite.bootstrap import _auto_install_deps
+
     try:
         await _auto_install_deps()
     except RuntimeError:
         pass
+
 
 # -- teardown --
 
@@ -1357,16 +1388,29 @@ async def test_teardown_resource_exception_swallowed():
 
     await teardown(c)
 
+
 # -- bootstrap_all --
 
 
 _STEP_NAMES = [
-    "bootstrap_storage", "bootstrap_engine", "bootstrap_driver_watchdog",
-    "bootstrap_services", "bootstrap_ai", "bootstrap_evaluator",
-    "bootstrap_ws", "bootstrap_video", "bootstrap_drivers",
-    "bootstrap_mqtt", "bootstrap_platforms", "bootstrap_modbus_slave",
-    "bootstrap_devices", "bootstrap_shadow", "bootstrap_integration",
-    "bootstrap_app_updater", "bootstrap_config_reload", "bootstrap_log_rotation",
+    "bootstrap_storage",
+    "bootstrap_engine",
+    "bootstrap_driver_watchdog",
+    "bootstrap_services",
+    "bootstrap_ai",
+    "bootstrap_evaluator",
+    "bootstrap_ws",
+    "bootstrap_video",
+    "bootstrap_drivers",
+    "bootstrap_mqtt",
+    "bootstrap_platforms",
+    "bootstrap_modbus_slave",
+    "bootstrap_devices",
+    "bootstrap_shadow",
+    "bootstrap_integration",
+    "bootstrap_app_updater",
+    "bootstrap_config_reload",
+    "bootstrap_log_rotation",
 ]
 
 
@@ -1378,13 +1422,15 @@ def _mock_all_steps(monkeypatch):
         monkeypatch.setattr(f"edgelite.bootstrap.{name}", m)
         mocks[name] = m
 
-    mocks["_verify"] = AsyncMock(return_value=[
-        ("secret_key", True, "ok"),
-        ("database", True, "ok"),
-        ("influxdb", True, "ok"),
-        ("event_bus", True, "ok"),
-        ("scheduler", True, "ok"),
-    ])
+    mocks["_verify"] = AsyncMock(
+        return_value=[
+            ("secret_key", True, "ok"),
+            ("database", True, "ok"),
+            ("influxdb", True, "ok"),
+            ("event_bus", True, "ok"),
+            ("scheduler", True, "ok"),
+        ]
+    )
     monkeypatch.setattr("edgelite.bootstrap._verify_startup_chain", mocks["_verify"])
 
     mocks["_auto_deps"] = AsyncMock()
@@ -1436,8 +1482,12 @@ async def test_bootstrap_all_json_format(_mock_all_steps, tmp_path):
     c = ServiceContainer()
     config = _make_config(
         logging=SimpleNamespace(
-            level="INFO", format="%(message)s", log_dir=str(tmp_path),
-            max_bytes=1024, backup_count=2, json_format=True,
+            level="INFO",
+            format="%(message)s",
+            log_dir=str(tmp_path),
+            max_bytes=1024,
+            backup_count=2,
+            json_format=True,
         )
     )
     mock_formatter = MagicMock()

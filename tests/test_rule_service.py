@@ -150,9 +150,7 @@ class TestCreateRule:
         rule_repo.create = AsyncMock(return_value={"rule_id": "r1"})
         with patch("edgelite.app._app_state", new=FakeAppState(evaluator=None)):
             await svc.create_rule({"device_id": "dev1"}, created_by="alice")
-        rule_repo.create.assert_awaited_once_with(
-            {"device_id": "dev1"}, created_by="alice"
-        )
+        rule_repo.create.assert_awaited_once_with({"device_id": "dev1"}, created_by="alice")
 
     async def test_import_error_skipped(self, svc, rule_repo, device_repo):
         """_app_state 不可用时（AttributeError）应跳过缓存失效"""
@@ -189,9 +187,7 @@ class TestReadOperations:
 
     async def test_list_rules_by_ids(self, svc, rule_repo):
         """批量查询应委托给 repo"""
-        rule_repo.list_rules_by_ids = AsyncMock(
-            return_value=[{"rule_id": "r1"}, {"rule_id": "r2"}]
-        )
+        rule_repo.list_rules_by_ids = AsyncMock(return_value=[{"rule_id": "r1"}, {"rule_id": "r2"}])
         result = await svc.list_rules_by_ids(["r1", "r2"])
         assert len(result) == 2
         rule_repo.list_rules_by_ids.assert_awaited_once_with(["r1", "r2"])
@@ -200,14 +196,16 @@ class TestReadOperations:
         """list_rules 应透传所有过滤参数"""
         rule_repo.list_all = AsyncMock(return_value=([{"rule_id": "r1"}], 1))
         rules, total = await svc.list_rules(
-            page=2, size=10, device_id="dev1", search="temp",
-            severity="warning", created_by="bob",
+            page=2,
+            size=10,
+            device_id="dev1",
+            search="temp",
+            severity="warning",
+            created_by="bob",
         )
         assert total == 1
         assert len(rules) == 1
-        rule_repo.list_all.assert_awaited_once_with(
-            2, 10, "dev1", "temp", "warning", "bob"
-        )
+        rule_repo.list_all.assert_awaited_once_with(2, 10, "dev1", "temp", "warning", "bob")
 
     async def test_list_rules_defaults(self, svc, rule_repo):
         """list_rules 默认参数"""
@@ -292,13 +290,9 @@ class TestDeleteRule:
             result = await svc.delete_rule("r1")
         assert result is True
 
-    async def test_success_with_alarm_recovery_and_events(
-        self, svc, rule_repo, device_repo
-    ):
+    async def test_success_with_alarm_recovery_and_events(self, svc, rule_repo, device_repo):
         """完整恢复路径：恢复告警 + 解析设备名 + 发布事件"""
-        rule_repo.get = AsyncMock(
-            return_value={"name": "rule1", "device_id": "dev1"}
-        )
+        rule_repo.get = AsyncMock(return_value={"name": "rule1", "device_id": "dev1"})
         rule_repo.delete = AsyncMock(return_value=True)
         device_repo.get = AsyncMock(return_value={"name": "Device1"})
         alarm_repo = AsyncMock()
@@ -311,9 +305,7 @@ class TestDeleteRule:
         event_bus = AsyncMock()
         event_bus.publish = AsyncMock()
         ev = make_evaluator()
-        state = FakeAppState(
-            evaluator=ev, event_bus=event_bus, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=ev, event_bus=event_bus, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             result = await svc.delete_rule("r1")
         assert result is True
@@ -329,9 +321,7 @@ class TestDeleteRule:
         alarm_repo.recover_active_by_rule = AsyncMock(return_value=[])
         event_bus = AsyncMock()
         event_bus.publish = AsyncMock()
-        state = FakeAppState(
-            evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             await svc.delete_rule("r1")
         event_bus.publish.assert_not_awaited()
@@ -344,9 +334,7 @@ class TestDeleteRule:
         alarm_repo.recover_active_by_rule = AsyncMock(
             return_value=[{"alarm_id": "a1", "device_id": "dev1", "severity": "info"}]
         )
-        state = FakeAppState(
-            evaluator=None, event_bus=None, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=None, event_bus=None, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             result = await svc.delete_rule("r1")
         assert result is True
@@ -361,9 +349,7 @@ class TestDeleteRule:
         )
         event_bus = AsyncMock()
         event_bus.publish = AsyncMock()
-        state = FakeAppState(
-            evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             await svc.delete_rule("r1")
         device_repo.get.assert_not_awaited()
@@ -380,9 +366,7 @@ class TestDeleteRule:
         )
         event_bus = AsyncMock()
         event_bus.publish = AsyncMock()
-        state = FakeAppState(
-            evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             result = await svc.delete_rule("r1")
         assert result is True
@@ -398,9 +382,7 @@ class TestDeleteRule:
         )
         event_bus = AsyncMock()
         event_bus.publish = AsyncMock(side_effect=RuntimeError("bus down"))
-        state = FakeAppState(
-            evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=None, event_bus=event_bus, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             result = await svc.delete_rule("r1")
         assert result is True
@@ -410,13 +392,9 @@ class TestDeleteRule:
         rule_repo.get = AsyncMock(return_value={"name": "r", "device_id": "dev1"})
         rule_repo.delete = AsyncMock(return_value=True)
         alarm_repo = AsyncMock()
-        alarm_repo.recover_active_by_rule = AsyncMock(
-            side_effect=RuntimeError("recover failed")
-        )
+        alarm_repo.recover_active_by_rule = AsyncMock(side_effect=RuntimeError("recover failed"))
         ev = make_evaluator()
-        state = FakeAppState(
-            evaluator=ev, event_bus=None, repos={"alarm": alarm_repo}
-        )
+        state = FakeAppState(evaluator=ev, event_bus=None, repos={"alarm": alarm_repo})
         with patch("edgelite.app._app_state", new=state):
             result = await svc.delete_rule("r1")
         assert result is True
@@ -581,9 +559,7 @@ class TestTestRule:
 
     async def test_no_conditions(self, svc, rule_repo):
         """无条件时返回 all_matched=False"""
-        rule_repo.get = AsyncMock(
-            return_value={"rule_id": "r1", "conditions": [], "logic": "AND"}
-        )
+        rule_repo.get = AsyncMock(return_value={"rule_id": "r1", "conditions": [], "logic": "AND"})
         result = await svc.test_rule("r1", {"temp": 80})
         assert result["all_matched"] is False
         assert result["condition_results"] == []
@@ -591,9 +567,7 @@ class TestTestRule:
 
     async def test_no_conditions_none_field(self, svc, rule_repo):
         """conditions 为 None 时应视为空"""
-        rule_repo.get = AsyncMock(
-            return_value={"rule_id": "r1", "conditions": None, "logic": "OR"}
-        )
+        rule_repo.get = AsyncMock(return_value={"rule_id": "r1", "conditions": None, "logic": "OR"})
         result = await svc.test_rule("r1", {"temp": 80})
         assert result["all_matched"] is False
 
@@ -615,9 +589,7 @@ class TestTestRule:
         rule_repo.get = AsyncMock(
             return_value={
                 "rule_id": "r1",
-                "conditions": [
-                    {"point": "temp", "operator": ">", "threshold": 50}
-                ],
+                "conditions": [{"point": "temp", "operator": ">", "threshold": 50}],
                 "logic": "AND",
             }
         )
@@ -719,9 +691,7 @@ class TestTestRule:
         rule_repo.get = AsyncMock(
             return_value={
                 "rule_id": "r1",
-                "conditions": [
-                    {"point": "temp", "operator": ">=", "threshold": 0}
-                ],
+                "conditions": [{"point": "temp", "operator": ">=", "threshold": 0}],
                 "logic": "AND",
             }
         )
@@ -783,9 +753,7 @@ class TestEvaluateRule:
         rule_repo.get = AsyncMock(
             return_value={
                 "rule_id": "r1",
-                "conditions": [
-                    {"point": "temp", "operator": ">", "threshold": 50}
-                ],
+                "conditions": [{"point": "temp", "operator": ">", "threshold": 50}],
                 "logic": "AND",
                 "priority": 1,
                 "device_id": "dev1",
@@ -803,9 +771,7 @@ class TestEvaluateRule:
         rule_repo.get = AsyncMock(
             return_value={
                 "rule_id": "r1",
-                "conditions": [
-                    {"point": "temp", "operator": ">", "threshold": 50}
-                ],
+                "conditions": [{"point": "temp", "operator": ">", "threshold": 50}],
                 "logic": "AND",
                 "priority": 0,
             }
@@ -868,9 +834,7 @@ class TestEvaluateRule:
         rule_repo.get = AsyncMock(
             return_value={
                 "rule_id": "r1",
-                "conditions": [
-                    {"point": "temp", "operator": ">", "threshold": 50}
-                ],
+                "conditions": [{"point": "temp", "operator": ">", "threshold": 50}],
                 "logic": "AND",
                 "priority": 0,
             }

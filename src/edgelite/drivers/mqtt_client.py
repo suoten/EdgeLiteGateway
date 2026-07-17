@@ -574,7 +574,11 @@ class MqttClientDriver(DriverPlugin):
                 except asyncio.QueueEmpty:
                     break
             if drained > 0:
-                logger.info("[mqtt] code=ON_DISCONNECT msg=subscription cleared, drained %d stale messages from msg_queue, reason=%s", drained, reason)
+                logger.info(
+                    "[mqtt] code=ON_DISCONNECT msg=subscription cleared, drained %d stale messages from msg_queue, reason=%s",
+                    drained,
+                    reason,
+                )
             else:
                 logger.info("[mqtt] code=ON_DISCONNECT msg=subscription records cleared reason=%s", reason)
         else:
@@ -813,7 +817,11 @@ class MqttClientDriver(DriverPlugin):
                             continue
                         # FIXED-P1: topic 长度校验（MQTT 规范 topic 最长 65535 字节）
                         if len(topic.encode("utf-8")) > 65535:
-                            self._log_error(device_id, "SUBSCRIBE_FAILED", f"topic too long ({len(topic.encode('utf-8'))} bytes, max 65535)")
+                            self._log_error(
+                                device_id,
+                                "SUBSCRIBE_FAILED",
+                                f"topic too long ({len(topic.encode('utf-8'))} bytes, max 65535)",
+                            )
                             continue
                         try:
                             await client.subscribe(topic)

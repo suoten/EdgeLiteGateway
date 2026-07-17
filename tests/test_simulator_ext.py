@@ -27,7 +27,7 @@ import random
 import sys
 import time
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -39,7 +39,6 @@ from edgelite.drivers.simulator import (  # noqa: E402
     SimulatorDriver,
     _WriteOverride,
 )
-
 
 # -- Helpers -----------------------------------------------------------------
 
@@ -1145,7 +1144,9 @@ class TestGenerateValue:
     def test_sine_mode(self):
         d = SimulatorDriver()
         d._phase_state["dev1:p1"] = 0.0
-        val = d._generate_value("dev1", "p1", {"min": 0, "max": 100, "mode": "sine", "period": 60, "collect_interval": 1})
+        val = d._generate_value(
+            "dev1", "p1", {"min": 0, "max": 100, "mode": "sine", "period": 60, "collect_interval": 1}
+        )
         # sin(2*pi/60) * 50 + 50
         expected = 50 + 50 * math.sin(2 * math.pi / 60)
         assert abs(val - expected) < 1e-9
@@ -1365,7 +1366,9 @@ class TestDiscoverAndHealth:
 class TestWriteThenRead:
     async def test_written_value_is_returned_by_read(self):
         d = _make_driver()
-        await _add_device(d, "dev1", [{"name": "p1", "min": 0, "max": 100, "mode": "random", "write_hold_seconds": 100}])
+        await _add_device(
+            d, "dev1", [{"name": "p1", "min": 0, "max": 100, "mode": "random", "write_hold_seconds": 100}]
+        )
         await d.write_point("dev1", "p1", 42.0)
         result = await d.read_points("dev1", ["p1"])
         assert result["p1"].value == 42.0

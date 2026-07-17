@@ -20,14 +20,14 @@ sys.path.insert(0, "src")
 
 from edgelite.drivers.base import PointValue  # noqa: E402
 from edgelite.engine.scheduler import (  # noqa: E402
+    _PRIORITY_INTERVAL_MULTIPLIER,
+    _PRIORITY_SEMAPHORE_WEIGHT,
     DEFAULT_TIMEOUT,
     CollectScheduler,
     CollectStats,
     DevicePriority,
     DeviceQualityStats,
     _ConcurrencyGate,
-    _PRIORITY_INTERVAL_MULTIPLIER,
-    _PRIORITY_SEMAPHORE_WEIGHT,
 )
 
 
@@ -299,8 +299,13 @@ class TestSchedulerInit:
 
     def test_init_loads_config(self, mock_event_bus, mock_influx, mock_cache, mock_circuit_manager):
         """配置存在时从 scheduler 配置加载参数。"""
-        sc = SimpleNamespace(max_concurrent_collects=20, error_rate_threshold=0.2,
-                             watchdog_interval=15, watchdog_stale_cycles=5, watchdog_restart_cycles=20)
+        sc = SimpleNamespace(
+            max_concurrent_collects=20,
+            error_rate_threshold=0.2,
+            watchdog_interval=15,
+            watchdog_stale_cycles=5,
+            watchdog_restart_cycles=20,
+        )
         cfg = SimpleNamespace(scheduler=sc)
         with (
             patch("edgelite.engine.circuit_breaker.get_circuit_breaker_manager", return_value=mock_circuit_manager),
@@ -552,8 +557,7 @@ class TestQualityScore:
 
     async def test_grade_a(self, scheduler):
         """100%成功率 + 低延迟 -> A级。"""
-        scheduler._device_quality_stats["dev1"] = DeviceQualityStats(
-            device_id="dev1", success_count=10, total_count=10)
+        scheduler._device_quality_stats["dev1"] = DeviceQualityStats(device_id="dev1", success_count=10, total_count=10)
         scheduler._collect_stats["dev1"] = CollectStats(device_id="dev1", avg_latency_ms=50.0, total_calls=10)
         result = await scheduler.calculate_quality_score("dev1")
         assert result["grade"] == "A"
@@ -562,21 +566,24 @@ class TestQualityScore:
     async def test_grade_b(self, scheduler):
         """50%成功率 + 中等延迟 -> B级。"""
         scheduler._device_quality_stats["dev1"] = DeviceQualityStats(
-            device_id="dev1", success_count=5, error_count=5, total_count=10, error_rate=0.5)
+            device_id="dev1", success_count=5, error_count=5, total_count=10, error_rate=0.5
+        )
         scheduler._collect_stats["dev1"] = CollectStats(device_id="dev1", avg_latency_ms=200.0, total_calls=10)
         assert (await scheduler.calculate_quality_score("dev1"))["grade"] == "B"
 
     async def test_grade_c(self, scheduler):
         """低成功率 + 较高延迟 -> C级。"""
         scheduler._device_quality_stats["dev1"] = DeviceQualityStats(
-            device_id="dev1", success_count=3, error_count=7, total_count=10, error_rate=0.7)
+            device_id="dev1", success_count=3, error_count=7, total_count=10, error_rate=0.7
+        )
         scheduler._collect_stats["dev1"] = CollectStats(device_id="dev1", avg_latency_ms=600.0, total_calls=10)
         assert (await scheduler.calculate_quality_score("dev1"))["grade"] == "C"
 
     async def test_grade_d(self, scheduler):
         """0%成功率 + 高延迟 -> D级。"""
         scheduler._device_quality_stats["dev1"] = DeviceQualityStats(
-            device_id="dev1", success_count=0, error_count=10, total_count=10, error_rate=1.0)
+            device_id="dev1", success_count=0, error_count=10, total_count=10, error_rate=1.0
+        )
         scheduler._collect_stats["dev1"] = CollectStats(device_id="dev1", avg_latency_ms=2000.0, total_calls=10)
         result = await scheduler.calculate_quality_score("dev1")
         assert result["grade"] == "D"
@@ -585,7 +592,8 @@ class TestQualityScore:
     async def test_grade_f(self, scheduler):
         """0%成功率 + 极高延迟 -> F级。"""
         scheduler._device_quality_stats["dev1"] = DeviceQualityStats(
-            device_id="dev1", success_count=0, error_count=10, total_count=10, error_rate=1.0)
+            device_id="dev1", success_count=0, error_count=10, total_count=10, error_rate=1.0
+        )
         scheduler._collect_stats["dev1"] = CollectStats(device_id="dev1", avg_latency_ms=6000.0, total_calls=10)
         result = await scheduler.calculate_quality_score("dev1")
         assert result["grade"] == "F"
@@ -660,6 +668,7 @@ class TestCollectLoop:
 
     async def test_collect_timeout(self, scheduler, mock_circuit_manager):
         """采集超时时发布 timeout 质量事件。"""
+
         async def _cp(device_id, func, *args, fallback=None, **kwargs):
             raise TimeoutError()
 
@@ -672,6 +681,7 @@ class TestCollectLoop:
 
     async def test_collect_timeout_summary(self, scheduler, mock_circuit_manager):
         """超时且测点数>10时发布 __summary__ 事件。"""
+
         async def _cp(device_id, func, *args, fallback=None, **kwargs):
             raise TimeoutError()
 
@@ -684,6 +694,7 @@ class TestCollectLoop:
 
     async def test_collect_generic_error(self, scheduler, mock_circuit_manager):
         """采集发生通用异常时发布 bad 质量事件。"""
+
         async def _cp(device_id, func, *args, fallback=None, **kwargs):
             raise RuntimeError("driver error")
 
@@ -840,8 +851,12 @@ class TestAdaptiveInterval:
     async def test_three_successes_speed_up(self, scheduler):
         """连续3次成功后间隔缩短。"""
         scheduler._adaptive_state["dev1"] = {
-            "consecutive_successes": 0, "consecutive_failures": 0,
-            "base_interval": 10, "effective_interval": 10, "priority_multiplier": 1.0}
+            "consecutive_successes": 0,
+            "consecutive_failures": 0,
+            "base_interval": 10,
+            "effective_interval": 10,
+            "priority_multiplier": 1.0,
+        }
         scheduler._device_priorities["dev1"] = DevicePriority.P2
         for _ in range(3):
             await scheduler._adjust_adaptive_interval("dev1", False, 10)
@@ -850,8 +865,12 @@ class TestAdaptiveInterval:
     async def test_three_failures_slow_down(self, scheduler):
         """连续3次失败后间隔翻倍。"""
         scheduler._adaptive_state["dev1"] = {
-            "consecutive_successes": 0, "consecutive_failures": 0,
-            "base_interval": 10, "effective_interval": 10, "priority_multiplier": 1.0}
+            "consecutive_successes": 0,
+            "consecutive_failures": 0,
+            "base_interval": 10,
+            "effective_interval": 10,
+            "priority_multiplier": 1.0,
+        }
         scheduler._device_priorities["dev1"] = DevicePriority.P2
         for _ in range(3):
             await scheduler._adjust_adaptive_interval("dev1", True, 10)
@@ -860,8 +879,12 @@ class TestAdaptiveInterval:
     async def test_recovery_resets_to_base(self, scheduler):
         """失败后恢复成功时重置为基础间隔。"""
         scheduler._adaptive_state["dev1"] = {
-            "consecutive_successes": 0, "consecutive_failures": 0,
-            "base_interval": 10, "effective_interval": 20, "priority_multiplier": 1.0}
+            "consecutive_successes": 0,
+            "consecutive_failures": 0,
+            "base_interval": 10,
+            "effective_interval": 20,
+            "priority_multiplier": 1.0,
+        }
         scheduler._device_priorities["dev1"] = DevicePriority.P2
         result = await scheduler._adjust_adaptive_interval("dev1", False, 10)
         assert result == 10
@@ -870,8 +893,12 @@ class TestAdaptiveInterval:
     async def test_failure_resets_success_streak(self, scheduler):
         """失败时重置连续成功计数。"""
         scheduler._adaptive_state["dev1"] = {
-            "consecutive_successes": 2, "consecutive_failures": 0,
-            "base_interval": 10, "effective_interval": 10, "priority_multiplier": 1.0}
+            "consecutive_successes": 2,
+            "consecutive_failures": 0,
+            "base_interval": 10,
+            "effective_interval": 10,
+            "priority_multiplier": 1.0,
+        }
         scheduler._device_priorities["dev1"] = DevicePriority.P2
         await scheduler._adjust_adaptive_interval("dev1", True, 10)
         assert scheduler._adaptive_state["dev1"]["consecutive_successes"] == 0
@@ -880,8 +907,12 @@ class TestAdaptiveInterval:
     async def test_priority_applied_to_base(self, scheduler):
         """P0 优先级的 priority_base 减半。"""
         scheduler._adaptive_state["dev1"] = {
-            "consecutive_successes": 0, "consecutive_failures": 0,
-            "base_interval": 10, "effective_interval": 5, "priority_multiplier": 0.5}
+            "consecutive_successes": 0,
+            "consecutive_failures": 0,
+            "base_interval": 10,
+            "effective_interval": 5,
+            "priority_multiplier": 0.5,
+        }
         scheduler._device_priorities["dev1"] = DevicePriority.P0
         for _ in range(3):
             await scheduler._adjust_adaptive_interval("dev1", False, 10)
@@ -944,10 +975,17 @@ class TestCacheFlush:
 
     async def test_flush_ring_buffer_success(self, scheduler, mock_cache, mock_influx):
         """RingBuffer 批量回写成功时标记已同步。"""
-        mock_cache.get_pending_from_ring_buffer = AsyncMock(return_value=[
-            {"_id": 1, "sqlite_id": 10,
-             "tags": {"device_id": "dev1", "point_name": "temp", "quality": "good"},
-             "fields": {"value": 25.0}, "timestamp": "2026-01-01T00:00:00+00:00"}])
+        mock_cache.get_pending_from_ring_buffer = AsyncMock(
+            return_value=[
+                {
+                    "_id": 1,
+                    "sqlite_id": 10,
+                    "tags": {"device_id": "dev1", "point_name": "temp", "quality": "good"},
+                    "fields": {"value": 25.0},
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                }
+            ]
+        )
         mock_influx.write_points_batch = AsyncMock(return_value=True)
         await scheduler._flush_from_ring_buffer()
         mock_influx.write_points_batch.assert_awaited_once()
@@ -961,27 +999,48 @@ class TestCacheFlush:
 
     async def test_flush_ring_buffer_write_failure(self, scheduler, mock_cache, mock_influx):
         """RingBuffer 回写失败时标记失败。"""
-        mock_cache.get_pending_from_ring_buffer = AsyncMock(return_value=[
-            {"_id": 1, "sqlite_id": None,
-             "tags": {"device_id": "dev1", "point_name": "temp"},
-             "fields": {"value": 25.0}, "timestamp": None}])
+        mock_cache.get_pending_from_ring_buffer = AsyncMock(
+            return_value=[
+                {
+                    "_id": 1,
+                    "sqlite_id": None,
+                    "tags": {"device_id": "dev1", "point_name": "temp"},
+                    "fields": {"value": 25.0},
+                    "timestamp": None,
+                }
+            ]
+        )
         mock_influx.write_points_batch = AsyncMock(return_value=False)
         await scheduler._flush_from_ring_buffer()
         mock_cache.mark_failed.assert_awaited_with([1])
 
     async def test_flush_ring_buffer_invalid(self, scheduler, mock_cache, mock_influx):
         """无效记录被跳过。"""
-        mock_cache.get_pending_from_ring_buffer = AsyncMock(return_value=[
-            {"_id": 1, "tags": {"device_id": "", "point_name": "temp"},
-             "fields": {"value": 25.0}, "timestamp": None}])
+        mock_cache.get_pending_from_ring_buffer = AsyncMock(
+            return_value=[
+                {
+                    "_id": 1,
+                    "tags": {"device_id": "", "point_name": "temp"},
+                    "fields": {"value": 25.0},
+                    "timestamp": None,
+                }
+            ]
+        )
         await scheduler._flush_from_ring_buffer()
         mock_influx.write_points_batch.assert_not_awaited()
 
     async def test_flush_sqlite_success(self, scheduler, mock_cache, mock_influx):
         """SQLite 回写成功时删除缓存记录。"""
-        mock_cache.get_cached_records = AsyncMock(return_value=[
-            {"id": 5, "tags": {"device_id": "dev1", "point_name": "temp", "quality": "good"},
-             "fields": {"value": 25.0}, "timestamp": "2026-01-01T00:00:00+00:00"}])
+        mock_cache.get_cached_records = AsyncMock(
+            return_value=[
+                {
+                    "id": 5,
+                    "tags": {"device_id": "dev1", "point_name": "temp", "quality": "good"},
+                    "fields": {"value": 25.0},
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                }
+            ]
+        )
         mock_influx.write_points_batch = AsyncMock(return_value=True)
         await scheduler._flush_from_sqlite()
         mock_cache.delete_cached.assert_awaited_with([5])
@@ -994,18 +1053,32 @@ class TestCacheFlush:
 
     async def test_flush_sqlite_write_failure(self, scheduler, mock_cache, mock_influx):
         """SQLite 回写失败时不删除缓存记录。"""
-        mock_cache.get_cached_records = AsyncMock(return_value=[
-            {"id": 5, "tags": {"device_id": "dev1", "point_name": "temp"},
-             "fields": {"value": 25.0}, "timestamp": None}])
+        mock_cache.get_cached_records = AsyncMock(
+            return_value=[
+                {
+                    "id": 5,
+                    "tags": {"device_id": "dev1", "point_name": "temp"},
+                    "fields": {"value": 25.0},
+                    "timestamp": None,
+                }
+            ]
+        )
         mock_influx.write_points_batch = AsyncMock(return_value=False)
         await scheduler._flush_from_sqlite()
         mock_cache.delete_cached.assert_not_awaited()
 
     async def test_flush_sqlite_exception(self, scheduler, mock_cache, mock_influx):
         """SQLite 回写抛出异常时被捕获不传播。"""
-        mock_cache.get_cached_records = AsyncMock(return_value=[
-            {"id": 5, "tags": {"device_id": "dev1", "point_name": "temp"},
-             "fields": {"value": 25.0}, "timestamp": None}])
+        mock_cache.get_cached_records = AsyncMock(
+            return_value=[
+                {
+                    "id": 5,
+                    "tags": {"device_id": "dev1", "point_name": "temp"},
+                    "fields": {"value": 25.0},
+                    "timestamp": None,
+                }
+            ]
+        )
         mock_influx.write_points_batch = AsyncMock(side_effect=RuntimeError("err"))
         await scheduler._flush_from_sqlite()
 
@@ -1052,6 +1125,7 @@ class TestAIInference:
 
     async def test_run_ai_inference_timeout(self, scheduler):
         """AI 推理超时时不抛出异常。"""
+
         async def fake_wait_for(coro, timeout):
             coro.close()
             raise TimeoutError()
@@ -1111,7 +1185,8 @@ class TestAIInference:
         ai_engine.get_loaded_models = MagicMock(return_value={"m1": mw})
         ai_service = AsyncMock()
         ai_service.inference = AsyncMock(
-            return_value={"status": "success", "output_data": {"score": 0.3}, "latency_ms": 5.0})
+            return_value={"status": "success", "output_data": {"score": 0.3}, "latency_ms": 5.0}
+        )
         fake_state = SimpleNamespace(ai_service=ai_service, ai_engine=ai_engine, alarm_service=None)
         with patch("edgelite.app._app_state", fake_state):
             await scheduler._run_ai_inference_inner("dev1", {"temp": 25.0})

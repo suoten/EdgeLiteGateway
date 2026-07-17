@@ -7,13 +7,11 @@ validation, discovery, watchdog, RBAC, config versioning, OTA, edge rules, TS st
 from __future__ import annotations
 
 import asyncio
-import math
 import sys
-import threading
 import time
-from collections import OrderedDict, deque
+from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, "src")
 
@@ -24,7 +22,6 @@ from edgelite.drivers.allen_bradley import (
     PointHealthStats,
 )
 from edgelite.drivers.base import PointValue
-
 
 # ── helpers ─────────────────────────────────────────────────────────────
 
@@ -752,9 +749,14 @@ class TestStart:
         d = _make_driver()
         fake_plc = _FakePlc(read_value="cpu", read_status=0)
         with patch("pylogix.PLC", return_value=fake_plc):
-            await d.start({
-                "ip": "127.0.0.1", "port": 44818, "backup_ip": "127.0.0.2", "device_id": "d1",
-            })
+            await d.start(
+                {
+                    "ip": "127.0.0.1",
+                    "port": 44818,
+                    "backup_ip": "127.0.0.2",
+                    "device_id": "d1",
+                }
+            )
         assert d._backup_ip == "127.0.0.2"
         assert d._failover_probe_task is not None
         # cleanup
@@ -764,11 +766,17 @@ class TestStart:
         d = _make_driver()
         fake_plc = _FakePlc(read_value="cpu", read_status=0)
         with patch("pylogix.PLC", return_value=fake_plc):
-            await d.start({
-                "ip": "127.0.0.1", "port": 44818, "device_id": "d1",
-                "scaling_ratio": 2.0, "scaling_offset": 1.0,
-                "clamp_min": 0.0, "clamp_max": 100.0,
-            })
+            await d.start(
+                {
+                    "ip": "127.0.0.1",
+                    "port": 44818,
+                    "device_id": "d1",
+                    "scaling_ratio": 2.0,
+                    "scaling_offset": 1.0,
+                    "clamp_min": 0.0,
+                    "clamp_max": 100.0,
+                }
+            )
         assert d._config.get("scaling") == {"ratio": 2.0, "offset": 1.0}
         assert d._config.get("clamp") == {"min": 0.0, "max": 100.0}
 
@@ -1135,8 +1143,11 @@ class TestReconnect:
     async def test_reconnect_failover_to_backup(self):
         d = _make_driver()
         d._config = {
-            "ip": "127.0.0.1", "port": 44818, "slot": 0,
-            "backup_ip": "127.0.0.2", "failover_threshold": 1,
+            "ip": "127.0.0.1",
+            "port": 44818,
+            "slot": 0,
+            "backup_ip": "127.0.0.2",
+            "failover_threshold": 1,
         }
         d._RECONNECT_BASE_DELAY = 0.0
         d._JITTER_MAX_MS = 0

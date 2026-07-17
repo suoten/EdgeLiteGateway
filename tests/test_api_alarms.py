@@ -40,9 +40,7 @@ from edgelite.api.deps import (
 )
 from edgelite.api.error_codes import AlarmErrors, AuthzErrors, CommonErrors, RepoErrors
 from edgelite.models.db import StaleDataError
-from edgelite.security.rbac import Permission
 from edgelite.services.alarm_service import AlarmSuppressionRule
-
 
 # ── Helpers ──
 
@@ -155,9 +153,7 @@ class TestCheckAlarmDeviceAccess:
         """Non-admin user accessing their own device should pass."""
         user = _make_user("operator", user_id="u2")
         mock_device_svc = AsyncMock()
-        mock_device_svc.get_device = AsyncMock(
-            return_value={"device_id": "d1", "created_by": "u2"}
-        )
+        mock_device_svc.get_device = AsyncMock(return_value={"device_id": "d1", "created_by": "u2"})
         mock_state = SimpleNamespace(device_service=mock_device_svc, database=MagicMock())
         with (
             patch("edgelite.app._app_state", mock_state),
@@ -169,9 +165,7 @@ class TestCheckAlarmDeviceAccess:
         """Non-admin user accessing a shared device should pass."""
         user = _make_user("operator", user_id="u2")
         mock_device_svc = AsyncMock()
-        mock_device_svc.get_device = AsyncMock(
-            return_value={"device_id": "d1", "created_by": "other"}
-        )
+        mock_device_svc.get_device = AsyncMock(return_value={"device_id": "d1", "created_by": "other"})
         mock_share_repo = AsyncMock()
         mock_share_repo.check_user_has_access = AsyncMock(return_value=True)
         mock_state = SimpleNamespace(
@@ -191,9 +185,7 @@ class TestCheckAlarmDeviceAccess:
         """Non-admin user without ownership or share should get 403."""
         user = _make_user("operator", user_id="u2")
         mock_device_svc = AsyncMock()
-        mock_device_svc.get_device = AsyncMock(
-            return_value={"device_id": "d1", "created_by": "other"}
-        )
+        mock_device_svc.get_device = AsyncMock(return_value={"device_id": "d1", "created_by": "other"})
         mock_share_repo = AsyncMock()
         mock_share_repo.check_user_has_access = AsyncMock(return_value=False)
         mock_state = SimpleNamespace(
@@ -251,13 +243,9 @@ class TestGetAccessibleDeviceIds:
         """Non-admin should get union of owned and shared device IDs."""
         user = _make_user("operator", user_id="u2")
         mock_device_svc = AsyncMock()
-        mock_device_svc.list_device_ids_by_owner = AsyncMock(
-            return_value=["d1", "d2"]
-        )
+        mock_device_svc.list_device_ids_by_owner = AsyncMock(return_value=["d1", "d2"])
         mock_share_repo = AsyncMock()
-        mock_share_repo.get_shared_resource_ids = AsyncMock(
-            return_value={"d3", "d4"}
-        )
+        mock_share_repo.get_shared_resource_ids = AsyncMock(return_value={"d3", "d4"})
         mock_state = SimpleNamespace(
             device_service=mock_device_svc,
             database=MagicMock(write_lock=MagicMock()),
@@ -302,13 +290,9 @@ class TestGetAccessibleDeviceIds:
 class TestGetAlarmStatistics:
     def test_admin_success(self):
         svc = AsyncMock()
-        svc.get_statistics_summary = AsyncMock(
-            return_value={"total": 5, "firing": 2}
-        )
+        svc.get_statistics_summary = AsyncMock(return_value={"total": 5, "firing": 2})
         svc.get_trend = AsyncMock(return_value=[{"hour": "10", "count": 1}])
-        svc.get_top_alarms = AsyncMock(
-            return_value={"top_devices": [{"device_id": "d1"}], "top_rules": []}
-        )
+        svc.get_top_alarms = AsyncMock(return_value={"top_devices": [{"device_id": "d1"}], "top_rules": []})
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.get("/api/v1/alarms/statistics")
@@ -330,9 +314,7 @@ class TestGetAlarmStatistics:
         assert resp.status_code == 200
         # days=7 → hours=168
         svc.get_trend.assert_called_once_with(hours=168, device_ids=None)
-        svc.get_top_alarms.assert_called_once_with(
-            hours=168, device_ids=None, limit=10
-        )
+        svc.get_top_alarms.assert_called_once_with(hours=168, device_ids=None, limit=10)
 
     def test_days_below_minimum_returns_422(self):
         app = _build_app("admin")
@@ -394,9 +376,7 @@ class TestGetAlarmStatistics:
 class TestGetAlarmTrend:
     def test_admin_success(self):
         svc = AsyncMock()
-        svc.get_trend = AsyncMock(
-            return_value=[{"hour": "10", "count": 5}, {"hour": "11", "count": 3}]
-        )
+        svc.get_trend = AsyncMock(return_value=[{"hour": "10", "count": 5}, {"hour": "11", "count": 3}])
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.get("/api/v1/alarms/trend")
@@ -478,9 +458,7 @@ class TestGetAlarmTrend:
 class TestListAlarms:
     def test_admin_success_no_filters(self):
         svc = AsyncMock()
-        svc.list_alarms = AsyncMock(
-            return_value=([_make_alarm(alarm_id="a1")], 1)
-        )
+        svc.list_alarms = AsyncMock(return_value=([_make_alarm(alarm_id="a1")], 1))
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.get("/api/v1/alarms")
@@ -623,9 +601,7 @@ class TestListAlarms:
 class TestListAlarmSilences:
     def test_admin_success_no_filters(self):
         mgr = MagicMock()
-        mgr.list_silences = MagicMock(
-            return_value=[{"id": "s1", "device_id": "d1", "end_time": None}]
-        )
+        mgr.list_silences = MagicMock(return_value=[{"id": "s1", "device_id": "d1", "end_time": None}])
         app = _build_app("admin")
         client = TestClient(app)
         with patch.dict(
@@ -735,9 +711,7 @@ class TestListAlarmSilences:
         ):
             resp = client.get("/api/v1/alarms/silence?device_id=d1")
         assert resp.status_code == 200
-        mgr.list_silences.assert_called_once_with(
-            device_id="d1", rule_id="", active_only=False
-        )
+        mgr.list_silences.assert_called_once_with(device_id="d1", rule_id="", active_only=False)
 
     def test_rule_id_filter_passed_to_manager(self):
         mgr = MagicMock()
@@ -754,9 +728,7 @@ class TestListAlarmSilences:
 
     def test_pagination_slices_results(self):
         mgr = MagicMock()
-        mgr.list_silences = MagicMock(
-            return_value=[{"id": f"s{i}"} for i in range(25)]
-        )
+        mgr.list_silences = MagicMock(return_value=[{"id": f"s{i}"} for i in range(25)])
         app = _build_app("admin")
         client = TestClient(app)
         with patch.dict(
@@ -792,9 +764,7 @@ class TestListAlarmSilences:
 class TestGetAlarmCorrelations:
     def test_admin_success(self):
         mgr = MagicMock()
-        mgr.get_groups = MagicMock(
-            return_value=[{"group_id": "g1", "root_device_id": "d1"}]
-        )
+        mgr.get_groups = MagicMock(return_value=[{"group_id": "g1", "root_device_id": "d1"}])
         app = _build_app("admin")
         client = TestClient(app)
         with patch.dict(
@@ -961,9 +931,7 @@ class TestGetAlarm:
 class TestGetAlarmHistory:
     def test_admin_success(self):
         svc = AsyncMock()
-        svc.get_alarm_history = AsyncMock(
-            return_value=[_make_alarm(alarm_id="a1"), _make_alarm(alarm_id="a2")]
-        )
+        svc.get_alarm_history = AsyncMock(return_value=[_make_alarm(alarm_id="a1"), _make_alarm(alarm_id="a2")])
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.get("/api/v1/alarms/history/r1")
@@ -1031,9 +999,7 @@ class TestGetAlarmHistory:
 class TestAckAlarm:
     def test_admin_success(self):
         svc = AsyncMock()
-        svc.ack_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged", acknowledged_by="admin")
-        )
+        svc.ack_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged", acknowledged_by="admin"))
         audit = AsyncMock()
         app = _build_app("admin", alarm_svc=svc, audit_svc=audit)
         client = TestClient(app)
@@ -1054,11 +1020,7 @@ class TestAckAlarm:
 
     def test_already_acked_by_other_returns_409(self):
         svc = AsyncMock()
-        svc.ack_alarm = AsyncMock(
-            return_value=_make_alarm(
-                status="acknowledged", acknowledged_by="other_user"
-            )
-        )
+        svc.ack_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged", acknowledged_by="other_user"))
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.put("/api/v1/alarms/a1/ack")
@@ -1067,11 +1029,7 @@ class TestAckAlarm:
 
     def test_already_acked_by_same_user_succeeds(self):
         svc = AsyncMock()
-        svc.ack_alarm = AsyncMock(
-            return_value=_make_alarm(
-                status="acknowledged", acknowledged_by="admin"
-            )
-        )
+        svc.ack_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged", acknowledged_by="admin"))
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.put("/api/v1/alarms/a1/ack")
@@ -1080,9 +1038,7 @@ class TestAckAlarm:
     def test_non_admin_with_access(self):
         svc = AsyncMock()
         svc.get_alarm = AsyncMock(return_value=_make_alarm(device_id="d1"))
-        svc.ack_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged", acknowledged_by="admin")
-        )
+        svc.ack_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged", acknowledged_by="admin"))
         app = _build_app("operator", alarm_svc=svc)
         client = TestClient(app)
         with patch(
@@ -1113,9 +1069,7 @@ class TestAckAlarm:
 
     def test_audit_log_failure_swallowed(self):
         svc = AsyncMock()
-        svc.ack_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged", acknowledged_by="admin")
-        )
+        svc.ack_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged", acknowledged_by="admin"))
         audit = AsyncMock()
         audit.log = AsyncMock(side_effect=RuntimeError("audit down"))
         app = _build_app("admin", alarm_svc=svc, audit_svc=audit)
@@ -1135,9 +1089,7 @@ class TestAckAlarm:
     def test_non_admin_alarm_no_device_skips_access_check(self):
         svc = AsyncMock()
         svc.get_alarm = AsyncMock(return_value=_make_alarm(device_id=None))
-        svc.ack_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged", acknowledged_by="admin")
-        )
+        svc.ack_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged", acknowledged_by="admin"))
         app = _build_app("operator", alarm_svc=svc)
         client = TestClient(app)
         with patch(
@@ -1156,9 +1108,7 @@ class TestAckAlarm:
 class TestRecoverAlarm:
     def test_admin_success(self):
         svc = AsyncMock()
-        svc.clear_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged")
-        )
+        svc.clear_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged"))
         audit = AsyncMock()
         app = _build_app("admin", alarm_svc=svc, audit_svc=audit)
         client = TestClient(app)
@@ -1177,9 +1127,7 @@ class TestRecoverAlarm:
 
     def test_already_recovered_returns_409(self):
         svc = AsyncMock()
-        svc.clear_alarm = AsyncMock(
-            return_value=_make_alarm(status="recovered")
-        )
+        svc.clear_alarm = AsyncMock(return_value=_make_alarm(status="recovered"))
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
         resp = client.put("/api/v1/alarms/a1/recover")
@@ -1198,9 +1146,7 @@ class TestRecoverAlarm:
     def test_non_admin_with_access(self):
         svc = AsyncMock()
         svc.get_alarm = AsyncMock(return_value=_make_alarm(device_id="d1"))
-        svc.clear_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged")
-        )
+        svc.clear_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged"))
         app = _build_app("operator", alarm_svc=svc)
         client = TestClient(app)
         with patch(
@@ -1230,9 +1176,7 @@ class TestRecoverAlarm:
 
     def test_audit_log_failure_swallowed(self):
         svc = AsyncMock()
-        svc.clear_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged")
-        )
+        svc.clear_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged"))
         audit = AsyncMock()
         audit.log = AsyncMock(side_effect=RuntimeError("audit down"))
         app = _build_app("admin", alarm_svc=svc, audit_svc=audit)
@@ -1252,9 +1196,7 @@ class TestRecoverAlarm:
     def test_non_admin_alarm_no_device_skips_access_check(self):
         svc = AsyncMock()
         svc.get_alarm = AsyncMock(return_value=_make_alarm(device_id=None))
-        svc.clear_alarm = AsyncMock(
-            return_value=_make_alarm(status="acknowledged")
-        )
+        svc.clear_alarm = AsyncMock(return_value=_make_alarm(status="acknowledged"))
         app = _build_app("operator", alarm_svc=svc)
         client = TestClient(app)
         with patch(
@@ -1510,9 +1452,7 @@ class TestSuppressAlarm:
     def test_suppression_rule_uses_alarm_attributes(self):
         """The suppression rule should use the alarm's device_id/rule_id/severity."""
         svc = AsyncMock()
-        svc.get_alarm = AsyncMock(
-            return_value=_make_alarm(device_id="d1", rule_id="r1", severity="critical")
-        )
+        svc.get_alarm = AsyncMock(return_value=_make_alarm(device_id="d1", rule_id="r1", severity="critical"))
         svc._suppression_rules = []
         app = _build_app("admin", alarm_svc=svc)
         client = TestClient(app)
@@ -1533,9 +1473,7 @@ class TestSuppressAlarm:
 class TestCreateAlarmSilence:
     def test_admin_success(self):
         mgr = MagicMock()
-        mgr.create_silence = MagicMock(
-            return_value={"id": "s1", "device_id": "d1"}
-        )
+        mgr.create_silence = MagicMock(return_value={"id": "s1", "device_id": "d1"})
         audit = AsyncMock()
         app = _build_app("admin", audit_svc=audit)
         client = TestClient(app)
@@ -1703,9 +1641,7 @@ class TestCreateAlarmSilence:
 class TestDeleteAlarmSilence:
     def test_admin_success(self):
         mgr = MagicMock()
-        mgr.get_silence_by_id = MagicMock(
-            return_value={"id": "s1", "device_id": "d1", "reason": "test"}
-        )
+        mgr.get_silence_by_id = MagicMock(return_value={"id": "s1", "device_id": "d1", "reason": "test"})
         mgr.delete_silence = MagicMock(return_value=True)
         audit = AsyncMock()
         app = _build_app("admin", audit_svc=audit)
@@ -1739,9 +1675,7 @@ class TestDeleteAlarmSilence:
 
     def test_delete_returns_false_returns_404(self):
         mgr = MagicMock()
-        mgr.get_silence_by_id = MagicMock(
-            return_value={"id": "s1", "device_id": "d1"}
-        )
+        mgr.get_silence_by_id = MagicMock(return_value={"id": "s1", "device_id": "d1"})
         mgr.delete_silence = MagicMock(return_value=False)
         app = _build_app("admin")
         client = TestClient(app)
@@ -1768,9 +1702,7 @@ class TestDeleteAlarmSilence:
     def test_non_admin_global_silence_returns_403(self):
         """Non-admin cannot delete global silence (empty device_id)."""
         mgr = MagicMock()
-        mgr.get_silence_by_id = MagicMock(
-            return_value={"id": "s1", "device_id": ""}
-        )
+        mgr.get_silence_by_id = MagicMock(return_value={"id": "s1", "device_id": ""})
         app = _build_app("operator")
         client = TestClient(app)
         with patch.dict(
@@ -1783,9 +1715,7 @@ class TestDeleteAlarmSilence:
 
     def test_non_admin_with_device_access(self):
         mgr = MagicMock()
-        mgr.get_silence_by_id = MagicMock(
-            return_value={"id": "s1", "device_id": "d1"}
-        )
+        mgr.get_silence_by_id = MagicMock(return_value={"id": "s1", "device_id": "d1"})
         mgr.delete_silence = MagicMock(return_value=True)
         app = _build_app("operator")
         client = TestClient(app)
@@ -1804,9 +1734,7 @@ class TestDeleteAlarmSilence:
 
     def test_non_admin_without_device_access_returns_403(self):
         mgr = MagicMock()
-        mgr.get_silence_by_id = MagicMock(
-            return_value={"id": "s1", "device_id": "d1"}
-        )
+        mgr.get_silence_by_id = MagicMock(return_value={"id": "s1", "device_id": "d1"})
         app = _build_app("operator")
         client = TestClient(app)
         with (
@@ -1843,9 +1771,7 @@ class TestDeleteAlarmSilence:
 
     def test_audit_log_failure_swallowed(self):
         mgr = MagicMock()
-        mgr.get_silence_by_id = MagicMock(
-            return_value={"id": "s1", "device_id": "d1"}
-        )
+        mgr.get_silence_by_id = MagicMock(return_value={"id": "s1", "device_id": "d1"})
         mgr.delete_silence = MagicMock(return_value=True)
         audit = AsyncMock()
         audit.log = AsyncMock(side_effect=RuntimeError("audit down"))

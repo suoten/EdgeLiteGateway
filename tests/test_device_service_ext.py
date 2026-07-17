@@ -14,8 +14,6 @@ import pytest
 
 sys.path.insert(0, "src")
 
-from edgelite.drivers.base import DriverCapabilities, DriverHealthStats, PointValue  # noqa: E402
-from edgelite.services.device_service import DeviceService  # noqa: E402
 
 # 复用 test_device_service 中的夹具与辅助函数（pytest 会识别导入的 @pytest.fixture）
 from test_device_service import (  # noqa: F401,E402
@@ -31,7 +29,6 @@ from test_device_service import (  # noqa: F401,E402
     scheduler,
     template_repo,
 )
-
 
 # ───────────────────────── 设备健康 ─────────────────────────
 
@@ -161,8 +158,12 @@ class TestDeviceOpsData:
         """get_health_stats 返回对象时按属性访问"""
         drv = _make_mock_driver()
         stats = MagicMock(
-            total_reads=4, failed_reads=1, total_writes=2, failed_writes=0,
-            total_reconnects=1, avg_latency_ms=5.0,
+            total_reads=4,
+            failed_reads=1,
+            total_writes=2,
+            failed_writes=0,
+            total_reconnects=1,
+            avg_latency_ms=5.0,
         )
         drv.get_health_stats = MagicMock(return_value=stats)
         device_service._driver_instances["d1"] = drv
@@ -248,10 +249,12 @@ class TestWriteAudit:
 
     async def test_with_filters(self, device_service):
         drv = _make_mock_driver()
-        drv.get_write_audit_log = MagicMock(return_value=[
-            {"result": "success", "timestamp": "2024-01-02"},
-            {"result": "fail", "timestamp": "2024-01-01"},
-        ])
+        drv.get_write_audit_log = MagicMock(
+            return_value=[
+                {"result": "success", "timestamp": "2024-01-02"},
+                {"result": "fail", "timestamp": "2024-01-01"},
+            ]
+        )
         device_service._driver_instances["d1"] = drv
         result = await device_service.get_write_audit("d1", limit=10, result="success")
         assert len(result) == 1
@@ -259,11 +262,13 @@ class TestWriteAudit:
 
     async def test_time_range_filter(self, device_service):
         drv = _make_mock_driver()
-        drv.get_write_audit_log = MagicMock(return_value=[
-            {"timestamp": "2024-01-01"},
-            {"timestamp": "2024-01-05"},
-            {"timestamp": "2024-01-10"},
-        ])
+        drv.get_write_audit_log = MagicMock(
+            return_value=[
+                {"timestamp": "2024-01-01"},
+                {"timestamp": "2024-01-05"},
+                {"timestamp": "2024-01-10"},
+            ]
+        )
         device_service._driver_instances["d1"] = drv
         result = await device_service.get_write_audit("d1", start_time="2024-01-03", end_time="2024-01-08")
         assert len(result) == 1
@@ -535,7 +540,7 @@ class TestLoadExisting:
 
     async def test_load_existing_driver_timeout(self, device_service, device_repo, registry):
         drv = _make_mock_driver()
-        drv.start = AsyncMock(side_effect=asyncio.TimeoutError())
+        drv.start = AsyncMock(side_effect=TimeoutError())
         registry.get_driver_class.return_value = _make_mock_driver_class(drv)
         device_repo.list_all.return_value = (
             [{"device_id": "d1", "protocol": "modbus_tcp", "config": {}}],
@@ -644,7 +649,10 @@ class TestTemplates:
 
     async def test_create_template_success(self, device_service, device_repo, template_repo):
         device_repo.get.return_value = {
-            "device_id": "d1", "protocol": "modbus_tcp", "config": {"a": 1}, "points": [{"name": "p1"}],
+            "device_id": "d1",
+            "protocol": "modbus_tcp",
+            "config": {"a": 1},
+            "points": [{"name": "p1"}],
         }
         await device_service.create_template("d1", "tpl", created_by="u")
         template_repo.create.assert_awaited()
@@ -671,7 +679,10 @@ class TestTemplates:
 
     async def test_create_from_template_success(self, device_service, device_repo, template_repo, mock_simulator):
         template_repo.get.return_value = {
-            "name": "t", "protocol": "simulator", "config_template": {"a": 1}, "point_templates": [{"name": "p1"}],
+            "name": "t",
+            "protocol": "simulator",
+            "config_template": {"a": 1},
+            "point_templates": [{"name": "p1"}],
         }
         device_service._simulator_driver = mock_simulator
         device_repo.create.return_value = {"device_id": "d1", "protocol": "simulator", "config": {}, "points": []}
@@ -694,7 +705,14 @@ class TestTemplates:
 class TestExportImport:
     async def test_export_by_ids(self, device_service, device_repo):
         device_repo.get_by_ids.return_value = [
-            {"device_id": "d1", "name": "n", "protocol": "modbus_tcp", "config": {}, "points": [], "collect_interval": 5}
+            {
+                "device_id": "d1",
+                "name": "n",
+                "protocol": "modbus_tcp",
+                "config": {},
+                "points": [],
+                "collect_interval": 5,
+            }
         ]
         result = await device_service.export_devices(["d1"])
         assert len(result) == 1
@@ -702,7 +720,16 @@ class TestExportImport:
 
     async def test_export_all(self, device_service, device_repo):
         device_repo.list_all.return_value = (
-            [{"device_id": "d1", "name": "n", "protocol": "modbus_tcp", "config": {}, "points": [], "collect_interval": 5}],
+            [
+                {
+                    "device_id": "d1",
+                    "name": "n",
+                    "protocol": "modbus_tcp",
+                    "config": {},
+                    "points": [],
+                    "collect_interval": 5,
+                }
+            ],
             1,
         )
         result = await device_service.export_devices()
@@ -737,7 +764,9 @@ class TestExportImport:
         assert "protocol" in result["errors"][0]
 
     async def test_import_unsupported_protocol(self, device_service):
-        result = await device_service.import_devices([{"device_id": "d1", "name": "n", "protocol": "zzz", "points": []}])
+        result = await device_service.import_devices(
+            [{"device_id": "d1", "name": "n", "protocol": "zzz", "points": []}]
+        )
         assert result["failed"] == 1
 
     async def test_import_missing_name(self, device_service):

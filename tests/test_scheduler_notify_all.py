@@ -238,10 +238,7 @@ class TestLostWakeupOnCancellation:
         try:
             await asyncio.wait_for(t1, timeout=3.0)
         except TimeoutError:
-            pytest.fail(
-                "t1 starved — lost wakeup detected. "
-                "release() may be using notify() instead of notify_all()."
-            )
+            pytest.fail("t1 starved — lost wakeup detected. release() may be using notify() instead of notify_all().")
 
         assert "w1" in acquired, "t1 should have acquired the slot"
         assert "w0" not in acquired, "t0 was cancelled before acquiring"
@@ -665,15 +662,11 @@ class TestNotifyAllImplementation:
         code_lines = [re.sub(r"#.*$", "", line) for line in source.splitlines()]
         code = "\n".join(code_lines)
 
-        assert "notify_all()" in code, (
-            "release() should use notify_all() to prevent lost wakeups. "
-            f"Source:\n{source}"
-        )
+        assert "notify_all()" in code, f"release() should use notify_all() to prevent lost wakeups. Source:\n{source}"
         # 检查代码中无裸 .notify() 调用 (.notify() 不会匹配 .notify_all())
         bare_notify = re.findall(r"\.notify\(\)", code)
         assert len(bare_notify) == 0, (
-            f"release() should not use bare .notify(), found {len(bare_notify)} occurrence(s). "
-            f"Code:\n{code}"
+            f"release() should not use bare .notify(), found {len(bare_notify)} occurrence(s). Code:\n{code}"
         )
 
     @pytest.mark.timeout(10)

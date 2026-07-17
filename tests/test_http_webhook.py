@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import socket
-import time
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
@@ -30,7 +29,6 @@ from edgelite.drivers.http_webhook import (
     _PointHealth,
     _uncertain_pv,
 )
-
 
 # ── _bad_pv / _uncertain_pv ──
 

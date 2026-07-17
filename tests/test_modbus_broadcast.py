@@ -82,9 +82,15 @@ def _make_tcp_client(connected: bool = True):
     return client
 
 
-def _setup_device(driver, device_id: str = "dev1", slave_id: int = 1,
-                  broadcast: bool = False, point: str = "point1",
-                  data_type: str = "bool", address: int = 0):
+def _setup_device(
+    driver,
+    device_id: str = "dev1",
+    slave_id: int = 1,
+    broadcast: bool = False,
+    point: str = "point1",
+    data_type: str = "bool",
+    address: int = 0,
+):
     """配置一个设备 + 一个点位，返回 mock client。"""
     client = _make_tcp_client(connected=True)
     driver._clients = {device_id: client}
@@ -96,9 +102,7 @@ def _setup_device(driver, device_id: str = "dev1", slave_id: int = 1,
             "timeout": 5.0,
         }
     }
-    driver._device_points = {
-        device_id: [{"name": point, "address": address, "data_type": data_type}]
-    }
+    driver._device_points = {device_id: [{"name": point, "address": address, "data_type": data_type}]}
     return client
 
 
@@ -117,6 +121,7 @@ class TestSlaveIdZeroBroadcastPath:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -134,6 +139,7 @@ class TestSlaveIdZeroBroadcastPath:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -143,8 +149,9 @@ class TestSlaveIdZeroBroadcastPath:
         driver._broadcast_write.assert_not_awaited()
         # 应记录 BCAST_NOT_ENABLED 错误
         error_calls = driver._log_error.call_args_list
-        assert any("BCAST_NOT_ENABLED" in str(c) for c in error_calls), \
+        assert any("BCAST_NOT_ENABLED" in str(c) for c in error_calls), (
             f"Expected BCAST_NOT_ENABLED error, got: {error_calls}"
+        )
         # 应记录 rejected audit
         audit_args = driver._audit_write.call_args
         assert audit_args[0][4] == "rejected"
@@ -159,13 +166,12 @@ class TestSlaveIdZeroBroadcastPath:
         client = _make_tcp_client(connected=True)
         driver._clients = {"dev1": client}
         # 故意不设置 broadcast 字段
-        driver._device_configs = {
-            "dev1": {"slave_id": 0, "byte_order": "ABCD", "timeout": 5.0}
-        }
+        driver._device_configs = {"dev1": {"slave_id": 0, "byte_order": "ABCD", "timeout": 5.0}}
         driver._device_points = {"dev1": [{"name": "point1", "address": 0, "data_type": "bool"}]}
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -182,6 +188,7 @@ class TestSlaveIdZeroBroadcastPath:
         driver._broadcast_write = AsyncMock(return_value=False)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -205,14 +212,14 @@ class TestSlaveIdZeroBroadcastPath:
         driver._device_configs["dev1"]["timeout"] = 0.05
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
 
         assert result is False
         error_calls = driver._log_error.call_args_list
-        assert any("WRITE_TIMEOUT" in str(c) for c in error_calls), \
-            f"Expected WRITE_TIMEOUT error, got: {error_calls}"
+        assert any("WRITE_TIMEOUT" in str(c) for c in error_calls), f"Expected WRITE_TIMEOUT error, got: {error_calls}"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -233,6 +240,7 @@ class TestUnicastPathNotBroadcast:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -250,6 +258,7 @@ class TestUnicastPathNotBroadcast:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -265,6 +274,7 @@ class TestUnicastPathNotBroadcast:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -283,6 +293,7 @@ class TestUnicastPathNotBroadcast:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             await driver.write_point("dev1", "point1", True)
@@ -301,12 +312,12 @@ class TestUnicastPathNotBroadcast:
     async def test_unicast_float32_write(self):
         """单播 float32 写入路径 (验证非 bool 数据类型也走单播)"""
         driver = _make_tcp_driver()
-        client = _setup_device(driver, slave_id=10, broadcast=True,
-                               data_type="float32", address=100)
+        client = _setup_device(driver, slave_id=10, broadcast=True, data_type="float32", address=100)
         driver._broadcast_write = AsyncMock(return_value=True)
         driver._encode_value = MagicMock(return_value=[0, 0])  # mock 编码
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", 3.14)
@@ -335,6 +346,7 @@ class TestBroadcastBoundaryAndRegression:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -351,6 +363,7 @@ class TestBroadcastBoundaryAndRegression:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             await driver.write_point("dev1", "point1", 42)
@@ -371,6 +384,7 @@ class TestBroadcastBoundaryAndRegression:
         driver._broadcast_write = AsyncMock(return_value=True)
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             await driver.write_point("dev1", "point1", 42)
@@ -472,10 +486,8 @@ class TestBroadcastConditionLogic:
         """参数化: 所有合法单播 id (1-247) 永远不走广播, 无论 broadcast_enabled"""
         for broadcast_enabled in (True, False):
             goes_broadcast, rejected = self._should_broadcast(slave_id, broadcast_enabled)
-            assert goes_broadcast is False, \
-                f"slave_id={slave_id} broadcast={broadcast_enabled} should not broadcast"
-            assert rejected is False, \
-                f"slave_id={slave_id} broadcast={broadcast_enabled} should not reject"
+            assert goes_broadcast is False, f"slave_id={slave_id} broadcast={broadcast_enabled} should not broadcast"
+            assert rejected is False, f"slave_id={slave_id} broadcast={broadcast_enabled} should not reject"
 
     @pytest.mark.parametrize("broadcast_enabled", [True, False])
     def test_slave_zero_always_enteres_broadcast_branch(self, broadcast_enabled):

@@ -31,12 +31,12 @@ from edgelite.api.integration import router as integration_router
 from edgelite.api.mcp import router as mcp_router
 from edgelite.api.metrics import router as metrics_router
 from edgelite.api.modbus_slave import router as modbus_slave_router
-
-# FIXED: edgelite.models.north 模块已创建，platforms_router 现可正常导入
-from edgelite.api.platforms import router as platforms_router
 from edgelite.api.mqtt_forwarder import router as mqtt_forwarder_router
 from edgelite.api.mqtt_server import router as mqtt_server_router
 from edgelite.api.notify import router as notify_router
+
+# FIXED: edgelite.models.north 模块已创建，platforms_router 现可正常导入
+from edgelite.api.platforms import router as platforms_router
 from edgelite.api.preprocess import router as preprocess_router
 from edgelite.api.resource_shares import router as resource_shares_router
 from edgelite.api.rules import router as rules_router

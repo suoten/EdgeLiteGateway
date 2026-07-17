@@ -15,15 +15,13 @@ from fastapi.testclient import TestClient
 
 from edgelite.api import deps as deps_module
 from edgelite.api.drivers import (
-    _driver_supports_method,
     DriverDiscoverRequest,
     DriverInfo,
     OpcUaBrowseRequest,
     ReloadModelRequest,
+    _driver_supports_method,
     router,
 )
-
-
 
 
 def _make_driver_cls(
@@ -111,8 +109,6 @@ def _build_app(
     return app
 
 
-
-
 class TestDriverModels:
     def test_driver_info_defaults(self):
         info = DriverInfo(name="x")
@@ -134,8 +130,6 @@ class TestDriverModels:
             ReloadModelRequest(model_path="")
 
 
-
-
 class TestDriverSupportsMethod:
     def test_none_attr_returns_false(self):
         class A:
@@ -152,8 +146,6 @@ class TestDriverSupportsMethod:
         # 由于 DriverPlugin 可能没有此方法，结果取决于实现
         result = _driver_supports_method(B, "my_method")
         assert isinstance(result, bool)
-
-
 
 
 class TestListDrivers:
@@ -204,8 +196,6 @@ class TestListDrivers:
         assert resp.status_code == 500
 
 
-
-
 class TestListProtocols:
     def test_protocols_no_registry(self):
         app = _build_app()
@@ -229,8 +219,6 @@ class TestListProtocols:
         client = TestClient(app)
         resp = client.get("/api/v1/drivers/protocols")
         assert resp.status_code == 500
-
-
 
 
 class TestConfigSchema:
@@ -279,8 +267,6 @@ class TestConfigSchema:
         assert resp.status_code == 500
 
 
-
-
 class TestListAllDrivers:
     def test_list_all_with_registry_and_plugins(self):
         drv = _make_driver_cls()
@@ -312,8 +298,6 @@ class TestListAllDrivers:
         client = TestClient(app)
         resp = client.get("/api/v1/drivers")
         assert resp.status_code == 500
-
-
 
 
 class TestDiscoverDevices:
@@ -518,8 +502,6 @@ class TestDiscoverDevices:
         assert resp.status_code == 200
 
 
-
-
 class TestLoadStatus:
     def test_load_status_no_registry(self):
         app = _build_app()
@@ -565,8 +547,6 @@ class TestLoadStatus:
         data = resp.json()["data"]
         assert data["loaded_count"] == 1
         assert data["dependency_results"] == {}
-
-
 
 
 class TestDriverMeta:
@@ -620,8 +600,6 @@ class TestDriverMeta:
         assert caps["read"] is True
 
 
-
-
 class TestEnvironmentCheck:
     def test_env_check_no_registry_501(self):
         app = _build_app(driver_registry=None)
@@ -673,8 +651,6 @@ class TestEnvironmentCheck:
         client = TestClient(app)
         resp = client.get("/api/v1/drivers/modbus_tcp/environment-check")
         assert resp.status_code == 500
-
-
 
 
 class TestOpcUaBrowse:
@@ -797,8 +773,6 @@ class TestOpcUaBrowse:
         assert resp.status_code == 500
 
 
-
-
 class TestOpcUaCertificateStatus:
     def test_cert_status_success(self):
         with patch("edgelite.drivers.opcua.OpcUaDriver") as MockDriver:
@@ -818,8 +792,6 @@ class TestOpcUaCertificateStatus:
             client = TestClient(app)
             resp = client.get("/api/v1/drivers/opcua/certificate-status")
         assert resp.status_code == 500
-
-
 
 
 class TestOpcDaServers:
@@ -867,8 +839,6 @@ class TestOpcDaServers:
         client = TestClient(app)
         resp = client.get("/api/v1/drivers/opc-da/servers", params={"host": "8.8.8.8"})
         assert resp.status_code == 500
-
-
 
 
 class TestDriversHealth:
@@ -955,8 +925,6 @@ class TestDriversHealth:
         assert data[0]["healthy_count"] == 0
 
 
-
-
 class TestVideoAiStatus:
     def test_status_no_plugin_manager(self):
         app = _build_app()
@@ -995,8 +963,6 @@ class TestVideoAiStatus:
         assert resp.status_code == 500
 
 
-
-
 class TestVideoAiAudit:
     def test_audit_no_plugin_manager(self):
         app = _build_app()
@@ -1032,8 +998,6 @@ class TestVideoAiAudit:
         client = TestClient(app)
         resp = client.get("/api/v1/drivers/video-ai/audit")
         assert resp.status_code == 500
-
-
 
 
 class TestVideoAiReloadModel:

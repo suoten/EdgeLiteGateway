@@ -9,15 +9,10 @@
 
 from __future__ import annotations
 
-import json
-from contextlib import asynccontextmanager
-from typing import Any
-from unittest.mock import patch
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from edgelite.models.db import Base, CacheQueueORM
+from edgelite.models.db import Base
 from edgelite.storage.cache import CacheManager, _safe_json_loads
 
 

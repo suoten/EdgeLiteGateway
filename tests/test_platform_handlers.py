@@ -285,12 +285,14 @@ class TestIoTSharpConnect:
         fake_mod = _make_aiomqtt_mod()
         with patch.dict(sys.modules, {"aiomqtt": fake_mod}):
             with patch("edgelite.platform.iotsharp.asyncio.sleep", new_callable=AsyncMock):
-                await h.connect({
-                    "broker": "localhost",
-                    "port": 1883,
-                    "username": "user",
-                    "password": "pass",
-                })
+                await h.connect(
+                    {
+                        "broker": "localhost",
+                        "port": 1883,
+                        "username": "user",
+                        "password": "pass",
+                    }
+                )
                 assert h._running is True
         await h.disconnect()
 

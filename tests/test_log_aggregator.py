@@ -17,7 +17,6 @@ import pytest
 from edgelite.engine.log_aggregator import (
     _AggregatorHandler,
     _LogAggregator,
-    _aggregator,
     get_log_aggregator,
 )
 

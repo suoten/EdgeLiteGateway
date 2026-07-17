@@ -28,7 +28,6 @@ from edgelite.api.users import create_user, delete_user, get_user, list_users, u
 from edgelite.models.db import StaleDataError
 from edgelite.models.user import UserCreate, UserUpdate
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -180,13 +179,9 @@ class TestListUsers:
 class TestCreateUser:
     async def test_success_hashes_password_and_audits(self, harness):
         body = UserCreate(username="newuser", password="Str0ng!pass", role="operator")
-        harness.user_repo.create.return_value = _user_dict(
-            user_id="new-1", username="newuser", role="operator"
-        )
+        harness.user_repo.create.return_value = _user_dict(user_id="new-1", username="newuser", role="operator")
 
-        result = await create_user(
-            body, harness.db, harness.user, harness.request, harness.audit_svc
-        )
+        result = await create_user(body, harness.db, harness.user, harness.request, harness.audit_svc)
 
         assert result.code == 0
         assert result.data["username"] == "newuser"
@@ -201,9 +196,7 @@ class TestCreateUser:
         harness.user_repo.get_by_username.return_value = _user_dict(username="newuser")
 
         with pytest.raises(HTTPException) as exc:
-            await create_user(
-                body, harness.db, harness.user, harness.request, harness.audit_svc
-            )
+            await create_user(body, harness.db, harness.user, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 409
         assert exc.value.detail == UserErrors.USERNAME_EXISTS
@@ -214,9 +207,7 @@ class TestCreateUser:
         harness.user_repo.create.side_effect = ValueError("duplicate key")
 
         with pytest.raises(HTTPException) as exc:
-            await create_user(
-                body, harness.db, harness.user, harness.request, harness.audit_svc
-            )
+            await create_user(body, harness.db, harness.user, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 409
         detail = exc.value.detail
@@ -228,9 +219,7 @@ class TestCreateUser:
         harness.user_repo.get_by_username.side_effect = RuntimeError("boom")
 
         with pytest.raises(HTTPException) as exc:
-            await create_user(
-                body, harness.db, harness.user, harness.request, harness.audit_svc
-            )
+            await create_user(body, harness.db, harness.user, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 500
         assert exc.value.detail == UserErrors.CREATE_FAILED
@@ -239,9 +228,7 @@ class TestCreateUser:
         body = UserCreate(username="newuser", password="Str0ng!pass", role="operator")
         harness.audit_svc.log.side_effect = RuntimeError("audit down")
 
-        result = await create_user(
-            body, harness.db, harness.user, harness.request, harness.audit_svc
-        )
+        result = await create_user(body, harness.db, harness.user, harness.request, harness.audit_svc)
 
         assert result.data["username"] == "newuser"
 
@@ -291,14 +278,10 @@ class TestGetUser:
 
 class TestUpdateUser:
     async def test_role_change_success_invalidates_cache(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         body = UserUpdate(role="viewer")
 
-        result = await update_user(
-            "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-        )
+        result = await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert result.data is not None
         harness.user_repo.update.assert_awaited_once()
@@ -306,15 +289,11 @@ class TestUpdateUser:
         harness.audit_svc.log.assert_awaited_once()
 
     async def test_sensitive_field_on_admin_denied(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="admin", username="root"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="admin", username="root")
         body = UserUpdate(enabled=False)
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 403
         assert exc.value.detail == UserErrors.SENSITIVE_FIELD_DENIED
@@ -322,32 +301,24 @@ class TestUpdateUser:
 
     async def test_weak_password_rejected(self, harness):
         # Non-admin target so the sensitive-field guard is skipped.
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         # Bypass pydantic validation — no weak password passes the model validator.
         body = UserUpdate.model_construct(password="password")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 400
         assert exc.value.detail == AuthErrors.PASSWORD_POLICY
         harness.user_repo.update.assert_not_awaited()
 
     async def test_role_to_admin_by_non_admin_denied(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         harness.user["role"] = "operator"
         body = UserUpdate(role="admin")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 403
         assert exc.value.detail == AuthErrors.PERMISSION_DENIED
@@ -355,30 +326,22 @@ class TestUpdateUser:
     async def test_demote_last_admin_denied(self, harness):
         # protected_roles must exclude "admin" to reach the count guard.
         config = _config(protected_roles=[])
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="admin", username="root"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="admin", username="root")
         harness.user_repo.count_by_role.return_value = 1
         body = UserUpdate(role="operator")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, config, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, config, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 403
         assert exc.value.detail == UserErrors.CANNOT_REMOVE_LAST_ADMIN
         harness.user_repo.count_by_role.assert_awaited_once_with("admin")
 
     async def test_password_change_revokes_tokens(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         body = UserUpdate(password="Str0ng!newp")
 
-        result = await update_user(
-            "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-        )
+        result = await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         harness.hash_pwd.assert_called_once_with("Str0ng!newp")
         harness.revoke_tokens.assert_awaited_once_with("u2")
@@ -387,45 +350,33 @@ class TestUpdateUser:
         assert result.data is not None
 
     async def test_disable_user_revokes_tokens_and_invalidates_cache(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice", enabled=True
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice", enabled=True)
         body = UserUpdate(enabled=False)
 
-        result = await update_user(
-            "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-        )
+        result = await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         harness.invalidate_cache.assert_called_once_with("alice")
         harness.revoke_tokens.assert_awaited_once_with("u2")
         assert result.data is not None
 
     async def test_not_found_returns_404(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         harness.user_repo.update.return_value = None
         body = UserUpdate(role="viewer")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 404
         assert exc.value.detail == UserErrors.USER_NOT_FOUND
 
     async def test_stale_data_returns_409(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         harness.user_repo.update.side_effect = StaleDataError("version conflict")
         body = UserUpdate(role="viewer")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 409
         assert exc.value.detail == RepoErrors.STALE_DATA_ERROR
@@ -435,51 +386,37 @@ class TestUpdateUser:
         body = UserUpdate(role="viewer")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 500
         assert exc.value.detail == UserErrors.UPDATE_FAILED
 
     async def test_custom_protected_roles_from_config(self, harness):
         config = _config(protected_roles=["superadmin"])
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="superadmin", username="root"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="superadmin", username="root")
         body = UserUpdate(password="Str0ng!newp")
 
         with pytest.raises(HTTPException) as exc:
-            await update_user(
-                "u2", body, harness.db, harness.user, config, harness.request, harness.audit_svc
-            )
+            await update_user("u2", body, harness.db, harness.user, config, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 403
         assert exc.value.detail == UserErrors.SENSITIVE_FIELD_DENIED
 
     async def test_audit_failure_does_not_break_response(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         harness.audit_svc.log.side_effect = RuntimeError("audit down")
         body = UserUpdate(role="viewer")
 
-        result = await update_user(
-            "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-        )
+        result = await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert result.data is not None
 
     async def test_token_revoke_failure_does_not_break_response(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="alice"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="alice")
         harness.revoke_tokens.side_effect = RuntimeError("revoke fail")
         body = UserUpdate(password="Str0ng!newp")
 
-        result = await update_user(
-            "u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc
-        )
+        result = await update_user("u2", body, harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert result.data is not None
 
@@ -489,13 +426,9 @@ class TestUpdateUser:
 
 class TestDeleteUser:
     async def test_success_revokes_tokens_and_audits(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="bob"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="bob")
 
-        result = await delete_user(
-            "u2", harness.db, harness.user, None, harness.request, harness.audit_svc
-        )
+        result = await delete_user("u2", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert result.code == 0
         harness.user_repo.delete.assert_awaited_once_with("u2")
@@ -505,23 +438,17 @@ class TestDeleteUser:
 
     async def test_delete_self_denied(self, harness):
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "admin-1", harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await delete_user("admin-1", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 400
         assert exc.value.detail == UserErrors.CANNOT_DELETE_SELF
         harness.user_repo.delete.assert_not_awaited()
 
     async def test_delete_admin_protected_role_denied(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="admin", username="root"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="admin", username="root")
 
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "u2", harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await delete_user("u2", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 403
         assert exc.value.detail == UserErrors.CANNOT_DELETE_ADMIN
@@ -529,44 +456,32 @@ class TestDeleteUser:
     async def test_delete_last_admin_denied(self, harness):
         # protected_roles must exclude "admin" to reach the count guard.
         config = _config(protected_roles=[])
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="admin", username="root"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="admin", username="root")
         harness.user_repo.count_by_role.return_value = 1
 
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "u2", harness.db, harness.user, config, harness.request, harness.audit_svc
-            )
+            await delete_user("u2", harness.db, harness.user, config, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 403
         assert exc.value.detail == UserErrors.CANNOT_DELETE_LAST_ADMIN
 
     async def test_delete_user_with_devices_denied(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="bob"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="bob")
         harness.device_repo.list_device_ids_by_owner.return_value = ["dev-1"]
 
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "u2", harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await delete_user("u2", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 409
         assert exc.value.detail == UserErrors.HAS_RESOURCES
         harness.user_repo.delete.assert_not_awaited()
 
     async def test_delete_user_with_rules_denied(self, harness):
-        harness.user_repo.get.return_value = _user_dict(
-            user_id="u2", role="operator", username="bob"
-        )
+        harness.user_repo.get.return_value = _user_dict(user_id="u2", role="operator", username="bob")
         harness.rule_repo.list_all.return_value = ([], 5)
 
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "u2", harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await delete_user("u2", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 409
         assert exc.value.detail == UserErrors.HAS_RESOURCES
@@ -576,9 +491,7 @@ class TestDeleteUser:
         harness.user_repo.delete.return_value = False
 
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "u2", harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await delete_user("u2", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 404
         assert exc.value.detail == UserErrors.USER_NOT_FOUND
@@ -587,9 +500,7 @@ class TestDeleteUser:
         harness.user_repo.get.side_effect = RuntimeError("boom")
 
         with pytest.raises(HTTPException) as exc:
-            await delete_user(
-                "u2", harness.db, harness.user, None, harness.request, harness.audit_svc
-            )
+            await delete_user("u2", harness.db, harness.user, None, harness.request, harness.audit_svc)
 
         assert exc.value.status_code == 500
         assert exc.value.detail == UserErrors.DELETE_FAILED

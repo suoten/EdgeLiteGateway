@@ -77,19 +77,39 @@ class TestEtherCatCommandConstants:
         """所有命令码必须唯一 — 修复前 EC_CMD_BFRM 被重复赋值 0x06/0x07，
         LRD/LWR/LRW 也存在重复定义"""
         codes = [
-            EC_CMD_NOP, EC_CMD_APRD, EC_CMD_APWR, EC_CMD_APRW,
-            EC_CMD_FPRD, EC_CMD_FPWR, EC_CMD_FPRW,
-            EC_CMD_BRD, EC_CMD_BWR, EC_CMD_BRW,
-            EC_CMD_LRD, EC_CMD_LWR, EC_CMD_LRW,
+            EC_CMD_NOP,
+            EC_CMD_APRD,
+            EC_CMD_APWR,
+            EC_CMD_APRW,
+            EC_CMD_FPRD,
+            EC_CMD_FPWR,
+            EC_CMD_FPRW,
+            EC_CMD_BRD,
+            EC_CMD_BWR,
+            EC_CMD_BRW,
+            EC_CMD_LRD,
+            EC_CMD_LWR,
+            EC_CMD_LRW,
         ]
         assert len(codes) == len(set(codes)), f"命令码存在重复: {codes}"
 
     def test_command_range_valid(self):
         """命令码必须在 EtherCAT 合法范围 0x00-0x0C"""
-        for cmd in (EC_CMD_NOP, EC_CMD_APRD, EC_CMD_APWR, EC_CMD_APRW,
-                    EC_CMD_FPRD, EC_CMD_FPWR, EC_CMD_FPRW,
-                    EC_CMD_BRD, EC_CMD_BWR, EC_CMD_BRW,
-                    EC_CMD_LRD, EC_CMD_LWR, EC_CMD_LRW):
+        for cmd in (
+            EC_CMD_NOP,
+            EC_CMD_APRD,
+            EC_CMD_APWR,
+            EC_CMD_APRW,
+            EC_CMD_FPRD,
+            EC_CMD_FPWR,
+            EC_CMD_FPRW,
+            EC_CMD_BRD,
+            EC_CMD_BWR,
+            EC_CMD_BRW,
+            EC_CMD_LRD,
+            EC_CMD_LWR,
+            EC_CMD_LRW,
+        ):
             assert 0x00 <= cmd <= 0x0C
 
     def test_read_write_command_pairs(self):
@@ -179,7 +199,7 @@ class TestPackParseData:
 
     def test_parse_data_offset(self):
         """_parse_data 必须从指定偏移读取"""
-        buf = b"\x00\x00\xFF\x00"  # offset=2 处是 0xFF
+        buf = b"\x00\x00\xff\x00"  # offset=2 处是 0xFF
         assert _parse_data(buf, 2, "uint8") == 0xFF
 
     def test_parse_data_short_buffer_returns_zero(self):
@@ -335,8 +355,7 @@ class TestSoemGilRelease:
         client = EtherCATClient("lo", 100)
         await client.initialize()
         assert fake.initialize_thread is not None
-        assert fake.initialize_thread != main_tid, \
-            "initialize 必须在工作线程执行，而非事件循环线程"
+        assert fake.initialize_thread != main_tid, "initialize 必须在工作线程执行，而非事件循环线程"
 
     async def test_scan_slaves_runs_in_worker_thread(self):
         client, fake = _make_client_with_fake_soem()
@@ -355,14 +374,15 @@ class TestSoemGilRelease:
         client, fake = _make_client_with_fake_soem()
         # 预置从站
         client._slaves[1] = EtherCATSlave(
-            station_address=1, vendor_id=0, product_code=0,
-            revision_number=0, name="S1",
+            station_address=1,
+            vendor_id=0,
+            product_code=0,
+            revision_number=0,
+            name="S1",
         )
         mappings = [
-            PDOMapping(index=0x1A00, subindex=0x01, name="speed",
-                       data_type="uint16", direction="input"),
-            PDOMapping(index=0x1600, subindex=0x01, name="torque",
-                       data_type="int16", direction="output"),
+            PDOMapping(index=0x1A00, subindex=0x01, name="speed", data_type="uint16", direction="input"),
+            PDOMapping(index=0x1600, subindex=0x01, name="torque", data_type="int16", direction="output"),
         ]
         ok = await client.configure_pdo(1, mappings)
         assert ok is True
@@ -377,7 +397,7 @@ class TestSoemGilRelease:
         assert soem_maps[0].data_type == "uint16"
         # 验证 PDO 大小计算
         assert client._output_size == 2  # int16
-        assert client._input_size == 2   # uint16
+        assert client._input_size == 2  # uint16
 
     async def test_read_sdo_runs_in_worker_thread(self):
         client, fake = _make_client_with_fake_soem()
@@ -391,8 +411,11 @@ class TestSoemGilRelease:
     async def test_write_sdo_runs_in_worker_thread(self):
         client, fake = _make_client_with_fake_soem()
         ok = await client.write_sdo(
-            slave_addr=1, index=0x6040, subindex=0x00,
-            value=0x000F, data_type="uint16",
+            slave_addr=1,
+            index=0x6040,
+            subindex=0x00,
+            value=0x000F,
+            data_type="uint16",
         )
         assert ok is True
         assert fake.write_sdo_thread is not None
@@ -407,8 +430,11 @@ class TestSoemGilRelease:
         """
         client, fake = _make_client_with_fake_soem()
         client._slaves[1] = EtherCATSlave(
-            station_address=1, vendor_id=0, product_code=0,
-            revision_number=0, name="S1",
+            station_address=1,
+            vendor_id=0,
+            product_code=0,
+            revision_number=0,
+            name="S1",
         )
 
         # 包装伪 SOEM 让每次调用 sleep 50ms 模拟 C 库阻塞
@@ -444,10 +470,7 @@ class TestSoemGilRelease:
         )
         elapsed = loop.time() - t0
         # to_thread 后并发: ~50ms; 同步阻塞: ~150ms. 阈值 100ms 区分.
-        assert elapsed < 0.10, (
-            f"SOEM 调用未并发执行 (耗时 {elapsed:.3f}s)，"
-            "可能未通过 asyncio.to_thread 释放 GIL"
-        )
+        assert elapsed < 0.10, f"SOEM 调用未并发执行 (耗时 {elapsed:.3f}s)，可能未通过 asyncio.to_thread 释放 GIL"
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -483,10 +506,8 @@ class TestCycleLoopProcessData:
 
         assert fake.send_pd_thread is not None, "send_process_data 未被调用"
         assert fake.receive_pd_thread is not None, "receive_process_data 未被调用"
-        assert fake.send_pd_thread != fake.main_thread_id, \
-            "send_process_data 必须在工作线程执行"
-        assert fake.receive_pd_thread != fake.main_thread_id, \
-            "receive_process_data 必须在工作线程执行"
+        assert fake.send_pd_thread != fake.main_thread_id, "send_process_data 必须在工作线程执行"
+        assert fake.receive_pd_thread != fake.main_thread_id, "receive_process_data 必须在工作线程执行"
 
     async def test_cycle_loop_skips_when_not_real_soem(self):
         """模拟模式下 _cycle_loop 不应调用 SOEM (无 _use_real_soem)"""
@@ -579,16 +600,17 @@ class TestPdoReadWrite:
         client = EtherCATClient.__new__(EtherCATClient)
         client._slaves = {
             1: EtherCATSlave(
-                station_address=1, vendor_id=0, product_code=0,
-                revision_number=0, name="S1",
+                station_address=1,
+                vendor_id=0,
+                product_code=0,
+                revision_number=0,
+                name="S1",
             )
         }
         client._pdo_mappings = {
             1: [
-                PDOMapping(index=0x1600, subindex=1, name="ctrl",
-                           data_type="uint16", direction="output"),
-                PDOMapping(index=0x1601, subindex=1, name="speed",
-                           data_type="int16", direction="output"),
+                PDOMapping(index=0x1600, subindex=1, name="ctrl", data_type="uint16", direction="output"),
+                PDOMapping(index=0x1601, subindex=1, name="speed", data_type="int16", direction="output"),
             ]
         }
         client._output_size = 4
@@ -605,20 +627,20 @@ class TestPdoReadWrite:
     async def test_read_pdo_parses_input_data(self):
         client = EtherCATClient.__new__(EtherCATClient)
         slave = EtherCATSlave(
-            station_address=1, vendor_id=0, product_code=0,
-            revision_number=0, name="S1",
+            station_address=1,
+            vendor_id=0,
+            product_code=0,
+            revision_number=0,
+            name="S1",
         )
         # 预置输入: uint16=0x1234, int16=-1, float=1.5
         slave.inputs = struct.pack("<Hh", 0x1234, -1) + struct.pack("<f", 1.5)
         client._slaves = {1: slave}
         client._pdo_mappings = {
             1: [
-                PDOMapping(index=0x1A00, subindex=1, name="status",
-                           data_type="uint16", direction="input"),
-                PDOMapping(index=0x1A01, subindex=1, name="temp",
-                           data_type="int16", direction="input"),
-                PDOMapping(index=0x1A02, subindex=1, name="pressure",
-                           data_type="float", direction="input"),
+                PDOMapping(index=0x1A00, subindex=1, name="status", data_type="uint16", direction="input"),
+                PDOMapping(index=0x1A01, subindex=1, name="temp", data_type="int16", direction="input"),
+                PDOMapping(index=0x1A02, subindex=1, name="pressure", data_type="float", direction="input"),
             ]
         }
         result = await client.read_pdo(1)
@@ -665,8 +687,11 @@ class TestDataclasses:
 
     def test_ethercat_slave_defaults(self):
         s = EtherCATSlave(
-            station_address=1, vendor_id=2, product_code=3,
-            revision_number=4, name="S",
+            station_address=1,
+            vendor_id=2,
+            product_code=3,
+            revision_number=4,
+            name="S",
         )
         assert s.alias == 0
         assert s.state == EC_STATE_INIT

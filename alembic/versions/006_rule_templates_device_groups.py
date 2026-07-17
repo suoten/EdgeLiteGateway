@@ -36,12 +36,14 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
     )  # FIXED-P1: 表已存在时CheckConstraint不会单独创建，需在下方补加
     _create_check_constraint_idempotent(
-        "ck_rule_templates_severity_valid", "rule_templates",
-        "default_severity IN ('info', 'warning', 'error', 'critical')"
+        "ck_rule_templates_severity_valid",
+        "rule_templates",
+        "default_severity IN ('info', 'warning', 'error', 'critical')",
     )
     _create_check_constraint_idempotent(
-        "ck_rule_templates_type_valid", "rule_templates",
-        "rule_type IN ('threshold', 'range', 'rate', 'composite', 'trend', 'ai_anomaly')"
+        "ck_rule_templates_type_valid",
+        "rule_templates",
+        "rule_type IN ('threshold', 'range', 'rate', 'composite', 'trend', 'ai_anomaly')",
     )
 
     _create_table_if_not_exists(

@@ -52,9 +52,7 @@ def _make_service(start_time=0.0):
 def patch_config(tmp_path, monkeypatch):
     backup_dir = tmp_path / "backups"
     sqlite_path = str(tmp_path / "edgelite.db")
-    cfg = SimpleNamespace(
-        database=SimpleNamespace(backup_dir=str(backup_dir), sqlite_path=sqlite_path)
-    )
+    cfg = SimpleNamespace(database=SimpleNamespace(backup_dir=str(backup_dir), sqlite_path=sqlite_path))
     monkeypatch.setattr(ss_module, "get_config", lambda: cfg)
     return cfg
 
@@ -252,9 +250,7 @@ class TestCreateBackup:
         data = json.loads(json_file.read_text(encoding="utf-8"))
         assert data["version"] == "1.0.0"
         assert data["devices"] == [{"device_id": "d1"}]
-        assert data["users"] == [
-            {"user_id": "u1", "username": "admin", "role": "admin", "enabled": True}
-        ]
+        assert data["users"] == [{"user_id": "u1", "username": "admin", "role": "admin", "enabled": True}]
 
     async def test_database_backup_failure_raises(self, tmp_path, monkeypatch, patch_config):
         svc, repos, database, scheduler = _make_service()
@@ -406,9 +402,7 @@ class TestRestoreBackup:
         svc, *_ = _make_service()
         backup_dir = Path(patch_config.database.backup_dir)
         backup_dir.mkdir(parents=True, exist_ok=True)
-        (backup_dir / "backup_20260101_120000.json").write_text(
-            json.dumps({"version": "1.0.0"}), encoding="utf-8"
-        )
+        (backup_dir / "backup_20260101_120000.json").write_text(json.dumps({"version": "1.0.0"}), encoding="utf-8")
         with pytest.raises(RuntimeError, match="missing required keys"):
             await svc.restore_backup("20260101_120000")
 
@@ -605,9 +599,7 @@ class TestExportAllConfig:
         assert "exported_at" in result
         assert result["devices"] == [{"device_id": "d1"}]
         assert result["rules"] == [{"rule_id": "r1"}]
-        assert result["users"] == [
-            {"user_id": "u1", "username": "admin", "role": "admin", "enabled": True}
-        ]
+        assert result["users"] == [{"user_id": "u1", "username": "admin", "role": "admin", "enabled": True}]
 
     async def test_multi_page_export(self):
         svc, repos, *_ = _make_service()

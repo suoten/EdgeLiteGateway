@@ -75,9 +75,7 @@ def _count_db_sessions(db_path: str, user_id: str | None = None) -> int:
     conn = sqlite3.connect(db_path)
     try:
         if user_id:
-            rows = conn.execute(
-                "SELECT COUNT(*) FROM user_sessions WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            rows = conn.execute("SELECT COUNT(*) FROM user_sessions WHERE user_id = ?", (user_id,)).fetchone()
         else:
             rows = conn.execute("SELECT COUNT(*) FROM user_sessions").fetchone()
         return rows[0]
@@ -89,9 +87,7 @@ def _db_has_jti(db_path: str, jti: str) -> bool:
     """查询 SQLite 中是否存在指定 jti。"""
     conn = sqlite3.connect(db_path)
     try:
-        rows = conn.execute(
-            "SELECT COUNT(*) FROM user_sessions WHERE jti = ?", (jti,)
-        ).fetchone()
+        rows = conn.execute("SELECT COUNT(*) FROM user_sessions WHERE jti = ?", (jti,)).fetchone()
         return rows[0] > 0
     finally:
         conn.close()

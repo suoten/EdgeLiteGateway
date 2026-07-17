@@ -43,7 +43,6 @@ from edgelite.drivers.sparkplug_b import (
     _set_metric_value,
 )
 
-
 # ── Fake sparkplugb_pb2 实现 ──────────────────────────────────────────
 
 
@@ -354,25 +353,19 @@ class TestEncodePayload:
     def test_encodes_basic_metrics(self):
         drv = SparkplugBDriver()
         with patch.object(spb_mod, "_pb2", _make_fake_pb2()):
-            payload = drv._encode_payload(
-                [{"name": "t1", "value": 42}, {"name": "s1", "value": "hi"}], seq=3
-            )
+            payload = drv._encode_payload([{"name": "t1", "value": 42}, {"name": "s1", "value": "hi"}], seq=3)
         assert payload == b"FAKE_PAYLOAD_BYTES"
 
     def test_skips_unsupported_type(self):
         drv = SparkplugBDriver()
         with patch.object(spb_mod, "_pb2", _make_fake_pb2()):
-            payload = drv._encode_payload(
-                [{"name": "ok", "value": 1}, {"name": "bad", "value": [1, 2]}], seq=0
-            )
+            payload = drv._encode_payload([{"name": "ok", "value": 1}, {"name": "bad", "value": [1, 2]}], seq=0)
         assert payload == b"FAKE_PAYLOAD_BYTES"
 
     def test_encodes_with_explicit_datatype(self):
         drv = SparkplugBDriver()
         with patch.object(spb_mod, "_pb2", _make_fake_pb2()):
-            payload = drv._encode_payload(
-                [{"name": "n", "value": 0, "datatype": _SPB_DATATYPE_BOOLEAN}], seq=1
-            )
+            payload = drv._encode_payload([{"name": "n", "value": 0, "datatype": _SPB_DATATYPE_BOOLEAN}], seq=1)
         assert payload is not None
 
     def test_encodes_with_alias_and_timestamp(self):
@@ -512,9 +505,7 @@ class TestStartStop:
             driver._connect_task = None
 
     async def test_start_uses_config_overrides(self, mock_config, driver, monkeypatch, tmp_path):
-        await driver.start(
-            {"group_id": "grp", "edge_node_id": "node", "birth_debounce_ms": 500}
-        )
+        await driver.start({"group_id": "grp", "edge_node_id": "node", "birth_debounce_ms": 500})
         try:
             assert driver._group_id == "grp"
             assert driver._edge_node_id == "node"
@@ -641,6 +632,7 @@ class TestOnData:
     def test_on_data_registers_callback(self, driver):
         def cb(*a):
             pass
+
         driver.on_data(cb)
         assert driver._data_callback is cb
 
@@ -997,9 +989,7 @@ class TestDiscoverDevices:
         fake_aiomqtt = MagicMock()
         fake_aiomqtt.Client = MagicMock(return_value=cm)
 
-        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(
-            spb_mod, "_pb2", _make_fake_pb2()
-        ):
+        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(spb_mod, "_pb2", _make_fake_pb2()):
             result = await driver.discover_devices({"timeout": 0.1})
 
         assert len(result) == 1
@@ -1028,18 +1018,14 @@ class TestDiscoverDevices:
         fake_aiomqtt = MagicMock()
         fake_aiomqtt.Client = MagicMock(return_value=cm)
 
-        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(
-            spb_mod, "_pb2", _make_fake_pb2()
-        ):
+        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(spb_mod, "_pb2", _make_fake_pb2()):
             result = await driver.discover_devices({"group_id": "grp", "timeout": 0.1})
         assert result == []
 
     async def test_discover_connection_failure_returns_empty(self, driver):
         fake_aiomqtt = MagicMock()
         fake_aiomqtt.Client = MagicMock(side_effect=ConnectionRefusedError("refused"))
-        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(
-            spb_mod, "_pb2", _make_fake_pb2()
-        ):
+        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(spb_mod, "_pb2", _make_fake_pb2()):
             result = await driver.discover_devices({"timeout": 0.1})
         assert result == []
 
@@ -1058,9 +1044,7 @@ class TestConnectLoop:
             driver._running = False
             await original_sleep(0)
 
-        with patch("asyncio.sleep", new=_fast_sleep), patch.dict(
-            sys.modules, {"aiomqtt": None}
-        ):
+        with patch("asyncio.sleep", new=_fast_sleep), patch.dict(sys.modules, {"aiomqtt": None}):
             await asyncio.wait_for(driver._connect_loop(), timeout=3)
         assert driver._client is None
 
@@ -1077,9 +1061,11 @@ class TestConnectLoop:
         fake_aiomqtt.Client = MagicMock(side_effect=RuntimeError("conn fail"))
         fake_aiomqtt.Will = MagicMock()
 
-        with patch("asyncio.sleep", new=_fast_sleep), patch.dict(
-            sys.modules, {"aiomqtt": fake_aiomqtt}
-        ), patch.object(spb_mod, "_pb2", _make_fake_pb2()):
+        with (
+            patch("asyncio.sleep", new=_fast_sleep),
+            patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}),
+            patch.object(spb_mod, "_pb2", _make_fake_pb2()),
+        ):
             await asyncio.wait_for(driver._connect_loop(), timeout=3)
         assert driver._client is None
 
@@ -1118,9 +1104,7 @@ class TestConnectLoop:
         fake_aiomqtt.Will = MagicMock()
 
         _FakePayload._decode_metrics = []
-        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(
-            spb_mod, "_pb2", _make_fake_pb2()
-        ):
+        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(spb_mod, "_pb2", _make_fake_pb2()):
             await asyncio.wait_for(driver._connect_loop(), timeout=5)
         _FakePayload._decode_metrics = []
         assert driver._nbirth_published is True
@@ -1156,8 +1140,6 @@ class TestConnectLoop:
         fake_aiomqtt.Will = MagicMock()
 
         _FakePayload._decode_metrics = []
-        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(
-            spb_mod, "_pb2", _make_fake_pb2()
-        ):
+        with patch.dict(sys.modules, {"aiomqtt": fake_aiomqtt}), patch.object(spb_mod, "_pb2", _make_fake_pb2()):
             await asyncio.wait_for(driver._connect_loop(), timeout=5)
         _FakePayload._decode_metrics = []

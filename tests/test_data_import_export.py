@@ -39,7 +39,6 @@ from edgelite.services.data_import_export import (
 )
 
 
-
 def _make_session_ctx(session=None):
     """session ctx"""
     session = session or AsyncMock()
@@ -64,30 +63,43 @@ def _make_exec_result(rows=None, scalar_one=None, scalars=None, scalar=None, row
     return result
 
 
-def _make_rule_template_orm(tid="rt1", name="RT", description="d", rule_type="threshold",
-                            conditions=None, severity="warning", duration=0,
-                            channels=None):
+def _make_rule_template_orm(
+    tid="rt1",
+    name="RT",
+    description="d",
+    rule_type="threshold",
+    conditions=None,
+    severity="warning",
+    duration=0,
+    channels=None,
+):
     """rule orm"""
     return SimpleNamespace(
-        template_id=tid, name=name, description=description, rule_type=rule_type,
+        template_id=tid,
+        name=name,
+        description=description,
+        rule_type=rule_type,
         default_conditions=json.dumps(conditions or [{"point": "t"}]),
-        default_severity=severity, default_duration=duration,
+        default_severity=severity,
+        default_duration=duration,
         notify_channels=json.dumps(channels or ["email"]),
-        created_at="2024-01-01T00:00:00", updated_at="2024-01-01T00:00:00",
+        created_at="2024-01-01T00:00:00",
+        updated_at="2024-01-01T00:00:00",
     )
 
 
-def _make_group_orm(gid="g1", name="G", description="d", parent_id=None,
-                    device_ids=None, tags=None):
+def _make_group_orm(gid="g1", name="G", description="d", parent_id=None, device_ids=None, tags=None):
     """group orm"""
     return SimpleNamespace(
-        group_id=gid, name=name, description=description, parent_id=parent_id,
+        group_id=gid,
+        name=name,
+        description=description,
+        parent_id=parent_id,
         device_ids=json.dumps(device_ids or ["d1"]),
         tags=json.dumps(tags or {"k": "v"}),
-        created_at="2024-01-01T00:00:00", updated_at="2024-01-01T00:00:00",
+        created_at="2024-01-01T00:00:00",
+        updated_at="2024-01-01T00:00:00",
     )
-
-
 
 
 @pytest.fixture(autouse=True)
@@ -120,8 +132,6 @@ def _make_repo(**overrides):
     return repo
 
 
-
-
 class TestSanitizeCsvCell:
     def test_non_string_unchanged(self):
         """非字符串不变"""
@@ -148,8 +158,6 @@ class TestSanitizeCsvCell:
         assert _sanitize_csv_cell("\rcr") == "'\rcr"
 
 
-
-
 class TestEnums:
     def test_export_format_values(self):
         """导出格式"""
@@ -162,8 +170,6 @@ class TestEnums:
         assert ImportMode.OVERWRITE.value == "overwrite"
         assert ImportMode.RENAME.value == "rename"
         assert ImportMode.ERROR.value == "error"
-
-
 
 
 class TestDataclasses:
@@ -214,8 +220,6 @@ class TestDataclasses:
         assert r.success is False
         assert r.total_count == 5
         assert r.errors == ["err"]
-
-
 
 
 class TestDataExportService:
@@ -279,8 +283,9 @@ class TestDataExportService:
 
     async def test_export_devices_csv(self, export_svc):
         """导出设备CSV"""
-        devices = [{"device_id": "d1", "name": "Dev1", "protocol": "modbus_tcp",
-                     "status": "online", "collect_interval": 5}]
+        devices = [
+            {"device_id": "d1", "name": "Dev1", "protocol": "modbus_tcp", "status": "online", "collect_interval": 5}
+        ]
         export_svc._device_repo.list_all = AsyncMock(return_value=(devices, 1))
         result = await export_svc.export_devices(format=ExportFormat.CSV)
         assert "device_id" in result
@@ -311,8 +316,7 @@ class TestDataExportService:
 
     async def test_export_rules_csv(self, export_svc):
         """导出规则CSV"""
-        rules = [{"rule_id": "r1", "name": "R1", "device_id": "d1",
-                  "severity": "warning", "enabled": True}]
+        rules = [{"rule_id": "r1", "name": "R1", "device_id": "d1", "severity": "warning", "enabled": True}]
         export_svc._rule_repo.list_all = AsyncMock(return_value=(rules, 1))
         result = await export_svc.export_rules(format=ExportFormat.CSV)
         assert "rule_id" in result
@@ -337,8 +341,6 @@ class TestDataExportService:
         assert parsed["rule_count"] == 1
         assert parsed["devices"] == devices
         assert parsed["rules"] == rules
-
-
 
 
 class TestParseJson:
@@ -396,8 +398,6 @@ class TestParseJson:
         assert items[0]["rule_id"] == "r1"
 
 
-
-
 class TestImportDevices:
     @pytest.fixture
     def import_svc(self):
@@ -440,9 +440,7 @@ class TestImportDevices:
         import_svc._device_repo._database = db
         import_svc._device_repo.upsert_bulk = AsyncMock(return_value=(1, 1, []))
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.SKIP
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.SKIP)
         assert result.imported_count == 1
         assert result.skipped_count == 1
 
@@ -455,9 +453,7 @@ class TestImportDevices:
         import_svc._device_repo._database = db
         import_svc._device_repo.upsert_bulk = AsyncMock(return_value=(1, 0, []))
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.RENAME
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.RENAME)
         assert any("Renamed device" in w for w in result.warnings)
         import_svc._device_repo.upsert_bulk.assert_called_once()
         items_arg = import_svc._device_repo.upsert_bulk.call_args[0][0]
@@ -471,9 +467,7 @@ class TestImportDevices:
         db.session.return_value = _make_session_ctx(session)
         import_svc._device_repo._database = db
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.ERROR
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.ERROR)
         assert result.success is False
         assert any("Atomic import failed" in e for e in result.errors)
 
@@ -498,9 +492,7 @@ class TestImportDevices:
         import_svc._device_repo._database = None
         import_svc._device_repo.get = AsyncMock(return_value={"device_id": "d1"})
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.SKIP
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.SKIP)
         assert result.skipped_count == 1
         assert result.imported_count == 0
 
@@ -510,9 +502,7 @@ class TestImportDevices:
         import_svc._device_repo.get = AsyncMock(return_value=None)
         import_svc._device_repo.create = AsyncMock(return_value={"device_id": "new"})
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"name": "Dev"}]}), mode=ImportMode.SKIP
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"name": "Dev"}]}), mode=ImportMode.SKIP)
         assert result.imported_count == 1
         assert any("Generated device_id" in w for w in result.warnings)
 
@@ -535,9 +525,7 @@ class TestImportDevices:
         import_svc._device_repo.get = AsyncMock(return_value={"device_id": "d1"})
         import_svc._device_repo.create = AsyncMock(return_value={"device_id": "d1_imported"})
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.RENAME
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.RENAME)
         assert result.imported_count == 1
         assert any("Renamed device" in w for w in result.warnings)
 
@@ -546,9 +534,7 @@ class TestImportDevices:
         import_svc._device_repo._database = None
         import_svc._device_repo.get = AsyncMock(return_value={"device_id": "d1"})
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.ERROR
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.ERROR)
         assert result.success is False
         assert result.error_count == 1
         assert any("already exists" in e for e in result.errors)
@@ -559,9 +545,7 @@ class TestImportDevices:
         import_svc._device_repo.get = AsyncMock(return_value=None)
         import_svc._device_repo.create = AsyncMock(side_effect=RuntimeError("db error"))
 
-        result = await import_svc.import_devices(
-            json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.SKIP
-        )
+        result = await import_svc.import_devices(json.dumps({"devices": [{"device_id": "d1"}]}), mode=ImportMode.SKIP)
         assert result.success is False
         assert result.error_count == 1
 
@@ -574,8 +558,6 @@ class TestImportDevices:
         csv_data = "device_id,name,protocol\nd1,Dev1,modbus_tcp\n"
         result = await import_svc.import_devices(csv_data, format=ExportFormat.CSV)
         assert result.imported_count == 1
-
-
 
 
 class TestImportRules:
@@ -604,9 +586,7 @@ class TestImportRules:
         import_svc._rule_repo._database = db
         import_svc._rule_repo.upsert_bulk = AsyncMock(return_value=(1, 0, []))
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.OVERWRITE
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.OVERWRITE)
         assert result.imported_count == 1
         session.commit.assert_called_once()
 
@@ -619,9 +599,7 @@ class TestImportRules:
         import_svc._rule_repo._database = db
         import_svc._rule_repo.upsert_bulk = AsyncMock(return_value=(1, 0, []))
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.RENAME
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.RENAME)
         assert any("Renamed rule" in w for w in result.warnings)
         items_arg = import_svc._rule_repo.upsert_bulk.call_args[0][0]
         assert items_arg[0]["rule_id"] == "r1_imported"
@@ -634,9 +612,7 @@ class TestImportRules:
         db.session.return_value = _make_session_ctx(session)
         import_svc._rule_repo._database = db
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.ERROR
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.ERROR)
         assert result.success is False
         assert any("Atomic import failed" in e for e in result.errors)
 
@@ -649,9 +625,7 @@ class TestImportRules:
         import_svc._rule_repo._database = db
         import_svc._rule_repo.upsert_bulk = AsyncMock(return_value=(0, 0, ["r1: bad"]))
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.OVERWRITE
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.OVERWRITE)
         assert result.success is False
         session.rollback.assert_called_once()
 
@@ -660,9 +634,7 @@ class TestImportRules:
         import_svc._rule_repo._database = None
         import_svc._rule_repo.get = AsyncMock(return_value={"rule_id": "r1"})
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.SKIP
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.SKIP)
         assert result.skipped_count == 1
 
     async def test_import_rules_fallback_overwrite(self, import_svc):
@@ -671,9 +643,7 @@ class TestImportRules:
         import_svc._rule_repo.get = AsyncMock(return_value={"rule_id": "r1"})
         import_svc._rule_repo.update = AsyncMock(return_value={"rule_id": "r1"})
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.OVERWRITE
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.OVERWRITE)
         assert result.imported_count == 1
         import_svc._rule_repo.update.assert_called_once()
 
@@ -683,9 +653,7 @@ class TestImportRules:
         import_svc._rule_repo.get = AsyncMock(return_value={"rule_id": "r1"})
         import_svc._rule_repo.create = AsyncMock(return_value={"rule_id": "r1_imported"})
 
-        result = await import_svc.import_rules(
-            json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.RENAME
-        )
+        result = await import_svc.import_rules(json.dumps({"rules": [{"rule_id": "r1"}]}), mode=ImportMode.RENAME)
         assert result.imported_count == 1
         assert any("Renamed rule" in w for w in result.warnings)
 
@@ -698,8 +666,6 @@ class TestImportRules:
         csv_data = "rule_id,name,device_id\nr1,R1,d1\n"
         result = await import_svc.import_rules(csv_data, format=ExportFormat.CSV)
         assert result.imported_count == 1
-
-
 
 
 class TestImportAll:
@@ -737,10 +703,12 @@ class TestImportAll:
         import_svc._device_repo.upsert_bulk = AsyncMock(return_value=(2, 0, []))
         import_svc._rule_repo.upsert_bulk = AsyncMock(return_value=(1, 0, []))
 
-        data = json.dumps({
-            "devices": [{"device_id": "d1"}],
-            "rules": [{"rule_id": "r1"}],
-        })
+        data = json.dumps(
+            {
+                "devices": [{"device_id": "d1"}],
+                "rules": [{"rule_id": "r1"}],
+            }
+        )
         result = await import_svc.import_all(data, mode=ImportMode.OVERWRITE)
         assert result["devices"].success is True
         assert result["devices"].imported_count == 2
@@ -835,10 +803,6 @@ class TestImportAll:
         assert result["devices"].success is False
 
 
-
-
-
-
 class TestFactoryFunctions:
     def test_get_export_service_creates_with_repos(self):
         """创建导出服务"""
@@ -896,7 +860,9 @@ class TestDeviceTemplateSvc:
 
     async def test_apply_device_template(self):
         svc = TemplateService()
-        await svc.create_device_template(DeviceTemplate(template_id="t1", name="T", protocol="modbus_tcp", default_config={"ip": "1.1.1.1"}))
+        await svc.create_device_template(
+            DeviceTemplate(template_id="t1", name="T", protocol="modbus_tcp", default_config={"ip": "1.1.1.1"})
+        )
         d = await svc.apply_device_template("t1", "Dev", custom_config={"port": 502})
         assert d["protocol"] == "modbus_tcp" and d["config"]["port"] == 502
 
@@ -923,8 +889,15 @@ class TestRuleTemplateSvc:
 
     async def test_apply_rule_template(self):
         svc = TemplateService()
-        await svc.create_rule_template(RuleTemplate(template_id="rt1", name="RT",
-            default_conditions=[{"point": "t", "device_id": "X"}], default_severity="warning", default_duration=5))
+        await svc.create_rule_template(
+            RuleTemplate(
+                template_id="rt1",
+                name="RT",
+                default_conditions=[{"point": "t", "device_id": "X"}],
+                default_severity="warning",
+                default_duration=5,
+            )
+        )
         r = await svc.apply_rule_template("rt1", "Rule", "d1")
         assert r["device_id"] == "d1" and r["conditions"][0]["device_id"] == "d1"
 
@@ -980,11 +953,13 @@ class TestTemplateExportImport:
 
     async def test_import_templates(self):
         svc = TemplateService()
-        data = json.dumps({
-            "device_templates": [{"template_id": "t1", "name": "T", "protocol": "modbus_tcp"}],
-            "rule_templates": [{"template_id": "rt1", "name": "RT", "rule_type": "threshold"}],
-            "device_groups": [{"group_id": "g1", "name": "G", "device_ids": ["d1"]}],
-        })
+        data = json.dumps(
+            {
+                "device_templates": [{"template_id": "t1", "name": "T", "protocol": "modbus_tcp"}],
+                "rule_templates": [{"template_id": "rt1", "name": "RT", "rule_type": "threshold"}],
+                "device_groups": [{"group_id": "g1", "name": "G", "device_ids": ["d1"]}],
+            }
+        )
         r = svc.import_templates(data)
         assert r == {"device_templates": 1, "rule_templates": 1, "device_groups": 1}
         assert await svc.get_device_template("t1") is not None

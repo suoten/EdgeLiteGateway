@@ -102,9 +102,7 @@ def test_mask_url_in_non_sensitive_string():
 
 def test_format_point_update_valid_event():
     """PointUpdateEvent 正确格式化为 dict。"""
-    event = PointUpdateEvent(
-        device_id="dev1", point_name="temp", value=42.5, quality="good", timestamp=1234567890
-    )
+    event = PointUpdateEvent(device_id="dev1", point_name="temp", value=42.5, quality="good", timestamp=1234567890)
     result = WebSocketChannels._format_point_update(event)
     assert result is not None
     assert result["type"] == "point_update"
@@ -118,8 +116,14 @@ def test_format_point_update_valid_event():
 def test_format_point_update_wrong_type():
     """非 PointUpdateEvent 返回 None。"""
     event = AlarmEvent(
-        alarm_id="a1", rule_id="r1", rule_name="Rule", device_id="d1",
-        device_name="Dev", severity="critical", action="fire", timestamp=123
+        alarm_id="a1",
+        rule_id="r1",
+        rule_name="Rule",
+        device_id="d1",
+        device_name="Dev",
+        severity="critical",
+        action="fire",
+        timestamp=123,
     )
     assert WebSocketChannels._format_point_update(event) is None
 
@@ -130,8 +134,14 @@ def test_format_point_update_wrong_type():
 def test_format_alarm_valid_event():
     """AlarmEvent 正确格式化。"""
     event = AlarmEvent(
-        alarm_id="a1", rule_id="r1", rule_name="High Temp", device_id="d1",
-        device_name="Furnace", severity="critical", action="fire", timestamp=1234567890
+        alarm_id="a1",
+        rule_id="r1",
+        rule_name="High Temp",
+        device_id="d1",
+        device_name="Furnace",
+        severity="critical",
+        action="fire",
+        timestamp=1234567890,
     )
     result = WebSocketChannels._format_alarm(event)
     assert result is not None
@@ -143,9 +153,7 @@ def test_format_alarm_valid_event():
 
 def test_format_alarm_wrong_type():
     """非 AlarmEvent 返回 None。"""
-    event = PointUpdateEvent(
-        device_id="dev1", point_name="temp", value=42.5, quality="good", timestamp=123
-    )
+    event = PointUpdateEvent(device_id="dev1", point_name="temp", value=42.5, quality="good", timestamp=123)
     assert WebSocketChannels._format_alarm(event) is None
 
 
@@ -154,9 +162,7 @@ def test_format_alarm_wrong_type():
 
 def test_format_device_status_valid_event():
     """DeviceStatusEvent 正确格式化。"""
-    event = DeviceStatusEvent(
-        device_id="dev1", old_status="online", new_status="offline", timestamp=1234567890
-    )
+    event = DeviceStatusEvent(device_id="dev1", old_status="online", new_status="offline", timestamp=1234567890)
     result = WebSocketChannels._format_device_status(event)
     assert result is not None
     assert result["type"] == "device_status"
@@ -168,8 +174,14 @@ def test_format_device_status_valid_event():
 def test_format_device_status_wrong_type():
     """非 DeviceStatusEvent 返回 None。"""
     event = AlarmEvent(
-        alarm_id="a1", rule_id="r1", rule_name="Rule", device_id="d1",
-        device_name="Dev", severity="critical", action="fire", timestamp=123
+        alarm_id="a1",
+        rule_id="r1",
+        rule_name="Rule",
+        device_id="d1",
+        device_name="Dev",
+        severity="critical",
+        action="fire",
+        timestamp=123,
     )
     assert WebSocketChannels._format_device_status(event) is None
 
@@ -190,8 +202,14 @@ def test_format_integration_dict_event_masks_sensitive():
 def test_format_integration_filters_known_event_types():
     """AlarmEvent/DeviceStatusEvent/PointUpdateEvent 不应出现在 integration 频道。"""
     alarm = AlarmEvent(
-        alarm_id="a1", rule_id="r1", rule_name="Rule", device_id="d1",
-        device_name="Dev", severity="critical", action="fire", timestamp=123
+        alarm_id="a1",
+        rule_id="r1",
+        rule_name="Rule",
+        device_id="d1",
+        device_name="Dev",
+        severity="critical",
+        action="fire",
+        timestamp=123,
     )
     assert WebSocketChannels._format_integration(alarm) is None
 

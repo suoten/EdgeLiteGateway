@@ -228,9 +228,7 @@ class TestCallToolDevices:
 
     async def test_get_device_status_success(self, service):
         ds = _make_device_service()
-        result = await service.call_tool(
-            "get_device_status", {"device_id": "d1"}, device_service=ds
-        )
+        result = await service.call_tool("get_device_status", {"device_id": "d1"}, device_service=ds)
         assert result == {"id": "d1", "name": "device1"}
 
     async def test_get_device_status_missing_id(self, service):
@@ -248,16 +246,12 @@ class TestCallToolDevices:
         ds = _make_device_service()
         ds.get_device = AsyncMock(return_value=None)
         with pytest.raises(HTTPException) as exc:
-            await service.call_tool(
-                "get_device_status", {"device_id": "missing"}, device_service=ds
-            )
+            await service.call_tool("get_device_status", {"device_id": "missing"}, device_service=ds)
         assert exc.value.status_code == 404
 
     async def test_read_device_points_success(self, service):
         ds = _make_device_service()
-        result = await service.call_tool(
-            "read_device_points", {"device_id": "d1"}, device_service=ds
-        )
+        result = await service.call_tool("read_device_points", {"device_id": "d1"}, device_service=ds)
         assert result == {"device_id": "d1", "points": [{"name": "p1", "value": 1}]}
 
     async def test_read_device_points_missing_id(self, service):
@@ -543,9 +537,7 @@ class TestCallToolAI:
         sched = AsyncMock()
         sched.get_model_metrics = AsyncMock(return_value={"accuracy": 0.95})
         service.set_ai_dependencies(ai_scheduler=sched)
-        result = await service.call_tool(
-            "ai_model_status", {"model_id": "elg-anomaly-v1"}
-        )
+        result = await service.call_tool("ai_model_status", {"model_id": "elg-anomaly-v1"})
         assert result == {"accuracy": 0.95}
 
     async def test_ai_model_status_specific_not_found(self, service):
@@ -553,9 +545,7 @@ class TestCallToolAI:
         sched.get_model_metrics = AsyncMock(return_value=None)
         service.set_ai_dependencies(ai_scheduler=sched)
         with pytest.raises(HTTPException) as exc:
-            await service.call_tool(
-                "ai_model_status", {"model_id": "missing-model"}
-            )
+            await service.call_tool("ai_model_status", {"model_id": "missing-model"})
         assert exc.value.status_code == 404
 
     async def test_ai_model_status_no_scheduler(self, service):
@@ -569,9 +559,7 @@ class TestCallToolAI:
 
     async def test_ai_anomaly_history_all(self, service):
         learner = MagicMock()
-        learner.get_dashboard = MagicMock(
-            return_value={"recent_anomalies": [{"device_id": "d1"}, {"device_id": "d2"}]}
-        )
+        learner.get_dashboard = MagicMock(return_value={"recent_anomalies": [{"device_id": "d1"}, {"device_id": "d2"}]})
         service.set_ai_dependencies(anomaly_learner=learner)
         result = await service.call_tool("ai_anomaly_history", {})
         assert len(result["anomalies"]) == 2
@@ -589,17 +577,13 @@ class TestCallToolAI:
             }
         )
         service.set_ai_dependencies(anomaly_learner=learner)
-        result = await service.call_tool(
-            "ai_anomaly_history", {"device_id": "d1"}
-        )
+        result = await service.call_tool("ai_anomaly_history", {"device_id": "d1"})
         assert len(result["anomalies"]) == 2
         assert all(a["device_id"] == "d1" for a in result["anomalies"])
 
     async def test_ai_anomaly_history_limit(self, service):
         learner = MagicMock()
-        learner.get_dashboard = MagicMock(
-            return_value={"recent_anomalies": [{"i": i} for i in range(10)]}
-        )
+        learner.get_dashboard = MagicMock(return_value={"recent_anomalies": [{"i": i} for i in range(10)]})
         service.set_ai_dependencies(anomaly_learner=learner)
         result = await service.call_tool("ai_anomaly_history", {"limit": 3})
         assert len(result["anomalies"]) == 3

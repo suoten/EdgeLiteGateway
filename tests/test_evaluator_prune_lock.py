@@ -306,6 +306,7 @@ class TestEvalLoopIntegration:
         # 放入一个非 good 质量的事件，让 loop 立即获取并跳过 _evaluate，
         # 随后触发 prune (interval=0.0 每次迭代都触发)
         from edgelite.engine.event_bus import PointUpdateEvent
+
         await queue.put(PointUpdateEvent(device_id="d1", point_name="p1", value=1.0, quality="bad"))
         task = asyncio.create_task(evaluator._eval_loop(queue))
         # 等待事件被处理 + prune 执行
@@ -332,6 +333,7 @@ class TestEvalLoopIntegration:
         queue = asyncio.Queue()
         # 放入一个 PointUpdateEvent 触发 _evaluate
         from edgelite.engine.event_bus import PointUpdateEvent
+
         await queue.put(PointUpdateEvent(device_id="d0", point_name="p1", value=1.0, quality="good"))
 
         task = asyncio.create_task(evaluator._eval_loop(queue))

@@ -32,9 +32,9 @@ from edgelite.api.metrics import (
     _collect_system_metrics,
     _escape_label,
     _format_metric,
+    _root_metrics_router,
     get_exporter,
     router,
-    _root_metrics_router,
     start_background_collection,
     stop_background_collection,
 )
@@ -61,9 +61,18 @@ def _make_request(headers=None, cookies=None, client_host="1.2.3.4"):
 
 def _app_state_ns(**attrs):
     defaults = dict(
-        database=None, scheduler=None, driver_registry=None, alarm_service=None,
-        evaluator=None, ai_engine=None, cache_manager=None, influx_storage=None,
-        mqtt_forwarder=None, event_bus=None, audit_service=None, start_time=None,
+        database=None,
+        scheduler=None,
+        driver_registry=None,
+        alarm_service=None,
+        evaluator=None,
+        ai_engine=None,
+        cache_manager=None,
+        influx_storage=None,
+        mqtt_forwarder=None,
+        event_bus=None,
+        audit_service=None,
+        start_time=None,
     )
     defaults.update(attrs)
     return SimpleNamespace(**defaults)
@@ -218,7 +227,9 @@ class TestLogApiKeyUsage:
 class TestAuthenticateMetrics:
     async def test_no_auth_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         with pytest.raises(HTTPException) as exc:
             await _authenticate_metrics(_make_request())
         assert exc.value.status_code == 401
@@ -252,7 +263,9 @@ class TestAuthenticateMetrics:
 
     async def test_jwt_revoked_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         payload = {"sub": "u1", "username": "admin", "role": "admin", "jti": "j1"}
         with (
             patch("edgelite.security.jwt.verify_token", return_value=payload),
@@ -265,7 +278,9 @@ class TestAuthenticateMetrics:
 
     async def test_jwt_user_disabled_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         payload = {"sub": "u1", "username": "admin", "role": "admin", "jti": "j1"}
         mock_db = MagicMock()
         mock_db.get_session.return_value = _AsyncCM()
@@ -284,7 +299,9 @@ class TestAuthenticateMetrics:
 
     async def test_jwt_user_not_found_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         payload = {"sub": "u1", "username": "ghost", "role": "admin", "jti": "j1"}
         mock_db = MagicMock()
         mock_db.get_session.return_value = _AsyncCM()
@@ -303,7 +320,9 @@ class TestAuthenticateMetrics:
 
     async def test_jwt_password_changed_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         payload = {"sub": "u1", "username": "admin", "role": "admin", "jti": "j1", "iat": 1000}
         mock_db = MagicMock()
         mock_db.get_session.return_value = _AsyncCM()
@@ -324,7 +343,9 @@ class TestAuthenticateMetrics:
 
     async def test_jwt_insufficient_permission_returns_403(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthzErrors
+
         payload = {"sub": "u1", "username": "guest", "role": "guest", "jti": "j1"}
         with (
             patch("edgelite.security.jwt.verify_token", return_value=payload),
@@ -338,7 +359,9 @@ class TestAuthenticateMetrics:
 
     async def test_jwt_verify_token_raises_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         with patch("edgelite.security.jwt.verify_token", side_effect=Exception("bad")):
             with pytest.raises(HTTPException) as exc:
                 await _authenticate_metrics(_make_request(headers={"Authorization": "Bearer bad"}))
@@ -382,7 +405,9 @@ class TestAuthenticateMetrics:
 
     async def test_api_key_webhook_returns_403(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthzErrors
+
         config = SimpleNamespace(
             grafana=SimpleNamespace(api_key=""),
             video=SimpleNamespace(pygbsentry=SimpleNamespace(api_key="")),
@@ -398,7 +423,9 @@ class TestAuthenticateMetrics:
 
     async def test_api_key_invalid_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import DeviceErrors
+
         config = SimpleNamespace(
             grafana=SimpleNamespace(api_key="g-key"),
             video=SimpleNamespace(pygbsentry=SimpleNamespace(api_key="v-key")),
@@ -414,7 +441,9 @@ class TestAuthenticateMetrics:
 
     async def test_api_key_config_none_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import CommonErrors
+
         with (
             patch("edgelite.config.get_config", return_value=None),
             patch("edgelite.app._app_state", _app_state_ns(audit_service=None)),
@@ -425,7 +454,9 @@ class TestAuthenticateMetrics:
 
     async def test_api_key_exception_returns_401(self):
         from fastapi import HTTPException
+
         from edgelite.api.error_codes import AuthErrors
+
         with (
             patch("edgelite.config.get_config", side_effect=RuntimeError("boom")),
             patch("edgelite.app._app_state", _app_state_ns(audit_service=None)),
@@ -557,10 +588,13 @@ class TestCollectAlarmMetrics:
 
     def test_falls_back_to_evaluator_counts(self):
         exp = PrometheusExporter()
-        with patch("edgelite.app._app_state", _app_state_ns(
-            alarm_service=SimpleNamespace(_repo=SimpleNamespace()),
-            evaluator=SimpleNamespace(_alarm_counts={"high": 2}),
-        )):
+        with patch(
+            "edgelite.app._app_state",
+            _app_state_ns(
+                alarm_service=SimpleNamespace(_repo=SimpleNamespace()),
+                evaluator=SimpleNamespace(_alarm_counts={"high": 2}),
+            ),
+        ):
             _collect_alarm_metrics(exp)
         assert "edgelite_alarms_active" in exp.render()
 
@@ -622,7 +656,9 @@ class TestCollectCacheMetrics:
         influx_storage.available = AsyncMock(return_value=True)
         influx_storage.using_fallback = AsyncMock(return_value=False)
         influx_storage._sqlite_ts = SimpleNamespace(_buffer=[1, 2, 3])
-        with patch("edgelite.app._app_state", _app_state_ns(cache_manager=cache_manager, influx_storage=influx_storage)):
+        with patch(
+            "edgelite.app._app_state", _app_state_ns(cache_manager=cache_manager, influx_storage=influx_storage)
+        ):
             await _collect_cache_metrics(exp)
         out = exp.render()
         assert "edgelite_cache_size" in out and "edgelite_ring_buffer_usage" in out
@@ -630,9 +666,13 @@ class TestCollectCacheMetrics:
 
     async def test_cache_manager_with_cache_attr(self):
         exp = PrometheusExporter()
-        with patch("edgelite.app._app_state", _app_state_ns(
-            cache_manager=SimpleNamespace(_cache={"a": 1, "b": 2}), influx_storage=None,
-        )):
+        with patch(
+            "edgelite.app._app_state",
+            _app_state_ns(
+                cache_manager=SimpleNamespace(_cache={"a": 1, "b": 2}),
+                influx_storage=None,
+            ),
+        ):
             await _collect_cache_metrics(exp)
         assert exp._metrics["edgelite_cache_size"]["values"][""] == 2
 
@@ -709,7 +749,8 @@ class TestCollectEventBusMetrics:
     def test_collects_event_bus_stats(self):
         exp = PrometheusExporter()
         event_bus = SimpleNamespace(
-            get_dropped_count=lambda: 5, get_handler_loop_count=lambda: 3,
+            get_dropped_count=lambda: 5,
+            get_handler_loop_count=lambda: 3,
             _subscribers={"a": 1, "b": 2},
         )
         with patch("edgelite.app._app_state", _app_state_ns(event_bus=event_bus)):
@@ -729,7 +770,9 @@ class TestCollectDbMonitorMetrics:
         exp = PrometheusExporter()
         monitor = MagicMock()
         monitor.get_pool_stats.return_value = {
-            "active_connections": 3, "idle_connections": 2, "waiting_count": 1,
+            "active_connections": 3,
+            "idle_connections": 2,
+            "waiting_count": 1,
         }
         monitor.get_slow_query_count.return_value = 5
         with patch("edgelite.services.db_monitor.get_db_monitor", return_value=monitor):
@@ -802,7 +845,9 @@ class TestCollectPrometheusClientMetrics:
         with patch(
             "edgelite.app._app_state",
             _app_state_ns(
-                scheduler=scheduler, driver_registry=registry, evaluator=evaluator,
+                scheduler=scheduler,
+                driver_registry=registry,
+                evaluator=evaluator,
                 alarm_service=SimpleNamespace(_repo=alarm_repo),
                 mqtt_forwarder=SimpleNamespace(_forward_count=5, _error_count=1),
                 influx_storage=influx_storage,
@@ -810,6 +855,7 @@ class TestCollectPrometheusClientMetrics:
         ):
             await _collect_prometheus_client_metrics()
         from prometheus_client import generate_latest as _gen
+
         out = _gen(metrics_module._registry).decode("utf-8")
         assert "edgelite_devices_online" in out
         assert "edgelite_rules_active" in out
@@ -901,7 +947,9 @@ def metrics_app():
     app.include_router(router)
     app.include_router(_root_metrics_router)
     app.dependency_overrides[_authenticate_metrics] = lambda: {
-        "auth_type": "jwt", "username": "admin", "role": "admin",
+        "auth_type": "jwt",
+        "username": "admin",
+        "role": "admin",
     }
     return app
 
@@ -973,8 +1021,10 @@ class TestMetricsEndpoint:
         with (
             patch("edgelite.api.metrics._PROMETHEUS_CLIENT_AVAILABLE", True),
             patch("edgelite.api.metrics.generate_latest", return_value=b"# root content\n"),
-            patch("edgelite.api.metrics._authenticate_metrics", new=AsyncMock(
-                return_value={"auth_type": "jwt", "username": "admin", "role": "admin"})),
+            patch(
+                "edgelite.api.metrics._authenticate_metrics",
+                new=AsyncMock(return_value={"auth_type": "jwt", "username": "admin", "role": "admin"}),
+            ),
             _patch_endpoint_collectors(),
         ):
             client = TestClient(metrics_app)
@@ -986,8 +1036,10 @@ class TestMetricsEndpoint:
         with (
             patch("edgelite.api.metrics._PROMETHEUS_CLIENT_AVAILABLE", False),
             patch("edgelite.api.metrics._collect_all_metrics", new=AsyncMock()),
-            patch("edgelite.api.metrics._authenticate_metrics", new=AsyncMock(
-                return_value={"auth_type": "jwt", "username": "admin", "role": "admin"})),
+            patch(
+                "edgelite.api.metrics._authenticate_metrics",
+                new=AsyncMock(return_value={"auth_type": "jwt", "username": "admin", "role": "admin"}),
+            ),
             _patch_endpoint_collectors(),
         ):
             client = TestClient(metrics_app)

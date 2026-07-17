@@ -20,9 +20,7 @@ import sys
 
 sys.path.insert(0, "src")
 
-import ipaddress
 import json
-import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -47,7 +45,6 @@ from edgelite.api.system import (
     _save_ntp_config,
     router,
 )
-
 
 # ── Helpers ──
 
@@ -247,9 +244,7 @@ class TestGetSystemStatus:
 
 class TestGetSystemResources:
     def test_resources_success(self, client, mock_system_svc):
-        mock_system_svc.collect_resources = AsyncMock(
-            return_value={"cpu_percent": 42.0, "memory_percent": 60.0}
-        )
+        mock_system_svc.collect_resources = AsyncMock(return_value={"cpu_percent": 42.0, "memory_percent": 60.0})
         resp = client.get("/api/v1/system/resources")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -268,9 +263,7 @@ class TestGetSystemResources:
 
 class TestListBackups:
     def test_list_success(self, client, mock_system_svc):
-        mock_system_svc.list_backups = AsyncMock(
-            return_value=[{"backup_id": "b1", "size": 1024}]
-        )
+        mock_system_svc.list_backups = AsyncMock(return_value=[{"backup_id": "b1", "size": 1024}])
         resp = client.get("/api/v1/system/backup")
         assert resp.status_code == 200
         assert len(resp.json()["data"]) == 1
@@ -470,10 +463,13 @@ class TestTriggerBackup:
         )
         mock_sched = AsyncMock()
         mock_sched.run_backup = AsyncMock(return_value=[mock_result])
-        with patch(
-            "edgelite.services.backup_scheduler.get_backup_scheduler",
-            return_value=mock_sched,
-        ), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch(
+                "edgelite.services.backup_scheduler.get_backup_scheduler",
+                return_value=mock_sched,
+            ),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.post("/api/v1/system/backup/schedule/trigger")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -484,20 +480,26 @@ class TestTriggerBackup:
     def test_trigger_value_error_returns_422(self, client, mock_audit_svc):
         mock_sched = AsyncMock()
         mock_sched.run_backup = AsyncMock(side_effect=ValueError("bad config"))
-        with patch(
-            "edgelite.services.backup_scheduler.get_backup_scheduler",
-            return_value=mock_sched,
-        ), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch(
+                "edgelite.services.backup_scheduler.get_backup_scheduler",
+                return_value=mock_sched,
+            ),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.post("/api/v1/system/backup/schedule/trigger")
         assert resp.status_code == 422
 
     def test_trigger_generic_error_returns_500(self, client):
         mock_sched = AsyncMock()
         mock_sched.run_backup = AsyncMock(side_effect=RuntimeError("io"))
-        with patch(
-            "edgelite.services.backup_scheduler.get_backup_scheduler",
-            return_value=mock_sched,
-        ), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch(
+                "edgelite.services.backup_scheduler.get_backup_scheduler",
+                return_value=mock_sched,
+            ),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.post("/api/v1/system/backup/schedule/trigger")
         assert resp.status_code == 500
 
@@ -679,8 +681,9 @@ class TestRemoveCascadeNeighbor:
 class TestReloadConfig:
     def test_reload_success(self, client, mock_audit_svc):
         mock_config = SimpleNamespace(_config_version=42)
-        with patch("edgelite.config.reload_config", return_value=(mock_config, [])), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.config.reload_config", return_value=(mock_config, [])),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.post("/api/v1/system/config/reload")
         assert resp.status_code == 200
@@ -690,17 +693,21 @@ class TestReloadConfig:
 
     def test_reload_with_changed_keys(self, client):
         mock_config = SimpleNamespace(_config_version=43)
-        with patch(
-            "edgelite.config.reload_config",
-            return_value=(mock_config, ["mqtt.host", "influxdb.url"]),
-        ), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch(
+                "edgelite.config.reload_config",
+                return_value=(mock_config, ["mqtt.host", "influxdb.url"]),
+            ),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.post("/api/v1/system/config/reload")
         assert resp.status_code == 200
         assert "mqtt.host" in resp.json()["data"]["changed_sensitive_keys"]
 
     def test_reload_error_returns_500(self, client, mock_audit_svc):
-        with patch("edgelite.config.reload_config", side_effect=RuntimeError("parse fail")), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.config.reload_config", side_effect=RuntimeError("parse fail")),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.post("/api/v1/system/config/reload")
         assert resp.status_code == 500
@@ -734,9 +741,11 @@ class TestUpdateConfigSection:
     def test_update_success(self, client, mock_audit_svc):
         mock_config = MagicMock()
         mock_config.scheduler = SimpleNamespace(model_dump=lambda: {"interval": 60})
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "edgelite.config.update_config_section"
-        ) as mock_update, patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("edgelite.config.update_config_section") as mock_update,
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.put(
                 "/api/v1/system/config/scheduler",
                 json={"config": {"interval": 120}},
@@ -779,10 +788,14 @@ class TestUpdateConfigSection:
     def test_update_update_error_returns_500(self, client, mock_audit_svc):
         mock_config = MagicMock()
         mock_config.scheduler = SimpleNamespace(model_dump=lambda: {})
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "edgelite.config.update_config_section",
-            side_effect=RuntimeError("write fail"),
-        ), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch(
+                "edgelite.config.update_config_section",
+                side_effect=RuntimeError("write fail"),
+            ),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.put(
                 "/api/v1/system/config/scheduler",
                 json={"config": {"interval": 120}},
@@ -792,9 +805,11 @@ class TestUpdateConfigSection:
     def test_update_sensitive_keys_masked_in_audit(self, client, mock_audit_svc):
         mock_config = MagicMock()
         mock_config.scheduler = SimpleNamespace(model_dump=lambda: {})
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "edgelite.config.update_config_section"
-        ), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("edgelite.config.update_config_section"),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.put(
                 "/api/v1/system/config/scheduler",
                 json={"config": {"api_key": "secret123", "normal": "ok"}},
@@ -824,9 +839,7 @@ class TestGetDeviceQuality:
         client = TestClient(app)
         mock_scheduler.calculate_quality_score = AsyncMock(return_value={"score": 80.0})
         mock_device_svc = AsyncMock()
-        mock_device_svc.get_device = AsyncMock(
-            return_value={"device_id": "dev1", "created_by": "u1"}
-        )
+        mock_device_svc.get_device = AsyncMock(return_value={"device_id": "dev1", "created_by": "u1"})
         mock_app_state = SimpleNamespace(device_service=mock_device_svc)
         with patch("edgelite.app._app_state", mock_app_state):
             resp = client.get("/api/v1/system/quality/dev1")
@@ -846,17 +859,14 @@ class TestGetDeviceQuality:
         app = _build_app("operator", mock_system_svc, mock_audit_svc, mock_scheduler)
         client = TestClient(app)
         mock_device_svc = AsyncMock()
-        mock_device_svc.get_device = AsyncMock(
-            return_value={"device_id": "dev1", "created_by": "other_user"}
-        )
+        mock_device_svc.get_device = AsyncMock(return_value={"device_id": "dev1", "created_by": "other_user"})
         mock_db = MagicMock()
         mock_share_repo = AsyncMock()
         mock_share_repo.check_user_has_access = AsyncMock(return_value=False)
-        mock_app_state = SimpleNamespace(
-            device_service=mock_device_svc, database=mock_db
-        )
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_share_repo
+        mock_app_state = SimpleNamespace(device_service=mock_device_svc, database=mock_db)
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_share_repo),
         ):
             resp = client.get("/api/v1/system/quality/dev1")
         assert resp.status_code == 403
@@ -866,17 +876,14 @@ class TestGetDeviceQuality:
         client = TestClient(app)
         mock_scheduler.calculate_quality_score = AsyncMock(return_value={"score": 70.0})
         mock_device_svc = AsyncMock()
-        mock_device_svc.get_device = AsyncMock(
-            return_value={"device_id": "dev1", "created_by": "other_user"}
-        )
+        mock_device_svc.get_device = AsyncMock(return_value={"device_id": "dev1", "created_by": "other_user"})
         mock_db = MagicMock()
         mock_share_repo = AsyncMock()
         mock_share_repo.check_user_has_access = AsyncMock(return_value=True)
-        mock_app_state = SimpleNamespace(
-            device_service=mock_device_svc, database=mock_db
-        )
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_share_repo
+        mock_app_state = SimpleNamespace(device_service=mock_device_svc, database=mock_db)
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_share_repo),
         ):
             resp = client.get("/api/v1/system/quality/dev1")
         assert resp.status_code == 200
@@ -889,32 +896,25 @@ class TestGetDeviceQuality:
 
 class TestGetCircuitBreakerStatus:
     def test_circuit_breakers_admin_success(self, client, mock_scheduler):
-        mock_scheduler.get_circuit_breaker_status = AsyncMock(
-            return_value={"dev1": "closed", "dev2": "open"}
-        )
+        mock_scheduler.get_circuit_breaker_status = AsyncMock(return_value={"dev1": "closed", "dev2": "open"})
         resp = client.get("/api/v1/system/circuit-breakers")
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert "dev1" in data
 
-    def test_circuit_breakers_non_admin_filtered(
-        self, mock_system_svc, mock_audit_svc, mock_scheduler
-    ):
+    def test_circuit_breakers_non_admin_filtered(self, mock_system_svc, mock_audit_svc, mock_scheduler):
         app = _build_app("operator", mock_system_svc, mock_audit_svc, mock_scheduler)
         client = TestClient(app)
-        mock_scheduler.get_circuit_breaker_status = AsyncMock(
-            return_value={"dev1": "closed", "dev2": "open"}
-        )
+        mock_scheduler.get_circuit_breaker_status = AsyncMock(return_value={"dev1": "closed", "dev2": "open"})
         mock_device_svc = AsyncMock()
         mock_device_svc.list_device_ids_by_owner = AsyncMock(return_value=["dev1"])
         mock_db = MagicMock()
         mock_share_repo = AsyncMock()
         mock_share_repo.get_shared_resource_ids = AsyncMock(return_value=set())
-        mock_app_state = SimpleNamespace(
-            device_service=mock_device_svc, database=mock_db
-        )
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_share_repo
+        mock_app_state = SimpleNamespace(device_service=mock_device_svc, database=mock_db)
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_share_repo),
         ):
             resp = client.get("/api/v1/system/circuit-breakers")
         assert resp.status_code == 200
@@ -963,9 +963,11 @@ class TestResetCircuitBreaker:
 
 class TestHealthCheckBasic:
     def test_health_basic_success(self, client):
-        with patch("psutil.cpu_percent", return_value=50.0), patch(
-            "psutil.virtual_memory"
-        ) as mock_mem, patch("psutil.disk_usage") as mock_disk:
+        with (
+            patch("psutil.cpu_percent", return_value=50.0),
+            patch("psutil.virtual_memory") as mock_mem,
+            patch("psutil.disk_usage") as mock_disk,
+        ):
             mock_mem.return_value = SimpleNamespace(percent=60.0)
             mock_disk.return_value = SimpleNamespace(percent=70.0)
             resp = client.get("/api/v1/system/health/basic")
@@ -975,9 +977,11 @@ class TestHealthCheckBasic:
         assert len(data["components"]) == 3
 
     def test_health_basic_degraded_high_cpu(self, client):
-        with patch("psutil.cpu_percent", return_value=95.0), patch(
-            "psutil.virtual_memory"
-        ) as mock_mem, patch("psutil.disk_usage") as mock_disk:
+        with (
+            patch("psutil.cpu_percent", return_value=95.0),
+            patch("psutil.virtual_memory") as mock_mem,
+            patch("psutil.disk_usage") as mock_disk,
+        ):
             mock_mem.return_value = SimpleNamespace(percent=50.0)
             mock_disk.return_value = SimpleNamespace(percent=50.0)
             resp = client.get("/api/v1/system/health/basic")
@@ -1034,14 +1038,13 @@ class TestReadinessCheck:
 
 class TestGetPerformance:
     def test_performance_success(self, client):
-        with patch("psutil.cpu_percent", return_value=45.0), patch(
-            "psutil.virtual_memory"
-        ) as mock_mem, patch("psutil.disk_usage") as mock_disk, patch(
-            "psutil.net_io_counters"
-        ) as mock_net:
-            mock_mem.return_value = SimpleNamespace(
-                percent=55.0, used=1048576, total=2097152
-            )
+        with (
+            patch("psutil.cpu_percent", return_value=45.0),
+            patch("psutil.virtual_memory") as mock_mem,
+            patch("psutil.disk_usage") as mock_disk,
+            patch("psutil.net_io_counters") as mock_net,
+        ):
+            mock_mem.return_value = SimpleNamespace(percent=55.0, used=1048576, total=2097152)
             mock_disk.return_value = SimpleNamespace(percent=65.0, used=1073741824, total=2147483648)
             mock_net.return_value = SimpleNamespace(bytes_sent=1024, bytes_recv=2048)
             resp = client.get("/api/v1/system/performance")
@@ -1108,9 +1111,11 @@ class TestGetRetentionPolicy:
 class TestUpdateRetentionPolicy:
     def test_update_history_success(self, client, mock_audit_svc):
         mock_config = SimpleNamespace(influxdb=SimpleNamespace(retention_days=30))
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "edgelite.config.update_config_section"
-        ) as mock_update, patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("edgelite.config.update_config_section") as mock_update,
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
+        ):
             resp = client.put(
                 "/api/v1/system/retention",
                 json={"history_retention_days": 90},
@@ -1121,8 +1126,9 @@ class TestUpdateRetentionPolicy:
 
     def test_update_alarm_only(self, client, mock_audit_svc):
         mock_config = SimpleNamespace(influxdb=SimpleNamespace(retention_days=30))
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.put(
                 "/api/v1/system/retention",
@@ -1134,8 +1140,9 @@ class TestUpdateRetentionPolicy:
 
     def test_update_both_none(self, client, mock_audit_svc):
         mock_config = SimpleNamespace(influxdb=SimpleNamespace(retention_days=30))
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.put("/api/v1/system/retention", json={})
         assert resp.status_code == 200
@@ -1144,8 +1151,9 @@ class TestUpdateRetentionPolicy:
         assert data["alarm_retention_days"] == 365
 
     def test_update_error_returns_500(self, client, mock_audit_svc):
-        with patch("edgelite.config.get_config", side_effect=RuntimeError("fail")), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.config.get_config", side_effect=RuntimeError("fail")),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.put(
                 "/api/v1/system/retention",
@@ -1185,12 +1193,8 @@ class TestGetCertInfo:
         assert data["cert_path"] is None
 
     def test_cert_has_cert_paths(self, client):
-        mock_config = SimpleNamespace(
-            server=SimpleNamespace(ssl_cert="/path/cert.pem", ssl_key="/path/key.pem")
-        )
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "os.path.exists", return_value=False
-        ):
+        mock_config = SimpleNamespace(server=SimpleNamespace(ssl_cert="/path/cert.pem", ssl_key="/path/key.pem"))
+        with patch("edgelite.config.get_config", return_value=mock_config), patch("os.path.exists", return_value=False):
             resp = client.get("/api/v1/system/cert")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -1199,17 +1203,15 @@ class TestGetCertInfo:
         assert data["expiry"] is None
 
     def test_cert_with_valid_cert_file(self, client):
-        mock_config = SimpleNamespace(
-            server=SimpleNamespace(ssl_cert="/path/cert.pem", ssl_key="/path/key.pem")
-        )
+        mock_config = SimpleNamespace(server=SimpleNamespace(ssl_cert="/path/cert.pem", ssl_key="/path/key.pem"))
         mock_cert = MagicMock()
         mock_cert.not_valid_after.isoformat.return_value = "2026-12-31T23:59:59"
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "os.path.exists", return_value=True
-        ), patch("edgelite.api.system._read_file_sync", return_value=b"cert data"), patch(
-            "cryptography.x509.load_pem_x509_certificate", return_value=mock_cert
-        ), patch(
-            "cryptography.hazmat.backends.default_backend"
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("os.path.exists", return_value=True),
+            patch("edgelite.api.system._read_file_sync", return_value=b"cert data"),
+            patch("cryptography.x509.load_pem_x509_certificate", return_value=mock_cert),
+            patch("cryptography.hazmat.backends.default_backend"),
         ):
             resp = client.get("/api/v1/system/cert")
         assert resp.status_code == 200
@@ -1239,12 +1241,11 @@ class TestRotateCert:
 
     def test_rotate_missing_cert_file(self, client):
         mock_config = SimpleNamespace(
-            mqtt_server=SimpleNamespace(
-                tls=SimpleNamespace(ca_path="/tmp/ca.pem", cert_path="/tmp/cert.pem")
-            )
+            mqtt_server=SimpleNamespace(tls=SimpleNamespace(ca_path="/tmp/ca.pem", cert_path="/tmp/cert.pem"))
         )
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "pathlib.Path.exists", return_value=False
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("pathlib.Path.exists", return_value=False),
         ):
             resp = client.post("/api/v1/system/cert/rotate")
         assert resp.status_code == 200
@@ -1253,17 +1254,17 @@ class TestRotateCert:
 
     def test_rotate_valid_cert(self, client):
         mock_config = SimpleNamespace(
-            mqtt_server=SimpleNamespace(
-                tls=SimpleNamespace(ca_path="/tmp/ca.pem", cert_path=None)
-            )
+            mqtt_server=SimpleNamespace(tls=SimpleNamespace(ca_path="/tmp/ca.pem", cert_path=None))
         )
         mock_cert_mgr = MagicMock()
         mock_cert_mgr.validate_cert = MagicMock(
             return_value={"valid": True, "not_after": "2026-12-31", "days_remaining": 180}
         )
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "pathlib.Path.exists", return_value=True
-        ), patch("edgelite.engine.tls_security.CertManager", return_value=mock_cert_mgr):
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("edgelite.engine.tls_security.CertManager", return_value=mock_cert_mgr),
+        ):
             resp = client.post("/api/v1/system/cert/rotate")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -1272,15 +1273,15 @@ class TestRotateCert:
 
     def test_rotate_cert_error(self, client):
         mock_config = SimpleNamespace(
-            mqtt_server=SimpleNamespace(
-                tls=SimpleNamespace(ca_path="/tmp/ca.pem", cert_path=None)
-            )
+            mqtt_server=SimpleNamespace(tls=SimpleNamespace(ca_path="/tmp/ca.pem", cert_path=None))
         )
         mock_cert_mgr = MagicMock()
         mock_cert_mgr.validate_cert = MagicMock(side_effect=RuntimeError("cert error"))
-        with patch("edgelite.config.get_config", return_value=mock_config), patch(
-            "pathlib.Path.exists", return_value=True
-        ), patch("edgelite.engine.tls_security.CertManager", return_value=mock_cert_mgr):
+        with (
+            patch("edgelite.config.get_config", return_value=mock_config),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("edgelite.engine.tls_security.CertManager", return_value=mock_cert_mgr),
+        ):
             resp = client.post("/api/v1/system/cert/rotate")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -1336,8 +1337,9 @@ class TestNtpConfigHelpers:
         assert config_file.exists()
 
     def test_save_ntp_config_error_raises(self, tmp_path):
-        with patch("edgelite.api.system._NTP_CONFIG_FILE", "/nonexistent/path/ntp.json"), patch(
-            "os.makedirs", side_effect=OSError("permission denied")
+        with (
+            patch("edgelite.api.system._NTP_CONFIG_FILE", "/nonexistent/path/ntp.json"),
+            patch("os.makedirs", side_effect=OSError("permission denied")),
         ):
             with pytest.raises(OSError):
                 _save_ntp_config({"enabled": True, "server": "x"})
@@ -1350,10 +1352,16 @@ class TestNtpConfigHelpers:
 
 class TestGetNtpConfig:
     def test_ntp_get_success(self, client):
-        with patch("edgelite.api.system._load_ntp_config", return_value={
-            "enabled": True,
-            "server": "time.google.com",
-        }), patch("edgelite.api.system._get_ntp_sync_status", return_value="synced"):
+        with (
+            patch(
+                "edgelite.api.system._load_ntp_config",
+                return_value={
+                    "enabled": True,
+                    "server": "time.google.com",
+                },
+            ),
+            patch("edgelite.api.system._get_ntp_sync_status", return_value="synced"),
+        ):
             resp = client.get("/api/v1/system/ntp")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -1375,11 +1383,16 @@ class TestGetNtpConfig:
 
 class TestUpdateNtpConfig:
     def test_ntp_update_success(self, client, mock_audit_svc):
-        with patch("edgelite.api.system._load_ntp_config", return_value={
-            "enabled": False,
-            "server": "old.pool.ntp.org",
-        }), patch("edgelite.api.system._save_ntp_config"), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch(
+                "edgelite.api.system._load_ntp_config",
+                return_value={
+                    "enabled": False,
+                    "server": "old.pool.ntp.org",
+                },
+            ),
+            patch("edgelite.api.system._save_ntp_config"),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.put(
                 "/api/v1/system/ntp",
@@ -1392,8 +1405,9 @@ class TestUpdateNtpConfig:
         mock_audit_svc.log.assert_awaited()
 
     def test_ntp_update_ip_server(self, client, mock_audit_svc):
-        with patch("edgelite.api.system._save_ntp_config"), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.api.system._save_ntp_config"),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.put(
                 "/api/v1/system/ntp",
@@ -1424,8 +1438,9 @@ class TestUpdateNtpConfig:
         assert resp.status_code == 422
 
     def test_ntp_update_save_error_returns_500(self, client, mock_audit_svc):
-        with patch("edgelite.api.system._save_ntp_config", side_effect=OSError("disk")), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.api.system._save_ntp_config", side_effect=OSError("disk")),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.put(
                 "/api/v1/system/ntp",
@@ -1441,14 +1456,16 @@ class TestUpdateNtpConfig:
 
 class TestGetMigrationStatus:
     def test_migration_status_admin_full_error(self, client):
-        mock_app_state = SimpleNamespace(_migration_status={
-            "current_status": "failed",
-            "last_updated": "2026-01-01T12:00:00Z",
-            "last_failure": {
-                "timestamp": "2026-01-01T12:00:00Z",
-                "error": "Migration failed: column already exists",
-            },
-        })
+        mock_app_state = SimpleNamespace(
+            _migration_status={
+                "current_status": "failed",
+                "last_updated": "2026-01-01T12:00:00Z",
+                "last_failure": {
+                    "timestamp": "2026-01-01T12:00:00Z",
+                    "error": "Migration failed: column already exists",
+                },
+            }
+        )
         with patch("edgelite.app._app_state", mock_app_state):
             resp = client.get("/api/v1/system/migration/status")
         assert resp.status_code == 200
@@ -1456,20 +1473,20 @@ class TestGetMigrationStatus:
         assert data["current_status"] == "failed"
         assert data["last_failure"]["error"] == "Migration failed: column already exists"
 
-    def test_migration_status_non_admin_truncated_error(
-        self, mock_system_svc, mock_audit_svc, mock_scheduler
-    ):
+    def test_migration_status_non_admin_truncated_error(self, mock_system_svc, mock_audit_svc, mock_scheduler):
         app = _build_app("viewer", mock_system_svc, mock_audit_svc, mock_scheduler)
         client = TestClient(app)
         long_error = "x" * 300
-        mock_app_state = SimpleNamespace(_migration_status={
-            "current_status": "failed",
-            "last_updated": "2026-01-01T12:00:00Z",
-            "last_failure": {
-                "timestamp": "2026-01-01T12:00:00Z",
-                "error": long_error,
-            },
-        })
+        mock_app_state = SimpleNamespace(
+            _migration_status={
+                "current_status": "failed",
+                "last_updated": "2026-01-01T12:00:00Z",
+                "last_failure": {
+                    "timestamp": "2026-01-01T12:00:00Z",
+                    "error": long_error,
+                },
+            }
+        )
         with patch("edgelite.app._app_state", mock_app_state):
             resp = client.get("/api/v1/system/migration/status")
         assert resp.status_code == 200
@@ -1477,10 +1494,12 @@ class TestGetMigrationStatus:
         assert data["last_failure"]["error"].endswith("...")
 
     def test_migration_status_no_failure(self, client):
-        mock_app_state = SimpleNamespace(_migration_status={
-            "current_status": "success",
-            "last_updated": "2026-01-01T12:00:00Z",
-        })
+        mock_app_state = SimpleNamespace(
+            _migration_status={
+                "current_status": "success",
+                "last_updated": "2026-01-01T12:00:00Z",
+            }
+        )
         with patch("edgelite.app._app_state", mock_app_state):
             resp = client.get("/api/v1/system/migration/status")
         assert resp.status_code == 200
@@ -1511,16 +1530,15 @@ class TestRetryMigration:
         assert resp.status_code == 403
 
     def test_retry_no_app_state_returns_503(self, client, mock_audit_svc):
-        with patch("edgelite.app._app_state", None), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
-        ):
+        with patch("edgelite.app._app_state", None), patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"):
             resp = client.post("/api/v1/system/migration/retry")
         assert resp.status_code == 503
 
     def test_retry_no_database_returns_503(self, client, mock_audit_svc):
         mock_app_state = SimpleNamespace(database=None)
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.post("/api/v1/system/migration/retry")
         assert resp.status_code == 503
@@ -1534,8 +1552,9 @@ class TestRetryMigration:
         mock_conn_cm.__aexit__ = AsyncMock(return_value=False)
         mock_db.engine.begin = MagicMock(return_value=mock_conn_cm)
         mock_app_state = SimpleNamespace(database=mock_db)
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.post("/api/v1/system/migration/retry")
         assert resp.status_code == 200
@@ -1552,8 +1571,9 @@ class TestRetryMigration:
         mock_conn_cm.__aexit__ = AsyncMock(return_value=False)
         mock_db.engine.begin = MagicMock(return_value=mock_conn_cm)
         mock_app_state = SimpleNamespace(database=mock_db)
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.post("/api/v1/system/migration/retry")
         assert resp.status_code == 500
@@ -1567,8 +1587,9 @@ class TestRetryMigration:
         mock_conn_cm.__aexit__ = AsyncMock(return_value=False)
         mock_db.engine.begin = MagicMock(return_value=mock_conn_cm)
         mock_app_state = SimpleNamespace(database=mock_db)
-        with patch("edgelite.app._app_state", mock_app_state), patch(
-            "edgelite.api.auth._get_client_ip", return_value="10.0.0.1"
+        with (
+            patch("edgelite.app._app_state", mock_app_state),
+            patch("edgelite.api.auth._get_client_ip", return_value="10.0.0.1"),
         ):
             resp = client.post("/api/v1/system/migration/retry")
         assert resp.status_code == 422
@@ -1581,14 +1602,16 @@ class TestRetryMigration:
 
 class TestGetMigrationHistory:
     def test_history_with_entries(self, client):
-        mock_app_state = SimpleNamespace(_migration_status={
-            "current_status": "success",
-            "last_updated": "2026-01-01T12:00:00Z",
-            "last_failure": {
-                "timestamp": "2025-12-31T10:00:00Z",
-                "error": "column exists",
-            },
-        })
+        mock_app_state = SimpleNamespace(
+            _migration_status={
+                "current_status": "success",
+                "last_updated": "2026-01-01T12:00:00Z",
+                "last_failure": {
+                    "timestamp": "2025-12-31T10:00:00Z",
+                    "error": "column exists",
+                },
+            }
+        )
         with patch("edgelite.app._app_state", mock_app_state):
             resp = client.get("/api/v1/system/migration/history")
         assert resp.status_code == 200
@@ -1606,12 +1629,14 @@ class TestGetMigrationHistory:
 
     def test_history_long_error_truncated(self, client):
         long_error = "x" * 200
-        mock_app_state = SimpleNamespace(_migration_status={
-            "last_failure": {
-                "timestamp": "2026-01-01T12:00:00Z",
-                "error": long_error,
-            },
-        })
+        mock_app_state = SimpleNamespace(
+            _migration_status={
+                "last_failure": {
+                    "timestamp": "2026-01-01T12:00:00Z",
+                    "error": long_error,
+                },
+            }
+        )
         with patch("edgelite.app._app_state", mock_app_state):
             resp = client.get("/api/v1/system/migration/history")
         assert resp.status_code == 200
@@ -1670,11 +1695,12 @@ class TestGetLockStatus:
 
 class TestGetNetworkInfo:
     def test_network_success(self, client):
-        with patch("socket.gethostname", return_value="test-host"), patch(
-            "socket.gethostbyname", return_value="192.168.1.100"
-        ), patch("psutil.net_if_addrs") as mock_addrs, patch(
-            "psutil.net_if_stats"
-        ) as mock_stats:
+        with (
+            patch("socket.gethostname", return_value="test-host"),
+            patch("socket.gethostbyname", return_value="192.168.1.100"),
+            patch("psutil.net_if_addrs") as mock_addrs,
+            patch("psutil.net_if_stats") as mock_stats,
+        ):
             mock_addrs.return_value = {
                 "eth0": [
                     SimpleNamespace(
@@ -1695,11 +1721,12 @@ class TestGetNetworkInfo:
         assert data["interfaces"][0]["name"] == "eth0"
 
     def test_network_skips_loopback(self, client):
-        with patch("socket.gethostname", return_value="test-host"), patch(
-            "socket.gethostbyname", return_value="192.168.1.100"
-        ), patch("psutil.net_if_addrs") as mock_addrs, patch(
-            "psutil.net_if_stats"
-        ) as mock_stats:
+        with (
+            patch("socket.gethostname", return_value="test-host"),
+            patch("socket.gethostbyname", return_value="192.168.1.100"),
+            patch("psutil.net_if_addrs") as mock_addrs,
+            patch("psutil.net_if_stats") as mock_stats,
+        ):
             mock_addrs.return_value = {
                 "lo": [
                     SimpleNamespace(
@@ -1730,10 +1757,11 @@ class TestGetNetworkInfo:
         assert data["interfaces"][0]["address"] == "192.168.1.100"
 
     def test_network_gethostbyname_fails(self, client):
-        with patch("socket.gethostname", return_value="test-host"), patch(
-            "socket.gethostbyname", side_effect=Exception("dns fail")
-        ), patch("psutil.net_if_addrs", return_value={}), patch(
-            "psutil.net_if_stats", return_value={}
+        with (
+            patch("socket.gethostname", return_value="test-host"),
+            patch("socket.gethostbyname", side_effect=Exception("dns fail")),
+            patch("psutil.net_if_addrs", return_value={}),
+            patch("psutil.net_if_stats", return_value={}),
         ):
             resp = client.get("/api/v1/system/network")
         assert resp.status_code == 200
@@ -1777,18 +1805,14 @@ class TestNotifyServicesReload:
     async def test_notify_influxdb(self):
         mock_influx = AsyncMock()
         mock_influx.on_config_changed = AsyncMock()
-        mock_request = SimpleNamespace(
-            app=SimpleNamespace(state=SimpleNamespace(influx_storage=mock_influx))
-        )
+        mock_request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(influx_storage=mock_influx)))
         await _notify_services_reload(mock_request, ["influxdb.url"])
         mock_influx.on_config_changed.assert_awaited_once()
 
     async def test_notify_database(self):
         mock_device_svc = AsyncMock()
         mock_device_svc.on_config_changed = AsyncMock()
-        mock_request = SimpleNamespace(
-            app=SimpleNamespace(state=SimpleNamespace(device_service=mock_device_svc))
-        )
+        mock_request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(device_service=mock_device_svc)))
         await _notify_services_reload(mock_request, ["database.path"])
         mock_device_svc.on_config_changed.assert_awaited_once()
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import struct
 import sys
 
@@ -23,32 +22,31 @@ from edgelite.drivers.profinet import (
     DCP_OPT_IP,
     DCP_RESET,
     DCP_RESPONSE,
+    DCP_SUB_DEVICE_NAME,
+    DCP_SUB_IP_PARAMS,
+    DCP_SUBDEVICE_ID,
+    DCP_SUBOEM,
     DCP_SV_BEGIN,
     DCP_SV_END,
     DCP_SV_GET,
     DCP_SV_IDENTIFY,
     DCP_SV_SET,
-    DCP_SUB_IP_PARAMS,
-    DCP_SUB_DEVICE_NAME,
-    DCP_SUBDEVICE_ID,
-    DCP_SUBOEM,
-    DCP_SUBmanufacturer,
     DEFAULT_PNET_PORT,
     ETH_HEADER_SIZE,
     PROFINET_ETHERTYPE,
     VLAN_TAG_SIZE,
+    DCP_SUBmanufacturer,
     ProfinetClient,
     ProfinetDevice,
     ProfinetDriver,
-    _ProfinetProtocol,
     _build_dcp_header,
     _build_dcp_option,
     _build_ethernet_header,
+    _pack_mac_address,
     _parse_dcp_response,
     _parse_mac_address,
-    _pack_mac_address,
+    _ProfinetProtocol,
 )
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -251,10 +249,10 @@ class TestParseMacAddress:
         assert _parse_mac_address(b"\x00\x00\x00\x00\x00\x00") == "00:00:00:00:00:00"
 
     def test_all_ff(self):
-        assert _parse_mac_address(b"\xFF\xFF\xFF\xFF\xFF\xFF") == "FF:FF:FF:FF:FF:FF"
+        assert _parse_mac_address(b"\xff\xff\xff\xff\xff\xff") == "FF:FF:FF:FF:FF:FF"
 
     def test_uppercase_hex(self):
-        result = _parse_mac_address(b"\xAB\xCD\xEF\x01\x23\x45")
+        result = _parse_mac_address(b"\xab\xcd\xef\x01\x23\x45")
         assert result == "AB:CD:EF:01:23:45"
 
     def test_single_byte(self):
@@ -277,10 +275,10 @@ class TestPackMacAddress:
         assert _pack_mac_address("00:00:00:00:00:00") == b"\x00\x00\x00\x00\x00\x00"
 
     def test_all_ff(self):
-        assert _pack_mac_address("FF:FF:FF:FF:FF:FF") == b"\xFF\xFF\xFF\xFF\xFF\xFF"
+        assert _pack_mac_address("FF:FF:FF:FF:FF:FF") == b"\xff\xff\xff\xff\xff\xff"
 
     def test_lowercase_hex(self):
-        assert _pack_mac_address("ab:cd:ef:01:23:45") == b"\xAB\xCD\xEF\x01\x23\x45"
+        assert _pack_mac_address("ab:cd:ef:01:23:45") == b"\xab\xcd\xef\x01\x23\x45"
 
     def test_roundtrip(self):
         original = "AA:BB:CC:DD:EE:FF"
@@ -298,7 +296,7 @@ class TestBuildEthernetHeader:
     """Test _build_ethernet_header helper."""
 
     def test_without_vlan(self):
-        dst = b"\xFF" * 6
+        dst = b"\xff" * 6
         header = _build_ethernet_header(dst, PROFINET_ETHERTYPE)
         # dst(6) + src(6) + ethertype(2) = 14
         assert len(header) == 14
@@ -308,7 +306,7 @@ class TestBuildEthernetHeader:
         assert struct.unpack(">H", header[12:14])[0] == PROFINET_ETHERTYPE
 
     def test_with_vlan(self):
-        dst = b"\xFF" * 6
+        dst = b"\xff" * 6
         header = _build_ethernet_header(dst, PROFINET_ETHERTYPE, vlan_id=1)
         # dst(6) + src(6) + TPID(2) + VLAN(2) = 16
         assert len(header) == 16
@@ -321,13 +319,13 @@ class TestBuildEthernetHeader:
 
     def test_vlan_id_masking(self):
         """vlan_id is masked with 0x0FFF."""
-        header = _build_ethernet_header(b"\xFF" * 6, PROFINET_ETHERTYPE, vlan_id=0xFFF)
+        header = _build_ethernet_header(b"\xff" * 6, PROFINET_ETHERTYPE, vlan_id=0xFFF)
         vlan_info = struct.unpack(">H", header[14:16])[0]
         # 0xFFF & 0x0FFF = 0xFFF, | 0x2000 = 0x2FFF
         assert vlan_info == 0x2FFF
 
     def test_vlan_id_zero(self):
-        header = _build_ethernet_header(b"\xFF" * 6, PROFINET_ETHERTYPE, vlan_id=0)
+        header = _build_ethernet_header(b"\xff" * 6, PROFINET_ETHERTYPE, vlan_id=0)
         vlan_info = struct.unpack(">H", header[14:16])[0]
         assert vlan_info == 0x2000  # PCP=3
 
@@ -336,7 +334,7 @@ class TestBuildEthernetHeader:
         assert header[6:12] == b"\x00\x00\x00\x00\x00\x00"
 
     def test_custom_ethertype(self):
-        header = _build_ethernet_header(b"\xFF" * 6, 0x0800)
+        header = _build_ethernet_header(b"\xff" * 6, 0x0800)
         assert struct.unpack(">H", header[12:14])[0] == 0x0800
 
 
@@ -467,7 +465,7 @@ class TestParseDcpResponse:
         assert result.mac_address == "00:11:22:33:44:55"
 
     def test_mac_from_first_six_bytes(self):
-        data = _build_dcp_response_bytes(mac=b"\xAA\xBB\xCC\xDD\xEE\xFF")
+        data = _build_dcp_response_bytes(mac=b"\xaa\xbb\xcc\xdd\xee\xff")
         result = _parse_dcp_response(data)
         assert result is not None
         assert result.mac_address == "AA:BB:CC:DD:EE:FF"
@@ -501,7 +499,7 @@ class TestParseDcpResponse:
         # Build custom data with short device ID block
         # Parser reads MAC from data[0:6], so put device MAC in dst position
         dst_mac = b"\x00\x11\x22\x33\x44\x55"
-        src_mac = b"\xFF" * 6
+        src_mac = b"\xff" * 6
         header = dst_mac + src_mac + struct.pack(">H", PROFINET_ETHERTYPE)
         dcp_header = struct.pack(">H", DCP_IDENTIFY)
         dcp_header += bytes([DCP_SV_IDENTIFY, 0x01])
@@ -522,7 +520,7 @@ class TestParseDcpResponse:
         """Unknown options should be skipped without error."""
         # Parser reads MAC from data[0:6], so put device MAC in dst position
         dst_mac = b"\x00\x11\x22\x33\x44\x55"
-        src_mac = b"\xFF" * 6
+        src_mac = b"\xff" * 6
         header = dst_mac + src_mac + struct.pack(">H", PROFINET_ETHERTYPE)
         dcp_header = struct.pack(">H", DCP_IDENTIFY)
         dcp_header += bytes([DCP_SV_IDENTIFY, 0x01])
@@ -531,7 +529,7 @@ class TestParseDcpResponse:
         # Unknown option 0x0099
         options = struct.pack(">HH", 0x0099, 0x0001)
         options += struct.pack(">H", 4)
-        options += b"\xDE\xAD\xBE\xEF"
+        options += b"\xde\xad\xbe\xef"
         data = header + dcp_header + options
         result = _parse_dcp_response(data)
         assert result is not None
@@ -541,7 +539,7 @@ class TestParseDcpResponse:
         """Block length exceeding data should break the loop."""
         # Parser reads MAC from data[0:6], so put device MAC in dst position
         dst_mac = b"\x00\x11\x22\x33\x44\x55"
-        src_mac = b"\xFF" * 6
+        src_mac = b"\xff" * 6
         header = dst_mac + src_mac + struct.pack(">H", PROFINET_ETHERTYPE)
         dcp_header = struct.pack(">H", DCP_IDENTIFY)
         dcp_header += bytes([DCP_SV_IDENTIFY, 0x01])
@@ -615,9 +613,7 @@ class TestProfinetClientConnect:
         mock_protocol = MagicMock()
 
         with patch("asyncio.get_running_loop") as mock_loop:
-            mock_loop.return_value.create_datagram_endpoint = AsyncMock(
-                return_value=(mock_transport, mock_protocol)
-            )
+            mock_loop.return_value.create_datagram_endpoint = AsyncMock(return_value=(mock_transport, mock_protocol))
             result = await c.connect()
 
         assert result is True
@@ -628,9 +624,7 @@ class TestProfinetClientConnect:
         c = ProfinetClient()
 
         with patch("asyncio.get_running_loop") as mock_loop:
-            mock_loop.return_value.create_datagram_endpoint = AsyncMock(
-                side_effect=OSError("bind failed")
-            )
+            mock_loop.return_value.create_datagram_endpoint = AsyncMock(side_effect=OSError("bind failed"))
             result = await c.connect()
 
         assert result is False
@@ -756,7 +750,7 @@ class TestProfinetClientDiscover:
 
         sent_frame = mock_transport.sendto.call_args[0][0]
         # Frame should start with broadcast MAC
-        assert sent_frame[:6] == b"\xFF" * 6
+        assert sent_frame[:6] == b"\xff" * 6
         # Should contain ethertype
         assert struct.unpack(">H", sent_frame[12:14])[0] == PROFINET_ETHERTYPE
 
@@ -776,7 +770,7 @@ class TestProfinetClientGetByName:
         async def _simulate_packet(*args, **kwargs):
             c.handle_packet(
                 _build_dcp_response_bytes(
-                    mac=b"\xAA\xBB\xCC\xDD\xEE\xFF",
+                    mac=b"\xaa\xbb\xcc\xdd\xee\xff",
                     device_name="target-device",
                 )
             )
@@ -870,13 +864,13 @@ class TestProfinetClientHandlePacket:
 
     def test_packet_keyed_by_mac(self):
         c = ProfinetClient()
-        data = _build_dcp_response_bytes(mac=b"\xAA\xBB\xCC\xDD\xEE\xFF")
+        data = _build_dcp_response_bytes(mac=b"\xaa\xbb\xcc\xdd\xee\xff")
         c.handle_packet(data)
         assert "AA:BB:CC:DD:EE:FF" in c._discovered_devices
 
     def test_multiple_packets_different_macs(self):
         c = ProfinetClient()
-        data1 = _build_dcp_response_bytes(mac=b"\xAA\xBB\xCC\xDD\xEE\xFF", device_name="dev1")
+        data1 = _build_dcp_response_bytes(mac=b"\xaa\xbb\xcc\xdd\xee\xff", device_name="dev1")
         data2 = _build_dcp_response_bytes(mac=b"\x11\x22\x33\x44\x55\x66", device_name="dev2")
         c.handle_packet(data1)
         c.handle_packet(data2)
@@ -884,8 +878,8 @@ class TestProfinetClientHandlePacket:
 
     def test_same_mac_overwrites(self):
         c = ProfinetClient()
-        data1 = _build_dcp_response_bytes(mac=b"\xAA\xBB\xCC\xDD\xEE\xFF", device_name="dev1")
-        data2 = _build_dcp_response_bytes(mac=b"\xAA\xBB\xCC\xDD\xEE\xFF", device_name="dev2")
+        data1 = _build_dcp_response_bytes(mac=b"\xaa\xbb\xcc\xdd\xee\xff", device_name="dev1")
+        data2 = _build_dcp_response_bytes(mac=b"\xaa\xbb\xcc\xdd\xee\xff", device_name="dev2")
         c.handle_packet(data1)
         c.handle_packet(data2)
         assert len(c._discovered_devices) == 1
@@ -1401,7 +1395,7 @@ class TestProfinetDriverReadViaSnap7:
         mock_bridge = MagicMock()
         d._snap7_bridge = mock_bridge
         mock_snap7 = MagicMock()
-        mock_snap7.read_area = MagicMock(return_value=b"\xDE\xAD\xBE\xEF")
+        mock_snap7.read_area = MagicMock(return_value=b"\xde\xad\xbe\xef")
         d._snap7_client = mock_snap7
 
         result = await d._read_via_snap7("db:1:100:4")

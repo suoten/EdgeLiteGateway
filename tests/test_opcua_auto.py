@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/opcua.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.opcua import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestOpcuaAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_success_rate_callable(self):
         """测试 success_rate 可调用（异常即失败）"""
         success_rate()
@@ -46,21 +55,25 @@ class TestOpcuaAuto:
     def test_remove_edge_rule_callable(self):
         """测试 remove_edge_rule 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(remove_edge_rule(1))
 
     def test_update_edge_rule_callable(self):
         """测试 update_edge_rule 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(update_edge_rule(1, ""))
 
     def test_hot_reload_rules_callable(self):
         """测试 hot_reload_rules 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(hot_reload_rules())
 
     def test_evaluate_point_rules_callable(self):
         """测试 evaluate_point_rules 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(evaluate_point_rules(1, "test", "", ""))
 
     def test_get_edge_rules_callable(self):
@@ -78,6 +91,7 @@ class TestOpcuaAuto:
     def test_init_data_persistence_callable(self):
         """测试 init_data_persistence 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(init_data_persistence("", "", "", 1))
 
     def test_set_offline_sync_online_callable(self):
@@ -91,16 +105,19 @@ class TestOpcuaAuto:
     def test_force_offline_sync_callable(self):
         """测试 force_offline_sync 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(force_offline_sync())
 
     def test_query_ts_callable(self):
         """测试 query_ts 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(query_ts(1, "test", "", "", "", "", "", ""))
 
     def test_query_ts_latest_callable(self):
         """测试 query_ts_latest 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(query_ts_latest(1, "test"))
 
     def test_get_ts_store_stats_callable(self):
@@ -122,31 +139,37 @@ class TestOpcuaAuto:
     def test_save_config_version_callable(self):
         """测试 save_config_version 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(save_config_version(1, {}, "", ""))
 
     def test_get_config_current_callable(self):
         """测试 get_config_current 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_current(1))
 
     def test_get_config_versions_callable(self):
         """测试 get_config_versions 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_versions(1))
 
     def test_get_config_version_config_callable(self):
         """测试 get_config_version_config 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_version_config(1, ""))
 
     def test_rollback_config_callable(self):
         """测试 rollback_config 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(rollback_config(1, "", ""))
 
     def test_get_config_audit_trail_callable(self):
         """测试 get_config_audit_trail 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_audit_trail(1, ""))
 
     def test_diff_config_versions_callable(self):
@@ -156,16 +179,19 @@ class TestOpcuaAuto:
     def test_ota_check_update_callable(self):
         """测试 ota_check_update 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(ota_check_update(""))
 
     def test_ota_start_callable(self):
         """测试 ota_start 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(ota_start(""))
 
     def test_ota_rollback_callable(self):
         """测试 ota_rollback 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(ota_rollback())
 
     def test_ota_get_progress_callable(self):
@@ -179,6 +205,7 @@ class TestOpcuaAuto:
     def test_audit_log_callable(self):
         """测试 audit_log 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(audit_log("", 1))
 
     def test_get_audit_recent_callable(self):
@@ -204,36 +231,43 @@ class TestOpcuaAuto:
     def test_start_callable(self):
         """测试 start 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(start({}))
 
     def test_stop_callable(self):
         """测试 stop 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(stop())
 
     def test_add_device_callable(self):
         """测试 add_device 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(add_device(1, {}, ""))
 
     def test_remove_device_callable(self):
         """测试 remove_device 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(remove_device(1))
 
     def test_read_points_callable(self):
         """测试 read_points 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(read_points(1, ""))
 
     def test_write_point_callable(self):
         """测试 write_point 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(write_point(1, "", ""))
 
     def test_batch_write_points_callable(self):
         """测试 batch_write_points 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(batch_write_points(1, ""))
 
     def test_on_data_callable(self):
@@ -255,11 +289,13 @@ class TestOpcuaAuto:
     def test_create_subscription_batch_callable(self):
         """测试 create_subscription_batch 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(create_subscription_batch(1, "", "test", "", "", ""))
 
     def test_health_check_callable(self):
         """测试 health_check 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(health_check(1))
 
     def test_get_connection_state_callable(self):
@@ -269,11 +305,13 @@ class TestOpcuaAuto:
     def test_discover_devices_callable(self):
         """测试 discover_devices 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(discover_devices({}))
 
     def test_browse_callable(self):
         """测试 browse 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(browse(1, 1, ""))
 
     def test_datachange_notification_callable(self):
@@ -283,4 +321,3 @@ class TestOpcuaAuto:
     def test_cancel_callable(self):
         """测试 cancel 可调用（异常即失败）"""
         cancel()
-

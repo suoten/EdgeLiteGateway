@@ -14,10 +14,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-import pytest
-
 from edgelite.drivers.modbus_ts_store import ModbusTsStore
-
 
 # --------------------------------------------------------------------------- #
 # _dt_to_ns

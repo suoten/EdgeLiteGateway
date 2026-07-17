@@ -27,7 +27,6 @@ from edgelite.middleware.rate_limit import (
     get_rate_limit_backend,
 )
 
-
 # ─── MemoryRateLimitBackend ───
 
 
@@ -243,6 +242,7 @@ def test_middleware_returns_429_when_exceeded():
 @pytest.mark.parametrize("path", ["/health", "/live", "/ready", "/docs", "/openapi.json"])
 def test_middleware_exempt_paths_not_limited(path):
     """豁免路径不受限流。"""
+
     def _h(request: Request) -> JSONResponse:  # type: ignore[misc]
         return JSONResponse({"ok": True})
 

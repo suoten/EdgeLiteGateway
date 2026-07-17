@@ -88,8 +88,7 @@ class TestSingleLockExistence:
 
     def test_no_db_lock_attribute(self, manager):
         """_db_lock (asyncio.Lock) 已移除"""
-        assert not hasattr(manager, "_db_lock"), \
-            "_db_lock should be removed after dual-lock simplification"
+        assert not hasattr(manager, "_db_lock"), "_db_lock should be removed after dual-lock simplification"
 
     def test_sqlite_lock_is_reentrant(self, manager):
         """_sqlite_lock 为 RLock (可重入)，同一线程可多次获取"""
@@ -252,11 +251,13 @@ class TestPersistFailureRollback:
         # 实际: _persist_status 失败后，先回滚 _status_map，再发布修正事件
         # 修正事件: old_status="offline" (尝试的新状态), new_status="online" (回滚到的旧状态)
         correction_calls = [
-            call for call in event_bus.publish.call_args_list
+            call
+            for call in event_bus.publish.call_args_list
             if call[0][0].new_status == "online" and call[0][0].old_status == "offline"
         ]
-        assert len(correction_calls) >= 1, \
+        assert len(correction_calls) >= 1, (
             f"Expected correction event (offline→online), got: {event_bus.publish.call_args_list}"
+        )
 
     async def test_rollback_restores_correct_old_status(self, manager, event_bus):
         """回滚恢复正确的 old_status (从 unknown 回滚到 offline)"""
@@ -299,9 +300,7 @@ class TestConcurrentSafety:
     async def test_sqlite_lock_blocks_concurrent_writes(self, manager, event_bus):
         """_sqlite_lock 串行化 SQLite 写入 (无 'database is locked' 错误)"""
         # 并发写入 20 个设备
-        await asyncio.gather(*[
-            manager.on_device_online(f"dev_{i}") for i in range(20)
-        ])
+        await asyncio.gather(*[manager.on_device_online(f"dev_{i}") for i in range(20)])
         # 所有设备都应持久化成功
         for i in range(20):
             assert manager._status_map[f"dev_{i}"] == "online"

@@ -132,9 +132,16 @@ class TestConstants:
         assert _PIP_TO_IMPORT["onvif-zeep"] == "onvif"
 
     def test_service_definitions(self):
-        assert set(SERVICE_DEFINITIONS.keys()) == {"mqtt_server", "modbus_slave", "serial_bridge", "mcp_server", "grafana"}
+        assert set(SERVICE_DEFINITIONS.keys()) == {
+            "mqtt_server",
+            "modbus_slave",
+            "serial_bridge",
+            "mcp_server",
+            "grafana",
+        }
         for svc in SERVICE_DEFINITIONS.values():
             assert "display_name" in svc and "config_section" in svc and "dependencies" in svc
+
 
 class TestCheckDependency:
     """check_dependency 方法。"""
@@ -248,8 +255,9 @@ class TestInstallServiceDeps:
 
     async def test_install_success(self, manager):
         with (
-            patch.object(manager, "check_dependency", side_effect=[
-                DependencyInfo("a", False), DependencyInfo("a", True, "1.0")]),
+            patch.object(
+                manager, "check_dependency", side_effect=[DependencyInfo("a", False), DependencyInfo("a", True, "1.0")]
+            ),
             patch.object(manager, "install_dependency", return_value={"success": True}),
         ):
             r = await manager.install_service_dependencies("mqtt_server")
@@ -271,6 +279,7 @@ class TestInstallServiceDeps:
             r = await manager.install_service_dependencies("mqtt_server")
         assert r["all_installed"] is False
         assert r["results"][0]["error"] == ServiceErrors.PIP_VERIFY_FAILED
+
 
 class TestGetServiceInfo:
     """get_service_info 方法。"""
@@ -324,8 +333,9 @@ class TestGetServiceInfo:
     def test_running_via_get_status(self, manager, app_state):
         cfg = MagicMock()
         cfg.mqtt_server = _sec(False)
-        stats = SimpleNamespace(running=True, serial_rx_bytes=10, serial_tx_bytes=20,
-                                tcp_rx_bytes=30, tcp_tx_bytes=40, client_count=2)
+        stats = SimpleNamespace(
+            running=True, serial_rx_bytes=10, serial_tx_bytes=20, tcp_rx_bytes=30, tcp_tx_bytes=40, client_count=2
+        )
         inst = MagicMock(spec=["get_status"])
         inst.get_status = MagicMock(return_value=stats)
         with (
@@ -457,6 +467,7 @@ class TestGetServiceInfo:
             i = manager.get_service_info("mqtt_server")
         assert i.state == ServiceState.DISABLED
         assert i.current_config == {}
+
 
 class TestListServices:
     """list_services 方法。"""
@@ -601,6 +612,7 @@ class TestDisableService:
             r = await manager.disable_service("mqtt_server")
         assert r["error"] == ServiceErrors.CONFIG_UPDATE_FAILED
 
+
 class TestStartService:
     """start_service 方法。"""
 
@@ -737,25 +749,29 @@ class TestUpdateServiceConfig:
         assert r["message"] == ServiceErrors.CONFIG_UPDATED
         ms.assert_not_called()
 
+
 class TestGetStartErrorHint:
     """_get_start_error_hint 方法。"""
 
-    @pytest.mark.parametrize("svc,err,exp", [
-        ("mqtt_server", "Address already in use", "ERR_SVC_HINT_MQTT_PORT_IN_USE"),
-        ("mqtt_server", "Permission denied", "ERR_SVC_HINT_MQTT_PORT_PERMISSION"),
-        ("modbus_slave", "Address already in use", "ERR_SVC_HINT_MODBUS_PORT_IN_USE"),
-        ("modbus_slave", "Permission denied", "ERR_SVC_HINT_MODBUS_PORT_PERMISSION"),
-        ("modbus_slave", "'break' outside loop", "ERR_SVC_HINT_CODE_SYNTAX_ERROR"),
-        ("serial_bridge", "Could not open port", "ERR_SVC_HINT_SERIAL_NOT_FOUND"),
-        ("serial_bridge", "Permission denied", "ERR_SVC_HINT_SERIAL_PERMISSION"),
-        ("serial_bridge", "File not found", "ERR_SVC_HINT_SERIAL_PATH_NOT_FOUND"),
-        ("serial_bridge", "already in use", "ERR_SVC_HINT_SERIAL_NOT_FOUND"),
-        ("mcp_server", "address already in use", "ERR_SVC_HINT_PORT_IN_USE"),
-        ("mcp_server", "permission denied", "ERR_SVC_HINT_PERMISSION_DENIED"),
-        ("mcp_server", "connection refused", "ERR_SVC_HINT_CONNECTION_REFUSED"),
-        ("mcp_server", "timeout", "ERR_SVC_HINT_TIMEOUT"),
-        ("mcp_server", "unknown error", "ERR_SVC_HINT_CHECK_CONFIG"),
-    ])
+    @pytest.mark.parametrize(
+        "svc,err,exp",
+        [
+            ("mqtt_server", "Address already in use", "ERR_SVC_HINT_MQTT_PORT_IN_USE"),
+            ("mqtt_server", "Permission denied", "ERR_SVC_HINT_MQTT_PORT_PERMISSION"),
+            ("modbus_slave", "Address already in use", "ERR_SVC_HINT_MODBUS_PORT_IN_USE"),
+            ("modbus_slave", "Permission denied", "ERR_SVC_HINT_MODBUS_PORT_PERMISSION"),
+            ("modbus_slave", "'break' outside loop", "ERR_SVC_HINT_CODE_SYNTAX_ERROR"),
+            ("serial_bridge", "Could not open port", "ERR_SVC_HINT_SERIAL_NOT_FOUND"),
+            ("serial_bridge", "Permission denied", "ERR_SVC_HINT_SERIAL_PERMISSION"),
+            ("serial_bridge", "File not found", "ERR_SVC_HINT_SERIAL_PATH_NOT_FOUND"),
+            ("serial_bridge", "already in use", "ERR_SVC_HINT_SERIAL_NOT_FOUND"),
+            ("mcp_server", "address already in use", "ERR_SVC_HINT_PORT_IN_USE"),
+            ("mcp_server", "permission denied", "ERR_SVC_HINT_PERMISSION_DENIED"),
+            ("mcp_server", "connection refused", "ERR_SVC_HINT_CONNECTION_REFUSED"),
+            ("mcp_server", "timeout", "ERR_SVC_HINT_TIMEOUT"),
+            ("mcp_server", "unknown error", "ERR_SVC_HINT_CHECK_CONFIG"),
+        ],
+    )
     def test_hints(self, manager, svc, err, exp):
         assert manager._get_start_error_hint(svc, RuntimeError(err)) == exp
 
@@ -801,7 +817,9 @@ class TestStartServiceInstance:
 
     async def test_serial_bridge(self, manager, app_state):
         cfg = MagicMock()
-        cfg.serial_bridge = _sec(True, serial_port="/dev/ttyUSB0", baud_rate=9600, tcp_port=9000, ip_whitelist=["1.1.1.1"])
+        cfg.serial_bridge = _sec(
+            True, serial_port="/dev/ttyUSB0", baud_rate=9600, tcp_port=9000, ip_whitelist=["1.1.1.1"]
+        )
         inst = MagicMock()
         inst.start = AsyncMock()
         with (
@@ -852,6 +870,7 @@ class TestGetServiceManager:
 
     def test_singleton(self):
         import edgelite.services.service_manager as sm
+
         sm._service_manager = None
         m1 = get_service_manager()
         m2 = get_service_manager()

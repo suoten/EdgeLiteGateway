@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -309,9 +308,7 @@ class TestDriverWatchdogSummary:
     @pytest.mark.asyncio
     async def test_get_connection_summary_with_devices(self):
         wd = DriverWatchdog(auto_reconnect=False)
-        await wd.register_driver(
-            "dev1", FakeDriver(healthy=True, stats=FakeStats(consecutive_failures=0)), {}
-        )
+        await wd.register_driver("dev1", FakeDriver(healthy=True, stats=FakeStats(consecutive_failures=0)), {})
         await wd.register_driver(
             "dev2",
             FakeDriver(healthy=False, stats=FakeStats(consecutive_failures=5, connection_quality_score=50)),
@@ -335,9 +332,7 @@ class TestDriverWatchdogSummary:
     @pytest.mark.asyncio
     async def test_get_connection_summary_async(self):
         wd = DriverWatchdog(auto_reconnect=False)
-        await wd.register_driver(
-            "dev1", FakeDriver(healthy=True, stats=FakeStats(consecutive_failures=0)), {}
-        )
+        await wd.register_driver("dev1", FakeDriver(healthy=True, stats=FakeStats(consecutive_failures=0)), {})
         summary = await wd.get_connection_summary_async()
         assert summary["total_devices"] == 1
         assert summary["online"] == 1

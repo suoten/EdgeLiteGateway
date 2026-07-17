@@ -27,6 +27,7 @@ def get_database_url() -> str:
     """Build database URL from application config based on backend type."""
     # Check environment variable first (set by database.py during migration)
     import os as _os
+
     env_url = _os.environ.get("ALEMBIC_DATABASE_URL")
     if env_url:
         return env_url

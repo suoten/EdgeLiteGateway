@@ -164,6 +164,7 @@ def test_middleware_5xx_response_no_renewal():
 
 def test_middleware_sse_response_no_renewal():
     """SSE 流式响应不续签（无法安全追加头）。"""
+
     def sse_stream():
         yield b"data: hello\n\n"
 

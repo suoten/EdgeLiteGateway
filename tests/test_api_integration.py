@@ -86,9 +86,7 @@ def _rpc_payload(**overrides):
 def _mock_driver_registry():
     mock_reg = MagicMock()
     mock_reg.get_driver_class.return_value = MagicMock()
-    with patch(
-        "edgelite.drivers.registry.get_driver_registry", return_value=mock_reg
-    ):
+    with patch("edgelite.drivers.registry.get_driver_registry", return_value=mock_reg):
         yield
 
 
@@ -135,9 +133,7 @@ class TestValidatePushDevice:
     def test_protocol_not_registered(self):
         mock_reg = MagicMock()
         mock_reg.get_driver_class.return_value = None
-        with patch(
-            "edgelite.drivers.registry.get_driver_registry", return_value=mock_reg
-        ):
+        with patch("edgelite.drivers.registry.get_driver_registry", return_value=mock_reg):
             req = PushDeviceRequest(**_valid_push_payload(protocol="unknown_proto"))
             errors = _validate_push_device(req)
         assert any("not registered" in e for e in errors)
@@ -145,9 +141,7 @@ class TestValidatePushDevice:
     def test_protocol_video_skips_registry_check(self):
         mock_reg = MagicMock()
         mock_reg.get_driver_class.return_value = None
-        with patch(
-            "edgelite.drivers.registry.get_driver_registry", return_value=mock_reg
-        ):
+        with patch("edgelite.drivers.registry.get_driver_registry", return_value=mock_reg):
             req = PushDeviceRequest(**_valid_push_payload(protocol="video"))
             errors = _validate_push_device(req)
         assert not any("not registered" in e for e in errors)
@@ -201,23 +195,17 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=None)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 503
         assert resp.json()["detail"] == "ERR_INTEG_BACKHAUL_NOT_READY"
 
     def test_success_returns_device(self, audit_svc):
         ds = AsyncMock()
-        ds.create_device = AsyncMock(
-            return_value={"device_id": "dev-001", "name": "test"}
-        )
+        ds.create_device = AsyncMock(return_value={"device_id": "dev-001", "name": "test"})
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 200
         assert resp.json()["data"]["device_id"] == "dev-001"
 
@@ -227,9 +215,7 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 409
         assert resp.json()["detail"] == "ERR_DEVICE_ALREADY_EXISTS"
 
@@ -239,9 +225,7 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 409
 
     def test_value_error_unsupported_protocol_422(self, audit_svc):
@@ -250,23 +234,17 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 422
         assert resp.json()["detail"] == "ERR_DEVICE_DRIVER_UNAVAILABLE"
 
     def test_value_error_driver_start_failed_409(self, audit_svc):
         ds = AsyncMock()
-        ds.create_device = AsyncMock(
-            side_effect=ValueError("driver start failed: timeout")
-        )
+        ds.create_device = AsyncMock(side_effect=ValueError("driver start failed: timeout"))
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 409
         assert resp.json()["detail"]["error_code"] == "ERR_DEVICE_CREATE_FAILED"
 
@@ -276,9 +254,7 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 409
 
     def test_value_error_other_422_config_invalid(self, audit_svc):
@@ -287,23 +263,17 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 422
         assert resp.json()["detail"]["error_code"] == "ERR_DEVICE_CONFIG_INVALID"
 
     def test_http_exception_passthrough(self, audit_svc):
         ds = AsyncMock()
-        ds.create_device = AsyncMock(
-            side_effect=HTTPException(status_code=404, detail="not found")
-        )
+        ds.create_device = AsyncMock(side_effect=HTTPException(status_code=404, detail="not found"))
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 404
 
     def test_generic_exception_500(self, audit_svc):
@@ -312,9 +282,7 @@ class TestPushDevice:
         ep = _make_endpoint(device_service=ds)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/push-device", json=_valid_push_payload()
-        )
+        resp = client.post("/api/v1/integration/push-device", json=_valid_push_payload())
         assert resp.status_code == 500
         assert resp.json()["detail"] == "ERR_DEVICE_CREATE_FAILED"
 
@@ -337,9 +305,7 @@ class TestHandshake:
 
     def test_http_exception_passthrough(self, audit_svc):
         ep = _make_endpoint()
-        ep.handle_handshake = AsyncMock(
-            side_effect=HTTPException(status_code=400, detail="bad")
-        )
+        ep.handle_handshake = AsyncMock(side_effect=HTTPException(status_code=400, detail="bad"))
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
         resp = client.post("/api/v1/integration/handshake", json={})
@@ -385,9 +351,7 @@ class TestGetIntegrationStatus:
     def test_http_exception_passthrough(self, audit_svc):
         ep = _make_endpoint()
         ep._sessions = MagicMock()
-        ep._sessions.keys.side_effect = HTTPException(
-            status_code=418, detail="teapot"
-        )
+        ep._sessions.keys.side_effect = HTTPException(status_code=418, detail="teapot")
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
         resp = client.get("/api/v1/integration/status")
@@ -422,9 +386,7 @@ class TestExecuteRpcCommand:
         ep = _make_endpoint(backhaul=bh)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/rpc/execute", json=_rpc_payload()
-        )
+        resp = client.post("/api/v1/integration/rpc/execute", json=_rpc_payload())
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["command_id"] == "cmd-1"
@@ -448,9 +410,7 @@ class TestExecuteRpcCommand:
         audit.log = AsyncMock(side_effect=RuntimeError("audit down"))
         app = _build_app(endpoint=ep, audit_svc=audit)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/rpc/execute", json=_rpc_payload()
-        )
+        resp = client.post("/api/v1/integration/rpc/execute", json=_rpc_payload())
         assert resp.status_code == 200
         assert resp.json()["data"]["command_id"] == "cmd-2"
 
@@ -458,23 +418,17 @@ class TestExecuteRpcCommand:
         ep = _make_endpoint(backhaul=None)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/rpc/execute", json=_rpc_payload()
-        )
+        resp = client.post("/api/v1/integration/rpc/execute", json=_rpc_payload())
         assert resp.status_code == 503
         assert resp.json()["detail"] == "ERR_INTEG_BACKHAUL_NOT_READY"
 
     def test_http_exception_passthrough(self, audit_svc):
         bh = AsyncMock()
-        bh.handle_rpc_command = AsyncMock(
-            side_effect=HTTPException(status_code=408, detail="timeout")
-        )
+        bh.handle_rpc_command = AsyncMock(side_effect=HTTPException(status_code=408, detail="timeout"))
         ep = _make_endpoint(backhaul=bh)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/rpc/execute", json=_rpc_payload()
-        )
+        resp = client.post("/api/v1/integration/rpc/execute", json=_rpc_payload())
         assert resp.status_code == 408
 
     def test_generic_exception_500_with_audit(self, audit_svc):
@@ -483,9 +437,7 @@ class TestExecuteRpcCommand:
         ep = _make_endpoint(backhaul=bh)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/rpc/execute", json=_rpc_payload()
-        )
+        resp = client.post("/api/v1/integration/rpc/execute", json=_rpc_payload())
         assert resp.status_code == 500
         assert resp.json()["detail"] == "ERR_INTEG_RPC_EXECUTE_FAILED"
         audit_svc.log.assert_awaited_once()
@@ -498,9 +450,7 @@ class TestExecuteRpcCommand:
         audit.log = AsyncMock(side_effect=RuntimeError("audit boom"))
         app = _build_app(endpoint=ep, audit_svc=audit)
         client = TestClient(app)
-        resp = client.post(
-            "/api/v1/integration/rpc/execute", json=_rpc_payload()
-        )
+        resp = client.post("/api/v1/integration/rpc/execute", json=_rpc_payload())
         assert resp.status_code == 500
 
 
@@ -525,9 +475,7 @@ class TestGetRpcHistory:
 
     def test_success_returns_history(self, audit_svc):
         bh = AsyncMock()
-        bh.get_rpc_history = AsyncMock(
-            return_value=[{"command_id": "c1"}, {"command_id": "c2"}]
-        )
+        bh.get_rpc_history = AsyncMock(return_value=[{"command_id": "c1"}, {"command_id": "c2"}])
         ep = _make_endpoint(backhaul=bh)
         app = _build_app(endpoint=ep, audit_svc=audit_svc)
         client = TestClient(app)
@@ -564,9 +512,7 @@ class TestIntegrationHealthCheck:
 
     def test_unauthenticated_minimal(self, health_app):
         self._set_endpoint(None)
-        with patch.object(
-            integration_module, "get_optional_user", new=AsyncMock(return_value=None)
-        ):
+        with patch.object(integration_module, "get_optional_user", new=AsyncMock(return_value=None)):
             client = TestClient(health_app)
             resp = client.get("/api/v1/integration/health")
         assert resp.status_code == 200
@@ -576,9 +522,7 @@ class TestIntegrationHealthCheck:
 
     def test_unauthenticated_degraded_when_no_endpoint(self, health_app):
         self._set_endpoint(None)
-        with patch.object(
-            integration_module, "get_optional_user", new=AsyncMock(return_value=None)
-        ):
+        with patch.object(integration_module, "get_optional_user", new=AsyncMock(return_value=None)):
             client = TestClient(health_app)
             resp = client.get("/api/v1/integration/health")
         assert resp.json()["data"]["status"] == "degraded"

@@ -137,6 +137,7 @@ class TestTcpWritePointTOCTOU:
 
         # patch record_packet (模块级函数)
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -158,6 +159,7 @@ class TestTcpWritePointTOCTOU:
         driver._device_points = {"dev1": [{"name": "point1", "address": 0, "data_type": "bool"}]}
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_point("dev1", "point1", True)
@@ -210,6 +212,7 @@ class TestTcpWritePointsBatchTOCTOU:
         driver._device_points = {"dev1": [{"name": "pt1", "address": 0, "data_type": "bool"}]}
 
         import edgelite.drivers.modbus_tcp as modbus_tcp_mod
+
         with pytest.MonkeyPatch().context() as mp:
             mp.setattr(modbus_tcp_mod, "record_packet", MagicMock())
             result = await driver.write_points_batch("dev1", {"pt1": True})
@@ -358,6 +361,7 @@ class TestRtuReadPointsTOCTOU:
         # _ValidSerialContext (默认) 不修改 client
 
         from edgelite.drivers.base import PointValue
+
         expected = {"pt1": PointValue(value=42, quality="good", timestamp=datetime.now(UTC))}
         driver._read_points_inner = AsyncMock(return_value=expected)
 
@@ -387,12 +391,8 @@ class TestRtuWritePointTOCTOU:
     @staticmethod
     def _setup_valid_write(driver, device_id="dev1"):
         """设置写入所需的最小配置 (通过 TOCTOU 前的所有检查)。"""
-        driver._device_configs = {
-            device_id: {"write_verify": False}
-        }
-        driver._device_points = {
-            device_id: [{"name": "pt1", "address": 0, "data_type": "bool"}]
-        }
+        driver._device_configs = {device_id: {"write_verify": False}}
+        driver._device_points = {device_id: [{"name": "pt1", "address": 0, "data_type": "bool"}]}
 
     async def test_returns_false_when_client_closed_after_ensure(self):
         """_ensure_connected 返回后 client 被关闭 → 返回 False"""

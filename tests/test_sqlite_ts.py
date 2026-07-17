@@ -171,9 +171,7 @@ class TestWritePoint:
 
     async def test_tags_serialized(self, storage):
         """tags 字典应序列化为 JSON 并可还原"""
-        await storage.write_point(
-            "m", "dev1", "t", 1.0, tags={"unit": "C"}, timestamp_ns=1_000_000_000
-        )
+        await storage.write_point("m", "dev1", "t", 1.0, tags={"unit": "C"}, timestamp_ns=1_000_000_000)
         recs = await storage.get_unsynced_records(limit=10)
         assert recs[0]["tags"] == {"unit": "C"}
 
@@ -417,9 +415,7 @@ class TestAggregation:
         await s.stop()
 
     async def _agg(self, storage, fn):
-        return await storage.query_points(
-            "dev1", "p", 0, 3_000_000_000, aggregate=fn, window_seconds=1
-        )
+        return await storage.query_points("dev1", "p", 0, 3_000_000_000, aggregate=fn, window_seconds=1)
 
     async def test_avg(self, storage):
         """avg 聚合"""

@@ -38,9 +38,7 @@ from edgelite.storage.sqlite_repo import (  # noqa: E402
     _validate_device_update_data,
     _validate_dns_resolution,
     _validate_ipv4_or_hostname,
-    _validate_notify_channels,
     _validate_points,
-    _validate_rule_conditions,
     _validate_rule_data,
     _validate_rule_update_data,
     _validate_template_data,
@@ -50,7 +48,6 @@ from edgelite.storage.sqlite_repo import (  # noqa: E402
     _validate_user_update_data,
     retry_on_stale,
 )
-
 
 # ──────────────────────────────── 夹具 ────────────────────────────────
 
@@ -300,7 +297,9 @@ class TestValidateDeviceConfig:
         _validate_device_config({"password": "abcd1234"}, "siemens_s7")
 
     def test_mc_valid(self):
-        _validate_device_config({"host": "192.168.1.2", "port": 5000, "network": 1, "station": 2, "cpu_type": "Q"}, "mitsubishi_mc")
+        _validate_device_config(
+            {"host": "192.168.1.2", "port": 5000, "network": 1, "station": 2, "cpu_type": "Q"}, "mitsubishi_mc"
+        )
 
     def test_mc_bad_cpu_type(self):
         with pytest.raises(ValueError):
@@ -325,7 +324,9 @@ class TestValidateDeviceConfig:
             _validate_device_config({"slot": 99}, "allen_bradley")
 
     def test_opcua_valid(self):
-        _validate_device_config({"endpoint": "opc.tcp://localhost:4840", "namespace_index": 1, "security_mode": "None"}, "opc_ua")
+        _validate_device_config(
+            {"endpoint": "opc.tcp://localhost:4840", "namespace_index": 1, "security_mode": "None"}, "opc_ua"
+        )
 
     def test_opcua_bad_endpoint(self):
         with pytest.raises(ValueError):
@@ -347,7 +348,9 @@ class TestValidateDeviceConfig:
             _validate_device_config({"prog_id": 123}, "opc_da")
 
     def test_mqtt_valid(self):
-        _validate_device_config({"broker": "192.168.1.10", "port": 1883, "qos": 1, "keepalive": 60, "topic": "test/t"}, "mqtt_client")
+        _validate_device_config(
+            {"broker": "192.168.1.10", "port": 1883, "qos": 1, "keepalive": 60, "topic": "test/t"}, "mqtt_client"
+        )
 
     def test_mqtt_bad_qos(self):
         with pytest.raises(ValueError):
@@ -467,7 +470,20 @@ class TestValidatePoints:
 
     def test_valid_point_full(self):
         _validate_points(
-            [{"name": "temp", "address": "0", "data_type": "float32", "scan_rate": 1, "scale": 1.0, "offset": 0, "deadband": 0.5, "writable": False, "bit": 0, "register_type": "holding"}],
+            [
+                {
+                    "name": "temp",
+                    "address": "0",
+                    "data_type": "float32",
+                    "scan_rate": 1,
+                    "scale": 1.0,
+                    "offset": 0,
+                    "deadband": 0.5,
+                    "writable": False,
+                    "bit": 0,
+                    "register_type": "holding",
+                }
+            ],
             "modbus_tcp",
         )
 
@@ -677,7 +693,14 @@ class TestOrmHelpers:
 
     def test_orm_to_device(self):
         orm = DeviceORM(
-            device_id="d1", name="n", protocol="simulator", status="online", config="{}", points="[]", collect_interval=5, version=2
+            device_id="d1",
+            name="n",
+            protocol="simulator",
+            status="online",
+            config="{}",
+            points="[]",
+            collect_interval=5,
+            version=2,
         )
         d = _orm_to_device(orm)
         assert d["device_id"] == "d1"
@@ -686,20 +709,43 @@ class TestOrmHelpers:
         assert d["version"] == 2
 
     def test_orm_to_device_corrupt_json(self):
-        orm = DeviceORM(device_id="d1", name="n", protocol="simulator", status="online", config="bad", points="bad", collect_interval=5)
+        orm = DeviceORM(
+            device_id="d1",
+            name="n",
+            protocol="simulator",
+            status="online",
+            config="bad",
+            points="bad",
+            collect_interval=5,
+        )
         d = _orm_to_device(orm)
         assert d["config"] == {}
         assert d["points"] == []
 
     def test_orm_to_template(self):
-        orm = DeviceTemplateORM(name="t1", protocol="simulator", config_template='{"k":1}', point_templates="[1]", version=1)
+        orm = DeviceTemplateORM(
+            name="t1", protocol="simulator", config_template='{"k":1}', point_templates="[1]", version=1
+        )
         t = _orm_to_template(orm)
         assert t["name"] == "t1"
         assert t["config_template"] == {"k": 1}
         assert t["version"] == 1
 
     def test_orm_to_rule(self):
-        orm = RuleORM(rule_id="r1", name="n", device_id="d1", conditions='[{"point":"t"}]', logic="AND", duration=0, severity="warning", enabled=True, notify_channels='["dingtalk"]', script="s", rule_type="threshold", version=1)
+        orm = RuleORM(
+            rule_id="r1",
+            name="n",
+            device_id="d1",
+            conditions='[{"point":"t"}]',
+            logic="AND",
+            duration=0,
+            severity="warning",
+            enabled=True,
+            notify_channels='["dingtalk"]',
+            script="s",
+            rule_type="threshold",
+            version=1,
+        )
         r = _orm_to_rule(orm)
         assert r["rule_id"] == "r1"
         assert r["conditions"] == [{"point": "t"}]
@@ -709,7 +755,17 @@ class TestOrmHelpers:
     def test_orm_to_alarm(self):
         from edgelite.models.db import AlarmORM
 
-        orm = AlarmORM(alarm_id="a1", rule_id="r1", device_id="d1", severity="critical", status="firing", message="m", trigger_value='{"v":1}', trigger_count=2, rule_type="threshold")
+        orm = AlarmORM(
+            alarm_id="a1",
+            rule_id="r1",
+            device_id="d1",
+            severity="critical",
+            status="firing",
+            message="m",
+            trigger_value='{"v":1}',
+            trigger_count=2,
+            rule_type="threshold",
+        )
         a = _orm_to_alarm(orm)
         assert a["alarm_id"] == "a1"
         assert a["trigger_value"] == {"v": 1}
@@ -718,7 +774,15 @@ class TestOrmHelpers:
     def test_orm_to_user_variants(self):
         from edgelite.models.db import UserORM
 
-        orm = UserORM(user_id="u1", username="bob", password="hashed", role="admin", enabled=True, must_change_password=True, version=3)
+        orm = UserORM(
+            user_id="u1",
+            username="bob",
+            password="hashed",
+            role="admin",
+            enabled=True,
+            must_change_password=True,
+            version=3,
+        )
         u = _orm_to_user(orm)
         assert u["username"] == "bob"
         assert "password" not in u
@@ -963,7 +1027,9 @@ class TestDeviceRepo:
 
     async def test_bulk_create_in_session(self, device_repo, db_session):
         results = await device_repo.bulk_create_in_session(
-            db_session, [_dev("d1"), _dev("d2"), {"device_id": "bad", "name": "", "protocol": "simulator"}], created_by="u1"
+            db_session,
+            [_dev("d1"), _dev("d2"), {"device_id": "bad", "name": "", "protocol": "simulator"}],
+            created_by="u1",
         )
         await db_session.commit()
         assert results[0][0] is True
@@ -972,14 +1038,18 @@ class TestDeviceRepo:
 
     async def test_bulk_upsert_in_session_skip(self, device_repo, db_session):
         await device_repo.create(_dev("d1"))
-        created, skipped, errors = await device_repo.bulk_upsert_in_session([_dev("d1"), _dev("d2")], db_session, skip_existing=True)
+        created, skipped, errors = await device_repo.bulk_upsert_in_session(
+            [_dev("d1"), _dev("d2")], db_session, skip_existing=True
+        )
         await db_session.commit()
         assert skipped == 1
         assert created == 1
 
     async def test_bulk_upsert_in_session_overwrite(self, device_repo, db_session):
         await device_repo.create(_dev("d1", name="old"))
-        created, skipped, errors = await device_repo.bulk_upsert_in_session([_dev("d1", name="new")], db_session, skip_existing=False)
+        created, skipped, errors = await device_repo.bulk_upsert_in_session(
+            [_dev("d1", name="new")], db_session, skip_existing=False
+        )
         await db_session.commit()
         assert skipped == 0
         d = await device_repo.get("d1")
@@ -993,7 +1063,9 @@ class TestTemplateRepo:
     """TemplateRepo CRUD。"""
 
     async def test_create_and_get(self, template_repo):
-        t = await template_repo.create({"name": "t1", "protocol": "simulator", "config_template": {}, "point_templates": []})
+        t = await template_repo.create(
+            {"name": "t1", "protocol": "simulator", "config_template": {}, "point_templates": []}
+        )
         assert t["name"] == "t1"
         got = await template_repo.get("t1")
         assert got["protocol"] == "simulator"

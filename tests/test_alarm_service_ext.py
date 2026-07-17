@@ -26,6 +26,7 @@ from edgelite.services.alarm_service import (
     AlarmSuppressionRule,
 )
 
+
 @pytest.fixture
 def alarm_repo():
     """Fake AlarmRepo"""
@@ -45,6 +46,7 @@ def alarm_repo():
     repo.get_alarm_history = AsyncMock(return_value=[])
     return repo
 
+
 @pytest.fixture
 def notification_manager():
     """Fake NotificationManager"""
@@ -55,6 +57,7 @@ def notification_manager():
     mgr.set_channel_enabled = MagicMock(return_value=True)
     return mgr
 
+
 @pytest.fixture
 def event_bus():
     """Fake EventBus"""
@@ -63,32 +66,48 @@ def event_bus():
     bus.publish = AsyncMock()
     return bus
 
+
 @pytest.fixture
 def alarm_svc(alarm_repo, notification_manager):
     """AlarmService 实例（无 EventBus）"""
     return AlarmService(alarm_repo=alarm_repo, event_bus=None, notification_manager=notification_manager)
+
 
 @pytest.fixture
 def alarm_svc_with_bus(alarm_repo, notification_manager, event_bus):
     """带 EventBus 的 AlarmService 实例"""
     return AlarmService(alarm_repo=alarm_repo, event_bus=event_bus, notification_manager=notification_manager)
 
+
 def _make_event(
-    alarm_id="a1", action="firing", rule_id="r1", device_id="d1",
-    severity=SEVERITY_INFO, rule_name="Rule", device_name="Device",
+    alarm_id="a1",
+    action="firing",
+    rule_id="r1",
+    device_id="d1",
+    severity=SEVERITY_INFO,
+    rule_name="Rule",
+    device_name="Device",
 ):
     """构造 AlarmEvent"""
     return AlarmEvent(
-        alarm_id=alarm_id, rule_id=rule_id, rule_name=rule_name,
-        device_id=device_id, device_name=device_name, severity=severity,
-        action=action, trigger_value={}, rule_type="threshold",
+        alarm_id=alarm_id,
+        rule_id=rule_id,
+        rule_name=rule_name,
+        device_id=device_id,
+        device_name=device_name,
+        severity=severity,
+        action=action,
+        trigger_value={},
+        rule_type="threshold",
     )
+
 
 def _alarm(alarm_id="a1", status="firing", severity=SEVERITY_INFO, **kw):
     """构造告警字典（减少重复）"""
     d = {"alarm_id": alarm_id, "rule_id": "r1", "device_id": "d1", "severity": severity, "status": status}
     d.update(kw)
     return d
+
 
 class TestResolveNames:
     async def test_no_resolver_returns_ids(self, alarm_svc):
@@ -139,13 +158,12 @@ class TestResolveNames:
         assert rn == "r1"
         assert dn == "d1"
 
+
 class TestStartStop:
     async def test_start_with_event_bus(self, alarm_svc_with_bus):
         await alarm_svc_with_bus.start()
         bus = alarm_svc_with_bus._event_bus
-        bus.register_handler.assert_called_once_with(
-            "AlarmEvent", alarm_svc_with_bus._handle_alarm_event
-        )
+        bus.register_handler.assert_called_once_with("AlarmEvent", alarm_svc_with_bus._handle_alarm_event)
         assert alarm_svc_with_bus._cleanup_task is not None
         await alarm_svc_with_bus.stop()
 
@@ -173,6 +191,7 @@ class TestStartStop:
         cleanup = alarm_svc._cleanup_task
         await alarm_svc.stop()
         assert (cleanup.cancelled() or cleanup.done()) is True
+
 
 class TestHandleAlarmEventDispatch:
     async def test_dispatch_firing(self, alarm_svc):
@@ -210,6 +229,7 @@ class TestHandleAlarmEventDispatch:
         alarm_svc.handle_alarm_event = AsyncMock(side_effect=RuntimeError("boom"))
         await alarm_svc._handle_alarm_event(event)
 
+
 class TestGetAlarmLock:
     async def test_creates_and_reuses_lock(self, alarm_svc):
         """同一 alarm_id 应返回同一把锁"""
@@ -222,6 +242,7 @@ class TestGetAlarmLock:
         l1 = await alarm_svc._get_alarm_lock("a1")
         l2 = await alarm_svc._get_alarm_lock("a2")
         assert l1 is not l2
+
 
 class TestHandleAlarmEvent:
     async def test_duplicate_skipped(self, alarm_svc, alarm_repo):
@@ -327,6 +348,7 @@ class TestHandleAlarmEvent:
         await alarm_svc.handle_alarm_event(event)
         assert len(alarm_svc._stats.failure_intervals) == 100
 
+
 class TestHandleRecovery:
     async def test_full_recovery_with_severity_restore(self, alarm_svc, alarm_repo, notification_manager):
         """恢复时应还原原始严重度、计算时长、发送通知、更新统计"""
@@ -379,6 +401,7 @@ class TestHandleRecovery:
         await alarm_svc._handle_recovery(event)
         assert len(alarm_svc._stats.recovery_times) == 100
 
+
 class TestHandleAcknowledgment:
     async def test_with_alarm(self, alarm_svc, alarm_repo, notification_manager):
         """有告警记录时应发送确认通知"""
@@ -396,6 +419,7 @@ class TestHandleAcknowledgment:
         notification_manager.send_notification.assert_not_called()
         assert alarm_svc._stats.acknowledged_count == 1
 
+
 class TestHandleEscalationEvent:
     async def test_with_alarm(self, alarm_svc, alarm_repo, notification_manager):
         """有告警记录时应发送升级通知"""
@@ -412,6 +436,7 @@ class TestHandleEscalationEvent:
         await alarm_svc._handle_escalation(event)
         notification_manager.send_notification.assert_not_called()
         assert alarm_svc._stats.escalated_count == 1
+
 
 class TestEscalationScheduling:
     async def test_schedule_no_config_returns_early(self, alarm_svc):
@@ -523,6 +548,7 @@ class TestEscalationScheduling:
         assert alarm_svc._original_severities["a1"] == SEVERITY_MINOR
         await alarm_svc.stop()
 
+
 class TestConfigureEscalationExtended:
     def test_configure_with_explicit_escalate_to(self, alarm_svc):
         """应支持显式指定 escalate_to"""
@@ -530,6 +556,7 @@ class TestConfigureEscalationExtended:
         cfg = alarm_svc._escalation_configs["custom"]
         assert cfg.threshold_seconds == 120
         assert cfg.escalate_to == SEVERITY_CRITICAL
+
 
 class TestIsSuppressedTimeRange:
     async def test_time_range_match(self, alarm_svc):
@@ -546,6 +573,7 @@ class TestIsSuppressedTimeRange:
     def test_is_in_time_range_invalid_current(self):
         """current 非法时应返回 False"""
         assert AlarmService._is_in_time_range("bad", "09:00", "17:00") is False
+
 
 class TestStatsPropertySetters:
     def test_recovery_times_setter(self, alarm_svc):
@@ -567,6 +595,7 @@ class TestStatsPropertySetters:
         """_failure_intervals getter 应返回 _stats.failure_intervals"""
         alarm_svc._stats.failure_intervals = [6.0]
         assert alarm_svc._failure_intervals == [6.0]
+
 
 class TestStatisticsSummary:
     async def test_summary_no_filter(self, alarm_svc, alarm_repo):
@@ -603,6 +632,7 @@ class TestStatisticsSummary:
         assert summary["total_alarms"] == 0
         assert summary["firing_alarms"] == 0
 
+
 class TestCalculateAlarmRateEdge:
     def test_zero_total_count(self, alarm_svc):
         """total_count 为 0 时速率应为 0"""
@@ -617,17 +647,20 @@ class TestCalculateAlarmRateEdge:
         assert isinstance(rate, float)
         assert rate > 0
 
+
 class TestTrendAndTop:
     async def test_get_trend_no_filter(self, alarm_svc, alarm_repo):
         """无 device_ids 过滤的趋势查询"""
-        alarm_repo.query_trend_data = AsyncMock(return_value={"top_devices": [{"device_id": "d1"}, {"device_id": "d2"}]}
+        alarm_repo.query_trend_data = AsyncMock(
+            return_value={"top_devices": [{"device_id": "d1"}, {"device_id": "d2"}]}
         )
         trend = await alarm_svc.get_trend()
         assert len(trend["top_devices"]) == 2
 
     async def test_get_trend_with_device_ids(self, alarm_svc, alarm_repo):
         """有 device_ids 过滤时应筛选 top_devices"""
-        alarm_repo.query_trend_data = AsyncMock(return_value={"top_devices": [{"device_id": "d1"}, {"device_id": "d2"}]}
+        alarm_repo.query_trend_data = AsyncMock(
+            return_value={"top_devices": [{"device_id": "d1"}, {"device_id": "d2"}]}
         )
         trend = await alarm_svc.get_trend(device_ids={"d1"})
         assert len(trend["top_devices"]) == 1
@@ -647,6 +680,7 @@ class TestTrendAndTop:
         assert call_kwargs.get("hours") == 12
         assert call_kwargs.get("limit") == 5
         assert set(call_kwargs.get("device_ids")) == {"d1", "d2"}
+
 
 class TestCleanup:
     async def test_cleanup_old_data_trims_and_cleans(self, alarm_svc, alarm_repo):
@@ -683,6 +717,7 @@ class TestCleanup:
         await asyncio.sleep(0.05)
         assert task.done() is True
 
+
 class TestPublicAPI:
     async def test_get_alarm(self, alarm_svc, alarm_repo):
         """get_alarm 应委托给 repo.get"""
@@ -714,6 +749,7 @@ class TestPublicAPI:
         alarm_repo.delete = AsyncMock(return_value=False)
         result = await alarm_svc.delete_alarm("a1")
         assert result is False
+
 
 class TestAckAlarm:
     async def test_ack_with_event_bus(self, alarm_svc_with_bus, alarm_repo):
@@ -762,6 +798,7 @@ class TestAckAlarm:
         assert published_event.rule_name == "MyRule"
         assert published_event.device_name == "MyDevice"
 
+
 class TestClearAlarm:
     async def test_clear_with_event_bus(self, alarm_svc_with_bus, alarm_repo):
         """有 EventBus 时应发布 recovered 事件"""
@@ -792,6 +829,7 @@ class TestClearAlarm:
         assert result is None
         notification_manager.send_notification.assert_not_called()
 
+
 class TestTriggerAlarmExtended:
     async def test_trigger_notification_failure(self, alarm_svc, alarm_repo, notification_manager):
         """通知失败时告警仍应持久化"""
@@ -805,21 +843,31 @@ class TestTriggerAlarmExtended:
         """应将 channels 传递给通知管理器"""
         alarm_repo.create = AsyncMock(return_value={"alarm_id": "a1", "severity": SEVERITY_INFO})
         await alarm_svc.trigger_alarm(
-            "r1", "Rule", "d1", "Dev", SEVERITY_INFO, "msg", {},
+            "r1",
+            "Rule",
+            "d1",
+            "Dev",
+            SEVERITY_INFO,
+            "msg",
+            {},
             channels=["email", "webhook"],
         )
         call_args = notification_manager.send_notification.call_args
         assert call_args[0][1] == ["email", "webhook"]
+
 
 class TestListAlarmsExtended:
     async def test_list_with_all_params(self, alarm_svc, alarm_repo):
         """list_alarms 应传递所有参数"""
         alarm_repo.list_all = AsyncMock(return_value=([{"alarm_id": "a1"}], 1))
         alarms, total = await alarm_svc.list_alarms(
-            page=2, size=10, status="firing",
-            severity="critical", device_id="d1", search="temp",
+            page=2,
+            size=10,
+            status="firing",
+            severity="critical",
+            device_id="d1",
+            search="temp",
         )
         assert total == 1
         call_args = alarm_repo.list_all.call_args
         assert call_args.args == (2, 10, "firing", "critical", "d1", "temp")
-

@@ -119,7 +119,7 @@ def test_get_secret_falls_back_to_secret_key(monkeypatch):
     monkeypatch.setenv("EDGELITE_SECURITY__SECRET_KEY", "z" * 40)
     monkeypatch.delenv("EDGELITE_SECURITY__CSRF_SECRET", raising=False)
     monkeypatch.setenv("DEV_MODE", "true")
-    from edgelite.config import get_config, reset_config
+    from edgelite.config import reset_config
 
     reset_config()
     try:
@@ -134,11 +134,10 @@ def test_get_secret_returns_none_when_both_empty(monkeypatch):
     monkeypatch.delenv("EDGELITE_SECURITY__SECRET_KEY", raising=False)
     monkeypatch.delenv("EDGELITE_SECURITY__CSRF_SECRET", raising=False)
     monkeypatch.setenv("DEV_MODE", "true")
-    from edgelite.config import get_config, reset_config
+    from edgelite.config import reset_config
 
     reset_config()
     # secret_key 为空时 SecurityConfig validator 会拒绝；构造直接场景
-    from edgelite.config import SecurityConfig
 
     with patch("edgelite.config.get_config") as mock_cfg:
         mock_cfg.return_value.security.csrf_secret = ""
@@ -212,6 +211,7 @@ def test_unsafe_method_with_invalid_token_returns_403(mock_config):
 @pytest.mark.parametrize("path", ["/health", "/live", "/ready", "/docs", "/openapi.json", "/api/v1/auth/login"])
 def test_exempt_paths_pass_without_token(mock_config, path):
     """豁免路径 unsafe 方法也放行（探针/文档/凭证端点）。"""
+
     def _h(request: Request) -> JSONResponse:  # type: ignore[misc]
         return JSONResponse({"ok": True})
 

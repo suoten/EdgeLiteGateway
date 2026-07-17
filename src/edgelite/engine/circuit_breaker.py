@@ -194,7 +194,9 @@ class CircuitBreaker:
             # 无法排查根因。现在记录异常类型和消息便于生产环境故障定位。
             logger.warning(
                 "Circuit breaker [%s] caught exception: %s: %s",
-                self.name, type(e).__name__, str(e)[:300],
+                self.name,
+                type(e).__name__,
+                str(e)[:300],
                 exc_info=True,
             )
             await self._on_failure(e)

@@ -257,9 +257,7 @@ async def test_rollback_success():
     reloader = ConfigHotReloader()
     old_val = {"v": 1}
     new_val = {"v": 2}
-    change = ConfigChange(
-        config_type="device", config_id="dev1", old_value=old_val, new_value=new_val
-    )
+    change = ConfigChange(config_type="device", config_id="dev1", old_value=old_val, new_value=new_val)
     await reloader._record_change(change)
     result = await reloader.rollback("device", "dev1")
     assert result is True
@@ -282,9 +280,7 @@ async def test_rollback_no_previous_version():
 async def test_rollback_old_value_none_fails():
     """old_value 为 None 时无法回滚。"""
     reloader = ConfigHotReloader()
-    change = ConfigChange(
-        config_type="device", config_id="dev1", old_value=None, new_value={"v": 1}
-    )
+    change = ConfigChange(config_type="device", config_id="dev1", old_value=None, new_value={"v": 1})
     await reloader._record_change(change)
     result = await reloader.rollback("device", "dev1")
     assert result is False
@@ -450,9 +446,7 @@ async def test_check_changes_parse_failure_increments_backoff(tmp_path):
 async def test_backup_config_creates_backup(tmp_path):
     """_backup_config 创建备份文件。"""
     backup_dir = tmp_path / "backups"
-    reloader = ConfigHotReloader(
-        HotReloadConfig(auto_backup=True, backup_dir=str(backup_dir))
-    )
+    reloader = ConfigHotReloader(HotReloadConfig(auto_backup=True, backup_dir=str(backup_dir)))
     config_file = tmp_path / "config.yaml"
     config_file.write_text("key: value\n", encoding="utf-8")
 
@@ -467,9 +461,7 @@ async def test_backup_config_creates_backup(tmp_path):
 async def test_backup_config_disabled(tmp_path):
     """auto_backup=False 时不创建备份。"""
     backup_dir = tmp_path / "backups"
-    reloader = ConfigHotReloader(
-        HotReloadConfig(auto_backup=False, backup_dir=str(backup_dir))
-    )
+    reloader = ConfigHotReloader(HotReloadConfig(auto_backup=False, backup_dir=str(backup_dir)))
     config_file = tmp_path / "config.yaml"
     await reloader._backup_config(str(config_file), "content")
     assert not backup_dir.exists() or not list(backup_dir.iterdir())

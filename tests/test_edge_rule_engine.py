@@ -14,20 +14,16 @@
 
 from __future__ import annotations
 
-import asyncio
-from types import SimpleNamespace
-
 import pytest
 
 from edgelite.drivers.edge_rule_engine import (
+    _OP_FUNCS,
     AlarmRecord,
     EdgeRule,
     EdgeRuleOperator,
     EdgeRuleType,
     ModbusEdgeRuleEngine,
-    _OP_FUNCS,
 )
-
 
 # ── 枚举 ──
 
@@ -279,9 +275,7 @@ class TestEvaluatePoint:
 
     @pytest.mark.asyncio
     async def test_cooldown_prevents_rapid_fire(self, engine):
-        engine.add_rule(
-            EdgeRule(rule_id="r1", device_id="dev1", point_name="temp", threshold=50, cooldown_ms=10000)
-        )
+        engine.add_rule(EdgeRule(rule_id="r1", device_id="dev1", point_name="temp", threshold=50, cooldown_ms=10000))
         # 第一次触发
         alarms1 = await engine.evaluate_point("dev1", "temp", 55, "good")
         assert len(alarms1) == 1

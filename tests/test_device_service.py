@@ -17,7 +17,6 @@ sys.path.insert(0, "src")
 from edgelite.drivers.base import DriverCapabilities, DriverHealthStats, PointValue  # noqa: E402
 from edgelite.services.device_service import DeviceService, _current_write_user_var  # noqa: E402
 
-
 # ───────────────────────── 辅助 ─────────────────────────
 
 
@@ -237,7 +236,9 @@ class TestCreateDevice:
         device_repo.update_status.assert_any_call("d2", "online")
         assert device_service._driver_instances["d2"] is drv
 
-    async def test_create_driver_disconnected_offline(self, device_service, device_repo, scheduler, lifecycle, registry):
+    async def test_create_driver_disconnected_offline(
+        self, device_service, device_repo, scheduler, lifecycle, registry
+    ):
         """普通驱动未连接应置 offline"""
         drv = _make_mock_driver(connected=False)
         registry.get_driver_class.return_value = _make_mock_driver_class(drv)
@@ -259,7 +260,9 @@ class TestCreateDevice:
         drv.stop.assert_awaited()
         assert "d4" not in device_service._driver_instances
 
-    async def test_create_simulator_add_failure_rolls_back(self, device_service, device_repo, scheduler, mock_simulator):
+    async def test_create_simulator_add_failure_rolls_back(
+        self, device_service, device_repo, scheduler, mock_simulator
+    ):
         """simulator add_device 失败应回滚 DB 记录（驱动实例尚未存入 _driver_instances）"""
         mock_simulator.add_device = AsyncMock(side_effect=RuntimeError("add fail"))
         device_service._simulator_driver = mock_simulator
@@ -269,7 +272,9 @@ class TestCreateDevice:
         device_repo.delete.assert_awaited_with("sim2")
         scheduler.stop_collect.assert_awaited()
 
-    async def test_create_simulator_later_failure_rolls_back(self, device_service, device_repo, scheduler, mock_simulator):
+    async def test_create_simulator_later_failure_rolls_back(
+        self, device_service, device_repo, scheduler, mock_simulator
+    ):
         """simulator 后续步骤(start_collect)失败应回滚并调用 remove_device 移除设备映射"""
         scheduler.start_collect = AsyncMock(side_effect=RuntimeError("collect fail"))
         device_service._simulator_driver = mock_simulator
@@ -354,7 +359,12 @@ class TestUpdateDevice:
         """重载时新设备记录为 None 应直接返回"""
         old = {"device_id": "d1", "protocol": "modbus_tcp", "config": {"a": 1}, "points": []}
         device_repo.get.side_effect = [old, None]
-        device_repo.update.return_value = {"device_id": "d1", "protocol": "modbus_tcp", "config": {"a": 2}, "points": []}
+        device_repo.update.return_value = {
+            "device_id": "d1",
+            "protocol": "modbus_tcp",
+            "config": {"a": 2},
+            "points": [],
+        }
         drv = _make_mock_driver()
         device_service._driver_instances["d1"] = drv
         await device_service._reload_driver_for_device("d1", old)

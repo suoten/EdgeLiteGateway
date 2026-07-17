@@ -109,9 +109,7 @@ class TestInit:
     def test_init_emergency_db_creates_table(self, storage):
         """_init_emergency_db 应创建 emergency_buffer 表"""
         assert storage._emergency_db is not None
-        tables = storage._emergency_db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        tables = storage._emergency_db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         names = [t[0] for t in tables]
         assert "emergency_buffer" in names
 
@@ -428,9 +426,7 @@ class TestQueryPoints:
     async def test_query_fallback(self, storage):
         """不可用时应走降级查询"""
         storage._available = False
-        with patch.object(
-            storage, "_fallback_query_points", new=AsyncMock(return_value=[{"v": 1}])
-        ) as mock_fq:
+        with patch.object(storage, "_fallback_query_points", new=AsyncMock(return_value=[{"v": 1}])) as mock_fq:
             result = await storage.query_points("d1", "t", "-1h")
         assert result == [{"v": 1}]
         mock_fq.assert_called_once()
@@ -497,9 +493,7 @@ class TestQueryLatest:
     async def test_query_latest_fallback(self, storage):
         """不可用时 query_latest 走降级"""
         storage._available = False
-        with patch.object(
-            storage, "_fallback_query_latest", new=AsyncMock(return_value={"t": 1.0})
-        ) as mock_fl:
+        with patch.object(storage, "_fallback_query_latest", new=AsyncMock(return_value={"t": 1.0})) as mock_fl:
             result = await storage.query_latest("d1")
         assert result == {"t": 1.0}
         mock_fl.assert_called_once()
@@ -543,9 +537,7 @@ class TestEmergencyBuffer:
         item = {"device_id": "d1", "point_name": "t", "value": 1.0}
         await storage._buffer_append_with_db(item)
         # 验证写入
-        rows = storage._emergency_db.execute(
-            "SELECT data FROM emergency_buffer"
-        ).fetchall()
+        rows = storage._emergency_db.execute("SELECT data FROM emergency_buffer").fetchall()
         assert len(rows) >= 1
 
     async def test_buffer_drain_all(self, storage):
@@ -563,18 +555,14 @@ class TestEmergencyBuffer:
     def test_emergency_db_write(self, storage):
         """_emergency_db_write 应写入 SQLite"""
         storage._emergency_db_write({"device_id": "d1", "value": 1.0})
-        rows = storage._emergency_db.execute(
-            "SELECT COUNT(*) FROM emergency_buffer"
-        ).fetchone()
+        rows = storage._emergency_db.execute("SELECT COUNT(*) FROM emergency_buffer").fetchone()
         assert rows[0] >= 1
 
     def test_emergency_db_write_batch(self, storage):
         """_emergency_db_write_batch 应批量写入"""
         items = [{"device_id": f"d{i}", "value": float(i)} for i in range(5)]
         storage._emergency_db_write_batch(items)
-        rows = storage._emergency_db.execute(
-            "SELECT COUNT(*) FROM emergency_buffer"
-        ).fetchone()
+        rows = storage._emergency_db.execute("SELECT COUNT(*) FROM emergency_buffer").fetchone()
         assert rows[0] >= 5
 
     async def test_restore_emergency_buffer(self, storage):
@@ -587,9 +575,7 @@ class TestEmergencyBuffer:
         """_emergency_db_delete_restored 应删除已恢复记录"""
         storage._emergency_db_write({"device_id": "d1", "value": 1.0})
         # 获取 max_id
-        max_id = storage._emergency_db.execute(
-            "SELECT MAX(id) FROM emergency_buffer"
-        ).fetchone()[0]
+        max_id = storage._emergency_db.execute("SELECT MAX(id) FROM emergency_buffer").fetchone()[0]
         storage._emergency_db_delete_restored(max_id)
 
 
@@ -884,8 +870,11 @@ class TestAdditionalCoverage:
         storage._write_api = MagicMock()
         storage._last_cleanup_time = time.time()
         ts_str = datetime(2024, 1, 1, tzinfo=UTC).isoformat()
-        storage._buffer_drain_all = AsyncMock(return_value=[
-            {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": ts_str}])
+        storage._buffer_drain_all = AsyncMock(
+            return_value=[
+                {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": ts_str}
+            ]
+        )
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
             storage._sync_running = True
             await storage._sync_loop(interval=1)
@@ -899,8 +888,11 @@ class TestAdditionalCoverage:
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
         storage._last_cleanup_time = time.time()
-        storage._buffer_drain_all = AsyncMock(return_value=[
-            {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": "bad_ts"}])
+        storage._buffer_drain_all = AsyncMock(
+            return_value=[
+                {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": "bad_ts"}
+            ]
+        )
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
             storage._sync_running = True
             await storage._sync_loop(interval=1)
@@ -914,8 +906,9 @@ class TestAdditionalCoverage:
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
         storage._last_cleanup_time = time.time()
-        storage._buffer_drain_all = AsyncMock(return_value=[
-            {"device_id": None, "point_name": "temp", "value": object(), "quality": "good"}])
+        storage._buffer_drain_all = AsyncMock(
+            return_value=[{"device_id": None, "point_name": "temp", "value": object(), "quality": "good"}]
+        )
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
             storage._sync_running = True
             await storage._sync_loop(interval=1)
@@ -929,8 +922,9 @@ class TestAdditionalCoverage:
         storage._sqlite_ts.write_points_batch.side_effect = Exception("write err")
         storage._write_api = MagicMock()
         storage._last_cleanup_time = time.time()
-        storage._buffer_drain_all = AsyncMock(return_value=[
-            {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": None}])
+        storage._buffer_drain_all = AsyncMock(
+            return_value=[{"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": None}]
+        )
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
             storage._sync_running = True
             await storage._sync_loop(interval=1)
@@ -943,7 +937,8 @@ class TestAdditionalCoverage:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
             {"id": 1, "value": float("nan"), "device_id": "d", "point_name": "t"},
-            {"id": 2, "value": 25.5, "device_id": "d", "point_name": "t"}]
+            {"id": 2, "value": 25.5, "device_id": "d", "point_name": "t"},
+        ]
         storage._sqlite_ts.sync_completed.return_value = True
         result = await storage._sync_batch()
         assert result == 1
@@ -956,7 +951,8 @@ class TestAdditionalCoverage:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
             {"id": 1, "value": "not_a_number", "device_id": "d", "point_name": "t"},
-            {"id": 2, "value": 25.5, "device_id": "d", "point_name": "t"}]
+            {"id": 2, "value": 25.5, "device_id": "d", "point_name": "t"},
+        ]
         storage._sqlite_ts.sync_completed.return_value = True
         result = await storage._sync_batch()
         assert result == 1
@@ -969,7 +965,8 @@ class TestAdditionalCoverage:
         storage._sqlite_ts = AsyncMock()
         storage._last_uploaded_max_id = 10
         storage._sqlite_ts.get_unsynced_records.return_value = [
-            {"id": 11, "value": 25.5, "device_id": "d", "point_name": "t"}]
+            {"id": 11, "value": 25.5, "device_id": "d", "point_name": "t"}
+        ]
         storage._sqlite_ts.sync_completed.return_value = True
         result = await storage._sync_batch()
         assert result == 1
@@ -984,8 +981,16 @@ class TestAdditionalCoverage:
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
-            {"id": 1, "measurement": "custom_measurement", "value": 25.5,
-             "device_id": "d", "point_name": "t", "quality": "good", "timestamp_ns": 1000000000}]
+            {
+                "id": 1,
+                "measurement": "custom_measurement",
+                "value": 25.5,
+                "device_id": "d",
+                "point_name": "t",
+                "quality": "good",
+                "timestamp_ns": 1000000000,
+            }
+        ]
         storage._sqlite_ts.sync_completed.return_value = True
         result = await storage._sync_batch()
         assert result == 1
@@ -2580,8 +2585,11 @@ class TestEdgeBranches:
         storage._write_api = MagicMock()
         storage._last_cleanup_time = time.time()
         ts_str = datetime(2024, 1, 1, tzinfo=UTC).isoformat()
-        storage._buffer_drain_all = AsyncMock(return_value=[
-            {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": ts_str}])
+        storage._buffer_drain_all = AsyncMock(
+            return_value=[
+                {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": ts_str}
+            ]
+        )
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
             storage._sync_running = True
             await storage._sync_loop(interval=1)
@@ -2596,8 +2604,9 @@ class TestEdgeBranches:
         storage._sqlite_ts.write_points_batch.side_effect = RuntimeError("write err")
         storage._write_api = MagicMock()
         storage._last_cleanup_time = time.time()
-        storage._buffer_drain_all = AsyncMock(return_value=[
-            {"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good"}])
+        storage._buffer_drain_all = AsyncMock(
+            return_value=[{"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good"}]
+        )
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
             storage._sync_running = True
             await storage._sync_loop(interval=1)

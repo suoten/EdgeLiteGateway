@@ -81,9 +81,7 @@ class TestBruteForceProtection:
             json={"username": "testuser", "password": long_pwd},
         )
         # 超长密码应返回 400 或 422
-        assert resp.status_code in (400, 422, 401), (
-            f"Long password should be rejected, got {resp.status_code}"
-        )
+        assert resp.status_code in (400, 422, 401), f"Long password should be rejected, got {resp.status_code}"
 
 
 class TestPrivilegeEscalation:
@@ -118,11 +116,14 @@ class TestPrivilegeEscalation:
     @pytest.mark.asyncio
     async def test_sec2_02_viewer_cannot_create_users(self, viewer_client):
         """viewer 不能创建用户"""
-        resp = await viewer_client.post("/api/v1/users", json={
-            "username": "newuser",
-            "password": "NewPass#123",
-            "role": "admin",
-        })
+        resp = await viewer_client.post(
+            "/api/v1/users",
+            json={
+                "username": "newuser",
+                "password": "NewPass#123",
+                "role": "admin",
+            },
+        )
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
@@ -140,10 +141,13 @@ class TestPrivilegeEscalation:
     @pytest.mark.asyncio
     async def test_sec2_05_viewer_cannot_restore_system(self, viewer_client):
         """viewer 不能执行系统恢复"""
-        resp = await viewer_client.post("/api/v1/system/restore", json={
-            "backup_id": "test-backup",
-            "confirm": True,
-        })
+        resp = await viewer_client.post(
+            "/api/v1/system/restore",
+            json={
+                "backup_id": "test-backup",
+                "confirm": True,
+            },
+        )
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
@@ -225,9 +229,7 @@ class TestSQLInjection:
         for payload in injection_payloads:
             resp = await client.get("/api/v1/devices", params={"search": payload})
             # 应返回 200（空结果），不应返回 500
-            assert resp.status_code == 200, (
-                f"SQL injection in search should not cause 500, got {resp.status_code}"
-            )
+            assert resp.status_code == 200, f"SQL injection in search should not cause 500, got {resp.status_code}"
 
 
 class TestXSSProtection:
@@ -251,16 +253,19 @@ class TestXSSProtection:
             "<img src=x onerror=alert(1)>",
             "javascript:alert(document.cookie)",
             "<svg/onload=alert(1)>",
-            "\"><script>alert(1)</script>",
+            '"><script>alert(1)</script>',
         ]
         for payload in xss_payloads:
-            resp = await client.post("/api/v1/devices", json={
-                "device_id": "xss-test-dev",
-                "name": payload,
-                "protocol": "modbus_tcp",
-                "config": {"slave_id": 1},
-                "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
-            })
+            resp = await client.post(
+                "/api/v1/devices",
+                json={
+                    "device_id": "xss-test-dev",
+                    "name": payload,
+                    "protocol": "modbus_tcp",
+                    "config": {"slave_id": 1},
+                    "points": [{"name": "temp", "data_type": "float32", "address": "0"}],
+                },
+            )
             # 应返回 200/201（创建成功）或 422（验证失败）
             # 不应返回 500
             assert resp.status_code in (200, 201, 422), (
@@ -275,14 +280,17 @@ class TestXSSProtection:
     async def test_sec4_02_xss_in_rule_name(self, client):
         """XSS payload 在规则名中应被处理"""
         xss_payload = "<script>document.cookie</script>"
-        resp = await client.post("/api/v1/rules", json={
-            "name": xss_payload,
-            "device_id": "test-device",
-            "rule_type": "threshold",
-            "severity": "critical",
-            "enabled": True,
-            "condition": {"point_name": "temp", "operator": ">", "threshold": 80},
-        })
+        resp = await client.post(
+            "/api/v1/rules",
+            json={
+                "name": xss_payload,
+                "device_id": "test-device",
+                "rule_type": "threshold",
+                "severity": "critical",
+                "enabled": True,
+                "condition": {"point_name": "temp", "operator": ">", "threshold": 80},
+            },
+        )
         assert resp.status_code in (200, 201, 422)
         if resp.status_code in (200, 201):
             assert "<script>" not in resp.text

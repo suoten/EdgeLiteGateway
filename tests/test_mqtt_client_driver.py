@@ -25,7 +25,6 @@ from edgelite.drivers.mqtt_client import (
     _sanitize_topic_segment,
 )
 
-
 # ── _is_broker_host_safe ──
 
 

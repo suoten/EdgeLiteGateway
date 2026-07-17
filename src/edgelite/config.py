@@ -861,10 +861,7 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
     # cookie_secure=False 时 Cookie 可通过 HTTP 传输被中间人截获
     # 生产环境必须通过 HTTPS 部署，Cookie 的 Secure 标记必须为 True
     if not dev_mode and not config.security.cookie_secure:
-        logger.info(
-            "安全校验: 生产环境（DEV_MODE=false）下自动启用 cookie_secure=True，"
-            "确保 Cookie 仅通过 HTTPS 传输"
-        )
+        logger.info("安全校验: 生产环境（DEV_MODE=false）下自动启用 cookie_secure=True，确保 Cookie 仅通过 HTTPS 传输")
         config.security.cookie_secure = True
 
     # FIXED(安全): 生产环境（DEV_MODE=false）下校验 CSRF_SECRET 不得为已知不安全默认值/占位符

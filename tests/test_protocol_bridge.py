@@ -34,7 +34,6 @@ from edgelite.engine.protocol_bridge import (
     get_bridge_manager,
 )
 
-
 # ── 辅助：快速终止 _sync_loop ──
 
 
@@ -665,11 +664,13 @@ class TestBridgeManagerQueries:
 
     def test_register_transform_callback(self):
         mgr = ProtocolBridgeManager()
+
         def cb1(r):
             return r
 
         def cb2(r):
             return r
+
         mgr.register_transform_callback(cb1)
         mgr.register_transform_callback(cb2)
         assert len(mgr._transform_callbacks) == 2

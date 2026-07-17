@@ -189,6 +189,7 @@ class DeviceLifecycleManager:
 
     async def get_status(self, device_id: str) -> str:
         """获取设备的当前生命周期状态（online/offline/unknown）。"""
+
         def _do_get():
             with self._sqlite_lock:
                 return self._status_map.get(device_id, "offline")
@@ -207,6 +208,7 @@ class DeviceLifecycleManager:
 
     async def close(self) -> None:
         """关闭 SQLite 连接并释放资源。"""
+
         def _do_close():
             with self._sqlite_lock:
                 if self._db_conn:

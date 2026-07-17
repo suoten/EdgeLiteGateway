@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/soem_integration.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.soem_integration import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestSoemIntegrationAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_initialize_callable(self):
         """测试 initialize 可调用（异常即失败）"""
         initialize()
@@ -66,4 +75,3 @@ class TestSoemIntegrationAuto:
     def test_parse_vendor_product_callable(self):
         """测试 parse_vendor_product 可调用（异常即失败）"""
         parse_vendor_product(1, "")
-

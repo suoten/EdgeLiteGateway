@@ -22,7 +22,6 @@ from edgelite.security.data_masking import (
     mask_sensitive,
 )
 
-
 # ─── mask_sensitive ───
 
 
@@ -125,7 +124,7 @@ def test_mask_json_string_valid_json():
 
 def test_mask_json_string_invalid_json():
     """无效 JSON 字符串用正则模式脱敏。"""
-    text = 'password=secret123'
+    text = "password=secret123"
     masked = mask_json_string(text)
     assert "secret123" not in masked
 
@@ -143,7 +142,7 @@ def test_sensitive_filter_masks_password():
 def test_sensitive_filter_masks_token():
     """SensitiveFilter 脱敏日志中的 token。"""
     f = SensitiveFilter()
-    result = f.mask_string('token=abc123def456')
+    result = f.mask_string("token=abc123def456")
     assert "abc123def456" not in result
 
 
@@ -194,8 +193,13 @@ def test_sensitive_filter_filter_record():
     """filter() 方法处理 LogRecord。"""
     f = SensitiveFilter()
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname="", lineno=0,
-        msg='password="secret123"', args=None, exc_info=None,
+        name="test",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg='password="secret123"',
+        args=None,
+        exc_info=None,
     )
     assert f.filter(record) is True
     assert "secret123" not in str(record.msg)
@@ -433,8 +437,13 @@ def test_default_sensitive_patterns_includes_jwt():
 def test_mask_log_record():
     """mask_log 脱敏 LogRecord。"""
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname="", lineno=0,
-        msg='password="secret123"', args=None, exc_info=None,
+        name="test",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg='password="secret123"',
+        args=None,
+        exc_info=None,
     )
     result = mask_log(record)
     assert "secret123" not in str(result.msg)

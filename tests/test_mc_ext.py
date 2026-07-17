@@ -32,7 +32,6 @@ from edgelite.drivers.base import ConnectionState, PointValue
 from edgelite.drivers.mc import McDriver
 from edgelite.security.rbac import Permission
 
-
 # --- helpers ---
 
 
@@ -1064,9 +1063,7 @@ class TestPersistPoints:
     async def test_persist_disabled_noop(self):
         d = _make_driver()
         d._persist_enabled = False
-        await d._persist_points(
-            "dev1", {"D100": PointValue(value=1, quality="good", timestamp=datetime.now(UTC))}
-        )
+        await d._persist_points("dev1", {"D100": PointValue(value=1, quality="good", timestamp=datetime.now(UTC))})
 
     async def test_persist_with_storage(self):
         d = _make_driver()
@@ -1116,9 +1113,7 @@ class TestConfigVersionEmpty:
 class TestEdgeRulesEmpty:
     async def test_evaluate_no_engine(self):
         d = _make_driver()
-        await d._evaluate_rules(
-            "dev1", {"D100": PointValue(value=1, quality="good", timestamp=datetime.now(UTC))}
-        )
+        await d._evaluate_rules("dev1", {"D100": PointValue(value=1, quality="good", timestamp=datetime.now(UTC))})
 
     async def test_reload_no_engine(self):
         d = _make_driver()

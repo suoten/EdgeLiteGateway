@@ -27,7 +27,6 @@ from fastapi.testclient import TestClient
 from edgelite.api.deps import get_audit_service, get_current_user
 from edgelite.api.services import router
 
-
 # ── Mock 构造辅助 ──
 
 
@@ -132,9 +131,11 @@ def mock_env(mock_mgr, mock_audit_svc):
 
     返回 SimpleNamespace(mgr, audit) 供测试配置返回值。
     """
-    with patch("edgelite.api.services.SERVICE_DEFINITIONS", TEST_SERVICE_DEFS), patch(
-        "edgelite.api.services.get_service_manager", return_value=mock_mgr
-    ), patch("edgelite.api.auth._get_client_ip", return_value="127.0.0.1"):
+    with (
+        patch("edgelite.api.services.SERVICE_DEFINITIONS", TEST_SERVICE_DEFS),
+        patch("edgelite.api.services.get_service_manager", return_value=mock_mgr),
+        patch("edgelite.api.auth._get_client_ip", return_value="127.0.0.1"),
+    ):
         yield SimpleNamespace(mgr=mock_mgr, audit=mock_audit_svc)
 
 
@@ -255,9 +256,7 @@ class TestEnableService:
             json={"config": {"host": "localhost", "port": 1883}},
         )
         assert resp.status_code == 200
-        mock_env.mgr.enable_service.assert_awaited_once_with(
-            "mqtt_server", {"host": "localhost", "port": 1883}
-        )
+        mock_env.mgr.enable_service.assert_awaited_once_with("mqtt_server", {"host": "localhost", "port": 1883})
 
     def test_enable_sanitizes_sensitive_config(self, client, mock_env):
         mock_env.mgr.enable_service.return_value = {"success": True}
@@ -342,9 +341,11 @@ class TestEnableService:
         assert resp.json()["detail"] == "ERR_SVC_START_FAILED"
 
     def test_enable_get_mgr_fails_503(self, client):
-        with patch("edgelite.api.services.SERVICE_DEFINITIONS", TEST_SERVICE_DEFS), patch(
-            "edgelite.api.services.get_service_manager", side_effect=RuntimeError("no mgr")
-        ), patch("edgelite.api.auth._get_client_ip", return_value="127.0.0.1"):
+        with (
+            patch("edgelite.api.services.SERVICE_DEFINITIONS", TEST_SERVICE_DEFS),
+            patch("edgelite.api.services.get_service_manager", side_effect=RuntimeError("no mgr")),
+            patch("edgelite.api.auth._get_client_ip", return_value="127.0.0.1"),
+        ):
             resp = client.post("/api/v1/services/mqtt_server/enable")
         assert resp.status_code == 503
         assert "ERR_SVC_ENABLE_FAILED" in resp.json()["detail"]
@@ -630,9 +631,7 @@ class TestUpdateServiceConfig:
         )
         assert resp.status_code == 200
         assert resp.json()["data"]["success"] is True
-        mock_env.mgr.update_service_config.assert_awaited_once_with(
-            "mqtt_server", {"port": 1883}
-        )
+        mock_env.mgr.update_service_config.assert_awaited_once_with("mqtt_server", {"port": 1883})
 
     def test_update_config_result_not_success_422(self, client, mock_env):
         mock_env.mgr.update_service_config.return_value = {

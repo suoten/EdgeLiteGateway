@@ -162,6 +162,6 @@ DATA_TYPE_REGS: dict[str, int] = {
 _BYTE_ORDER_FMT: dict[str, tuple[str, str, bool]] = {
     "ABCD": (">", ">", False),  # Big-Endian (默认), 无字交换
     "BADC": ("<", ">", False),  # Big-Endian Byte Swap, 无字交换
-    "CDAB": (">", ">", True),   # Word Swap, 需要反转寄存器顺序
-    "DCBA": ("<", ">", True),   # Little-Endian (完全反转), 需要反转寄存器顺序 + 字节内交换
+    "CDAB": (">", ">", True),  # Word Swap, 需要反转寄存器顺序
+    "DCBA": ("<", ">", True),  # Little-Endian (完全反转), 需要反转寄存器顺序 + 字节内交换
 }

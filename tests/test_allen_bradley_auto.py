@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/allen_bradley.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.allen_bradley import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestAllenBradleyAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_record_success_callable(self):
         """测试 record_success 可调用（异常即失败）"""
         record_success("")
@@ -34,26 +43,31 @@ class TestAllenBradleyAuto:
     def test_start_callable(self):
         """测试 start 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(start({}))
 
     def test_stop_callable(self):
         """测试 stop 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(stop())
 
     def test_read_points_callable(self):
         """测试 read_points 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(read_points(1, ""))
 
     def test_write_point_callable(self):
         """测试 write_point 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(write_point(1, "", ""))
 
     def test_batch_write_points_callable(self):
         """测试 batch_write_points 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(batch_write_points(1, ""))
 
     def test_get_failover_info_callable(self):
@@ -71,6 +85,7 @@ class TestAllenBradleyAuto:
     def test_reload_rules_callable(self):
         """测试 reload_rules 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(reload_rules())
 
     def test_add_edge_rule_callable(self):
@@ -80,6 +95,7 @@ class TestAllenBradleyAuto:
     def test_remove_edge_rule_callable(self):
         """测试 remove_edge_rule 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(remove_edge_rule(1))
 
     def test_get_edge_rules_callable(self):
@@ -101,36 +117,43 @@ class TestAllenBradleyAuto:
     def test_add_device_callable(self):
         """测试 add_device 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(add_device(1, {}, ""))
 
     def test_discover_devices_callable(self):
         """测试 discover_devices 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(discover_devices({}))
 
     def test_discover_tags_callable(self):
         """测试 discover_tags 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(discover_tags("", 1))
 
     def test_browse_struct_members_callable(self):
         """测试 browse_struct_members 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(browse_struct_members("test"))
 
     def test_browse_array_range_callable(self):
         """测试 browse_array_range 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(browse_array_range("", ""))
 
     def test_remove_device_callable(self):
         """测试 remove_device 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(remove_device(1))
 
     def test_health_check_callable(self):
         """测试 health_check 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(health_check(1))
 
     def test_init_enterprise_callable(self):
@@ -144,41 +167,49 @@ class TestAllenBradleyAuto:
     def test_set_user_role_callable(self):
         """测试 set_user_role 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(set_user_role(""))
 
     def test_save_config_version_callable(self):
         """测试 save_config_version 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(save_config_version(1, {}, "", ""))
 
     def test_get_config_current_callable(self):
         """测试 get_config_current 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_current(1))
 
     def test_get_config_versions_callable(self):
         """测试 get_config_versions 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_versions(1, ""))
 
     def test_get_config_version_config_callable(self):
         """测试 get_config_version_config 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_version_config(1, ""))
 
     def test_rollback_config_callable(self):
         """测试 rollback_config 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(rollback_config(1, "", ""))
 
     def test_get_config_audit_trail_callable(self):
         """测试 get_config_audit_trail 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(get_config_audit_trail(1, ""))
 
     def test_diff_config_versions_callable(self):
         """测试 diff_config_versions 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(diff_config_versions(1, "", ""))
 
     def test_ota_check_update_callable(self):
@@ -188,6 +219,7 @@ class TestAllenBradleyAuto:
     def test_ota_start_callable(self):
         """测试 ota_start 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(ota_start("", {}))
 
     def test_ota_rollback_callable(self):
@@ -221,4 +253,3 @@ class TestAllenBradleyAuto:
     def test_get_audit_stats_callable(self):
         """测试 get_audit_stats 可调用（异常即失败）"""
         get_audit_stats()
-

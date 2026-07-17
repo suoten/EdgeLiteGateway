@@ -57,12 +57,7 @@ def _build_response_frame(
         control |= 0x20
 
     frame_body = (
-        bytes([FRAME_HEAD])
-        + addr_bytes
-        + bytes([FRAME_HEAD])
-        + bytes([control])
-        + bytes([length])
-        + data_with_33h
+        bytes([FRAME_HEAD]) + addr_bytes + bytes([FRAME_HEAD]) + bytes([control]) + bytes([length]) + data_with_33h
     )
     cs = Dlt645Driver._calculate_cs(frame_body[1:])
     return frame_body + bytes([cs, FRAME_TAIL])
@@ -134,16 +129,12 @@ class TestGetMoreFlagOffset:
     def test_more_flag_set(self):
         """控制字节 bit5=1 → 返回 1"""
         # 构造帧: 控制字节 = 0x80 | 0x20 | 0x11 = 0xB1 (响应 + more + 读数据)
-        frame = _build_response_frame(
-            "000000000001", "02010100", b"\x12\x34", more_flag=True
-        )
+        frame = _build_response_frame("000000000001", "02010100", b"\x12\x34", more_flag=True)
         assert Dlt645Driver._get_more_flag(frame) == 1
 
     def test_more_flag_clear(self):
         """控制字节 bit5=0 → 返回 0"""
-        frame = _build_response_frame(
-            "000000000001", "02010100", b"\x12\x34", more_flag=False
-        )
+        frame = _build_response_frame("000000000001", "02010100", b"\x12\x34", more_flag=False)
         assert Dlt645Driver._get_more_flag(frame) == 0
 
     def test_more_flag_not_affected_by_length_byte(self):
@@ -165,8 +156,7 @@ class TestGetMoreFlagOffset:
         # 控制字节: 0x80 (响应, more=0, 功能码=0)
         control = 0x80
         frame_body = (
-            bytes([FRAME_HEAD]) + addr_bytes + bytes([FRAME_HEAD])
-            + bytes([control]) + bytes([length]) + data_with_33h
+            bytes([FRAME_HEAD]) + addr_bytes + bytes([FRAME_HEAD]) + bytes([control]) + bytes([length]) + data_with_33h
         )
         cs = Dlt645Driver._calculate_cs(frame_body[1:])
         frame = frame_body + bytes([cs, FRAME_TAIL])
@@ -194,9 +184,7 @@ class TestParseResponseOffset:
         # DI=02010100, value=0x12 0x34 → BCD 反转后 "3412" → 34.12V (decimal=1? 不, decimal=1 → 341.2)
         # 实际: _decode_bcd 反转 bytes([0x12, 0x34]) → "3412" → int=3412, decimal=1 → 341.2
         # 为简化, 用 decimal=2 测试: 3412/100 = 34.12
-        frame = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=False
-        )
+        frame = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=False)
         point_info = {"type": "bcd", "decimal": 2, "unit": "V"}
         result = Dlt645Driver._parse_response(frame, "voltage_a", point_info)
         assert result is not None
@@ -209,9 +197,7 @@ class TestParseResponseOffset:
 
     def test_parse_returns_none_for_empty_value(self):
         """DATA 仅含 DI (4字节) 无值数据 → None"""
-        frame = _build_response_frame(
-            "000000000001", "02010100", b"", more_flag=False
-        )
+        frame = _build_response_frame("000000000001", "02010100", b"", more_flag=False)
         point_info = {"type": "bcd", "decimal": 0}
         assert Dlt645Driver._parse_response(frame, "x", point_info) is None
 
@@ -219,9 +205,7 @@ class TestParseResponseOffset:
         """解析 IEEE 754 浮点"""
         expected = 220.5
         value_bytes = struct.pack("<f", expected)
-        frame = _build_response_frame(
-            "000000000001", "02010100", value_bytes, more_flag=False
-        )
+        frame = _build_response_frame("000000000001", "02010100", value_bytes, more_flag=False)
         point_info = {"type": "float32", "decimal": 0}
         result = Dlt645Driver._parse_response(frame, "x", point_info)
         assert result is not None
@@ -230,9 +214,7 @@ class TestParseResponseOffset:
     def test_parse_hex_value(self):
         """解析 hex (小端整数)"""
         value_bytes = bytes([0x34, 0x12])  # 小端 → 0x1234 = 4660
-        frame = _build_response_frame(
-            "000000000001", "02010100", value_bytes, more_flag=False
-        )
+        frame = _build_response_frame("000000000001", "02010100", value_bytes, more_flag=False)
         point_info = {"type": "hex", "decimal": 0}
         result = Dlt645Driver._parse_response(frame, "x", point_info)
         assert result == 0x1234
@@ -245,9 +227,7 @@ class TestParseResponseOffset:
         """
         # DI=02010100, value=0x56 0x78 (2 字节)
         # frame[9] = 6 (DI 4 + value 2), frame[10] = 第一个 +33H 后的数据字节
-        frame = _build_response_frame(
-            "000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False
-        )
+        frame = _build_response_frame("000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False)
         assert frame[9] == 6  # 4 (DI) + 2 (value)
         # frame[10] 是 +33H 后的 DI 首字节, 不等于 6
         assert frame[10] != 6
@@ -269,9 +249,7 @@ class TestMultiFrameConcatenation:
     async def test_single_frame_no_continuation(self):
         """单帧响应 (more=0) 不触发续读"""
         # 构造单帧: more=0
-        resp = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=False
-        )
+        resp = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=False)
         driver = _make_driver([resp])
         _patch_read_response(driver, [resp])
 
@@ -283,12 +261,8 @@ class TestMultiFrameConcatenation:
 
     async def test_multi_frame_normal_termination(self):
         """多帧响应: 第一帧 more=1, 第二帧 more=0 → 正常终止"""
-        resp1 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-        )
-        resp2 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False
-        )
+        resp1 = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
+        resp2 = _build_response_frame("000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False)
         driver = _make_driver([resp1, resp2])
         _patch_read_response(driver, [resp1, resp2])
 
@@ -305,21 +279,15 @@ class TestMultiFrameConcatenation:
         场景: 初始响应 more=1, 第二帧 more=0 → 应在第二帧后终止。
         修复前: 始终检查初始响应 (more=1), 会继续请求第三帧。
         """
-        resp1 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-        )
-        resp2 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False
-        )
+        resp1 = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
+        resp2 = _build_response_frame("000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False)
         driver = _make_driver([resp1, resp2, b""])
         _patch_read_response(driver, [resp1, resp2, b""])
 
         await driver.read_points("dev1", ["voltage_a"])
         # 修复后: resp2 more=0 → 终止, 只发 2 帧
         # 修复前: 检查 resp1 more=1 → 请求第 3 帧 (但返回空 → break)
-        assert len(driver._write_log) == 2, (
-            f"应在第二帧 more=0 后终止, 但发了 {len(driver._write_log)} 帧"
-        )
+        assert len(driver._write_log) == 2, f"应在第二帧 more=0 后终止, 但发了 {len(driver._write_log)} 帧"
 
     async def test_max_continuation_frames_limit(self):
         """恶意电表持续返回 more=1 → 达到 MAX_CONTINUATION_FRAMES 上限后终止
@@ -328,9 +296,7 @@ class TestMultiFrameConcatenation:
         """
         # 构造 MAX_CONTINUATION_FRAMES + 1 个 more=1 的帧
         responses = [
-            _build_response_frame(
-                "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-            )
+            _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
             for _ in range(MAX_CONTINUATION_FRAMES + 5)
         ]
         driver = _make_driver(responses)
@@ -345,15 +311,12 @@ class TestMultiFrameConcatenation:
         # 初始读 + MAX_CONTINUATION_FRAMES 次续读
         expected_writes = 1 + MAX_CONTINUATION_FRAMES
         assert len(driver._write_log) == expected_writes, (
-            f"应发送 {expected_writes} 帧 (1 初始 + {MAX_CONTINUATION_FRAMES} 续读), "
-            f"实际 {len(driver._write_log)}"
+            f"应发送 {expected_writes} 帧 (1 初始 + {MAX_CONTINUATION_FRAMES} 续读), 实际 {len(driver._write_log)}"
         )
 
     async def test_continuation_stops_on_empty_response(self):
         """续读返回空响应 → 立即终止"""
-        resp1 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-        )
+        resp1 = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
         driver = _make_driver([resp1, b""])
         _patch_read_response(driver, [resp1, b""])
 
@@ -364,15 +327,9 @@ class TestMultiFrameConcatenation:
 
     async def test_continuation_stops_on_cs_failure(self):
         """续读返回 CS 校验失败的帧 → 立即终止"""
-        resp1 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-        )
+        resp1 = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
         # 篡改 CS 字节 (倒数第二字节)
-        bad_resp = bytearray(
-            _build_response_frame(
-                "000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False
-            )
-        )
+        bad_resp = bytearray(_build_response_frame("000000000001", "02010100", bytes([0x56, 0x78]), more_flag=False))
         bad_resp[-2] = (bad_resp[-2] + 1) & 0xFF
         driver = _make_driver([resp1, bytes(bad_resp)])
         _patch_read_response(driver, [resp1, bytes(bad_resp)])
@@ -383,13 +340,9 @@ class TestMultiFrameConcatenation:
 
     async def test_continuation_stops_on_parse_failure(self):
         """续读返回的帧无法解析 (值数据为空) → 立即终止"""
-        resp1 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-        )
+        resp1 = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
         # 第二帧只有 DI 无 value → _parse_response 返回 None
-        resp2 = _build_response_frame(
-            "000000000001", "02010100", b"", more_flag=False
-        )
+        resp2 = _build_response_frame("000000000001", "02010100", b"", more_flag=False)
         driver = _make_driver([resp1, resp2])
         _patch_read_response(driver, [resp1, resp2])
 
@@ -400,15 +353,9 @@ class TestMultiFrameConcatenation:
 
     async def test_seq_increments_in_continuation_frames(self):
         """续读帧的 seq 字段递增 (1, 2, 3...)"""
-        resp1 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True
-        )
-        resp2 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x56, 0x78]), more_flag=True
-        )
-        resp3 = _build_response_frame(
-            "000000000001", "02010100", bytes([0x9A, 0xBC]), more_flag=False
-        )
+        resp1 = _build_response_frame("000000000001", "02010100", bytes([0x12, 0x34]), more_flag=True)
+        resp2 = _build_response_frame("000000000001", "02010100", bytes([0x56, 0x78]), more_flag=True)
+        resp3 = _build_response_frame("000000000001", "02010100", bytes([0x9A, 0xBC]), more_flag=False)
         driver = _make_driver([resp1, resp2, resp3])
         _patch_read_response(driver, [resp1, resp2, resp3])
 
@@ -452,9 +399,7 @@ class TestBuildReadNextFrame:
     """续读帧构建正确性"""
 
     def test_read_next_frame_structure(self):
-        frame = Dlt645Driver._build_read_next_frame(
-            "000000000001", "02010100", seq=1
-        )
+        frame = Dlt645Driver._build_read_next_frame("000000000001", "02010100", seq=1)
         assert frame[0] == FRAME_HEAD
         assert frame[7] == FRAME_HEAD
         assert frame[8] == CTRL_READ_NEXT  # 0x14
@@ -465,15 +410,11 @@ class TestBuildReadNextFrame:
     def test_read_next_frame_seq_byte(self):
         """seq 字节在 data 域第 5 字节 (DI 之后), 加 33H"""
         for seq in (1, 5, 10, 255):
-            frame = Dlt645Driver._build_read_next_frame(
-                "000000000001", "02010100", seq=seq
-            )
+            frame = Dlt645Driver._build_read_next_frame("000000000001", "02010100", seq=seq)
             # data 域: frame[10..14], seq 在 frame[14] (第5字节, 加33H)
             assert frame[14] == (seq + 0x33) & 0xFF
 
     def test_read_next_frame_cs_valid(self):
         """续读帧 CS 校验通过"""
-        frame = Dlt645Driver._build_read_next_frame(
-            "000000000001", "02010100", seq=3
-        )
+        frame = Dlt645Driver._build_read_next_frame("000000000001", "02010100", seq=3)
         assert Dlt645Driver._validate_cs(frame) is True

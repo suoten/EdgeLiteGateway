@@ -68,9 +68,7 @@ def upgrade() -> None:
     # 原问题: AiModelORM 无唯一约束可插入重复 name+version;
     #         无索引查询全表扫描; 无 model_type 约束可写入非法值
     # ============================================================
-    _create_unique_constraint_idempotent(
-        "uq_ai_models_name_version", "ai_models", ["model_name", "model_version"]
-    )
+    _create_unique_constraint_idempotent("uq_ai_models_name_version", "ai_models", ["model_name", "model_version"])
     _create_index_idempotent("ix_ai_models_name", "ai_models", ["model_name"])
     _create_index_idempotent("ix_ai_models_status", "ai_models", ["status"])
     _create_check_constraint_idempotent(
@@ -85,18 +83,14 @@ def upgrade() -> None:
     #         按模型+时间范围查询效率低
     # 注意: ORM 中字段名为 timestamp (任务描述中的 created_at 为笔误)
     # ============================================================
-    _create_index_idempotent(
-        "ix_ai_logs_model_time", "ai_inference_logs", ["model_id", "timestamp"]
-    )
+    _create_index_idempotent("ix_ai_logs_model_time", "ai_inference_logs", ["model_id", "timestamp"])
 
     # ============================================================
     # 5. AiModelVersionORM 唯一约束 (第7轮修复)
     # 原问题: AiModelVersionORM 缺少 (model_id, version) 唯一约束，
     #         可插入重复版本记录
     # ============================================================
-    _create_unique_constraint_idempotent(
-        "uq_ai_model_versions_id_ver", "ai_model_versions", ["model_id", "version"]
-    )
+    _create_unique_constraint_idempotent("uq_ai_model_versions_id_ver", "ai_model_versions", ["model_id", "version"])
 
     # ============================================================
     # 6. 字段类型扩展 String(16) -> String(64) (第6轮修复)
@@ -107,24 +101,16 @@ def upgrade() -> None:
     # ============================================================
 
     # rules.rule_id (主键) - batch 模式会自动保留 PRIMARY KEY 约束
-    _alter_column_type_idempotent(
-        "rules", "rule_id", sa.String(16), sa.String(64)
-    )
+    _alter_column_type_idempotent("rules", "rule_id", sa.String(16), sa.String(64))
 
     # alarms.alarm_id (主键)
-    _alter_column_type_idempotent(
-        "alarms", "alarm_id", sa.String(16), sa.String(64)
-    )
+    _alter_column_type_idempotent("alarms", "alarm_id", sa.String(16), sa.String(64))
 
     # alarms.rule_id
-    _alter_column_type_idempotent(
-        "alarms", "rule_id", sa.String(16), sa.String(64)
-    )
+    _alter_column_type_idempotent("alarms", "rule_id", sa.String(16), sa.String(64))
 
     # alarm_silences.rule_id
-    _alter_column_type_idempotent(
-        "alarm_silences", "rule_id", sa.String(16), sa.String(64)
-    )
+    _alter_column_type_idempotent("alarm_silences", "rule_id", sa.String(16), sa.String(64))
 
 
 def downgrade() -> None:
@@ -134,6 +120,7 @@ def downgrade() -> None:
     # 修复-回滚前检查是否存在超长数据，若有则拒绝回滚
     # ============================================================
     from sqlalchemy import text
+
     _downgrade_check_tables = [
         ("alarm_silences", "rule_id"),
         ("alarms", "rule_id"),
@@ -143,9 +130,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     for table, col in _downgrade_check_tables:
         try:
-            result = bind.execute(text(
-                f"SELECT COUNT(*) FROM {table} WHERE LENGTH({col}) > 16"
-            )).scalar()
+            result = bind.execute(text(f"SELECT COUNT(*) FROM {table} WHERE LENGTH({col}) > 16")).scalar()
             if result and result > 0:
                 raise RuntimeError(
                     f"Cannot downgrade: {result} rows in {table}.{col} "
@@ -157,25 +142,15 @@ def downgrade() -> None:
         except Exception:
             pass  # 表或列可能不存在，跳过检查
 
-    _alter_column_type_idempotent(
-        "alarm_silences", "rule_id", sa.String(64), sa.String(16)
-    )
-    _alter_column_type_idempotent(
-        "alarms", "rule_id", sa.String(64), sa.String(16)
-    )
-    _alter_column_type_idempotent(
-        "alarms", "alarm_id", sa.String(64), sa.String(16)
-    )
-    _alter_column_type_idempotent(
-        "rules", "rule_id", sa.String(64), sa.String(16)
-    )
+    _alter_column_type_idempotent("alarm_silences", "rule_id", sa.String(64), sa.String(16))
+    _alter_column_type_idempotent("alarms", "rule_id", sa.String(64), sa.String(16))
+    _alter_column_type_idempotent("alarms", "alarm_id", sa.String(64), sa.String(16))
+    _alter_column_type_idempotent("rules", "rule_id", sa.String(64), sa.String(16))
 
     # ============================================================
     # 5. 回滚 AiModelVersionORM 唯一约束
     # ============================================================
-    _drop_constraint_if_exists(
-        "uq_ai_model_versions_id_ver", "ai_model_versions", type_="unique"
-    )
+    _drop_constraint_if_exists("uq_ai_model_versions_id_ver", "ai_model_versions", type_="unique")
 
     # ============================================================
     # 4. 回滚 AiInferenceLogORM 复合索引
@@ -188,9 +163,7 @@ def downgrade() -> None:
     _drop_constraint_if_exists("ck_ai_models_type_valid", "ai_models")
     _drop_index_if_exists("ix_ai_models_status", table_name="ai_models")
     _drop_index_if_exists("ix_ai_models_name", table_name="ai_models")
-    _drop_constraint_if_exists(
-        "uq_ai_models_name_version", "ai_models", type_="unique"
-    )
+    _drop_constraint_if_exists("uq_ai_models_name_version", "ai_models", type_="unique")
 
     # ============================================================
     # 2. 回滚 AlarmORM 索引
@@ -218,9 +191,7 @@ def _create_index_idempotent(index_name: str, table_name: str, columns: list, **
         pass
 
 
-def _create_unique_constraint_idempotent(
-    constraint_name: str, table_name: str, columns: list, **kw
-) -> None:
+def _create_unique_constraint_idempotent(constraint_name: str, table_name: str, columns: list, **kw) -> None:
     """Create a unique constraint only if it doesn't already exist."""
     try:
         op.create_unique_constraint(constraint_name, table_name, columns, **kw)
@@ -229,9 +200,7 @@ def _create_unique_constraint_idempotent(
         pass
 
 
-def _create_check_constraint_idempotent(
-    constraint_name: str, table_name: str, sqltext: str, **kw
-) -> None:
+def _create_check_constraint_idempotent(constraint_name: str, table_name: str, sqltext: str, **kw) -> None:
     """Create a check constraint only if it doesn't already exist."""
     try:
         op.create_check_constraint(constraint_name, table_name, sqltext, **kw)
@@ -254,9 +223,7 @@ def _alter_column_type_idempotent(
     """
     try:
         with op.batch_alter_table(table_name) as batch_op:
-            batch_op.alter_column(
-                column_name, existing_type=existing_type, type_=new_type
-            )
+            batch_op.alter_column(column_name, existing_type=existing_type, type_=new_type)
     except Exception:
         # Column type may already be the target type, or operation unsupported
         pass
@@ -271,9 +238,7 @@ def _drop_index_if_exists(index_name: str, table_name: str = None) -> None:
         pass
 
 
-def _drop_constraint_if_exists(
-    constraint_name: str, table_name: str, type_: str = None
-) -> None:
+def _drop_constraint_if_exists(constraint_name: str, table_name: str, type_: str = None) -> None:
     """Drop a constraint only if it exists."""
     try:
         if type_:

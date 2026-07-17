@@ -40,8 +40,11 @@ class TestAlarmOutboxPersistReturn:
         assert outbox._conn is not None, "DB connection should be established"
 
         event = AlarmEvent(
-            alarm_id="a1", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a1",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         result = outbox.persist(event)
         assert result is True
@@ -52,8 +55,11 @@ class TestAlarmOutboxPersistReturn:
         outbox._conn = None  # 模拟 DB 连接不可用
 
         event = AlarmEvent(
-            alarm_id="a1", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a1",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         result = outbox.persist(event)
         assert result is False
@@ -71,8 +77,11 @@ class TestAlarmOutboxPersistReturn:
         outbox._conn = mock_conn
 
         event = AlarmEvent(
-            alarm_id="a1", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a1",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         result = outbox.persist(event)
         assert result is False
@@ -85,8 +94,11 @@ class TestAlarmOutboxPersistReturn:
         outbox = AlarmOutbox(str(tmp_path / "test_outbox.db"))
 
         event = AlarmEvent(
-            alarm_id="a1", rule_id="r1", device_id="d1",
-            severity="critical", action="firing",
+            alarm_id="a1",
+            rule_id="r1",
+            device_id="d1",
+            severity="critical",
+            action="firing",
         )
         assert outbox.persist(event) is True
 
@@ -130,8 +142,11 @@ class TestEventBusOutboxOrder:
         queue = await bus.subscribe("test_sub")
 
         event = AlarmEvent(
-            alarm_id="a1", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a1",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         await bus.publish(event)
 
@@ -149,8 +164,11 @@ class TestEventBusOutboxOrder:
         bus._alarm_outbox._conn = None
 
         event = AlarmEvent(
-            alarm_id="a2", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a2",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         await bus.publish(event)
 
@@ -166,8 +184,11 @@ class TestEventBusOutboxOrder:
         bus._alarm_outbox.persist = MagicMock(side_effect=Exception("DB corruption"))
 
         event = AlarmEvent(
-            alarm_id="a3", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a3",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         await bus.publish(event)
 
@@ -186,8 +207,11 @@ class TestEventBusOutboxOrder:
         bus._alarm_outbox.persist = slow_persist
 
         event = AlarmEvent(
-            alarm_id="a4", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a4",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         await bus.publish(event)
 
@@ -217,8 +241,11 @@ class TestEventBusOutboxOrder:
         queue = await bus.subscribe("test_sub")
 
         event = AlarmEvent(
-            alarm_id="a5", rule_id="r1", device_id="d1",
-            severity="warning", action="firing",
+            alarm_id="a5",
+            rule_id="r1",
+            device_id="d1",
+            severity="warning",
+            action="firing",
         )
         await bus.publish(event)
 
@@ -234,8 +261,11 @@ class TestEventBusOutboxOrder:
         bus = event_bus_with_outbox
 
         event = AlarmEvent(
-            alarm_id="a6", rule_id="r1", device_id="d1",
-            severity="critical", action="firing",
+            alarm_id="a6",
+            rule_id="r1",
+            device_id="d1",
+            severity="critical",
+            action="firing",
         )
         await bus.publish(event)
 

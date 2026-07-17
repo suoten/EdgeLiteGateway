@@ -265,9 +265,11 @@ class TestPoolLockProtection:
             """频繁触发超时 → rebuild"""
             try:
                 for _ in range(3):
+
                     def slow_func():
                         time.sleep(5)
                         return 0
+
                     # 直接注册会冲突，用内联方式触发超时
                     # 通过直接调用 _rebuild_eval_pool 模拟
                     engine._rebuild_eval_pool()
@@ -307,7 +309,6 @@ class TestPoolLockProtection:
         # 通过监控 _pool_lock 的状态
         rebuild_holding = threading.Event()
         threading.Event()
-
 
         def slow_rebuild():
             with engine._pool_lock:

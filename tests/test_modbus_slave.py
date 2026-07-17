@@ -34,7 +34,6 @@ from edgelite.engine.modbus_slave import (  # noqa: E402
     _parse_pymodbus_version,
 )
 
-
 # -- Helpers -----------------------------------------------------------------
 
 
@@ -165,9 +164,7 @@ class TestIsPortAvailable:
             mock_socket_cls.return_value.__enter__ = MagicMock(return_value=mock_sock)
             mock_socket_cls.return_value.__exit__ = MagicMock(return_value=False)
             _is_port_available("0.0.0.0", 8080)
-            mock_sock.setsockopt.assert_called_once_with(
-                socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
-            )
+            mock_sock.setsockopt.assert_called_once_with(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 
 # -- __init__ ----------------------------------------------------------------
@@ -1061,9 +1058,7 @@ class TestGetRegisterMap:
 
     async def test_new_api_returns_full_map(self):
         s = ModbusSlaveServer()
-        s._context = _make_new_api_context(
-            coils_size=10, discrete_size=10, holding_size=20, input_size=20
-        )
+        s._context = _make_new_api_context(coils_size=10, discrete_size=10, holding_size=20, input_size=20)
         # Set some values
         s._context.co.data[0] = 1
         s._context.hr.data[0] = 42
@@ -1082,9 +1077,7 @@ class TestGetRegisterMap:
 
     async def test_new_api_sample_truncated_to_10(self):
         s = ModbusSlaveServer()
-        s._context = _make_new_api_context(
-            coils_size=20, discrete_size=20, holding_size=20, input_size=20
-        )
+        s._context = _make_new_api_context(coils_size=20, discrete_size=20, holding_size=20, input_size=20)
         with patch("edgelite.engine.modbus_slave._PYMODBUS_37_PLUS", True):
             result = await s.get_register_map()
         assert len(result["coils"]["sample"]) == 10

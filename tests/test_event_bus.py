@@ -48,9 +48,7 @@ async def test_event_bus_multiple_handlers(event_bus):
     event_bus.register_handler("AlarmEvent", handler_a)
     event_bus.register_handler("AlarmEvent", handler_b)
 
-    event = AlarmEvent(
-        alarm_id="a1", rule_id="r1", device_id="d1", severity="warning", action="firing"
-    )
+    event = AlarmEvent(alarm_id="a1", rule_id="r1", device_id="d1", severity="warning", action="firing")
     await event_bus.publish(event)
     await asyncio.sleep(0.1)
 
@@ -76,8 +74,6 @@ async def test_point_update_event():
 @pytest.mark.asyncio
 async def test_alarm_event():
     """测试AlarmEvent数据类"""
-    event = AlarmEvent(
-        alarm_id="a1", rule_id="r1", device_id="d1", severity="critical", action="firing"
-    )
+    event = AlarmEvent(alarm_id="a1", rule_id="r1", device_id="d1", severity="critical", action="firing")
     assert event.severity == "critical"
     assert event.action == "firing"

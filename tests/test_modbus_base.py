@@ -59,19 +59,22 @@ class TestModbusExceptionCodes:
             # 描述应包含十六进制异常码 (如 "Illegal Data Address (0x02)")
             assert "0x" in desc, f"异常码 0x{code:02X} 描述缺少十六进制标注: {desc}"
 
-    @pytest.mark.parametrize("exc_code,expected_keyword", [
-        (0x81, "Illegal Function"),
-        (0x82, "Illegal Data Address"),
-        (0x83, "Illegal Data Value"),
-        (0x84, "Server Device Failure"),
-        (0x85, "Acknowledge"),
-        (0x86, "Server Device Busy"),
-        (0x87, "Negative Acknowledge"),
-        (0x88, "Memory Parity Error"),
-        (0x8A, "Gateway Path Unavailable"),
-        (0x8B, "Gateway Target Device Failed"),
-        (0xAB, "Extended Exception"),
-    ])
+    @pytest.mark.parametrize(
+        "exc_code,expected_keyword",
+        [
+            (0x81, "Illegal Function"),
+            (0x82, "Illegal Data Address"),
+            (0x83, "Illegal Data Value"),
+            (0x84, "Server Device Failure"),
+            (0x85, "Acknowledge"),
+            (0x86, "Server Device Busy"),
+            (0x87, "Negative Acknowledge"),
+            (0x88, "Memory Parity Error"),
+            (0x8A, "Gateway Path Unavailable"),
+            (0x8B, "Gateway Target Device Failed"),
+            (0xAB, "Extended Exception"),
+        ],
+    )
     def test_specific_exception_description(self, exc_code, expected_keyword):
         desc = _MODBUS_EXCEPTION_CODES[exc_code]
         assert expected_keyword in desc
@@ -178,6 +181,7 @@ class TestSetClientSlaveId:
     def test_sets_slave_id_when_kwarg_name_uncached(self):
         """_SLAVE_KWARG_NAME 为 None (未缓存) 时, 设置 client.slave_id"""
         import edgelite.drivers.modbus_base as _mb
+
         saved = _mb._SLAVE_KWARG_NAME
         _mb._SLAVE_KWARG_NAME = None
         try:
@@ -199,6 +203,7 @@ class TestSetClientSlaveId:
     def test_no_error_when_client_lacks_attr(self):
         """如果 client 没有 slave_id 属性, 不应抛异常"""
         import edgelite.drivers.modbus_base as _mb
+
         saved = _mb._SLAVE_KWARG_NAME
         _mb._SLAVE_KWARG_NAME = None
         try:
@@ -252,14 +257,17 @@ class TestParseModbusException:
     def test_none_input_returns_none(self):
         assert _parse_modbus_exception(None) is None
 
-    @pytest.mark.parametrize("exc_code,expected_desc", [
-        (0x81, "Illegal Function"),
-        (0x82, "Illegal Data Address"),
-        (0x83, "Illegal Data Value"),
-        (0x84, "Server Device Failure"),
-        (0x86, "Server Device Busy"),
-        (0x8A, "Gateway Path Unavailable"),
-    ])
+    @pytest.mark.parametrize(
+        "exc_code,expected_desc",
+        [
+            (0x81, "Illegal Function"),
+            (0x82, "Illegal Data Address"),
+            (0x83, "Illegal Data Value"),
+            (0x84, "Server Device Failure"),
+            (0x86, "Server Device Busy"),
+            (0x8A, "Gateway Path Unavailable"),
+        ],
+    )
     def test_known_exception_from_raw_bytes(self, exc_code, expected_desc):
         """通过 raw bytes (Modbus 异常响应帧) 解析已知异常码"""
         # 异常响应帧: [功能码|0x80, 异常码]
@@ -416,16 +424,19 @@ class TestTcpRtuIntegration:
     def test_tcp_slave_kwarg_allows_broadcast_zero(self):
         """TCP 模式允许 slave_id=0 (广播写)"""
         from edgelite.drivers import modbus_tcp
+
         kw = modbus_tcp._slave_kwarg(0)
         assert 0 in kw.values()
 
     def test_tcp_slave_kwarg_rejects_248(self):
         from edgelite.drivers import modbus_tcp
+
         with pytest.raises(ValueError, match="0-247"):
             modbus_tcp._slave_kwarg(248)
 
     def test_tcp_read_kwargs_allows_broadcast_zero(self):
         from edgelite.drivers import modbus_tcp
+
         kw = modbus_tcp._read_kwargs(2, 0)
         assert kw["count"] == 2
         assert 0 in kw.values()
@@ -433,6 +444,7 @@ class TestTcpRtuIntegration:
     def test_tcp_imports_shared_constants(self):
         """TCP 模块应使用 modbus_base 的常量 (同一对象)"""
         from edgelite.drivers import modbus_tcp
+
         assert modbus_tcp.REGISTER_TYPES is REGISTER_TYPES
         assert modbus_tcp.DATA_TYPE_REGS is DATA_TYPE_REGS
         assert modbus_tcp._BYTE_ORDER_FMT is _BYTE_ORDER_FMT
@@ -441,27 +453,32 @@ class TestTcpRtuIntegration:
     def test_tcp_uses_improved_parse_exception(self):
         """TCP 应使用 modbus_base 改进后的 _parse_modbus_exception (未知码返回描述)"""
         from edgelite.drivers import modbus_tcp
+
         assert modbus_tcp._parse_modbus_exception is _parse_modbus_exception
 
     def test_rtu_slave_kwarg_rejects_zero(self):
         """RTU 模式禁止 slave_id=0"""
         from edgelite.drivers import modbus_rtu
+
         with pytest.raises(ValueError, match="1-247"):
             modbus_rtu._slave_kwarg(0)
 
     def test_rtu_slave_kwarg_accepts_1(self):
         from edgelite.drivers import modbus_rtu
+
         kw = modbus_rtu._slave_kwarg(1)
         assert 1 in kw.values()
 
     def test_rtu_read_kwargs_rejects_zero(self):
         from edgelite.drivers import modbus_rtu
+
         with pytest.raises(ValueError):
             modbus_rtu._read_kwargs(2, 0)
 
     def test_rtu_imports_shared_constants(self):
         """RTU 模块应使用 modbus_base 的常量 (同一对象)"""
         from edgelite.drivers import modbus_rtu
+
         assert modbus_rtu.REGISTER_TYPES is REGISTER_TYPES
         assert modbus_rtu.DATA_TYPE_REGS is DATA_TYPE_REGS
         assert modbus_rtu._BYTE_ORDER_FMT is _BYTE_ORDER_FMT
@@ -470,12 +487,14 @@ class TestTcpRtuIntegration:
     def test_rtu_uses_improved_parse_exception(self):
         """RTU 应使用 modbus_base 改进后的 _parse_modbus_exception"""
         from edgelite.drivers import modbus_rtu
+
         assert modbus_rtu._parse_modbus_exception is _parse_modbus_exception
 
     def test_tcp_rtu_no_duplicate_modbus_exception_codes(self):
         """FIXED-P2: 确认 _MODBUS_EXCEPTION_CODES 不再在 TCP/RTU 中重复定义,
         而是统一引用 modbus_base 的同一字典对象"""
         from edgelite.drivers import modbus_rtu, modbus_tcp
+
         # 三个模块引用同一个字典对象 (is 同一性检查)
         assert modbus_tcp._MODBUS_EXCEPTION_CODES is modbus_rtu._MODBUS_EXCEPTION_CODES
         assert modbus_tcp._MODBUS_EXCEPTION_CODES is modbus_base._MODBUS_EXCEPTION_CODES
@@ -483,6 +502,7 @@ class TestTcpRtuIntegration:
     def test_tcp_rtu_no_duplicate_register_types(self):
         """FIXED-P2: REGISTER_TYPES / DATA_TYPE_REGS / _BYTE_ORDER_FMT 也不重复定义"""
         from edgelite.drivers import modbus_rtu, modbus_tcp
+
         assert modbus_tcp.REGISTER_TYPES is modbus_rtu.REGISTER_TYPES
         assert modbus_tcp.DATA_TYPE_REGS is modbus_rtu.DATA_TYPE_REGS
         assert modbus_tcp._BYTE_ORDER_FMT is modbus_rtu._BYTE_ORDER_FMT

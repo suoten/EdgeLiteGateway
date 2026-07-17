@@ -22,7 +22,6 @@ sys.path.insert(0, "src")
 from edgelite.services.data_service import DataService, _sanitize_csv_cell
 from edgelite.services.historical_data import HistoricalDataService, QueryOptions
 
-
 # ──────────────────────── fixtures ────────────────────────
 
 
@@ -289,9 +288,7 @@ class TestStreamExportData:
         batch1 = [{"time": "t1", "device_id": "d", "point_name": "p", "value": 1, "quality": "g"}]
         batch2 = [{"time": "t2", "device_id": "d", "point_name": "p", "value": 2, "quality": "g"}]
         influx.query_points.side_effect = [batch1, batch2, []]
-        chunks = await self._collect(
-            svc.stream_export_data("dev1", "temp", "-1h", fmt="csv", batch_size=1, limit=10)
-        )
+        chunks = await self._collect(svc.stream_export_data("dev1", "temp", "-1h", fmt="csv", batch_size=1, limit=10))
         full = b"".join(chunks).decode("utf-8")
         # 表头只出现一次
         assert full.count("time,device_id,point_name,value,quality") == 1
@@ -324,9 +321,7 @@ class TestStreamExportData:
     async def test_csv_limit_respected(self, svc, influx):
         """limit 限制总记录数"""
         influx.query_points.return_value = [{"time": "t1"}]
-        await self._collect(
-            svc.stream_export_data("dev1", "temp", "-1h", fmt="csv", batch_size=1, limit=1)
-        )
+        await self._collect(svc.stream_export_data("dev1", "temp", "-1h", fmt="csv", batch_size=1, limit=1))
         assert influx.query_points.await_count == 1
 
     async def test_json_single_batch(self, svc, influx):
@@ -342,9 +337,7 @@ class TestStreamExportData:
         batch1 = [{"time": "t1", "value": 1}]
         batch2 = [{"time": "t2", "value": 2}]
         influx.query_points.side_effect = [batch1, batch2, []]
-        chunks = await self._collect(
-            svc.stream_export_data("dev1", "temp", "-1h", fmt="json", batch_size=1, limit=10)
-        )
+        chunks = await self._collect(svc.stream_export_data("dev1", "temp", "-1h", fmt="json", batch_size=1, limit=10))
         full = b"".join(chunks).decode("utf-8")
         parsed = json.loads(full)
         assert parsed == [{"time": "t1", "value": 1}, {"time": "t2", "value": 2}]
@@ -380,16 +373,12 @@ class TestQueryTrend:
         svc._historical_svc = historical_svc
         result = await svc.query_trend("dev1", "temp")
         assert result == {"trend": "up"}
-        historical_svc.query_trend.assert_awaited_once_with(
-            "dev1", "temp", start="-24h", stop="", bucket_size="1h"
-        )
+        historical_svc.query_trend.assert_awaited_once_with("dev1", "temp", start="-24h", stop="", bucket_size="1h")
 
     async def test_custom_params(self, svc, historical_svc):
         svc._historical_svc = historical_svc
         await svc.query_trend("dev1", "temp", start="-7d", stop="now", bucket_size="6h")
-        historical_svc.query_trend.assert_awaited_once_with(
-            "dev1", "temp", start="-7d", stop="now", bucket_size="6h"
-        )
+        historical_svc.query_trend.assert_awaited_once_with("dev1", "temp", start="-7d", stop="now", bucket_size="6h")
 
     async def test_stop_none_becomes_empty(self, svc, historical_svc):
         svc._historical_svc = historical_svc
@@ -402,16 +391,12 @@ class TestQueryCorrelation:
         svc._historical_svc = historical_svc
         result = await svc.query_correlation("dev1", "temp", "hum")
         assert result == {"correlation": 0.8}
-        historical_svc.query_correlation.assert_awaited_once_with(
-            "dev1", "temp", "hum", start="-24h", stop=""
-        )
+        historical_svc.query_correlation.assert_awaited_once_with("dev1", "temp", "hum", start="-24h", stop="")
 
     async def test_custom_params(self, svc, historical_svc):
         svc._historical_svc = historical_svc
         await svc.query_correlation("dev1", "temp", "hum", start="-1h", stop="now")
-        historical_svc.query_correlation.assert_awaited_once_with(
-            "dev1", "temp", "hum", start="-1h", stop="now"
-        )
+        historical_svc.query_correlation.assert_awaited_once_with("dev1", "temp", "hum", start="-1h", stop="now")
 
 
 # ──────────────────────── get_statistics ────────────────────────

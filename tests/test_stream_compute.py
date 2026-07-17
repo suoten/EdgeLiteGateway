@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
-
 from edgelite.engine.stream_compute import (
     PatternMatch,
     SessionWindow,

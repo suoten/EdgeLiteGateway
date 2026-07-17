@@ -16,7 +16,6 @@ import pytest
 
 from edgelite.drivers.modbus_rtu import ModbusRtuDriver, _CRCReconnectNeeded, _read_kwargs, _slave_kwarg
 
-
 # ── _slave_kwarg（RTU: allow_broadcast=False）──
 
 

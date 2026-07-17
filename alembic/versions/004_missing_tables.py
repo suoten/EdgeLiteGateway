@@ -42,51 +42,41 @@ def upgrade() -> None:
     _add_column_idempotent("devices", sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
     _add_column_idempotent("devices", sa.Column("updated_at", sa.DateTime(), nullable=True))
     _create_index_idempotent("idx_devices_created_by", "devices", ["created_by"])
+    _create_check_constraint_idempotent("ck_devices_collect_interval_positive", "devices", "collect_interval > 0")
     _create_check_constraint_idempotent(
-        "ck_devices_collect_interval_positive", "devices", "collect_interval > 0"
+        "ck_devices_status_valid", "devices", "status IN ('online', 'offline', 'error', 'unknown')"
     )
     _create_check_constraint_idempotent(
-        "ck_devices_status_valid", "devices",
-        "status IN ('online', 'offline', 'error', 'unknown')"
-    )
-    _create_check_constraint_idempotent(
-        "ck_devices_protocol_valid", "devices",
+        "ck_devices_protocol_valid",
+        "devices",
         "protocol IN ("
         "'modbus_tcp', 'modbus_rtu', 'simulator', 'mqtt_client', 'http_webhook', "
         "'opc_ua', 'siemens_s7', 'mitsubishi_mc', 'omron_fins', 'allen_bradley', "
         "'opc_da', 'onvif', 'video_ai', 'modbus_slave'"
-        ")"
+        ")",
     )
 
     # rules: add ORM-defined columns
     _add_column_idempotent("rules", sa.Column("created_by", sa.String(64), nullable=True))
     _add_column_idempotent("rules", sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
+    _create_check_constraint_idempotent("ck_rules_logic_valid", "rules", "logic IN ('AND', 'OR', 'NOT')")
     _create_check_constraint_idempotent(
-        "ck_rules_logic_valid", "rules", "logic IN ('AND', 'OR', 'NOT')"
+        "ck_rules_severity_valid", "rules", "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
     )
-    _create_check_constraint_idempotent(
-        "ck_rules_severity_valid", "rules",
-        "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
-    )
-    _create_check_constraint_idempotent(
-        "ck_rules_duration_non_negative", "rules", "duration >= 0"
-    )
+    _create_check_constraint_idempotent("ck_rules_duration_non_negative", "rules", "duration >= 0")
 
     # alarms: add ORM-defined columns (message, rule_type, version)
     _add_column_idempotent("alarms", sa.Column("message", sa.String(256), nullable=False, server_default=""))
     _add_column_idempotent("alarms", sa.Column("rule_type", sa.String(32), nullable=False, server_default="threshold"))
     _add_column_idempotent("alarms", sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
     _create_check_constraint_idempotent(
-        "ck_alarms_severity_valid", "alarms",
-        "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
+        "ck_alarms_severity_valid", "alarms", "severity IN ('critical', 'major', 'warning', 'minor', 'info')"
     )
     _create_check_constraint_idempotent(
-        "ck_alarms_status_valid", "alarms",
-        "status IN ('firing', 'acknowledged', 'recovered')"
+        "ck_alarms_status_valid", "alarms", "status IN ('firing', 'acknowledged', 'recovered')"
     )
     _create_check_constraint_idempotent(
-        "ck_alarms_rule_type_valid", "alarms",
-        "rule_type IN ('threshold', 'ai_inference', 'trend')"
+        "ck_alarms_rule_type_valid", "alarms", "rule_type IN ('threshold', 'ai_inference', 'trend')"
     )
 
     # users: add ORM-defined columns (must_change_password, password_changed_at, updated_at, version)
@@ -94,10 +84,7 @@ def upgrade() -> None:
     _add_column_idempotent("users", sa.Column("password_changed_at", sa.DateTime(), nullable=True))
     _add_column_idempotent("users", sa.Column("updated_at", sa.DateTime(), nullable=True))
     _add_column_idempotent("users", sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
-    _create_check_constraint_idempotent(
-        "ck_users_role_valid", "users",
-        "role IN ('admin', 'operator', 'viewer')"
-    )
+    _create_check_constraint_idempotent("ck_users_role_valid", "users", "role IN ('admin', 'operator', 'viewer')")
 
     # cache_queue: add ORM-defined status column and index
     _add_column_idempotent("cache_queue", sa.Column("status", sa.String(16), nullable=False, server_default="pending"))
@@ -119,12 +106,13 @@ def upgrade() -> None:
     # FIXED-P0: 表已存在时 _create_table_if_not_exists 不会添加缺失列, 需单独补加
     _add_column_idempotent("device_templates", sa.Column("version", sa.Integer(), nullable=False, server_default="1"))
     _create_check_constraint_idempotent(
-        "ck_device_templates_protocol_valid", "device_templates",
+        "ck_device_templates_protocol_valid",
+        "device_templates",
         "protocol IN ("
         "'modbus_tcp', 'modbus_rtu', 'simulator', 'mqtt_client', 'http_webhook', "
         "'opc_ua', 'siemens_s7', 'mitsubishi_mc', 'omron_fins', 'allen_bradley', "
         "'opc_da', 'onvif', 'video_ai', 'modbus_slave'"
-        ")"
+        ")",
     )
 
     # resource_shares
@@ -139,13 +127,11 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )
     _create_index_idempotent(
-        "idx_resource_shares_lookup", "resource_shares",
-        ["resource_type", "resource_id", "shared_with_user_id"]
+        "idx_resource_shares_lookup", "resource_shares", ["resource_type", "resource_id", "shared_with_user_id"]
     )
     _create_index_idempotent("idx_resource_shares_user", "resource_shares", ["shared_with_user_id"])
     _create_unique_constraint_idempotent(
-        "uq_resource_shares_unique", "resource_shares",
-        ["resource_type", "resource_id", "shared_with_user_id"]
+        "uq_resource_shares_unique", "resource_shares", ["resource_type", "resource_id", "shared_with_user_id"]
     )
 
     # revoked_tokens  (FIXED-P0: token revocation persistence)

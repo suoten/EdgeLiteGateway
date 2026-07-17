@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -36,10 +35,10 @@ from edgelite.services.notification_impl import (
     NotificationChannel,
     NotificationChannelConfig,
     NotificationManager,
-    WeComChannel,
-    WeComConfig,
     WebhookChannel,
     WebhookConfig,
+    WeComChannel,
+    WeComConfig,
     _check_dingtalk_host,
     _check_wecom_host,
     _interpolate_template,
@@ -47,7 +46,6 @@ from edgelite.services.notification_impl import (
     get_notification_manager,
     init_notification_manager,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test helpers / fixtures
@@ -147,9 +145,7 @@ class TestSanitizeEmailHeader:
 class TestInterpolateTemplate:
     def test_replaces_known_variables(self):
         n = _make_notification()
-        out = _interpolate_template(
-            "{alarm_id}/{rule_name}/{device_name}/{severity}/{action}", n
-        )
+        out = _interpolate_template("{alarm_id}/{rule_name}/{device_name}/{severity}/{action}", n)
         assert out == "alm-1/Temperature High/Boiler-1/critical/firing"
 
     def test_unknown_variable_kept_as_placeholder(self):
@@ -174,9 +170,7 @@ class TestInterpolateTemplate:
             original_severity="minor",
             duration_seconds=120.0,
         )
-        out = _interpolate_template(
-            "{trigger_count}/{escalation_level}/{original_severity}/{duration_seconds}", n
-        )
+        out = _interpolate_template("{trigger_count}/{escalation_level}/{original_severity}/{duration_seconds}", n)
         assert out == "5/2/minor/120.0"
 
     def test_format_map_falls_back_via_safe_dict(self):
@@ -223,8 +217,14 @@ class TestHostChecks:
 class TestDataclasses:
     def test_alarm_notification_defaults(self):
         n = AlarmNotification(
-            alarm_id="a", rule_id="r", rule_name="rn", device_id="d",
-            device_name="dn", severity="info", action="firing", message="m",
+            alarm_id="a",
+            rule_id="r",
+            rule_name="rn",
+            device_id="d",
+            device_name="dn",
+            severity="info",
+            action="firing",
+            message="m",
         )
         assert n.trigger_value == {}
         assert n.escalation_level == 0
@@ -1137,9 +1137,7 @@ class TestNotificationManager:
         mgr = NotificationManager()
         ch1 = self._make_channel()
         await mgr.register_channel("a", ch1)
-        results = await mgr.send_notification(
-            _make_notification(), channel_ids=["a", "unknown"]
-        )
+        results = await mgr.send_notification(_make_notification(), channel_ids=["a", "unknown"])
         assert results == {"a": True}
 
     async def test_send_notification_exception_in_channel(self):
@@ -1160,6 +1158,7 @@ class TestNotificationManager:
 
         ch1.notify = hanging_notify
         await mgr.register_channel("a", ch1)
+
         # FIX: 原测试恢复真实 asyncio.sleep 后依赖 send_notification 内部的 15s
         # asyncio.wait 超时，导致测试在 Windows 上挂起 15s（pytest-timeout 无法
         # 杀死线程）。改为 mock asyncio.wait 立即返回所有任务为 pending，模拟
@@ -1175,9 +1174,7 @@ class TestNotificationManager:
         mgr = NotificationManager()
         ch1 = self._make_channel()
         await mgr.register_channel("a", ch1)
-        results = await mgr.send_alarm_fired(
-            "a1", "r1", "rn", "d1", "dn", "critical", "msg", {"v": 1}
-        )
+        results = await mgr.send_alarm_fired("a1", "r1", "rn", "d1", "dn", "critical", "msg", {"v": 1})
         assert results == {"a": True}
         ch1.notify.assert_awaited_once()
         n = ch1.notify.await_args.args[0]
@@ -1188,9 +1185,7 @@ class TestNotificationManager:
         mgr = NotificationManager()
         ch1 = self._make_channel()
         await mgr.register_channel("a", ch1)
-        results = await mgr.send_alarm_recovered(
-            "a1", "r1", "rn", "d1", "dn", "major", 300.0
-        )
+        results = await mgr.send_alarm_recovered("a1", "r1", "rn", "d1", "dn", "major", 300.0)
         assert results == {"a": True}
         n = ch1.notify.await_args.args[0]
         assert n.action == "recovered"
@@ -1200,9 +1195,7 @@ class TestNotificationManager:
         mgr = NotificationManager()
         ch1 = self._make_channel()
         await mgr.register_channel("a", ch1)
-        results = await mgr.send_alarm_acknowledged(
-            "a1", "r1", "rn", "d1", "dn", "info", "user-1"
-        )
+        results = await mgr.send_alarm_acknowledged("a1", "r1", "rn", "d1", "dn", "info", "user-1")
         assert results == {"a": True}
         n = ch1.notify.await_args.args[0]
         assert n.action == "acknowledged"
@@ -1268,6 +1261,7 @@ class TestNotificationManager:
         mgr = NotificationManager()
         ch = self._make_channel()
         await mgr.register_channel("a", ch)
+
         async def _hang():
             await asyncio.get_event_loop().create_future()
 

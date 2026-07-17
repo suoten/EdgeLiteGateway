@@ -69,7 +69,7 @@ def test_validate_algorithm_empty(mock_config):
 
 
 def test_allowed_algorithms_contents():
-    assert _ALLOWED_ALGORITHMS == frozenset({"HS256", "HS384", "HS512"})
+    assert frozenset({"HS256", "HS384", "HS512"}) == _ALLOWED_ALGORITHMS
 
 
 # ─── create_access_token ───

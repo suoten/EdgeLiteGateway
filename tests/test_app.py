@@ -166,6 +166,7 @@ class TestCreateApp:
         assert app.title == "EdgeLiteGateway"
         assert "Edge" in app.description or "Lightweight" in app.description
         import edgelite
+
         assert app.version == edgelite.__version__
 
     async def test_docs_disabled_by_default(self, app):
@@ -375,6 +376,7 @@ class TestMiddleware:
         monkeypatch.delenv("DEV_MODE", raising=False)
         app = create_app()
         from starlette.middleware.trustedhost import TrustedHostMiddleware
+
         cls_set = {mw.cls for mw in app.user_middleware}
         assert TrustedHostMiddleware in cls_set
 
@@ -416,6 +418,7 @@ class TestLifespan:
     async def test_lifespan_copies_state_to_app(self, patched_config, mock_lifespan_deps, monkeypatch):
         """lifespan 启动后应将 _app_state 属性复制到 app.state。"""
         from edgelite.app import _app_state
+
         monkeypatch.setattr("edgelite.app._mount_frontend", lambda app: None)
         monkeypatch.delenv("EDGELITE_CHECK_CONSISTENCY", raising=False)
         _app_state.device_service = "test_device_svc"
@@ -448,6 +451,7 @@ class TestLifespan:
     async def test_lifespan_previous_state_cleanup(self, patched_config, mock_lifespan_deps, monkeypatch):
         """已初始化的 _app_state 应在重新 bootstrap 前清理。"""
         from edgelite.app import _app_state
+
         _app_state._initialized = [("database", MagicMock())]
         mock_lifespan_deps.teardown.reset_mock()
         monkeypatch.setattr("edgelite.app._mount_frontend", lambda app: None)
@@ -456,9 +460,12 @@ class TestLifespan:
         async with lifespan(app):
             mock_lifespan_deps.teardown.assert_awaited()
 
-    async def test_lifespan_previous_state_cleanup_failure_logged(self, patched_config, mock_lifespan_deps, monkeypatch):
+    async def test_lifespan_previous_state_cleanup_failure_logged(
+        self, patched_config, mock_lifespan_deps, monkeypatch
+    ):
         """旧状态清理失败时应记录日志但不阻止启动。"""
         from edgelite.app import _app_state
+
         _app_state._initialized = [("database", MagicMock())]
         mock_lifespan_deps.teardown.reset_mock()
         call_count = [0]
@@ -521,6 +528,7 @@ class TestErrorHandlers:
     @pytest.fixture
     def app_with_error_routes(self, app):
         """在 app 上添加触发各类错误的测试路由。"""
+
         class _TestEnum(str, Enum):
             VALUE1 = "enum_value"
 
@@ -716,6 +724,7 @@ class TestWebSocketRoutes:
 
     def _get_ws_paths(self, app):
         from starlette.routing import WebSocketRoute
+
         return {r.path for r in app.routes if isinstance(r, WebSocketRoute)}
 
     async def test_ws_routes_registered(self, app):
@@ -730,6 +739,7 @@ class TestWebSocketRoutes:
     def test_ws_integration_not_available(self, patched_config, mock_lifespan_deps, monkeypatch):
         """integration_endpoint 为 None 时 WS integration 应拒绝连接。"""
         from edgelite.app import _app_state
+
         monkeypatch.setattr("edgelite.app._mount_frontend", lambda app: None)
         monkeypatch.delenv("DEV_MODE", raising=False)
         _app_state.integration_endpoint = None
@@ -744,6 +754,7 @@ class TestWebSocketRoutes:
     def test_ws_realtime_auth_failure(self, patched_config, mock_lifespan_deps, monkeypatch):
         """WS realtime 认证失败时应断开连接。"""
         from edgelite.app import _app_state
+
         monkeypatch.setattr("edgelite.app._mount_frontend", lambda app: None)
         monkeypatch.delenv("DEV_MODE", raising=False)
 
@@ -780,6 +791,7 @@ class TestWebSocketRoutes:
     def test_ws_realtime_cookie_auth_success(self, patched_config, mock_lifespan_deps, monkeypatch):
         """WS realtime 通过 Cookie 认证成功时应保持连接。"""
         from edgelite.app import _app_state
+
         monkeypatch.setattr("edgelite.app._mount_frontend", lambda app: None)
         monkeypatch.delenv("DEV_MODE", raising=False)
 
@@ -805,6 +817,7 @@ class TestWebSocketRoutes:
     def test_ws_realtime_pong_handling(self, patched_config, mock_lifespan_deps, monkeypatch):
         """WS realtime 应处理 pong 消息并调用 record_pong。"""
         from edgelite.app import _app_state
+
         monkeypatch.setattr("edgelite.app._mount_frontend", lambda app: None)
         monkeypatch.delenv("DEV_MODE", raising=False)
 
@@ -834,6 +847,7 @@ class TestServiceContainer:
     def test_service_container_defaults(self):
         """ServiceContainer 默认值应为 None/空。"""
         from edgelite.bootstrap import ServiceContainer
+
         c = ServiceContainer()
         assert c.database is None
         assert c.ws_manager is None
@@ -843,6 +857,7 @@ class TestServiceContainer:
     def test_service_container_track(self):
         """track 方法应记录已初始化资源。"""
         from edgelite.bootstrap import ServiceContainer
+
         c = ServiceContainer()
         resource = MagicMock()
         c.track("database", resource)
@@ -852,6 +867,7 @@ class TestServiceContainer:
         """模块级 _app_state 应为 ServiceContainer 实例。"""
         from edgelite.app import _app_state
         from edgelite.bootstrap import ServiceContainer
+
         assert isinstance(_app_state, ServiceContainer)
 
 

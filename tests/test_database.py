@@ -4,17 +4,16 @@ from __future__ import annotations
 import asyncio
 import os
 import sqlite3
-import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import create_engine, inspect as sa_inspect, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy import inspect as sa_inspect
 
 from edgelite.config import DatabaseConfig
-from edgelite.models.db import Base, UserORM, DeviceORM, RuleORM, AlarmORM
+from edgelite.models.db import Base, UserORM
 from edgelite.storage.database import (
     Database,
     _build_database_url,
@@ -23,7 +22,6 @@ from edgelite.storage.database import (
     _needs_rule_type_fix,
     _normalize_rule_type,
     _recreate_indexes_from_list,
-    _SQLITE_SIDECAR_DBS,
 )
 
 
@@ -67,8 +65,10 @@ async def initialized_db(tmp_path, monkeypatch):
     monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "TestPass123!")
     config = _make_config(tmp_path)
     db = Database(config)
-    with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-         patch.object(Database, "_migrate", new_callable=AsyncMock):
+    with (
+        patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+        patch.object(Database, "_migrate", new_callable=AsyncMock),
+    ):
         await db.connect()
         await db.init_tables()
     yield db
@@ -87,8 +87,9 @@ class TestBuildDatabaseUrl:
 
     def test_mysql_backend(self, tmp_path):
         """MySQL 后端应生成 aiomysql 驱动的 URL"""
-        cfg = _make_config(tmp_path, backend="mysql", host="dbhost", port=3307,
-                          username="user1", password="p@ss", database="mydb")
+        cfg = _make_config(
+            tmp_path, backend="mysql", host="dbhost", port=3307, username="user1", password="p@ss", database="mydb"
+        )
         url = _build_database_url(cfg)
         assert url.startswith("mysql+aiomysql://")
         assert "user1" in url
@@ -98,8 +99,15 @@ class TestBuildDatabaseUrl:
 
     def test_postgresql_backend(self, tmp_path):
         """PostgreSQL 后端应生成 asyncpg 驱动的 URL"""
-        cfg = _make_config(tmp_path, backend="postgresql", host="pghost", port=5433,
-                          username="pguser", password="pgpw", database="pgdb")
+        cfg = _make_config(
+            tmp_path,
+            backend="postgresql",
+            host="pghost",
+            port=5433,
+            username="pguser",
+            password="pgpw",
+            database="pgdb",
+        )
         url = _build_database_url(cfg)
         assert url.startswith("postgresql+asyncpg://")
         assert "pghost:5433" in url
@@ -107,8 +115,9 @@ class TestBuildDatabaseUrl:
 
     def test_mssql_backend(self, tmp_path):
         """MSSQL 后端应生成 aioodbc 驱动的 URL"""
-        cfg = _make_config(tmp_path, backend="mssql", host="mshost", port=1433,
-                          username="msuser", password="mspw", database="msdb")
+        cfg = _make_config(
+            tmp_path, backend="mssql", host="mshost", port=1433, username="msuser", password="mspw", database="msdb"
+        )
         url = _build_database_url(cfg)
         assert "mssql+aioodbc" in url
         assert "ODBC Driver 18 for SQL Server" in url
@@ -116,9 +125,16 @@ class TestBuildDatabaseUrl:
 
     def test_mssql_trust_server_certificate(self, tmp_path):
         """MSSQL trust_server_certificate=True 时 URL 应包含 TrustServerCertificate=yes"""
-        cfg = _make_config(tmp_path, backend="mssql", host="mshost", port=1433,
-                          username="msuser", password="mspw", database="msdb",
-                          trust_server_certificate=True)
+        cfg = _make_config(
+            tmp_path,
+            backend="mssql",
+            host="mshost",
+            port=1433,
+            username="msuser",
+            password="mspw",
+            database="msdb",
+            trust_server_certificate=True,
+        )
         url = _build_database_url(cfg)
         assert "TrustServerCertificate=yes" in url
 
@@ -131,11 +147,13 @@ class TestBuildDatabaseUrl:
     def test_sqlite_creates_parent_dir(self, tmp_path):
         """SQLite 后端应自动创建父目录"""
         nested = tmp_path / "nested" / "deep" / "path"
-        cfg = SimpleNamespace(database=DatabaseConfig(
-            backend="sqlite",
-            sqlite_path=str(nested / "test.db"),
-            backup_dir=str(tmp_path / "backups"),
-        ))
+        cfg = SimpleNamespace(
+            database=DatabaseConfig(
+                backend="sqlite",
+                sqlite_path=str(nested / "test.db"),
+                backup_dir=str(tmp_path / "backups"),
+            )
+        )
         url = _build_database_url(cfg)
         assert nested.exists()
 
@@ -163,11 +181,13 @@ class TestGetSidecarDbPath:
 
     def test_resolves_relative_path(self, tmp_path, monkeypatch):
         """应将相对路径解析为绝对路径"""
-        cfg = SimpleNamespace(database=DatabaseConfig(
-            backend="sqlite",
-            sqlite_path=str(tmp_path / "main.db"),
-            backup_dir=str(tmp_path / "backups"),
-        ))
+        cfg = SimpleNamespace(
+            database=DatabaseConfig(
+                backend="sqlite",
+                sqlite_path=str(tmp_path / "main.db"),
+                backup_dir=str(tmp_path / "backups"),
+            )
+        )
         monkeypatch.setattr("edgelite.storage.database.get_config", lambda: cfg)
         result = _get_sidecar_db_path("data/audit.db")
         assert result.endswith("audit.db")
@@ -175,8 +195,10 @@ class TestGetSidecarDbPath:
 
     def test_falls_back_when_config_fails(self, monkeypatch):
         """配置获取失败时应回退到 data 目录"""
+
         def _raise():
             raise Exception("no config")
+
         monkeypatch.setattr("edgelite.storage.database.get_config", _raise)
         result = _get_sidecar_db_path("data/audit.db")
         assert result.endswith("audit.db")
@@ -193,6 +215,7 @@ class TestRuleTypeHelpers:
             rule_type VARCHAR(32) CHECK(rule_type IN ('threshold','trend'))
         )""")
         from sqlalchemy import create_engine
+
         engine = create_engine(f"sqlite:///{db_path}")
         with engine.connect() as sync_conn:
             assert _needs_rule_type_fix(sync_conn, "alarms") is True
@@ -579,9 +602,11 @@ class TestConnect:
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = Exception("connection refused")
         mock_engine.dispose = AsyncMock()
-        with patch("edgelite.storage.database.create_async_engine", return_value=mock_engine), \
-             patch.object(Database, "_register_sqlite_pragmas"), \
-             patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock):
+        with (
+            patch("edgelite.storage.database.create_async_engine", return_value=mock_engine),
+            patch.object(Database, "_register_sqlite_pragmas"),
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+        ):
             with pytest.raises((RuntimeError, AttributeError)):
                 await db.connect()
 
@@ -685,8 +710,10 @@ class TestInitTables:
         """init_tables 应创建所有 ORM 表"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             await db.init_tables()
         async with db._engine.begin() as conn:
@@ -702,11 +729,14 @@ class TestInitTables:
         monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "TestPass123!")
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             await db.init_tables()
         from sqlalchemy import select
+
         async with db._session_factory() as session:
             result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
             admin = result.scalar_one_or_none()
@@ -720,12 +750,15 @@ class TestInitTables:
         monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "TestPass123!")
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             await db.init_tables()
             await db.init_tables()
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
         async with db._session_factory() as session:
             result = await session.execute(select(func.count()).select_from(UserORM).where(UserORM.username == "admin"))
             count = result.scalar()
@@ -753,20 +786,26 @@ class TestInitTables:
         monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "FirstPass123!")
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             await db.init_tables()
         await db.close()
         monkeypatch.setenv("EDGELITE_RESET_ADMIN_PASSWORD", "true")
         monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "NewPass456!")
         db2 = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db2.connect()
             await db2.init_tables()
-        from edgelite.security.password import verify_password
         from sqlalchemy import select
+
+        from edgelite.security.password import verify_password
+
         async with db2._session_factory() as session:
             result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
             admin = result.scalar_one_or_none()
@@ -780,15 +819,18 @@ class TestPasswordResetHelpers:
 
     async def test_check_password_already_reset_match(self, tmp_path, monkeypatch):
         """密码匹配时应返回 True"""
-        from edgelite.security.password import hash_password
+
         monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "TestPass123!")
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             await db.init_tables()
         from sqlalchemy import select
+
         async with db._session_factory() as session:
             result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
             admin = result.scalar_one_or_none()
@@ -802,11 +844,14 @@ class TestPasswordResetHelpers:
         monkeypatch.setenv("EDGELITE_ADMIN_PASSWORD", "TestPass123!")
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             await db.init_tables()
         from sqlalchemy import select
+
         async with db._session_factory() as session:
             result = await session.execute(select(UserORM).where(UserORM.username == "admin"))
             admin = result.scalar_one_or_none()
@@ -875,10 +920,13 @@ class TestSqliteIntegrity:
         mock_ctx.__aexit__ = AsyncMock(return_value=None)
         mock_engine.begin.return_value = mock_ctx
         db._engine = mock_engine
-        with patch.object(Database, "_rebuild_sqlite_database", new_callable=AsyncMock) as mock_rebuild, \
-             patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_rebuild_sqlite_database", new_callable=AsyncMock) as mock_rebuild,
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+        ):
             await db._check_sqlite_integrity()
             mock_rebuild.assert_called()
+
 
 class TestSidecarIntegrity:
     """Sidecar 数据库完整性检查测试"""
@@ -977,8 +1025,10 @@ class TestRebuildDatabase:
         """无备份重建应抛出 RuntimeError（数据丢失）"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
         await db.close()
         db_path = db.db_path
@@ -994,8 +1044,10 @@ class TestRebuildDatabase:
         """有备份时应从备份恢复"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
             async with db.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -1005,11 +1057,14 @@ class TestRebuildDatabase:
         backup_dir = Path(config.database.backup_dir)
         backup_dir.mkdir(parents=True, exist_ok=True)
         import shutil
+
         backup_file = backup_dir / (db_name + ".backup.20260101_120000")
         shutil.copy2(db_path, backup_file)
         db2 = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db2.connect()
         await db2.close()
 
@@ -1021,8 +1076,10 @@ class TestEnsureSchemaColumns:
         """应补齐缺失的关键列"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
         async with db._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -1038,8 +1095,10 @@ class TestEnsureSchemaColumns:
         """应创建缺失的 alarm_silences 表"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
         async with db._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -1055,8 +1114,10 @@ class TestEnsureSchemaColumns:
         """应创建缺失的 rule_versions 表"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
         async with db._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -1085,7 +1146,8 @@ class TestFixConstraints:
         db_path = str(tmp_path / "test.db")
         engine = create_engine(f"sqlite:///{db_path}")
         with engine.begin() as conn:
-            conn.execute(text("""CREATE TABLE rules (
+            conn.execute(
+                text("""CREATE TABLE rules (
                 rule_id VARCHAR(64) PRIMARY KEY,
                 name VARCHAR(64) NOT NULL,
                 device_id VARCHAR(64),
@@ -1105,7 +1167,8 @@ class TestFixConstraints:
                 CONSTRAINT ck_rules_severity_valid CHECK (severity IN ('critical', 'major', 'warning', 'minor', 'info')),
                 CONSTRAINT ck_rules_duration_non_negative CHECK (duration >= 0),
                 CONSTRAINT ck_rules_rule_type_valid CHECK (rule_type IN ('threshold', 'ai_inference', 'script'))
-            )"""))
+            )""")
+            )
         with engine.connect() as conn:
             Database._fix_rules_check_constraints(conn)
         engine.dispose()
@@ -1123,11 +1186,13 @@ class TestFixConstraints:
         db_path = str(tmp_path / "test.db")
         engine = create_engine(f"sqlite:///{db_path}")
         with engine.begin() as conn:
-            conn.execute(text("""CREATE TABLE rules (
+            conn.execute(
+                text("""CREATE TABLE rules (
                 rule_id VARCHAR(64) PRIMARY KEY,
                 rule_type VARCHAR(16) DEFAULT 'threshold',
                 CONSTRAINT ck_rules_rule_type_valid CHECK (rule_type IN ('threshold', 'ai_inference', 'script'))
-            )"""))
+            )""")
+            )
         with engine.connect() as conn:
             Database._fix_rule_type_check_constraints(conn)
         engine.dispose()
@@ -1161,8 +1226,10 @@ class TestMigrate:
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"OK", b""))
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
-             patch.object(db, "_update_migration_status", new_callable=AsyncMock):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch.object(db, "_update_migration_status", new_callable=AsyncMock),
+        ):
             result = await db._migrate(MagicMock())
         await db.close()
         assert result is True
@@ -1180,8 +1247,10 @@ class TestMigrate:
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
-             patch.object(db, "_notify_migration_failure", new_callable=AsyncMock):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch.object(db, "_notify_migration_failure", new_callable=AsyncMock),
+        ):
             result = await db._migrate(MagicMock())
         await db.close()
         assert result is False
@@ -1197,12 +1266,14 @@ class TestMigrate:
         alembic_dir.mkdir()
         (tmp_path / "alembic.ini").write_text("[alembic]")
         mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_proc.communicate = AsyncMock(side_effect=TimeoutError())
         mock_proc.kill = MagicMock()
         mock_proc.wait = AsyncMock()
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
-             patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()), \
-             patch.object(db, "_notify_migration_failure", new_callable=AsyncMock):
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("asyncio.wait_for", side_effect=TimeoutError()),
+            patch.object(db, "_notify_migration_failure", new_callable=AsyncMock),
+        ):
             result = await db._migrate(MagicMock())
         await db.close()
         assert result is False
@@ -1280,8 +1351,10 @@ class TestBackup:
         """SQLite 备份应创建备份文件"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
         backup_path = str(tmp_path / "backup.db")
         with patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock):
@@ -1293,8 +1366,10 @@ class TestBackup:
         """有 WAL 文件时应一并备份"""
         config = _make_config(tmp_path)
         db = Database(config)
-        with patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock), \
-             patch.object(Database, "_migrate", new_callable=AsyncMock):
+        with (
+            patch.object(Database, "_check_sidecar_integrity", new_callable=AsyncMock),
+            patch.object(Database, "_migrate", new_callable=AsyncMock),
+        ):
             await db.connect()
         async with db._engine.begin() as conn:
             await conn.execute(text("CREATE TABLE test (id INTEGER)"))
@@ -1447,8 +1522,10 @@ class TestBackupBackends:
         """MySQL 后端应调用 _backup_mysql"""
         config = _make_config(tmp_path, backend="mysql", host="h", username="u", password="p", database="d")
         db = Database(config)
-        with patch.object(db, "_backup_mysql", new_callable=AsyncMock) as mock_mysql, \
-             patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock):
+        with (
+            patch.object(db, "_backup_mysql", new_callable=AsyncMock) as mock_mysql,
+            patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock),
+        ):
             await db.backup(str(tmp_path / "backup.sql"))
         mock_mysql.assert_called_once()
 
@@ -1456,8 +1533,10 @@ class TestBackupBackends:
         """PostgreSQL 后端应调用 _backup_postgresql"""
         config = _make_config(tmp_path, backend="postgresql", host="h", username="u", password="p", database="d")
         db = Database(config)
-        with patch.object(db, "_backup_postgresql", new_callable=AsyncMock) as mock_pg, \
-             patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock):
+        with (
+            patch.object(db, "_backup_postgresql", new_callable=AsyncMock) as mock_pg,
+            patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock),
+        ):
             await db.backup(str(tmp_path / "backup.sql"))
         mock_pg.assert_called_once()
 
@@ -1465,7 +1544,9 @@ class TestBackupBackends:
         """MSSQL 后端应调用 _backup_mssql"""
         config = _make_config(tmp_path, backend="mssql", host="h", username="u", password="p", database="d")
         db = Database(config)
-        with patch.object(db, "_backup_mssql", new_callable=AsyncMock) as mock_mssql, \
-             patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock):
+        with (
+            patch.object(db, "_backup_mssql", new_callable=AsyncMock) as mock_mssql,
+            patch.object(db, "_backup_sidecar_dbs", new_callable=AsyncMock),
+        ):
             await db.backup(str(tmp_path / "backup.bak"))
         mock_mssql.assert_called_once()

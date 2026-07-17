@@ -263,8 +263,7 @@ class OnnxModelWrapper:
                 del self.session
             except Exception as e:
                 logger.debug(
-                    "Failed to release ONNX session for model %s: %s",
-                    getattr(self, 'model_name', 'unknown'), e
+                    "Failed to release ONNX session for model %s: %s", getattr(self, "model_name", "unknown"), e
                 )
         self.session = None
         self.status = "inactive"

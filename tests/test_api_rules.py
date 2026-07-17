@@ -30,7 +30,6 @@ from edgelite.api.deps import get_current_user
 from edgelite.api.rules import BatchRuleIds, _check_rule_access, router
 from edgelite.models.db import StaleDataError
 
-
 # ───────────────────────── 辅助构造 ─────────────────────────
 
 
@@ -40,9 +39,7 @@ def _rule_dict(rule_id: str = "r1", created_by: str = "test-admin", version: int
         "rule_id": rule_id,
         "name": "test-rule",
         "device_id": "dev1",
-        "conditions": [
-            {"point": "temp", "operator": ">", "threshold": 50.0, "type": "threshold"}
-        ],
+        "conditions": [{"point": "temp", "operator": ">", "threshold": 50.0, "type": "threshold"}],
         "logic": "AND",
         "duration": 0,
         "severity": "warning",
@@ -62,9 +59,7 @@ def _rule_create_body() -> dict:
     return {
         "name": "test-rule",
         "device_id": "dev1",
-        "conditions": [
-            {"point": "temp", "operator": ">", "threshold": 50.0, "type": "threshold"}
-        ],
+        "conditions": [{"point": "temp", "operator": ">", "threshold": 50.0, "type": "threshold"}],
         "logic": "AND",
         "duration": 0,
         "severity": "warning",
@@ -184,9 +179,7 @@ class TestListRules:
     async def test_admin_list_with_filters(self, admin_env):
         c, svc, _ = admin_env
         svc.list_rules = AsyncMock(return_value=([], 0))
-        resp = await c.get(
-            "/api/v1/rules", params={"device_id": "dev1", "search": "temp", "severity": "critical"}
-        )
+        resp = await c.get("/api/v1/rules", params={"device_id": "dev1", "search": "temp", "severity": "critical"})
         assert resp.status_code == 200
         args = svc.list_rules.call_args
         assert args.args[2] == "dev1"
@@ -258,9 +251,7 @@ class TestCreateRule:
     async def test_create_with_request_ip_and_ua(self, admin_env):
         c, svc, audit = admin_env
         svc.create_rule = AsyncMock(return_value=_rule_dict())
-        resp = await c.post(
-            "/api/v1/rules", json=_rule_create_body(), headers={"User-Agent": "pytest-agent"}
-        )
+        resp = await c.post("/api/v1/rules", json=_rule_create_body(), headers={"User-Agent": "pytest-agent"})
         assert resp.status_code == 201
         kwargs = audit.log.call_args.kwargs
         assert kwargs.get("ip_address") == "127.0.0.1"
@@ -319,9 +310,7 @@ class TestTestRuleDefinition:
 class TestBatchDelete:
     async def test_batch_delete_mixed(self, admin_env):
         c, svc, _ = admin_env
-        svc.list_rules_by_ids = AsyncMock(
-            return_value=[_rule_dict("r1"), _rule_dict("r2")]
-        )
+        svc.list_rules_by_ids = AsyncMock(return_value=[_rule_dict("r1"), _rule_dict("r2")])
         svc.delete_rule = AsyncMock(return_value=True)
         resp = await c.post("/api/v1/rules/batch/delete", json={"rule_ids": ["r1", "r2", "r3"]})
         assert resp.status_code == 200, resp.text
@@ -736,9 +725,7 @@ class TestTestRule:
                 patch("edgelite.app._app_state", _share_namespace()),
                 patch("edgelite.storage.sqlite_repo.ResourceShareRepo", return_value=mock_repo),
             ):
-                resp = await c.post(
-                    "/api/v1/rules/r1/test", json={"point_values": {"temp": 60.0}}
-                )
+                resp = await c.post("/api/v1/rules/r1/test", json={"point_values": {"temp": 60.0}})
         assert resp.status_code == 403
 
 

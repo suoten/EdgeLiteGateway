@@ -214,7 +214,9 @@ class TestHandleWebhook:
         assert published_event.alarm_id == "video__alarm_triggered"
         assert published_event.device_id == ""
 
-    async def test_webhook_provider_error_still_publishes_alarm(self, video_svc: VideoService, mock_provider, event_bus):
+    async def test_webhook_provider_error_still_publishes_alarm(
+        self, video_svc: VideoService, mock_provider, event_bus
+    ):
         """provider.handle_webhook 抛异常时，告警事件仍应发布（异常分离）"""
         video_svc._provider = mock_provider
         mock_provider.handle_webhook.side_effect = RuntimeError("webhook fail")

@@ -12,15 +12,16 @@ import pytest
 from fastapi import HTTPException
 
 from edgelite.security.rbac import (
+    ROLE_PERMISSIONS,
     APIKeyPermission,
     Permission,
     Role,
-    ROLE_PERMISSIONS,
     check_permission,
     get_api_key_scopes,
     has_api_key_permission,
     has_permission,
-    require_permission,)
+    require_permission,
+)
 
 
 def _make_user(role: str = "admin"):

@@ -26,7 +26,6 @@ from edgelite.drivers.opc_da_gateway import (
     OpcDaSubscription,
 )
 
-
 # ── 辅助：构造 mock httpx 响应与客户端 ──
 
 
@@ -94,9 +93,8 @@ class TestOpcDaSubscription:
     def test_custom_values(self):
         def cb(x):
             return x
-        sub = OpcDaSubscription(
-            group_name="g2", items=["a", "b"], callback=cb, update_rate=500
-        )
+
+        sub = OpcDaSubscription(group_name="g2", items=["a", "b"], callback=cb, update_rate=500)
         assert sub.callback is cb
         assert sub.update_rate == 500
         assert len(sub.items) == 2
@@ -131,9 +129,7 @@ class TestClientInit:
 
 class TestClientConnect:
     async def test_connect_success(self):
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(200, {"status": "ok"})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(200, {"status": "ok"}))
         c = OpcDaGatewayClient()
         with patch.dict(sys.modules, {"httpx": _make_httpx_module(client_mock=client_mock)}):
             result = await c.connect()
@@ -143,9 +139,7 @@ class TestClientConnect:
         assert c._client is not None
 
     async def test_connect_health_check_failed(self):
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(500, {})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(500, {}))
         c = OpcDaGatewayClient()
         with patch.dict(sys.modules, {"httpx": _make_httpx_module(client_mock=client_mock)}):
             result = await c.connect()
@@ -191,9 +185,7 @@ class TestClientListServers:
         assert await c.list_servers() == []
 
     async def test_list_servers_success(self):
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(200, {"servers": ["ServerA", "ServerB"]})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(200, {"servers": ["ServerA", "ServerB"]}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -227,9 +219,7 @@ class TestClientConnectServer:
         c._client = client_mock
         c._connected = True
         assert await c.connect_server("ServerA") is True
-        client_mock.post.assert_awaited_once_with(
-            "/api/v1/connect", json={"server": "ServerA"}
-        )
+        client_mock.post.assert_awaited_once_with("/api/v1/connect", json={"server": "ServerA"})
 
     async def test_connect_server_success_201(self):
         client_mock = _make_httpx_client_mock(post_response=_make_response(201, {}))
@@ -260,17 +250,13 @@ class TestClientBrowse:
 
     async def test_browse_success(self):
         items = [{"id": "tag1", "name": "Tag 1"}, {"id": "tag2", "name": "Tag 2"}]
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(200, {"items": items})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(200, {"items": items}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
         result = await c.browse("root/path")
         assert result == items
-        client_mock.get.assert_awaited_once_with(
-            "/api/v1/browse", params={"path": "root/path"}
-        )
+        client_mock.get.assert_awaited_once_with("/api/v1/browse", params={"path": "root/path"})
 
     async def test_browse_non_200_returns_empty(self):
         client_mock = _make_httpx_client_mock(get_response=_make_response(404, {}))
@@ -295,12 +281,15 @@ class TestClientRead:
 
     async def test_read_success_good_quality(self):
         client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {
-                "results": [
-                    {"id": "tag1", "value": 42, "quality": "good"},
-                    {"id": "tag2", "value": "hello", "quality": "good"},
-                ]
-            })
+            post_response=_make_response(
+                200,
+                {
+                    "results": [
+                        {"id": "tag1", "value": 42, "quality": "good"},
+                        {"id": "tag2", "value": "hello", "quality": "good"},
+                    ]
+                },
+            )
         )
         c = OpcDaGatewayClient()
         c._client = client_mock
@@ -312,11 +301,14 @@ class TestClientRead:
 
     async def test_read_bad_quality_returns_none(self):
         client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {
-                "results": [
-                    {"id": "tag1", "value": 42, "quality": "bad"},
-                ]
-            })
+            post_response=_make_response(
+                200,
+                {
+                    "results": [
+                        {"id": "tag1", "value": 42, "quality": "bad"},
+                    ]
+                },
+            )
         )
         c = OpcDaGatewayClient()
         c._client = client_mock
@@ -328,13 +320,16 @@ class TestClientRead:
 
     async def test_read_mixed_quality(self):
         client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {
-                "results": [
-                    {"id": "tag1", "value": 1, "quality": "good"},
-                    {"id": "tag2", "value": 2, "quality": "bad"},
-                    {"id": "tag3", "value": 3, "quality": "good"},
-                ]
-            })
+            post_response=_make_response(
+                200,
+                {
+                    "results": [
+                        {"id": "tag1", "value": 1, "quality": "good"},
+                        {"id": "tag2", "value": 2, "quality": "bad"},
+                        {"id": "tag3", "value": 3, "quality": "good"},
+                    ]
+                },
+            )
         )
         c = OpcDaGatewayClient()
         c._client = client_mock
@@ -344,12 +339,15 @@ class TestClientRead:
 
     async def test_read_caches_good_values_only(self):
         client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {
-                "results": [
-                    {"id": "tag1", "value": 100, "quality": "good"},
-                    {"id": "tag2", "value": 200, "quality": "uncertain"},
-                ]
-            })
+            post_response=_make_response(
+                200,
+                {
+                    "results": [
+                        {"id": "tag1", "value": 100, "quality": "good"},
+                        {"id": "tag2", "value": 200, "quality": "uncertain"},
+                    ]
+                },
+            )
         )
         c = OpcDaGatewayClient()
         c._client = client_mock
@@ -361,9 +359,7 @@ class TestClientRead:
     async def test_read_non_200_fallback_to_cache(self):
         c = OpcDaGatewayClient()
         c._latest_values = {"tag1": 999}
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(500, {})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(500, {}))
         c._client = client_mock
         c._connected = True
         result = await c.read(["tag1"])
@@ -393,30 +389,22 @@ class TestClientWrite:
         assert await c.write("tag1", 42) is False
 
     async def test_write_success(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {"success": True})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(200, {"success": True}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
         assert await c.write("tag1", 42) is True
-        client_mock.post.assert_awaited_once_with(
-            "/api/v1/write", json={"item": "tag1", "value": 42}
-        )
+        client_mock.post.assert_awaited_once_with("/api/v1/write", json={"item": "tag1", "value": 42})
 
     async def test_write_success_false_in_response(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {"success": False})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(200, {"success": False}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
         assert await c.write("tag1", 42) is False
 
     async def test_write_non_200_returns_false(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(500, {})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(500, {}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -436,9 +424,7 @@ class TestClientCreateSubscription:
         assert await c.create_subscription("g1", ["tag1"]) is None
 
     async def test_create_success_200(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {"subscription_id": "sub123"})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(200, {"subscription_id": "sub123"}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -450,9 +436,7 @@ class TestClientCreateSubscription:
         assert c._subscriptions["sub123"].update_rate == 500
 
     async def test_create_success_201(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(201, {"subscription_id": "sub456"})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(201, {"subscription_id": "sub456"}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -460,9 +444,7 @@ class TestClientCreateSubscription:
         assert sub_id == "sub456"
 
     async def test_create_failure_status_returns_none(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(500, {})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(500, {}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -476,9 +458,7 @@ class TestClientCreateSubscription:
         assert await c.create_subscription("g1", ["tag1"]) is None
 
     async def test_create_default_update_rate(self):
-        client_mock = _make_httpx_client_mock(
-            post_response=_make_response(200, {"subscription_id": "s1"})
-        )
+        client_mock = _make_httpx_client_mock(post_response=_make_response(200, {"subscription_id": "s1"}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -492,9 +472,7 @@ class TestClientRemoveSubscription:
         assert await c.remove_subscription("sub1") is False
 
     async def test_remove_success(self):
-        client_mock = _make_httpx_client_mock(
-            delete_response=_make_response(200, {})
-        )
+        client_mock = _make_httpx_client_mock(delete_response=_make_response(200, {}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -505,18 +483,14 @@ class TestClientRemoveSubscription:
 
     async def test_remove_success_not_in_dict(self):
         """删除不在本地字典中的订阅也返回 True（HTTP 成功即可）"""
-        client_mock = _make_httpx_client_mock(
-            delete_response=_make_response(200, {})
-        )
+        client_mock = _make_httpx_client_mock(delete_response=_make_response(200, {}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
         assert await c.remove_subscription("unknown") is True
 
     async def test_remove_failure_status(self):
-        client_mock = _make_httpx_client_mock(
-            delete_response=_make_response(404, {})
-        )
+        client_mock = _make_httpx_client_mock(delete_response=_make_response(404, {}))
         c = OpcDaGatewayClient()
         c._client = client_mock
         c._connected = True
@@ -535,8 +509,10 @@ class TestClientOnData:
     def test_on_data_registers_callback(self):
         c = OpcDaGatewayClient()
         c._subscriptions["sub1"] = OpcDaSubscription(group_name="g", items=[])
+
         def cb(x):
             return x
+
         c.on_data("sub1", cb)
         assert c._subscriptions["sub1"].callback is cb
 
@@ -591,9 +567,7 @@ class TestDriverInit:
 class TestDriverStart:
     async def test_start_success(self):
         drv = OpcDaGatewayDriver()
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(200, {"status": "ok"})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(200, {"status": "ok"}))
         with patch.dict(sys.modules, {"httpx": _make_httpx_module(client_mock=client_mock)}):
             await drv.start({"proxy_url": "http://h:8081", "timeout": 5})
         assert drv._running is True
@@ -618,9 +592,7 @@ class TestDriverStart:
     async def test_start_connect_failure_does_not_raise(self):
         """connect() 返回 False 时不抛异常，仅记录警告"""
         drv = OpcDaGatewayDriver()
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(500, {})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(500, {}))
         with patch.dict(sys.modules, {"httpx": _make_httpx_module(client_mock=client_mock)}):
             await drv.start({"proxy_url": "http://h:8081"})
         assert drv._running is False
@@ -634,9 +606,7 @@ class TestDriverStart:
 
     async def test_start_defaults_proxy_url(self):
         drv = OpcDaGatewayDriver()
-        client_mock = _make_httpx_client_mock(
-            get_response=_make_response(200, {})
-        )
+        client_mock = _make_httpx_client_mock(get_response=_make_response(200, {}))
         with patch.dict(sys.modules, {"httpx": _make_httpx_module(client_mock=client_mock)}):
             await drv.start({})
         assert drv._client is not None
@@ -647,9 +617,7 @@ class TestDriverStart:
 class TestDriverStop:
     async def test_stop_cleans_resources(self):
         drv = OpcDaGatewayDriver()
-        client_mock = _make_httpx_client_mock(
-            delete_response=_make_response(200, {})
-        )
+        client_mock = _make_httpx_client_mock(delete_response=_make_response(200, {}))
         drv._client = client_mock
         drv._running = True
         drv._connected = True
@@ -692,9 +660,7 @@ class TestDriverAddDevice:
         client_mock.create_subscription = AsyncMock(return_value="sub1")
         drv._client = client_mock
         drv._connected = True
-        await drv.add_device("d1", {"update_rate": 500}, [
-            {"address": "tag1"}, {"address": "tag2"}, {"name": "tag3"}
-        ])
+        await drv.add_device("d1", {"update_rate": 500}, [{"address": "tag1"}, {"address": "tag2"}, {"name": "tag3"}])
         assert drv._subscriptions["d1"] == "sub1"
         client_mock.create_subscription.assert_awaited_once()
         call_kwargs = client_mock.create_subscription.call_args
@@ -950,8 +916,10 @@ class TestDriverEnsureConnection:
 class TestDriverOnData:
     def test_on_data_registers(self):
         drv = OpcDaGatewayDriver()
+
         def cb(x):
             return x
+
         drv.on_data(cb)
         assert drv._data_callback is cb
 
@@ -982,9 +950,7 @@ class TestEndToEnd:
         drv = OpcDaGatewayDriver()
         client_mock = _make_httpx_client_mock(
             get_response=_make_response(200, {"status": "ok"}),
-            post_response=_make_response(200, {
-                "results": [{"id": "tag1", "value": 99, "quality": "good"}]
-            }),
+            post_response=_make_response(200, {"results": [{"id": "tag1", "value": 99, "quality": "good"}]}),
         )
         with patch.dict(sys.modules, {"httpx": _make_httpx_module(client_mock=client_mock)}):
             await drv.start({"proxy_url": "http://h:8081"})

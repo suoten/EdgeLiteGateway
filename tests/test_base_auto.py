@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/base.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.base import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestBaseAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_get_callable(self):
         """测试 get 可调用（异常即失败）"""
         get("", "")
@@ -62,36 +71,43 @@ class TestBaseAuto:
     def test_start_callable(self):
         """测试 start 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(start({}))
 
     def test_stop_callable(self):
         """测试 stop 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(stop())
 
     def test_read_points_callable(self):
         """测试 read_points 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(read_points(1, ""))
 
     def test_write_point_callable(self):
         """测试 write_point 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(write_point(1, "", ""))
 
     def test_write_points_batch_callable(self):
         """测试 write_points_batch 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(write_points_batch(1, ""))
 
     def test_discover_devices_callable(self):
         """测试 discover_devices 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(discover_devices({}))
 
     def test_add_device_callable(self):
         """测试 add_device 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(add_device(1, {}, ""))
 
     def test_is_device_connected_callable(self):
@@ -125,21 +141,25 @@ class TestBaseAuto:
     def test_health_check_callable(self):
         """测试 health_check 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(health_check(1))
 
     def test_reconnect_callable(self):
         """测试 reconnect 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(reconnect(1))
 
     def test_reset_reconnect_state_callable(self):
         """测试 reset_reconnect_state 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(reset_reconnect_state(1))
 
     def test_reconnect_with_backoff_callable(self):
         """测试 reconnect_with_backoff 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(reconnect_with_backoff(1, "", "", ""))
 
     def test_get_capabilities_callable(self):
@@ -165,6 +185,7 @@ class TestBaseAuto:
     def test_check_permission_callable(self):
         """测试 check_permission 可调用（异常即失败）"""
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(check_permission(""))
 
     def test_get_observability_metrics_callable(self):
@@ -174,4 +195,3 @@ class TestBaseAuto:
     def test_map_exception_callable(self):
         """测试 map_exception 可调用（异常即失败）"""
         map_exception("", "")
-

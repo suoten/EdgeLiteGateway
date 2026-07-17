@@ -30,7 +30,6 @@ from edgelite.api.notify import (
     router,
 )
 
-
 # ───────────────────────── 辅助构建函数 ─────────────────────────
 
 
@@ -86,9 +85,7 @@ def _make_notify_config(
         max_per_minute=10,
         cooldown_seconds=60.0,
     )
-    return SimpleNamespace(
-        dingtalk=dingtalk, wechat=wechat, email=email, webhook=webhook
-    )
+    return SimpleNamespace(dingtalk=dingtalk, wechat=wechat, email=email, webhook=webhook)
 
 
 def _make_config(**kwargs):
@@ -109,9 +106,7 @@ async def client():
     from conftest import make_app
 
     app = make_app(router, role="admin", services=_services())
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c, app
 
 
@@ -742,9 +737,7 @@ async def test_enable_channel_manager_unavailable(client):
 
 async def test_enable_channel_internal_error(client):
     """get_notification_manager 抛异常时 500。"""
-    with patch.object(
-        notify_module, "get_notification_manager", side_effect=RuntimeError("init")
-    ):
+    with patch.object(notify_module, "get_notification_manager", side_effect=RuntimeError("init")):
         c, _ = client
         resp = await c.post("/api/v1/notify/channels/dingtalk/enable")
     assert resp.status_code == 500
@@ -841,9 +834,7 @@ async def test_list_channels_viewer_allowed():
         patch.object(notify_module, "get_config", return_value=config),
         patch.object(notify_module, "save_config"),
     ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as c:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             resp = await c.get("/api/v1/notify/channels")
     assert resp.status_code == 200
 
@@ -853,9 +844,7 @@ async def test_update_dingtalk_viewer_forbidden():
     from conftest import make_app
 
     app = make_app(router, role="viewer", services=_services())
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
             "/api/v1/notify/channels/dingtalk",
             json={"webhook_url": "https://oapi.dingtalk.com/x"},

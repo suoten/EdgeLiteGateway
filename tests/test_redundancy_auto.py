@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/redundancy.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.redundancy import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestRedundancyAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_set_on_switch_callback_callable(self):
         """测试 set_on_switch_callback 可调用（异常即失败）"""
         set_on_switch_callback("")
@@ -54,4 +63,3 @@ class TestRedundancyAuto:
     def test_stop_callable(self):
         """测试 stop 可调用（异常即失败）"""
         stop()
-

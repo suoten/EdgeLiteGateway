@@ -121,6 +121,7 @@ class TestConcurrentRequests:
     @pytest.mark.asyncio
     async def test_perf2_01_concurrent_device_list(self, client):
         """50 并发 GET /api/v1/devices — 全部成功"""
+
         async def make_request():
             resp = await client.get("/api/v1/devices")
             return resp.status_code
@@ -152,6 +153,7 @@ class TestConcurrentRequests:
     @pytest.mark.asyncio
     async def test_perf2_03_concurrent_create_devices(self, client):
         """20 并发 POST /api/v1/devices — 至少 90% 成功"""
+
         async def create_device(idx):
             payload = {
                 "device_id": f"perf-device-{idx:03d}",

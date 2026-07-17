@@ -3,6 +3,7 @@ from setuptools.command.build_ext import build_ext
 
 try:
     from Cython.Build import cythonize
+
     HAS_CYTHON = True
 except ImportError:
     HAS_CYTHON = False
@@ -31,9 +32,9 @@ class BuildExtWithFallback(build_ext):
             super().build_extensions()
         except Exception as e:
             import warnings
+
             warnings.warn(
-                f"Cython编译失败，将使用纯Python回退实现: {e}\n"
-                "提示: 安装C编译器(如gcc/MSVC)或Cython可启用加速",
+                f"Cython编译失败，将使用纯Python回退实现: {e}\n提示: 安装C编译器(如gcc/MSVC)或Cython可启用加速",
                 stacklevel=2,
             )
             self.extensions = []

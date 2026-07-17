@@ -137,30 +137,33 @@ class TestMapQualityBasic:
 class TestMapQualityNamedBad:
     """FIXED-P2: 命名 Bad* 状态码通过查表返回 bad (不再仅靠位运算)"""
 
-    @pytest.mark.parametrize("code,name", [
-        (0x80000000, "Bad"),
-        (0x80010000, "BadUnexpectedError"),
-        (0x80020000, "BadInternalError"),
-        (0x80050000, "BadCommunicationError"),
-        (0x80210000, "BadTimeout"),
-        (0x80220000, "BadServiceUnsupported"),
-        (0x80230000, "BadShutdown"),
-        (0x80240000, "BadServerNotConnected"),
-        (0x80250000, "BadServerHalted"),
-        (0x80340000, "BadNodeIdInvalid"),
-        (0x80350000, "BadNodeIdUnknown"),
-        (0x80370000, "BadAttributeIdInvalid"),
-        (0x803E0000, "BadNotReadable"),
-        (0x803F0000, "BadNotWritable"),
-        (0x80430000, "BadOutOfRange"),
-        (0x80440000, "BadNotSupported"),
-        (0x80450000, "BadNotFound"),
-        (0x80500000, "BadNodeNotConnected"),
-        (0x80510000, "BadOutOfService"),
-        (0x80530000, "BadSessionClosed"),
-        (0x80B10000, "BadCertificateInvalid"),
-        (0x80B80000, "BadCertificateRevoked"),
-    ])
+    @pytest.mark.parametrize(
+        "code,name",
+        [
+            (0x80000000, "Bad"),
+            (0x80010000, "BadUnexpectedError"),
+            (0x80020000, "BadInternalError"),
+            (0x80050000, "BadCommunicationError"),
+            (0x80210000, "BadTimeout"),
+            (0x80220000, "BadServiceUnsupported"),
+            (0x80230000, "BadShutdown"),
+            (0x80240000, "BadServerNotConnected"),
+            (0x80250000, "BadServerHalted"),
+            (0x80340000, "BadNodeIdInvalid"),
+            (0x80350000, "BadNodeIdUnknown"),
+            (0x80370000, "BadAttributeIdInvalid"),
+            (0x803E0000, "BadNotReadable"),
+            (0x803F0000, "BadNotWritable"),
+            (0x80430000, "BadOutOfRange"),
+            (0x80440000, "BadNotSupported"),
+            (0x80450000, "BadNotFound"),
+            (0x80500000, "BadNodeNotConnected"),
+            (0x80510000, "BadOutOfService"),
+            (0x80530000, "BadSessionClosed"),
+            (0x80B10000, "BadCertificateInvalid"),
+            (0x80B80000, "BadCertificateRevoked"),
+        ],
+    )
     def test_named_bad_codes_return_bad(self, code, name):
         """每个命名 Bad* 状态码应返回 'bad'"""
         result = _map_opcua_quality(code)
@@ -185,13 +188,16 @@ class TestMapQualityNamedBad:
 class TestMapQualityNamedUncertain:
     """FIXED-P2: 命名 Uncertain* 状态码通过查表返回 uncertain"""
 
-    @pytest.mark.parametrize("code,name", [
-        (0x404D0000, "UncertainNotEnoughData"),
-        (0x405E0000, "UncertainLastUsableValue"),
-        (0x40600000, "UncertainSensorNotAccurate"),
-        (0x40890000, "UncertainEngineeringUnitsExceeded"),
-        (0x40A40000, "UncertainSimulatedValue"),
-    ])
+    @pytest.mark.parametrize(
+        "code,name",
+        [
+            (0x404D0000, "UncertainNotEnoughData"),
+            (0x405E0000, "UncertainLastUsableValue"),
+            (0x40600000, "UncertainSensorNotAccurate"),
+            (0x40890000, "UncertainEngineeringUnitsExceeded"),
+            (0x40A40000, "UncertainSimulatedValue"),
+        ],
+    )
     def test_named_uncertain_codes_return_uncertain(self, code, name):
         """每个命名 Uncertain* 状态码应返回 'uncertain'"""
         result = _map_opcua_quality(code)
@@ -321,16 +327,19 @@ class TestOpcuaStatusName:
         sc = _FakeStatusCode(None)
         assert _opcua_status_name(sc) is None
 
-    @pytest.mark.parametrize("code,expected_name", [
-        (0x80000000, "Bad"),
-        (0x80010000, "BadUnexpectedError"),
-        (0x80210000, "BadTimeout"),
-        (0x80350000, "BadNodeIdUnknown"),
-        (0x80530000, "BadSessionClosed"),
-        (0x404D0000, "UncertainNotEnoughData"),
-        (0x40600000, "UncertainSensorNotAccurate"),
-        (0x40A40000, "UncertainSimulatedValue"),
-    ])
+    @pytest.mark.parametrize(
+        "code,expected_name",
+        [
+            (0x80000000, "Bad"),
+            (0x80010000, "BadUnexpectedError"),
+            (0x80210000, "BadTimeout"),
+            (0x80350000, "BadNodeIdUnknown"),
+            (0x80530000, "BadSessionClosed"),
+            (0x404D0000, "UncertainNotEnoughData"),
+            (0x40600000, "UncertainSensorNotAccurate"),
+            (0x40A40000, "UncertainSimulatedValue"),
+        ],
+    )
     def test_parametrized_name_lookup(self, code, expected_name):
         assert _opcua_status_name(code) == expected_name
 

@@ -36,19 +36,18 @@ sys.path.insert(0, "src")
 
 from edgelite.drivers.base import PointValue  # noqa: E402
 from edgelite.drivers.opcua import (  # noqa: E402
+    _BACKOFF_BASE,
+    _FROZEN_COUNT_THRESHOLD,
+    _MAX_ARRAY_LENGTH,
     CollectionMode,
     OpcUaConnectionState,
     OpcUaDriver,
     OpcUaPointHealthStats,
-    _BACKOFF_BASE,
-    _FROZEN_COUNT_THRESHOLD,
-    _MAX_ARRAY_LENGTH,
-    _SubHandler,
     _bad_pv,
     _calc_backoff,
     _resolve_complex_type_with_fallback,
+    _SubHandler,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # 1. OpcUaPointHealthStats dataclass
@@ -732,7 +731,11 @@ class TestCertPathHelpers:
 
     def test_get_effective_cert_paths_from_backup(self, driver):
         driver._device_configs["dev1"] = {"client_cert_path": "/orig.pem"}
-        driver._backup_cert_paths["dev1"] = {"client_cert_path": "/bk.pem", "client_key_path": "/bk.pem", "ca_cert_path": "/bkca.pem"}
+        driver._backup_cert_paths["dev1"] = {
+            "client_cert_path": "/bk.pem",
+            "client_key_path": "/bk.pem",
+            "ca_cert_path": "/bkca.pem",
+        }
         cert, key, ca = driver._get_effective_cert_paths("dev1")
         assert cert == "/bk.pem"
 
@@ -1099,6 +1102,7 @@ class TestCallbacksNoInit:
     def test_on_data_sets_callback(self, driver):
         def cb(**kw):
             pass
+
         driver.on_data(cb)
         assert driver._data_callback is cb
 

@@ -53,27 +53,42 @@ def _make_exec_result(rows=None, scalar_one=None, scalars=None, scalar=None, row
     return result
 
 
-def _make_rule_template_orm(tid="rt1", name="RT", description="d", rule_type="threshold",
-                            conditions=None, severity="warning", duration=0,
-                            channels=None):
+def _make_rule_template_orm(
+    tid="rt1",
+    name="RT",
+    description="d",
+    rule_type="threshold",
+    conditions=None,
+    severity="warning",
+    duration=0,
+    channels=None,
+):
     """构建 RuleTemplateORM mock 对象。"""
     return SimpleNamespace(
-        template_id=tid, name=name, description=description, rule_type=rule_type,
+        template_id=tid,
+        name=name,
+        description=description,
+        rule_type=rule_type,
         default_conditions=json.dumps(conditions or [{"point": "t"}]),
-        default_severity=severity, default_duration=duration,
+        default_severity=severity,
+        default_duration=duration,
         notify_channels=json.dumps(channels or ["email"]),
-        created_at="2024-01-01T00:00:00", updated_at="2024-01-01T00:00:00",
+        created_at="2024-01-01T00:00:00",
+        updated_at="2024-01-01T00:00:00",
     )
 
 
-def _make_group_orm(gid="g1", name="G", description="d", parent_id=None,
-                    device_ids=None, tags=None):
+def _make_group_orm(gid="g1", name="G", description="d", parent_id=None, device_ids=None, tags=None):
     """构建 DeviceGroupORM mock 对象。"""
     return SimpleNamespace(
-        group_id=gid, name=name, description=description, parent_id=parent_id,
+        group_id=gid,
+        name=name,
+        description=description,
+        parent_id=parent_id,
         device_ids=json.dumps(device_ids or ["d1"]),
         tags=json.dumps(tags or {"k": "v"}),
-        created_at="2024-01-01T00:00:00", updated_at="2024-01-01T00:00:00",
+        created_at="2024-01-01T00:00:00",
+        updated_at="2024-01-01T00:00:00",
     )
 
 
@@ -97,8 +112,7 @@ class TestDeviceTemplates:
         repo = MagicMock()
         repo.create = AsyncMock(return_value={"name": "tmpl1", "created_at": "2024-01-01"})
         svc = TemplateService(template_repo=repo)
-        tmpl = DeviceTemplate(name="tmpl1", protocol="modbus_tcp",
-                              default_config={"ip": "1.2.3.4"})
+        tmpl = DeviceTemplate(name="tmpl1", protocol="modbus_tcp", default_config={"ip": "1.2.3.4"})
         result = await svc.create_device_template(tmpl)
         assert result.template_id == "tmpl1"
         assert result.created_at == "2024-01-01"
@@ -114,11 +128,15 @@ class TestDeviceTemplates:
     async def test_get_device_template_with_repo_found(self):
         """从 TemplateRepo 获取设备模板"""
         repo = MagicMock()
-        repo.get = AsyncMock(return_value={
-            "name": "t1", "protocol": "modbus_tcp",
-            "config_template": {"ip": "1.1.1.1"}, "point_templates": [{"name": "p1"}],
-            "created_at": "2024-01-01",
-        })
+        repo.get = AsyncMock(
+            return_value={
+                "name": "t1",
+                "protocol": "modbus_tcp",
+                "config_template": {"ip": "1.1.1.1"},
+                "point_templates": [{"name": "p1"}],
+                "created_at": "2024-01-01",
+            }
+        )
         svc = TemplateService(template_repo=repo)
         result = await svc.get_device_template("t1")
         assert result is not None
@@ -135,10 +153,12 @@ class TestDeviceTemplates:
     async def test_list_device_templates_with_repo(self):
         """从 TemplateRepo 列出设备模板"""
         repo = MagicMock()
-        repo.list_all = AsyncMock(return_value=(
-            [{"name": "t1", "protocol": "modbus_tcp", "config_template": {}, "point_templates": []}],
-            1,
-        ))
+        repo.list_all = AsyncMock(
+            return_value=(
+                [{"name": "t1", "protocol": "modbus_tcp", "config_template": {}, "point_templates": []}],
+                1,
+            )
+        )
         svc = TemplateService(template_repo=repo)
         result = await svc.list_device_templates()
         assert len(result) == 1
@@ -154,11 +174,15 @@ class TestDeviceTemplates:
     async def test_apply_device_template_found(self):
         """应用设备模板创建设备配置"""
         repo = MagicMock()
-        repo.get = AsyncMock(return_value={
-            "name": "t1", "protocol": "modbus_tcp",
-            "config_template": {"ip": "1.1.1.1"}, "point_templates": [{"name": "p1"}],
-            "created_at": "2024",
-        })
+        repo.get = AsyncMock(
+            return_value={
+                "name": "t1",
+                "protocol": "modbus_tcp",
+                "config_template": {"ip": "1.1.1.1"},
+                "point_templates": [{"name": "p1"}],
+                "created_at": "2024",
+            }
+        )
         svc = TemplateService(template_repo=repo)
         device = await svc.apply_device_template("t1", "MyDevice", custom_config={"port": 502})
         assert device["protocol"] == "modbus_tcp"
@@ -367,10 +391,15 @@ class TestRuleTemplates:
     async def test_apply_rule_template_found(self):
         """应用规则模板创建规则配置"""
         svc = TemplateService()
-        tmpl = RuleTemplate(template_id="rt1", name="RT", rule_type="threshold",
-                            default_conditions=[{"point": "temp", "operator": ">", "device_id": "PLACEHOLDER"}],
-                            default_severity="warning", default_duration=5,
-                            notify_channels=["email"])
+        tmpl = RuleTemplate(
+            template_id="rt1",
+            name="RT",
+            rule_type="threshold",
+            default_conditions=[{"point": "temp", "operator": ">", "device_id": "PLACEHOLDER"}],
+            default_severity="warning",
+            default_duration=5,
+            notify_channels=["email"],
+        )
         await svc.create_rule_template(tmpl)
         rule = await svc.apply_rule_template("rt1", "MyRule", "d1")
         assert rule["device_id"] == "d1"
@@ -384,7 +413,9 @@ class TestRuleTemplates:
         tmpl = RuleTemplate(template_id="rt1", name="RT")
         await svc.create_rule_template(tmpl)
         rule = await svc.apply_rule_template(
-            "rt1", "MyRule", "d1",
+            "rt1",
+            "MyRule",
+            "d1",
             custom_conditions=[{"point": "x", "operator": "<", "device_id": "old"}],
         )
         assert rule["conditions"][0]["device_id"] == "d1"
@@ -638,17 +669,19 @@ class TestTemplateExportImport:
     async def test_import_templates(self):
         """从 JSON 导入模板"""
         svc = TemplateService()
-        data = json.dumps({
-            "device_templates": [
-                {"template_id": "t1", "name": "T1", "protocol": "modbus_tcp"},
-            ],
-            "rule_templates": [
-                {"template_id": "rt1", "name": "RT", "rule_type": "threshold"},
-            ],
-            "device_groups": [
-                {"group_id": "g1", "name": "G1", "device_ids": ["d1"]},
-            ],
-        })
+        data = json.dumps(
+            {
+                "device_templates": [
+                    {"template_id": "t1", "name": "T1", "protocol": "modbus_tcp"},
+                ],
+                "rule_templates": [
+                    {"template_id": "rt1", "name": "RT", "rule_type": "threshold"},
+                ],
+                "device_groups": [
+                    {"group_id": "g1", "name": "G1", "device_ids": ["d1"]},
+                ],
+            }
+        )
         result = svc.import_templates(data)
         assert result["device_templates"] == 1
         assert result["rule_templates"] == 1
@@ -665,5 +698,3 @@ class TestTemplateExportImport:
         assert result["device_templates"] == 0
         assert result["rule_templates"] == 0
         assert result["device_groups"] == 0
-
-

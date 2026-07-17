@@ -14,15 +14,11 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import hashlib
 import hmac
 import sys
 import time
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 sys.path.insert(0, "src")
 
@@ -32,7 +28,6 @@ from edgelite.engine.cascade_manager import (
     NeighborInfo,
     TopologyStatus,
 )
-
 
 # ── 数据类与枚举 ──
 
@@ -131,7 +126,7 @@ class TestTokenHash:
 
     def test_returns_truncated_hash(self):
         mgr = CascadeManager(local_id="gw1", cascade_token="mytoken")
-        expected = hashlib.sha256("mytoken".encode()).hexdigest()[:16]
+        expected = hashlib.sha256(b"mytoken").hexdigest()[:16]
         assert mgr._compute_token_hash() == expected
 
 
@@ -187,7 +182,7 @@ class TestBuildCascadeHeaders:
         ts = headers["X-Cascade-Timestamp"]
         nonce = headers["X-Cascade-Nonce"]
         message = f"{ts}{nonce}".encode() + body
-        expected = hmac.new("secret".encode(), message, hashlib.sha256).hexdigest()
+        expected = hmac.new(b"secret", message, hashlib.sha256).hexdigest()
         assert headers["X-Cascade-Token"] == expected
 
 
@@ -754,8 +749,9 @@ class TestMaintainParentConnection:
                 mgr._running = False
             await original_sleep(0)
 
-        with patch("asyncio.sleep", new=_fast_sleep), patch.object(
-            mgr, "forward_to_parent", new=AsyncMock(return_value=True)
+        with (
+            patch("asyncio.sleep", new=_fast_sleep),
+            patch.object(mgr, "forward_to_parent", new=AsyncMock(return_value=True)),
         ):
             await asyncio.wait_for(mgr._maintain_parent_connection(), timeout=3)
 
@@ -772,8 +768,9 @@ class TestMaintainParentConnection:
                 mgr._running = False
             await original_sleep(0)
 
-        with patch("asyncio.sleep", new=_fast_sleep), patch.object(
-            mgr, "forward_to_parent", new=AsyncMock(return_value=False)
+        with (
+            patch("asyncio.sleep", new=_fast_sleep),
+            patch.object(mgr, "forward_to_parent", new=AsyncMock(return_value=False)),
         ):
             await asyncio.wait_for(mgr._maintain_parent_connection(), timeout=3)
 
@@ -793,7 +790,5 @@ class TestMaintainParentConnection:
         async def _boom(data):
             raise RuntimeError("boom")
 
-        with patch("asyncio.sleep", new=_fast_sleep), patch.object(
-            mgr, "forward_to_parent", new=_boom
-        ):
+        with patch("asyncio.sleep", new=_fast_sleep), patch.object(mgr, "forward_to_parent", new=_boom):
             await asyncio.wait_for(mgr._maintain_parent_connection(), timeout=3)

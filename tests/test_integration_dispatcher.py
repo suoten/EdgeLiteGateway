@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import pytest
 
@@ -366,9 +365,7 @@ class TestHandleDeviceControl:
     async def test_invalid_action(self):
         d = MessageDispatcher()
         d.register_service("device_service", FakeDeviceService())
-        result = await d.dispatch(
-            "device_control", {"device_id": "dev01", "action": "reboot"}
-        )
+        result = await d.dispatch("device_control", {"device_id": "dev01", "action": "reboot"})
         assert result["ok"] is False
         assert "Invalid action" in result["error"]
 
@@ -376,9 +373,7 @@ class TestHandleDeviceControl:
     async def test_start_collect_no_scheduler(self):
         d = MessageDispatcher()
         d.register_service("device_service", FakeDeviceService())
-        result = await d.dispatch(
-            "device_control", {"device_id": "dev01", "action": "start_collect"}
-        )
+        result = await d.dispatch("device_control", {"device_id": "dev01", "action": "start_collect"})
         assert result["ok"] is False
         assert "Scheduler not available" in result["error"]
 
@@ -386,9 +381,7 @@ class TestHandleDeviceControl:
     async def test_stop_collect_no_scheduler(self):
         d = MessageDispatcher()
         d.register_service("device_service", FakeDeviceService())
-        result = await d.dispatch(
-            "device_control", {"device_id": "dev01", "action": "stop_collect"}
-        )
+        result = await d.dispatch("device_control", {"device_id": "dev01", "action": "stop_collect"})
         assert result["ok"] is False
         assert "Scheduler not available" in result["error"]
 

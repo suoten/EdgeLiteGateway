@@ -37,14 +37,19 @@ class _FakeMcClient:
         self.setaccessopt_calls: list[dict] = []
         self._raise_on_setaccessopt: Exception | None = None
 
-    def setaccessopt(self, commtype=None, network=None, pc=None,
-                     dest_moduleio=None, dest_modulesta=None, timer_sec=None):
-        self.setaccessopt_calls.append({
-            "commtype": commtype, "network": network, "pc": pc,
-            "dest_moduleio": dest_moduleio,
-            "dest_modulesta": dest_modulesta,
-            "timer_sec": timer_sec,
-        })
+    def setaccessopt(
+        self, commtype=None, network=None, pc=None, dest_moduleio=None, dest_modulesta=None, timer_sec=None
+    ):
+        self.setaccessopt_calls.append(
+            {
+                "commtype": commtype,
+                "network": network,
+                "pc": pc,
+                "dest_moduleio": dest_moduleio,
+                "dest_modulesta": dest_modulesta,
+                "timer_sec": timer_sec,
+            }
+        )
         if self._raise_on_setaccessopt is not None:
             raise self._raise_on_setaccessopt
         if commtype:
@@ -186,18 +191,21 @@ class TestPymcprotocolDependencyContract:
     def test_type3e_has_setaccessopt(self):
         """Type3E 类提供 setaccessopt 公共方法"""
         from pymcprotocol import Type3E
+
         assert hasattr(Type3E, "setaccessopt")
         assert callable(getattr(Type3E, "setaccessopt", None))
 
     def test_type3e_set_commtype_method_exists(self):
         """Type3E 类提供 _set_commtype 内部方法"""
         from pymcprotocol import Type3E
+
         assert hasattr(Type3E, "_set_commtype")
 
     def test_type3e_ascii_switches_wordsize(self):
         """Type3E 实例切换到 ascii 后 _wordsize=4, commtype='ascii'"""
         from pymcprotocol import Type3E
         from pymcprotocol import mcprotocolconst as const
+
         client = Type3E(plctype="Q")
         client.setaccessopt(commtype="ascii")
         assert client.commtype == const.COMMTYPE_ASCII
@@ -207,6 +215,7 @@ class TestPymcprotocolDependencyContract:
         """Type3E 实例默认 binary: commtype='binary', _wordsize=2"""
         from pymcprotocol import Type3E
         from pymcprotocol import mcprotocolconst as const
+
         client = Type3E(plctype="Q")
         assert client.commtype == const.COMMTYPE_BINARY
         assert client._wordsize == 2
@@ -214,11 +223,13 @@ class TestPymcprotocolDependencyContract:
     def test_type4e_inherits_setaccessopt(self):
         """Type4E 继承 Type3E 的 setaccessopt (4E帧也支持 ascii)"""
         from pymcprotocol import Type4E
+
         assert hasattr(Type4E, "setaccessopt")
 
     def test_type4e_ascii_switches_wordsize(self):
         """Type4E 实例切换到 ascii 后 _wordsize=4"""
         from pymcprotocol import Type4E
+
         client = Type4E(plctype="Q")
         client.setaccessopt(commtype="ascii")
         assert client._wordsize == 4
@@ -231,6 +242,7 @@ class TestPymcprotocolDependencyContract:
         这是 ascii 帧文本化导致帧头变长的直接体现。
         """
         from pymcprotocol import Type3E
+
         client = Type3E(plctype="Q")
         client.setaccessopt(commtype="binary")
         binary_idx = client._get_answerdata_index()
@@ -242,6 +254,7 @@ class TestPymcprotocolDependencyContract:
     def test_commtype_constants_defined(self):
         """mcprotocolconst 定义 COMMTYPE_BINARY 和 COMMTYPE_ASCII 常量"""
         from pymcprotocol import mcprotocolconst as const
+
         assert const.COMMTYPE_BINARY == "binary"
         assert const.COMMTYPE_ASCII == "ascii"
 
@@ -304,6 +317,7 @@ class TestApplyCommModeIntegrationWithRealType3E:
         """_apply_comm_mode('ascii') 正确切换真实 Type3E 的 commtype"""
         from pymcprotocol import Type3E
         from pymcprotocol import mcprotocolconst as const
+
         driver = _make_driver("ascii")
         client = Type3E(plctype="Q")
         driver._apply_comm_mode(client)
@@ -314,6 +328,7 @@ class TestApplyCommModeIntegrationWithRealType3E:
         """_apply_comm_mode('binary') 对真实 Type3E 是 no-op (保持默认)"""
         from pymcprotocol import Type3E
         from pymcprotocol import mcprotocolconst as const
+
         driver = _make_driver("binary")
         client = Type3E(plctype="Q")
         driver._apply_comm_mode(client)
@@ -324,6 +339,7 @@ class TestApplyCommModeIntegrationWithRealType3E:
         """_apply_comm_mode('ascii') 正确切换真实 Type4E 的 commtype"""
         from pymcprotocol import Type4E
         from pymcprotocol import mcprotocolconst as const
+
         driver = _make_driver("ascii")
         client = Type4E(plctype="Q")
         driver._apply_comm_mode(client)

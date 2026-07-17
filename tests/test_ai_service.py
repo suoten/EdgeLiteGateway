@@ -24,7 +24,6 @@ sys.path.insert(0, "src")
 from edgelite.engine.edge_ai_inference import InferenceResult  # noqa: E402
 from edgelite.services.ai_service import AiModelService  # noqa: E402
 
-
 # -- Helpers -----------------------------------------------------------------
 
 
@@ -600,9 +599,7 @@ class TestInference:
     async def test_error_status_recorded_in_log(self):
         engine = make_engine()
         engine.get_model.return_value = make_wrapper()
-        engine.infer = AsyncMock(
-            return_value=make_result(status="error", error_message="infer failed")
-        )
+        engine.infer = AsyncMock(return_value=make_result(status="error", error_message="infer failed"))
         svc = AiModelService(engine)
         result = await svc.inference("m1", [1.0])
         assert result["status"] == "error"
@@ -738,9 +735,7 @@ class TestGetInferenceSummary:
         svc = AiModelService(engine)
         logs = []
         for i in range(12):
-            logs.append(
-                make_log(model_id="m1", status="success" if i % 3 else "error", latency_ms=10 + i, idx=i)
-            )
+            logs.append(make_log(model_id="m1", status="success" if i % 3 else "error", latency_ms=10 + i, idx=i))
         svc._inference_logs = logs
         summary = await svc.get_inference_summary()
         assert summary["model_count"] == 2

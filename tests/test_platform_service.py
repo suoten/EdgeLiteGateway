@@ -35,8 +35,8 @@ _BaseNorthAdapter = sys.modules["edgelite.platform.north_base"].BaseNorthAdapter
 
 # ── 安全导入 platform_service ─────────────────────────────────────────────
 from edgelite.services.platform_service import (  # noqa: E402
-    PlatformService,
     _PLATFORM_REGISTRY,
+    PlatformService,
     _build_full_schema,
     _build_north_config,
     _ensure_registry,
@@ -64,6 +64,7 @@ def _valid_thingsboard_config() -> dict:
 
 def _make_mock_adapter_cls(name: str = "MockAdapter", connected_after_start: bool = True):
     """创建一个 BaseNorthAdapter 子类用于 north adapter 路径测试"""
+
     class _Adapter(_BaseNorthAdapter):
         platform_name = name
         platform_version = "9.9.9"
@@ -77,6 +78,7 @@ def _make_mock_adapter_cls(name: str = "MockAdapter", connected_after_start: boo
 
 def _make_mock_handler_cls(name: str = "mock", connect_fails: bool = False):
     """创建一个模拟 handler 类（不继承 PlatformHandler，纯 MagicMock 风格）"""
+
     class _Handler:
         platform_name = name
         platform_version = "1.0.0"
@@ -120,17 +122,13 @@ class TestMaskSensitiveConfigFields:
         assert result == {"broker": "host", "port": 1883}
 
     def test_recursive_dict(self):
-        result = _mask_sensitive_config_fields(
-            {"outer": {"password": "p", "name": "x"}, "token": "t"}
-        )
+        result = _mask_sensitive_config_fields({"outer": {"password": "p", "name": "x"}, "token": "t"})
         assert result["outer"]["password"] == "***"
         assert result["outer"]["name"] == "x"
         assert result["token"] == "***"
 
     def test_list_recursive(self):
-        result = _mask_sensitive_config_fields(
-            [{"password": "p1"}, {"name": "x"}]
-        )
+        result = _mask_sensitive_config_fields([{"password": "p1"}, {"name": "x"}])
         assert result[0]["password"] == "***"
         assert result[1] == {"name": "x"}
 
@@ -140,9 +138,7 @@ class TestMaskSensitiveConfigFields:
         assert _mask_sensitive_config_fields(None) is None
 
     def test_nested_list_in_dict(self):
-        result = _mask_sensitive_config_fields(
-            {"brokers": [{"password": "p", "host": "h"}]}
-        )
+        result = _mask_sensitive_config_fields({"brokers": [{"password": "p", "host": "h"}]})
         assert result["brokers"][0]["password"] == "***"
         assert result["brokers"][0]["host"] == "h"
 
@@ -579,6 +575,7 @@ class TestConnect:
 
     async def test_connect_north_adapter_not_subclass_falls_to_handler(self):
         """north_class 存在但不是 BaseNorthAdapter 子类时走 handler 路径"""
+
         class _NonAdapter:
             pass
 
@@ -836,6 +833,7 @@ class TestTestConnection:
 
     async def test_handler_path_timeout(self):
         """handler connect 不设置 _connected → 超时返回失败"""
+
         class _SlowHandler:
             platform_name = "iotsharp"
 
@@ -855,10 +853,13 @@ class TestTestConnection:
             mod.IoTSharpHandler = _SlowHandler
             return mod
 
-        with patch(
-            "edgelite.services.platform_service.importlib.import_module",
-            side_effect=import_side_effect,
-        ), patch.object(asyncio, "sleep", new=AsyncMock()):
+        with (
+            patch(
+                "edgelite.services.platform_service.importlib.import_module",
+                side_effect=import_side_effect,
+            ),
+            patch.object(asyncio, "sleep", new=AsyncMock()),
+        ):
             result = await PlatformService().test_connection("iotsharp", _valid_iotsharp_config())
             assert result["success"] is False
             assert "timed out" in result["message"].lower() or "timed out" in result["message"]
@@ -1210,9 +1211,7 @@ class TestImportConfig:
     def test_import_nested_custom_config_flattened(self):
         nested = {
             "config": {
-                "brokers": [
-                    {"broker_host": "gw.example.com", "broker_port": 1883, "username": "u", "password": "p"}
-                ],
+                "brokers": [{"broker_host": "gw.example.com", "broker_port": 1883, "username": "u", "password": "p"}],
                 "template": {"topic_template": "{prefix}/{device_id}"},
                 "script": {"enabled": True, "script": "function transform(){}"},
                 "gateway_id": "gw-1",
@@ -1240,9 +1239,7 @@ class TestFlattenCustomConfig:
         assert result == {}
 
     def test_flatten_brokers_extraction(self):
-        nested = {
-            "brokers": [{"broker_host": "h", "broker_port": 1883, "username": "u", "password": "p"}]
-        }
+        nested = {"brokers": [{"broker_host": "h", "broker_port": 1883, "username": "u", "password": "p"}]}
         result = PlatformService()._flatten_custom_config(nested)
         assert result["broker"] == "h"
         assert result["port"] == 1883

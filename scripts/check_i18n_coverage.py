@@ -25,15 +25,15 @@ EN_US_FILE = BASE_DIR / "web" / "src" / "i18n" / "en-US.ts"
 T_CALL_PATTERN = re.compile(r"""t\(\s*['"]([^'"]+)['"]\s*\)""")
 
 INVALID_KEY_PATTERNS = [
-    re.compile(r'^[0-9]'),
-    re.compile(r'^/'),
-    re.compile(r'^three/'),
-    re.compile(r'^\.$'),
-    re.compile(r'^[a-z]$'),
-    re.compile(r'\.(js|ts|vue|css|html|json|md|py)$'),
+    re.compile(r"^[0-9]"),
+    re.compile(r"^/"),
+    re.compile(r"^three/"),
+    re.compile(r"^\.$"),
+    re.compile(r"^[a-z]$"),
+    re.compile(r"\.(js|ts|vue|css|html|json|md|py)$"),
 ]
 
-IGNORED_KEYS = {'canvas', 'default', 'three'}
+IGNORED_KEYS = {"canvas", "default", "three"}
 
 
 def is_valid_i18n_key(key: str) -> bool:
@@ -58,8 +58,8 @@ def extract_keys_from_vue_files() -> dict[str, list[str]]:
 
 def extract_defined_keys(ts_file: Path) -> set[str]:
     content = ts_file.read_text(encoding="utf-8")
-    content = re.sub(r'//.*', '', content)
-    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    content = re.sub(r"//.*", "", content)
+    content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
 
     keys: set[str] = set()
     path_stack: list[str] = []
@@ -69,18 +69,18 @@ def extract_defined_keys(ts_file: Path) -> set[str]:
         if not stripped:
             continue
 
-        m = re.match(r'^(\w+)\s*:\s*(.*)', stripped)
+        m = re.match(r"^(\w+)\s*:\s*(.*)", stripped)
         if m:
             key_name = m.group(1)
             value_part = m.group(2).strip()
-            current_path = '.'.join(path_stack + [key_name])
+            current_path = ".".join(path_stack + [key_name])
             keys.add(current_path)
 
-            if '{' in value_part and '}' not in value_part or value_part == '{':
+            if "{" in value_part and "}" not in value_part or value_part == "{":
                 path_stack.append(key_name)
 
-        opens = stripped.count('{')
-        closes = stripped.count('}')
+        opens = stripped.count("{")
+        closes = stripped.count("}")
         net_closes = closes - opens
         for _ in range(max(0, net_closes)):
             if path_stack:

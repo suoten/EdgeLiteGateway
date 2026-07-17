@@ -67,15 +67,18 @@ def upgrade() -> None:
 def downgrade() -> None:
     # 回滚: 恢复旧的 CHECK 约束（不回滚数据，因为旧值可能已被转换）
     _rebuild_constraint_with_sqltext(
-        "rules", "ck_rules_rule_type_valid",
+        "rules",
+        "ck_rules_rule_type_valid",
         "rule_type IN ('threshold', 'script', 'expression', 'ai')",
     )
     _rebuild_constraint_with_sqltext(
-        "alarms", "ck_alarms_rule_type_valid",
+        "alarms",
+        "ck_alarms_rule_type_valid",
         "rule_type IN ('threshold', 'ai_inference', 'trend')",
     )
     _rebuild_constraint_with_sqltext(
-        "rule_templates", "ck_rule_templates_type_valid",
+        "rule_templates",
+        "ck_rule_templates_type_valid",
         "rule_type IN ('threshold', 'ai_inference', 'trend')",
     )
 
@@ -94,43 +97,41 @@ def _normalize_rule_type_data(bind) -> None:
     # rules 表: 'expression' → 'script', 'ai' → 'ai_inference'
     if "rules" in existing_tables:
         try:
-            bind.execute(sa.text(
-                "UPDATE rules SET rule_type='script' WHERE rule_type='expression'"
-            ))
-            bind.execute(sa.text(
-                "UPDATE rules SET rule_type='ai_inference' WHERE rule_type='ai'"
-            ))
+            bind.execute(sa.text("UPDATE rules SET rule_type='script' WHERE rule_type='expression'"))
+            bind.execute(sa.text("UPDATE rules SET rule_type='ai_inference' WHERE rule_type='ai'"))
             # 兜底: 其他非标准值 → 'threshold'
-            bind.execute(sa.text(
-                "UPDATE rules SET rule_type='threshold' "
-                "WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
-            ))
+            bind.execute(
+                sa.text(
+                    "UPDATE rules SET rule_type='threshold' "
+                    "WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
+                )
+            )
         except Exception:
             pass
 
     # alarms 表: 'trend' → 'threshold'
     if "alarms" in existing_tables:
         try:
-            bind.execute(sa.text(
-                "UPDATE alarms SET rule_type='threshold' WHERE rule_type='trend'"
-            ))
-            bind.execute(sa.text(
-                "UPDATE alarms SET rule_type='threshold' "
-                "WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
-            ))
+            bind.execute(sa.text("UPDATE alarms SET rule_type='threshold' WHERE rule_type='trend'"))
+            bind.execute(
+                sa.text(
+                    "UPDATE alarms SET rule_type='threshold' "
+                    "WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
+                )
+            )
         except Exception:
             pass
 
     # rule_templates 表: 'trend' → 'threshold'
     if "rule_templates" in existing_tables:
         try:
-            bind.execute(sa.text(
-                "UPDATE rule_templates SET rule_type='threshold' WHERE rule_type='trend'"
-            ))
-            bind.execute(sa.text(
-                "UPDATE rule_templates SET rule_type='threshold' "
-                "WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
-            ))
+            bind.execute(sa.text("UPDATE rule_templates SET rule_type='threshold' WHERE rule_type='trend'"))
+            bind.execute(
+                sa.text(
+                    "UPDATE rule_templates SET rule_type='threshold' "
+                    "WHERE rule_type NOT IN ('threshold', 'ai_inference', 'script')"
+                )
+            )
         except Exception:
             pass
 
@@ -147,9 +148,9 @@ def _rebuild_rule_type_constraint(table_name: str, constraint_name: str) -> None
     bind = op.get_bind()
     if bind.dialect.name == "sqlite":
         try:
-            result = bind.execute(sa.text(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name=:t"
-            ), {"t": table_name})
+            result = bind.execute(
+                sa.text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:t"), {"t": table_name}
+            )
             row = result.fetchone()
             if row and row[0]:
                 table_sql = row[0]
@@ -173,9 +174,7 @@ def _rebuild_rule_type_constraint(table_name: str, constraint_name: str) -> None
             pass
 
 
-def _rebuild_constraint_with_sqltext(
-    table_name: str, constraint_name: str, sqltext: str
-) -> None:
+def _rebuild_constraint_with_sqltext(table_name: str, constraint_name: str, sqltext: str) -> None:
     """downgrade 用: 用指定 sqltext 重建约束。"""
     try:
         with op.batch_alter_table(table_name) as batch_op:

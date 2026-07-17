@@ -1,20 +1,29 @@
 """自动生成测试 - src/edgelite/drivers/modbus_config_version.py"""
+
 # AUTO-GENERATED
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
+
 _root = Path(__file__).parent.parent
-if str(_root) not in sys.path: sys.path.insert(0, str(_root))
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 try:
     from src.edgelite.drivers.modbus_config_version import *  # noqa
+
     _OK = True
 except ImportError as _e:
-    _OK = False; _ERR = str(_e)
+    _OK = False
+    _ERR = str(_e)
+
 
 class TestModbusConfigVersionAuto:
     @pytest.fixture(autouse=True)
     def _check(self):
-        if not _OK: pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+        if not _OK:
+            pytest.skip(f"import failed: {_ERR if not _OK else ''}")
+
     def test_snapshot_device_config_callable(self):
         """测试 snapshot_device_config 可调用（异常即失败）"""
         snapshot_device_config(1, {}, "")
@@ -54,4 +63,3 @@ class TestModbusConfigVersionAuto:
     def test_close_callable(self):
         """测试 close 可调用（异常即失败）"""
         close()
-

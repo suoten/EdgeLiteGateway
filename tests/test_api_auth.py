@@ -28,18 +28,18 @@ from fastapi.testclient import TestClient
 from edgelite.api.auth import (
     _AUTH_COOKIE_ACCESS,
     _AUTH_COOKIE_REFRESH,
-    _MAX_LOGIN_attempts,
     _MAX_PASSWORD_LENGTH,
     _MIN_PASSWORD_LENGTH,
     _WEAK_PASSWORDS,
     _check_account_lockout,
     _check_login_rate,
-    _clear_token_cookies,
     _clear_lockout,
+    _clear_token_cookies,
     _get_client_ip,
     _is_dev_mode,
     _is_ip_in_cidr,
     _is_trusted_proxy,
+    _MAX_LOGIN_attempts,
     _record_lockout_failure,
     _record_login_attempt,
     _set_token_cookies,
@@ -297,9 +297,7 @@ class TestCheckAccountLockout:
         import time
 
         with patch("edgelite.api.auth.RateLimitRepo") as MockRepo:
-            MockRepo.get_lockout_info = AsyncMock(
-                return_value={"locked_until": time.time() - 100}
-            )
+            MockRepo.get_lockout_info = AsyncMock(return_value={"locked_until": time.time() - 100})
             await _check_account_lockout("admin", "1.2.3.4")  # 已过期，不应抛异常
 
     @pytest.mark.asyncio
@@ -308,9 +306,7 @@ class TestCheckAccountLockout:
         import time
 
         with patch("edgelite.api.auth.RateLimitRepo") as MockRepo:
-            MockRepo.get_lockout_info = AsyncMock(
-                return_value={"locked_until": time.time() + 3600}
-            )
+            MockRepo.get_lockout_info = AsyncMock(return_value={"locked_until": time.time() + 3600})
             with pytest.raises(HTTPException) as exc_info:
                 await _check_account_lockout("admin", "1.2.3.4")
             assert exc_info.value.status_code == 423
@@ -376,124 +372,201 @@ class TestRouterDefinition:
         """路由标签应包含 Auth"""
         assert "Auth" in router.tags
 
+
 # ── 端点测试 ──
-import os as _os, time as _time
+import os as _os
+import time as _time
+
 from edgelite.api.deps import get_audit_service, get_current_user, get_database
+
 
 def _mkdb():
     """Mock db with async session context manager."""
-    db = MagicMock(); db.write_lock = MagicMock()
-    s = MagicMock(); cm = AsyncMock()
-    cm.__aenter__.return_value = s; cm.__aexit__.return_value = None
+    db = MagicMock()
+    db.write_lock = MagicMock()
+    s = MagicMock()
+    cm = AsyncMock()
+    cm.__aenter__.return_value = s
+    cm.__aexit__.return_value = None
     db.get_session = MagicMock(return_value=cm)
     return db, s
+
 
 def _mkcfg(smtp_host="smtp.example.com", from_addr="from@example.com", gfrt=100):
     """Mock config for auth endpoints."""
-    ec = SimpleNamespace(smtp_host=smtp_host, smtp_port=465, smtp_user="u", smtp_password="p", from_addr=from_addr, use_starttls=False)
+    ec = SimpleNamespace(
+        smtp_host=smtp_host, smtp_port=465, smtp_user="u", smtp_password="p", from_addr=from_addr, use_starttls=False
+    )
     return SimpleNamespace(
-        security=SimpleNamespace(access_token_expire_minutes=30, refresh_token_expire_days=7, global_failure_rate_threshold=gfrt),
+        security=SimpleNamespace(
+            access_token_expire_minutes=30, refresh_token_expire_days=7, global_failure_rate_threshold=gfrt
+        ),
         server=SimpleNamespace(trusted_proxies=[]),
         database=SimpleNamespace(sqlite_path=_os.path.join(_os.path.dirname(__file__), "nonexistent.db")),
-        notify=SimpleNamespace(email=ec))
+        notify=SimpleNamespace(email=ec),
+    )
+
 
 def _app(db=None, audit=None, user=None):
     """Build FastAPI app with overridden deps."""
-    app = FastAPI(); app.include_router(router)
-    if db: app.dependency_overrides[get_database] = lambda: db
-    if audit: app.dependency_overrides[get_audit_service] = lambda: audit
-    if user: app.dependency_overrides[get_current_user] = lambda: user
+    app = FastAPI()
+    app.include_router(router)
+    if db:
+        app.dependency_overrides[get_database] = lambda: db
+    if audit:
+        app.dependency_overrides[get_audit_service] = lambda: audit
+    if user:
+        app.dependency_overrides[get_current_user] = lambda: user
     return app
+
 
 def _rl_defaults(ML, **ov):
     """Set default async return values on RateLimitRepo mock."""
-    d = dict(check_global_failure_rate=0, check_global_account_lockout=None,
-        check_login_rate=0, get_lockout_info=None, record_global_failure=None,
-        record_global_account_failure=None, record_login_attempt=None,
-        record_lockout_failure=None, clear_global_account_lockout=None, clear_lockout=None)
+    d = dict(
+        check_global_failure_rate=0,
+        check_global_account_lockout=None,
+        check_login_rate=0,
+        get_lockout_info=None,
+        record_global_failure=None,
+        record_global_account_failure=None,
+        record_login_attempt=None,
+        record_lockout_failure=None,
+        clear_global_account_lockout=None,
+        clear_lockout=None,
+    )
     d.update(ov)
-    for k, v in d.items(): setattr(ML, k, AsyncMock(return_value=v))
+    for k, v in d.items():
+        setattr(ML, k, AsyncMock(return_value=v))
+
 
 def _audit():
-    a = AsyncMock(); a.log = AsyncMock(); return a
+    a = AsyncMock()
+    a.log = AsyncMock()
+    return a
+
 
 # ── 端点测试 ──
-import os as _os, time as _time
 from contextlib import contextmanager
-from edgelite.api.deps import get_audit_service, get_current_user, get_database
+
 
 def _mkdb():
-    db = MagicMock(); db.write_lock = MagicMock()
-    s = MagicMock(); cm = AsyncMock()
-    cm.__aenter__.return_value = s; cm.__aexit__.return_value = None
+    db = MagicMock()
+    db.write_lock = MagicMock()
+    s = MagicMock()
+    cm = AsyncMock()
+    cm.__aenter__.return_value = s
+    cm.__aexit__.return_value = None
     db.get_session = MagicMock(return_value=cm)
     return db, s
 
+
 def _mkcfg(smtp_host="smtp.example.com", from_addr="from@example.com", gfrt=100):
-    ec = SimpleNamespace(smtp_host=smtp_host, smtp_port=465, smtp_user="u", smtp_password="p", from_addr=from_addr, use_starttls=False)
-    return SimpleNamespace(security=SimpleNamespace(access_token_expire_minutes=30, refresh_token_expire_days=7, global_failure_rate_threshold=gfrt), server=SimpleNamespace(trusted_proxies=[]), database=SimpleNamespace(sqlite_path=_os.path.join(_os.path.dirname(__file__), "nx.db")), notify=SimpleNamespace(email=ec))
+    ec = SimpleNamespace(
+        smtp_host=smtp_host, smtp_port=465, smtp_user="u", smtp_password="p", from_addr=from_addr, use_starttls=False
+    )
+    return SimpleNamespace(
+        security=SimpleNamespace(
+            access_token_expire_minutes=30, refresh_token_expire_days=7, global_failure_rate_threshold=gfrt
+        ),
+        server=SimpleNamespace(trusted_proxies=[]),
+        database=SimpleNamespace(sqlite_path=_os.path.join(_os.path.dirname(__file__), "nx.db")),
+        notify=SimpleNamespace(email=ec),
+    )
+
 
 def _app(db=None, audit=None, user=None):
-    app = FastAPI(); app.include_router(router)
-    if db: app.dependency_overrides[get_database] = lambda: db
-    if audit: app.dependency_overrides[get_audit_service] = lambda: audit
-    if user: app.dependency_overrides[get_current_user] = lambda: user
+    app = FastAPI()
+    app.include_router(router)
+    if db:
+        app.dependency_overrides[get_database] = lambda: db
+    if audit:
+        app.dependency_overrides[get_audit_service] = lambda: audit
+    if user:
+        app.dependency_overrides[get_current_user] = lambda: user
     return app
 
+
 def _rl(ML, **ov):
-    d = dict(check_global_failure_rate=0, check_global_account_lockout=None, check_login_rate=0, get_lockout_info=None, record_global_failure=None, record_global_account_failure=None, record_login_attempt=None, record_lockout_failure=None, clear_global_account_lockout=None, clear_lockout=None)
+    d = dict(
+        check_global_failure_rate=0,
+        check_global_account_lockout=None,
+        check_login_rate=0,
+        get_lockout_info=None,
+        record_global_failure=None,
+        record_global_account_failure=None,
+        record_login_attempt=None,
+        record_lockout_failure=None,
+        clear_global_account_lockout=None,
+        clear_lockout=None,
+    )
     d.update(ov)
-    for k, v in d.items(): setattr(ML, k, AsyncMock(return_value=v))
+    for k, v in d.items():
+        setattr(ML, k, AsyncMock(return_value=v))
+
 
 def _au():
-    a = AsyncMock(); a.log = AsyncMock(); return a
+    a = AsyncMock()
+    a.log = AsyncMock()
+    return a
+
 
 _U = {"user_id": "u1", "username": "admin", "role": "admin", "password": "$2b$14$h", "enabled": True}
 _MU = {"user_id": "u1", "username": "admin", "role": "admin"}
 
+
 @contextmanager
 def _login_ctx(db, user_data=_U, vp=True, **rl):
-    with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-         patch("edgelite.api.auth.UserRepo") as MU, patch("edgelite.api.auth.RateLimitRepo") as ML, \
-         patch("edgelite.api.auth.verify_password", return_value=vp), \
-         patch("edgelite.api.auth.create_access_token", return_value="at"), \
-         patch("edgelite.api.auth.create_refresh_token", return_value="rt"), \
-         patch("edgelite.api.auth.os.path.exists", return_value=False), \
-         patch("edgelite.security.jwt.decode_token", return_value={"jti": "j1"}), \
-         patch("edgelite.security.session_manager.revoke_old_sessions", new=AsyncMock()), \
-         patch("edgelite.middleware.csrf.generate_csrf_token", return_value="ct"):
+    with (
+        patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+        patch("edgelite.api.auth.UserRepo") as MU,
+        patch("edgelite.api.auth.RateLimitRepo") as ML,
+        patch("edgelite.api.auth.verify_password", return_value=vp),
+        patch("edgelite.api.auth.create_access_token", return_value="at"),
+        patch("edgelite.api.auth.create_refresh_token", return_value="rt"),
+        patch("edgelite.api.auth.os.path.exists", return_value=False),
+        patch("edgelite.security.jwt.decode_token", return_value={"jti": "j1"}),
+        patch("edgelite.security.session_manager.revoke_old_sessions", new=AsyncMock()),
+        patch("edgelite.middleware.csrf.generate_csrf_token", return_value="ct"),
+    ):
         MU.return_value.get_by_username_with_password = AsyncMock(return_value=user_data)
         _rl(ML, **rl)
         yield TestClient(_app(db=db, audit=_au()))
 
+
 @contextmanager
 def _refresh_ctx(db, payload=None, user_data=_U):
     p = payload or {"jti": "oj", "sub": "u1", "username": "admin", "iat": 9, "exp": 9}
-    with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-         patch("edgelite.api.auth.UserRepo") as MU, \
-         patch("edgelite.api.auth.verify_token", return_value=p), \
-         patch("edgelite.api.auth.create_access_token", return_value="na"), \
-         patch("edgelite.api.auth.create_refresh_token", return_value="nr"), \
-         patch("edgelite.security.jwt.decode_token", return_value={"jti": "nj"}), \
-         patch("edgelite.security.token_revocation.is_token_revoked", return_value=False), \
-         patch("edgelite.security.session_manager.register_session"), \
-         patch("edgelite.security.token_revocation.revoke_token"), \
-         patch("edgelite.security.session_manager.remove_session"), \
-         patch("edgelite.middleware.csrf.generate_csrf_token", return_value="nc"):
+    with (
+        patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+        patch("edgelite.api.auth.UserRepo") as MU,
+        patch("edgelite.api.auth.verify_token", return_value=p),
+        patch("edgelite.api.auth.create_access_token", return_value="na"),
+        patch("edgelite.api.auth.create_refresh_token", return_value="nr"),
+        patch("edgelite.security.jwt.decode_token", return_value={"jti": "nj"}),
+        patch("edgelite.security.token_revocation.is_token_revoked", return_value=False),
+        patch("edgelite.security.session_manager.register_session"),
+        patch("edgelite.security.token_revocation.revoke_token"),
+        patch("edgelite.security.session_manager.remove_session"),
+        patch("edgelite.middleware.csrf.generate_csrf_token", return_value="nc"),
+    ):
         MU.return_value.get_by_username = AsyncMock(return_value=user_data)
         yield TestClient(_app(db=db))
 
+
 @contextmanager
 def _chg_ctx(db, vp=True, user_data=_U):
-    with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-         patch("edgelite.api.auth.UserRepo") as MU, \
-         patch("edgelite.api.auth.verify_password", return_value=vp), \
-         patch("edgelite.security.password.hash_password", return_value="nh"), \
-         patch("edgelite.security.session_manager.clear_user_sessions", return_value=[]), \
-         patch("edgelite.security.token_revocation.revoke_token_async", new=AsyncMock()):
+    with (
+        patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+        patch("edgelite.api.auth.UserRepo") as MU,
+        patch("edgelite.api.auth.verify_password", return_value=vp),
+        patch("edgelite.security.password.hash_password", return_value="nh"),
+        patch("edgelite.security.session_manager.clear_user_sessions", return_value=[]),
+        patch("edgelite.security.token_revocation.revoke_token_async", new=AsyncMock()),
+    ):
         MU.return_value.get_by_username_with_password = AsyncMock(return_value=user_data)
         MU.return_value.update_password_and_clear_flag = AsyncMock(return_value=True)
         yield TestClient(_app(db=db, audit=_au(), user=_MU))
+
 
 class TestLogin:
     def test_success(self):
@@ -501,48 +574,69 @@ class TestLogin:
         with _login_ctx(db) as c:
             r = c.post("/api/v1/auth/login", json={"username": "admin", "password": "Pass123!@#"})
             assert r.status_code == 200 and r.json()["data"]["access_token"] == "at"
+
     def test_user_not_found(self):
         db, _ = _mkdb()
         with _login_ctx(db, user_data=None, vp=False) as c:
             r = c.post("/api/v1/auth/login", json={"username": "x", "password": "p"})
             assert r.status_code == 401
+
     def test_wrong_password(self):
         db, _ = _mkdb()
         with _login_ctx(db, vp=False) as c:
             r = c.post("/api/v1/auth/login", json={"username": "admin", "password": "w"})
             assert r.status_code == 401
+
     def test_disabled_user(self):
         db, _ = _mkdb()
         u = dict(_U, enabled=False)
         with _login_ctx(db, user_data=u) as c:
             r = c.post("/api/v1/auth/login", json={"username": "admin", "password": "p"})
             assert r.status_code == 401
+
     def test_global_rate_exceeded(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg(gfrt=5)), patch("edgelite.api.auth.RateLimitRepo") as ML:
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg(gfrt=5)),
+            patch("edgelite.api.auth.RateLimitRepo") as ML,
+        ):
             ML.check_global_failure_rate = AsyncMock(return_value=10)
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/login", json={"username": "a", "password": "p"})
             assert r.status_code == 429
+
     def test_global_lockout(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), patch("edgelite.api.auth.RateLimitRepo") as ML:
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.api.auth.RateLimitRepo") as ML,
+        ):
             ML.check_global_failure_rate = AsyncMock(return_value=0)
             ML.check_global_account_lockout = AsyncMock(return_value={"locked_until": _time.time() + 3600})
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/login", json={"username": "a", "password": "p"})
             assert r.status_code == 423
+
     def test_ip_rate_limited(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), patch("edgelite.api.auth.RateLimitRepo") as ML:
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.api.auth.RateLimitRepo") as ML,
+        ):
             ML.check_global_failure_rate = AsyncMock(return_value=0)
             ML.check_global_account_lockout = AsyncMock(return_value=None)
             ML.check_login_rate = AsyncMock(return_value=_MAX_LOGIN_attempts)
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/login", json={"username": "a", "password": "p"})
             assert r.status_code == 429
+
     def test_pw_file_removal_fails(self):
         db, _ = _mkdb()
-        with _login_ctx(db) as c, patch("edgelite.api.auth.os.path.exists", return_value=True), patch("edgelite.api.auth.os.remove", side_effect=OSError("d")):
+        with (
+            _login_ctx(db) as c,
+            patch("edgelite.api.auth.os.path.exists", return_value=True),
+            patch("edgelite.api.auth.os.remove", side_effect=OSError("d")),
+        ):
             r = c.post("/api/v1/auth/login", json={"username": "admin", "password": "p"})
             assert r.status_code == 500
+
 
 class TestRefresh:
     def test_success(self):
@@ -550,38 +644,49 @@ class TestRefresh:
         with _refresh_ctx(db) as c:
             r = c.post("/api/v1/auth/refresh", json={"refresh": "old"})
             assert r.status_code == 200 and r.json()["data"]["access_token"] == "na"
+
     def test_no_token(self):
         db, _ = _mkdb()
         r = TestClient(_app(db=db)).post("/api/v1/auth/refresh", json={})
         assert r.status_code == 401
+
     def test_invalid_token(self):
         db, _ = _mkdb()
         from jwt import PyJWTError
+
         with patch("edgelite.api.auth.verify_token", side_effect=PyJWTError("b")):
             r = TestClient(_app(db=db)).post("/api/v1/auth/refresh", json={"refresh": "bad"})
             assert r.status_code == 401
+
     def test_revoked(self):
         db, _ = _mkdb()
         with _refresh_ctx(db) as c, patch("edgelite.security.token_revocation.is_token_revoked", return_value=True):
             r = c.post("/api/v1/auth/refresh", json={"refresh": "rev"})
             assert r.status_code == 401
+
     def test_user_not_found(self):
         db, _ = _mkdb()
         with _refresh_ctx(db, user_data=None) as c:
             r = c.post("/api/v1/auth/refresh", json={"refresh": "old"})
             assert r.status_code == 401
+
     def test_password_changed(self):
         db, _ = _mkdb()
         from datetime import datetime
+
         u = dict(_U, password_changed_at=datetime.now().isoformat())
-        with _refresh_ctx(db, payload={"jti": "oj", "sub": "u1", "username": "admin", "iat": 1, "exp": 9}, user_data=u) as c:
+        with _refresh_ctx(
+            db, payload={"jti": "oj", "sub": "u1", "username": "admin", "iat": 1, "exp": 9}, user_data=u
+        ) as c:
             r = c.post("/api/v1/auth/refresh", json={"refresh": "old"})
             assert r.status_code == 401
+
     def test_from_cookie(self):
         db, _ = _mkdb()
         with _refresh_ctx(db) as c:
             r = c.post("/api/v1/auth/refresh", json={}, cookies={_AUTH_COOKIE_REFRESH: "cr"})
             assert r.status_code == 200
+
 
 class TestMe:
     def test_success(self):
@@ -590,12 +695,14 @@ class TestMe:
             MU.return_value.get_by_username = AsyncMock(return_value={"username": "a", "must_change_password": True})
             r = TestClient(_app(db=db, user=_MU)).get("/api/v1/auth/me")
             assert r.status_code == 200 and r.json()["data"]["must_change_password"] is True
+
     def test_user_not_found(self):
         db, _ = _mkdb()
         with patch("edgelite.storage.sqlite_repo.UserRepo") as MU:
             MU.return_value.get_by_username = AsyncMock(return_value=None)
             r = TestClient(_app(db=db, user=_MU)).get("/api/v1/auth/me")
             assert r.status_code == 200 and r.json()["data"]["must_change_password"] is False
+
     def test_db_error(self):
         db, _ = _mkdb()
         with patch("edgelite.storage.sqlite_repo.UserRepo") as MU:
@@ -610,54 +717,71 @@ class TestChangePassword:
         with _chg_ctx(db) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "Old1@", "new_password": "New456@#"})
             assert r.status_code == 200, r.text
+
     def test_wrong_old(self):
         db, _ = _mkdb()
         with _chg_ctx(db, vp=False) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "w", "new_password": "New456@#"})
             assert r.status_code == 400
+
     def test_user_not_found(self):
         db, _ = _mkdb()
         with _chg_ctx(db, user_data=None) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "x", "new_password": "New456@#"})
             assert r.status_code == 404
+
     def test_too_short(self):
         db, _ = _mkdb()
         with _chg_ctx(db) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "Old1@", "new_password": "Ab1@"})
             assert r.status_code == 400
+
     def test_same_as_old(self):
         db, _ = _mkdb()
         with _chg_ctx(db) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "Same1@", "new_password": "Same1@"})
             assert r.status_code == 400
+
     def test_no_special(self):
         db, _ = _mkdb()
         with _chg_ctx(db) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "Old1@", "new_password": "NewPass456"})
             assert r.status_code == 400
+
     def test_no_letter_digit(self):
         db, _ = _mkdb()
         with _chg_ctx(db) as c:
             r = c.post("/api/v1/auth/change-password", json={"old_password": "Old1@", "new_password": "@@@@@@@@"})
             assert r.status_code == 400
+
     def test_too_long(self):
         db, _ = _mkdb()
         with _chg_ctx(db) as c:
-            r = c.post("/api/v1/auth/change-password", json={"old_password": "Old1@", "new_password": "A1@" + "a" * 126})
+            r = c.post(
+                "/api/v1/auth/change-password", json={"old_password": "Old1@", "new_password": "A1@" + "a" * 126}
+            )
             assert r.status_code == 400
+
 
 class TestForgotPassword:
     def test_rate_limited(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML:
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+        ):
             ML.check_password_reset_ip_rate = AsyncMock(return_value=(-1, 3600))
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/forgot-password", json={"username": "x"})
             assert r.status_code == 429
+
     def test_user_not_found(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, \
-             patch("edgelite.api.auth.asyncio.sleep", new=AsyncMock()), patch("edgelite.api.auth.UserRepo") as MU:
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.api.auth.asyncio.sleep", new=AsyncMock()),
+            patch("edgelite.api.auth.UserRepo") as MU,
+        ):
             ML.check_password_reset_ip_rate = AsyncMock(return_value=(0, 0))
             ML.check_password_reset_user_rate = AsyncMock(return_value=(0, 0))
             ML.record_password_reset_ip_attempt = AsyncMock(return_value=1)
@@ -665,11 +789,15 @@ class TestForgotPassword:
             MU.return_value.get_by_username = AsyncMock(return_value=None)
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/forgot-password", json={"username": "nouser"})
             assert r.status_code == 200
+
     def test_email_not_configured(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg(smtp_host="", from_addr="")), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, patch("edgelite.api.auth.UserRepo") as MU, \
-             patch("edgelite.api.auth.create_access_token", return_value="rt"):
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg(smtp_host="", from_addr="")),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.api.auth.UserRepo") as MU,
+            patch("edgelite.api.auth.create_access_token", return_value="rt"),
+        ):
             ML.check_password_reset_ip_rate = AsyncMock(return_value=(0, 0))
             ML.check_password_reset_user_rate = AsyncMock(return_value=(0, 0))
             ML.record_password_reset_ip_attempt = AsyncMock(return_value=1)
@@ -677,12 +805,18 @@ class TestForgotPassword:
             MU.return_value.get_by_username = AsyncMock(return_value={"username": "a", "email": "a@b.com"})
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/forgot-password", json={"username": "admin"})
             assert r.status_code == 200
+
     def test_no_frontend_url(self):
         db, _ = _mkdb()
-        import os as _om; _om.environ.pop("EDGELITE_FRONTEND_URL", None)
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, patch("edgelite.api.auth.UserRepo") as MU, \
-             patch("edgelite.api.auth.create_access_token", return_value="rt"):
+        import os as _om
+
+        _om.environ.pop("EDGELITE_FRONTEND_URL", None)
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.api.auth.UserRepo") as MU,
+            patch("edgelite.api.auth.create_access_token", return_value="rt"),
+        ):
             ML.check_password_reset_ip_rate = AsyncMock(return_value=(0, 0))
             ML.check_password_reset_user_rate = AsyncMock(return_value=(0, 0))
             ML.record_password_reset_ip_attempt = AsyncMock(return_value=1)
@@ -690,107 +824,173 @@ class TestForgotPassword:
             MU.return_value.get_by_username = AsyncMock(return_value={"username": "a", "email": "a@b.com"})
             r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/forgot-password", json={"username": "admin"})
             assert r.status_code == 200 and r.json()["code"] == 500
+
     def test_success(self):
         db, _ = _mkdb()
-        import os as _om; _om.environ["EDGELITE_FRONTEND_URL"] = "https://reset.example.com"
+        import os as _om
+
+        _om.environ["EDGELITE_FRONTEND_URL"] = "https://reset.example.com"
         try:
-            with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-                 patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, patch("edgelite.api.auth.UserRepo") as MU, \
-                 patch("edgelite.api.auth.create_access_token", return_value="rt"), \
-                 patch("edgelite.api.auth.asyncio.to_thread", new=AsyncMock()):
+            with (
+                patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+                patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+                patch("edgelite.api.auth.UserRepo") as MU,
+                patch("edgelite.api.auth.create_access_token", return_value="rt"),
+                patch("edgelite.api.auth.asyncio.to_thread", new=AsyncMock()),
+            ):
                 ML.check_password_reset_ip_rate = AsyncMock(return_value=(0, 0))
                 ML.check_password_reset_user_rate = AsyncMock(return_value=(0, 0))
                 ML.record_password_reset_ip_attempt = AsyncMock(return_value=1)
                 ML.record_password_reset_user_attempt = AsyncMock(return_value=1)
                 MU.return_value.get_by_username = AsyncMock(return_value={"username": "a", "email": "a@b.com"})
-                r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/forgot-password", json={"username": "admin"})
+                r = TestClient(_app(db=db, audit=_au())).post(
+                    "/api/v1/auth/forgot-password", json={"username": "admin"}
+                )
                 assert r.status_code == 200
         finally:
             _om.environ.pop("EDGELITE_FRONTEND_URL", None)
 
+
 class TestResetPassword:
     def test_rate_limited(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML:
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+        ):
             ML.check_reset_usage_ip_rate = AsyncMock(return_value=(-1, 3600))
-            r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"})
+            r = TestClient(_app(db=db, audit=_au())).post(
+                "/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"}
+            )
             assert r.status_code == 429
+
     def test_invalid_token(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, \
-             patch("edgelite.security.jwt.verify_token", side_effect=Exception("bad")):
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.security.jwt.verify_token", side_effect=Exception("bad")),
+        ):
             ML.check_reset_usage_ip_rate = AsyncMock(return_value=(0, 0))
             ML.record_reset_usage_attempt = AsyncMock()
-            r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/reset-password", json={"token": "bad", "new_password": "New456@#"})
+            r = TestClient(_app(db=db, audit=_au())).post(
+                "/api/v1/auth/reset-password", json={"token": "bad", "new_password": "New456@#"}
+            )
             assert r.status_code == 400
+
     def test_already_used(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, \
-             patch("edgelite.security.jwt.verify_token", return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9}):
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch(
+                "edgelite.security.jwt.verify_token",
+                return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9},
+            ),
+        ):
             ML.check_reset_usage_ip_rate = AsyncMock(return_value=(0, 0))
             ML.record_reset_usage_attempt = AsyncMock()
             ML.is_password_reset_token_used = AsyncMock(return_value=True)
-            r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"})
+            r = TestClient(_app(db=db, audit=_au())).post(
+                "/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"}
+            )
             assert r.status_code == 410
+
     def test_success(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, patch("edgelite.api.auth.UserRepo") as MU, \
-             patch("edgelite.security.jwt.verify_token", return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9}), \
-             patch("edgelite.security.password.hash_password", return_value="nh"), patch("edgelite.security.token_revocation.revoke_token"):
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.api.auth.UserRepo") as MU,
+            patch(
+                "edgelite.security.jwt.verify_token",
+                return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9},
+            ),
+            patch("edgelite.security.password.hash_password", return_value="nh"),
+            patch("edgelite.security.token_revocation.revoke_token"),
+        ):
             ML.check_reset_usage_ip_rate = AsyncMock(return_value=(0, 0))
             ML.record_reset_usage_attempt = AsyncMock()
             ML.is_password_reset_token_used = AsyncMock(return_value=False)
             ML.mark_password_reset_token_used = AsyncMock(return_value=True)
             MU.return_value.get_by_username_with_password = AsyncMock(return_value=_U)
             MU.return_value.update_password = AsyncMock()
-            r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"})
+            r = TestClient(_app(db=db, audit=_au())).post(
+                "/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"}
+            )
             assert r.status_code == 200, r.text
+
     def test_user_not_found(self):
         db, _ = _mkdb()
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, patch("edgelite.api.auth.UserRepo") as MU, \
-             patch("edgelite.security.jwt.verify_token", return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9}), \
-             patch("edgelite.security.password.hash_password", return_value="nh"):
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.api.auth.UserRepo") as MU,
+            patch(
+                "edgelite.security.jwt.verify_token",
+                return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9},
+            ),
+            patch("edgelite.security.password.hash_password", return_value="nh"),
+        ):
             ML.check_reset_usage_ip_rate = AsyncMock(return_value=(0, 0))
             ML.record_reset_usage_attempt = AsyncMock()
             ML.is_password_reset_token_used = AsyncMock(return_value=False)
             ML.mark_password_reset_token_used = AsyncMock(return_value=True)
             MU.return_value.get_by_username_with_password = AsyncMock(return_value=None)
-            r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"})
+            r = TestClient(_app(db=db, audit=_au())).post(
+                "/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"}
+            )
             assert r.status_code == 404
+
     def test_disabled_account(self):
         db, _ = _mkdb()
         u = dict(_U, enabled=False)
-        with patch("edgelite.api.auth.get_config", return_value=_mkcfg()), \
-             patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML, patch("edgelite.api.auth.UserRepo") as MU, \
-             patch("edgelite.security.jwt.verify_token", return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9}), \
-             patch("edgelite.security.password.hash_password", return_value="nh"):
+        with (
+            patch("edgelite.api.auth.get_config", return_value=_mkcfg()),
+            patch("edgelite.storage.sqlite_repo.RateLimitRepo") as ML,
+            patch("edgelite.api.auth.UserRepo") as MU,
+            patch(
+                "edgelite.security.jwt.verify_token",
+                return_value={"type": "password_reset", "sub": "a", "jti": "j", "exp": 9},
+            ),
+            patch("edgelite.security.password.hash_password", return_value="nh"),
+        ):
             ML.check_reset_usage_ip_rate = AsyncMock(return_value=(0, 0))
             ML.record_reset_usage_attempt = AsyncMock()
             ML.is_password_reset_token_used = AsyncMock(return_value=False)
             ML.mark_password_reset_token_used = AsyncMock(return_value=True)
             MU.return_value.get_by_username_with_password = AsyncMock(return_value=u)
-            r = TestClient(_app(db=db, audit=_au())).post("/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"})
+            r = TestClient(_app(db=db, audit=_au())).post(
+                "/api/v1/auth/reset-password", json={"token": "t", "new_password": "New456@#"}
+            )
             assert r.status_code == 200
+
 
 class TestLogout:
     def test_with_bearer(self):
-        with patch("edgelite.security.jwt.decode_token", return_value={"jti": "j", "exp": 9}), \
-             patch("edgelite.security.token_revocation.revoke_token"), \
-             patch("edgelite.security.session_manager.remove_session"), \
-             patch("edgelite.middleware.csrf.remove_csrf_token"):
-            r = TestClient(_app(user=_MU, audit=_au())).post("/api/v1/auth/logout", headers={"Authorization": "Bearer fake"})
+        with (
+            patch("edgelite.security.jwt.decode_token", return_value={"jti": "j", "exp": 9}),
+            patch("edgelite.security.token_revocation.revoke_token"),
+            patch("edgelite.security.session_manager.remove_session"),
+            patch("edgelite.middleware.csrf.remove_csrf_token"),
+        ):
+            r = TestClient(_app(user=_MU, audit=_au())).post(
+                "/api/v1/auth/logout", headers={"Authorization": "Bearer fake"}
+            )
             assert r.status_code == 200, r.text
+
     def test_with_cookies(self):
-        with patch("edgelite.security.jwt.decode_token", return_value={"jti": "j", "exp": 9}), \
-             patch("edgelite.security.token_revocation.revoke_token"), \
-             patch("edgelite.security.session_manager.remove_session"), \
-             patch("edgelite.middleware.csrf.remove_csrf_token"):
-            r = TestClient(_app(user=_MU, audit=_au())).post("/api/v1/auth/logout", cookies={_AUTH_COOKIE_ACCESS: "ca", _AUTH_COOKIE_REFRESH: "cr"})
+        with (
+            patch("edgelite.security.jwt.decode_token", return_value={"jti": "j", "exp": 9}),
+            patch("edgelite.security.token_revocation.revoke_token"),
+            patch("edgelite.security.session_manager.remove_session"),
+            patch("edgelite.middleware.csrf.remove_csrf_token"),
+        ):
+            r = TestClient(_app(user=_MU, audit=_au())).post(
+                "/api/v1/auth/logout", cookies={_AUTH_COOKIE_ACCESS: "ca", _AUTH_COOKIE_REFRESH: "cr"}
+            )
             assert r.status_code == 200
+
     def test_no_tokens(self):
         with patch("edgelite.middleware.csrf.remove_csrf_token"):
             r = TestClient(_app(user=_MU, audit=_au())).post("/api/v1/auth/logout")

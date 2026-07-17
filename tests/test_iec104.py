@@ -59,7 +59,7 @@ class TestIec104QualityConstants:
         """各质量位互不重叠"""
         masks = [QUALITY_OV, QUALITY_BL, QUALITY_SB, QUALITY_NT, QUALITY_IV]
         for i, a in enumerate(masks):
-            for b in masks[i + 1:]:
+            for b in masks[i + 1 :]:
                 assert a & b == 0, f"掩码重叠: {a:#x} & {b:#x}"
 
 
@@ -122,9 +122,7 @@ class TestIec104SiqParse:
     def _parse(self, siq_byte: int) -> dict:
         driver = Iec104Driver.__new__(Iec104Driver)
         data = bytes([siq_byte])
-        return driver._parse_information_object(
-            ti=TI_M_SP_NA, data=data, offset=0, ioa=1, cot=3, asdu_addr=1
-        )
+        return driver._parse_information_object(ti=TI_M_SP_NA, data=data, offset=0, ioa=1, cot=3, asdu_addr=1)
 
     def test_value_on_good_quality(self):
         """SIQ=0x01: value=1, 无质量标志 → good"""
@@ -162,9 +160,7 @@ class TestIec104DiqParse:
     def _parse(self, diq_byte: int) -> dict:
         driver = Iec104Driver.__new__(Iec104Driver)
         data = bytes([diq_byte])
-        return driver._parse_information_object(
-            ti=TI_M_DP_NA, data=data, offset=0, ioa=1, cot=3, asdu_addr=1
-        )
+        return driver._parse_information_object(ti=TI_M_DP_NA, data=data, offset=0, ioa=1, cot=3, asdu_addr=1)
 
     def test_value_intermediate_good(self):
         """DIQ=0x02: value=2(中间态), 无标志 → good
@@ -212,9 +208,7 @@ class TestIec104AnalogQdsParse:
     def _parse_me_na(self, nva: int, qds: int) -> dict:
         driver = Iec104Driver.__new__(Iec104Driver)
         data = struct.pack("<hB", nva, qds)
-        return driver._parse_information_object(
-            ti=TI_M_ME_NA, data=data, offset=0, ioa=1, cot=3, asdu_addr=1
-        )
+        return driver._parse_information_object(ti=TI_M_ME_NA, data=data, offset=0, ioa=1, cot=3, asdu_addr=1)
 
     def test_good(self):
         """QDS=0x00 → good"""
@@ -241,9 +235,7 @@ class TestIec104AnalogQdsParse:
         """TI_M_ME_NC (浮点) QDS 解码"""
         driver = Iec104Driver.__new__(Iec104Driver)
         data = struct.pack("<fB", 3.14, 0x20)  # value + IV(0x20)
-        r = driver._parse_information_object(
-            ti=TI_M_ME_NC, data=data, offset=0, ioa=1, cot=3, asdu_addr=1
-        )
+        r = driver._parse_information_object(ti=TI_M_ME_NC, data=data, offset=0, ioa=1, cot=3, asdu_addr=1)
         assert abs(r["value"] - 3.14) < 1e-6
         assert r["quality"] == "invalid"
 
@@ -292,45 +284,43 @@ class TestIec104SboConfirmation:
     def test_select_confirm_sets_event(self):
         """Select-Confirm (COT=7) 唤醒 select 等待并标记成功"""
         d = self._make_driver(ioa=123)
-        d._handle_sbo_confirmation([
-            self._cmd_point(123, TI_C_SC_NA, 7, SBO_SELECT)
-        ])
+        d._handle_sbo_confirmation([self._cmd_point(123, TI_C_SC_NA, 7, SBO_SELECT)])
         assert d._sbo_select_result is True
         assert d._sbo_select_event.is_set()
 
     def test_execute_confirm_sets_event(self):
         """Execute-Confirm (COT=7) 唤醒 execute 等待并标记成功"""
         d = self._make_driver(ioa=123)
-        d._handle_sbo_confirmation([
-            self._cmd_point(123, TI_C_SC_NA, 7, SBO_EXECUTE)
-        ])
+        d._handle_sbo_confirmation([self._cmd_point(123, TI_C_SC_NA, 7, SBO_EXECUTE)])
         assert d._sbo_execute_result is True
         assert d._sbo_execute_event.is_set()
 
     def test_select_rejected_marks_failure(self):
         """Select 被拒 (COT!=7) 标记失败但仍唤醒等待方"""
         d = self._make_driver(ioa=123)
-        d._handle_sbo_confirmation([
-            self._cmd_point(123, TI_C_SC_NA, 47, SBO_SELECT)  # COT=47=未知类型
-        ])
+        d._handle_sbo_confirmation(
+            [
+                self._cmd_point(123, TI_C_SC_NA, 47, SBO_SELECT)  # COT=47=未知类型
+            ]
+        )
         assert d._sbo_select_result is False
         assert d._sbo_select_event.is_set()
 
     def test_execute_rejected_marks_failure(self):
         """Execute 被拒 (COT!=7) 标记失败但仍唤醒等待方"""
         d = self._make_driver(ioa=123)
-        d._handle_sbo_confirmation([
-            self._cmd_point(123, TI_C_SC_NA, 46, SBO_EXECUTE)  # COT=46=未知原因
-        ])
+        d._handle_sbo_confirmation(
+            [
+                self._cmd_point(123, TI_C_SC_NA, 46, SBO_EXECUTE)  # COT=46=未知原因
+            ]
+        )
         assert d._sbo_execute_result is False
         assert d._sbo_execute_event.is_set()
 
     def test_mismatched_ioa_ignored(self):
         """IOA 不匹配时不触发确认"""
         d = self._make_driver(ioa=123)
-        d._handle_sbo_confirmation([
-            self._cmd_point(999, TI_C_SC_NA, 7, SBO_SELECT)
-        ])
+        d._handle_sbo_confirmation([self._cmd_point(999, TI_C_SC_NA, 7, SBO_SELECT)])
         assert d._sbo_select_result is None
         assert not d._sbo_select_event.is_set()
 
@@ -338,9 +328,7 @@ class TestIec104SboConfirmation:
         """无选中 IOA 时忽略所有命令确认"""
         d = self._make_driver(ioa=123)
         d._sbo_selected_ioa = None
-        d._handle_sbo_confirmation([
-            self._cmd_point(123, TI_C_SC_NA, 7, SBO_SELECT)
-        ])
+        d._handle_sbo_confirmation([self._cmd_point(123, TI_C_SC_NA, 7, SBO_SELECT)])
         assert d._sbo_select_result is None
         assert not d._sbo_select_event.is_set()
 
@@ -353,9 +341,7 @@ class TestIec104SboConfirmation:
         async def simulate_select_confirm():
             # 等 select 命令发出后回复确认
             await asyncio.sleep(0.02)
-            d._handle_sbo_confirmation([
-                self._cmd_point(123, TI_C_SC_NA, 7, SBO_SELECT)
-            ])
+            d._handle_sbo_confirmation([self._cmd_point(123, TI_C_SC_NA, 7, SBO_SELECT)])
 
         async def simulate_execute_confirm():
             # FIXED: 先等待 select 确认完成，再延迟触发 execute 确认
@@ -363,9 +349,7 @@ class TestIec104SboConfirmation:
             # 导致确认被忽略，execute 超时失败（偶发竞态）
             await d._sbo_select_event.wait()
             await asyncio.sleep(0.02)
-            d._handle_sbo_confirmation([
-                self._cmd_point(123, TI_C_SC_NA, 7, SBO_EXECUTE)
-            ])
+            d._handle_sbo_confirmation([self._cmd_point(123, TI_C_SC_NA, 7, SBO_EXECUTE)])
 
         sim_select = asyncio.ensure_future(simulate_select_confirm())
         sim_execute = asyncio.ensure_future(simulate_execute_confirm())

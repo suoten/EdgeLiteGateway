@@ -172,6 +172,7 @@ class TestGlobalStateNotModified:
         import os
         import socket
         import subprocess
+
         assert os is not None
         assert subprocess is not None
         assert socket is not None

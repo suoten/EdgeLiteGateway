@@ -162,6 +162,17 @@ ignore = ["B008", "B027", "N812", "N813", "N814", "N806", "N801", "N818",
 "src/edgelite/storage/database.py" = ["E501"]
 "src/edgelite/storage/influx_storage.py" = ["E501"]
 "src/edgelite/storage/sqlite_ts.py" = ["E501"]
+# FIXED: 测试文件 per-file-ignores — 测试代码风格宽松，重点保证生产代码质量
+# _auto.py: 自动生成的测试文件使用 star imports 覆盖驱动全部公开接口
+"tests/*_auto.py" = ["F401", "F403", "F405", "E702", "I001"]
+# _ext.py: 扩展测试文件使用 star imports + assert False + 未使用变量
+"tests/*_ext.py" = ["F401", "F403", "F405", "I001", "N802", "B011", "F841"]
+# test_acceptance_*.py: 验收测试文件
+"tests/test_acceptance_*.py" = ["I001", "F401"]
+# conftest.py: 测试配置文件
+"tests/conftest.py" = ["F401"]
+# 通用测试文件豁免 — star imports、assert False、未使用变量等测试常见模式
+"tests/*.py" = ["I001", "F401", "F403", "F405", "UP031", "E401", "E501", "E702", "N803", "F811", "F841", "N802", "B011", "B017", "UP041", "UP042", "UP012", "SIM118", "SIM300", "SIM222", "B007"]
 
 [tool.pyright]
 pythonVersion = "3.11"

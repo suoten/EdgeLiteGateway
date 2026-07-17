@@ -132,9 +132,7 @@ class BaseNorthAdapter:
         self._connected = False
         self._state = "disconnected"
         self._queue = SimpleNamespace(size=0)
-        self._metrics = SimpleNamespace(
-            messages_total=0, errors_total=0, dedup_dropped=0, compressed_total=0
-        )
+        self._metrics = SimpleNamespace(messages_total=0, errors_total=0, dedup_dropped=0, compressed_total=0)
         self._last_heartbeat = None
         self._mqtt_client = None
 
@@ -226,9 +224,7 @@ class JsSandbox:
         return True, []
 
     async def execute(self, script, payload, context):
-        return JsSandboxResult(
-            success=True, data={"out": payload}, error=None, execution_ms=1.0
-        )
+        return JsSandboxResult(success=True, data={"out": payload}, error=None, execution_ms=1.0)
 
 
 _js_sandbox_mod = types.ModuleType("edgelite.platform.js_sandbox")
@@ -331,9 +327,7 @@ def make_app(router=None, role: str = "admin", services: dict | None = None):
 
     from edgelite.api.deps import get_current_user
 
-    os.environ.setdefault(
-        "EDGELITE_SECURITY__SECRET_KEY", "test-secret-key-for-testing-only-32chars!"
-    )
+    os.environ.setdefault("EDGELITE_SECURITY__SECRET_KEY", "test-secret-key-for-testing-only-32chars!")
     os.environ.setdefault("DEV_MODE", "true")
 
     app = FastAPI(title="EdgeLite Test")
@@ -350,4 +344,3 @@ def make_app(router=None, role: str = "admin", services: dict | None = None):
             setattr(app.state, key, value)
 
     return app
-

@@ -32,9 +32,8 @@ import pytest
 
 sys.path.insert(0, "src")
 
-from edgelite.engine.event_bus import AlarmEvent, EventBus, PointUpdateEvent
 from edgelite.engine.evaluator import RuleEvaluator
-
+from edgelite.engine.event_bus import EventBus, PointUpdateEvent
 
 # ════════════════════════════════════════════════════════════════════════
 # 辅助函数
@@ -194,7 +193,6 @@ class TestResolveDeviceName:
         """device_repo 为 None 时返回 device_id 本身"""
         name = await evaluator._resolve_device_name("dX")
         assert name == "dX"
-
 
     async def test_returns_id_when_device_has_no_name(self, evaluator_full, device_repo):
         """设备字典无 name 字段时返回 device_id"""
@@ -382,7 +380,6 @@ class TestCompare:
         assert RuleEvaluator._compare(5, "==", 5) is True
         assert RuleEvaluator._compare(5.0001, "==", 5) is False
 
-
     def test_ne(self):
         assert RuleEvaluator._compare(6, "!=", 5) is True
         assert RuleEvaluator._compare(5, "!=", 5) is False
@@ -432,7 +429,6 @@ class TestCheckConditions:
         result = await evaluator._check_conditions(conds, {"p1": 10, "p2": 15}, "OR")
         assert result is False
 
-
     async def test_not_all_true_returns_false(self, evaluator):
         """NOT 逻辑：全部满足时返回 False"""
         conds = [{"point": "p1", "operator": ">", "threshold": 5}]
@@ -450,7 +446,6 @@ class TestCheckConditions:
         result = await evaluator._check_conditions(conds, {"p1": 10}, "AND")
         assert result is False
 
-
     async def test_dead_zone_skips_last_value_update_when_stable(self, evaluator):
         """死区内不更新 last_value，但仍正常评估条件 (BugR4X 修复)"""
         evaluator._last_values["d1:p1"] = 100.0
@@ -460,14 +455,12 @@ class TestCheckConditions:
         assert result is True  # 条件 100>50 仍满足
         assert evaluator._last_values["d1:p1"] == 100.0  # 未更新
 
-
     async def test_duration_seconds_first_met_returns_false(self, evaluator):
         """条件首次满足时记录时间但返回 False (未持续足够时间)"""
         conds = [{"point": "p1", "operator": ">", "threshold": 5, "duration_seconds": 10}]
         result = await evaluator._check_conditions(conds, {"p1": 10}, "AND", "d1", "r1")
         assert result is False
         assert "r1:p1:>:5" in evaluator._condition_first_met
-
 
     async def test_duration_seconds_met(self, evaluator):
         """条件满足且持续足够时间返回 True"""
@@ -487,7 +480,16 @@ class TestCheckConditions:
     async def test_ai_source_condition(self, evaluator_full, ai_engine):
         """AI 推理源条件：从 _get_latest_ai_result 获取值"""
         ai_engine.get_model.return_value = MagicMock(status="active", last_result={"anomaly_score": 0.9})
-        conds = [{"point": "p1", "source": "ai_inference", "model_id": "m1", "field": "anomaly_score", "operator": ">", "threshold": 0.5}]
+        conds = [
+            {
+                "point": "p1",
+                "source": "ai_inference",
+                "model_id": "m1",
+                "field": "anomaly_score",
+                "operator": ">",
+                "threshold": 0.5,
+            }
+        ]
         result = await evaluator_full._check_conditions(conds, {"p1": 10}, "AND", "d1", "r1")
         assert result is True
 
@@ -536,7 +538,6 @@ class TestCheckConditionsCythonPath:
             result = await evaluator._check_conditions(conds, {}, "AND", "d1", "r1")
             assert result is True
 
-
     async def test_fast_path_falls_back_when_missing_value(self, evaluator):
         """测点值缺失时回退到纯 Python 路径"""
         conds = [{"point": "pX", "operator": ">", "threshold": 5}]
@@ -563,14 +564,12 @@ class TestEvaluateAiConditions:
         result = await evaluator_full._evaluate_ai_conditions(conds, {"p1": 10}, "AND", "d1")
         assert result is False
 
-
     async def test_model_not_found_returns_false(self, evaluator_full, ai_engine):
         """模型不存在时该条件为 False"""
         ai_engine.get_model.return_value = None
         conds = [{"point": "p1", "model_id": "m1", "ai_threshold": 0.5}]
         result = await evaluator_full._evaluate_ai_conditions(conds, {"p1": 10}, "AND", "d1")
         assert result is False
-
 
     async def test_infer_success_above_threshold(self, evaluator_full, ai_engine):
         """推理结果超过阈值返回 True"""
@@ -588,7 +587,6 @@ class TestEvaluateAiConditions:
         result = await evaluator_full._evaluate_ai_conditions(conds, {"p1": 10}, "AND", "d1")
         assert result is False
 
-
     async def test_infer_exception_returns_false(self, evaluator_full, ai_engine):
         """推理抛异常时该条件为 False"""
         ai_engine.get_model.return_value = MagicMock(status="active", input_schema={"shape": [1, 1]})
@@ -596,7 +594,6 @@ class TestEvaluateAiConditions:
         conds = [{"point": "p1", "model_id": "m1", "ai_threshold": 0.5}]
         result = await evaluator_full._evaluate_ai_conditions(conds, {"p1": 10}, "AND", "d1")
         assert result is False
-
 
     async def test_input_truncation(self, evaluator_full, ai_engine):
         """输入数据超过期望长度时截断"""
@@ -607,7 +604,6 @@ class TestEvaluateAiConditions:
         assert result is True
         called_args = ai_engine.infer.await_args
         assert called_args.args[1] == [10, 20]
-
 
     async def test_empty_results_returns_false(self, evaluator_full, ai_engine):
         """空结果列表返回 False"""
@@ -633,13 +629,11 @@ class TestGetLatestAiResult:
         ai_engine.get_model.return_value = None
         assert await evaluator_full._get_latest_ai_result("m1") == {}
 
-
     async def test_returns_last_result(self, evaluator_full, ai_engine):
         """返回模型的 last_result"""
         ai_engine.get_model.return_value = MagicMock(status="active", last_result={"score": 0.8})
         result = await evaluator_full._get_latest_ai_result("m1")
         assert result == {"score": 0.8}
-
 
     async def test_exception_returns_empty(self, evaluator_full, ai_engine):
         """get_model 抛异常时返回空字典"""
@@ -673,7 +667,6 @@ class TestGetWindowAggregate:
                 result = await evaluator._get_window_aggregate("d1", "p1", 60, "avg")
                 assert result == 30.0
 
-
     async def test_influx_empty_returns_none(self, evaluator):
         """InfluxDB 也无数据时返回 None"""
         with patch("edgelite.engine.stream_compute.get_stream_engine") as mock_get:
@@ -695,7 +688,6 @@ class TestGetWindowAggregate:
                 mock_state.influx_storage = None
                 result = await evaluator._get_window_aggregate("d1", "p1", 60, "avg")
                 assert result is None
-
 
     async def test_influx_exception_returns_none(self, evaluator):
         """InfluxDB 异常时返回 None"""
@@ -820,7 +812,6 @@ class TestEvaluateRule:
         await evaluator._evaluate_rule(rule, event)
         alarm_repo.recover.assert_not_called()
 
-
     async def test_duration_first_match_no_fire(self, evaluator, alarm_repo):
         """持续时间规则首次匹配不触发告警"""
         rule = _make_rule(duration=10, conditions=[{"point": "p1", "operator": ">", "threshold": 5}])
@@ -883,7 +874,6 @@ class TestEvaluateRule:
             await evaluator._evaluate_rule(rule, event)
             alarm_repo.create.assert_awaited_once()
 
-
     async def test_condition_missing_point_skipped(self, evaluator, alarm_repo):
         """条件无 point 字段时跳过该条件"""
         rule = _make_rule(conditions=[{"operator": ">", "threshold": 5}])
@@ -922,7 +912,6 @@ class TestFireAlarm:
         alarm_repo.update_trigger_count.assert_awaited_once_with("a1", {"p1": 10})
         alarm_repo.create.assert_not_called()
 
-
     async def test_cooldown_skips_fire(self, evaluator, alarm_repo):
         """冷却期内跳过触发"""
         evaluator._min_firing_interval = 10.0
@@ -937,7 +926,6 @@ class TestFireAlarm:
         rule = _make_rule()
         await evaluator._fire_alarm(rule, {"p1": 10})
         assert "r1" not in evaluator._recent_firings
-
 
     async def test_alarm_missing_alarm_id(self, evaluator, alarm_repo):
         """create 返回结果缺少 alarm_id 时不发布事件"""
@@ -1032,7 +1020,6 @@ class TestEvaluate:
         assert call_order == ["high", "mid", "low"]
         evaluator._evaluate_rule = original
 
-
     async def test_evaluate_inner_no_rules(self, evaluator, rule_repo):
         """无规则时不报错"""
         rule_repo.list_enabled_by_point.return_value = []
@@ -1070,7 +1057,6 @@ class TestEvalLoop:
         with contextlib_suppress_cancel():
             await task
         alarm_repo.create.assert_not_called()
-
 
     async def test_loop_exception_continues(self, evaluator):
         """循环内异常不终止循环"""

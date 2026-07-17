@@ -157,9 +157,11 @@ test_screenshots/
 test_screenshots_v2/
 audit_i18n_report.json
 fix_north_adapters.py
-coverage*.xml
 coverage_*.json
 cov_*.txt
+# FIXED: 允许 coverage.xml 提交到仓库，供 DevOps 扫描器检测测试覆盖率
+# 其他覆盖率产物仍被忽略
+!coverage.xml
 .git_commit_msg.txt
 
 # ConvergeLoop 自动补充（防止 git add -A 卡死）

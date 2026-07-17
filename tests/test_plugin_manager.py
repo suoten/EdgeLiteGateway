@@ -13,9 +13,7 @@
 
 from __future__ import annotations
 
-import asyncio
 import textwrap
-from pathlib import Path
 
 import pytest
 
@@ -127,7 +125,8 @@ class TestDiscoverCustomDrivers:
         """发现并加载有效的 DriverPlugin 子类"""
         # 创建一个包含 DriverPlugin 子类的 .py 文件
         driver_file = tmp_path / "my_driver.py"
-        driver_file.write_text(textwrap.dedent("""
+        driver_file.write_text(
+            textwrap.dedent("""
             from edgelite.drivers.base import DriverPlugin
 
             class MyTestDriver(DriverPlugin):
@@ -144,7 +143,8 @@ class TestDiscoverCustomDrivers:
 
                 async def write_point(self, point, value):
                     pass
-        """))
+        """)
+        )
         registry = FakeRegistry()
         pm = PluginManager(registry)
         result = pm.discover_custom_drivers(str(tmp_path))
@@ -248,7 +248,8 @@ class TestReloadPlugin:
     def test_reload_success(self, tmp_path):
         """重载已加载的插件"""
         driver_file = tmp_path / "reloadable.py"
-        driver_file.write_text(textwrap.dedent("""
+        driver_file.write_text(
+            textwrap.dedent("""
             from edgelite.drivers.base import DriverPlugin
 
             class ReloadableDriver(DriverPlugin):
@@ -265,7 +266,8 @@ class TestReloadPlugin:
 
                 async def write_point(self, point, value):
                     pass
-        """))
+        """)
+        )
         registry = FakeRegistry()
         pm = PluginManager(registry)
         pm.discover_custom_drivers(str(tmp_path))
@@ -277,7 +279,8 @@ class TestReloadPlugin:
     def test_reload_failure_marks_unloaded(self, tmp_path):
         """重载失败时标记为未加载"""
         driver_file = tmp_path / "will_break.py"
-        driver_file.write_text(textwrap.dedent("""
+        driver_file.write_text(
+            textwrap.dedent("""
             from edgelite.drivers.base import DriverPlugin
 
             class WillBreakDriver(DriverPlugin):
@@ -294,7 +297,8 @@ class TestReloadPlugin:
 
                 async def write_point(self, point, value):
                     pass
-        """))
+        """)
+        )
         registry = FakeRegistry()
         pm = PluginManager(registry)
         pm.discover_custom_drivers(str(tmp_path))
@@ -327,7 +331,8 @@ class TestUnloadPlugin:
     def test_unload_success(self, tmp_path):
         """成功卸载自定义插件"""
         driver_file = tmp_path / "unloadable.py"
-        driver_file.write_text(textwrap.dedent("""
+        driver_file.write_text(
+            textwrap.dedent("""
             from edgelite.drivers.base import DriverPlugin
 
             class UnloadableDriver(DriverPlugin):
@@ -344,7 +349,8 @@ class TestUnloadPlugin:
 
                 async def write_point(self, point, value):
                     pass
-        """))
+        """)
+        )
         registry = FakeRegistry()
         pm = PluginManager(registry)
         pm.discover_custom_drivers(str(tmp_path))
@@ -362,7 +368,8 @@ class TestListPlugins:
 
     def test_returns_loaded_plugins(self, tmp_path):
         driver_file = tmp_path / "listable.py"
-        driver_file.write_text(textwrap.dedent("""
+        driver_file.write_text(
+            textwrap.dedent("""
             from edgelite.drivers.base import DriverPlugin
 
             class ListableDriver(DriverPlugin):
@@ -379,7 +386,8 @@ class TestListPlugins:
 
                 async def write_point(self, point, value):
                     pass
-        """))
+        """)
+        )
         pm = PluginManager(FakeRegistry())
         pm.discover_custom_drivers(str(tmp_path))
         plugins = pm.list_plugins()
@@ -392,7 +400,8 @@ class TestStop:
     async def test_stop_clears_plugins(self, tmp_path):
         """stop 应清空所有已加载插件"""
         driver_file = tmp_path / "stoppable.py"
-        driver_file.write_text(textwrap.dedent("""
+        driver_file.write_text(
+            textwrap.dedent("""
             from edgelite.drivers.base import DriverPlugin
 
             class StoppableDriver(DriverPlugin):
@@ -409,7 +418,8 @@ class TestStop:
 
                 async def write_point(self, point, value):
                     pass
-        """))
+        """)
+        )
         registry = FakeRegistry()
         pm = PluginManager(registry)
         pm.discover_custom_drivers(str(tmp_path))

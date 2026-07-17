@@ -386,13 +386,15 @@ def test_ensure_indexes_creates_missing_index_on_existing_table(tmp_path):
 
     with engine.connect() as conn:
         # 仅创建 users 表，不创建索引
-        conn.execute(text("""
+        conn.execute(
+            text("""
             CREATE TABLE users (
                 user_id VARCHAR(64) PRIMARY KEY,
                 username VARCHAR(32) NOT NULL,
                 created_at DATETIME
             )
-        """))
+        """)
+        )
         conn.commit()
 
         existing_tables = sa_inspect(conn).get_table_names()
@@ -485,9 +487,7 @@ def test_bacnet_no_duplicate_outofservice_key():
     source = inspect.getsource(bacnet)
     # 统计 outofservice 出现次数（作为字典键，带引号）
     count = source.count('"outofservice":')
-    assert count == 1, (
-        f"bacnet.py 中 'outofservice' 键出现 {count} 次，应仅 1 次（F601 回归）"
-    )
+    assert count == 1, f"bacnet.py 中 'outofservice' 键出现 {count} 次，应仅 1 次（F601 回归）"
 
 
 def test_profinet_no_duplicate_device_id_key():
@@ -528,9 +528,7 @@ def test_video_upload_uses_size_limited_read():
         "ai_analyze_upload 应使用 file.read(_MAX_IMAGE_SIZE + 1) 限制读取大小（P1 OOM 回归）"
     )
     # 确保不存在无参 file.read() 调用
-    assert "await file.read()" not in source, (
-        "ai_analyze_upload 不应使用无参 file.read()，会导致 OOM（P1 回归）"
-    )
+    assert "await file.read()" not in source, "ai_analyze_upload 不应使用无参 file.read()，会导致 OOM（P1 回归）"
 
 
 # ── 11. OPC UA Server P1 修复测试（TLS await / 认证绕过 / set_endpoint）─────
@@ -552,13 +550,8 @@ def test_opcua_server_tls_load_certificate_awaited():
     )
     # 确保不存在未 await 的调用: 每个包含 load_certificate/load_private_key 的行必须含 await
     for line in source.splitlines():
-        if (
-            "self._server.load_certificate(" in line
-            or "self._server.load_private_key(" in line
-        ):
-            assert "await" in line, (
-                f"协程调用未 await（P1: 未 await 导致 TLS 证书/私钥未加载）: {line.strip()}"
-            )
+        if "self._server.load_certificate(" in line or "self._server.load_private_key(" in line:
+            assert "await" in line, f"协程调用未 await（P1: 未 await 导致 TLS 证书/私钥未加载）: {line.strip()}"
 
 
 def test_opcua_server_auth_failure_returns_none():
@@ -569,12 +562,8 @@ def test_opcua_server_auth_failure_returns_none():
 
     source = inspect.getsource(opcua_server.OpcUaServerDriver.start)
     # 验证返回 None 而非 User(role=UserRole.Anonymous)
-    assert "return None" in source, (
-        "认证失败应返回 None 拒绝连接（P1: 原 return Anonymous 导致认证绕过）"
-    )
-    assert "UserRole.Anonymous" not in source, (
-        "认证失败不应返回 Anonymous 用户（P1 认证绕过回归）"
-    )
+    assert "return None" in source, "认证失败应返回 None 拒绝连接（P1: 原 return Anonymous 导致认证绕过）"
+    assert "UserRole.Anonymous" not in source, "认证失败不应返回 Anonymous 用户（P1 认证绕过回归）"
 
 
 def test_opcua_server_set_endpoint_called_before_start():
@@ -610,9 +599,7 @@ def test_opcua_client_load_server_certificate_awaited():
     calls = re.findall(r"(await\s+)?client\.load_server_certificate\(", source)
     assert len(calls) >= 1, "应至少有一处 load_server_certificate 调用"
     for call in calls:
-        assert call.strip().startswith("await"), (
-            "所有 client.load_server_certificate 调用都必须 await（P1 回归）"
-        )
+        assert call.strip().startswith("await"), "所有 client.load_server_certificate 调用都必须 await（P1 回归）"
 
 
 # ── 12. MQTT Server 认证插件测试（P1: auth 配置导致 RuntimeError）─────────

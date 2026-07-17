@@ -67,10 +67,10 @@ class TestDnp3FrameBuild:
         apdu = bytes([0x80, 0x01, 0x01, 0x00])  # 任意 APDU
         frame = client._build_transport_frame(apdu)
 
-        assert frame[0:2] == b"\x05\x64"                       # START
+        assert frame[0:2] == b"\x05\x64"  # START
         # LEN = 5 + len(user_data), user_data = 1(transport) + 4(apdu) = 5
-        assert frame[2] == 5 + 5                                # LEN 单字节 = 10
-        assert frame[3] == DNP3_LINK_CTRL_USER_DATA            # CTRL = 0x44
+        assert frame[2] == 5 + 5  # LEN 单字节 = 10
+        assert frame[3] == DNP3_LINK_CTRL_USER_DATA  # CTRL = 0x44
         assert struct.unpack_from("<H", frame, 4)[0] == 0x0102  # DST (LE)
         assert struct.unpack_from("<H", frame, 6)[0] == 0x0000  # SRC
 
@@ -125,13 +125,13 @@ class TestDnp3RoundTrip:
         frame = client._build_transport_frame(apdu)
         user_data = client._extract_user_data(frame)
         assert user_data is not None
-        assert user_data[0] == 0xC0            # transport header
-        assert user_data[1:] == apdu           # APDU 原样还原
+        assert user_data[0] == 0xC0  # transport header
+        assert user_data[1:] == apdu  # APDU 原样还原
 
     def test_extract_multi_block(self):
         """超过 16 字节的 user_data 跨块仍能正确剥离 CRC 还原"""
         client = self._make_client()
-        apdu = bytes(range(40))                # 40 字节 → user_data 41 字节 → 3 块
+        apdu = bytes(range(40))  # 40 字节 → user_data 41 字节 → 3 块
         frame = client._build_transport_frame(apdu)
         user_data = client._extract_user_data(frame)
         assert user_data is not None
@@ -142,14 +142,14 @@ class TestDnp3RoundTrip:
         """篡改 header 字节 → HeaderCRC 校验失败 → 返回 None"""
         client = self._make_client()
         frame = bytearray(client._build_transport_frame(bytes([0x01, 0x02, 0x03])))
-        frame[4] ^= 0xFF                       # 篡改 destination
+        frame[4] ^= 0xFF  # 篡改 destination
         assert client._extract_user_data(bytes(frame)) is None
 
     def test_block_crc_tamper_rejected(self):
         """篡改 body 字节 → BlockCRC 校验失败 → 返回 None"""
         client = self._make_client()
         frame = bytearray(client._build_transport_frame(bytes(range(20))))
-        frame[DNP3_HEADER_SIZE + 5] ^= 0xFF    # 篡改第一块内某字节
+        frame[DNP3_HEADER_SIZE + 5] ^= 0xFF  # 篡改第一块内某字节
         assert client._extract_user_data(bytes(frame)) is None
 
     def test_bad_start_rejected(self):
@@ -174,9 +174,7 @@ class _FakeReader:
 
     async def readexactly(self, n: int) -> bytes:
         if len(self._buffer) < n:
-            raise asyncio.IncompleteReadError(
-                partial=bytes(self._buffer), expected=n
-            )
+            raise asyncio.IncompleteReadError(partial=bytes(self._buffer), expected=n)
         chunk = bytes(self._buffer[:n])
         del self._buffer[:n]
         return chunk
@@ -215,14 +213,12 @@ def _build_frame_with_transport(client: DNP3Client, transport: int, apdu: bytes)
     frame = DNP3_START_BYTES + header_body
     frame += struct.pack("<H", DNP3Client._calculate_crc16(header_body))
     for i in range(0, len(user_data), DNP3_DATA_BLOCK_MAX):
-        block = user_data[i:i + DNP3_DATA_BLOCK_MAX]
+        block = user_data[i : i + DNP3_DATA_BLOCK_MAX]
         frame += block + struct.pack("<H", DNP3Client._calculate_crc16(block))
     return bytes(frame)
 
 
-def _build_response_frame(
-    client: DNP3Client, seq: int, func_code: int = FC_RESPONSE
-) -> bytes:
+def _build_response_frame(client: DNP3Client, seq: int, func_code: int = FC_RESPONSE) -> bytes:
     """构建单帧响应 (FIR+FIN)，匹配给定序列号与功能码。
 
     user_data 布局: transport(0xC0) + app_control(0xC0) + seq + func_code + data_len(0)
@@ -266,14 +262,16 @@ class TestDnp3QualityMultiState:
     def test_all_quality_flags_combined(self):
         """全部质量标志组合 (除 RESERVED/DT) → 5 个状态"""
         flags = (
-            QUALITY_ONLINE | QUALITY_RESTART | QUALITY_COMM_LOST
-            | QUALITY_REMOTE_FORCED | QUALITY_LOCAL_FORCED | QUALITY_CHATTER_FILTER
+            QUALITY_ONLINE
+            | QUALITY_RESTART
+            | QUALITY_COMM_LOST
+            | QUALITY_REMOTE_FORCED
+            | QUALITY_LOCAL_FORCED
+            | QUALITY_CHATTER_FILTER
         )
         result = DNP3Client._decode_quality(flags)
         parts = set(result.split(","))
-        assert parts == {
-            "restart", "comm_lost", "remote_forced", "local_forced", "chatter_filter"
-        }
+        assert parts == {"restart", "comm_lost", "remote_forced", "local_forced", "chatter_filter"}
 
     def test_forced_flags_combined(self):
         """ONLINE + REMOTE_FORCED + LOCAL_FORCED → remote_forced,local_forced"""
@@ -308,22 +306,22 @@ class TestDnp3SegmentReassembly:
 
         result = await client._reassemble_response()
         assert result is not None
-        assert result[0] == 0xC0           # 传输头保留
-        assert result[1:] == apdu          # APDU 原样还原
+        assert result[0] == 0xC0  # 传输头保留
+        assert result[1:] == apdu  # APDU 原样还原
 
     async def test_two_segment_reassembly(self):
         """两段重组: FIR(无FIN) + FIN(无FIR)"""
         client = self._make_client()
         apdu1 = bytes([0xC0, 0x01, 0x0F, 0x00])
         apdu2 = bytes([0x01, 0x02, 0x03, 0x04])
-        frame1 = _build_frame_with_transport(client, APPCONTROL_FIR, apdu1)        # 0x80 FIR only
-        frame2 = _build_frame_with_transport(client, APPCONTROL_FIN, apdu2)        # 0x40 FIN only
+        frame1 = _build_frame_with_transport(client, APPCONTROL_FIR, apdu1)  # 0x80 FIR only
+        frame2 = _build_frame_with_transport(client, APPCONTROL_FIN, apdu2)  # 0x40 FIN only
         client._reader = _FakeReader(frame1 + frame2)
 
         result = await client._reassemble_response()
         assert result is not None
-        assert result[0] == APPCONTROL_FIR            # 首段传输头保留
-        assert result[1:] == apdu1 + apdu2            # 首段 APDU + 后续段 APDU (去传输头)
+        assert result[0] == APPCONTROL_FIR  # 首段传输头保留
+        assert result[1:] == apdu1 + apdu2  # 首段 APDU + 后续段 APDU (去传输头)
 
     async def test_three_segment_reassembly(self):
         """三段重组: FIR + 中间段 + FIN"""
@@ -331,9 +329,9 @@ class TestDnp3SegmentReassembly:
         apdu1 = bytes([0xC0, 0x01, 0x0F])
         apdu2 = bytes([0xAA, 0xBB])
         apdu3 = bytes([0xCC, 0xDD, 0xEE])
-        frame1 = _build_frame_with_transport(client, APPCONTROL_FIR, apdu1)         # 0x80 FIR
-        frame2 = _build_frame_with_transport(client, 0x00, apdu2)                   # 中间段
-        frame3 = _build_frame_with_transport(client, APPCONTROL_FIN, apdu3)         # 0x40 FIN
+        frame1 = _build_frame_with_transport(client, APPCONTROL_FIR, apdu1)  # 0x80 FIR
+        frame2 = _build_frame_with_transport(client, 0x00, apdu2)  # 中间段
+        frame3 = _build_frame_with_transport(client, APPCONTROL_FIN, apdu3)  # 0x40 FIN
         client._reader = _FakeReader(frame1 + frame2 + frame3)
 
         result = await client._reassemble_response()
@@ -385,7 +383,7 @@ class TestDnp3SboFlow:
 
         result = await client.write_binary_output(index=5, value=True, op_type="sbo")
         assert result is True
-        assert len(client._writer.written) == 2   # SELECT + OPERATE
+        assert len(client._writer.written) == 2  # SELECT + OPERATE
 
     async def test_sbo_select_failure_returns_false(self):
         """SELECT 响应功能码错误 → False，仅发送 SELECT (不发送 OPERATE)"""
@@ -397,7 +395,7 @@ class TestDnp3SboFlow:
 
         result = await client.write_binary_output(index=5, value=True, op_type="sbo")
         assert result is False
-        assert len(client._writer.written) == 1   # 仅 SELECT
+        assert len(client._writer.written) == 1  # 仅 SELECT
 
     async def test_sbo_operate_failure_returns_false(self):
         """SELECT 成功但 OPERATE 响应 seq 不匹配 → False，发送 2 个命令帧"""
@@ -410,7 +408,7 @@ class TestDnp3SboFlow:
 
         result = await client.write_binary_output(index=5, value=True, op_type="sbo")
         assert result is False
-        assert len(client._writer.written) == 2   # SELECT + OPERATE 均已发送
+        assert len(client._writer.written) == 2  # SELECT + OPERATE 均已发送
 
     async def test_direct_operate_success(self):
         """DIRECT_OPERATE 流程: 命令→响应 → True，仅 1 个命令帧"""
