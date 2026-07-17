@@ -41,7 +41,7 @@ class MTConnectDriver(DriverPlugin):
 
     plugin_name = "mtconnect"
     plugin_version = "1.1.0"
-    supported_protocols = ["mtconnect"]
+    supported_protocols = ("mtconnect",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "MTConnect standard protocol for CNC equipment, retrieve CNC runtime data via HTTP",
         "fields": [

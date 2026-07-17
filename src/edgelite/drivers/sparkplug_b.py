@@ -91,7 +91,7 @@ class SparkplugBDriver(DriverPlugin):
 
     plugin_name = "sparkplug_b"
     plugin_version = "1.1.0"
-    supported_protocols = ["sparkplug_b"]
+    supported_protocols = ("sparkplug_b",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "MQTT Sparkplug B industrial IoT protocol, standardized device data pub/sub",
         "fields": [

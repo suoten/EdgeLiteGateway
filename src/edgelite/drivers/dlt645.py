@@ -502,8 +502,8 @@ class Dlt645Driver(DriverPlugin):
                         import time as _time
 
                         _time.sleep(0.01)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[dlt645] sync read loop error: %s", e)
 
         try:
             read_task = asyncio.to_thread(_sync_read)

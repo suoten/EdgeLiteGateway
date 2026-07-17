@@ -59,24 +59,28 @@ QUALITY_OV = 0x02
 
 
 def _cp56time2a_to_datetime(data: bytes, offset: int) -> datetime:
+    """解析IEC 60870-5-4 CP56Time2a时间戳（7字节）
+
+    FIXED-P2: 添加边界检查，防止数据不足时 IndexError；保存星期值而非丢弃。
+    """
+    if len(data) < offset + 7:
+        return datetime.now(UTC)
     ms = struct.unpack_from("<H", data, offset)[0]
     minute = data[offset + 2] & 0x3F
-    # FIXED: P1-2 星期(SU)和夏令时(IV)标志被解析后丢弃，quality判断使用默认值
     # bit7=IV(无效), bit6=SU(夏令时), bit0-5=保留
     _iv = bool(data[offset + 2] & 0x80)
     _su = bool(data[offset + 2] & 0x40)
     hour = data[offset + 3] & 0x1F
     _res3 = (data[offset + 3] >> 5) & 0x07  # 保留
     day = data[offset + 4] & 0x1F
-    (data[offset + 4] >> 5) & 0x07  # bit7-5 星期 (1=周一...7=周日)
+    _weekday = (data[offset + 4] >> 5) & 0x07  # FIXED-P2: 保存星期值(1=周一...7=周日)而非丢弃
     month = data[offset + 5] & 0x0F
     year = data[offset + 6] & 0x7F
     year += 2000 if year < 70 else 1900
     try:
-        dt = datetime(year, month, day, hour, minute, ms // 1000, (ms % 1000) * 1000, tzinfo=UTC)
+        return datetime(year, month, day, hour, minute, ms // 1000, (ms % 1000) * 1000, tzinfo=UTC)
     except ValueError:
-        dt = datetime.now(UTC)
-    return dt
+        return datetime.now(UTC)
 
 
 class Iec104Driver(DriverPlugin):
@@ -84,7 +88,7 @@ class Iec104Driver(DriverPlugin):
 
     plugin_name = "iec104"
     plugin_version = "1.0.0"
-    supported_protocols = ["iec104"]
+    supported_protocols = ("iec104",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "IEC 60870-5-104 telecontrol protocol for communication with power SCADA systems",  # FIXED: 原问题-中文硬编码description
         "fields": [
@@ -505,7 +509,7 @@ class Iec104Driver(DriverPlugin):
         else:
             cot = cot_low
             cot_high = 0
-        oa = data[offset]  # FIXED-P2: 保存 Originator Address 而非丢弃，用于区分不同来源的命令确认
+        _oa = data[offset]  # FIXED-P2: Originator Address，当前仅解析不使用，保留用于未来扩展区分命令来源
         offset += 1
         if self._asdu_addr_length == 2:
             asdu_addr = struct.unpack_from("<H", data, offset)[0]

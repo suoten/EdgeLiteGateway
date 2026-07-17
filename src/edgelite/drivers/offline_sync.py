@@ -40,6 +40,7 @@ class OfflineSyncManager:
         self._compress = compress or "none"
         # 运行状态
         self._online: bool = True
+        self._running: bool = False  # FIXED: 添加运行标志，_sync_loop 中检查以防止任务取消后仍执行（Layer 3）
         self._upload_callback: Callable | None = None
         self._sync_task: asyncio.Task | None = None
         # 统计
@@ -52,6 +53,7 @@ class OfflineSyncManager:
         """启动同步循环任务"""
         if self._sync_task is not None and not self._sync_task.done():
             return  # 已启动，避免重复创建
+        self._running = True  # FIXED: 设置运行标志
         self._sync_task = asyncio.create_task(self._sync_loop(), name="modbus-offline-sync")
         logger.info(
             "[offline_sync] 已启动 sync_interval=%.1fs batch=%d compress=%s",
@@ -62,6 +64,7 @@ class OfflineSyncManager:
 
     async def stop(self) -> None:
         """停止同步循环"""
+        self._running = False  # FIXED: 清除运行标志
         if self._sync_task is not None and not self._sync_task.done():
             self._sync_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -71,7 +74,7 @@ class OfflineSyncManager:
 
     async def _sync_loop(self) -> None:
         """同步循环：定期触发一次同步"""
-        while True:
+        while self._running:  # FIXED: 检查 _running 标志，防止取消信号被忽略时任务无限运行
             try:
                 await asyncio.sleep(self._sync_interval)
                 await self._do_sync()

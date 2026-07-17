@@ -69,7 +69,7 @@ class OpcUaServerDriver(DriverPlugin):
 
     plugin_name = "opcua_server"
     plugin_version = "1.0.0"
-    supported_protocols = ["opcua_server"]
+    supported_protocols = ("opcua_server",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
 
     config_schema = {
         "description": "OPC UA Server driver - acts as OPC UA server to provide data to downstream systems",

@@ -563,7 +563,8 @@ class S7Driver(DriverPlugin):
             from edgelite.engine.event_bus import EventBus
 
             event_bus = EventBus.instance()
-        except Exception:
+        except Exception as e:
+            logger.debug("[s7] EventBus init failed, continuing without event bus: %s", e)
             event_bus = None
         self._redundancy = LinkRedundancyManager(event_bus=event_bus, config=self._redundancy_config)
         self._redundancy.set_on_switch_callback(self._on_redundancy_switch)
@@ -643,7 +644,8 @@ class S7Driver(DriverPlugin):
                 if any(kw in self._plc_model.upper() for kw in ["SMART", "S7-200"]):
                     self._is_s7_200_smart = True
                 logger.info("[s7] device=%s code=PLC_DETECTED msg=Model: %s", ip, self._plc_model)
-            except Exception:
+            except Exception as e:
+                logger.debug("[s7] device=%s code=PLC_INFO_FAILED msg=CPU info read failed, using Unknown: %s", ip, e)
                 self._plc_model = "Unknown"
 
             await self._negotiate_password(ip)
@@ -675,7 +677,8 @@ class S7Driver(DriverPlugin):
                 from edgelite.engine.event_bus import EventBus
 
                 event_bus = EventBus.instance()
-            except Exception:
+            except Exception as e:
+                logger.debug("[s7] EventBus init failed for edge rule engine: %s", e)
                 event_bus = None
             self._edge_rule_engine = ModbusEdgeRuleEngine(event_bus=event_bus)
             self._edge_trigger = EdgeTriggerExecutor(
@@ -1457,7 +1460,8 @@ class S7Driver(DriverPlugin):
                             self._run_in_s7_thread_async(self._read_point, point),
                             timeout=self._WRITE_TIMEOUT,
                         )
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("[s7] write_verify old value read failed for %s: %s", point, e)
                         old_value = None
                 record_packet("tx", "s7", device_id, f"S7 Write: {point}={value}")
                 await asyncio.wait_for(
@@ -1709,7 +1713,8 @@ class S7Driver(DriverPlugin):
                         info = await asyncio.to_thread(client.get_cpu_info)
                         model = info.ModuleName if hasattr(info, "ModuleName") else ""
                         serial = info.SerialNumber if hasattr(info, "SerialNumber") else ""
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("[s7] discover: CPU info extraction failed for %s: %s", ip_addr, e)
                         model = ""
                         serial = ""
                     return {
@@ -2315,7 +2320,8 @@ class S7Driver(DriverPlugin):
                 info = await self._run_in_s7_thread_async(self._sync_get_cpu_info)
                 self._plc_model = info.ModuleName if hasattr(info, "ModuleName") else "Unknown"
                 logger.info("[s7] device=%s code=PLC_DETECTED msg=Model: %s", ip, self._plc_model)
-            except Exception:
+            except Exception as e:
+                logger.debug("[s7] device=%s code=PLC_INFO_FAILED msg=CPU info read failed, using Unknown: %s", ip, e)
                 self._plc_model = "Unknown"
 
             await self._negotiate_password(ip)
@@ -2380,7 +2386,8 @@ class S7Driver(DriverPlugin):
                 self._is_connected(),  # FIXED-P1: _is_connected已改为async，直接await
                 timeout=3.0,
             )
-        except Exception:
+        except Exception as e:
+            logger.debug("[s7] health_check failed: %s", e)
             return False
 
     async def reset_reconnect_state(self, device_id: str) -> None:
@@ -2427,7 +2434,8 @@ class S7Driver(DriverPlugin):
                 logger.warning("[s7] probe_primary_link failed: %s", e)  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
             self._redundancy.mark_primary_healthy(device_id)
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug("[s7] probe_primary_link failed for %s: %s", device_id, e)
             return False
         finally:
             if probe_client:
@@ -2455,7 +2463,8 @@ class S7Driver(DriverPlugin):
         try:
             await self.write_point(device_id, point, value)
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("[s7] edge trigger write failed: device=%s point=%s error=%s", device_id, point, e)
             return False
 
     def add_edge_rule(self, rule: EdgeRule) -> None:

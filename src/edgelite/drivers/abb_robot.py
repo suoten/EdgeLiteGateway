@@ -362,8 +362,8 @@ class AbbRobotDriver(DriverPlugin):
                                             break
                                 elif isinstance(payload, dict):
                                     robot_name = payload.get("name", payload.get("_title", ""))
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.debug("[abb_robot] robot name extraction failed: %s", e)
                             return {
                                 "device_id": f"abb_{ip_addr.replace('.', '_')}",
                                 "name": f"ABB Robot ({ip_addr})" + (f" - {robot_name}" if robot_name else ""),
@@ -490,8 +490,8 @@ class AbbRobotDriver(DriverPlugin):
         if self._client:
             try:
                 await self._client.aclose()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[abb_robot] client.aclose failed: %s", e)
         try:
             import httpx
 

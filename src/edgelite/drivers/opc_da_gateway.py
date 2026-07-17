@@ -275,7 +275,7 @@ class OpcDaGatewayDriver(DriverPlugin):
 
     plugin_name = "opc_da_gateway"
     plugin_version = "1.0.0"
-    supported_protocols = ["opc_da_gateway", "opc_da_proxy"]
+    supported_protocols = ("opc_da_gateway", "opc_da_proxy")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "OPC DA Gateway driver - cross-platform OPC DA access via HTTP proxy",
         "fields": [

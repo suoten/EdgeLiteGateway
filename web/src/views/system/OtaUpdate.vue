@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
 import { NButton, NPopconfirm, NSpin, useMessage, useDialog } from 'naive-ui'
-import { otaApi } from '@/api'
+import { appUpdateApi } from '@/api'
 // FIXED: 原问题-添加i18n支持
 import { t } from '@/i18n'
 import { extractError } from '@/utils/errorCodes'
@@ -81,7 +81,7 @@ const backupColumns = [
 async function checkUpdate() {
   checking.value = true
   try {
-    const data = await otaApi.check()
+    const data = await appUpdateApi.check()
     updateInfo.value = data
   } catch (e: any) {
     message.error(extractError(e, t('ota.checkFailed')))
@@ -118,7 +118,7 @@ function pollHealthAndReload() {
 async function applyUpdate() {
   applying.value = true
   try {
-    await otaApi.apply()
+    await appUpdateApi.apply()
     // FIXED: 原问题-OTA升级成功后无系统重启提示
     message.success(t('ota.applySuccess') + t('ota.restartSoon'))  // FIXED: 原问题-硬编码中文，改用i18n
     pollHealthAndReload()
@@ -130,7 +130,7 @@ async function applyUpdate() {
 async function handleRollback(version: string) {
   rollingBack.value = true
   try {
-    await otaApi.rollback(version)
+    await appUpdateApi.rollback(version)
     // FIXED: 原问题-OTA回滚成功后无系统重启提示
     message.success(t('otaUpdate.rollbackSuccess', { version }) + t('ota.restartSoon'))  // FIXED: 原问题-硬编码中文label
     // FIXED: 原问题-固定10秒reload，改为轮询/health端点
@@ -145,7 +145,7 @@ async function handleRollback(version: string) {
 async function fetchBackups() {
   fetchingBackups.value = true
   try {
-    const data = await otaApi.backups()
+    const data = await appUpdateApi.backups()
     backups.value = data?.backups || []
   } catch (e: any) {
     message.error(extractError(e, t('otaUpdate.fetchBackupFailed')))

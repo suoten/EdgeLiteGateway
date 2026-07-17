@@ -517,8 +517,8 @@ class KNXClient:
                     if self._group_value_callback:
                         try:
                             self._group_value_callback(group_addr, data_value)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning("[knx] group_value_callback failed for %s: %s", group_addr, e)
                 # GroupValue_Read (bit7=0) 不更新缓存
         except Exception as e:
             logger.debug("KNX Tunnel Indication处理异常: %s", e)
@@ -655,7 +655,7 @@ class KNXDriver(DriverPlugin):
 
     plugin_name = "knx"
     plugin_version = "1.1.0"
-    supported_protocols = ["knx", "knxnet_ip", "knxnetip"]
+    supported_protocols = ("knx", "knxnet_ip", "knxnetip")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "KNX building automation protocol for HVAC/Lighting/Control",
         "fields": [
@@ -754,8 +754,8 @@ class KNXDriver(DriverPlugin):
         if self._data_callback:
             try:
                 asyncio.create_task(self._data_callback(group_addr, value))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("[knx] data_callback task creation failed for %s: %s", group_addr, e)
 
     def on_data(self, callback: Callable) -> None:
         """注册数据回调"""

@@ -379,5 +379,8 @@ class ModbusConfigVersion:
     def __del__(self) -> None:
         try:
             self.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # __del__ 中仅记录到 stderr，不使用 logging（GC 时可能不可用）
+            import sys
+
+            print(f"[modbus_config_version] __del__ close failed: {e}", file=sys.stderr)

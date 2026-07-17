@@ -52,8 +52,8 @@ class _FocasClient:
             self._writer.close()
             try:
                 await self._writer.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[fanuc] writer.wait_closed failed: %s", e)
             self._writer = None
             self._reader = None
 
@@ -327,8 +327,8 @@ class FanucCncDriver(DriverPlugin):
         if self._client:
             try:
                 await self._client.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[fanuc] client.close failed: %s", e)
         try:
             self._client = _FocasClient(ip, port, timeout)
             await self._client.connect()

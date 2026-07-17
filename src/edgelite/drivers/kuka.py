@@ -31,7 +31,7 @@ class KukaDriver(DriverPlugin):
 
     plugin_name = "kuka"
     plugin_version = "1.0.0"
-    supported_protocols = ["kuka_ekrl"]
+    supported_protocols = ("kuka_ekrl",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "KUKA robot Ethernet KRL XML protocol for reading and writing robot variables",  # FIXED: 原问题-中文硬编码description
         "fields": [
@@ -250,8 +250,8 @@ class KukaDriver(DriverPlugin):
                     try:
                         writer.close()
                         await writer.wait_closed()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("[kuka] writer.wait_closed failed: %s", e)
                     return {
                         "device_id": f"kuka_{ip_addr.replace('.', '_')}",
                         "name": f"KUKA Robot ({ip_addr})",

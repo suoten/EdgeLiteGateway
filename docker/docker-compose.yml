@@ -134,9 +134,9 @@ services:
     # 使用 :? 语法保证未设置时 compose 启动即失败，避免容器空跑
     environment:
       - MQTT_PASSWORD=${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}
-    entrypoint: ["/bin/sh", "-c", "if [ ! -f /mosquitto/config/passwd ]; then touch /mosquitto/config/passwd && echo \"$${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}\" | mosquitto_passwd /mosquitto/config/passwd edgelite; fi && exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf"]  # R7-S-14: 改用 stdin 模式传入密码，避免密码出现在 /proc/*/cmdline 中
+    entrypoint: ["/bin/sh", "-c", "mosquitto_passwd -b /mosquitto/config/passwd edgelite \"$${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}\" 2>/dev/null; chmod 0700 /mosquitto/config/passwd 2>/dev/null; exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf"]
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-W", "3"]
+      test: ["CMD-SHELL", "mosquitto_pub -u edgelite -p \"$${MQTT_PASSWORD}\" -t healthcheck -m ok -q 1"]
       interval: 10s
       timeout: 5s
       retries: 5

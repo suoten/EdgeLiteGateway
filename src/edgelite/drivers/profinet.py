@@ -416,7 +416,7 @@ class ProfinetDriver(DriverPlugin):
 
     plugin_name = "profinet"
     plugin_version = "1.1.0"
-    supported_protocols = ["profinet", "profinet_dcp", "pn"]
+    supported_protocols = ("profinet", "profinet_dcp", "pn")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "Profinet industrial Ethernet protocol with Snap7 integration for IO data exchange",
         "fields": [

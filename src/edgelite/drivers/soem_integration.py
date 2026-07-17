@@ -157,7 +157,8 @@ class SOEMContext:
                             name = slave.name.decode("utf-8", errors="replace").strip("\x00")
                         else:
                             name = str(slave.name)
-                except Exception:
+                except Exception as e:
+                    logger.debug("[soem] slave name parse failed for index %d: %s", i, e)
                     name = f"Slave_{i + 1}"
 
                 # 获取厂商ID和产品码
@@ -276,7 +277,8 @@ class SOEMContext:
                 return 0
             self._ifhandle.send_processdata()
             return 1
-        except Exception:
+        except Exception as e:
+            logger.warning("[soem] send_processdata failed: %s", e)
             return 0
 
     def receive_process_data(self) -> int:
@@ -289,7 +291,8 @@ class SOEMContext:
                 return 0
             wkc = self._ifhandle.receive_processdata(timeout=self._timeout)
             return wkc if wkc is not None else 0
-        except Exception:
+        except Exception as e:
+            logger.warning("[soem] receive_processdata failed: %s", e)
             return 0
 
     def read_sdo(self, slave: int, index: int, subindex: int, data_type: str = "uint32") -> Any | None:

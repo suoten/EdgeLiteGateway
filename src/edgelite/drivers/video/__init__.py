@@ -145,7 +145,8 @@ class VideoDriver(DriverPlugin):
         try:
             status = await self._provider.get_device_status(device_id)
             return status.value != "offline" if hasattr(status, "value") else True
-        except Exception:
+        except Exception as e:
+            logger.debug("[video] health_check failed for device=%s: %s", device_id, e)
             return False
 
     async def _watchdog_loop(self) -> None:
@@ -167,7 +168,8 @@ class VideoDriver(DriverPlugin):
                 self._provider_connected = True
                 self._reconnect_count = 0
                 self._reconnect_delay = _RECONNECT_BASE_DELAY
-            except Exception:
+            except Exception as e:
+                logger.debug("[video] provider health check failed: %s", e)
                 self._provider_connected = False
                 await self._try_reconnect()
 

@@ -29,7 +29,7 @@ class ToledoDriver(DriverPlugin):
 
     plugin_name = "toledo"
     plugin_version = "1.0.0"
-    supported_protocols = ["toledo"]
+    supported_protocols = ("toledo",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "Mettler-Toledo weighing instrument protocol, supports TCP/Serial/MT-SICS",  # FIXED: 原问题-中文硬编码description
         "fields": [

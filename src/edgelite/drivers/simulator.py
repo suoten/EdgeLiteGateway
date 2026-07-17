@@ -213,6 +213,15 @@ class SimulatorDriver(DriverPlugin):
                 "min": 0,
                 "max": 3600,
             },
+            {
+                "name": "random_seed",
+                "type": "integer",
+                "label": "Random Seed",
+                "description": "Fixed random seed for reproducible simulation (0=use system entropy, non-zero=fixed seed)",
+                "default": 0,
+                "min": 0,
+                "max": 2147483647,
+            },
         ],
     }
 
@@ -244,8 +253,15 @@ class SimulatorDriver(DriverPlugin):
         if environment and environment.lower() == "production" and not self._production_safe:
             raise RuntimeError("SimulatorDriver is not production-safe and must not run in production environment")
         self._auth_token = config.get("auth_token")
+        # FIXED: 添加可配置随机种子，保证模拟数据可复现性（Layer 2 - Simulator 协议规范）
+        random_seed = config.get("random_seed", 0)
+        if random_seed and isinstance(random_seed, (int, float)) and int(random_seed) > 0:
+            seed_val = int(random_seed)
+            random.seed(seed_val)
+            logger.info("模拟器驱动启动 (random_seed=%d, 可复现模式)", seed_val)
+        else:
+            logger.info("模拟器驱动启动 (随机种子未设置, 使用系统熵)")
         self._running = True
-        logger.info("模拟器驱动启动")
 
     async def stop(self) -> None:
         self._running = False

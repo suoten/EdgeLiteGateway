@@ -553,7 +553,23 @@ class MqttClientDriver(DriverPlugin):
 
     def _on_disconnect(self, reason: str = "") -> None:
         self._subscribed_topics.clear()
-        logger.info("[mqtt] code=ON_DISCONNECT msg=subscription records cleared reason=%s", reason)
+        # FIXED: 断线时清理 _msg_queue 中残留消息，防止重连后新消费者处理旧会话消息（Layer 3 - 运行时健壮性）
+        # 原问题：_msg_consumer_task 被取消后，_msg_queue 中可能残留未处理消息，
+        #         重连后新 _message_consumer 会消费这些旧消息，导致处理过期数据
+        if self._msg_queue is not None:
+            drained = 0
+            while not self._msg_queue.empty():
+                try:
+                    self._msg_queue.get_nowait()
+                    drained += 1
+                except asyncio.QueueEmpty:
+                    break
+            if drained > 0:
+                logger.info("[mqtt] code=ON_DISCONNECT msg=subscription cleared, drained %d stale messages from msg_queue, reason=%s", drained, reason)
+            else:
+                logger.info("[mqtt] code=ON_DISCONNECT msg=subscription records cleared reason=%s", reason)
+        else:
+            logger.info("[mqtt] code=ON_DISCONNECT msg=subscription records cleared reason=%s", reason)
 
     # ── Topic 匹配与变量提取 ──
 
@@ -624,12 +640,39 @@ class MqttClientDriver(DriverPlugin):
                     client_kwargs["client_id"] = client_id
 
                 # ── 遗嘱消息 ──
+                # FIXED: 添加 Will 消息长度限制和 QoS 校验（Layer 2 - MQTT 协议规范）
+                # MQTT 规范: topic 最长 65535 字节, payload 最长 65535 字节
+                # 实际限制: topic ≤ 256 字节, payload ≤ 65536 字节(64KB) 防止内存占用过大
+                _MQTT_WILL_MAX_TOPIC_LEN = 256
+                _MQTT_WILL_MAX_PAYLOAD_LEN = 65536
                 will_topic = self._will_topic
                 will_message = self._will_message
                 will_qos = int(self._driver_config.get("will_qos", 1))
                 will_retain = bool(self._driver_config.get("will_retain", True))
 
+                # FIXED: Will QoS 合法性校验，非法值回退到 QoS 1
+                if will_qos not in (0, 1, 2):
+                    logger.warning("[mqtt] invalid will_qos=%d, falling back to 1", will_qos)
+                    will_qos = 1
+
                 if will_topic:
+                    # FIXED: Will topic 长度校验
+                    if len(will_topic.encode("utf-8")) > _MQTT_WILL_MAX_TOPIC_LEN:
+                        logger.warning(
+                            "[mqtt] will_topic too long (%d bytes, max %d), truncating will message",
+                            len(will_topic.encode("utf-8")),
+                            _MQTT_WILL_MAX_TOPIC_LEN,
+                        )
+                        will_topic = will_topic[:_MQTT_WILL_MAX_TOPIC_LEN]
+                    # FIXED: Will payload 长度校验
+                    will_payload_bytes = will_message.encode("utf-8")
+                    if len(will_payload_bytes) > _MQTT_WILL_MAX_PAYLOAD_LEN:
+                        logger.warning(
+                            "[mqtt] will_message too large (%d bytes, max %d), truncating",
+                            len(will_payload_bytes),
+                            _MQTT_WILL_MAX_PAYLOAD_LEN,
+                        )
+                        will_message = will_message[:_MQTT_WILL_MAX_PAYLOAD_LEN]
                     client_kwargs["will"] = aiomqtt.Will(
                         topic=will_topic,
                         payload=will_message.encode("utf-8"),
@@ -1211,6 +1254,23 @@ class MqttClientDriver(DriverPlugin):
         return drained
 
     def update_will(self, topic: str, payload: str) -> None:
+        # FIXED: update_will 也进行长度校验，与 _connect_loop 中一致（Layer 2 - MQTT 协议规范）
+        _MQTT_WILL_MAX_TOPIC_LEN = 256
+        _MQTT_WILL_MAX_PAYLOAD_LEN = 65536
+        if topic and len(topic.encode("utf-8")) > _MQTT_WILL_MAX_TOPIC_LEN:
+            logger.warning(
+                "[mqtt] update_will: topic too long (%d bytes, max %d), truncating",
+                len(topic.encode("utf-8")),
+                _MQTT_WILL_MAX_TOPIC_LEN,
+            )
+            topic = topic[:_MQTT_WILL_MAX_TOPIC_LEN]
+        if payload and len(payload.encode("utf-8")) > _MQTT_WILL_MAX_PAYLOAD_LEN:
+            logger.warning(
+                "[mqtt] update_will: payload too large (%d bytes, max %d), truncating",
+                len(payload.encode("utf-8")),
+                _MQTT_WILL_MAX_PAYLOAD_LEN,
+            )
+            payload = payload[:_MQTT_WILL_MAX_PAYLOAD_LEN]
         self._will_topic = topic
         self._will_message = payload
         logger.info("[mqtt] code=WILL_UPDATED topic=%s", topic)
