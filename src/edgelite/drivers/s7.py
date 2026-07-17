@@ -286,6 +286,9 @@ class S7Driver(DriverPlugin):
         "S7-400": 480,
         "S7-200 SMART": 240,
     }
+    # FIXED-P1: 单次批量读取最大变量数限制，防止超大列表导致 snap7 C 层内存溢出或超时
+    # snap7 ReadMultiVars 实际限制为 20 个变量/调用，此处设 100 为安全上限（自动分段）
+    _MAX_READ_VARS = 100
 
     def __init__(self):
         """Initialize S7Driver.
@@ -1122,6 +1125,15 @@ class S7Driver(DriverPlugin):
         result = {}
         if not addresses:
             return result
+
+        # FIXED-P1: 单次批量读取变量数限制，防止超大列表导致 snap7 C 层内存溢出或超时
+        if len(addresses) > self._MAX_READ_VARS:
+            logger.warning(
+                "[s7] code=MAX_VARS_EXCEEDED msg=Batch read %d variables exceeds limit %d, truncating",
+                len(addresses),
+                self._MAX_READ_VARS,
+            )
+            addresses = addresses[: self._MAX_READ_VARS]
 
         effective_max = max_segment_bytes or (self._pdu_size - 12)
         if effective_max <= 0:  # FIXED-P2: PDU大小异常时使用默认值，防止传0或负数给snap7

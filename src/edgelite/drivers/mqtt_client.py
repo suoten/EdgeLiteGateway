@@ -803,6 +803,18 @@ class MqttClientDriver(DriverPlugin):
                         topic = dev_config.get("topic") or dev_config.get(
                             "subscribe_topic", f"edgelite/{device_id}/data"
                         )
+                        # FIXED-P1: TopicFilter 格式校验（MQTT 协议规范 §3.8）
+                        # 原问题：直接订阅未校验 topic，空字符串或含非法字符的 topic 可能导致协议错误
+                        if not topic or not isinstance(topic, str):
+                            self._log_error(device_id, "SUBSCRIBE_FAILED", "topic is empty or not a string")
+                            continue
+                        if "\0" in topic:
+                            self._log_error(device_id, "SUBSCRIBE_FAILED", f"topic contains null byte: {topic[:64]}")
+                            continue
+                        # FIXED-P1: topic 长度校验（MQTT 规范 topic 最长 65535 字节）
+                        if len(topic.encode("utf-8")) > 65535:
+                            self._log_error(device_id, "SUBSCRIBE_FAILED", f"topic too long ({len(topic.encode('utf-8'))} bytes, max 65535)")
+                            continue
                         try:
                             await client.subscribe(topic)
                             self._subscribed_topics.add(topic)

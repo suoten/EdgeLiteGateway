@@ -114,18 +114,26 @@ async def _check_sqlite() -> dict[str, Any]:
 
 
 async def _check_influxdb() -> dict[str, Any]:
-    """检查 InfluxDB 可用性。"""
+    """检查 InfluxDB 可用性。
+
+    InfluxDB 是可选依赖：降级到 SQLite 时序存储时系统仍可正常接收流量。
+    """
     try:
         from edgelite.app import _app_state
 
         influx = getattr(_app_state, "influx_storage", None)
         if influx is None:
-            return {"status": "unhealthy", "error": "influx_storage not initialized"}
-        # check_health 返回 bool
+            return {"status": "degraded", "error": "influx_storage not initialized"}
+        if await influx.fallback_mode():
+            return {"status": "degraded", "mode": "sqlite_fallback"}
         healthy = await influx.check_health()
-        return {"status": "healthy" if healthy else "unhealthy"}
+        if not healthy:
+            if await influx.fallback_mode():
+                return {"status": "degraded", "mode": "sqlite_fallback"}
+            return {"status": "unhealthy"}
+        return {"status": "healthy"}
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        return {"status": "degraded", "error": str(e)}
 
 
 async def _check_mqtt() -> dict[str, Any]:
@@ -292,7 +300,11 @@ async def health_ready(request: Request) -> JSONResponse:
     # 磁盘空间检查（同步、快速，不纳入 async gather）
     disk_r = _check_disk_space()
 
-    ready = sqlite_r["status"] == "healthy" and influx_r["status"] == "healthy" and disk_r["status"] != "unhealthy"
+    ready = (
+        sqlite_r["status"] == "healthy"
+        and influx_r["status"] in ("healthy", "degraded")
+        and disk_r["status"] != "unhealthy"
+    )
     return JSONResponse(
         status_code=200 if ready else 503,
         content={

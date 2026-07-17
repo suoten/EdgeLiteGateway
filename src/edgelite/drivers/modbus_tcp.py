@@ -1195,6 +1195,11 @@ class ModbusTcpDriver(DriverPlugin):
                 raise ValueError(f"Modbus 寄存器地址超出有效范围 0-65535: {addr}")
             data_type = pt_def.get("data_type", "float32")
             n_regs = DATA_TYPE_REGS.get(data_type, 1)
+            # FIXED-P1: 起始地址+数量不越界校验，防止 addr+n_regs > 65536 导致设备返回异常
+            if addr + n_regs > 65536:
+                raise ValueError(
+                    f"Modbus 寄存器地址+数量越界: addr={addr} count={n_regs} (addr+count={addr + n_regs} > 65536)"
+                )
 
             if seg_start is None:
                 seg_start = addr
@@ -1231,6 +1236,11 @@ class ModbusTcpDriver(DriverPlugin):
                         raise ValueError(f"Modbus 寄存器地址超出有效范围 0-65535: {addr}")
                     data_type = pt_def.get("data_type", "float32")
                     n_regs = DATA_TYPE_REGS.get(data_type, 1)
+                    # FIXED-P1: 起始地址+数量不越界校验（子段拆分路径）
+                    if addr + n_regs > 65536:
+                        raise ValueError(
+                            f"Modbus 寄存器地址+数量越界: addr={addr} count={n_regs} (addr+count={addr + n_regs} > 65536)"
+                        )
                     if sub_start is None:
                         sub_start = addr
                         sub_end = addr + n_regs
@@ -1489,6 +1499,29 @@ class ModbusTcpDriver(DriverPlugin):
             data_type = pt_def.get("data_type", "float32")
             clamp = pt_def.get("clamp", config.get("clamp"))
             old_value = self._last_values.get((device_id, point))
+
+            # FIXED-P1: 寄存器地址范围校验（0-65535），与 RTU 驱动和读取路径一致
+            # 原问题：写入路径缺失地址校验，非法地址直接发送到设备
+            if not 0 <= address <= 65535:
+                self._log_error(
+                    device_id,
+                    ModbusDriverErrors.WRITE_FAILED,
+                    f"{point}: register address {address} out of range 0-65535",
+                )
+                self._audit_write(device_id, point, old_value, value, "rejected", f"address out of range: {address}")
+                return False
+            # FIXED-P1: 起始地址+数量不越界校验
+            _write_reg_count = DATA_TYPE_REGS.get(data_type, 1)
+            if address + _write_reg_count > 65536:
+                self._log_error(
+                    device_id,
+                    ModbusDriverErrors.WRITE_FAILED,
+                    f"{point}: addr+count overflow: {address}+{_write_reg_count}={address + _write_reg_count} > 65536",
+                )
+                self._audit_write(
+                    device_id, point, old_value, value, "rejected", f"addr+count overflow: {address}+{_write_reg_count}"
+                )
+                return False
 
             if not self._check_write_value_range(value, clamp):
                 self._log_error(
@@ -2586,6 +2619,16 @@ class ModbusTcpDriver(DriverPlugin):
         reg_type = pt_def.get("register_type", "holding")
         reg_count = DATA_TYPE_REGS.get(data_type, 1)
         cache_key = (device_id, point_name) if point_name else None
+
+        # FIXED-P1: 寄存器地址范围校验（0-65535），与 RTU 驱动和批量读取路径一致
+        # 原问题：单点读取路径缺失地址校验，非法地址直接发送到设备
+        if not 0 <= address <= 65535:
+            raise ValueError(f"Modbus 寄存器地址超出有效范围 0-65535: {address}")
+        # FIXED-P1: 起始地址+数量不越界校验，防止 addr+count > 65535 导致设备返回异常
+        if address + reg_count > 65536:
+            raise ValueError(
+                f"Modbus 寄存器地址+数量越界: addr={address} count={reg_count} (addr+count={address + reg_count} > 65536)"
+            )
 
         _set_client_slave_id(client, slave_id)
 

@@ -1451,6 +1451,12 @@ class ModbusRtuDriver(DriverPlugin):
         if not 0 <= address <= 65535:
             raise ValueError(f"Modbus 寄存器地址超出有效范围 0-65535: {address}")
         data_type = pt_def.get("data_type", "float32")
+        # FIXED-P1: 起始地址+数量不越界校验，与读取路径和TCP驱动一致
+        _write_reg_count = DATA_TYPE_REGS.get(data_type, 1)
+        if address + _write_reg_count > 65536:
+            raise ValueError(
+                f"Modbus 寄存器地址+数量越界: addr={address} count={_write_reg_count} (addr+count={address + _write_reg_count} > 65536)"
+            )
 
         _set_client_slave_id(client, slave_id)
 
@@ -1515,6 +1521,11 @@ class ModbusRtuDriver(DriverPlugin):
         data_type = pt_def.get("data_type", "float32")
         reg_type = pt_def.get("register_type", "holding")
         reg_count = DATA_TYPE_REGS.get(data_type, 1)
+        # FIXED-P1: 起始地址+数量不越界校验，防止 addr+count > 65536 导致设备返回异常
+        if address + reg_count > 65536:
+            raise ValueError(
+                f"Modbus 寄存器地址+数量越界: addr={address} count={reg_count} (addr+count={address + reg_count} > 65536)"
+            )
 
         _set_client_slave_id(client, slave_id)
 
