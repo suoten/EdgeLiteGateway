@@ -104,13 +104,24 @@ class SOEMContext:
         """检查SOEM是否可用"""
         if self._use_pysoem:
             return True
-        logger.warning("pysoem not available, SOEM will run in simulation mode")
+        # FIXED-P0: 原问题-降级日志级别仅为 warning 且未提示生产风险；
+        # 修复-明确告知用户当前为模拟模式，绝不可用于生产监控。
+        logger.warning(
+            "[EtherCAT] pysoem 未安装或加载失败，SOEM 将以模拟模式运行。"
+            "模拟模式返回 Beckhoff EK1100/EL4001/EL2004 占位从站与占位数据，"
+            "仅用于开发与测试，绝不可用于生产监控。生产部署请 `pip install pysoem` "
+            "并在 Linux + CAP_NET_RAW 能力下运行，或改用 IgH/TwinCAT 主站。"
+        )
         return False
 
     def initialize(self) -> bool:
         """初始化SOEM上下文"""
         if not self._use_pysoem:
-            logger.info("pysoem not available, SOEM will run in simulation mode")
+            # FIXED-P0: 与 _check_soem 一致，明确告知模拟模式风险
+            logger.warning(
+                "[EtherCAT] pysoem 未安装，SOEM 以模拟模式初始化。"
+                "生产环境不推荐：参见 ethercat.py 模块 WARNING 注释。"
+            )
             self._initialized = True
             return True
 
@@ -121,7 +132,15 @@ class SOEMContext:
             logger.info("SOEM Network created (pysoem %s)", getattr(pysoem, "__version__", "unknown"))
             return True
         except Exception as e:
+            # FIXED-P0: 原问题-pysoem 创建失败时仅 logger.error 后静默降级到模拟模式；
+            # 修复-以 WARNING 级别明确告知用户已降级且不可用于生产。
             logger.error("Failed to create SOEM Network: %s", e)
+            logger.warning(
+                "[EtherCAT] pysoem Network 创建失败，已降级到模拟模式。"
+                "可能原因：Windows 下缺少 WinPcap/Npcap、未以管理员权限运行、"
+                "或 pysoem 版本与 SOEM 库不匹配。生产环境必须解决此问题，"
+                "模拟模式仅用于开发测试。"
+            )
             self._use_pysoem = False
             self._initialized = True
             return True  # 降级到模拟模式

@@ -1,4 +1,16 @@
-"""IEC 60870-5-104 电力远动规约驱动"""
+"""IEC 60870-5-104 电力远动规约驱动
+
+WARNING: This driver is a pure-Python reference implementation and has NOT been
+validated against real hardware. Production use is NOT recommended without
+thorough testing. For production deployments, consider using a mature
+IEC 104 library (e.g. c104) with hardware conformance tests.
+
+支持：
+- U/S/I 帧完整编解码
+- 单点/双点/步位置/测量值/步位置带时标 (CP56Time2a, 含星期字段保留)
+- SBO (Select-Before-Operate) 遥控与超时保护
+- STARTDT 握手超时保护、TESTFR 重试计数器
+"""
 
 from __future__ import annotations
 

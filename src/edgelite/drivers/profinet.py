@@ -1,14 +1,25 @@
 """Profinet Driver - DCP Protocol + Snap7 Integration
 
-Profinet is a Siemens-led industrial Ethernet standard (IEC 61138),
-widely used in motion control, robotics, and distributed IO applications.
+WARNING: This driver is a pure-Python reference implementation and has NOT been
+validated against real hardware. Production use is NOT recommended without
+thorough testing. This driver ONLY implements DCP (Discovery and Configuration
+Protocol) device discovery natively; it does NOT implement Profinet RT/IRT
+real-time data exchange. IO data read/write is bridged via the Snap7 library
+(S7 communication), which is NOT native Profinet RT/IRT and cannot achieve
+sub-millisecond determinism. For production Profinet RT/IRT, use a certified
+Profinet controller (e.g. CodeSYS, SoftPLC with Profinet stack, or dedicated
+CP cards from Siemens).
 
 Supported Features:
 - Profinet DCP (Discovery and Configuration Protocol) device discovery
-- Profinet IO data exchange (RT/IRT) via Snap7 integration
-- Device name configuration
-- Snap7 bridge for S7/Profinet hybrid networks
-- Basic read/write operations via Snap7 library
+- Device name configuration via DCP Set
+- Snap7 bridge for S7/Profinet hybrid networks (NOT native RT/IRT)
+- Basic read/write operations via Snap7 library (S7 protocol, not Profinet IO)
+
+Known Limitations (STUB):
+- read_io_data / write_io_data 仅记录 warning 并返回 None，需通过 Snap7
+  bridge 间接读写，未实现 GSDML 解析与 Profinet IO Controller 栈
+- 不支持 IRT (Isochronous Real-Time) 硬实时等时同步
 
 Dependencies:
     pip install python-snap7
@@ -351,6 +362,13 @@ class ProfinetClient:
         which provides similar capabilities for Siemens devices.
         """
         logger.warning("Profinet IO read requires snap7 library or specialized hardware support")
+        # TODO(协议驱动-Profinet, 负责人: @iot-driver-team, 计划版本: v2.0.0):
+        #   当前为 STUB 实现，未实现原生 Profinet RT/IRT IO 数据交换。
+        #   原生 RT/IRT 需要：专用网卡(Intel i210/i225)、Profinet 栈(p-net/cap)、
+        #   GSDML 设备描述文件解析、IO Controller 状态机(OP->SAFE_OP->OP)、
+        #   周期性 PDO 交换与 ACW Watchdog。
+        #   临时方案：通过 Snap7 bridge (snap7_integration.py) 间接读写 S7 数据区，
+        #   但这不是原生 Profinet IO，无法满足 RT/IRT 实时性。
         return None
 
     async def write_io_data(
@@ -370,6 +388,8 @@ class ProfinetClient:
         For full IO functionality, consider using the S7 driver with snap7.
         """
         logger.warning("Profinet IO write requires snap7 library or specialized hardware support")
+        # TODO(协议驱动-Profinet, 负责人: @iot-driver-team, 计划版本: v2.0.0):
+        #   当前为 STUB 实现，未实现原生 Profinet RT/IRT IO 写入。参见 read_io_data 的 TODO。
         return False
 
     def handle_packet(self, data: bytes) -> None:

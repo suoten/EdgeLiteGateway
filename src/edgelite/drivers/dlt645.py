@@ -1,11 +1,17 @@
 """DL/T 645-2007 多功能电能表通信协议驱动
 
+WARNING: This driver is a pure-Python reference implementation and has NOT been
+validated against real hardware. Production use is NOT recommended without
+thorough testing. 电表厂商私有数据标识与加密算法可能存在差异，需对照具体
+设备文档验证。
+
 支持：
 - DL/T 645-2007 标准帧格式
 - 读数据（功能码0x11）和读后续数据（功能码0x14）
 - BCD编码/解码，IEEE 754浮点解析
+- +33h/-33h 加密解密、CS 校验和
 - RS485半双工串口通信，asyncio.Lock互斥
-- 多帧数据自动拼接
+- 多帧数据自动拼接 (MAX_CONTINUATION_FRAMES=32 安全上限)
 """
 
 from __future__ import annotations

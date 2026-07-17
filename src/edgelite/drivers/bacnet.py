@@ -1,4 +1,9 @@
-"""BACnet/IP 驱动 - 基于BACpypes库实现楼宇自控协议
+"""BACnet/IP 驱动 - 纯Python参考实现（楼宇自控协议 ASHRAE 135）
+
+WARNING: This driver is a pure-Python reference implementation and has NOT been
+validated against real hardware. Production use is NOT recommended without
+thorough testing. For production deployments, install BACpypes
+(`pip install BACpypes`) and use a BACpypes-backed driver instead.
 
 BACnet是楼宇自动化和控制领域的标准协议（ASHRAE 135）。
 支持：
@@ -8,6 +13,7 @@ BACnet是楼宇自动化和控制领域的标准协议（ASHRAE 135）。
 - 属性读写 (ReadProperty/WriteProperty)
 - COV订阅 (Change of Value) - 支持实时变化通知
 - 批量读取优化 - ReadPropertyMultiple减少通信开销
+- ConfirmedRequest 分段/重组 (_SegmentReassembler, max_segments=64)
 """
 
 from __future__ import annotations

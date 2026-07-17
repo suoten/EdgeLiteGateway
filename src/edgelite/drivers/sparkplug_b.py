@@ -1,4 +1,14 @@
-"""MQTT Sparkplug B协议驱动 - 基于aiomqtt + sparkplugb ProtoBuf实现"""
+"""MQTT Sparkplug B协议驱动 - 基于aiomqtt + sparkplugb ProtoBuf实现
+
+DISABLED: 本驱动已从 DriverRegistry.auto_discover() 驱动列表中移除（见
+registry.py 中的注释行）。原因：其依赖的 `sparkplugb` 包在 PyPI 上不存在，
+导致 _pb2 为 None 时编码/解码全部返回 None，驱动无法正常工作。
+
+保留本文件供未来实现参考。如需恢复：
+1. 确保 sparkplugb 包可用（手动获取或改用 eclipse/tahu 实现）
+2. 在 registry.py auto_discover 列表中取消注释 Sparkplug B 行
+3. 在 pyproject.toml 的 [project.optional-dependencies] sparkplug 中取消注释
+"""
 
 from __future__ import annotations
 

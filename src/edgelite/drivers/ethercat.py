@@ -1,18 +1,31 @@
 """EtherCAT 驱动 - 基于SOEM/SimpleOpen EtherCAT主站实现
 
+WARNING: This driver is a pure-Python reference implementation and has NOT been
+validated against real hardware. Production use is NOT recommended without
+thorough testing. EtherCAT 主站实时性要求亚毫秒级周期，纯 Python 调度抖动
+无法满足硬实时；建议生产环境使用 TwinCAT / IgH EtherCAT Master 等专业主站。
+
+Windows 回退策略说明:
+- 当 pysoem 初始化失败时，驱动会静默降级到"模拟模式"(simulation mode)，
+  scan_slaves 返回 Beckhoff EK1100/EL4001/EL2004 模拟从站，PDO/SDO 读写
+  返回占位数据。这是为了便于在无硬件的开发环境运行与测试，**绝不可**用于
+  生产监控。生产部署应通过 `pip install pysoem` 并在 Linux + CAP_NET_RAW
+  能力下运行，或改用 IgH/TwinCAT 主站。
+
 EtherCAT是Beckhoff主导的高速工业以太网协议(IEC 61158)，
 广泛应用于运动控制、分布式IO等场景，以其亚毫秒级实时性能著称。
 
 支持:
-- EtherCAT主站通信 (基于SOEM库)
+- EtherCAT主站通信 (基于SOEM库, 通过 pysoem 包绑定)
 - 从站发现和配置
 - PDO (Process Data Object) 读写
 - SDO (Service Data Object) 参数读写
 - DC (Distributed Clock) 同步
 
 依赖:
-    Linux: apt install soem && pip install python-soem
-    Windows: 需要PyEtherCAT或手动编译SOEM
+    Linux: apt install soem && pip install pysoem
+    macOS: brew install soem && pip install pysoem
+    Windows: pip install pysoem (若失败则降级到模拟模式，仅用于开发测试)
 """
 
 from __future__ import annotations
@@ -197,12 +210,24 @@ class EtherCATClient:
                 logger.info("EtherCAT SOEM initialized: %s (real mode)", self._iface)
 
             self._initialized = True
-            logger.info("EtherCAT master initialized: %s (simulation mode)", self._iface)
+            # FIXED-P0: 原问题-无论 real/simulation 模式都打印 "simulation mode" 误导日志；
+            # 修复-根据 _use_real_soem 输出正确模式标识
+            mode = "real mode" if self._use_real_soem else "simulation mode"
+            logger.info("EtherCAT master initialized: %s (%s)", self._iface, mode)
             return True
 
         except Exception as e:
+            # FIXED-P0: 原问题-异常时仅 logger.error 后静默 self._initialized=True，
+            # 未设置 _use_real_soem=False，导致后续 is_real_mode 判断可能错误；
+            # 修复-显式降级到模拟模式并 WARNING 告知不可用于生产
             logger.error("EtherCAT initialization failed: %s", e)
-            self._initialized = True  # 仍然允许模拟模式运行
+            logger.warning(
+                "[EtherCAT] 初始化异常，已降级到模拟模式。生产环境不可用："
+                "请检查 pysoem 安装、网络接口权限（Linux 需 CAP_NET_RAW / root）"
+                "及从站接线。"
+            )
+            self._use_real_soem = False
+            self._initialized = True  # 仍然允许模拟模式运行（仅开发测试）
             return True
 
     async def scan_slaves(self) -> list[EtherCATSlave]:

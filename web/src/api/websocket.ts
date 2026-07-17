@@ -318,6 +318,12 @@ function connectChannel(channel: ChannelName): void {
     }
 
     ws.onmessage = (event) => {
+      // FIXED(安全): 限制接收消息大小为2MB，防止恶意超大消息导致客户端内存耗尽
+      // 服务端已限制发送消息大小(broadcast数据由服务端控制)，此处为客户端防御性检查
+      if (typeof event.data === 'string' && event.data.length > 2 * 1024 * 1024) {
+        console.warn('[WS] Received oversized message (' + event.data.length + ' bytes), discarding')
+        return
+      }
       try {
         const data = JSON.parse(event.data)
         // FIXED-P0: 收到任何消息即更新 lastPongTime，作为心跳存活依据

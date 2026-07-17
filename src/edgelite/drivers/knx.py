@@ -1,14 +1,23 @@
-"""KNXnet/IP 驱动 - 基于CEMI协议实现楼宇自控协议
+"""KNXnet/IP 驱动 - 纯Python参考实现（CEMI协议楼宇自控）
+
+WARNING: This driver is a pure-Python reference implementation and has NOT been
+validated against real hardware. Production use is NOT recommended without
+thorough testing. For production deployments, install xknx (`pip install xknx`)
+which provides a full KNXnet/IP stack validated against real KNX gateways.
 
 KNX是欧洲楼宇自动化标准协议（EN 50090），广泛用于HVAC、照明、安防控制。
 支持：
 - KNXnet/IP over UDP (默认端口3671)
 - 设备发现 (Search/Description)
-- 组地址读写 (GroupValue_Read/Write/Response)
+- 组地址写 (GroupValue_Write) 与事件订阅
 - 点对点通信 (Data Link Layer)
 - 1-bit (开关)、1-byte (百分比)、2-byte (温度) 等多种数据类型
 - 事件订阅模式 - 实时接收组地址值变化
-- 批量读取优化 - 减少通信开销
+- 心跳保活 (ConnectionStateRequest/Response)
+
+已知限制 (STUB):
+- read_group_value 仅发送读请求并等待 0.5s 后返回 None，未实现响应帧解析
+  （需补充 cEMI L_Data.con 响应匹配后才能支持组地址同步读取）
 """
 
 from __future__ import annotations
@@ -381,7 +390,13 @@ class KNXClient:
 
             # KNX响应会通过 handle_packet 回调
             await asyncio.sleep(0.5)  # 等待响应
-            return None  # 简化实现，返回None表示读取请求已发送
+            # TODO(协议驱动-KNX, 负责人: @iot-driver-team, 计划版本: v1.1.0):
+            #   当前为 STUB 实现，仅发送 GroupValue_Read 请求并固定等待 500ms 后返回 None。
+            #   未实现 cEMI L_Data.con 响应帧匹配与值解析，导致同步读取组地址值不可用。
+            #   修复方案：维护 pending_requests 字典 {seq -> asyncio.Future}，
+            #   handle_packet 收到 GroupValue_Response 时解析 cEMI 载荷并 resolve 对应 Future，
+            #   read_group_value 改为 await asyncio.wait_for(future, timeout=...) 返回真实值。
+            return None  # STUB: 见上方 TODO，当前仅表示读取请求已发送
 
         except Exception as e:
             logger.error("KNX读取失败 %s: %s", group_address, e)

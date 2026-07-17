@@ -216,7 +216,11 @@ class DriverRegistry:
                 ("KUKA Robot", "edgelite.drivers.kuka", "KukaDriver"),
                 ("MTConnect", "edgelite.drivers.mtconnect", "MTConnectDriver"),
                 ("Profinet", "edgelite.drivers.profinet", "ProfinetDriver"),
-                ("Sparkplug B", "edgelite.drivers.sparkplug_b", "SparkplugBDriver"),
+                # FIXED-P1: Sparkplug B 已从驱动列表移除——其依赖的 sparkplugb 包在 PyPI 上
+                # 不存在，导致驱动虽可加载但编解码全部返回 None。保留 sparkplug_b.py 文件供
+                # 未来实现参考，但不再通过 auto_discover 注册。如需恢复，取消下行注释并确保
+                # sparkplugb 包可用（需手动获取或改用 eclipse/sparkplugb 实现）。
+                # ("Sparkplug B", "edgelite.drivers.sparkplug_b", "SparkplugBDriver"),
                 ("Toledo Scale", "edgelite.drivers.toledo", "ToledoDriver"),
                 ("ABB Robot", "edgelite.drivers.abb_robot", "AbbRobotDriver"),
                 ("Serial Port", "edgelite.drivers.serial_port", "SerialPortDriver"),

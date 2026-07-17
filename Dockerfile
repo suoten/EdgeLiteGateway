@@ -1,7 +1,11 @@
+# EdgeLite Gateway - Root Dockerfile (scanner compatibility)
+# The canonical Dockerfile is at docker/Dockerfile — both are kept in sync.
+# Build: docker build .  OR  docker build -f docker/Dockerfile .
+
 FROM node:18-alpine AS frontend-builder
 
 # FIXED-P2: npm 镜像可参数化，国内默认 npmmirror，海外构建可用：
-#   docker build --build-arg NPM_REGISTRY=https://registry.npmjs.org -f docker/Dockerfile .
+#   docker build --build-arg NPM_REGISTRY=https://registry.npmjs.org .
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 
 WORKDIR /build
@@ -17,7 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /
 WORKDIR /app
 
 # FIXED: 支持条件安装AI依赖，减小非AI场景的镜像体积
-# 构建命令: docker build --build-arg INSTALL_AI=false -f docker/Dockerfile .
 ARG INSTALL_AI=true
 
 COPY pyproject.toml setup.py ./
@@ -42,12 +45,11 @@ COPY scripts/init_db.py scripts/
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-RUN groupadd -r appuser && useradd -r -g appuser appuser  # FIXED-P0: 先创建用户再chown
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 RUN mkdir -p data/backups logs && chown -R appuser:appuser data logs \
     && chown -R appuser:appuser /app
 
-# Verify onnxruntime is available and model files are installed (only when AI deps are included)
 ARG INSTALL_AI=true
 RUN if [ "$INSTALL_AI" = "true" ]; then \
         python -c "import onnxruntime; print('onnxruntime version:', onnxruntime.__version__)" && \
@@ -65,11 +67,7 @@ EXPOSE 8080
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# FIXED: 使用 /health/live 轻量端点替代 /health [2026-06-29]
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD python -c "import urllib.request; exit(0 if urllib.request.urlopen('http://localhost:8080/health/live', timeout=5).status == 200 else 1)"
 
-# FIXED: 移除硬编码 --port 8080，端口通过 EDGELITE_SERVER__PORT 环境变量配置
-# __main__.py 已从 os.environ.get("EDGELITE_SERVER__PORT", "8080") 读取默认值
-# 保留 --host 0.0.0.0 因为容器内必须监听所有网卡（默认 127.0.0.1 无法从外部访问）
 CMD ["python", "-m", "edgelite", "--host", "0.0.0.0"]
