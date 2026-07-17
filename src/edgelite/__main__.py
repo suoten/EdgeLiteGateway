@@ -4,8 +4,15 @@ import argparse
 import os
 import signal
 import sys
+from pathlib import Path
 
 import uvicorn
+from dotenv import load_dotenv
+
+# 在 CLI 参数解析之前加载 .env，确保 EDGELITE_SERVER__PORT 等环境变量可用
+_env_path = Path(__file__).resolve().parents[2] / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path, override=False)
 
 # FIXED-P0: Windows上aiomqtt需要SelectorEventLoop（ProactorEventLoop不支持add_writer/remove_writer）
 # 必须在任何asyncio操作之前设置，否则RuntimeError: event loop is already running
@@ -24,8 +31,17 @@ def main():
     启动 uvicorn ASGI 服务器。
     """
     parser = argparse.ArgumentParser(description="EdgeLite Gateway")
-    parser.add_argument("--host", default="127.0.0.1", help="监听地址")  # FIXED-P0: 默认仅监听localhost
-    parser.add_argument("--port", type=int, default=8080, help="监听端口")
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("EDGELITE_SERVER__HOST", "127.0.0.1"),
+        help="监听地址",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("EDGELITE_SERVER__PORT", "8080")),
+        help="监听端口",
+    )
     parser.add_argument("--config", default="configs/config.yaml", help="配置文件路径")
     parser.add_argument("--reload", action="store_true", help="开发模式热重载")
     parser.add_argument("--reload-dir", action="append", dest="reload_dirs", help="热重载监控目录")  # FIXED: 原问题-docker-compose.dev.yml使用--reload-dir但argparse未定义
