@@ -39,7 +39,7 @@ const router = createRouter({
         { path: 'devices/shadow', name: 'DeviceShadow', component: PlaceholderView, meta: { title: t('router.deviceShadow'), requiredRole: ['admin', 'operator'] } },
         { path: 'rules', name: 'Rules', component: () => import('@/views/rule/RuleList.vue'), meta: { title: t('router.rules') } },
         { path: 'alarms', name: 'Alarms', component: () => import('@/views/alarm/AlarmList.vue'), meta: { title: t('router.alarms') } },
-        { path: 'data', name: 'DataQuery', component: PlaceholderView, meta: { title: t('router.dataQuery') } },
+        { path: 'data', name: 'DataQuery', component: () => import('@/views/data/DataQuery.vue'), meta: { title: t('router.dataQuery') } },
         { path: 'report', name: 'Report', component: PlaceholderView, meta: { title: t('router.report') } },
         { path: 'data/quality', name: 'DataQuality', component: PlaceholderView, meta: { title: t('router.dataQuality') } },
         { path: 'data/quality-monitor', name: 'DataQualityMonitor', component: PlaceholderView, meta: { title: t('router.qualityMonitor') } },

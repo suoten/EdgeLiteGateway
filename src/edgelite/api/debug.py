@@ -404,90 +404,6 @@ _PROTOCOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         ],
     },
-    "abb_rws": {
-        "name": "ABB RWS",
-        "fields": [
-            {
-                "key": "operation",
-                "label": "Operation",
-                "type": "select",
-                "options": [
-                    {"value": "read_joints", "label": "Read Joint Values"},
-                    {"value": "read_motion", "label": "Read Motion Data"},
-                    {"value": "read_status", "label": "Read Robot Status"},
-                    {"value": "read_rapid", "label": "Read RAPID Variable"},
-                    {"value": "write_rapid", "label": "Write RAPID Variable"},
-                    {"value": "start_program", "label": "Start Program"},
-                    {"value": "stop_program", "label": "Stop Program"},
-                    {"value": "reset_program", "label": "Reset Program"},
-                ],
-            },
-            {
-                "key": "rapid_path",
-                "label": "RAPID Path",
-                "type": "text",
-                "placeholder": "T_ROB1:MainModule:myVar",
-                "optional": True,
-            },
-            {"key": "write_value", "label": "Write Value", "type": "text", "optional": True},
-        ],
-    },
-    "fanuc_focas": {
-        "name": "FANUC FOCAS",
-        "fields": [
-            {
-                "key": "operation",
-                "label": "Operation",
-                "type": "select",
-                "options": [
-                    {"value": "cnc_status", "label": "CNC Status"},
-                    {"value": "cnc_position", "label": "CNC Position"},
-                    {"value": "cnc_program", "label": "CNC Program Number"},
-                    {"value": "cnc_feedrate", "label": "CNC Feedrate"},
-                    {"value": "cnc_spindle", "label": "CNC Spindle Speed"},
-                    {"value": "cnc_alarm", "label": "CNC Alarms"},
-                ],
-            },
-            {"key": "max_axes", "label": "Max Axes", "type": "number", "default": 8},
-        ],
-    },
-    "kuka_ekrl": {
-        "name": "KUKA EKRL",
-        "fields": [
-            {
-                "key": "operation",
-                "label": "Operation",
-                "type": "select",
-                "options": [
-                    {"value": "read", "label": "Read Variables"},
-                    {"value": "write", "label": "Write Variable"},
-                    {"value": "program_start", "label": "Start Program"},
-                    {"value": "program_stop", "label": "Stop Program"},
-                ],
-            },
-            {"key": "variables", "label": "Variables", "type": "text", "placeholder": "$OV_PRO,$POS_ACT"},
-            {"key": "write_value", "label": "Write Value", "type": "text", "optional": True},
-        ],
-    },
-    "toledo_mtsics": {
-        "name": "Toledo MT-SICS",
-        "fields": [
-            {
-                "key": "operation",
-                "label": "Operation",
-                "type": "select",
-                "options": [
-                    {"value": "read_weight", "label": "Read Weight (SIR)"},
-                    {"value": "read_stable", "label": "Read Stable (SFR)"},
-                    {"value": "read_all", "label": "Read All (SIL)"},
-                    {"value": "tare", "label": "Tare (T)"},
-                    {"value": "zero", "label": "Zero (Z)"},
-                    {"value": "print", "label": "Print (P)"},
-                    {"value": "switch_unit", "label": "Switch Unit (SUI)"},
-                ],
-            },
-        ],
-    },
     "opc_da": {
         "name": "OPC DA Client",
         "fields": [
@@ -1032,37 +948,6 @@ async def _simulate_allen_bradley(container: Any, device: dict, operation: str, 
     else:
         result["message"] = f"AB {operation}: executed"
 
-    return result
-
-
-async def _simulate_abb_rws(container: Any, device: dict, operation: str, params: dict) -> dict[str, Any]:
-    """ABB RWS协议专用模拟器"""
-    result = {"success": True, "message": ""}
-    rapid_path = params.get("rapid_path", "")
-    write_value = params.get("write_value")
-
-    if operation == "read_joints":
-        result["message"] = "ABB RWS: Read joint values"
-        result["request_raw"] = "GET /rw/motion/system/joint"
-        result["data"] = {"axis_1": 0.0, "axis_2": -90.0, "axis_3": 90.0, "axis_4": 0.0, "axis_5": 90.0, "axis_6": 0.0}
-    elif operation == "read_motion":
-        result["message"] = "ABB RWS: Read motion data"
-        result["request_raw"] = "GET /rw/motion/system/measurement"
-        result["data"] = {"x": 500.0, "y": 0.0, "z": 600.0, "speed": 100.0}
-    elif operation == "read_status":
-        result["message"] = "ABB RWS: Read robot status"
-        result["data"] = {"motor_on": True, "program_running": True, "emergency_stop": False, "mode": "AUTO"}
-    elif operation == "read_rapid":
-        result["message"] = f"ABB RWS: Read RAPID {rapid_path}"
-        result["data"] = {"path": rapid_path, "value": 42}
-    elif operation == "write_rapid":
-        result["message"] = f"ABB RWS: Write RAPID {rapid_path} = {write_value}"
-        result["data"] = {"path": rapid_path, "value": write_value, "status": "written"}
-    elif operation in ("start_program", "stop_program", "reset_program"):
-        result["message"] = f"ABB RWS: {operation}"
-        result["data"] = {"action": operation, "status": "ok"}
-    else:
-        result["message"] = f"ABB RWS: {operation} executed"
     return result
 
 

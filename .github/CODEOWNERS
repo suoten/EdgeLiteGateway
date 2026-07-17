@@ -1,0 +1,31 @@
+# EdgeLite Gateway — Code Owners
+# These owners will be automatically requested for review on PRs
+# that modify files in their areas of expertise.
+
+# Default owner for the entire repository
+* @suoten
+
+# Backend core (Python)
+src/edgelite/ @suoten
+
+# Frontend (Vue/TypeScript)
+web/ @suoten
+
+# CI/CD and DevOps
+.github/ @suoten
+docker/ @suoten
+k8s/ @suoten
+helm/ @suoten
+Makefile @suoten
+
+# Database and migrations
+alembic/ @suoten
+src/edgelite/storage/ @suoten
+
+# Security
+src/edgelite/security/ @suoten
+SECURITY.md @suoten
+
+# Configuration
+configs/ @suoten
+.env.example @suoten

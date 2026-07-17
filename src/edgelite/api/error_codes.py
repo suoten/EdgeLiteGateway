@@ -822,32 +822,6 @@ class SimulatorDriverErrors:
     FORMULA_EVAL_FAILED = "ERR_SIM_FORMULA_EVAL_FAILED"
 
 
-class VideoAiDriverErrors:
-    MODEL_NOT_LOADED = "ERR_VAI_MODEL_NOT_LOADED"
-    FRAME_CAPTURE_FAILED = "ERR_VAI_FRAME_CAPTURE_FAILED"
-    INFERENCE_FAILED = "ERR_VAI_INFERENCE_FAILED"
-    INFERENCE_EMPTY = "ERR_VAI_INFERENCE_EMPTY"
-    ONNX_LOAD_FAILED = "ERR_VAI_ONNX_LOAD_FAILED"
-    OFFLINE_BAD_QUALITY = "ERR_VAI_OFFLINE_BAD_QUALITY"
-    CONFIG_INVALID = "ERR_VAI_CONFIG_INVALID"
-    VALUE_OUT_OF_RANGE = "ERR_VAI_VALUE_OUT_OF_RANGE"
-    MODEL_HOT_RELOAD_OK = "ERR_VAI_MODEL_HOT_RELOAD_OK"
-    MODEL_HOT_RELOAD_FAILED = "ERR_VAI_MODEL_HOT_RELOAD_FAILED"
-    MODEL_ROLLBACK_OK = "ERR_VAI_MODEL_ROLLBACK_OK"
-    MODEL_VALIDATE_FAILED = "ERR_VAI_MODEL_VALIDATE_FAILED"
-    MODEL_VALIDATE_INPUT_MISMATCH = "ERR_VAI_MODEL_VALIDATE_INPUT_MISMATCH"
-    MODEL_VALIDATE_OUTPUT_MISMATCH = "ERR_VAI_MODEL_VALIDATE_OUTPUT_MISMATCH"
-    MODEL_VALIDATE_DTYPE_MISMATCH = "ERR_VAI_MODEL_VALIDATE_DTYPE_MISMATCH"
-    GPU_DEGRADED_TO_CPU = "ERR_VAI_GPU_DEGRADED_TO_CPU"
-    INFERENCE_TIMEOUT = "ERR_VAI_INFERENCE_TIMEOUT"
-    PREPROCESS_FAILED = "ERR_VAI_PREPROCESS_FAILED"
-    MODEL_PATH_TRAVERSAL = "ERR_VAI_MODEL_PATH_TRAVERSAL"
-    MODEL_PATH_NOT_ALLOWED = "ERR_VAI_MODEL_PATH_NOT_ALLOWED"
-    MODEL_FORMAT_INVALID = "ERR_VAI_MODEL_FORMAT_INVALID"
-    MODEL_HEADER_INVALID = "ERR_VAI_MODEL_HEADER_INVALID"
-    CONFIG_AUDIT_RECORDED = "ERR_VAI_CONFIG_AUDIT_RECORDED"
-
-
 class OnvifDriverErrors:
     START_FAILED = "ERR_ONVIF_START_FAILED"
     CAMERA_INIT_FAILED = "ERR_ONVIF_CAMERA_INIT_FAILED"
@@ -2360,75 +2334,6 @@ ERROR_CODE_MAP: dict[str, ErrorCodeDetail] = {
     ),
     SimulatorDriverErrors.FORMULA_EVAL_FAILED: ErrorCodeDetail(
         SimulatorDriverErrors.FORMULA_EVAL_FAILED, 502, "Simulator formula evaluation failed"
-    ),
-    VideoAiDriverErrors.MODEL_NOT_LOADED: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_NOT_LOADED, 503, "Video AI model not loaded"
-    ),
-    VideoAiDriverErrors.FRAME_CAPTURE_FAILED: ErrorCodeDetail(
-        VideoAiDriverErrors.FRAME_CAPTURE_FAILED, 502, "Video AI frame capture failed"
-    ),
-    VideoAiDriverErrors.INFERENCE_FAILED: ErrorCodeDetail(
-        VideoAiDriverErrors.INFERENCE_FAILED, 502, "Video AI inference failed"
-    ),
-    VideoAiDriverErrors.INFERENCE_EMPTY: ErrorCodeDetail(
-        VideoAiDriverErrors.INFERENCE_EMPTY, 200, "Video AI inference output empty"
-    ),
-    VideoAiDriverErrors.ONNX_LOAD_FAILED: ErrorCodeDetail(
-        VideoAiDriverErrors.ONNX_LOAD_FAILED, 503, "Video AI ONNX model load failed"
-    ),
-    VideoAiDriverErrors.OFFLINE_BAD_QUALITY: ErrorCodeDetail(
-        VideoAiDriverErrors.OFFLINE_BAD_QUALITY, 200, "Video AI offline, point marked bad quality"
-    ),
-    VideoAiDriverErrors.CONFIG_INVALID: ErrorCodeDetail(
-        VideoAiDriverErrors.CONFIG_INVALID, 400, "Video AI config invalid"
-    ),
-    VideoAiDriverErrors.VALUE_OUT_OF_RANGE: ErrorCodeDetail(
-        VideoAiDriverErrors.VALUE_OUT_OF_RANGE, 422, "Video AI value out of clamp range"
-    ),
-    VideoAiDriverErrors.MODEL_HOT_RELOAD_OK: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_HOT_RELOAD_OK, 200, "Video AI model hot-reloaded successfully"
-    ),
-    VideoAiDriverErrors.MODEL_HOT_RELOAD_FAILED: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_HOT_RELOAD_FAILED, 503, "Video AI model hot-reload failed"
-    ),
-    VideoAiDriverErrors.MODEL_ROLLBACK_OK: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_ROLLBACK_OK, 200, "Video AI model rolled back to previous version"
-    ),
-    VideoAiDriverErrors.MODEL_VALIDATE_FAILED: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_VALIDATE_FAILED, 422, "Video AI model validation failed"
-    ),
-    VideoAiDriverErrors.MODEL_VALIDATE_INPUT_MISMATCH: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_VALIDATE_INPUT_MISMATCH, 422, "Video AI model input dimensions mismatch"
-    ),
-    VideoAiDriverErrors.MODEL_VALIDATE_OUTPUT_MISMATCH: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_VALIDATE_OUTPUT_MISMATCH, 422, "Video AI model output dimensions mismatch"
-    ),
-    VideoAiDriverErrors.MODEL_VALIDATE_DTYPE_MISMATCH: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_VALIDATE_DTYPE_MISMATCH, 422, "Video AI model data type mismatch"
-    ),
-    VideoAiDriverErrors.GPU_DEGRADED_TO_CPU: ErrorCodeDetail(
-        VideoAiDriverErrors.GPU_DEGRADED_TO_CPU, 200, "Video AI GPU unavailable, degraded to CPU"
-    ),
-    VideoAiDriverErrors.INFERENCE_TIMEOUT: ErrorCodeDetail(
-        VideoAiDriverErrors.INFERENCE_TIMEOUT, 504, "Video AI inference timed out"
-    ),
-    VideoAiDriverErrors.PREPROCESS_FAILED: ErrorCodeDetail(
-        VideoAiDriverErrors.PREPROCESS_FAILED, 422, "Video AI image preprocessing failed"
-    ),
-    VideoAiDriverErrors.MODEL_PATH_TRAVERSAL: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_PATH_TRAVERSAL, 403, "Video AI model path traversal detected"
-    ),
-    VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED, 403, "Video AI model path not in allowed directories"
-    ),
-    VideoAiDriverErrors.MODEL_FORMAT_INVALID: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_FORMAT_INVALID, 422, "Video AI model file format invalid, only .onnx allowed"
-    ),
-    VideoAiDriverErrors.MODEL_HEADER_INVALID: ErrorCodeDetail(
-        VideoAiDriverErrors.MODEL_HEADER_INVALID, 422, "Video AI model file header invalid"
-    ),
-    VideoAiDriverErrors.CONFIG_AUDIT_RECORDED: ErrorCodeDetail(
-        VideoAiDriverErrors.CONFIG_AUDIT_RECORDED, 200, "Video AI config change audit recorded"
     ),
     OnvifDriverErrors.START_FAILED: ErrorCodeDetail(OnvifDriverErrors.START_FAILED, 503, "ONVIF driver start failed"),
     OnvifDriverErrors.CAMERA_INIT_FAILED: ErrorCodeDetail(

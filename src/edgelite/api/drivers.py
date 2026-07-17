@@ -5,11 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import (
-    AuditServiceDep,
     DriverRegistryDep,
     DriverRegistryDepOptional,
     PluginManagerDep,
@@ -20,7 +19,6 @@ from edgelite.api.error_codes import (
     CommonErrors,
     DeviceErrors,
     DriverErrors,
-    VideoAiDriverErrors,
 )
 from edgelite.drivers.base import DriverCapabilities, DriverExceptionMapper
 from edgelite.models.common import ApiResponse
@@ -716,136 +714,4 @@ async def get_all_drivers_health(
         return ApiResponse(data=result)
     except Exception as e:
         logger.error("get_all_drivers_health failed: %s", e)
-        raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e  # FIXED-P0: 异常详情不返回前端
-
-
-@router.get("/video-ai/status", response_model=ApiResponse)
-async def get_video_ai_status(
-    plugin_manager: PluginManagerDep = None,
-    current_user: dict[str, str] = Depends(require_permission(Permission.DRIVER_READ)),
-) -> ApiResponse:
-    try:
-        if not plugin_manager:
-            return ApiResponse(data={"running": False, "error": DriverErrors.REGISTRY_NOT_INIT})
-
-        driver = plugin_manager.get_driver("video_ai")
-        if not driver or not hasattr(driver, "get_status"):
-            return ApiResponse(data={"running": False, "error": DriverErrors.NOT_FOUND})
-
-        status = driver.get_status()
-        return ApiResponse(data=status)
-    except Exception as e:
-        logger.error("Failed to get Video AI status: %s", e)
-        raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e  # FIXED-P0: 异常详情不返回前端
-
-
-@router.get("/video-ai/audit", response_model=ApiResponse)
-async def get_video_ai_audit(
-    limit: int = Query(default=50, ge=1, le=500),
-    plugin_manager: PluginManagerDep = None,
-    current_user: dict[str, str] = Depends(require_permission(Permission.DRIVER_READ)),
-) -> ApiResponse:
-    # FIXED-P2: 原问题-limit参数无边界校验，可能请求超大数量导致内存压力
-    if limit < 1 or limit > 500:
-        raise HTTPException(status_code=400, detail=DriverErrors.GET_FAILED)
-    try:
-        if not plugin_manager:
-            return ApiResponse(data={"entries": [], "total": 0})
-
-        driver = plugin_manager.get_driver("video_ai")
-        if not driver or not hasattr(driver, "get_audit_log"):
-            return ApiResponse(data={"entries": [], "total": 0})
-
-        entries = driver.get_audit_log(limit=limit)
-        return ApiResponse(data={"entries": entries, "total": len(entries)})
-    except Exception as e:
-        logger.error("Failed to get Video AI audit log: %s", e)
-        raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e  # FIXED-P0: 异常详情不返回前端
-
-
-class ReloadModelRequest(BaseModel):
-    model_path: str = Field(..., min_length=1, max_length=512)
-
-
-@router.post("/video-ai/reload-model", response_model=ApiResponse)
-async def video_ai_reload_model(
-    req: ReloadModelRequest,
-    request: Request,
-    audit_svc: AuditServiceDep,
-    plugin_manager: PluginManagerDep = None,
-    current_user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
-) -> ApiResponse:
-    # 第三轮审计修复: 记录模型重载审计日志
-    from edgelite.api.auth import _get_client_ip
-    from edgelite.services.audit_service import AuditAction
-
-    client_ip = _get_client_ip(request)
-    user_agent = request.headers.get("user-agent", "")
-    try:
-        if not plugin_manager:
-            raise HTTPException(status_code=503, detail=DriverErrors.REGISTRY_NOT_INIT)
-
-        driver = plugin_manager.get_driver("video_ai")
-        if not driver or not hasattr(driver, "reload_model"):
-            raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)
-
-        # FIXED(严重): 原问题-model_path参数无路径校验,存在路径遍历风险;
-        # 修复-禁止".."遍历,并校验解析后的绝对路径必须位于允许的模型目录内。
-        from pathlib import Path
-
-        model_path = req.model_path
-        if not model_path:
-            raise HTTPException(status_code=400, detail=VideoAiDriverErrors.CONFIG_INVALID)
-        if ".." in model_path:
-            raise HTTPException(status_code=403, detail=VideoAiDriverErrors.MODEL_PATH_TRAVERSAL)
-        # 允许的模型目录：edgelite/ai_models 及驱动配置的 allowed_model_dirs
-        allowed_dirs: list[str] = []
-        _ai_models_dir = Path(__file__).resolve().parent.parent / "ai_models"
-        allowed_dirs.append(str(_ai_models_dir))
-        _cfg_dirs = getattr(driver, "_allowed_model_dirs", None) or []
-        allowed_dirs.extend(str(d) for d in _cfg_dirs)
-        resolved = Path(model_path).resolve()
-        in_allowed = any(
-            str(resolved) == Path(d).resolve().as_posix()
-            or str(resolved).startswith(Path(d).resolve().as_posix() + "/")
-            for d in allowed_dirs
-        )
-        if not in_allowed:
-            raise HTTPException(status_code=403, detail=VideoAiDriverErrors.MODEL_PATH_NOT_ALLOWED)
-
-        user = current_user.get("username", "api")  # FIXED-P2: 从CurrentUser获取用户名，防止参数伪造
-
-        result = await driver.reload_model(model_path, user=user)
-        try:
-            await audit_svc.log(
-                AuditAction.DRIVER_RELOAD,
-                user_id=current_user["user_id"],
-                username=current_user["username"],
-                resource_type="driver",
-                resource_id="video_ai",
-                ip_address=client_ip,
-                user_agent=user_agent,
-                after_value={"model_path": model_path, "result": result},
-            )
-        except Exception as e:
-            logger.warning("Audit log failed: %s", e)
-        return ApiResponse(data=result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Video AI model reload failed: %s", e)
-        try:
-            await audit_svc.log(
-                AuditAction.DRIVER_RELOAD,
-                user_id=current_user["user_id"],
-                username=current_user["username"],
-                resource_type="driver",
-                resource_id="video_ai",
-                ip_address=client_ip,
-                user_agent=user_agent,
-                status="failed",
-                error_message=str(e),
-            )
-        except Exception as audit_e:
-            logger.warning("Audit log failed: %s", audit_e)
         raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e  # FIXED-P0: 异常详情不返回前端

@@ -183,7 +183,7 @@
             </template>
             <n-descriptions label-placement="left" :column="2" bordered>
               <n-descriptions-item :label="t('cascade.role')">
-                <n-tag :type="topologyRoleColor" size="small">{{ topology.status ? t('cascade.' + topology.status) : t('cascade.standalone') }}</n-tag>  <!-- FIXED-P3: 替换硬编码'standalone'为i18n引用 -->
+                <n-tag :type="topologyRoleColor" size="small">{{ topology.status ? t('cascade.' + topology.status, topology.status) : t('cascade.standalone') }}</n-tag>  <!-- FIXED-P3: 替换硬编码'standalone'为i18n引用 -->
               </n-descriptions-item>
               <n-descriptions-item :label="t('cascade.nodeId')">{{ topology.local_id || '-' }}</n-descriptions-item>
               <n-descriptions-item :label="t('cascade.parent')">{{ topology.parent_id || '-' }}</n-descriptions-item>
@@ -267,7 +267,7 @@
           <n-card :title="t('system.dbMigration')" size="small">
             <template #header-extra>
               <n-space>
-                <n-tag :type="migrationStatusColor" size="small">{{ t('system.migrationStatus_' + migrationStatus) }}</n-tag>
+                <n-tag :type="migrationStatusColor" size="small">{{ t('system.migrationStatus_' + migrationStatus, migrationStatus) }}</n-tag>
                 <n-button v-if="isAdmin" type="primary" size="small" :loading="migrationRetrying" @click="handleRetryMigration">{{ t('system.retryMigration') }}</n-button>
                 <n-button text size="small" @click="fetchMigrationStatus">{{ t('common.refresh') }}</n-button>
               </n-space>
@@ -282,7 +282,7 @@
             </n-alert>
             <n-descriptions label-placement="left" :column="1" bordered>
               <n-descriptions-item :label="t('system.currentStatus')">
-                <n-tag :type="migrationStatusColor" size="small">{{ t('system.migrationStatus_' + migrationStatus) }}</n-tag>
+                <n-tag :type="migrationStatusColor" size="small">{{ t('system.migrationStatus_' + migrationStatus, migrationStatus) }}</n-tag>
               </n-descriptions-item>
               <n-descriptions-item :label="t('system.lastUpdated')">{{ migrationLastUpdated || '-' }}</n-descriptions-item>
               <n-descriptions-item v-if="migrationStatus === 'failed' && migrationError" :label="t('system.errorDetails')">
@@ -365,7 +365,7 @@ interface TopoLine { x1: number; y1: number; x2: number; y2: number; connected: 
 const topoNodes = computed<TopoNode[]>(() => {
   const nodes: TopoNode[] = []
   const cx = 250, cy = 160
-  nodes.push({ x: cx, y: cy, label: topology.value.local_id || 'Self', role: t('cascade.' + (topology.value.status || 'standalone')), isSelf: true, connected: true })
+  nodes.push({ x: cx, y: cy, label: topology.value.local_id || 'Self', role: t('cascade.' + (topology.value.status || 'standalone'), topology.value.status || 'standalone'), isSelf: true, connected: true })
   const peers = topology.value.peers || []
   const count = peers.length
   if (count === 0) return nodes
@@ -376,7 +376,7 @@ const topoNodes = computed<TopoNode[]>(() => {
       x: cx + radius * Math.cos(angle),
       y: cy + radius * Math.sin(angle),
       label: p.neighbor_id || p.host || `N${i + 1}`,
-      role: t('cascade.' + (p.role || 'peer')),
+      role: t('cascade.' + (p.role || 'peer'), p.role || 'peer'),
       isSelf: false,
       connected: p.connected !== false,
     })
@@ -669,7 +669,7 @@ const migrationStatusColor = computed(() => {
 
 const migrationHistoryColumns = [
   { title: t('system.migrationTime'), key: 'timestamp', width: 180, render: (r: any) => formatDateTime(r.timestamp) },
-  { title: t('system.migrationStatus_'), key: 'status', width: 120, render: (r: any) => h(NTag, { type: r.status === 'success' ? 'success' : r.status === 'failed' ? 'error' : 'default', size: 'small' }, { default: () => t('system.migrationStatus_' + r.status) }) },
+  { title: t('system.migrationStatus_'), key: 'status', width: 120, render: (r: any) => h(NTag, { type: r.status === 'success' ? 'success' : r.status === 'failed' ? 'error' : 'default', size: 'small' }, { default: () => t('system.migrationStatus_' + r.status, r.status) }) },
   { title: t('system.migrationMessage'), key: 'message' },
 ]
 

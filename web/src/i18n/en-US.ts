@@ -3,6 +3,7 @@ import type { LocaleMessages } from './index'
 const enUS: LocaleMessages = {
   common: {
     confirmDelete: 'Confirm delete?',  // [AUDIT-FIX]
+    confirmDeleteName: 'Are you sure to delete "{name}"?',  // FIXED-i18n: Delete confirmation with name
     confirmDeleteDesc: 'This action cannot be undone. Are you sure you want to continue?',  // [AUDIT-FIX]
     copy: 'Copy',  // [AUDIT-FIX]
     deleteConfirm: 'Are you sure to delete this point?',  // [AUDIT-FIX]
@@ -96,6 +97,16 @@ const enUS: LocaleMessages = {
     confirmOperation: 'Confirm this operation?',
     download: 'Download',
     loadFailed: 'Load Failed',
+    back: 'Back',
+    comingSoon: 'Coming Soon',
+    createSuccess: 'Created successfully',
+    createdAt: 'Created At',
+    errorOccurred: 'An Error Occurred',
+    featureNotReady: 'This feature is not ready yet',
+    goHome: 'Go Home',
+    updatedAt: 'Updated At',
+    value: 'Value',
+    warning: 'Warning',
   },
   datetime: {
     justNow: 'just now',
@@ -822,6 +833,11 @@ const enUS: LocaleMessages = {
     commPackets: 'Comm Packets',
     packetDirection: 'Direction',
     packetContent: 'Content',
+    deviceName: 'Device Name',
+    host: 'Host',
+    noChartData: 'No chart data available',
+    noRealtimeData: 'No realtime data available',
+    noWritablePoints: 'No writable points',
   },
   // Protocol device form field labels
   protocolFields: {
@@ -2155,6 +2171,8 @@ const enUS: LocaleMessages = {
     deleteTemplateConfirm: 'Delete Template Confirm',
     gridColor: 'Grid Color',
     gridSpacing: 'Grid Spacing',
+    deleteTemplateContent: 'Confirm delete template "{name}"?',
+    importFileTooLarge: 'File size exceeds limit (max {size})',
   },
   user: {
     create: 'Create User',
@@ -2199,6 +2217,11 @@ const enUS: LocaleMessages = {
     // [FIX-11] Prevent downgrade to a lower version
     cannotDowngrade: 'Cannot downgrade to a lower version',
     applySuccessRestarting: 'Update applied, system restarting...',
+  },
+  otaUpdate: {
+    fetchBackupFailed: 'Failed to fetch backup list',
+    rollbackFailed: 'Rollback failed',
+    rollbackSuccess: 'Rolled back to version {version}',
   },
   http: {
     requestFailed: 'Request failed, please try again later',
@@ -2759,6 +2782,25 @@ const enUS: LocaleMessages = {
     compareLoadFailed: 'Failed to load device details',
     compareSelectBoth: 'Please select two different devices',
     validationRareSerialCombo: '7 data bits + 2 stop bits is a rare combination, please confirm the device supports it',
+    addDiscoveredSuccess: 'Discovered device added successfully',
+    batchDeploySuccess: 'Batch deploy successful',
+    batchStartSuccess: 'Batch start collect successful',
+    batchStopSuccess: 'Batch stop collect successful',
+    connectionOk: 'Connection OK',
+    importParseError: 'File parse failed, please check the format',
+    importPartial: 'Partial import: {success} succeeded, {failed} failed',
+    importSuccess: 'Import successful, {count} items',
+    nameRequired: 'Name is required',
+    selectUser: 'Please select a user',
+    shareSuccess: 'Share successful',
+    simRamp: 'Ramp',
+    simRandom: 'Random',
+    simSine: 'Sine',
+    simStatic: 'Static',
+    statusError: 'Error',
+    statusOffline: 'Offline',
+    statusOnline: 'Online',
+    transferSuccess: 'Transfer successful',
   },
   deviceProtocols: {
     serialPortRequired: 'Serial port name is required',
@@ -2879,6 +2921,7 @@ const enUS: LocaleMessages = {
     severityCol: 'Severity',
     statusCol: 'Status',
     expressionPreview: 'Expression Preview',
+    importFileTooLarge: 'File size exceeds limit (max {size})',
   },
   alarmList: {
     columnSettings: 'Columns',  // 修复5: 列自定义
@@ -2980,6 +3023,8 @@ const enUS: LocaleMessages = {
     noRuleId: 'No Associated Rule for This Alarm',
     viewFlat: 'Flat View',
     viewGrouped: 'Grouped by Device',
+    disableRuleConfirm: 'Confirm disable rule {ruleId}?',
+    groupTotal: '{count} total',
   },
   auditLog: {
     loading: 'Loading audit logs...',
@@ -3482,7 +3527,6 @@ const enUS: LocaleMessages = {
     modbus_tcp: 'Modbus TCP',
     modbus_rtu: 'Modbus RTU',
     opcua: 'OPC UA',
-    opcua_server: 'OPC UA Server',
     mqtt: 'MQTT',
     mqtt_client: 'MQTT Client',
     http: 'HTTP',
@@ -3496,41 +3540,11 @@ const enUS: LocaleMessages = {
     allen_bradley: 'Allen-Bradley',
     opc_da: 'OPC DA',
     onvif: 'ONVIF Camera',
-    video: 'Video',
     simulator: 'Simulator',
-    serial: 'Serial',
-    serial_port: 'Serial Port',
-    serial_modbus_rtu: 'Modbus RTU (Serial)',
-    serial_raw: 'Serial (Raw)',
-    database: 'Database',
-    database_source: 'Database Source',
-    barcode_scanner: 'Barcode Scanner',
-    fanuc: 'FANUC',
-    fanuc_cnc: 'FANUC CNC',
-    mtconnect: 'MTConnect',
-    toledo: 'Toledo',
-    sparkplug_b: 'Sparkplug B',
-    dlt645: 'DL/T 645',
-    dlt645_2007: 'DL/T 645-2007',
-    iec104: 'IEC 104',
-    kuka: 'KUKA',
-    kuka_ekrl: 'KUKA EKRL',
-    abb_robot: 'ABB Robot',
-    abb_rws: 'ABB RWS',
-    bacnet: 'BACnet',
-    gb28181: 'Video (GB28181)',
-    focas: 'FOCAS',
     webhook: 'Webhook',
-    mysql: 'MySQL',
-    postgresql: 'PostgreSQL',
-    sqlite: 'SQLite',
-    mssql: 'MSSQL',
     ab_cip: 'AB CIP',
     ab_pccc: 'AB PCCC',
-    profinet: 'Profinet',
-    ethercat: 'EtherCAT',
-    knx: 'KNX',
-    dnp3: 'DNP3',
+    modbus_slave: 'Modbus Slave',
   },
   otaState: {
     available: 'Update Available',
@@ -4104,6 +4118,7 @@ const enUS: LocaleMessages = {
     queryNamePlaceholder: 'Please enter query name',
     saveQuery: 'Save Query',
     timeCompare: 'Time Compare',
+    exportLimit: 'Export data exceeds {max} rows, export quantity has been limited',
   },
   digitalTwin: {
     loadingScene: 'Loading 3D scene...',
@@ -4329,6 +4344,7 @@ const enUS: LocaleMessages = {
     passwordPolicyHint: 'Hint: This policy is a frontend advisory configuration, backend support is required for enforcement',
     passwordPolicyTitle: 'Password Expiration Policy',
     usernameExists: 'Username already exists',
+    passwordExpireIn: 'Password will expire in {days} days',
   },
   platformConfig: {
     title: 'Platform Integration Configuration',
@@ -4684,6 +4700,7 @@ const enUS: LocaleMessages = {
       refreshData: 'Refresh page data',
       toggleFullscreen: 'Toggle fullscreen',
     },
+    searchPlaceholder: 'Search pages, devices, rules...',
   },
   ai: {
     title: 'AI Model Management',
@@ -6112,6 +6129,8 @@ const enUS: LocaleMessages = {
       qos1: '1 - At least once',
       qos2: '2 - Exactly once',
       pointPayload: 'Message Content',
+      pointTemp: 'Temperature',  // FIXED-i18n: Add missing mqtt point template key
+      pointHumidity: 'Humidity',  // FIXED-i18n: Add missing mqtt point template key
       offlineCache: 'Offline Cache',
       offlineCacheEnabled: 'Enable Offline Cache',
       maxQueueSize: 'Max Queue Size',
@@ -7727,6 +7746,8 @@ const enUS: LocaleMessages = {
     resolve: 'Resolve',
     resolvedAt: 'Resolved At',
     downloadReport: 'Download Report',
+    duration: 'Duration',
+    noResult: 'No test result',
   },
   selfTestPage: {
     title: 'Device Self-Test & Acceptance',
@@ -8157,6 +8178,11 @@ const enUS: LocaleMessages = {
     connected: 'Connected',
     disconnected: 'Disconnected',
     timelineHint: 'Green=Connected  Red=Disconnected',
+    failCount: 'Fail Count',
+    lastCheck: 'Last Check',
+    latency: 'Latency',
+    noHealthData: 'No health data available',
+    successCount: 'Success Count',
   },
   modbusOps: {
     title: 'Modbus TCP Ops Panel',

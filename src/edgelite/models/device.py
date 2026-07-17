@@ -80,7 +80,6 @@ class DeviceCreate(BaseModel):
         try:
             from edgelite.constants import VALID_DEVICE_PROTOCOLS, normalize_protocol
 
-            # FIXED-P0: 原问题-Pydantic允许"video"但DB CheckConstraint仅允许"video_ai"，设备创建时DB约束拒绝
             # 统一使用 constants.VALID_DEVICE_PROTOCOLS 作为协议校验单一来源
             canonical = normalize_protocol(v)
             if canonical is None:

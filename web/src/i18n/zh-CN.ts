@@ -3,6 +3,7 @@ import type { LocaleMessages } from './index'
 const zhCN: LocaleMessages = {
   common: {
     confirmDelete: '确认删除？',  // [AUDIT-FIX]
+    confirmDeleteName: '确认删除「{name}」吗？',  // FIXED-i18n: 带名称的删除确认
     confirmDeleteDesc: '此操作不可撤销，确定继续吗？',  // [AUDIT-FIX]
     copy: '复制',  // [AUDIT-FIX]
     deleteConfirm: '确定删除该点位吗？',  // [AUDIT-FIX]
@@ -96,6 +97,16 @@ const zhCN: LocaleMessages = {
     confirmOperation: '确认执行此操作？',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     download: '下载',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     loadFailed: '加载失败',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
+    back: '返回',
+    comingSoon: '即将推出',
+    createSuccess: '创建成功',
+    createdAt: '创建时间',
+    errorOccurred: '发生错误',
+    featureNotReady: '该功能尚未就绪',
+    goHome: '返回首页',
+    updatedAt: '更新时间',
+    value: '值',
+    warning: '警告',
   },
   datetime: {
     justNow: '刚刚',
@@ -825,6 +836,11 @@ const zhCN: LocaleMessages = {
     commPackets: '通信报文',
     packetDirection: '方向',
     packetContent: '报文内容',
+    deviceName: '设备名称',
+    host: '主机地址',
+    noChartData: '暂无图表数据',
+    noRealtimeData: '暂无实时数据',
+    noWritablePoints: '无可写点位',
   },
   // 协议设备表单字段标签
   protocolFields: {
@@ -2158,6 +2174,8 @@ const zhCN: LocaleMessages = {
     deleteTemplateConfirm: '确认删除模板',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     gridColor: '网格颜色',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     gridSpacing: '网格间距',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
+    deleteTemplateContent: '确认删除模板 "{name}"？',
+    importFileTooLarge: '文件大小超过限制（最大 {size}）',
   },
   user: {
     create: '创建用户',
@@ -2202,6 +2220,11 @@ const zhCN: LocaleMessages = {
     // [FIX-11] 防止降级到更低版本的提示
     cannotDowngrade: '不能降级到更低版本',
     applySuccessRestarting: '更新已应用，系统即将重启...',
+  },
+  otaUpdate: {
+    fetchBackupFailed: '获取备份列表失败',
+    rollbackFailed: '回滚失败',
+    rollbackSuccess: '已回滚到版本 {version}',
   },
   http: {
     requestFailed: '请求失败，请稍后重试',
@@ -2763,6 +2786,25 @@ const zhCN: LocaleMessages = {
     compareLoadFailed: '加载设备详情失败',
     compareSelectBoth: '请选择两台不同的设备',
     validationRareSerialCombo: '7 位数据位 + 2 位停止位是罕见组合，请确认设备支持',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
+    addDiscoveredSuccess: '发现设备已添加成功',
+    batchDeploySuccess: '批量部署成功',
+    batchStartSuccess: '批量启动采集成功',
+    batchStopSuccess: '批量停止采集成功',
+    connectionOk: '连接正常',
+    importParseError: '文件解析失败，请检查格式',
+    importPartial: '部分导入成功：成功 {success} 条，失败 {failed} 条',
+    importSuccess: '导入成功，共 {count} 条',
+    nameRequired: '请输入名称',
+    selectUser: '请选择用户',
+    shareSuccess: '分享成功',
+    simRamp: '斜坡',
+    simRandom: '随机',
+    simSine: '正弦',
+    simStatic: '静态',
+    statusError: '错误',
+    statusOffline: '离线',
+    statusOnline: '在线',
+    transferSuccess: '转移成功',
   },
   deviceProtocols: {
     serialPortRequired: '串口端口名不能为空',
@@ -2883,6 +2925,7 @@ const zhCN: LocaleMessages = {
     severityCol: '级别',
     statusCol: '状态',
     expressionPreview: '表达式预览',
+    importFileTooLarge: '文件大小超过限制（最大 {size}）',
   },
   alarmList: {
     columnSettings: '列设置',  // 修复5: 列自定义
@@ -2984,6 +3027,8 @@ const zhCN: LocaleMessages = {
     noRuleId: '此告警无关联规则',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     viewFlat: '平铺视图',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     viewGrouped: '按设备分组',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
+    disableRuleConfirm: '确认禁用规则 {ruleId}？',
+    groupTotal: '共 {count} 条',
   },
   auditLog: {
     loading: '加载审计日志...',
@@ -3499,7 +3544,6 @@ const zhCN: LocaleMessages = {
     modbus_tcp: 'Modbus TCP',
     modbus_rtu: 'Modbus RTU',
     opcua: 'OPC UA',
-    opcua_server: 'OPC UA 服务端',
     mqtt: 'MQTT',
     mqtt_client: 'MQTT客户端',
     http: 'HTTP',
@@ -3513,41 +3557,11 @@ const zhCN: LocaleMessages = {
     allen_bradley: 'Allen-Bradley',
     opc_da: 'OPC DA',
     onvif: 'ONVIF摄像头',
-    video: '视频',
     simulator: '模拟器',
-    serial: '串口',
-    serial_port: '通用串口',
-    serial_modbus_rtu: 'Modbus RTU(串口)',
-    serial_raw: '串口(原始)',
-    database: '数据库',
-    database_source: '数据库源',
-    barcode_scanner: '扫码枪',
-    fanuc: 'FANUC',
-    fanuc_cnc: 'FANUC CNC',
-    mtconnect: 'MTConnect',
-    toledo: 'Toledo',
-    sparkplug_b: 'Sparkplug B',
-    dlt645: 'DL/T 645',
-    dlt645_2007: 'DL/T 645-2007',
-    iec104: 'IEC 104',
-    kuka: 'KUKA',
-    kuka_ekrl: 'KUKA EKRL',
-    abb_robot: 'ABB机器人',
-    abb_rws: 'ABB RWS',
-    bacnet: 'BACnet',
-    gb28181: '视频(GB28181)',
-    focas: 'FOCAS',
     webhook: 'Webhook',
-    mysql: 'MySQL',
-    postgresql: 'PostgreSQL',
-    sqlite: 'SQLite',
-    mssql: 'MSSQL',
     ab_cip: 'AB CIP',
     ab_pccc: 'AB PCCC',
-    profinet: 'Profinet',
-    ethercat: 'EtherCAT',
-    knx: 'KNX',
-    dnp3: 'DNP3',
+    modbus_slave: 'Modbus从站',
   },
   otaState: {
     available: '可更新',
@@ -4120,6 +4134,7 @@ const zhCN: LocaleMessages = {
     queryNamePlaceholder: '请输入查询名称',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     saveQuery: '保存查询',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
     timeCompare: '时间对比',  // FIXED-i18n: 补齐缺失的 zh-CN 翻译
+    exportLimit: '导出数据超过 {max} 条，已限制导出数量',
   },
   digitalTwin: {
     loadingScene: '加载3D场景...',
@@ -4346,6 +4361,7 @@ const zhCN: LocaleMessages = {
     passwordPolicyHint: '提示：此策略为前端咨询配置，需后端支持才能强制执行',
     passwordPolicyTitle: '密码过期策略',
     usernameExists: '用户名已存在',
+    passwordExpireIn: '密码将在 {days} 天后过期',
   },
   platformConfig: {
     title: '平台对接配置',  // FIXED: 原问题-中文硬编码
@@ -4701,6 +4717,7 @@ const zhCN: LocaleMessages = {
       refreshData: '刷新页面数据',
       toggleFullscreen: '切换全屏模式',
     },
+    searchPlaceholder: '搜索页面、设备、规则...',
   },
   ai: {
     title: 'AI模型管理',
@@ -6133,6 +6150,8 @@ const zhCN: LocaleMessages = {
       qos1: '1 - 至少一次',
       qos2: '2 - 恰好一次',
       pointPayload: '消息内容',
+      pointTemp: '温度',  // FIXED-i18n: 补齐缺失的 mqtt 点位模板 key
+      pointHumidity: '湿度',  // FIXED-i18n: 补齐缺失的 mqtt 点位模板 key
       offlineCache: '断网缓存',
       offlineCacheEnabled: '启用断网缓存',
       maxQueueSize: '最大缓存条数',
@@ -7736,6 +7755,8 @@ const zhCN: LocaleMessages = {
     resolve: '解决',
     resolvedAt: '解决时间',
     downloadReport: '下载报告',
+    duration: '耗时',
+    noResult: '暂无测试结果',
   },
   selfTestPage: {
     title: '设备自检与验收',
@@ -8166,6 +8187,11 @@ const zhCN: LocaleMessages = {
     connected: '连接',
     disconnected: '断开',
     timelineHint: '绿色=连接  红色=断开',
+    failCount: '失败次数',
+    lastCheck: '最后检查',
+    latency: '延迟',
+    noHealthData: '暂无健康数据',
+    successCount: '成功次数',
   },
   modbusOps: {
     title: 'Modbus TCP 运维面板',

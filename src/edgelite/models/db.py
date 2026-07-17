@@ -54,7 +54,7 @@ class DeviceORM(Base):
             "protocol IN ("
             "'modbus_tcp', 'modbus_rtu', 'simulator', 'mqtt_client', 'http_webhook', "
             "'opc_ua', 'siemens_s7', 'mitsubishi_mc', 'omron_fins', 'allen_bradley', "
-            "'opc_da', 'onvif', 'video_ai', 'modbus_slave'"
+            "'opc_da', 'onvif', 'modbus_slave'"
             ")",
             name="ck_devices_protocol_valid",
         ),
@@ -213,7 +213,7 @@ class DeviceTemplateORM(Base):
             "protocol IN ("
             "'modbus_tcp', 'modbus_rtu', 'simulator', 'mqtt_client', 'http_webhook', "
             "'opc_ua', 'siemens_s7', 'mitsubishi_mc', 'omron_fins', 'allen_bradley', "
-            "'opc_da', 'onvif', 'video_ai', 'modbus_slave'"
+            "'opc_da', 'onvif', 'modbus_slave'"
             ")",
             name="ck_device_templates_protocol_valid",
         ),

@@ -924,18 +924,11 @@ const ERROR_CODE_MAP: Record<string, string> = {
   ERR_WEBHOOK_WRITE_SERVER_ERROR: 'errorCodes.ERR_WEBHOOK_WRITE_SERVER_ERROR',
 }
 
-export const MODBUS_RTU_ERROR_I18N: Record<string, { zh: string; en: string }> = {
-  CONN_FAILED: { zh: '连接失败', en: 'Connection failed' },
-  CRC_ERROR: { zh: 'CRC校验失败，触发重连', en: 'CRC check failure, triggering reconnect' },
-  READ_TIMEOUT: { zh: '读取超时', en: 'Read timeout' },
-  WRITE_TIMEOUT: { zh: '写入超时', en: 'Write timeout' },
-  WRITE_ERROR: { zh: '写入错误', en: 'Write error' },
-  PORT_LOCKED: { zh: '串口被占用', en: 'Serial port is locked' },
-  SERIAL_LOCK_TIMEOUT: { zh: '串口锁等待超时', en: 'Serial lock wait timeout' },
-  RECONNECT_OK: { zh: '重连成功', en: 'Reconnected' },
-  CONFIG_INVALID: { zh: '配置无效', en: 'Invalid configuration' },
-  HEALTH_CHECK_FAILED: { zh: '健康检查失败', en: 'Health check failed' },
-}
+// FIXED-i18n: 移除硬编码 zh/en 字符串，改用 i18n modbusRtuError 命名空间
+export const MODBUS_RTU_ERROR_CODES = [
+  'CONN_FAILED', 'CRC_ERROR', 'READ_TIMEOUT', 'WRITE_TIMEOUT', 'WRITE_ERROR',
+  'PORT_LOCKED', 'SERIAL_LOCK_TIMEOUT', 'RECONNECT_OK', 'CONFIG_INVALID', 'HEALTH_CHECK_FAILED',
+] as const
 
 export const MODBUS_RTU_SEVERITY_MAP: Record<string, 'critical' | 'warning' | 'info'> = {
   CONN_FAILED: 'critical',
@@ -959,8 +952,11 @@ export function parseModbusRtuErrorCode(message: string): string | null {
   return m ? m[1] : null
 }
 
-export function getModbusRtuErrorI18n(code: string, lang: string): string {
-  return MODBUS_RTU_ERROR_I18N[code]?.[lang as 'zh' | 'en'] || code
+export function getModbusRtuErrorI18n(code: string, _lang?: string): string {
+  // FIXED-i18n: 使用 i18n t() 函数替代硬编码 zh/en map，lang 参数保留以兼容现有调用
+  const key = `modbusRtuError.${code}`
+  const msg = t(key)
+  return msg !== key ? msg : code
 }
 
 export function getErrorMessage(detail: string): string {

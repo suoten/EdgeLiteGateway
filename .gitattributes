@@ -1,0 +1,52 @@
+# Git attributes — cross-platform line ending normalization and diff settings
+
+# Auto-detect text files and normalize line endings to LF
+* text=auto eol=lf
+
+# Explicitly set text files
+*.py text eol=lf
+*.pyi text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.vue text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+*.ini text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.onnx binary
+*.pem binary
+*.key binary
+*.crt binary
+
+# Dockerfile
+Dockerfile text eol=lf
+
+# Makefile (uses tabs)
+Makefile text eol=lf
+
+# Git merge strategy for lockfiles
+package-lock.json merge=binary
+pnpm-lock.yaml merge=binary

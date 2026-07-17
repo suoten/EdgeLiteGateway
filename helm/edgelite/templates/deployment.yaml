@@ -37,6 +37,7 @@ spec:
               containerPort: 8080
               protocol: TCP
           env:
+            # Non-sensitive configuration — plain env vars
             - name: EDGELITE_SERVER__HOST
               value: {{ .Values.edgelite.server.host | quote }}
             - name: EDGELITE_SERVER__PORT
@@ -45,20 +46,33 @@ spec:
               value: {{ .Values.edgelite.server.corsAllowedOrigins | quote }}
             - name: EDGELITE_INFLUXDB__URL
               value: {{ .Values.edgelite.influxdb.url | quote }}
-            - name: EDGELITE_INFLUXDB__TOKEN
-              value: {{ .Values.edgelite.influxdb.token | quote }}
             - name: EDGELITE_MQTT__BROKER
               value: {{ .Values.edgelite.mqtt.broker | quote }}
             - name: EDGELITE_MQTT__USERNAME
               value: {{ .Values.edgelite.mqtt.username | quote }}
-            - name: EDGELITE_MQTT__PASSWORD
-              value: {{ .Values.edgelite.mqtt.password | quote }}
-            - name: EDGELITE_SECURITY__SECRET_KEY
-              value: {{ .Values.edgelite.security.secretKey | quote }}
-            - name: EDGELITE_ADMIN_PASSWORD
-              value: {{ .Values.edgelite.adminPassword | quote }}
             - name: EDGELITE_DB__PATH
               value: {{ .Values.edgelite.dbPath | quote }}
+            # Sensitive configuration — from Kubernetes Secret
+            - name: EDGELITE_SECURITY__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "edgelite.fullname" . }}
+                  key: EDGELITE_SECURITY__SECRET_KEY
+            - name: EDGELITE_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "edgelite.fullname" . }}
+                  key: EDGELITE_ADMIN_PASSWORD
+            - name: EDGELITE_INFLUXDB__TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "edgelite.fullname" . }}
+                  key: EDGELITE_INFLUXDB__TOKEN
+            - name: EDGELITE_MQTT__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "edgelite.fullname" . }}
+                  key: EDGELITE_MQTT__PASSWORD
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- with .Values.probes.liveness }}

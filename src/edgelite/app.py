@@ -230,6 +230,14 @@ def _register_routes(
     app.include_router(resource_shares.router)
 
     # FIXED: 原问题-路由标签中文硬编码，现改为英文标签
+    # FIXED: 移除24个引用缺失的可选API模块 + 6个调试模块，避免启动时产生大量ImportError警告
+    # 以下功能模块尚未实现，后续版本将逐步补充：
+    #   app_update, shadow, firmware_signature, device_linkage, log_aggregation,
+    #   config_version, data_downsample, ai_monitor, db_monitor, data_quality,
+    #   observability, scripts, data_import_export, ai_enhanced, simulation,
+    #   anomaly_learner, trend_learner, threshold_learner, inference_api,
+    #   calibration_api, physics_calib_api, physics_param_api, evolution_api, ai_report_api,
+    #   profiler, self_test, ai_test, precision_test_api, ai_boundary_test_api, ai_stress_test_api
     _optional_routers = [
         ("Notification", "edgelite.api.notify", "router"),
         ("Drivers", "edgelite.api.drivers", "router"),
@@ -242,49 +250,20 @@ def _register_routes(
         ("MQTT Server", "edgelite.api.mqtt_server", "router"),
         ("Modbus Slave", "edgelite.api.modbus_slave", "router"),
         ("MCP", "edgelite.api.mcp", "router"),
-        ("App Update", "edgelite.api.app_update", "router"),
         ("Services", "edgelite.api.services", "router"),
         ("Grafana", "edgelite.api.grafana", "router"),
         ("SCADA", "edgelite.api.scada", "router"),
         ("AI Models", "edgelite.api.ai_models", "router"),
         ("MQTT Forwarder", "edgelite.api.mqtt_forwarder", "router"),
-        ("Device Shadow", "edgelite.api.shadow", "router"),
-        ("Firmware Signature", "edgelite.api.firmware_signature", "router"),
-        ("Device Linkage", "edgelite.api.device_linkage", "router"),
-        ("Log Aggregation", "edgelite.api.log_aggregation", "router"),
+        ("OTA", "edgelite.api.ota", "router"),
         # FIX: metrics router prefix=/api/v1，路由注册无额外前缀拼接
         ("Metrics", "edgelite.api.metrics", "router"),
-        # New feature routes
-        ("Config Version", "edgelite.api.config_version", "router"),
-        ("Data Downsample", "edgelite.api.data_downsample", "router"),
-        ("AI Monitor", "edgelite.api.ai_monitor", "router"),
-        ("DB Monitor", "edgelite.api.db_monitor", "router"),
-        ("Data Quality", "edgelite.api.data_quality", "router"),
-        ("Observability", "edgelite.api.observability", "router"),
-        ("Script Engine", "edgelite.api.scripts", "router"),
-        ("Data Import/Export", "edgelite.api.data_import_export", "router"),
-        ("AI Enhanced", "edgelite.api.ai_enhanced", "router"),
-        ("Simulation", "edgelite.api.simulation", "router"),
-        ("Anomaly Learner", "edgelite.api.anomaly_learner", "router"),
-        ("Trend Learner", "edgelite.api.trend_learner", "router"),
-        ("Threshold Learner", "edgelite.api.threshold_learner", "router"),
-        ("Inference API", "edgelite.api.inference_api", "router"),
-        ("Calibration", "edgelite.api.calibration_api", "router"),
-        ("Physics Calibrator", "edgelite.api.physics_calib_api", "router"),
-        ("Physics Param DB", "edgelite.api.physics_param_api", "router"),
-        ("Evolution Verify", "edgelite.api.evolution_api", "router"),
-        ("AI Report", "edgelite.api.ai_report_api", "router"),
     ]
 
     # FIXED-P0: 调试/测试/剖析类路由仅在debug_api_enabled=true时注册，生产环境默认禁用
-    _debug_routers = [
-        ("Profiler", "edgelite.api.profiler", "router"),
-        ("SelfTest", "edgelite.api.self_test", "router"),
-        ("AI Test", "edgelite.api.ai_test", "router"),
-        ("Precision Test", "edgelite.api.precision_test_api", "router"),
-        ("AI Boundary Test", "edgelite.api.ai_boundary_test_api", "router"),
-        ("AI Stress Test", "edgelite.api.ai_stress_test_api", "router"),
-    ]
+    # FIXED: 移除6个引用缺失的调试模块（profiler, self_test, ai_test, precision_test_api,
+    #   ai_boundary_test_api, ai_stress_test_api），后续版本实现后逐步添加
+    _debug_routers: list[tuple[str, str, str]] = []
 
     for label, module_path, attr in _optional_routers:
         try:

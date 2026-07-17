@@ -175,8 +175,9 @@ function isPointAlarming(deviceId: string, pointName: string): boolean {
 const protocolColors: Record<string, number> = {
   modbus_tcp: 0x4fc3f7, modbus_rtu: 0x4fc3f7, opcua: 0x81c784,
   mqtt: 0xffb74d, http: 0xba68c8, simulator: 0x90a4ae,
-  video: 0xef5350, s7: 0x64b5f6, fins: 0x4db6ac,
-  s7comm: 0x64b5f6, mc: 0xff8a65, bacnet: 0xaed581,
+  onvif: 0xef5350, s7: 0x64b5f6, fins: 0x4db6ac,
+  s7comm: 0x64b5f6, mc: 0xff8a65, allen_bradley: 0xaed581,
+  opc_da: 0xf06292, modbus_slave: 0x4dd0e1,
 }
 
 let renderer: any = null, animationId: number | null = null, controls: any = null

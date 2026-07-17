@@ -218,10 +218,6 @@ def _validate_device_config(config: dict, protocol: str) -> None:
     elif p == "onvif":
         _validate_onvif_config(config)
 
-    # ── Video AI ──────────────────────────────────────────────────────
-    elif p == "video_ai":
-        _validate_videoai_config(config)
-
     # ── Generic fallback ───────────────────────────────────────────────
     else:
         _validate_generic_config(config)
@@ -493,20 +489,6 @@ def _validate_onvif_config(config: dict) -> None:
         raise ValueError(f"config.password must be str, got {type(password).__name__}")
 
 
-def _validate_videoai_config(config: dict) -> None:
-    """Video AI config: rtsp_url, model_path, detect_interval."""
-    rtsp = config.get("rtsp_url") or config.get("stream_url")
-    if rtsp is not None and rtsp != "":
-        if not isinstance(rtsp, str):
-            raise ValueError(f"config.rtsp_url must be str, got {type(rtsp).__name__}")
-        if not rtsp.startswith(("rtsp://", "rtmp://", "http://", "https://")):
-            raise ValueError(f"config.rtsp_url must start with rtsp:// or rtmp://, got {rtsp!r}")
-
-    interval = config.get("detect_interval") or config.get("interval")
-    if interval is not None and (not isinstance(interval, (int, float)) or interval <= 0):
-        raise ValueError(f"config.detect_interval must be positive number, got {interval!r}")
-
-
 def _validate_generic_config(config: dict) -> None:
     """Fallback for unknown protocols: validate common network fields."""
     host = config.get("host") or config.get("ip") or config.get("address")
@@ -572,9 +554,9 @@ def _validate_points(points: Any, protocol: str = "") -> None:
         if "name" not in pt:
             raise ValueError(f"{prefix} missing required field: 'name'")
 
-        # Address/register: required for most protocols, optional for simulator/video_ai
+        # Address/register: required for most protocols, optional for simulator/http_webhook
         addr = pt.get("address") or pt.get("register") or pt.get("node_id")
-        if p not in ("simulator", "video_ai", "http_webhook") and addr is None:
+        if p not in ("simulator", "http_webhook") and addr is None:
             raise ValueError(f"{prefix} missing required field: 'address' (or 'register')")
         if addr is not None and not isinstance(addr, (str, int)):
             raise ValueError(f"{prefix}.address must be str or int, got {type(addr).__name__}")

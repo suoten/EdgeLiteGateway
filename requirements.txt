@@ -25,7 +25,7 @@ python-snap7>=1.3.0,<2.0
 onvif-zeep>=0.2.0,<1.0
 cryptography>=42.0.0,<44.0
 zeroconf>=0.131.0,<1.0
-aiohttp>=3.13.4,<3.14  # FIXED-P0: 3.9.x-3.11.x存在CVE-2026-34520/CVE-2025-69223等多个严重漏洞
+aiohttp>=3.13.4,<4.0  # FIXED-P0: 3.9.x-3.11.x存在CVE-2026-34520/CVE-2025-69223等多个严重漏洞；放宽上限至<4.0以允许安全补丁更新
 RestrictedPython>=7.0,<8.0
 lxml>=5.3.1,<6.0  # R5-D-003 修复: 5.1.x/5.2.x 存在 XXE/CVE 漏洞，升级到 >=5.3.1
 python-multipart>=0.0.9,<0.1  # FastAPI 表单/文件上传依赖（UploadFile/Form）
@@ -42,7 +42,7 @@ alembic>=1.13.0,<2.0
 # aioodbc>=0.4.0          # SQL Server 数据源
 
 # AI推理引擎依赖（启用AI功能必须安装）
-numpy>=1.24.0,<3.0
+numpy>=1.26.0,<3.0  # FIXED: 统一与 pyproject.toml 一致，1.24-1.25 与 Python 3.12 不兼容
 onnx>=1.16.2,<2.0  # R5-D-004 修复: 1.15.x 存在 CVE 漏洞，升级到 >=1.16.2
 onnxruntime>=1.16.0,<2.0
 opencv-python-headless>=4.8.0,<5.0

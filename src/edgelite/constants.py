@@ -220,7 +220,6 @@ VALID_DEVICE_PROTOCOLS = frozenset(
         "allen_bradley",
         "opc_da",
         "onvif",
-        "video_ai",
         "modbus_slave",
     }
 )
@@ -233,7 +232,6 @@ _PROTOCOL_ALIASES: dict[str, str] = {
     "modbus-rtu": "modbus_rtu",
     "opcua": "opc_ua",
     "ethernet-ip": "allen_bradley",
-    "bacnet": "simulator",
     "mqtt": "mqtt_client",
     "opc-da": "opc_da",
     # short-form (old)

@@ -1113,7 +1113,7 @@ function deleteSavedQuery() {
   // 严重-2: 删除前二次确认，防止误删
   dialog.warning({
     title: t('common.confirm'),
-    content: t('common.confirmDelete', { name }) || `确认删除"${name}"吗？`,
+    content: t('common.confirmDeleteName', { name }),  // FIXED-i18n: 移除硬编码中文回退，改用 i18n key
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
     onPositiveClick: () => {
