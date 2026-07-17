@@ -2,8 +2,8 @@
 set -e
 
 if [ ! -f configs/config.yaml ] && [ -f configs/config.example.yaml ]; then
-    # 7#修复: configs 在生产 compose 中已改为只读挂载（:ro），cp 会失败导致 set -e 退出。
-    # 仅在 configs 可写时（如 dev compose）自动复制；只读场景要求宿主机侧预先准备好 config.yaml
+    # 7#淇: configs 鍦ㄧ敓浜?compose 涓凡鏀逛负鍙鎸傝浇锛?ro锛夛紝cp 浼氬け璐ュ鑷?set -e 閫€鍑恒€?
+    # 浠呭湪 configs 鍙啓鏃讹紙濡?dev compose锛夎嚜鍔ㄥ鍒讹紱鍙鍦烘櫙瑕佹眰瀹夸富鏈轰晶棰勫厛鍑嗗濂?config.yaml
     if [ -w configs ]; then
         cp configs/config.example.yaml configs/config.yaml
         echo "[entrypoint] configs/config.yaml created from config.example.yaml"
@@ -15,16 +15,16 @@ fi
 # Ensure data and logs directories are writable
 mkdir -p data/backups data/ota logs
 
-# 6#修复: Dockerfile 第42行已 `USER appuser`，容器以非 root 用户启动，
-# 此处 `id -u == 0` 判断永远为 false，原 chown 逻辑失效。
-# 由于 docker-compose 通过 bind mount 将宿主机 ../data、../logs 挂载到 /app/data、/app/logs，
-# 容器内 chown 也无法改变宿主机目录属主（即便有 root）。
-# 正确做法：宿主机侧预先修正挂载目录权限，例如：
-#   sudo chown -R 1000:1000 data logs    # 1000 为镜像内 appuser 的默认 uid:gid
+# 6#淇: Dockerfile 绗?2琛屽凡 `USER appuser`锛屽鍣ㄤ互闈?root 鐢ㄦ埛鍚姩锛?
+# 姝ゅ `id -u == 0` 鍒ゆ柇姘歌繙涓?false锛屽師 chown 閫昏緫澶辨晥銆?
+# 鐢变簬 docker-compose 閫氳繃 bind mount 灏嗗涓绘満 ../data銆?./logs 鎸傝浇鍒?/app/data銆?app/logs锛?
+# 瀹瑰櫒鍐?chown 涔熸棤娉曟敼鍙樺涓绘満鐩綍灞炰富锛堝嵆渚挎湁 root锛夈€?
+# 姝ｇ‘鍋氭硶锛氬涓绘満渚ч鍏堜慨姝ｆ寕杞界洰褰曟潈闄愶紝渚嬪锛?
+#   sudo chown -R 1000:1000 data logs    # 1000 涓洪暅鍍忓唴 appuser 鐨勯粯璁?uid:gid
 #   sudo chmod -R u+rwX data logs
-# 镜像内 /app/data、/app/logs 已在 Dockerfile 构建阶段由 root 完成 chown（见 Dockerfile 第35-36行）。
+# 闀滃儚鍐?/app/data銆?app/logs 宸插湪 Dockerfile 鏋勫缓闃舵鐢?root 瀹屾垚 chown锛堣 Dockerfile 绗?5-36琛岋級銆?
 
-# FIXED-P2: 启动前执行数据库迁移，失败时终止启动而非静默跳过
+# FIXED-P2: 鍚姩鍓嶆墽琛屾暟鎹簱杩佺Щ锛屽け璐ユ椂缁堟鍚姩鑰岄潪闈欓粯璺宠繃
 if command -v alembic >/dev/null 2>&1; then
     if ! alembic upgrade head 2>&1; then
         echo "[entrypoint] FATAL: alembic migration failed, aborting startup"

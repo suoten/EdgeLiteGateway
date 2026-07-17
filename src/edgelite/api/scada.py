@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/scada", tags=["SCADA"])
 
-# FIXED(一般): 原问题-相对路径依赖CWD, os.getcwd()返回进程启动时的工作目录, 不可靠;
-# 修复-基于项目根目录的绝对路径。scada.py 位于 src/edgelite/api/, 需上溯4级到项目根目录
-# (与 storage/database.py 中 _get_project_root 的 4 级 .parent 约定一致)
-_STORE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "scada"
+# FIXED(严重): 原问题-基于 __file__ 的路径在 pip install 后指向 site-packages，Docker read_only 时报错
+# 修复-优先使用 EDGELITE_DATA_DIR 环境变量，其次基于 CWD 推导，确保 Docker 和开发环境都可用
+_DATA_ROOT = Path(os.environ.get("EDGELITE_DATA_DIR", str(Path.cwd() / "data")))
+_STORE_DIR = _DATA_ROOT / "scada"
 _STORE_DIR.mkdir(parents=True, exist_ok=True)
 _file_lock = asyncio.Lock()
 

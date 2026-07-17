@@ -56,7 +56,7 @@ RUN if [ "$INSTALL_AI" = "true" ]; then \
         echo "AI dependencies skipped (INSTALL_AI=false)"; \
     fi
 
-USER appuser  # FIXED-P2: 切换到非root用户运行
+USER appuser
 
 ENV PYTHONPATH=/app
 ENV EDGELITE_CONFIG=configs/config.yaml

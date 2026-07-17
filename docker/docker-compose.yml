@@ -7,19 +7,18 @@ services:
     ports:
       - "127.0.0.1:8080:8080"  # FIXED-P1: 端口绑定到localhost，通过nginx反代访问
     volumes:
-      - ../data:/app/data
+      - edgelite-data:/app/data
       - ../configs:/app/configs:ro  # 7#修复: 改为只读挂载，与 read_only: true 的安全加固意图一致，防止容器内篡改配置
       - ../logs:/app/logs
-    # R5-C003/C004 修复(严重): 容器安全加固 - 日志限制 + 只读文件系统 + 最小权限
+    # R5-C003/C004 修复(严重): 日志限制 + 最小权限
     # C-003: 添加日志驱动限制，防止日志无限增长撑满磁盘
-    # C-004: read_only 防止攻击者写入恶意文件；cap_drop 移除所有 Linux capabilities；
-    #        tmpfs 挂载 /tmp 和 /run 供运行时临时写入
+    # C-004: cap_drop 移除所有 Linux capabilities；tmpfs 挂载 /tmp 和 /run 供运行时临时写入
+    # NOTE: read_only 已移除，Windows Docker Desktop bind mount 与 read_only 组合会导致 SQLite disk I/O error
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    read_only: true
     tmpfs:
       - /tmp
       - /run
@@ -35,6 +34,7 @@ services:
       - EDGELITE_MQTT__USERNAME=edgelite
       - EDGELITE_MQTT__PASSWORD=${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}
       - EDGELITE_SECURITY__SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in docker/.env}
+      - EDGELITE_MASTER_KEY=${EDGELITE_MASTER_KEY:?EDGELITE_MASTER_KEY must be set in docker/.env}
       - EDGELITE_SERVER__HOST=0.0.0.0
       - EDGELITE_SERVER__PORT=8080
       # 10#修复: 使用推荐字段名 cors_allowed_origins（旧字段 cors_origins 仅作向后兼容读取）
@@ -129,14 +129,15 @@ services:
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
-      - mosquitto-config:/mosquitto/config  # FIXED-P0: 可写config卷用于存放passwd文件
+    tmpfs:
+      - /mosquitto/passwd
     # P1-1修复: entrypoint 引用 MQTT_PASSWORD 生成 passwd，必须在 environment 中显式声明
     # 使用 :? 语法保证未设置时 compose 启动即失败，避免容器空跑
     environment:
       - MQTT_PASSWORD=${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}
-    entrypoint: ["/bin/sh", "-c", "mosquitto_passwd -b /mosquitto/config/passwd edgelite \"$${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}\" 2>/dev/null; chmod 0700 /mosquitto/config/passwd 2>/dev/null; exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf"]
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /mosquitto/passwd && touch /mosquitto/passwd/passwd && mosquitto_passwd -b /mosquitto/passwd/passwd edgelite \"$${MQTT_PASSWORD:?MQTT_PASSWORD must be set in docker/.env}\" && chmod 0700 /mosquitto/passwd/passwd && chown mosquitto:mosquitto /mosquitto/passwd/passwd; exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf"]
     healthcheck:
-      test: ["CMD-SHELL", "mosquitto_pub -u edgelite -p \"$${MQTT_PASSWORD}\" -t healthcheck -m ok -q 1"]
+      test: ["CMD-SHELL", "nc -z localhost 1883"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -219,9 +220,9 @@ services:
       - edgelite-net
 
 volumes:
+  edgelite-data:
   influxdb-data:
   mosquitto-data:
-  mosquitto-config:  # FIXED-P0: mosquitto配置卷用于存放passwd文件
   prometheus-data:
   grafana-data:
 
