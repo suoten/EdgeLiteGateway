@@ -49,7 +49,7 @@ opencv-python-headless>=4.8.0,<5.0
 
 # 测试依赖
 pytest>=8.0.0,<9.0
-pytest-asyncio>=0.23.0,<1.0
+pytest-asyncio>=0.23.0,<2.0
 
 # FIXED(低危): 依赖锁定文件（供应链安全）
 # 为确保构建可复现和供应链安全，应生成锁定文件：
