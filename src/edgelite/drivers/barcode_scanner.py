@@ -67,6 +67,7 @@ class BarcodeScannerDriver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0
         self._running = False
         self._serial = None
         self._config: dict = {}

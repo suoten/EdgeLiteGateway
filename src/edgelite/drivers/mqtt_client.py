@@ -427,6 +427,10 @@ class MqttClientDriver(DriverPlugin):
         self._max_payload_size = int(config.get("max_payload_size", _DEFAULT_MAX_PAYLOAD_SIZE))
         # R5-G-05: 从驱动配置读取发布 QoS，默认 1（至少一次），防止网络丢包时命令丢失
         self._publish_qos = int(config.get("qos", 1))
+        # FIXED-P2: QoS 合法性校验，防止非法值导致 aiomqtt 库内部异常
+        if self._publish_qos not in (0, 1, 2):
+            logger.warning("[mqtt] invalid qos=%d, falling back to 1", self._publish_qos)
+            self._publish_qos = 1
         self._connect_task = asyncio.create_task(self._connect_loop(), name="mqtt-client-connect")
         logger.info("MQTT Client驱动启动")
 

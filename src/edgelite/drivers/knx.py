@@ -702,6 +702,7 @@ class KNXDriver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._client: KNXClient | None = None
         self._config: dict = {}
@@ -766,6 +767,7 @@ class KNXDriver(DriverPlugin):
         if self._client:
             self._client.close()
             self._client = None
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("KNX驱动已停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:

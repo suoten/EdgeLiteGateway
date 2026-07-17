@@ -2084,14 +2084,20 @@ class ModbusTcpDriver(DriverPlugin):
             n_regs: 需要的寄存器数量
         Returns:
             解码后的值
+
+        FIXED-P1: 支持 CDAB/DCBA 字交换，通过反转寄存器顺序实现。
+        原问题: CDAB/DCBA 仅通过修改 struct 端序标志处理，无法正确实现字交换。
         """
         if len(registers) < n_regs:
             raise ModbusException(f"Insufficient registers: need {n_regs}, got {len(registers)}")
         # FIXED-P1: 非法byte_order抛ValueError而非静默降级，防止小端设备数据静默损坏
         if byte_order not in _BYTE_ORDER_FMT:
             raise ValueError(f"Invalid byte_order '{byte_order}', must be one of {list(_BYTE_ORDER_FMT.keys())}")
-        reg_pack, val_unpack = _BYTE_ORDER_FMT[byte_order]
-        raw = struct.pack(f"{reg_pack}{'H' * n_regs}", *registers[:n_regs])
+        reg_pack, val_unpack, word_swap = _BYTE_ORDER_FMT[byte_order]
+        regs = list(registers[:n_regs])
+        if word_swap:
+            regs = regs[::-1]  # FIXED-P1: 反转寄存器顺序实现字交换
+        raw = struct.pack(f"{reg_pack}{'H' * n_regs}", *regs)
         return struct.unpack(f"{val_unpack}{fmt_char}", raw)[0]
 
     @staticmethod
@@ -2105,15 +2111,20 @@ class ModbusTcpDriver(DriverPlugin):
             n_regs: 需要的寄存器数量
         Returns:
             寄存器值列表
+
+        FIXED-P1: 支持 CDAB/DCBA 字交换，编码后反转寄存器顺序。
         """
         # FIXED-P1: 非法byte_order抛ValueError而非静默降级
         if byte_order not in _BYTE_ORDER_FMT:
             raise ValueError(f"Invalid byte_order '{byte_order}', must be one of {list(_BYTE_ORDER_FMT.keys())}")
-        reg_pack, val_unpack = _BYTE_ORDER_FMT[byte_order]
+        reg_pack, val_unpack, word_swap = _BYTE_ORDER_FMT[byte_order]
         raw = struct.pack(
             f"{val_unpack}{fmt_char}", value
         )  # FIXED-P0: 缺少此行导致raw未定义，int32/uint32/float32/float64写入必定NameError
-        return list(struct.unpack(f"{reg_pack}{'H' * n_regs}", raw))
+        regs = list(struct.unpack(f"{reg_pack}{'H' * n_regs}", raw))
+        if word_swap:
+            regs = regs[::-1]  # FIXED-P1: 反转寄存器顺序实现字交换
+        return regs
 
     _DEGRADE_INTERVALS = (1, 5, 30, 60)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     _DEGRADE_SUCCESS_THRESHOLD = 0.95

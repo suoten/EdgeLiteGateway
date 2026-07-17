@@ -585,6 +585,10 @@ class SimulatorDriver(DriverPlugin):
         mode = config.get("mode", "random")
         min_val = config.get("min", 0.0)
         max_val = config.get("max", 100.0)
+        # FIXED-P2: min > max 时自动交换并记录警告，防止波形反转
+        if min_val > max_val:
+            logger.warning("[simulator] %s:%s min(%.2f) > max(%.2f), swapping", device_id, point_name, min_val, max_val)
+            min_val, max_val = max_val, min_val
         period = config.get("period", 60.0)
         collect_interval = config.get("collect_interval", 1.0)
         key = f"{device_id}:{point_name}"
@@ -643,7 +647,7 @@ class SimulatorDriver(DriverPlugin):
 
         elif mode == "formula":
             formula = config.get("formula", "t")
-            t = time.time()
+            t = time.monotonic()  # FIXED-P2: 原为 time.time() 返回 epoch 秒(约17亿)，用户写 sin(t) 频率极高；改为 monotonic 从0开始
             try:
                 from edgelite.drivers.edge_triggers import (
                     _safe_eval_expr,  # FIXED-P2: eval→AST安全求值，防止属性链逃逸

@@ -156,10 +156,12 @@ DATA_TYPE_REGS: dict[str, int] = {
     "string": 1,  # 每个寄存器2字节
 }
 
-# 字节序→(寄存器打包格式, 浮点/整数解包格式)
-_BYTE_ORDER_FMT: dict[str, tuple[str, str]] = {
-    "ABCD": (">", ">"),  # Big-Endian (默认)
-    "BADC": ("<", ">"),  # Big-Endian Byte Swap
-    "CDAB": (">", "<"),  # Little-Endian Word Swap
-    "DCBA": ("<", "<"),  # Little-Endian (完全反转)
+# 字节序→(寄存器打包格式, 浮点/整数解包格式, 是否需要字交换)
+# FIXED-P1: CDAB/DCBA 需要反转寄存器顺序实现字交换，不能仅靠 struct 端序标志
+# 验证: 值 0x12345678 → CDAB 寄存器 [0x5678, 0x1234] → 反转后 [0x1234, 0x5678] → pack('>HH') = b'\x12\x34\x56\x78' → unpack('>I') = 0x12345678 ✓
+_BYTE_ORDER_FMT: dict[str, tuple[str, str, bool]] = {
+    "ABCD": (">", ">", False),  # Big-Endian (默认), 无字交换
+    "BADC": ("<", ">", False),  # Big-Endian Byte Swap, 无字交换
+    "CDAB": (">", ">", True),   # Word Swap, 需要反转寄存器顺序
+    "DCBA": ("<", ">", True),   # Little-Endian (完全反转), 需要反转寄存器顺序 + 字节内交换
 }

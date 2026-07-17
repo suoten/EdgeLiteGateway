@@ -54,6 +54,7 @@ class KukaDriver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._config: dict = {}
         self._reader: asyncio.StreamReader | None = None
@@ -91,6 +92,7 @@ class KukaDriver(DriverPlugin):
                 await self._connect_task
         self._connect_task = None
         await self._disconnect()
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("KUKA驱动已停止")
 
     async def _connect_once(self) -> bool:

@@ -711,6 +711,7 @@ class DNP3Driver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化，否则 _health_stats/_stats_lock/_circuit_lock 等全部缺失
         self._running = False
         self._client: DNP3Client | None = None
         self._config: dict = {}
@@ -748,6 +749,7 @@ class DNP3Driver(DriverPlugin):
         if self._client:
             self._client.close()
             self._client = None
+        await super().stop()  # FIXED-P0: 清理基类资源（线程池、后台任务）
         logger.info("DNP3驱动已停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:

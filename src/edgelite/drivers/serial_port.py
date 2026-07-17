@@ -148,6 +148,7 @@ class SerialPortDriver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._serial = None
         self._modbus_rtu_client = None  # FIXED: P0-2 持久ModbusRTU客户端不复用，每次读取创建新连接导致资源泄漏
@@ -231,8 +232,8 @@ class SerialPortDriver(DriverPlugin):
         if self._modbus_rtu_client:
             try:
                 self._modbus_rtu_client.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[serial_port] modbus client close failed: %s", e)
             self._modbus_rtu_client = None
         if self._serial and self._serial.is_open:
             try:
@@ -240,6 +241,7 @@ class SerialPortDriver(DriverPlugin):
             except Exception as e:
                 logger.warning("Serial port close error: %s", e)
         self._serial = None
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("Serial port driver stopped")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:

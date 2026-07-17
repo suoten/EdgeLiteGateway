@@ -470,6 +470,7 @@ class ProfinetDriver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._client: ProfinetClient | None = None
         self._snap7_client: Snap7Client | None = None
@@ -543,6 +544,7 @@ class ProfinetDriver(DriverPlugin):
         if self._client:
             self._client.close()
             self._client = None
+        await super().stop()
         logger.info("Profinet driver stopped")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:

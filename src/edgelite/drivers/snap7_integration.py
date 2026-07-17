@@ -204,8 +204,8 @@ class Snap7Client:
         if self._initialized and _snap7_lib and self._client:
             try:
                 _snap7_lib.Cli_Destroy(ctypes.byref(ctypes.c_void_p(self._client)))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[snap7] Cli_Destroy failed: %s", e)
         self._client = None
         self._initialized = False
 

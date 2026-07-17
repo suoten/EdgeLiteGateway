@@ -210,6 +210,7 @@ class FanucCncDriver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._client: _FocasClient | None = None
         self._config: dict = {}
@@ -247,6 +248,7 @@ class FanucCncDriver(DriverPlugin):
         if self._client:
             await self._client.close()
             self._client = None
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("FANUC CNC驱动已停止")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:

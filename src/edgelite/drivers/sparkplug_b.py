@@ -144,6 +144,7 @@ class SparkplugBDriver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._client = None
         self._connect_task: asyncio.Task | None = None
@@ -181,8 +182,8 @@ class SparkplugBDriver(DriverPlugin):
             if p.exists():
                 data = json.loads(p.read_text(encoding="utf-8"))
                 self._bd_seq = int(data.get("bd_seq", 0)) & 0xFF
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("[sparkplug_b] bdSeq load failed, using default 0: %s", e)
 
     def _save_bd_seq(self) -> None:
         """FIXED: P2-2 将bdSeq持久化到文件"""
@@ -195,8 +196,8 @@ class SparkplugBDriver(DriverPlugin):
             p = Path(self._bd_seq_file)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(json.dumps({"bd_seq": self._bd_seq}, ensure_ascii=False), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("[sparkplug_b] bdSeq save failed: %s", e)
 
     def _next_seq(self) -> int:
         seq = self._seq_num
@@ -331,6 +332,7 @@ class SparkplugBDriver(DriverPlugin):
 
         self._nbirth_published = False
         self._dbirth_published.clear()
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("Sparkplug B驱动停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:

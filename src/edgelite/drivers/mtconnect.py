@@ -82,6 +82,7 @@ class MTConnectDriver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._client: httpx.AsyncClient | None = None
         self._config: dict = {}
@@ -125,6 +126,7 @@ class MTConnectDriver(DriverPlugin):
         if self._client:
             await self._client.aclose()
             self._client = None
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("MTConnect驱动已停止")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
@@ -266,8 +268,8 @@ class MTConnectDriver(DriverPlugin):
         if self._client:
             try:
                 await self._client.aclose()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[mtconnect] client close failed: %s", e)
         try:
             if httpx is None:
                 return

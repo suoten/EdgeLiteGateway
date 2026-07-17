@@ -128,6 +128,7 @@ class Iec104Driver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化，否则 _health_stats/_stats_lock/_circuit_lock 等全部缺失
         self._running = False
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
@@ -215,6 +216,7 @@ class Iec104Driver(DriverPlugin):
         self._heartbeat_task = None
         self._receive_task = None
         await self._close_connection()
+        await super().stop()  # FIXED-P0: 清理基类资源（线程池、后台任务）
         logger.info("IEC 104驱动停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
@@ -503,7 +505,7 @@ class Iec104Driver(DriverPlugin):
         else:
             cot = cot_low
             cot_high = 0
-        data[offset]
+        oa = data[offset]  # FIXED-P2: 保存 Originator Address 而非丢弃，用于区分不同来源的命令确认
         offset += 1
         if self._asdu_addr_length == 2:
             asdu_addr = struct.unpack_from("<H", data, offset)[0]

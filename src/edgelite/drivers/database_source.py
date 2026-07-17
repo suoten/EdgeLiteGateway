@@ -95,6 +95,7 @@ class DatabaseSourceDriver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._pool = None
         self._config: dict = {}

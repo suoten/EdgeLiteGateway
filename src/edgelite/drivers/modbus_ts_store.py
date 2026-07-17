@@ -201,8 +201,8 @@ class ModbusTsStore:
             try:
                 async with self._db_lock:
                     await self._db.rollback()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[modbus_ts_store] rollback failed: %s", e)
 
     async def _cleanup_old(self) -> None:
         """清理超过 retention_days 的过期数据"""

@@ -97,13 +97,15 @@ class _CachedResolver:
         self._ttl = ttl
         self._cache: dict[str, list[tuple[int, int, int, int, str]]] = {}
         self._timestamps: dict[str, float] = {}
+        self._lock = asyncio.Lock()  # FIXED-P2: 添加异步锁保护并发访问
 
     async def resolve(self, host: str, port: int = 0) -> list[tuple[int, int, int, int, str]]:
         now = time.monotonic()  # FIXED-P1: 使用monotonic时钟
-        cached = self._cache.get(host)
-        ts = self._timestamps.get(host, 0.0)
-        if cached is not None and (now - ts) < self._ttl:
-            return cached
+        async with self._lock:  # FIXED-P2: 锁内读取缓存快照
+            cached = self._cache.get(host)
+            ts = self._timestamps.get(host, 0.0)
+            if cached is not None and (now - ts) < self._ttl:
+                return cached
         loop = asyncio.get_running_loop()
         try:
             addrs = await loop.getaddrinfo(host, port, family=socket.AF_INET, type=socket.SOCK_STREAM)
@@ -112,8 +114,9 @@ class _CachedResolver:
                 return cached
             raise
         result = list(addrs)
-        self._cache[host] = result
-        self._timestamps[host] = now
+        async with self._lock:  # FIXED-P2: 锁内写入缓存
+            self._cache[host] = result
+            self._timestamps[host] = now
         return result
 
     def clear(self) -> None:
@@ -360,6 +363,13 @@ class HttpWebhookDriver(DriverPlugin):
                 "description": "Value clamp as JSON {min,max}. Out-of-range values marked bad quality",
                 "default": "",
             },
+            {
+                "name": "ssl_verify",
+                "type": "boolean",
+                "label": "SSL Verify",
+                "description": "Verify SSL/TLS certificates (default true, set false for self-signed certs in dev only)",
+                "default": True,
+            },
         ],
     }
 
@@ -438,6 +448,8 @@ class HttpWebhookDriver(DriverPlugin):
             "limits": limits,
             # HW-003: 禁用重定向，防止 DNS Rebinding 绕过 SSRF 防护
             "follow_redirects": False,
+            # FIXED-P2: 添加 ssl_verify 配置，默认 True 验证证书，false 用于开发环境自签名证书
+            "verify": bool(config.get("ssl_verify", True)),
         }
 
         if resolver is not None:

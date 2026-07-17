@@ -95,8 +95,18 @@ class PDOMapping:
 
 
 def _parse_data(data: bytes, offset: int, data_type: str, bit_length: int = 0) -> Any:
-    """解析EtherCAT数据"""
-    if len(data) < offset:
+    """解析EtherCAT数据
+
+    FIXED-P1: 统一边界检查，根据数据类型计算所需最小字节数，防止越界访问。
+    原问题: len(data) < offset 仅检查 offset 在范围内，不保证有足够数据读取。
+    """
+    _TYPE_SIZES = {
+        "bool": 1, "int8": 1, "uint8": 1,
+        "int16": 2, "uint16": 2,
+        "int32": 4, "uint32": 4, "float": 4,
+    }
+    required = _TYPE_SIZES.get(data_type, 1)
+    if len(data) < offset + required:
         return None
 
     if data_type == "bool":
@@ -108,19 +118,19 @@ def _parse_data(data: bytes, offset: int, data_type: str, bit_length: int = 0) -
         return bool(data[offset])
 
     elif data_type == "int8":
-        return struct.unpack_from("<b", data, offset)[0] if len(data) >= offset + 1 else 0
+        return struct.unpack_from("<b", data, offset)[0]
     elif data_type == "uint8":
-        return data[offset] if len(data) > offset else 0
+        return data[offset]
     elif data_type == "int16":
-        return struct.unpack_from("<h", data, offset)[0] if len(data) >= offset + 2 else 0
+        return struct.unpack_from("<h", data, offset)[0]
     elif data_type == "uint16":
-        return struct.unpack_from("<H", data, offset)[0] if len(data) >= offset + 2 else 0
+        return struct.unpack_from("<H", data, offset)[0]
     elif data_type == "int32":
-        return struct.unpack_from("<i", data, offset)[0] if len(data) >= offset + 4 else 0
+        return struct.unpack_from("<i", data, offset)[0]
     elif data_type == "uint32":
-        return struct.unpack_from("<I", data, offset)[0] if len(data) >= offset + 4 else 0
+        return struct.unpack_from("<I", data, offset)[0]
     elif data_type == "float":
-        return struct.unpack_from("<f", data, offset)[0] if len(data) >= offset + 4 else 0.0
+        return struct.unpack_from("<f", data, offset)[0]
     else:
         return data[offset] if len(data) > offset else 0
 
@@ -498,6 +508,7 @@ class EtherCATDriver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._client: EtherCATClient | None = None
         self._config: dict = {}
@@ -563,6 +574,7 @@ class EtherCATDriver(DriverPlugin):
         if self._client:
             self._client.close()
             self._client = None
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("EtherCAT driver stopped")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:

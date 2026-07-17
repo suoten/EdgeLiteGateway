@@ -88,6 +88,7 @@ class Dlt645Driver(DriverPlugin):
     }
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化，否则 _health_stats/_stats_lock/_circuit_lock 等全部缺失
         self._running = False
         self._serial = None
         self._lock = asyncio.Lock()
@@ -156,6 +157,7 @@ class Dlt645Driver(DriverPlugin):
                 logger.warning("串口关闭异常: %s", e)
         self._serial = None
         self._devices.clear()
+        await super().stop()  # FIXED-P0: 清理基类资源（线程池、后台任务）
         logger.info("DL/T 645驱动已停止")
 
     async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:

@@ -63,6 +63,7 @@ class ToledoDriver(DriverPlugin):
     _RECONNECT_MAX_DELAY = 60.0
 
     def __init__(self):
+        super().__init__()  # FIXED-P0: 必须调用基类初始化
         self._running = False
         self._reader = None
         self._writer = None
@@ -118,6 +119,7 @@ class ToledoDriver(DriverPlugin):
             await self._writer.wait_closed()
             self._writer = None
         self._reader = None
+        await super().stop()  # FIXED-P0: 清理基类资源
         logger.info("托利多驱动已停止")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
@@ -264,8 +266,8 @@ class ToledoDriver(DriverPlugin):
             try:
                 self._writer.close()
                 await self._writer.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[toledo] writer close failed: %s", e)
             self._writer = None
             self._reader = None
         try:
