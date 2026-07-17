@@ -16,7 +16,7 @@
     "echarts": "^5.5.0",
     "lucide-vue-next": "^1.0.0",
     "naive-ui": "^2.38.0",
-    "pinia": "^2.1.0",
+    "pinia": "^4.0.2",
     "three": "^0.168.0",
     "vue": "^3.4.0",
     "vue-echarts": "^7.0.0",
