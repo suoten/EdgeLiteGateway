@@ -32,7 +32,6 @@ DRIVER_DISPLAY_NAMES = {
     "ab": {"en": "Allen-Bradley", "zh": "Allen-Bradley"},
     "opc_da": {"en": "OPC DA Client", "zh": "OPC DA客户端"},
     "onvif": {"en": "ONVIF Camera", "zh": "ONVIF摄像头"},
-    "video_ai": {"en": "Video AI", "zh": "视频AI"},
     "modbus_slave": {"en": "Modbus Slave", "zh": "Modbus从站"},
 }
 
@@ -54,7 +53,6 @@ _BUILTIN_PROTOCOLS = frozenset(
         "ab_pccc",
         "opc_da",
         "onvif",
-        "video_ai",
         "modbus_slave",
         "simulator",
     }
@@ -191,6 +189,7 @@ class DriverRegistry:
             if self._discovered:
                 logger.warning("[registry] auto_discover already executed, skipping duplicate call")
                 return
+            # 仅加载13种核心协议驱动，其他工业协议已彻底清除
             _driver_modules = [
                 ("Modbus TCP", "edgelite.drivers.modbus_tcp", "ModbusTcpDriver"),
                 ("Modbus RTU", "edgelite.drivers.modbus_rtu", "ModbusRtuDriver"),
@@ -204,29 +203,6 @@ class DriverRegistry:
                 ("Allen-Bradley", "edgelite.drivers.allen_bradley", "AllenBradleyDriver"),
                 ("OPC DA", "edgelite.drivers.opc_da", "OpcDaDriver"),
                 ("ONVIF Camera", "edgelite.drivers.onvif_driver", "OnvifDriver"),
-                ("BACnet/IP", "edgelite.drivers.bacnet", "BACnetDriver"),
-                ("Barcode Scanner", "edgelite.drivers.barcode_scanner", "BarcodeScannerDriver"),
-                ("Database Source", "edgelite.drivers.database_source", "DatabaseSourceDriver"),
-                ("DL/T 645", "edgelite.drivers.dlt645", "Dlt645Driver"),
-                ("DNP3", "edgelite.drivers.dnp3", "DNP3Driver"),
-                ("EtherCAT", "edgelite.drivers.ethercat", "EtherCATDriver"),
-                ("FANUC CNC", "edgelite.drivers.fanuc", "FanucCncDriver"),
-                ("IEC 104", "edgelite.drivers.iec104", "Iec104Driver"),
-                ("KNX", "edgelite.drivers.knx", "KNXDriver"),
-                ("KUKA Robot", "edgelite.drivers.kuka", "KukaDriver"),
-                ("MTConnect", "edgelite.drivers.mtconnect", "MTConnectDriver"),
-                ("Profinet", "edgelite.drivers.profinet", "ProfinetDriver"),
-                # FIXED-P1: Sparkplug B 已从驱动列表移除——其依赖的 sparkplugb 包在 PyPI 上
-                # 不存在，导致驱动虽可加载但编解码全部返回 None。保留 sparkplug_b.py 文件供
-                # 未来实现参考，但不再通过 auto_discover 注册。如需恢复，取消下行注释并确保
-                # sparkplugb 包可用（需手动获取或改用 eclipse/sparkplugb 实现）。
-                # ("Sparkplug B", "edgelite.drivers.sparkplug_b", "SparkplugBDriver"),
-                ("Toledo Scale", "edgelite.drivers.toledo", "ToledoDriver"),
-                ("ABB Robot", "edgelite.drivers.abb_robot", "AbbRobotDriver"),
-                ("Serial Port", "edgelite.drivers.serial_port", "SerialPortDriver"),
-                ("OPC UA Server", "edgelite.drivers.opcua_server", "OpcUaServerDriver"),
-                ("OPC DA Gateway", "edgelite.drivers.opc_da_gateway", "OpcDaGatewayDriver"),
-                ("Video Camera", "edgelite.drivers.video", "VideoDriver"),
             ]
 
             for label, module_path, class_name in _driver_modules:
