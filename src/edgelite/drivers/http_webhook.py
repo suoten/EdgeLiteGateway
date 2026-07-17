@@ -767,7 +767,7 @@ class HttpWebhookDriver(DriverPlugin):
                         dev_counter[last_status] = dev_counter.get(last_status, 0) + 1
 
                     try:
-                        from edgelite.api.debug import record_packet
+                        from edgelite.packet_recorder import record_packet
 
                         record_packet("tx", "http_webhook", device_id, f"{method} {push_url}")
                     except ImportError:
@@ -859,7 +859,7 @@ class HttpWebhookDriver(DriverPlugin):
                 self._last_receive_wall_ts[device_id] = datetime.now(UTC)
 
                 try:
-                    from edgelite.api.debug import record_packet
+                    from edgelite.packet_recorder import record_packet
 
                     record_packet("rx", "http_webhook", device_id, f"RECEIVE {device_id}")
                 except ImportError:

@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from edgelite.api.debug import record_packet
 from edgelite.api.error_codes import S7DriverErrors
 from edgelite.drivers.base import (
     ConnectionState,
@@ -37,6 +36,7 @@ from edgelite.drivers.s7_ts_store import (  # FIXED-P0: 导入S7TsStore和S7Offl
     S7OfflineSyncManager,
     S7TsStore,
 )
+from edgelite.packet_recorder import record_packet
 from edgelite.services.i18n import t as _t
 
 logger = logging.getLogger(__name__)

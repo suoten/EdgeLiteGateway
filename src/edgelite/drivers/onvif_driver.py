@@ -26,9 +26,9 @@ except ImportError:
 
 import contextlib
 
-from edgelite.api.debug import record_packet
 from edgelite.constants import _ONVIF_MULTICAST_PORT, _ONVIF_MULTICAST_TTL
 from edgelite.drivers.base import DriverCapabilities, DriverPlugin, PointValue
+from edgelite.packet_recorder import record_packet
 from edgelite.services.i18n import t as _t
 
 logger = logging.getLogger(__name__)

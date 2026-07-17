@@ -21,9 +21,9 @@ from collections import OrderedDict, deque
 from datetime import UTC, datetime
 from typing import Any
 
-from edgelite.api.debug import record_packet
 from edgelite.api.error_codes import OpcDaDriverErrors
 from edgelite.drivers.base import DriverCapabilities, DriverPlugin, PointValue
+from edgelite.packet_recorder import record_packet
 from edgelite.services.i18n import t as _t
 
 logger = logging.getLogger(__name__)

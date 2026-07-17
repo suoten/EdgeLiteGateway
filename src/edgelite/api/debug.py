@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 import time
-from collections import deque
 from typing import Any, Literal
 
 from fastapi import (
@@ -175,47 +173,10 @@ def _check_debug_ip_whitelist(request: Request) -> None:
         raise HTTPException(status_code=403, detail=DebugErrors.IP_NOT_ALLOWED)
 
 
-# In-memory packet buffer for sniffing (bounded deque per protocol)
-_MAX_PACKET_BUFFER = 1000
-# FIXED-P1: 原 _user_packet_buffers 按用户隔离机制失效——record_packet 仅写入全局
-# _packet_buffers，从未写入 _user_packet_buffers，导致 get_recent_packets 的 fallback
-# 始终命中全局缓冲区。现移除该死代码，明确语义：所有 admin 用户共享同一缓冲区。
-_packet_buffers: dict[str, deque[dict[str, Any]]] = {}
-# 修复P1-6: 单调递增的全局包序列号。原实现用 id(buf) 作 key 且依赖 len(buf) 判断增量，
-# 当 deque(maxlen=N) 滚动后 current_len 恒等于 maxlen，新包无法被识别导致漏发/重发。
-# 改用序列号跟踪已发送位置，保证滚动后仍能正确发送增量包。
-_packet_seq = itertools.count(1)
-
-
-def _get_buffer(protocol: str | None = None) -> deque[dict[str, Any]]:
-    """Get or create packet buffer for a protocol"""
-    key = protocol or "__all__"
-    if key not in _packet_buffers:
-        _packet_buffers[key] = deque(maxlen=_MAX_PACKET_BUFFER)
-    return _packet_buffers[key]
-
-
-def record_packet(
-    direction: str,
-    protocol: str,
-    device_id: str,
-    content: str | bytes,
-    metadata: dict[str, Any] | None = None,
-) -> None:
-    """Record a protocol packet for sniffing. Called by driver layer."""
-    packet = {
-        "seq": next(_packet_seq),  # 修复P1-6: 单调递增序列号，供 monitor 跟踪已发送位置
-        "timestamp": time.time(),
-        "direction": direction,  # "tx" or "rx"
-        "protocol": protocol,
-        "device_id": device_id,
-        "content": content if isinstance(content, str) else content.hex(),
-        "content_type": "hex" if isinstance(content, bytes) else "ascii",
-        "metadata": metadata or {},
-    }
-    _get_buffer(protocol).append(packet)
-    _get_buffer("__all__").append(packet)
-
+# FIXED(架构P0): record_packet 及缓冲区管理已下沉到 edgelite.packet_recorder 中立模块，
+# 消除 engine/drivers 层对 edgelite.api.debug 的跨层依赖（原依赖强制加载 FastAPI 栈）。
+from edgelite.packet_recorder import _packet_buffers, record_packet
+from edgelite.packet_recorder import get_buffer as _get_buffer
 
 # Modbus function code definitions for signal simulator
 _MODBUS_FUNCTIONS = {
@@ -754,7 +715,9 @@ async def simulate_signal(
     device_id: str = Query(..., description="Device ID"),
     # R11-API-14: operation 添加 Literal 约束，与文档描述 read/write/discover 一致
     # "test" 作为 connect 的别名（下方转换为 "connect"），需在 Literal 中放行
-    operation: Literal["read", "write", "discover", "test"] = Query("read", description="Operation: read/write/discover"),
+    operation: Literal["read", "write", "discover", "test"] = Query(
+        "read", description="Operation: read/write/discover"
+    ),
     params: SimulateParams | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:

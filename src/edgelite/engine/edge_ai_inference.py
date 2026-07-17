@@ -52,13 +52,13 @@ def _check_onnxruntime() -> bool:
 
 import contextlib
 
-from edgelite.api.debug import record_packet
 from edgelite.models.ai_model import (
     AiInferenceLogORM,
     AiModelORM,
     ModelStatus,
     ModelType,
 )
+from edgelite.packet_recorder import record_packet
 
 logger = logging.getLogger(__name__)
 

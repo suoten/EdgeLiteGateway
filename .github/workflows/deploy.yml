@@ -1,0 +1,162 @@
+name: Deploy
+
+# CD (Continuous Deployment) pipeline — automated deployment to staging/production.
+# Triggers: push to main (staging), release tag (production), or manual dispatch.
+# Deployments: Docker Compose (staging) or K8s/Helm (production).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: "Docker image tag to deploy (e.g. v1.0.0, latest)"
+        required: false
+        type: string
+        default: "latest"
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Job 1: Pre-deploy validation ─────────────────────────────────────
+  validate:
+    name: Pre-deploy validation
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.tag }}
+      target_env: ${{ steps.resolve.outputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve deployment parameters
+        id: resolve
+        run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          TAG="${{ github.event.inputs.image_tag || 'latest' }}"
+          echo "env=$ENV" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "🎯 Deploying to $ENV with tag $TAG"
+      - name: Verify image exists in registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}
+          echo "✅ Image verified: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}"
+
+  # ── Job 2: Deploy to staging (Docker Compose) ───────────────────────
+  deploy-staging:
+    name: Deploy to Staging (Docker Compose)
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: needs.validate.outputs.target_env == 'staging'
+    environment:
+      name: staging
+      url: http://${{ secrets.STAGING_HOST }}:8080
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy via Docker Compose
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+            cd /opt/edgelite
+            git pull origin main
+            # Pull latest image
+            docker compose -f docker/docker-compose.yml pull
+            # Rolling restart: recreate edgelite service first, then dependencies
+            docker compose -f docker/docker-compose.yml up -d --no-deps --force-recreate edgelite
+            # Wait for health check
+            echo "⏳ Waiting for health check..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+                echo "✅ EdgeLite is healthy"
+                exit 0
+              fi
+              sleep 5
+            done
+            echo "❌ Health check failed after 150s"
+            # Rollback: restart previous container
+            docker compose -f docker/docker-compose.yml logs --tail=50 edgelite
+            exit 1
+          EOF
+      - name: Run smoke tests against staging
+        run: |
+          pip install httpx
+          python scripts/smoke_test.py --base-url http://${{ secrets.STAGING_HOST }}:8080
+
+  # ── Job 3: Deploy to production (K8s/Helm) ──────────────────────────
+  deploy-production:
+    name: Deploy to Production (K8s/Helm)
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: needs.validate.outputs.target_env == 'production'
+    environment:
+      name: production
+      url: https://${{ secrets.PRODUCTION_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install edgelite helm/edgelite/ \
+            --namespace edgelite --create-namespace \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ needs.validate.outputs.image_tag }} \
+            --set image.pullPolicy=IfNotPresent \
+            --wait --timeout 300s \
+            --atomic
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/edgelite -n edgelite --timeout=300s
+          # Run smoke tests
+          PROD_URL=https://${{ secrets.PRODUCTION_HOST }}
+          pip install httpx
+          python scripts/smoke_test.py --base-url "$PROD_URL"
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed, rolling back..."
+          helm rollback edgelite -n edgelite
+          kubectl rollout status deployment/edgelite -n edgelite --timeout=120s
+
+  # ── Job 4: Post-deploy notification ─────────────────────────────────
+  notify:
+    name: Post-deploy notification
+    runs-on: ubuntu-latest
+    needs: [validate, deploy-staging, deploy-production]
+    if: always() && !cancelled()
+    steps:
+      - name: Deployment status
+        run: |
+          STATUS="${{ contains(join(needs.*.result, ','), 'failure') && '❌ FAILED' || '✅ SUCCESS' }}"
+          ENV="${{ needs.validate.outputs.target_env }}"
+          TAG="${{ needs.validate.outputs.image_tag }}"
+          echo "$STATUS: Deployment to $ENV with tag $TAG"
+          if [ "$STATUS" = "❌ FAILED" ]; then
+            exit 1
+          fi

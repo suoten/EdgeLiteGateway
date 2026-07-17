@@ -31,7 +31,6 @@ try:
 except ImportError:
     ModbusException = Exception
 
-from edgelite.api.debug import record_packet
 from edgelite.constants import _DEVICE_CONNECT_TIMEOUT
 from edgelite.drivers.base import ConnectionState, DriverCapabilities, DriverPlugin, PointValue
 from edgelite.drivers.edge_rule_engine import (
@@ -62,6 +61,7 @@ from edgelite.drivers.modbus_base import (
 )
 from edgelite.drivers.modbus_config_version import ModbusConfigVersion
 from edgelite.drivers.rule_store import RuleStore
+from edgelite.packet_recorder import record_packet
 from edgelite.security.rbac import Permission, has_permission
 from edgelite.storage.offline_queue import OfflineQueue
 from edgelite.storage.ring_buffer import RingBuffer

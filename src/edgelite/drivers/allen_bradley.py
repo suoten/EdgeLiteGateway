@@ -16,9 +16,9 @@ from datetime import UTC, datetime
 from enum import Enum, StrEnum
 from typing import Any
 
-from edgelite.api.debug import record_packet
 from edgelite.drivers.base import ConnectionState, DriverCapabilities, DriverPlugin, PointValue
 from edgelite.engine.event_bus import PointUpdateEvent
+from edgelite.packet_recorder import record_packet
 from edgelite.services.i18n import t as _t
 
 logger = logging.getLogger(__name__)

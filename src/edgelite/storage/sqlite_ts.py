@@ -59,6 +59,15 @@ CREATE INDEX IF NOT EXISTS idx_id
 ON device_points (id)
 """
 
+# FIXED: 覆盖索引——为聚合查询 query_aggregate 优化，避免全表扫描回表读取 value_real/value_int
+# 查询模式: WHERE device_id=? AND point_name=? AND timestamp_ns BETWEEN ? AND ?
+#          + AGG(value_real, value_int) GROUP BY (timestamp_ns / ?)
+# 覆盖索引包含所有查询引用的列，SQLite 可仅从索引满足查询（Index-Only Scan）
+_CREATE_INDEX_AGG = """
+CREATE INDEX IF NOT EXISTS idx_device_points_agg
+ON device_points (device_id, point_name, timestamp_ns, value_real, value_int)
+"""
+
 
 class SqliteTimeSeriesStorage:
     """SQLite-based time series storage as InfluxDB fallback"""
@@ -174,6 +183,7 @@ class SqliteTimeSeriesStorage:
             await self._db.execute(_CREATE_INDEX_DEVICE_POINT_TS)
             await self._db.execute(_CREATE_INDEX_TS)
             await self._db.execute(_CREATE_INDEX_ID)
+            await self._db.execute(_CREATE_INDEX_AGG)
             await self._db.execute("""
                 CREATE TABLE IF NOT EXISTS _meta (
                     key TEXT PRIMARY KEY,

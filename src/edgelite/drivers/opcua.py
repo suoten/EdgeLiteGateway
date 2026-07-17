@@ -17,7 +17,6 @@ from datetime import UTC, datetime
 from enum import Enum, StrEnum
 from typing import Any
 
-from edgelite.api.debug import record_packet
 from edgelite.api.error_codes import OpcUaDriverErrors
 from edgelite.drivers.base import DriverCapabilities, DriverPlugin, PointValue
 from edgelite.drivers.edge_rule_engine import (
@@ -33,6 +32,7 @@ from edgelite.drivers.opcua_ota import OpcUaOtaManager, OtaPackage
 from edgelite.drivers.opcua_ts_store import OpcUaOfflineSyncManager, OpcUaTsStore
 from edgelite.drivers.rule_store import RuleStore
 from edgelite.engine.event_bus import PointUpdateEvent
+from edgelite.packet_recorder import record_packet
 from edgelite.security.rbac import Permission, has_permission
 from edgelite.services.i18n import t as _t
 

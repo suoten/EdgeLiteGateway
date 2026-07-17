@@ -26,7 +26,7 @@ from typing import Any
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent, StreamResultEvent
 
 try:
-    from edgelite.api.debug import record_packet
+    from edgelite.packet_recorder import record_packet
 except ImportError:
     record_packet = None
 
