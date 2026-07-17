@@ -38,7 +38,7 @@ export default defineConfig({
     // 已通过 manualChunks 拆分为独立 chunk 实现按需缓存，单库体积无法进一步缩减。
     // 阈值设为 1500kB 抑制误报警告；生产环境经 gzip 压缩后传输体积可接受，
     // 且独立 chunk 可被浏览器长期缓存，避免业务代码变更导致库文件失效。
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         // [PROD-FIX] 函数式 manualChunks：按依赖来源精细拆分，提升缓存命中率
@@ -48,19 +48,15 @@ export default defineConfig({
           if (/[\\/]node_modules[\\/](vue|vue-router|pinia|@vue)[\\/]/.test(id)) {
             return 'vue-vendor'
           }
-          // Naive UI 及其运行时依赖（vooks/vueuc/css-render/evtd/async-validator）
-          if (/[\\/]node_modules[\\/](naive-ui|vooks|vueuc|css-render|evtd|async-validator)[\\/]/.test(id)) {
-            return 'naive-ui'
-          }
-          // ECharts 图表库及渲染引擎
+          // ECharts 图表库及渲染引擎（无跨 chunk 依赖，可独立拆分）
           if (/[\\/]node_modules[\\/](echarts|vue-echarts|zrender)[\\/]/.test(id)) {
             return 'echarts'
           }
-          // Three.js 3D 引擎
+          // Three.js 3D 引擎（无跨 chunk 依赖，可独立拆分）
           if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) {
             return 'three'
           }
-          // 其他第三方依赖归入通用 vendor chunk
+          // naive-ui 及其依赖与 vendor 之间存在交叉引用，合并到同一 chunk 避免循环依赖
           return 'vendor'
         },
       },

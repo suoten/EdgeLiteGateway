@@ -597,11 +597,18 @@ class DNP3Client:
         except (TimeoutError, asyncio.IncompleteReadError, Exception):
             return None
 
+    _MAX_REASSEMBLE_FRAMES = 64  # FIXED(P1): 原问题-重组循环无帧数上限，恶意设备可无限续发导致内存耗尽; 修复-添加安全上限
+
     async def _reassemble_response(self) -> bytes | None:
         """重组传输层分段响应，返回完整 user_data；失败返回 None"""
         reassembled = bytearray()
         first_frame = True
+        frame_count = 0
         while True:
+            frame_count += 1
+            if frame_count > self._MAX_REASSEMBLE_FRAMES:
+                logger.warning("[dnp3] reassemble exceeded %d frames, aborting", self._MAX_REASSEMBLE_FRAMES)
+                return None
             user_data = await self._read_link_frame()
             if user_data is None:
                 return None if first_frame else None
@@ -670,7 +677,7 @@ class DNP3Driver(DriverPlugin):
 
     plugin_name = "dnp3"
     plugin_version = "1.0.0"
-    supported_protocols = ["dnp3", "dnp3_tcp"]
+    supported_protocols = ("dnp3", "dnp3_tcp")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "DNP3 distributed network protocol for SCADA systems (power/water utility)",
         "fields": [

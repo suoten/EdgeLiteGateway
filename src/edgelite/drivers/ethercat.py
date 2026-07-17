@@ -475,7 +475,7 @@ class EtherCATDriver(DriverPlugin):
 
     plugin_name = "ethercat"
     plugin_version = "1.1.0"
-    supported_protocols = ["ethercat", "ecat"]
+    supported_protocols = ("ethercat", "ecat")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "EtherCAT high-speed industrial Ethernet for motion control and distributed IO (SOEM integrated)",
         "fields": [

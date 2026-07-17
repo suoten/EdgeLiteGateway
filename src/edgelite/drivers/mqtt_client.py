@@ -40,17 +40,26 @@ _MQTT_PERSIST_DB_NAME = "mqtt_pub_queue.db"
 
 
 def _is_broker_host_safe(host: str) -> bool:
-    """SSRF 校验：至少拦截 loopback/link_local/未指定/组播/保留地址。
+    """SSRF 校验：拦截 link_local/未指定/组播/保留地址。
 
-    FIXED(安全): MQTT broker 场景，允许 is_private（内网 MQTT broker 是合理场景），
-    但拦截 is_loopback 和 is_link_local（云元数据 169.254.x.x）等危险地址。
+    IoT 网关场景下，连接本地 MQTT broker (localhost/127.0.0.1/::1) 是合理且常见的部署方式，
+    因此允许 loopback 地址。仅拦截 is_link_local（云元数据 169.254.x.x）、
+    is_unspecified、is_multicast、is_reserved 等危险地址。
+    注意：IPv6 ::1 的 is_reserved 也为 True，因此先检查 is_loopback 并直接放行。
     域名先通过 socket.getaddrinfo 解析为 IP，再校验每个解析结果。
     """
     if not host:
         return False
+
+    def _check_ip(ip: ipaddress._BaseAddress) -> bool:
+        """单个 IP 地址安全校验：loopback 放行，其余危险地址拦截。"""
+        if ip.is_loopback:
+            return True
+        return not (ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved)
+
     try:
         ip = ipaddress.ip_address(host)
-        return not (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved)
+        return _check_ip(ip)
     except ValueError:
         pass
     try:
@@ -65,7 +74,7 @@ def _is_broker_host_safe(host: str) -> bool:
             ip = ipaddress.ip_address(ip_str)
         except ValueError:
             continue
-        if ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved:
+        if not _check_ip(ip):
             return False
     return True
 

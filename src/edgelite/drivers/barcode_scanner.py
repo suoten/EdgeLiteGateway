@@ -30,7 +30,7 @@ class BarcodeScannerDriver(DriverPlugin):
 
     plugin_name = "barcode_scanner"
     plugin_version = "1.0.0"
-    supported_protocols = ["barcode_scanner"]
+    supported_protocols = ("barcode_scanner",)  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "USB/Serial barcode scanner, automatically parses barcode data",  # FIXED: 原问题-中文硬编码description
         "fields": [

@@ -1394,7 +1394,7 @@ class BACnetDriver(DriverPlugin):
 
     plugin_name = "bacnet_ip"
     plugin_version = "1.2.0"
-    supported_protocols = ["bacnet", "bacnet_ip", "bacnetip"]
+    supported_protocols = ("bacnet", "bacnet_ip", "bacnetip")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "BACnet/IP building automation protocol, supports HVAC/Lighting/Access control",
         "fields": [

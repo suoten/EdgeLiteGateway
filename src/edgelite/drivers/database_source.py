@@ -37,7 +37,7 @@ class DatabaseSourceDriver(DriverPlugin):
 
     plugin_name = "database_source"
     plugin_version = "1.0.0"
-    supported_protocols = ["database", "mysql", "postgresql", "sqlite", "mssql"]
+    supported_protocols = ("database", "mysql", "postgresql", "sqlite", "mssql")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "Database integration, maps database table fields to data points via SQL queries",  # FIXED: 原问题-中文硬编码description
         "fields": [

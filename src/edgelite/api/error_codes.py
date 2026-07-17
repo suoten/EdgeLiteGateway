@@ -380,6 +380,10 @@ class AppUpdateErrors:
     INVALID_VERSION = "ERR_APP_UPDATE_INVALID_VERSION"  # FIXED(严重): 版本号格式校验失败
 
 
+# Alias for OTA module compatibility
+OtaErrors = AppUpdateErrors
+
+
 class AuthzErrors:
     NOT_AUTHENTICATED = "ERR_AUTHZ_NOT_AUTHENTICATED"
     PERMISSION_DENIED = "ERR_AUTHZ_PERMISSION_DENIED"

@@ -50,7 +50,7 @@ class Dlt645Driver(DriverPlugin):
 
     plugin_name = "dlt645"
     plugin_version = "1.0.0"
-    supported_protocols = ["dlt645", "dlt645_2007"]
+    supported_protocols = ("dlt645", "dlt645_2007")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "DL/T 645-2007 multi-function energy meter communication protocol, collect meter data via RS485 serial",  # FIXED: 原问题-中文硬编码description
         "fields": [

@@ -1462,19 +1462,60 @@ class Database:
         try:
             # R7-S-04: 改用 asyncio.create_subprocess_exec 异步执行，避免同步 subprocess.run
             # 阻塞事件循环最长 300 秒
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                "-m",
-                "alembic",
-                "-c",
-                str(alembic_ini),
-                "upgrade",
-                "head",
-                cwd=str(project_root),
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            # Windows 修复: WindowsSelectorEventLoopPolicy 不支持 create_subprocess_exec，
+            # 捕获 NotImplementedError 后回退到同步 subprocess.run
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    "-m",
+                    "alembic",
+                    "-c",
+                    str(alembic_ini),
+                    "upgrade",
+                    "head",
+                    cwd=str(project_root),
+                    env=env,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            except NotImplementedError:
+                # Windows SelectorEventLoop 不支持子进程，回退到同步执行
+                import subprocess
+
+                logger.info("Falling back to synchronous subprocess for migration (Windows SelectorEventLoop)")
+                result = subprocess.run(
+                    [sys.executable, "-m", "alembic", "-c", str(alembic_ini), "upgrade", "head"],
+                    cwd=str(project_root),
+                    env=env,
+                    capture_output=True,
+                    timeout=300,
+                )
+                stdout_text = result.stdout.decode(errors="replace") if result.stdout else ""
+                stderr_text = result.stderr.decode(errors="replace") if result.stderr else ""
+                if result.returncode != 0:
+                    logger.error("Migration failed with exit code %s", result.returncode)
+                    logger.error("stdout: %s", stdout_text)
+                    logger.error("stderr: %s", stderr_text)
+                    await self._notify_migration_failure(
+                        error_msg=stderr_text,
+                        stdout=stdout_text,
+                        backend=self._backend,
+                    )
+                    logger.warning(
+                        "Alembic migration failed, but continuing startup. "
+                        "_ensure_schema_columns will verify critical schema. "
+                        "Run 'alembic upgrade head' manually to fix migration state."
+                    )
+                    return False
+                else:
+                    logger.info("Alembic migrations completed successfully")
+                    if stdout_text:
+                        for line in stdout_text.strip().split("\n"):
+                            if line.strip():
+                                logger.info("[alembic] %s", line)
+                    await self._update_migration_status("success", None)
+                    return True
+
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     proc.communicate(),

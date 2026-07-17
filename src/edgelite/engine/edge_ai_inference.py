@@ -584,13 +584,22 @@ class AiInferenceEngine:
             ttl=float(self._config.get("cache_ttl", 5.0)),
             max_size=int(self._config.get("cache_max_size", 1024)),
         )
-        from edgelite.engine.ai_version_manager import HotSwapManager, ModelVersionManager
+        try:
+            from edgelite.engine.ai_version_manager import HotSwapManager, ModelVersionManager
 
-        self._version_manager = ModelVersionManager()
-        self._hot_swap_manager = HotSwapManager(self)
-        from edgelite.engine.ai_resource_monitor import ResourceMonitor
+            self._version_manager = ModelVersionManager()
+            self._hot_swap_manager = HotSwapManager(self)
+        except ImportError:
+            logger.warning("ai_version_manager not available, hot-swap/version features disabled")
+            self._version_manager = None
+            self._hot_swap_manager = None
+        try:
+            from edgelite.engine.ai_resource_monitor import ResourceMonitor
 
-        self._resource_monitor = ResourceMonitor(self)
+            self._resource_monitor = ResourceMonitor(self)
+        except ImportError:
+            logger.warning("ai_resource_monitor not available, resource monitoring disabled")
+            self._resource_monitor = None
         if self._config.get("cloud_inference_enabled", False):
             try:
                 from edgelite.engine.circuit_breaker import CircuitBreaker
@@ -603,11 +612,14 @@ class AiInferenceEngine:
             except ImportError:
                 logger.warning("CircuitBreaker not available for cloud inference")
         if self._config.get("auto_detect_device", True):
-            from edgelite.engine.ai_device_detector import select_best_provider
+            try:
+                from edgelite.engine.ai_device_detector import select_best_provider
 
-            provider, provider_name = select_best_provider(self._config.get("device_preference", "auto"))
-            self._execution_provider = provider_name
-            logger.info("Auto-detected best execution provider: %s (%s)", provider_name, provider)
+                provider, provider_name = select_best_provider(self._config.get("device_preference", "auto"))
+                self._execution_provider = provider_name
+                logger.info("Auto-detected best execution provider: %s (%s)", provider_name, provider)
+            except ImportError:
+                logger.warning("ai_device_detector not available, using default execution provider")
         await self.load_preset_models()
         logger.info("AI inference engine initialized, %d models loaded", len(self._loaded_models))
         # FIXED: 启动模型热加载定时检查任务，原 check_model_updates() 为死代码从未调用 [2026-06-29]

@@ -519,6 +519,18 @@ ModbusSlaveDep = Annotated[Any, Depends(get_modbus_slave)]
 SerialBridgeDep = Annotated[Any, Depends(get_serial_bridge)]
 PreprocessorDep = Annotated[Any, Depends(get_preprocessor)]
 AppUpdaterDep = Annotated[Any, Depends(get_app_updater)]
+
+
+async def get_ota_manager(request: Request):
+    """获取 OTA 升级管理器，服务未启用时返回 None（不抛异常）。"""
+    try:
+        svc = _get_container(request).app_updater
+    except AttributeError:
+        return None
+    return svc
+
+
+OtaManagerDep = Annotated[Any | None, Depends(get_ota_manager)]
 PluginManagerDep = Annotated[Any, Depends(get_plugin_manager)]
 EventBusDep = Annotated[Any, Depends(get_event_bus)]
 SchedulerDep = Annotated[Any, Depends(get_scheduler)]

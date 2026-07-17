@@ -40,7 +40,7 @@ class _MqttAuthPlugin(_BaseAuthPlugin if _AMQTT_AVAILABLE else object):
         """验证客户端连接凭据。
 
         Returns:
-            True if credentials are valid, False otherwise.
+            True if credentials are valid or anonymous access is allowed, False otherwise.
         """
         username = getattr(session, "username", None) if session else None
         password = getattr(session, "password", None) if session else None
@@ -52,10 +52,12 @@ class _MqttAuthPlugin(_BaseAuthPlugin if _AMQTT_AVAILABLE else object):
         expected_user = getattr(config, "username", "")
         expected_pass = getattr(config, "password", "")
 
-        # FIXED: fail-closed 策略 - 未配置凭据时拒绝所有连接
+        # 无认证模式：未配置凭据时允许匿名连接
+        # bootstrap 已将无认证服务器降级为 localhost 绑定，本地连接安全
         if not expected_user:
-            return False
+            return True
 
+        # 认证模式：校验用户名和密码
         return username == expected_user and password == expected_pass
 
 
@@ -98,10 +100,16 @@ class MqttServer:
         host = config.get("host", "127.0.0.1")  # FIXED-P4: 默认绑定localhost，与config层一致
         port = int(config.get("port", 1888))
 
+        # 认证配置: 通过自定义 _MqttAuthPlugin 实现
+        # 无凭据时允许匿名连接（已由 bootstrap 降级为 localhost 绑定）
+        # 有凭据时校验用户名和密码
+        username = config.get("username")
+        password = config.get("password")
+        if username:
+            logger.info("MQTT Server auth enabled: username=%s", username)
+
         # 构建amqtt broker配置
-        # FIXED: aMQTT 0.11.x 的 plugins 字典 key 必须是完整的模块路径（如 amqtt.plugins.xxx.ClassName）
-        # 旧版使用的 "sys"/"auth"/"topic-check" 简写不再支持，会导致 PluginImportError
-        # FIXED(P3): 原问题-F841未使用局部变量allow_anonymous; 修复-删除赋值
+        # aMQTT 0.11.x 的 plugins 字典 key 必须是完整的模块路径
         broker_config = {
             "listeners": {
                 "default": {
@@ -112,6 +120,10 @@ class MqttServer:
             "plugins": {
                 "amqtt.plugins.logging_amqtt.EventLoggerPlugin": {},
                 "amqtt.plugins.topic_checking.TopicTabooPlugin": {},
+                "edgelite.engine.mqtt_server._MqttAuthPlugin": {
+                    "username": username or "",
+                    "password": password or "",
+                },
             },
         }
 
@@ -122,23 +134,6 @@ class MqttServer:
                 "type": "ws",
                 "bind": f"{host}:{int(ws_port)}",
             }
-
-        # 认证配置
-        # FIXED: aMQTT 0.11.x 不再支持 plugins.auth 简写配置
-        # 如果需要认证，应使用自定义认证插件或 TopicAccessControlListPlugin
-        username = config.get("username")
-        password = config.get("password")
-        if username and password:
-            # FIXED(严重): 原问题-配置了认证但未启用，接受匿名连接;
-            # 修复-配置了认证但无法启用时拒绝启动，避免匿名访问
-            logger.error(
-                "MQTT Server auth configured (username=%s) but aMQTT 0.11.x requires custom auth plugin. "
-                "Refusing to start with anonymous access.",
-                username,
-            )
-            raise RuntimeError(
-                "MQTT authentication configured but cannot be enabled. Disable auth config or upgrade aMQTT."
-            )
 
         try:
             self._broker = Broker(broker_config)

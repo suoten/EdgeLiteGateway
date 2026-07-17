@@ -204,8 +204,6 @@ class DriverRegistry:
                 ("Allen-Bradley", "edgelite.drivers.allen_bradley", "AllenBradleyDriver"),
                 ("OPC DA", "edgelite.drivers.opc_da", "OpcDaDriver"),
                 ("ONVIF Camera", "edgelite.drivers.onvif_driver", "OnvifDriver"),
-                ("Video AI", "edgelite.drivers.video_ai_driver", "VideoAiDriver"),
-                ("Modbus Slave", "edgelite.drivers.modbus_slave", "ModbusSlaveDriver"),
             ]
 
             for label, module_path, class_name in _driver_modules:

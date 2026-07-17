@@ -169,7 +169,7 @@ class FanucCncDriver(DriverPlugin):
 
     plugin_name = "fanuc_cnc"
     plugin_version = "2.0.0"
-    supported_protocols = ["fanuc", "focas"]
+    supported_protocols = ("fanuc", "focas")  # FIXED(P2): 原问题-可变默认值list; 修复-改为tuple
     config_schema = {
         "description": "FANUC CNC FOCAS2 protocol (native socket, no fwlipy required)",
         "fields": [
