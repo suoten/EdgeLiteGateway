@@ -109,7 +109,7 @@ class MetricsCollector:
         label_str = ",".join(f'{k}="{v}"' for k, v in sorted(labels.items()))
         return f"{name}{{{label_str}}}"
 
-    def register_custom_collector(self, collector: callable) -> None:
+    def register_custom_collector(self, collector: Callable) -> None:
         """注册自定义指标收集器"""
         self._custom_collectors.append(collector)
 

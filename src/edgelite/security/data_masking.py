@@ -6,9 +6,10 @@ import ipaddress
 import json
 import logging
 import re
-from dataclasses import dataclass, field
 
 # FIXED(P3): 原问题-F401未使用导入datetime.datetime; 修复-删除该导入行
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -385,7 +386,7 @@ class DataMasker:
     def __init__(
         self,
         sensitive_fields: set[str] | None = None,
-        custom_strategies: dict[str, callable] | None = None,
+        custom_strategies: dict[str, Callable] | None = None,
     ):
         """
         Args:
@@ -407,7 +408,7 @@ class DataMasker:
         """添加敏感字段"""
         self._sensitive_fields.add(field_name.lower())
 
-    def set_strategy(self, field_name: str, strategy: callable) -> None:
+    def set_strategy(self, field_name: str, strategy: Callable) -> None:
         """设置字段的脱敏策略"""
         self._strategies[field_name.lower()] = strategy
 
