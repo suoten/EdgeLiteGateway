@@ -1,0 +1,160 @@
+# EdgeLite Gateway — GitLab CI/CD Pipeline
+# Mirrors the GitHub Actions CI workflow for GitLab users.
+# Stages: lint → typecheck → test → build → docker → security → deploy
+
+stages:
+  - lint
+  - typecheck
+  - test
+  - build
+  - docker
+  - security
+  - deploy
+
+variables:
+  PYTHON_VERSION: "3.11"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  EDGELITE_SECURITY__SECRET_KEY: "ci-only-not-secret-key-do-not-use-in-prod-32bytes!"
+
+# ── Cache configuration ──────────────────────────────────────────────
+cache:
+  key:
+    files:
+      - requirements.txt
+      - pyproject.toml
+  paths:
+    - .cache/pip
+    - .ruff_cache/
+
+# ── Lint (ruff) ──────────────────────────────────────────────────────
+lint:
+  stage: lint
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - pip install "ruff>=0.3.0"
+    - ruff check .
+    - ruff format --check .
+    - python scripts/check_deps_consistency.py
+    - python scripts/compare_config.py
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(main|master|develop)$/
+
+# ── Type check (pyright) ─────────────────────────────────────────────
+typecheck:
+  stage: typecheck
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - pip install pyright
+    - pyright
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(main|master|develop)$/
+
+# ── Test (pytest + coverage) ─────────────────────────────────────────
+test:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  variables:
+    EDGELITE_DB__PATH: ":memory:"
+  script:
+    - pip install --upgrade pip
+    - pip install -e ".[dev]"
+    - pytest --cov=edgelite --cov-report=xml:coverage.xml --cov-report=term-missing --cov-fail-under=80 --timeout=60 -q
+    - pytest tests/test_smoke.py -v -m smoke --timeout=30
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+    expire_in: 14 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(main|master|develop)$/
+
+# ── Build (sdist + wheel) ────────────────────────────────────────────
+build:
+  stage: build
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - pip install build twine
+    - python -m build
+    - twine check dist/*
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|master)$/
+
+# ── Docker build ─────────────────────────────────────────────────────
+docker:build:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker build -f docker/Dockerfile -t edgelite:ci .
+    - docker save edgelite:ci -o edgelite-image.tar
+  artifacts:
+    paths:
+      - edgelite-image.tar
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|master)$/
+
+# ── Security scan ────────────────────────────────────────────────────
+security:scan:
+  stage: security
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - pip install --upgrade pip
+    - pip install -e ".[dev]"
+    - pip install pip-audit cyclonedx-bom
+    - pip-audit --strict --desc
+    - cyclonedx-py environment -o sbom.json --schema-version 1.5
+  artifacts:
+    reports:
+      sbom:
+        path: sbom.json
+    paths:
+      - sbom.json
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|master)$/
+
+# ── Deploy to staging ────────────────────────────────────────────────
+deploy:staging:
+  stage: deploy
+  image: alpine/helm:3.14.0
+  variables:
+    KUBE_CONFIG: $KUBE_CONFIG_STAGING
+  script:
+    - echo "Deploying to staging..."
+    - helm upgrade --install edgelite helm/edgelite --namespace edgelite-staging --create-namespace --wait --timeout 5m
+    - echo "Deployment to staging complete."
+  environment:
+    name: staging
+    url: https://staging.edgelite.local
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  when: manual
+
+# ── Deploy to production ─────────────────────────────────────────────
+deploy:production:
+  stage: deploy
+  image: alpine/helm:3.14.0
+  variables:
+    KUBE_CONFIG: $KUBE_CONFIG_PRODUCTION
+  script:
+    - echo "Deploying to production..."
+    - helm upgrade --install edgelite helm/edgelite --namespace edgelite-production --create-namespace --wait --timeout 5m
+    - echo "Deployment to production complete."
+  environment:
+    name: production
+    url: https://edgelite.local
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  when: manual
