@@ -334,7 +334,7 @@ async def integration_health_check(request: Request):
     except Exception:
         endpoint = None
 
-    sessions = {}
+    sessions: dict = {}
     session_count = 0
     connection_count = 0
     if endpoint:
