@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="smoke" tests="7" failures="0" errors="0" skipped="0" time="6.93" timestamp="2026-07-18T10:50:00">
+    <testcase classname="tests.test_smoke" name="test_health_live" time="0.52"/>
+    <testcase classname="tests.test_smoke" name="test_health_ready" time="0.48"/>
+    <testcase classname="tests.test_smoke" name="test_auth_login" time="1.23"/>
+    <testcase classname="tests.test_smoke" name="test_devices_list" time="1.56"/>
+    <testcase classname="tests.test_smoke" name="test_system_status" time="1.89"/>
+    <testcase classname="e2e.test_e2e_smoke" name="test_e2e_health_live" time="0.65"/>
+    <testcase classname="e2e.test_e2e_smoke" name="test_e2e_health_ready" time="0.60"/>
+  </testsuite>
+</testsuites>
