@@ -1,5 +1,5 @@
 # EdgeLiteGateway 核心依赖
-fastapi>=0.110.0,<0.116
+fastapi>=0.110.0,<0.140
 uvicorn[standard]>=0.29.0,<0.35
 pydantic>=2.6.0,<3.0
 python-dotenv>=1.0.0,<2.0
