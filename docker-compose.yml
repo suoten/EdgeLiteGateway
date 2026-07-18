@@ -1,0 +1,11 @@
+# EdgeLite Gateway — Root-level Docker Compose entry point
+# This file wraps docker/docker-compose.yml for DevOps scanner compatibility.
+# Many CI/CD scanners and DevOps tools look for docker-compose.yml in the project root.
+#
+# Usage:
+#   docker compose up -d                    # Start core services
+#   docker compose --profile monitoring up -d  # Start with monitoring stack
+#   docker compose -f docker/docker-compose.yml up -d  # Direct usage
+
+include:
+  - path: docker/docker-compose.yml
