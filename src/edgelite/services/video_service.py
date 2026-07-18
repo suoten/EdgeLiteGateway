@@ -8,14 +8,14 @@
 from __future__ import annotations
 
 import logging
-from enum import Enum
+from enum import StrEnum
 
 from edgelite.engine.event_bus import AlarmEvent, EventBus
 
 logger = logging.getLogger(__name__)
 
 
-class DeviceStatus(str, Enum):
+class DeviceStatus(StrEnum):
     """视频设备状态枚举（存根实现，替代已删除的 edgelite.drivers.video.provider.DeviceStatus）"""
 
     ONLINE = "online"
@@ -69,9 +69,7 @@ class VideoService:
         event_type = event_data.get("type", "")
         if "alarm" in event_type.lower():
             alarm_event = AlarmEvent(
-                alarm_id=event_data.get(
-                    "alarm_id", f"video_{event_data.get('device_id', '')}_{event_type}"
-                ),
+                alarm_id=event_data.get("alarm_id", f"video_{event_data.get('device_id', '')}_{event_type}"),
                 rule_id=event_data.get("rule_id", "video_alarm"),
                 device_id=event_data.get("device_id", ""),
                 severity=event_data.get("severity", "warning"),

@@ -41,15 +41,19 @@ alembic>=1.13.0,<2.0
 # asyncpg>=0.29.0         # PostgreSQL 数据源
 # aioodbc>=0.4.0          # SQL Server 数据源
 
-# AI推理引擎依赖（启用AI功能必须安装）
-numpy>=1.26.0,<3.0  # FIXED: 统一与 pyproject.toml 一致，1.24-1.25 与 Python 3.12 不兼容
-onnx>=1.16.2,<2.0  # R5-D-004 修复: 1.15.x 存在 CVE 漏洞，升级到 >=1.16.2
-onnxruntime>=1.16.0,<2.0
-opencv-python-headless>=4.8.0,<5.0
+# AI推理引擎依赖（可选，启用AI功能时安装）
+# FIXED: 与 pyproject.toml [project.optional-dependencies] ai 分组保持一致
+# 安装方式: pip install ".[ai]" 或 pip install -r requirements-ai.txt
+# numpy>=1.26.0,<3.0
+# onnx>=1.16.2,<2.0
+# onnxruntime>=1.16.0,<2.0
+# opencv-python-headless>=4.8.0,<5.0
 
-# 测试依赖
-pytest>=8.0.0,<9.0
-pytest-asyncio>=0.23.0,<1.0
+# 测试依赖（可选，开发时安装）
+# FIXED: 与 pyproject.toml [project.optional-dependencies] dev 分组保持一致
+# 安装方式: pip install ".[dev]" 或 pip install -r requirements-dev.txt
+# pytest>=8.0.0,<9.0
+# pytest-asyncio>=0.23.0,<1.0
 
 # FIXED(低危): 依赖锁定文件（供应链安全）
 # 为确保构建可复现和供应链安全，应生成锁定文件：

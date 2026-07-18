@@ -185,6 +185,45 @@ services:
     networks:
       - edgelite-net
 
+  # ── Monitoring: Alertmanager for alert routing ──────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: edgelite-alertmanager
+    profiles:
+      - monitoring
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://localhost:9093"
+    environment:
+      - SMTP_HOST=${SMTP_HOST:-localhost}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_FROM=${SMTP_FROM:-alertmanager@edgelite.local}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-admin@edgelite.local}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: "0.25"
+    networks:
+      - edgelite-net
+
   # ── Monitoring: Grafana visualization dashboard ─────────────────────
   grafana:
     image: grafana/grafana:10.4.0
@@ -219,12 +258,72 @@ services:
     networks:
       - edgelite-net
 
+  # ── Log Aggregation: Loki log storage ───────────────────────────────
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: edgelite-loki
+    profiles:
+      - monitoring
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    networks:
+      - edgelite-net
+
+  # ── Log Aggregation: Promtail log collector ─────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: edgelite-promtail
+    profiles:
+      - monitoring
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ../logs:/var/log/edgelite:ro
+    command:
+      - "-config.file=/etc/promtail/config.yml"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:9080/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      - loki
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: "0.25"
+    networks:
+      - edgelite-net
+
 volumes:
   edgelite-data:
   influxdb-data:
   mosquitto-data:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
+  loki-data:
 
 networks:
   edgelite-net:

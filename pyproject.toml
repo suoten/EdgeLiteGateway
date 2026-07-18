@@ -207,6 +207,7 @@ markers = [
     "stability: long-running stability tests",
     "chaos: chaos engineering tests",
     "e2e: end-to-end frontend tests",
+    "smoke: smoke tests for deployment verification",
 ]
 addopts = "--tb=short -q"
 # FIXED: 覆盖率默认配置 — 通过 `pytest --cov` 启用，不强制写入 addopts 以免影响快速测试

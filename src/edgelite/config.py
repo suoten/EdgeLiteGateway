@@ -845,12 +845,28 @@ def load_config(config_path: str | Path = "configs/config.yaml") -> AppConfig:
     if env_overrides:
         config_data = _deep_merge(config_data, env_overrides)
 
+    # FIXED-P0: 开发环境（DEV_MODE=true）下自动生成临时 secret_key 和 csrf_secret
+    # 允许 config.yaml 中 secret_key/csrf_secret 为空，开发时自动生成随机密钥
+    # 生产环境（DEV_MODE=false）下空值仍会被 AppConfig 验证器拒绝，强制要求显式配置
+    dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
+    if dev_mode:
+        import secrets as _secrets
+
+        _sec = config_data.get("security") or {}
+        if not _sec.get("secret_key"):
+            _sec["secret_key"] = _secrets.token_urlsafe(32)
+            config_data["security"] = _sec
+            logger.info("DEV_MODE: auto-generated temporary secret_key (regenerated on each restart)")
+        if not _sec.get("csrf_secret") and not config_data.get("csrf_secret"):
+            _sec["csrf_secret"] = _secrets.token_urlsafe(32)
+            config_data["security"] = _sec
+            logger.info("DEV_MODE: auto-generated temporary csrf_secret (regenerated on each restart)")
+
     config = AppConfig(**config_data)
 
     # FIXED(安全): 生产环境（DEV_MODE=false）下强制拒绝 debug_api_enabled=true
     # debug_api_enabled=true 会注册 /debug/simulate、/debug/read、/debug/write 等端点
     # （可直接操控工业设备）并暴露 /docs、/redoc、/openapi.json，存在严重安全风险
-    dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
     if not dev_mode and config.server.debug_api_enabled:
         logger.warning(
             "安全校验: 生产环境（DEV_MODE=false）下禁止开启 debug_api_enabled，已强制关闭。如需调试请设置 DEV_MODE=true"

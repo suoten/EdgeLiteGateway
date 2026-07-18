@@ -1,11 +1,18 @@
 # Prometheus scrape configuration for EdgeLite Gateway
 # Scrapes the /metrics endpoint exposed by the FastAPI application.
+# Sends alerts to Alertmanager for routing and notification.
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
     monitor: "edgelite-monitor"
+
+# Alerting configuration — send alerts to Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
 
 rule_files:
   - "alerts.yml"

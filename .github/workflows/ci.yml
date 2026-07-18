@@ -38,6 +38,12 @@ jobs:
         run: ruff check .
       - name: Ruff format check
         run: ruff format --check .
+      - name: Dependency consistency check
+        run: python scripts/check_deps_consistency.py
+      - name: Config drift check
+        run: python scripts/compare_config.py
+      - name: Docker Compose config validation
+        run: docker compose -f docker/docker-compose.yml --profile monitoring config --quiet
 
   typecheck:
     name: Type check (pyright)

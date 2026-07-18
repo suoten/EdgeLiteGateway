@@ -1,8 +1,9 @@
-# Grafana datasource provisioning — auto-configures Prometheus as a datasource.
+# Grafana datasource provisioning — auto-configures Prometheus and Loki as datasources.
 
 apiVersion: 1
 
 datasources:
+  # ── Prometheus: metrics & alerting ──────────────────────────────────
   - name: Prometheus
     type: prometheus
     access: proxy
@@ -13,3 +14,19 @@ datasources:
       httpMethod: POST
       manageAlerts: false
       timeInterval: "15s"
+
+  # ── Loki: centralized log aggregation ───────────────────────────────
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Auto-link request_id from logs to trace requests across services
+        - datasourceUid: prometheus
+          matcherRegex: "request_id=(\\w+)"
+          name: RequestID
+          url: "$${__value.raw}"

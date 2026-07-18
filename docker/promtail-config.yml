@@ -1,0 +1,96 @@
+# Promtail configuration for EdgeLite Gateway
+# Collects Docker container logs and ships them to Loki.
+# Docker Compose: mounted at /etc/promtail/config.yml
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+# Loki target — send collected logs to Loki service
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    tenant_id: edgelite
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+# Scrape Docker container logs
+scrape_configs:
+  # ── Docker container logs ──────────────────────────────────────────
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=edgelite-v10-community"]
+    # Relabel container metadata into Loki labels
+    relabel_configs:
+      # Container name → container label
+      - source_labels: ["__meta_docker_container_name"]
+        regex: '/(.*)'
+        target_label: container
+      # Service name from compose label
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: service
+      # Docker image name
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_project"]
+        target_label: project
+      # Only keep containers on the edgelite-net network
+      - action: keep
+        source_labels: ["__meta_docker_container_label_com_docker_compose_project"]
+        regex: 'edgelite-v10-community'
+    # Pipeline stages for log parsing
+    pipeline_stages:
+      # Parse JSON structured logs (when json_format: true is set in config)
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            logger: logger
+            timestamp: timestamp
+            request_id: request_id
+          on_missing: skip
+      # Extract log level as a label
+      - labels:
+          level:
+          logger:
+      # Set timestamp from parsed log field (fallback to ingestion time)
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+          on_failure: skip
+      # Truncate very long log lines to prevent Loki ingestion issues
+      - limit:
+          rate: 100
+          burst: 200
+          drop: false
+
+  # ── EdgeLite application log files ─────────────────────────────────
+  - job_name: edgelite-app-logs
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: edgelite-app
+          host: localhost
+          __path__: /var/log/edgelite/*.log
+    pipeline_stages:
+      # Parse multiline stack traces
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2}'
+          max_wait_time: 3s
+      # Parse log format: "2024-01-01 00:00:00 | INFO     | module | message"
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s*\|\s*(?P<level>\w+)\s*\|\s*(?P<logger>[\w.]+)\s*\|\s*(?P<message>.*)$'
+      - labels:
+          level:
+          logger:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05'
+          on_failure: skip

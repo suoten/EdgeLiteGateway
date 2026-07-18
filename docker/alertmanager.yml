@@ -1,0 +1,81 @@
+# Alertmanager configuration for EdgeLite Gateway
+# Handles alert routing, grouping, and notification delivery.
+# Docker Compose: mounted at /etc/alertmanager/alertmanager.yml
+
+global:
+  # SMTP settings for email notifications (configured via environment variables in docker-compose)
+  smtp_smarthost: "${SMTP_HOST}:${SMTP_PORT}"
+  smtp_from: "${SMTP_FROM}"
+  smtp_auth_username: "${SMTP_USER}"
+  smtp_auth_password: "${SMTP_PASSWORD}"
+
+# Templates for alert notifications
+templates:
+  - "/etc/alertmanager/templates/*.tmpl"
+
+# Alert routing configuration
+route:
+  # Default receiver for all alerts
+  receiver: "default"
+  # Group alerts by alertname + severity for batched notifications
+  group_by: ["alertname", "severity"]
+  # Wait before sending first notification (allows grouping)
+  group_wait: 30s
+  # Wait before sending subsequent notifications for the same group
+  group_interval: 5m
+  # Wait before re-sending a notification that has already been sent
+  repeat_interval: 4h
+  # Priority routing rules
+  routes:
+    # Critical alerts → immediate notification
+    - matchers:
+        - severity="critical"
+      receiver: "critical"
+      group_wait: 10s
+      repeat_interval: 1h
+    # Warning alerts → batched notification
+    - matchers:
+        - severity="warning"
+      receiver: "warning"
+      group_wait: 1m
+      repeat_interval: 4h
+
+# Notification receivers
+receivers:
+  # Default receiver (all unmatched alerts)
+  - name: "default"
+    # Log to file for audit trail
+    webhook_configs:
+      - url: "http://edgelite:8080/api/notify/webhook"
+        send_resolved: true
+        max_alerts: 10
+
+  # Critical alerts — immediate notification via email + webhook
+  - name: "critical"
+    email_configs:
+      - to: "${ALERT_EMAIL_TO}"
+        send_resolved: true
+        headers:
+          Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+        # Only send if alert is firing (not resolved)
+    webhook_configs:
+      - url: "http://edgelite:8080/api/notify/webhook"
+        send_resolved: true
+        max_alerts: 50
+
+  # Warning alerts — batched notification via webhook only
+  - name: "warning"
+    webhook_configs:
+      - url: "http://edgelite:8080/api/notify/webhook"
+        send_resolved: true
+        max_alerts: 20
+
+# Inhibition rules — suppress related alerts when a higher severity is firing
+inhibit_rules:
+  # Suppress warning alerts when critical alert for same service is firing
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    # Match on same alert name and service
+    equal: ["alertname", "service"]

@@ -698,16 +698,56 @@ const allMenuOptions = computed(() => {
 ] as const
 })
 
+// FIXED-P2: 隐藏未实现的路由对应菜单项（PlaceholderView 路由标记了 meta.hidden: true）
+// 同时递归过滤子菜单，如果分组下所有子项都被隐藏则隐藏整个分组
+const _HIDDEN_ROUTES = new Set([
+  'Setup', 'LargeScreen', 'DeviceTemplates', 'DeviceShadow', 'Report',
+  'DataQuality', 'DataQualityMonitor', 'PlatformDashboard', 'TbMonitor', 'CustomMqttConfig',
+  'BridgeConfig', 'PipelineEditor', 'AiMonitor', 'AiAbTest', 'DeviceLinkage',
+  'ProfilerView', 'LogAggregator', 'FirmwareSignature', 'ProtocolDebug', 'Metrics',
+  'ConfigVersion', 'SelfTest', 'DataExport', 'DataImport', 'ResourceSharing',
+  'DataDownsample', 'DbMonitor', 'AlarmTrend', 'AlarmCorrelation', 'BackupSchedule',
+  'SystemConfig', 'ObservabilityOverview', 'ObservabilityRulesPage', 'ObservabilityEventsPage',
+  'ObservabilityTraces', 'ObservabilityMetrics', 'ScriptEngine', 'Simulation',
+  'AnomalyLearner', 'TrendLearner', 'ThresholdLearner', 'AiCenter', 'AiTest',
+  'CalibrationData', 'PhysicsCalibrator', 'PhysicsParamDb', 'PrecisionTest',
+  'EvolutionVerify', 'AiBoundaryTest', 'AiStressTest', 'AiReportCenter', 'ModbusOps',
+])
+
+function _filterMenuItems(items: readonly any[]): any[] {
+  return items
+    .filter(item => {
+      // 隐藏标记的路由
+      if (_HIDDEN_ROUTES.has(item.key)) return false
+      // 角色过滤
+      if (auth.role !== 'admin') {
+        if (item.adminOnly) return false
+        const roles = item.roles
+        if (roles && !roles.includes(auth.role)) return false
+      } else {
+        if (item.hideForAdmin) return false
+      }
+      return true
+    })
+    .map(item => {
+      // 递归过滤子菜单
+      if (item.children) {
+        const filteredChildren = _filterMenuItems(item.children)
+        return { ...item, children: filteredChildren }
+      }
+      return item
+    })
+    .filter(item => {
+      // 如果分组下所有子项都被隐藏，则隐藏整个分组
+      if (item.children && item.children.length === 0) return false
+      return true
+    })
+}
+
 const menuOptions = computed(() => {
+  void localeRef.value
   const opts = allMenuOptions.value
-  if (auth.role === 'admin') return opts.filter(item => !(item as any).hideForAdmin)
-  // FIX 1: 同时检查 adminOnly 和 roles，使菜单过滤与路由 requiredRole 保持一致
-  return opts.filter(item => {
-    if ((item as any).adminOnly) return false
-    const roles = (item as any).roles
-    if (roles && !roles.includes(auth.role)) return false
-    return true
-  })
+  return _filterMenuItems(opts)
 })
 
 const userOptions = computed(() => {
