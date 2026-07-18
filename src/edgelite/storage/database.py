@@ -19,8 +19,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from edgelite.api.error_codes import DatabaseErrors
 from edgelite.config import get_config
+from edgelite.error_codes import DatabaseErrors
 from edgelite.models.db import Base
 
 logger = logging.getLogger(__name__)

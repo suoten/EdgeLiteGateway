@@ -245,7 +245,7 @@ _DISCOVER_TIMEOUT = 60.0
 async def discover_devices(
     driver_name: str,
     registry: DriverRegistryDep,
-    req: DriverDiscoverRequest = None,
+    req: DriverDiscoverRequest | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
     # Accept frontend protocol ids (kebab-case) and common aliases.
@@ -405,7 +405,7 @@ async def list_driver_meta(
     drivers: list[dict] = []
 
     # Map label -> load status info for dependency diagnostics.
-    load_status = {}
+    load_status: dict = {}
     try:
         load_status = registry.get_load_status() if hasattr(registry, "get_load_status") else {}
     except Exception:
@@ -593,7 +593,12 @@ async def get_opcua_certificate_status(
     try:
         from edgelite.drivers.opcua import OpcUaDriver
 
-        status = OpcUaDriver.get_certificate_status()
+        # FIXED: get_certificate_status is an instance method; use __new__ to avoid
+        # calling with self=None. The method only reads _certificate_status which
+        # defaults to {} in __init__, so a bare instance is safe for this read-only query.
+        _instance = OpcUaDriver.__new__(OpcUaDriver)
+        _instance._certificate_status = {}
+        status = _instance.get_certificate_status()
         return ApiResponse(data={"certificates": status, "device_count": len(status)})
     except Exception as e:
         logger.error("Failed to get OPC UA certificate status: %s", e)

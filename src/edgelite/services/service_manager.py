@@ -83,7 +83,7 @@ _PIP_TO_IMPORT = {
     "fins": "fins",
 }
 
-SERVICE_DEFINITIONS = {
+SERVICE_DEFINITIONS: dict[str, dict] = {
     "mqtt_server": {
         "display_name": "SVC_MQTT_SERVER_DISPLAY_NAME",
         "description": "SVC_MQTT_SERVER_DESCRIPTION",

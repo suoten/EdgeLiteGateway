@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from edgelite.api.deps import ModbusSlaveDep, require_permission
+from edgelite.api.deps import ModbusSlaveDep, get_device_service, require_permission
 from edgelite.api.error_codes import CommonErrors, DeviceErrors, ServiceErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
@@ -180,13 +180,11 @@ async def update_modbus_slave_config(
 @router.get("/devices/{device_id}/ops", response_model=ApiResponse)
 async def get_slave_ops(
     device_id: str,
+    svc: object = Depends(get_device_service),
     user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
 ):
-    from edgelite.services.device_service import get_device_service
-
     try:
-        svc = get_device_service()
-        driver = svc._driver_instances.get(device_id)
+        driver = svc._driver_instances.get(device_id)  # type: ignore[attr-defined]
         if driver is None:
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         if not hasattr(driver, "get_slave_ops_data"):

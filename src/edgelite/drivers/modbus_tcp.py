@@ -22,7 +22,6 @@ except ImportError:
 
 from datetime import UTC, datetime, timedelta
 
-from edgelite.api.error_codes import ModbusDriverErrors
 from edgelite.constants import _DEVICE_CONNECT_TIMEOUT
 from edgelite.drivers.base import ConnectionState, DriverCapabilities, DriverPlugin, PointValue
 from edgelite.drivers.edge_rule_engine import (
@@ -57,6 +56,7 @@ from edgelite.drivers.offline_sync import OfflineSyncManager
 from edgelite.drivers.redundancy import LinkRedundancyManager, LinkRole, RedundancyConfig
 from edgelite.drivers.rule_store import RuleStore
 from edgelite.engine.event_bus import DeviceStatusEvent, EventBus, PointUpdateEvent
+from edgelite.error_codes import ModbusDriverErrors
 from edgelite.packet_recorder import record_packet
 from edgelite.security.rbac import Permission, has_permission  # FIXED-P1: 写入权限检查所需
 from edgelite.services.i18n import t as _t

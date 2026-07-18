@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from edgelite.api.error_codes import IntegrationErrors
+from edgelite.error_codes import IntegrationErrors
 from edgelite.storage.offline_queue import OfflineQueue
 
 logger = logging.getLogger(__name__)

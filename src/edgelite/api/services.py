@@ -41,7 +41,7 @@ async def list_services(
     try:
         services = []
         for info in mgr.list_services():
-            svc_def = SERVICE_DEFINITIONS.get(info.name, {})
+            svc_def: dict = SERVICE_DEFINITIONS.get(info.name, {})
             services.append(
                 {
                     "name": info.name,
@@ -86,7 +86,7 @@ async def get_service_status(
         if info is None:
             # FIXED: 原问题-中文硬编码detail
             raise HTTPException(status_code=404, detail=ServiceErrors.NOT_REGISTERED)
-        svc_def = SERVICE_DEFINITIONS.get(service_name, {})
+        svc_def: dict = SERVICE_DEFINITIONS.get(service_name, {})
         return ApiResponse(
             data={
                 "name": info.name,

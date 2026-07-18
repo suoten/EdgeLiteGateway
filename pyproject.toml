@@ -200,7 +200,7 @@ reportUnusedCoroutine = "error"  # 保持 error: 未 await 协程是真实 bug
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests", "e2e"]
 markers = [
     "integration: integration tests requiring external services",
     "stress: stress and performance tests",

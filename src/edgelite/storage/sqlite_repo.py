@@ -32,13 +32,13 @@ from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from edgelite.api.error_codes import RepoErrors
 from edgelite.constants import (
     _AUTH_LOGIN_WINDOW_SECONDS,
     _SHORT_ID_LENGTH,
     VALID_DEVICE_PROTOCOLS,
     normalize_protocol,
 )
+from edgelite.error_codes import RepoErrors
 from edgelite.models.db import (
     AccountLockoutORM,
     AlarmORM,

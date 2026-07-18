@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from edgelite.api.error_codes import AuthzErrors
+from edgelite.error_codes import AuthzErrors
 
 
 class Role(StrEnum):

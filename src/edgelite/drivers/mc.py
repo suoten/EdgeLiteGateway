@@ -21,8 +21,8 @@ from collections import OrderedDict, deque
 from datetime import UTC, datetime
 from typing import Any
 
-from edgelite.api.error_codes import McDriverErrors
 from edgelite.drivers.base import ConnectionState, DriverCapabilities, DriverPlugin, PointValue
+from edgelite.error_codes import McDriverErrors
 from edgelite.packet_recorder import record_packet
 from edgelite.security.rbac import Permission, has_permission  # FIXED-P1: 写入权限检查所需
 from edgelite.services.i18n import t as _t

@@ -40,7 +40,6 @@ from datetime import UTC, datetime
 from enum import Enum, StrEnum
 from typing import Any
 
-from edgelite.api.error_codes import FinsDriverErrors
 from edgelite.drivers.base import ConnectionState, DriverCapabilities, DriverPlugin, PointValue
 from edgelite.drivers.edge_rule_engine import (  # FIXED-P0: 导入规则引擎类，修复NameError
     EdgeRule,
@@ -52,6 +51,7 @@ from edgelite.drivers.fins_config_version import FinsConfigVersionManager
 from edgelite.drivers.fins_ota import FinsOtaManager, OtaPackage
 from edgelite.drivers.fins_ts_store import FinsOfflineSyncManager, FinsTsStore
 from edgelite.drivers.rule_store import RuleStore  # FIXED-P0: 导入规则存储
+from edgelite.error_codes import FinsDriverErrors
 from edgelite.packet_recorder import record_packet
 from edgelite.services.i18n import t as i18n_t
 
