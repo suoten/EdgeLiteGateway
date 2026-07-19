@@ -20,7 +20,7 @@ try:
     _HAS_NUMPY = True
 except ImportError:
     _HAS_NUMPY = False
-    np = None
+    np = None  # type: ignore[assignment]
 
 try:
     import onnxruntime as ort
@@ -28,7 +28,7 @@ try:
     _HAS_ONNX = True
 except ImportError:
     _HAS_ONNX = False
-    ort = None
+    ort = None  # type: ignore[assignment]
 
 
 def _check_onnxruntime() -> bool:
@@ -58,6 +58,7 @@ from edgelite.models.ai_model import (
     ModelStatus,
     ModelType,
 )
+from edgelite.engine.event_bus import Event
 from edgelite.packet_recorder import record_packet
 
 logger = logging.getLogger(__name__)
@@ -114,13 +115,13 @@ def _generate_onnx_model(
         graph = helper.make_graph(nodes, "anomaly_graph", [X], [Y], initializer=inits)
     elif "trend" in model_file:
         rng = _np.random.RandomState(42)
-        W = _np.zeros((in_dim, out_dim), dtype=_np.float32)
+        W: Any = _np.zeros((in_dim, out_dim), dtype=_np.float32)
         for i in range(out_dim):
             start_idx = in_dim - out_dim - i
             for j in range(min(3, out_dim)):
-                if start_idx + j >= 0 and start_idx + j < in_dim:
+                if start_idx + j >= 0 and start_idx + j < in_dim:        
                     W[start_idx + j, i] = 0.8 - j * 0.2
-        b = _np.zeros(out_dim, dtype=_np.float32)
+        b: Any = _np.zeros(out_dim, dtype=_np.float32)
         X = helper.make_tensor_value_info("input", TensorProto.FLOAT, input_shape)
         Y = helper.make_tensor_value_info("output", TensorProto.FLOAT, output_shape)
         nodes = [
@@ -213,6 +214,9 @@ class OnnxModelWrapper:
         self.loaded_at: datetime | None = None
         self._preprocess_pipeline: Any = None
         self._postprocess_pipeline: Any = None
+        self._last_mtime: float = 0.0
+        self.last_result: Any = None
+        self._version_history: list[dict[str, Any]] = []
         if self.preprocess_config:
             from edgelite.engine.ai_preprocess import PreprocessPipeline
 
@@ -359,7 +363,7 @@ class InferenceStatsCollector:
             }
 
 
-PRESET_MODELS = [
+PRESET_MODELS: list[dict[str, Any]] = [
     {
         "model_id": "preset-anomaly-v1",
         "model_name": "Anomaly Detection v1",
@@ -1009,7 +1013,7 @@ class AiInferenceEngine:
                 for dim in shape:
                     if dim > 0:
                         expected_size *= dim
-                flat_arr = arr.flatten()
+                flat_arr: Any = arr.flatten()
                 if len(flat_arr) != expected_size:
                     if len(flat_arr) < expected_size:
                         flat_arr = np.pad(flat_arr, (0, expected_size - len(flat_arr)))
@@ -1034,43 +1038,94 @@ class AiInferenceEngine:
             elif isinstance(wrapper, PMMLModelWrapper):
                 loop = asyncio.get_running_loop()
                 raw_output = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: wrapper.run(input_data)),
+                    loop.run_in_executor(None, lambda: wrapper.run(input_data)),  # type: ignore[arg-type, return-value]
                     timeout=inference_timeout,
                 )
                 latency_ms = int((time.perf_counter() - start) * 1000)
                 output_data = {"output_0": raw_output}
             else:
                 input_name = wrapper.session.get_inputs()[0].name
-                shape = wrapper.input_schema.get("shape", [1, -1])
-                expected_size = 1
-                for dim in shape:
-                    if dim > 0:
-                        expected_size *= dim
+                # [FIX] 使用 ONNX 模型实际输入形状，而非 input_schema 中的记录。
+                # 原问题：input_schema 声明 [1,100] 但模型实际输入 [1]（标量），
+                # reshape 到 [1,100] 导致 "Invalid rank: Got 2 Expected 1" 错误，所有推理失败。
+                onnx_input = wrapper.session.get_inputs()[0]
+                actual_shape: list[int] = []
+                for d in (onnx_input.shape or [1]):
+                    # ONNX 用字符串（符号维度）或 None 表示动态维度
+                    if isinstance(d, str) or d is None:
+                        actual_shape.append(-1)
+                    else:
+                        actual_shape.append(int(d))
                 flat_arr = arr.flatten()
-                if len(flat_arr) != expected_size:
-                    if len(flat_arr) < expected_size:
-                        flat_arr = np.pad(flat_arr, (0, expected_size - len(flat_arr)))
-                    else:
-                        flat_arr = flat_arr[:expected_size]
-                arr = flat_arr.reshape(shape)
                 loop = asyncio.get_running_loop()
-                raw_output = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None,
-                        lambda: wrapper.session.run(None, {input_name: arr}),
-                    ),
-                    timeout=inference_timeout,
-                )
-                latency_ms = int((time.perf_counter() - start) * 1000)
-                output_data = {}
-                for i, out in enumerate(raw_output):
-                    if isinstance(out, np.ndarray):
-                        val = out.tolist()
-                        if isinstance(val, list) and len(val) == 1 and isinstance(val[0], list):
-                            val = val[0]
-                        output_data[f"output_{i}"] = val
-                    else:
-                        output_data[f"output_{i}"] = out
+                # 情况1：模型接受标量输入 shape=[1]（rank 1），用户发向量 → 逐元素批量推理
+                if len(actual_shape) == 1 and actual_shape[0] == 1 and len(flat_arr) > 1:
+
+                    def _batch_run_scalar():
+                        results = []
+                        for v in flat_arr:
+                            out = wrapper.session.run(None, {input_name: np.array([v], dtype=np.float32)})
+                            results.append(out)
+                        return results
+
+                    batch_outputs = await asyncio.wait_for(
+                        loop.run_in_executor(None, _batch_run_scalar),
+                        timeout=inference_timeout,
+                    )
+                    latency_ms = int((time.perf_counter() - start) * 1000)
+                    output_data = {}
+                    for i in range(len(batch_outputs[0])):
+                        vals = []
+                        for out in batch_outputs:
+                            v = out[i]
+                            if isinstance(v, np.ndarray):
+                                v = v.flatten().tolist()
+                                if len(v) == 1:
+                                    v = v[0]
+                            vals.append(v)
+                        output_data[f"output_{i}"] = vals
+                else:
+                    # 情况2：正常 reshape 到模型实际形状（处理动态维度）
+                    expected_size = 1
+                    for dim in actual_shape:
+                        if dim > 0:
+                            expected_size *= dim
+                    if expected_size <= 0:
+                        expected_size = len(flat_arr)
+                    if len(flat_arr) != expected_size:
+                        if len(flat_arr) < expected_size:
+                            flat_arr = np.pad(flat_arr, (0, expected_size - len(flat_arr)))
+                        else:
+                            flat_arr = flat_arr[:expected_size]
+                    # 解析动态维度（-1 替换为实际值）
+                    resolve_shape: list[int] = []
+                    for idx, dim in enumerate(actual_shape):
+                        if dim > 0:
+                            resolve_shape.append(dim)
+                        else:
+                            known = 1
+                            for j, d2 in enumerate(actual_shape):
+                                if j != idx and d2 > 0:
+                                    known *= d2
+                            resolve_shape.append(max(1, len(flat_arr) // known) if known > 0 else 1)
+                    arr = flat_arr.reshape(resolve_shape)
+                    raw_output = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            None,
+                            lambda: wrapper.session.run(None, {input_name: arr}),
+                        ),
+                        timeout=inference_timeout,
+                    )
+                    latency_ms = int((time.perf_counter() - start) * 1000)
+                    output_data = {}
+                    for i, out in enumerate(raw_output):
+                        if isinstance(out, np.ndarray):
+                            val = out.tolist()
+                            if isinstance(val, list) and len(val) == 1 and isinstance(val[0], list):
+                                val = val[0]
+                            output_data[f"output_{i}"] = val
+                        else:
+                            output_data[f"output_{i}"] = out
             if wrapper._postprocess_pipeline:
                 output_data = wrapper._postprocess_pipeline.apply(output_data)
             if self._inference_cache:
@@ -1092,7 +1147,7 @@ class AiInferenceEngine:
 
                 if isinstance(self._event_bus, EventBus):
                     await self._event_bus.publish(
-                        AiInferenceEvent(
+                        AiInferenceEvent(  # type: ignore[arg-type]
                             model_id=model_id,
                             output_data=output_data,
                             latency_ms=latency_ms,
@@ -1287,10 +1342,10 @@ class AiInferenceEngine:
         wrapper = self._loaded_models.get(model_id)
         return wrapper.status if wrapper else None
 
-    def get_loaded_models(self) -> dict[str, OnnxModelWrapper]:
+    def get_loaded_models(self) -> dict[str, OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper]:
         return dict(self._loaded_models)
 
-    def get_model(self, model_id: str) -> OnnxModelWrapper | None:
+    def get_model(self, model_id: str) -> OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper | None:
         return self._loaded_models.get(model_id)
 
     def get_stats(self) -> dict:
@@ -1420,7 +1475,7 @@ class AiInferenceEngine:
 
                             if isinstance(self._event_bus, EventBus):
                                 await self._event_bus.publish(
-                                    AiInferenceEvent(
+                                    AiInferenceEvent(  # type: ignore[arg-type]
                                         model_id=model_id,
                                         output_data=result.output_data,
                                         latency_ms=result.latency_ms,
@@ -1725,7 +1780,7 @@ class AiInferenceEngine:
         logger.info("Model version rolled back: %s %s -> %s", model_id, current_version, target_version)
         return True
 
-    def _record_version(self, wrapper: OnnxModelWrapper, version: str | None = None) -> None:
+    def _record_version(self, wrapper: OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper, version: str | None = None) -> None:
         if not hasattr(wrapper, "_version_history"):
             wrapper._version_history = []
         entry = {
@@ -1738,7 +1793,7 @@ class AiInferenceEngine:
         if len(wrapper._version_history) > 50:
             wrapper._version_history = wrapper._version_history[-50:]
 
-    def _auto_increment_version(self, wrapper: OnnxModelWrapper) -> str:
+    def _auto_increment_version(self, wrapper: OnnxModelWrapper | TFLiteModelWrapper | PMMLModelWrapper) -> str:
         current = wrapper.model_version
         try:
             if current.startswith("v"):
@@ -1798,8 +1853,13 @@ class TFLiteModelWrapper:
         self.output_details: dict = {}
         self.loaded_at: datetime | None = None
         self.is_preset = False
+        self._last_mtime: float = 0.0
+        self.last_result: Any = None
+        self._version_history: list[dict[str, Any]] = []
+        self._preprocess_pipeline: Any = None
+        self._postprocess_pipeline: Any = None
 
-    async def load(self) -> None:
+    async def load(self, provider: str = "CPU") -> None:
         """加载TFLite模型"""
         try:
             import tflite_runtime.interpreter as tflite  # pyright: ignore[reportMissingImports]
@@ -1888,8 +1948,13 @@ class PMMLModelWrapper:
         self._feature_transforms: list[Any] = []
         self.loaded_at: datetime | None = None
         self.is_preset = False
+        self._last_mtime: float = 0.0
+        self.last_result: Any = None
+        self._version_history: list[dict[str, Any]] = []
+        self._preprocess_pipeline: Any = None
+        self._postprocess_pipeline: Any = None
 
-    async def load(self) -> None:
+    async def load(self, provider: str = "CPU") -> None:
         """解析并加载PMML模型"""
         try:
             import xml.etree.ElementTree as ET

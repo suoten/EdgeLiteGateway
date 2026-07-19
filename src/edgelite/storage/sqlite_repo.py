@@ -24,9 +24,10 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any
+from typing import Any, List
 
 from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -816,11 +817,12 @@ class BaseRepo:
     def __init__(self, session_or_db: Any, write_lock: asyncio.Lock | None = None, table_name: str | None = None):
         from edgelite.storage.database import Database
 
+        # FIXED-mypy: _database 推断为 Database 类型，None 赋值需显式声明 Optional
+        self._database: "Database | None" = None
         if isinstance(session_or_db, Database):
             self._database = session_or_db
             self._external_session: AsyncSession | None = None
         else:
-            self._database = None
             self._external_session = session_or_db
         self._write_lock = write_lock
         # FIXED-FINE-GRAINED-LOCK: 支持按表细粒度锁
@@ -835,8 +837,6 @@ class BaseRepo:
             "BaseRepo._commit is deprecated: use session.commit() inside _table_write_lock() or _write_write_lock() "
             "to protect the full read-modify-write sequence"
         )
-
-    from contextlib import asynccontextmanager
 
     def _init_table_lock(self) -> None:
         """初始化表级锁（延迟获取以避免循环导入）"""
@@ -1219,7 +1219,7 @@ class DeviceRepo(BaseRepo):
                     )
                 )
                 result = await session.execute(delete(DeviceORM).where(DeviceORM.device_id == device_id))
-                if result.rowcount > 0:
+                if result.rowcount > 0:  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                     await session.commit()
                     return True
                 await session.commit()
@@ -1282,34 +1282,34 @@ class DeviceRepo(BaseRepo):
                             ResourceShareORM.resource_id == device_id,
                         )
                     )
-                    if shares_result.rowcount:
+                    if shares_result.rowcount:  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                         logger.info(
                             "Cascade deleted %d resource_share rows for device %s",
-                            shares_result.rowcount,
+                            shares_result.rowcount,  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                             device_id,
                         )
 
                     # 2. Delete alarms that reference this device
                     alarms_result = await session.execute(delete(AlarmORM).where(AlarmORM.device_id == device_id))
-                    if alarms_result.rowcount:
+                    if alarms_result.rowcount:  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                         logger.info(
                             "Cascade deleted %d alarm rows for device %s",
-                            alarms_result.rowcount,
+                            alarms_result.rowcount,  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                             device_id,
                         )
 
                     # 3. Delete rules that reference this device
                     rules_result = await session.execute(delete(RuleORM).where(RuleORM.device_id == device_id))
-                    if rules_result.rowcount:
+                    if rules_result.rowcount:  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                         logger.info(
                             "Cascade deleted %d rule rows for device %s",
-                            rules_result.rowcount,
+                            rules_result.rowcount,  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                             device_id,
                         )
 
                     # 4. Delete the device itself — safe because children are gone
                     device_result = await session.execute(delete(DeviceORM).where(DeviceORM.device_id == device_id))
-                    if device_result.rowcount > 0:
+                    if device_result.rowcount > 0:  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                         # FIXED: sidecar清理移到写锁外异步执行，避免长时间持锁导致删除超时
                         await session.commit()
                         logger.info("Device %s deleted from main DB, sidecar cleanup deferred", device_id)
@@ -1421,6 +1421,21 @@ class DeviceRepo(BaseRepo):
                 errors[i] = f"{record.get('device_id', '?')}: {e}"
 
         return created, skipped, errors
+
+    # FIXED-mypy: 为 DeviceRepo 添加 upsert_bulk 别名，与 RuleRepo.upsert_bulk 保持接口一致
+    # DataImportService 调用 self._device_repo.upsert_bulk(...) 期望 DeviceRepo 有此方法
+    async def upsert_bulk(
+        self,
+        records: List[dict],
+        session: AsyncSession,
+        skip_existing: bool = True,
+    ) -> tuple[int, int, List[str]]:
+        """Bulk upsert devices within an external transaction session.
+
+        Alias for ``bulk_upsert_in_session`` to provide a uniform interface
+        with ``RuleRepo.upsert_bulk``. See ``bulk_upsert_in_session`` for details.
+        """
+        return await self.bulk_upsert_in_session(records, session, skip_existing=skip_existing)
 
     async def _cleanup_sidecar_config_versions(self, device_id: str) -> None:
         """FIXED-P1: 原问题-设备删除后sidecar残留配置版本数据
@@ -1685,7 +1700,7 @@ class TemplateRepo(BaseRepo):
             async with self._write_write_lock(), self._auto_session() as session:
                 result = await session.execute(delete(DeviceTemplateORM).where(DeviceTemplateORM.name == name))
                 await session.commit()
-                return result.rowcount > 0
+                return result.rowcount > 0  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
         except Exception as e:
             logger.error("TemplateRepo.delete failed: %s", e)
             raise RuntimeError(f"TemplateRepo.delete failed for name={name}: {e}") from e
@@ -1851,7 +1866,7 @@ class RuleRepo(BaseRepo):
         severity: str | None = None,
         created_by: str | None = None,
         cursor: str | None = None,
-    ) -> tuple[list[dict], int] | tuple[list[dict], int, str | None]:
+    ) -> tuple[List[dict], int] | tuple[List[dict], int, str | None]:  # FIXED-mypy: 类作用域内 list 被 self.list 方法遮蔽，使用 typing.List
         try:
             async with self._auto_session() as session:
                 query = select(RuleORM)
@@ -1907,7 +1922,7 @@ class RuleRepo(BaseRepo):
         severity: str | None = None,
         created_by: str | None = None,
         cursor: str | None = None,
-    ) -> tuple[list[dict], int] | tuple[list[dict], int, str | None]:
+    ) -> tuple[List[dict], int] | tuple[List[dict], int, str | None]:  # FIXED-mypy: 类作用域内 list 被 self.list 方法遮蔽，使用 typing.List
         """FIXED-P0: 添加 list_all 方法，多个Service调用此方法但之前不存在"""
         return await self.list(
             page=page,
@@ -1973,7 +1988,7 @@ class RuleRepo(BaseRepo):
                 async with self._auto_session() as session:
                     await session.execute(delete(AlarmORM).where(AlarmORM.rule_id == rule_id))
                     result = await session.execute(delete(RuleORM).where(RuleORM.rule_id == rule_id))
-                    if result.rowcount > 0:
+                    if result.rowcount > 0:  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                         # FIXED-BugR4X: 原问题-先清理edge_rules.db再commit主库，主库commit失败时两库不一致；修复-先commit主库再清理edge_rules.db，edge清理失败只记日志不回滚
                         await session.commit()
                         await self._cleanup_edge_rule(rule_id)
@@ -1999,7 +2014,7 @@ class RuleRepo(BaseRepo):
                 "Edge rule cleanup for %s failed: %s", rule_id, e
             )  # FIXED-P0: 原问题-cleanup异常仅log.debug，运维无法发现孤儿规则；升级为log.error
 
-    async def list_by_device(self, device_id: str) -> list[dict]:
+    async def list_by_device(self, device_id: str) -> List[dict]:  # FIXED-mypy: 类作用域内 list 被 self.list 方法遮蔽，使用 typing.List
         # FIXED: 原问题-RuleRepo.list_by_device无try-except保护，被evaluator调用
         try:
             async with self._auto_session() as session:
@@ -2012,7 +2027,7 @@ class RuleRepo(BaseRepo):
             logger.error("RuleRepo.list_by_device failed: %s", e)
             raise RuntimeError(f"RuleRepo.list_by_device failed for device_id={device_id}: {e}") from e
 
-    async def list_enabled_by_point(self, device_id: str, point_name: str) -> list[dict]:
+    async def list_enabled_by_point(self, device_id: str, point_name: str) -> List[dict]:  # FIXED-mypy: 类作用域内 list 被 self.list 方法遮蔽，使用 typing.List
         try:
             async with self._auto_session() as session:
                 result = await session.execute(
@@ -2027,10 +2042,10 @@ class RuleRepo(BaseRepo):
 
     async def upsert_bulk(
         self,
-        records: list[dict],
+        records: List[dict],  # FIXED-mypy: 类作用域内 list 被 self.list 方法遮蔽，使用 typing.List
         session: AsyncSession,
         skip_existing: bool = True,
-    ) -> tuple[int, int, list[str]]:
+    ) -> tuple[int, int, List[str]]:
         """Bulk upsert rules within an external transaction session (no commit).
 
         FIXED-ATOMIC-RESTORE: Provides the single-session atomic restore path.
@@ -2043,7 +2058,7 @@ class RuleRepo(BaseRepo):
         """
         created = 0
         skipped = 0
-        errors: list[str] = ["" for _ in records]
+        errors: List[str] = [""] * len(records)  # FIXED-mypy: 使用 List[str] 避免 list 被 RuleRepo.list 遮蔽
 
         # FIXED(严重-R2): 原问题-循环内逐条 SELECT 判断存在性，N条记录 N次查询
         # 修复-预加载所有已存在的 rule_id 到字典，循环中直接查内存
@@ -2235,7 +2250,8 @@ class AlarmRepo(BaseRepo):
                 if device_ids:
                     query = query.where(AlarmORM.device_id.in_(device_ids))
                 result = await session.execute(query)
-                return {(row.status, row.severity): row.count for row in result}
+                # FIXED-mypy: row.count 与 Row.count() 方法歧义，使用 row[2] 按索引访问第三列
+                return {(row.status, row.severity): row[2] for row in result}
         except Exception as e:
             logger.error("AlarmRepo.count_by_status_and_severity failed: %s", e)
             raise RuntimeError(f"AlarmRepo.count_by_status_and_severity failed: {e}") from e
@@ -2306,7 +2322,7 @@ class AlarmRepo(BaseRepo):
                 # 仅删除告警记录本身；alarm_silences 为独立前瞻性配置，不随单条告警删除
                 result = await session.execute(delete(AlarmORM).where(AlarmORM.alarm_id == alarm_id))
                 await session.commit()
-                return result.rowcount > 0
+                return result.rowcount > 0  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
         except Exception as e:
             logger.error("AlarmRepo.delete failed: %s", e)
             raise RuntimeError(f"AlarmRepo.delete failed for alarm_id={alarm_id}: {e}") from e
@@ -2590,7 +2606,7 @@ class AlarmRepo(BaseRepo):
                             break
                         result = await session.execute(delete(AlarmORM).where(AlarmORM.alarm_id.in_(batch_ids)))
                         await session.commit()
-                        total_deleted += result.rowcount
+                        total_deleted += result.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                         if len(batch_ids) < batch_size:
                             break
             if total_deleted > 0:
@@ -2828,7 +2844,7 @@ class UserRepo(BaseRepo):
                     # 5. 最后删除用户
                     result = await session.execute(delete(UserORM).where(UserORM.user_id == user_id))
                     await session.commit()
-                    return result.rowcount > 0
+                    return result.rowcount > 0  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
         except Exception as e:
             logger.error("UserRepo.delete failed: %s", e)
             raise RuntimeError(f"UserRepo.delete failed for user_id={user_id}: {e}") from e
@@ -3304,11 +3320,11 @@ class RateLimitRepo:
                 result1 = await session.execute(
                     delete(LoginAttemptORM).where(LoginAttemptORM.last_attempt_at < window_start)
                 )
-                deleted_attempts = result1.rowcount
+                deleted_attempts = result1.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
 
                 # Clean up expired lockouts
                 result2 = await session.execute(delete(AccountLockoutORM).where(AccountLockoutORM.lockout_until < now))
-                deleted_lockouts = result2.rowcount
+                deleted_lockouts = result2.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
 
                 # FIXED-M03: Clean up expired global lockouts
                 await session.execute(delete(GlobalAccountLockoutORM).where(GlobalAccountLockoutORM.locked_until < now))
@@ -3318,7 +3334,7 @@ class RateLimitRepo:
                 result4 = await session.execute(
                     delete(GlobalLoginFailureORM).where(GlobalLoginFailureORM.timestamp < cutoff)
                 )
-                deleted_global_failures = result4.rowcount
+                deleted_global_failures = result4.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
 
                 await session.commit()
 
@@ -3557,7 +3573,7 @@ class RateLimitRepo:
                 result = await session.execute(
                     delete(GlobalLoginFailureORM).where(GlobalLoginFailureORM.timestamp < cutoff)
                 )
-                deleted = result.rowcount
+                deleted = result.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                 await session.commit()
                 return deleted
         except Exception as e:
@@ -3785,12 +3801,12 @@ class RateLimitRepo:
                 result1 = await session.execute(
                     delete(PasswordResetAttemptORM).where(PasswordResetAttemptORM.last_attempt_at < ip_cutoff)
                 )
-                ip_deleted = result1.rowcount
+                ip_deleted = result1.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
 
                 result2 = await session.execute(
                     delete(PasswordResetUserRateORM).where(PasswordResetUserRateORM.last_attempt_at < user_cutoff)
                 )
-                user_deleted = result2.rowcount
+                user_deleted = result2.rowcount  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
 
                 await session.commit()
                 return ip_deleted, user_deleted
@@ -3988,7 +4004,7 @@ class RateLimitRepo:
                 result = await session.execute(
                     delete(UsedPasswordResetTokenORM).where(UsedPasswordResetTokenORM.used_at < cutoff)
                 )
-                deleted = result.rowcount or 0
+                deleted = result.rowcount or 0  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
                 await session.commit()
                 return deleted
         except Exception as e:
@@ -4052,7 +4068,7 @@ class ResourceShareRepo(BaseRepo):
                     )
                 )
                 await session.commit()
-                return (result.rowcount or 0) > 0
+                return (result.rowcount or 0) > 0  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
         except Exception as e:
             logger.error("ResourceShareRepo.unshare_resource failed: %s", e)
             raise RuntimeError(f"ResourceShareRepo.unshare_resource failed: {e}") from e
@@ -4171,7 +4187,7 @@ class ResourceShareRepo(BaseRepo):
                     )
                 )
                 await session.commit()
-                return result.rowcount or 0
+                return result.rowcount or 0  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 rowcount
         except Exception as e:
             logger.error("ResourceShareRepo.delete_shares_for_resource failed: %s", e)
             raise RuntimeError(f"ResourceShareRepo.delete_shares_for_resource failed: {e}") from e

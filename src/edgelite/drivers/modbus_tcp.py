@@ -15,6 +15,7 @@ from typing import Any
 import pymodbus
 from pymodbus.client import AsyncModbusTcpClient
 
+ModbusException: Any = Exception
 try:
     from pymodbus.exceptions import ModbusException
 except ImportError:
@@ -609,8 +610,10 @@ class ModbusTcpDriver(DriverPlugin):
             # FIXED-P1: MTCP-R01 调用基类stop()确保_shutdown_executor和_cancel_background_tasks执行
             await super().stop()
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         """添加设备并建立连接（相同host:port共享连接池"""
+        if points is None:
+            points = []
         slave_id = config.get("slave_id", 1)
         broadcast_enabled = config.get("broadcast", False)
         if not broadcast_enabled and not (1 <= slave_id <= 247):
@@ -626,7 +629,7 @@ class ModbusTcpDriver(DriverPlugin):
 
         self._device_configs[device_id] = config
         self._device_points[device_id] = points
-        point_names = {p.get("name") for p in points if p.get("name")}
+        point_names: set[str] = {p["name"] for p in points if p.get("name")}
         self._device_point_keys[device_id] = point_names
         if self._config_version:
             self._config_version.snapshot_device_config(device_id, config)
@@ -1004,6 +1007,7 @@ class ModbusTcpDriver(DriverPlugin):
                 skip, current_client = _check_and_reconnect()
                 # FIXED-P0: MT-03 重连后client引用可能变更，需释放旧租用并重新租用新client
                 if not skip and current_client is not client:
+                    assert current_client is not None  # skip=False implies current_client is connected
                     await self._release_client(client)
                     client = current_client
                     if not await self._lease_client(client):
@@ -1018,6 +1022,7 @@ class ModbusTcpDriver(DriverPlugin):
                     self._record_point_failure(device_id, point_name)
                     continue
 
+                assert current_client is not None  # skip=False implies current_client is connected
                 t0 = time.monotonic()
                 try:
                     value = await asyncio.wait_for(
@@ -1099,6 +1104,7 @@ class ModbusTcpDriver(DriverPlugin):
                 skip, current_client = _check_and_reconnect()
                 # FIXED-P0: MT-03 重连后client引用可能变更，需释放旧租用并重新租用新client
                 if not skip and current_client is not client:
+                    assert current_client is not None  # skip=False implies current_client is connected
                     await self._release_client(client)
                     client = current_client
                     if not await self._lease_client(client):
@@ -1114,6 +1120,7 @@ class ModbusTcpDriver(DriverPlugin):
                             self._record_read_failure(device_id)
                             self._record_point_failure(device_id, name)
                 else:
+                    assert current_client is not None  # skip=False implies current_client is connected
                     try:
                         batch_result = await asyncio.wait_for(
                             self._batch_read_points(current_client, slave_id, reg_points, byte_order, device_id),
@@ -2395,6 +2402,7 @@ class ModbusTcpDriver(DriverPlugin):
     def _transition_state(self, device_id: str, target: str, reason: str = "") -> None:
         current = self._conn_state.get(device_id, ConnectionState.DISCONNECTED.value)
         allowed = self._VALID_TRANSITIONS.get(current, set())
+        task: asyncio.Task[Any] | None = None
         if target in allowed:
             self._conn_state[device_id] = target
             try:
@@ -2650,7 +2658,7 @@ class ModbusTcpDriver(DriverPlugin):
             record_packet("rx", self.plugin_name, device_id, rx_data)
             if not result.bits:
                 raise ValueError("coil读取结果bits为空")  # FIXED-P2: coil读取结果bits边界检查
-            value = bool(result.bits[0])
+            value: Any = bool(result.bits[0])
             # MTCP-007: 缓存成功值
             if cache_key:
                 self._cache_point_value(cache_key, value)  # FIXED-P2: 使用LRU缓存写入
@@ -3168,7 +3176,7 @@ class ModbusTcpDriver(DriverPlugin):
         ok = False
         if self._edge_rule_engine:
             ok = await self._edge_rule_engine.update_rule(rule_id, updates)
-        if ok and self._rule_store:
+        if ok and self._rule_store and self._edge_rule_engine:
             rule = self._edge_rule_engine.get_rule(rule_id)
             if rule:
                 self._rule_store.save_rule(rule)
@@ -3180,7 +3188,7 @@ class ModbusTcpDriver(DriverPlugin):
         return []
 
     def get_edge_rule_status(self) -> dict:
-        result = {}
+        result: dict[str, Any] = {}
         if self._edge_rule_engine:
             result["rule_engine"] = self._edge_rule_engine.get_stats()
             result["active_alarms"] = self._edge_rule_engine.get_active_alarms()
@@ -3283,7 +3291,7 @@ class ModbusTcpDriver(DriverPlugin):
             return None
         return self._config_version.rollback(version)
 
-    def diff_config_versions(self, v1: int, v2: int) -> dict:
+    def diff_config_versions(self, v1: int, v2: int) -> dict | None:
         if not self._config_version:
             return {}
         return self._config_version.diff_versions(v1, v2)
@@ -3316,7 +3324,9 @@ class ModbusTcpDriver(DriverPlugin):
     def export_audit_csv(self, start_time: datetime | None = None, end_time: datetime | None = None) -> str:
         if not self._audit:
             return ""
-        return self._audit.export_csv(start_time, end_time)
+        start_str = start_time.isoformat() if start_time else None
+        end_str = end_time.isoformat() if end_time else None
+        return self._audit.export_csv(start_str, end_str)
 
     def get_point_stats(self, device_id: str, point_name: str) -> dict | None:
         key = (device_id, point_name)
@@ -3346,7 +3356,7 @@ class ModbusTcpDriver(DriverPlugin):
         }
 
     def get_latency_history(self, device_id: str, hours: int = 1) -> list[dict]:
-        lh = self._device_latency_history.get(device_id, [])
+        lh: deque[tuple[float, float]] = self._device_latency_history.get(device_id, deque())
         if not lh:
             return []
         now = time.monotonic()

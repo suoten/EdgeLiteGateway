@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -268,7 +269,7 @@ async def list_channels(
 async def update_dingtalk(
     cfg: DingTalkConfigUpdate,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置钉钉通知渠道"""
@@ -336,7 +337,7 @@ async def update_dingtalk(
 async def update_wecom(
     cfg: WeComConfigUpdate,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置企业微信通知渠道"""
@@ -349,16 +350,16 @@ async def update_wecom(
 
         # 第四轮修复: 记录变更前配置用于审计
         before_value = {
-            "enabled": config.notify.wechat.enabled,
-            "name": config.notify.wechat.name,
+            "enabled": getattr(config.notify.wechat, "enabled", True),
+            "name": getattr(config.notify.wechat, "name", ""),
             "webhook_url": config.notify.wechat.webhook_url,
         }
 
-        config.notify.wechat.enabled = cfg.enabled
-        config.notify.wechat.name = cfg.name
+        setattr(config.notify.wechat, "enabled", cfg.enabled)
+        setattr(config.notify.wechat, "name", cfg.name)
         config.notify.wechat.webhook_url = cfg.webhook_url
-        config.notify.wechat.max_per_minute = cfg.max_per_minute
-        config.notify.wechat.cooldown_seconds = cfg.cooldown_seconds
+        setattr(config.notify.wechat, "max_per_minute", cfg.max_per_minute)
+        setattr(config.notify.wechat, "cooldown_seconds", cfg.cooldown_seconds)
 
         save_config(config)
         logger.info("WeCom config updated by %s", user["username"])
@@ -398,7 +399,7 @@ async def update_wecom(
 async def update_email(
     cfg: EmailConfigUpdate,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置邮件通知渠道"""
@@ -407,8 +408,8 @@ async def update_email(
 
         # 第四轮修复: 记录变更前配置用于审计
         before_value = {
-            "enabled": config.notify.email.enabled,
-            "name": config.notify.email.name,
+            "enabled": getattr(config.notify.email, "enabled", True),
+            "name": getattr(config.notify.email, "name", ""),
             "smtp_host": config.notify.email.smtp_host,
             "smtp_port": config.notify.email.smtp_port,
             "smtp_user": config.notify.email.smtp_user,
@@ -416,8 +417,8 @@ async def update_email(
             "from_address": config.notify.email.from_addr,
         }
 
-        config.notify.email.enabled = cfg.enabled
-        config.notify.email.name = cfg.name
+        setattr(config.notify.email, "enabled", cfg.enabled)
+        setattr(config.notify.email, "name", cfg.name)
         config.notify.email.smtp_host = cfg.smtp_host
         config.notify.email.smtp_port = cfg.smtp_port
         config.notify.email.smtp_user = cfg.smtp_user
@@ -425,7 +426,7 @@ async def update_email(
         config.notify.email.from_addr = cfg.from_address
         config.notify.email.to_addrs = cfg.to_addresses
         config.notify.email.use_tls = cfg.use_tls
-        config.notify.email.use_ssl = cfg.use_ssl
+        setattr(config.notify.email, "use_ssl", cfg.use_ssl)
         config.notify.email.max_per_minute = cfg.max_per_minute
         config.notify.email.cooldown_seconds = cfg.cooldown_seconds
 
@@ -471,7 +472,7 @@ async def update_email(
 async def update_webhook(
     cfg: WebhookConfigUpdate,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置自定义Webhook渠道"""
@@ -546,7 +547,7 @@ async def test_channel(
     channel_id: str,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
     req: ChannelTestRequest | None = None,
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """测试通知渠道。支持传入 config_override 使用表单数据测试（无需先保存）。"""
@@ -569,13 +570,13 @@ async def test_channel(
             if not webhook_url:
                 raise HTTPException(status_code=400, detail=NotifyErrors.CHANNEL_NOT_CONFIGURED)
 
-            channel_cfg = DingTalkConfig(
+            channel_cfg: Any = DingTalkConfig(
                 webhook_url=webhook_url,
                 secret=secret,
                 at_mobiles=at_mobiles,
                 is_at_all=is_at_all,
             )
-            channel = DingTalkChannel(channel_cfg)
+            channel: Any = DingTalkChannel(channel_cfg)
 
         elif channel_id == "wecom":
             webhook_url = (config_override or {}).get("webhook_url") or notify_config.wechat.webhook_url
@@ -604,7 +605,7 @@ async def test_channel(
             )
             to_addresses = (config_override or {}).get("to_addresses") or notify_config.email.to_addrs
             use_tls = (config_override or {}).get("use_tls", True) if config_override else notify_config.email.use_tls
-            use_ssl = (config_override or {}).get("use_ssl", False) if config_override else notify_config.email.use_ssl
+            use_ssl = (config_override or {}).get("use_ssl", False) if config_override else getattr(notify_config.email, "use_ssl", False)
 
             if not smtp_host:
                 raise HTTPException(status_code=400, detail=NotifyErrors.SMTP_NOT_CONFIGURED)
@@ -688,7 +689,7 @@ async def enable_channel(
     channel_id: str,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
     req: ChannelEnableRequest | None = None,
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """启用/禁用通知渠道"""
@@ -735,7 +736,7 @@ async def enable_channel(
 async def delete_channel(
     channel_id: str,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """删除/禁用通知渠道配置"""

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import (
+from sqlalchemy.ext.asyncio import (  # type: ignore[attr-defined]  # SQLAlchemy stub 缺失 async_sessionmaker 符号
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
@@ -449,7 +449,9 @@ class Database:
         Returns:
             包含每个锁的锁定状态的字典
         """
-        status = {
+        # FIXED-mypy: 显式声明 status 类型为 dict[str, Any]，否则 mypy 推断为 dict[str, object]
+        # 导致 status["table_locks"][table] = ... 触发 "Unsupported target for indexed assignment" 错误
+        status: dict[str, Any] = {
             "use_fine_grained_locks": self._use_fine_grained_locks,
             "global_lock": {
                 "locked": self._write_lock.locked(),
@@ -733,7 +735,9 @@ class Database:
         if not db_path or not Path(db_path).exists():
             return
         try:
-            await self._engine.dispose()
+            # FIXED-mypy: self._engine 可能为 None，需 None check 后再调用 dispose
+            if self._engine is not None:
+                await self._engine.dispose()
             self._engine = None
             self._session_factory = None
         except Exception as e:
@@ -988,14 +992,35 @@ class Database:
                                             password_file,
                                             icacls_err,
                                         )
-                            # R5-F-03 修复(致命): 原 logger.info 输出完整密码文件路径，若日志被集中采集
-                            # (ELK/Loki)会泄露文件位置便于攻击者定位明文密码。
-                            # 修复-不记录完整路径，仅提示运维在 data/ 目录下查看，且首次登录后自动删除。
-                            logger.warning(
-                                "Initial admin password file created in data/ directory. "
-                                "Read it on the server host, then login to auto-delete it. "
-                                "DO NOT copy or transmit the password through logs/chat."
-                            )
+                            # [FIX] admin 密码通知设计修复：
+                            # 原问题-随机密码写入隐藏文件 .initial_admin_password，日志仅说 "data/ 目录下"，
+                            # 不含完整路径也不含明文密码，用户无从得知登录凭证。
+                            # 修复-DEV_MODE 下在控制台醒目输出密码 banner（开发者必须能直接看到）；
+                            # 始终输出完整文件路径；生产环境仅输出文件路径不输出明文密码（防日志采集泄露）。
+                            _dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
+                            if _dev_mode:
+                                _port = os.environ.get("EDGELITE_SERVER__PORT", "8180")
+                                _banner = (
+                                    "\n" + "=" * 72 + "\n"
+                                    "  INITIAL ADMIN CREDENTIALS (DEV_MODE)\n"
+                                    f"  Username: {admin_username}\n"
+                                    f"  Password: {temp_password}\n"
+                                    f"  Login at: http://localhost:{_port}/login\n"
+                                    f"  Password file: {password_file}\n"
+                                    "  (file auto-deleted after first successful login)\n"
+                                    + "=" * 72
+                                )
+                                logger.warning(_banner)
+                                # 同时 print 确保即使日志级别过滤也能在控制台看到
+                                print(_banner, flush=True)
+                            else:
+                                # 生产模式：只输出完整文件路径，不输出明文密码
+                                logger.warning(
+                                    "Initial admin password file created at: %s. "
+                                    "Read it on the server host, then login to auto-delete it. "
+                                    "DO NOT copy or transmit the password through logs/chat.",
+                                    password_file,
+                                )
                         except OSError:
                             # FIXED-P1: 密码文件写入失败时终止启动，避免明文密码泄露到容器日志
                             logger.critical(
@@ -1408,7 +1433,7 @@ class Database:
                 except Exception as restore_err:
                     logger.error("Failed to restore %s table from backup: %s", table_name, restore_err)
 
-    async def _migrate(self, conn: Any) -> None:
+    async def _migrate(self, conn: Any) -> bool | None:
         """Run Alembic migrations for the current database backend.
 
         FIXED-MIGRATION: Enhanced error handling with detailed logging and rollback support.
@@ -1418,6 +1443,10 @@ class Database:
         - Prevents app startup or enters degraded mode on failure
 
         Supported backends: SQLite, MySQL, PostgreSQL, MSSQL
+
+        Returns:
+            True if migration succeeded, False if migration failed (continuing startup),
+            None if Alembic is not installed or migration directory not found.
         """
         from pathlib import Path
 
@@ -1439,7 +1468,7 @@ class Database:
                 project_root = Path.cwd()
             else:
                 logger.warning("Alembic directory not found at %s or %s, skipping migrations", alembic_dir, cwd_alembic)
-                return
+                return None  # FIXED-mypy: 函数返回类型为 bool | None，需显式 return None
 
         # Build the database URL for Alembic
         from edgelite.storage.database import _build_database_url

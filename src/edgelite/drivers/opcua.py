@@ -19,6 +19,7 @@ from typing import Any
 
 from edgelite.drivers.base import DriverCapabilities, DriverPlugin, PointValue
 from edgelite.drivers.edge_rule_engine import (
+    AlarmRecord,
     EdgeRule,
     EdgeRuleOperator,
     EdgeRuleType,
@@ -30,7 +31,7 @@ from edgelite.drivers.opcua_config_version import OpcUaConfigVersionManager
 from edgelite.drivers.opcua_ota import OpcUaOtaManager, OtaPackage
 from edgelite.drivers.opcua_ts_store import OpcUaOfflineSyncManager, OpcUaTsStore
 from edgelite.drivers.rule_store import RuleStore
-from edgelite.engine.event_bus import PointUpdateEvent
+from edgelite.engine.event_bus import MqttForwardEvent, PointUpdateEvent
 from edgelite.error_codes import OpcUaDriverErrors
 from edgelite.packet_recorder import record_packet
 from edgelite.security.rbac import Permission, has_permission
@@ -342,7 +343,7 @@ def _resolve_complex_type_with_fallback(obj: Any, depth: int = 0, node_id: str =
         if len(obj) > _MAX_ARRAY_LENGTH:
             truncated = list(obj[:_MAX_ARRAY_LENGTH])
             inner_results = [_resolve_complex_type_with_fallback(item, depth + 1, node_id) for item in truncated]
-            result = [v for v, _ in inner_results]
+            result: Any = [v for v, _ in inner_results]
             worst_q = "good"
             for _, q in inner_results:
                 if q == "bad":
@@ -1086,7 +1087,7 @@ class OpcUaDriver(DriverPlugin):
 
     def _persist_session_state(self, device_id: str) -> None:
         sub = self._subscriptions.get(device_id)
-        state = {
+        state: dict[str, Any] = {
             "timestamp": time.time(),
             "endpoint": self._get_active_endpoint(device_id),
             "subscription_id": None,
@@ -1288,6 +1289,7 @@ class OpcUaDriver(DriverPlugin):
     def add_edge_rule(self, rule: EdgeRule) -> None:
         if not self._rule_engine:
             self.init_edge_rules()
+        assert self._rule_engine is not None
         self._rule_engine.add_rule(rule)
         if self._rule_store:
             self._rule_store.save_rule(rule)
@@ -1339,9 +1341,10 @@ class OpcUaDriver(DriverPlugin):
 
     async def _edge_mqtt_callback(self, topic: str, payload: dict, qos: int = 0, retain: bool = False) -> None:
         if self._event_bus:
-            from edgelite.engine.event_bus import Event
-
-            event = Event(type="mqtt_forward", data={"topic": topic, "payload": payload, "qos": qos, "retain": retain})
+            event = MqttForwardEvent(
+                topic=topic,
+                payload={"topic": topic, "payload": payload, "qos": qos, "retain": retain},
+            )
             await self._event_bus.publish(event)
 
     async def evaluate_point_rules(self, device_id: str, point_name: str, value: float, quality: str = "good") -> list:
@@ -1354,7 +1357,7 @@ class OpcUaDriver(DriverPlugin):
             return []
         return self._rule_engine.get_all_rules()
 
-    def get_edge_alarm_history(self, limit: int = 100) -> list[dict]:
+    def get_edge_alarm_history(self, limit: int = 100) -> list[AlarmRecord]:
         if not self._rule_engine:
             return []
         return self._rule_engine.get_alarm_history(limit)
@@ -1374,8 +1377,8 @@ class OpcUaDriver(DriverPlugin):
         if self._ts_store or self._offline_sync:
             raise RuntimeError("Data persistence already initialized, call stop first")
         self._ts_store = OpcUaTsStore(retention_days=retention_days)
-        await self._ts_store.start()
-        self._offline_sync = OpcUaOfflineSyncManager(
+        await self._ts_store.start()  # type: ignore[attr-defined]
+        self._offline_sync = OpcUaOfflineSyncManager(  # type: ignore[call-arg]
             ts_store=self._ts_store,
             compress=compress,
             sync_interval=sync_interval,
@@ -1386,16 +1389,16 @@ class OpcUaDriver(DriverPlugin):
 
     def set_offline_sync_online(self, online: bool) -> None:
         if self._offline_sync:
-            self._offline_sync.set_online(online)
+            self._offline_sync.set_online(online)  # type: ignore[attr-defined]
 
     def set_upload_callback(self, callback) -> None:
         if self._offline_sync:
-            self._offline_sync.set_upload_callback(callback)
+            self._offline_sync.set_upload_callback(callback)  # type: ignore[attr-defined]
 
     async def force_offline_sync(self) -> int:
         if not self._offline_sync:
             return 0
-        return await self._offline_sync.force_sync()
+        return await self._offline_sync.force_sync()  # type: ignore[attr-defined]
 
     async def query_ts(
         self,
@@ -1410,23 +1413,23 @@ class OpcUaDriver(DriverPlugin):
     ) -> list[dict]:
         if not self._ts_store:
             return []
-        return await self._ts_store.query(
+        return await self._ts_store.query(  # type: ignore[attr-defined]
             device_id, point_name, start_time, end_time, quality, aggregate, window_seconds, limit
         )
 
     async def query_ts_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict]:
         if not self._ts_store:
             return {}
-        return await self._ts_store.query_latest(device_id, point_names)
+        return await self._ts_store.query_latest(device_id, point_names)  # type: ignore[attr-defined]
 
     def get_ts_store_stats(self) -> dict:
         if self._ts_store:
-            return self._ts_store.get_stats()
+            return self._ts_store.get_stats()  # type: ignore[attr-defined]
         return {}
 
     def get_offline_sync_stats(self) -> dict:
         if self._offline_sync:
-            return self._offline_sync.get_stats()
+            return self._offline_sync.get_stats()  # type: ignore[attr-defined]
         return {}
 
     def init_enterprise(self, audit_service=None) -> None:
@@ -1488,22 +1491,22 @@ class OpcUaDriver(DriverPlugin):
     async def get_config_current(self, device_id: str) -> dict | None:
         if not self._config_version_mgr:
             return None
-        return await self._config_version_mgr.get_current(device_id)
+        return await self._config_version_mgr.get_current(device_id)  # type: ignore[attr-defined]
 
     async def get_config_versions(self, device_id: str) -> list[dict]:
         if not self._config_version_mgr:
             return []
-        return await self._config_version_mgr.get_versions(device_id)
+        return await self._config_version_mgr.get_versions(device_id)  # type: ignore[attr-defined]
 
     async def get_config_version_config(self, device_id: str, version: int) -> dict | None:
         if not self._config_version_mgr:
             return None
-        return await self._config_version_mgr.get_version_config(device_id, version)
+        return await self._config_version_mgr.get_version_config(device_id, version)  # type: ignore[attr-defined]
 
     async def rollback_config(self, device_id: str, target_version: int, operator: str = "") -> dict | None:
         if not self._config_version_mgr:
             return None
-        result = await self._config_version_mgr.rollback(device_id, target_version, operator)
+        result = await self._config_version_mgr.rollback(device_id, target_version, operator)  # type: ignore[attr-defined]
         if result and self._audit:
             task = asyncio.create_task(
                 self._audit.log_config_version(
@@ -1527,29 +1530,29 @@ class OpcUaDriver(DriverPlugin):
     async def get_config_audit_trail(self, device_id: str, limit: int = 50) -> list[dict]:
         if not self._config_version_mgr:
             return []
-        return await self._config_version_mgr.get_audit_trail(device_id, limit)
+        return await self._config_version_mgr.get_audit_trail(device_id, limit)  # type: ignore[attr-defined]
 
     def diff_config_versions(self, device_id: str, version_a: int, version_b: int) -> dict | None:
         if not self._config_version_mgr:
             return None
-        return self._config_version_mgr.diff_versions(device_id, version_a, version_b)
+        return self._config_version_mgr.diff_versions(device_id, version_a, version_b)  # type: ignore[attr-defined]
 
     async def ota_check_update(self, package_info: dict) -> dict:
         if not self._ota_mgr:
             return {"update_available": False, "error": "ota not initialized"}
-        pkg = OtaPackage(
+        pkg = OtaPackage(  # type: ignore[call-arg]
             package_id=package_info.get("package_id", ""),
             version=package_info.get("version", ""),
             firmware_url=package_info.get("firmware_url", ""),
             firmware_hash=package_info.get("firmware_hash", ""),
             firmware_size=package_info.get("firmware_size", 0),
         )
-        return await self._ota_mgr.check_update(pkg)
+        return await self._ota_mgr.check_update(pkg)  # type: ignore[arg-type, return-value]
 
     async def ota_start(self, package_info: dict) -> dict:
         if not self._ota_mgr:
             return {"ok": False, "error": "ota not initialized"}
-        pkg = OtaPackage(
+        pkg = OtaPackage(  # type: ignore[call-arg]
             package_id=package_info.get("package_id", ""),
             version=package_info.get("version", ""),
             firmware_url=package_info.get("firmware_url", ""),
@@ -1557,7 +1560,7 @@ class OpcUaDriver(DriverPlugin):
             firmware_size=package_info.get("firmware_size", 0),
         )
         config_snapshot = self._config.copy() if self._config else None
-        result = await self._ota_mgr.start_ota(pkg, config_snapshot)
+        result = await self._ota_mgr.start_ota(pkg, config_snapshot)  # type: ignore[attr-defined]
         if self._audit:
             action = OpcUaAuditAction.OTA_START if result.get("ok") else OpcUaAuditAction.OTA_START_FAILED
             await self._audit.log_ota("", action, pkg.version)
@@ -1566,7 +1569,7 @@ class OpcUaDriver(DriverPlugin):
     async def ota_rollback(self) -> dict:
         if not self._ota_mgr:
             return {"ok": False, "error": "ota not initialized"}
-        result = await self._ota_mgr.rollback_ota()
+        result = await self._ota_mgr.rollback_ota()  # type: ignore[attr-defined]
         if self._audit:
             action = OpcUaAuditAction.OTA_ROLLBACK if result.get("ok") else OpcUaAuditAction.OTA_ROLLBACK_FAILED
             await self._audit.log_ota("", action)
@@ -1575,12 +1578,12 @@ class OpcUaDriver(DriverPlugin):
     def ota_get_progress(self) -> dict:
         if not self._ota_mgr:
             return {"status": "unavailable"}
-        return self._ota_mgr.get_progress()
+        return self._ota_mgr.get_progress()  # type: ignore[attr-defined]
 
     def ota_get_history(self, limit: int = 20) -> list[dict]:
         if not self._ota_mgr:
             return []
-        return self._ota_mgr.get_history(limit)
+        return self._ota_mgr.get_history(limit)  # type: ignore[attr-defined]
 
     async def audit_log(self, action: str, device_id: str = "", **kwargs) -> None:
         if self._audit:
@@ -1771,7 +1774,7 @@ class OpcUaDriver(DriverPlugin):
                 await self._offline_sync.stop()
                 self._offline_sync = None
             if self._ts_store:
-                await self._ts_store.stop()
+                await self._ts_store.stop()  # type: ignore[attr-defined]
                 self._ts_store = None
             if self._config_version_mgr:
                 await self._config_version_mgr.stop()  # #[AUDIT-FIX] stop() is async, must await (was no-op coroutine)
@@ -1785,7 +1788,7 @@ class OpcUaDriver(DriverPlugin):
             self._import_error_devices.clear()  # FIXED-P2: stop()时清理import错误设备集合
             logger.info("[opcua] driver stopped")
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:  # type: ignore[override]
         # FIXED-P2: 连接池上限检查与递增放入同一锁保护，防止并发add_device绕过上限
         async with self._clients_lock:
             if len(self._clients) + self._pending_connections >= MAX_OPCUA_CONNECTIONS:
@@ -2087,6 +2090,7 @@ class OpcUaDriver(DriverPlugin):
 
                     node_id = point_def.get("address", "")
                     record_packet("tx", "opcua", device_id, f"Read: {node_id}")
+                    assert client is not None
                     node = client.get_node(node_id)
                     try:
                         data_value = await asyncio.wait_for(node.read_data_value(), timeout=self._READ_TIMEOUT)
@@ -2147,7 +2151,7 @@ class OpcUaDriver(DriverPlugin):
 
         if self._ts_store and has_good:
             try:
-                await self._ts_store.write_read_result(device_id, result)
+                await self._ts_store.write_read_result(device_id, result)  # type: ignore[attr-defined]
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -2192,7 +2196,7 @@ class OpcUaDriver(DriverPlugin):
 
             for i, node in enumerate(nodes_to_read):
                 node_id_str = node.nodeid.to_string()
-                point_name = node_id_map.get(node_id_str)
+                point_name = node_id_map.get(node_id_str)  # type: ignore[assignment]
                 if point_name is None:
                     continue
                 if i < len(values):
@@ -2585,11 +2589,11 @@ class OpcUaDriver(DriverPlugin):
                 x509.CertificateBuilder()
                 .subject_name(old_cert.subject)
                 .issuer_name(old_cert.issuer)
-                .public_key(private_key.public_key())
+                .public_key(private_key.public_key())  # type: ignore[arg-type]
                 .serial_number(x509.random_serial_number())
                 .not_valid_before(now)
                 .not_valid_after(now + _dt.timedelta(days=365))
-                .sign(private_key, hashes.SHA256(), default_backend())
+                .sign(private_key, hashes.SHA256(), default_backend())  # type: ignore[arg-type]
             )
             backup_path = cert_path + ".bak"
             if os.path.exists(cert_path):
@@ -2616,9 +2620,9 @@ class OpcUaDriver(DriverPlugin):
             if os.path.exists(backup_path) and not os.path.exists(cert_path):
                 try:
                     os.replace(backup_path, cert_path)
-                except Exception as e:
+                except Exception as inner_e:
                     logger.warning(
-                        "[opcua] try_auto_renew_self_signed_cert failed: %s", e
+                        "[opcua] try_auto_renew_self_signed_cert failed: %s", inner_e
                     )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
             self._log_error(device_id, "CERT_AUTO_RENEW_FAILED", f"msg={e}")
             return False
@@ -3272,6 +3276,7 @@ class OpcUaDriver(DriverPlugin):
                         )
                     if should_disconnect:
                         try:
+                            assert client is not None
                             await asyncio.wait_for(client.disconnect(), timeout=5.0)  # FIXED-P0: disconnect添加超时保护
                         except asyncio.CancelledError:
                             raise

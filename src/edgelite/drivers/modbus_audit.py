@@ -76,7 +76,7 @@ class ModbusAudit:
             },
         )
 
-    async def log_config_change(self, device_id: str, keys: list[str], old_config: dict, new_config: dict) -> None:
+    async def log_config_change(self, device_id: str, keys: list[str], old_config: dict, new_config: dict, operator: str = "") -> None:
         """记录配置变更"""
         self._add(
             device_id,
@@ -85,6 +85,7 @@ class ModbusAudit:
                 "keys": keys,
                 "old": old_config,
                 "new": new_config,
+                "operator": operator,
             },
         )
 

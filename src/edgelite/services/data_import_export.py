@@ -604,7 +604,8 @@ class DataImportService:
             parsed = json.loads(data)
         except json.JSONDecodeError as e:
             logger.error("Failed to parse import data: %s", e)
-            return {"error": str(e)}
+            # FIXED-mypy: 返回类型为 dict[str, ImportResult]，需用 ImportResult 包装错误信息
+            return {"error": ImportResult(success=False, error_count=1, errors=[str(e)])}
 
         # FIXED(S-07): 对解析结果进行类型校验，防止非 dict 类型导致后续 .get() 抛 AttributeError
         if not isinstance(parsed, dict):
@@ -612,7 +613,7 @@ class DataImportService:
                 "Invalid import data: expected dict at top level, got %s",
                 type(parsed).__name__,
             )
-            return {"error": f"Invalid import data: expected dict, got {type(parsed).__name__}"}
+            return {"error": ImportResult(success=False, error_count=1, errors=[f"Invalid import data: expected dict, got {type(parsed).__name__}"])}
 
         devices_data = parsed.get("devices", [])
         rules_data = parsed.get("rules", [])
@@ -623,13 +624,13 @@ class DataImportService:
                 "Invalid devices data: expected list, got %s",
                 type(devices_data).__name__,
             )
-            return {"error": f"Invalid devices data: expected list, got {type(devices_data).__name__}"}
+            return {"error": ImportResult(success=False, error_count=1, errors=[f"Invalid devices data: expected list, got {type(devices_data).__name__}"])}
         if not isinstance(rules_data, list):
             logger.error(
                 "Invalid rules data: expected list, got %s",
                 type(rules_data).__name__,
             )
-            return {"error": f"Invalid rules data: expected list, got {type(rules_data).__name__}"}
+            return {"error": ImportResult(success=False, error_count=1, errors=[f"Invalid rules data: expected list, got {type(rules_data).__name__}"])}
 
         device_database = getattr(self._device_repo, "_database", None)
         rule_database = getattr(self._rule_repo, "_database", None)
@@ -1494,15 +1495,16 @@ class TemplateService:
             # (get_device_template/list_device_templates/delete_device_template)
             # 均读取 self._device_templates_fallback，导致导入的模板在 fallback
             # 模式下不可见。统一写入 _device_templates_fallback，保持读写一致。
-            self._device_templates_fallback: dict = getattr(self, "_device_templates_fallback", {})
+            # FIXED-mypy: 移除重复的类型注解 (在 line 862 已定义)，避免 no-redef 错误
+            self._device_templates_fallback = getattr(self, "_device_templates_fallback", {})
             for t_data in parsed.get("device_templates", []):
-                template = DeviceTemplate(**t_data)
-                self._device_templates_fallback[template.template_id] = template
+                device_template = DeviceTemplate(**t_data)
+                self._device_templates_fallback[device_template.template_id] = device_template
                 result["device_templates"] += 1
 
             for t_data in parsed.get("rule_templates", []):
-                template = RuleTemplate(**t_data)
-                self._rule_templates[template.template_id] = template
+                rule_template = RuleTemplate(**t_data)
+                self._rule_templates[rule_template.template_id] = rule_template
                 result["rule_templates"] += 1
 
             for g_data in parsed.get("device_groups", []):
@@ -1530,10 +1532,18 @@ def get_export_service(
     device_repo: DeviceRepo | None = None,
     rule_repo: RuleRepo | None = None,
     alarm_repo: AlarmRepo | None = None,
-) -> DataExportService:
-    """Get or create the export service"""
+) -> DataExportService | None:
+    """Get or create the export service
+
+    FIXED-mypy: 返回类型修正为 Optional[DataExportService]，因为首次调用未提供 repos 时返回 None。
+    内部使用 assert 缩窄类型，确保传给构造函数的参数非 None。
+    """
     global _export_service
     if _export_service is None and all([device_repo, rule_repo, alarm_repo]):
+        # FIXED-mypy: all() 检查不会缩窄类型，需显式 assert 让 mypy 知道参数非 None
+        assert device_repo is not None
+        assert rule_repo is not None
+        assert alarm_repo is not None
         _export_service = DataExportService(device_repo, rule_repo, alarm_repo)
     return _export_service
 
@@ -1541,10 +1551,17 @@ def get_export_service(
 def get_import_service(
     device_repo: DeviceRepo | None = None,
     rule_repo: RuleRepo | None = None,
-) -> DataImportService:
-    """Get or create the import service"""
+) -> DataImportService | None:
+    """Get or create the import service
+
+    FIXED-mypy: 返回类型修正为 Optional[DataImportService]，因为首次调用未提供 repos 时返回 None。
+    内部使用 assert 缩窄类型，确保传给构造函数的参数非 None。
+    """
     global _import_service
     if _import_service is None and all([device_repo, rule_repo]):
+        # FIXED-mypy: all() 检查不会缩窄类型，需显式 assert 让 mypy 知道参数非 None
+        assert device_repo is not None
+        assert rule_repo is not None
         _import_service = DataImportService(device_repo, rule_repo)
     return _import_service
 

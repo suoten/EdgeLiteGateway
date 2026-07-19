@@ -15,6 +15,9 @@ from collections import OrderedDict, deque
 from datetime import UTC, datetime
 from typing import Any
 
+pymodbus: Any = None
+AsyncModbusSerialClient: Any = None
+AsyncModbusTcpClient: Any = None
 try:
     import pymodbus
     from pymodbus.client import AsyncModbusSerialClient, AsyncModbusTcpClient
@@ -26,6 +29,7 @@ except ImportError:
     AsyncModbusTcpClient = None
     _PYMODBUS_AVAILABLE = False
 
+ModbusException: Any = Exception
 try:
     from pymodbus.exceptions import ModbusException
 except ImportError:
@@ -396,7 +400,7 @@ class ModbusRtuDriver(DriverPlugin):
         self._serial_locks: dict[str, asyncio.Lock] = {}
         self._lock_versions: dict[str, int] = {}  # FIXED-P2: 锁版本号，用于检测锁替换
         # MRTU-001: 锁持有者追踪，检测死锁
-        self._lock_holders: dict[str, asyncio.Task] = {}  # {port_path: holder_task}
+        self._lock_holders: dict[str, asyncio.Task | None] = {}  # {port_path: holder_task}
         self._device_port_map: dict[str, str] = {}
         self._SERIAL_LOCK_TIMEOUT = 5.0
         self._serial_lock_max_retries = 3
@@ -804,7 +808,9 @@ class ModbusRtuDriver(DriverPlugin):
         # FIXED-P1: MRTU-R01 调用基类stop()确保_shutdown_executor和_cancel_background_tasks执行
         await super().stop()
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
+        if points is None:
+            points = []
         unit_id = config.get("unit_id", 1)
         if not (1 <= unit_id <= 247):
             logger.error(
@@ -1682,7 +1688,7 @@ class ModbusRtuDriver(DriverPlugin):
             regs = regs[::-1]  # FIXED-P1: 反转寄存器顺序实现字交换
         return regs
 
-    def _log_error(self, device_id: str, error_code: str, message: str = "") -> None:
+    def _log_error(self, device_id: str, error_code: str, message: str = "", exc_info: bool = False) -> None:
         i18n_msg = _ERROR_I18N.get(error_code, {}).get(self._lang, "")
         display_msg = f"{i18n_msg} - {message}" if i18n_msg and message else (i18n_msg or message)
         logger.error(
@@ -1691,6 +1697,7 @@ class ModbusRtuDriver(DriverPlugin):
             device_id,
             error_code,
             display_msg,
+            exc_info=exc_info,
         )
 
     def _log_throttled(self, device_id: str, point_name: str, error: Exception) -> None:
@@ -2993,7 +3000,7 @@ class ModbusRtuDriver(DriverPlugin):
     def get_edge_alarm_history(self, limit: int = 100) -> list[dict]:
         if not self._edge_engine:
             return []
-        return self._edge_engine.get_alarm_history(limit)
+        return [a.to_dict() for a in self._edge_engine.get_alarm_history(limit)]
 
     def get_edge_active_alarms(self) -> list[dict]:
         if not self._edge_engine:
@@ -3285,7 +3292,7 @@ class ModbusRtuDriver(DriverPlugin):
             return None
         return self._config_version.get_version(version)
 
-    def diff_config_versions(self, v1: int, v2: int) -> dict:
+    def diff_config_versions(self, v1: int, v2: int) -> dict | None:
         if not self._config_version:
             return {}
         return self._config_version.diff_versions(v1, v2)

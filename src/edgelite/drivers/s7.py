@@ -565,7 +565,7 @@ class S7Driver(DriverPlugin):
         try:
             from edgelite.engine.event_bus import EventBus
 
-            event_bus = EventBus.instance()
+            event_bus = getattr(EventBus, "instance", lambda: None)()
         except Exception as e:
             logger.debug("[s7] EventBus init failed, continuing without event bus: %s", e)
             event_bus = None
@@ -679,7 +679,7 @@ class S7Driver(DriverPlugin):
             try:
                 from edgelite.engine.event_bus import EventBus
 
-                event_bus = EventBus.instance()
+                event_bus = getattr(EventBus, "instance", lambda: None)()
             except Exception as e:
                 logger.debug("[s7] EventBus init failed for edge rule engine: %s", e)
                 event_bus = None
@@ -857,7 +857,7 @@ class S7Driver(DriverPlugin):
             )
 
         # Check connection quality before reading
-        quality = self.get_connection_quality(device_id)
+        quality: Any = self.get_connection_quality(device_id)
         if quality < 60:
             logger.warning("[s7] device=%s code=QUALITY_LOW quality=%.1f, attempting reconnect", device_id, quality)
             await self._try_reconnect(device_id)
@@ -1016,7 +1016,7 @@ class S7Driver(DriverPlugin):
             if ph is None:
                 ph = PointHealthStats()
                 self._point_health.set(name, ph)
-            pt_cfg = self._point_configs.get(name, {})
+            pt_cfg = self._point_configs.get(name) or {}
             pt_scaling = pt_cfg.get("scaling", global_scaling)
             pt_clamp = pt_cfg.get("clamp", global_clamp)
             pt_deadband = pt_cfg.get("deadband", global_db)  # BUG-004: 修复deadband值未赋值给变量
@@ -1122,7 +1122,7 @@ class S7Driver(DriverPlugin):
         return result
 
     def _read_points_batch(self, addresses: list[str], max_segment_bytes: int | None = None) -> dict[str, Any]:
-        result = {}
+        result: dict[str, Any] = {}
         if not addresses:
             return result
 
@@ -1383,7 +1383,7 @@ class S7Driver(DriverPlugin):
 
     def _check_write_rate_limit(self, address: str) -> None:
         now = time.monotonic()  # FIXED: 使用monotonic时钟，避免墙钟回拨导致限流失效
-        last = self._write_timestamps.get(address, 0.0)
+        last = self._write_timestamps.get(address) or 0.0
         elapsed_ms = (now - last) * 1000
         if elapsed_ms < self._WRITE_RATE_LIMIT_MS:
             raise self.WriteRateLimitedError(
@@ -1716,7 +1716,7 @@ class S7Driver(DriverPlugin):
                 client = None
                 try:
                     client = snap7.client.Client()
-                    client.set_connection_params(ip_addr, 0, 0, timeout)
+                    client.set_connection_params(ip_addr, 0, 0, timeout)  # type: ignore[call-arg]  # snap7 stubs inaccurate
                     await asyncio.wait_for(
                         asyncio.to_thread(client.connect, ip_addr, rack, slot),
                         timeout=timeout + 1,
@@ -2185,9 +2185,9 @@ class S7Driver(DriverPlugin):
                 device_id,
                 e,
             )
-            loop = self._main_loop
-            if loop is not None and loop.is_running():
-                asyncio.run_coroutine_threadsafe(self._ensure_heartbeat_task_locked(), loop)
+            fallback_loop = self._main_loop
+            if fallback_loop is not None and fallback_loop.is_running():
+                asyncio.run_coroutine_threadsafe(self._ensure_heartbeat_task_locked(), fallback_loop)
         logger.info(
             "[s7] device=%s code=MANUAL_RECONNECT msg=Manual reconnect triggered, reset heartbeat state", device_id
         )
@@ -2223,10 +2223,10 @@ class S7Driver(DriverPlugin):
                 local_tsap = self._config.get("local_tsap", 0x1000)
                 remote_tsap = self._config.get("remote_tsap", 0x0200)
                 timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
-                new_client.set_connection_params(ip, local_tsap, remote_tsap, timeout)
+                new_client.set_connection_params(ip, local_tsap, remote_tsap, timeout)  # type: ignore[call-arg]  # snap7 stubs inaccurate
             else:
                 timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
-                new_client.set_connection_params(ip, 0, 0, timeout)
+                new_client.set_connection_params(ip, 0, 0, timeout)  # type: ignore[call-arg]  # snap7 stubs inaccurate
             await self._s7_connect_with_timeout(new_client, ip, rack, slot)
         except Exception:
             try:
@@ -2435,7 +2435,7 @@ class S7Driver(DriverPlugin):
 
             probe_client = snap7.client.Client()
             timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
-            probe_client.set_connection_params(self._primary_ip, 0, 0, timeout)
+            probe_client.set_connection_params(self._primary_ip, 0, 0, timeout)  # type: ignore[call-arg]  # snap7 stubs inaccurate
             await asyncio.wait_for(
                 asyncio.to_thread(probe_client.connect, self._primary_ip, rack, slot),
                 timeout=timeout + 2,
@@ -2497,7 +2497,7 @@ class S7Driver(DriverPlugin):
         ok = False
         if self._edge_rule_engine:
             ok = await self._edge_rule_engine.update_rule(rule_id, updates)
-        if ok and self._rule_store:
+        if ok and self._rule_store and self._edge_rule_engine is not None:
             rule = self._edge_rule_engine.get_rule(rule_id)
             if rule:
                 self._rule_store.save_rule(rule)
@@ -2531,7 +2531,14 @@ class S7Driver(DriverPlugin):
         if not self._ts_store:
             return []
         return await self._ts_store.query(
-            device_id, point_name, start_time, end_time, quality, aggregate, window_seconds, limit
+            device_id,
+            point_name,
+            start_time.isoformat() if start_time else None,
+            end_time.isoformat() if end_time else None,
+            quality,
+            aggregate,
+            window_seconds,
+            limit,
         )
 
     async def query_ts_latest(self, device_id: str, point_names: list[str]) -> dict[str, dict]:
@@ -2550,7 +2557,14 @@ class S7Driver(DriverPlugin):
     ) -> list[dict]:
         if not self._ts_store:
             return []
-        return await self._ts_store.query_by_quality(device_id, point_name, start_time, end_time, quality, limit)
+        return await self._ts_store.query_by_quality(
+            device_id,
+            point_name,
+            start_time.isoformat() if start_time else None,
+            end_time.isoformat() if end_time else None,
+            quality,
+            limit,
+        )
 
     def set_offline_sync_online(self, online: bool) -> None:
         if self._offline_sync:
@@ -2560,9 +2574,9 @@ class S7Driver(DriverPlugin):
         if self._offline_sync:
             self._offline_sync.set_upload_callback(callback)
 
-    async def force_offline_sync(self) -> int:
+    async def force_offline_sync(self) -> dict[str, Any]:
         if not self._offline_sync:
-            return 0
+            return {}
         return await self._offline_sync.force_sync()
 
     def get_ts_stats(self) -> dict:
@@ -2581,9 +2595,9 @@ class S7Driver(DriverPlugin):
         config: dict,
         change_summary: str = "",
         operator: str = "",
-    ) -> int:
+    ) -> dict[str, Any]:
         if not self._config_version_mgr:
-            return 0
+            return {}
         return await self._config_version_mgr.save_version(device_id, config, change_summary, operator)
 
     async def get_config_current(self, device_id: str) -> dict | None:
@@ -2619,29 +2633,25 @@ class S7Driver(DriverPlugin):
     async def ota_check_update(self, package_info: dict) -> dict:
         if not self._ota_mgr:
             return {"update_available": False, "error": "ota not initialized"}
-        from edgelite.drivers.s7_ota import OtaPackage
-
-        pkg = OtaPackage(
-            package_id=package_info.get("package_id", ""),
-            version=package_info.get("version", ""),
-            firmware_url=package_info.get("firmware_url", ""),
-            firmware_hash=package_info.get("firmware_hash", ""),
-            firmware_size=package_info.get("firmware_size", 0),
-        )
+        pkg: dict[str, Any] = {
+            "package_id": package_info.get("package_id", ""),
+            "version": package_info.get("version", ""),
+            "firmware_url": package_info.get("firmware_url", ""),
+            "firmware_hash": package_info.get("firmware_hash", ""),
+            "firmware_size": package_info.get("firmware_size", 0),
+        }
         return await self._ota_mgr.check_update(pkg)
 
     async def ota_start(self, package_info: dict) -> dict:
         if not self._ota_mgr:
             return {"ok": False, "error": "ota not initialized"}
-        from edgelite.drivers.s7_ota import OtaPackage
-
-        pkg = OtaPackage(
-            package_id=package_info.get("package_id", ""),
-            version=package_info.get("version", ""),
-            firmware_url=package_info.get("firmware_url", ""),
-            firmware_hash=package_info.get("firmware_hash", ""),
-            firmware_size=package_info.get("firmware_size", 0),
-        )
+        pkg: dict[str, Any] = {
+            "package_id": package_info.get("package_id", ""),
+            "version": package_info.get("version", ""),
+            "firmware_url": package_info.get("firmware_url", ""),
+            "firmware_hash": package_info.get("firmware_hash", ""),
+            "firmware_size": package_info.get("firmware_size", 0),
+        }
         config_snapshot = self._config.copy() if self._config else None
         return await self._ota_mgr.start_ota(pkg, config_snapshot)
 

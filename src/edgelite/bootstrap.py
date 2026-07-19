@@ -60,6 +60,7 @@ class ServiceContainer:
 
     _repos: dict = field(default_factory=dict, repr=False)
     _initialized: list = field(default_factory=list, repr=False)
+    _migration_status: dict = field(default_factory=dict, repr=False)
 
     def track(self, name: str, resource: Any):
         self._initialized.append((name, resource))
