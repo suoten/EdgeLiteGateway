@@ -22,12 +22,6 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
-      path: '/setup',
-      name: 'Setup',
-      component: PlaceholderView,
-      meta: { requiresAuth: true, requiredRole: 'admin', hidden: true },
-    },
-    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },

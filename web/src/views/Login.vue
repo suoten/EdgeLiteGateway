@@ -208,16 +208,10 @@ const pwdStrength = computed(() => {
   return { score: 4, label: t('login.strengthStrong') }
 })
 
-// FIX 4: 提取 setup 重定向检查为辅助函数，避免 handleLogin 和 handleChangePassword 逻辑不一致
-// FIX 2: 校验 redirect 参数，仅允许相对路径，防止开放重定向
-function checkSetupRedirect() {
-  const setupCompleted = localStorage.getItem('edgelite_setup_completed') === 'true'
-  if (!setupCompleted) {
-    router.push('/setup')
-    return
-  }
+// 登录后重定向：优先跳转到 redirect 参数（仅允许相对路径），否则跳转仪表盘
+function handlePostLoginRedirect() {
   const redirect = router.currentRoute.value.query.redirect
-  // FIX 2: 校验 redirect 参数，仅允许以单个 / 开头的相对路径
+  // 安全校验 redirect 参数，仅允许以单个 / 开头的相对路径，防止开放重定向
   const safeRedirect = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
   router.push(safeRedirect)
 }
@@ -237,8 +231,8 @@ async function handleLogin() {
     } else {
       // FIXED: 原问题-硬编码中文消息，改为i18n
       message.success(t('loginPage.loginSuccess'))
-      // FIX 4: 使用 checkSetupRedirect 辅助函数统一处理重定向逻辑
-      checkSetupRedirect()
+      // 登录后重定向
+      handlePostLoginRedirect()
     }
   } catch (e: any) {
     // FIXED: 原问题-错误分类依赖中文字符串匹配(detail.includes('频繁'))，
@@ -287,8 +281,8 @@ async function handleChangePassword() {
       router.push('/login')
       return
     }
-    // FIX 4: 使用 checkSetupRedirect 辅助函数，检查 setup 向导并校验 redirect
-    checkSetupRedirect()
+    // 登录后重定向
+    handlePostLoginRedirect()
   } catch (e: any) {
     message.error(extractError(e, t('login.passwordChangeFailed')))
   } finally {
