@@ -230,14 +230,16 @@ def _register_routes(
     app.include_router(resource_shares.router)
 
     # FIXED: 原问题-路由标签中文硬编码，现改为英文标签
-    # FIXED: 移除24个引用缺失的可选API模块 + 6个调试模块，避免启动时产生大量ImportError警告
-    # 以下功能模块尚未实现，后续版本将逐步补充：
-    #   app_update, shadow, firmware_signature, device_linkage, log_aggregation,
-    #   config_version, data_downsample, ai_monitor, db_monitor, data_quality,
-    #   observability, scripts, data_import_export, ai_enhanced, simulation,
-    #   anomaly_learner, trend_learner, threshold_learner, inference_api,
-    #   calibration_api, physics_calib_api, physics_param_api, evolution_api, ai_report_api,
-    #   profiler, self_test, ai_test, precision_test_api, ai_boundary_test_api, ai_stress_test_api
+    # FIXED(404歼灭): 恢复并实现此前"移除"的24个功能模块，对齐前端调用清单。
+    #   以下模块现已具备真实实现（有服务支撑的接入 service，无服务的最小真实实现 + SQLite 持久化）：
+    #   shadow, db_monitor, log_aggregation, anomaly_learner, trend_learner, threshold_learner,
+    #   protocol_bridge, profiler, observability, config_version, scripts, simulation,
+    #   data_quality, firmware_signature, device_linkage
+    #   以下模块已合并到现有文件（追加端点）：data(export/import/downsample), ai_models(ab-test/hot-swap/cache/...),
+    #   alarms(batch-ack), ota(status/cancel)
+    #   仍尚未实现（前端已禁用对应调用）：self_test, ai_test, precision_test_api, ai_boundary_test_api,
+    #   ai_stress_test_api, calibration_api, physics_calib_api, physics_param_api, evolution_api,
+    #   ai_report_api, inference_api, ai_monitor, app_update(已合并到 ota)
     _optional_routers = [
         ("Notification", "edgelite.api.notify", "router"),
         ("Drivers", "edgelite.api.drivers", "router"),
@@ -258,6 +260,22 @@ def _register_routes(
         ("OTA", "edgelite.api.ota", "router"),
         # FIX: metrics router prefix=/api/v1，路由注册无额外前缀拼接
         ("Metrics", "edgelite.api.metrics", "router"),
+        # 404歼灭: 以下为新增模块，对齐前端调用清单
+        ("Shadow", "edgelite.api.shadow", "router"),
+        ("DB Monitor", "edgelite.api.db_monitor", "router"),
+        ("Log Aggregation", "edgelite.api.log_aggregation", "router"),
+        ("Anomaly Learner", "edgelite.api.anomaly_learner", "router"),
+        ("Trend Learner", "edgelite.api.trend_learner", "router"),
+        ("Threshold Learner", "edgelite.api.threshold_learner", "router"),
+        ("Protocol Bridge", "edgelite.api.protocol_bridge", "router"),
+        ("Profiler", "edgelite.api.profiler", "router"),
+        ("Observability", "edgelite.api.observability", "router"),
+        ("Config Version", "edgelite.api.config_version", "router"),
+        ("Scripts", "edgelite.api.scripts", "router"),
+        ("Simulation", "edgelite.api.simulation", "router"),
+        ("Data Quality", "edgelite.api.data_quality", "router"),
+        ("Firmware Signature", "edgelite.api.firmware_signature", "router"),
+        ("Device Linkage", "edgelite.api.device_linkage", "router"),
     ]
 
     # FIXED-P0: 调试/测试/剖析类路由仅在debug_api_enabled=true时注册，生产环境默认禁用

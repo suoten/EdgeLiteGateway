@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
@@ -209,6 +210,10 @@ async def inference(
         return ApiResponse(code=0, message="success", data=result)
     except HTTPException:
         raise
+    except RuntimeError as e:
+        # 500-修复: 模型未加载/依赖缺失等 RuntimeError 转为 503 服务不可用，而非 500
+        logger.error("inference runtime error: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
     except Exception as e:
         logger.error("inference failed: %s", e)
         raise HTTPException(status_code=500, detail=AiErrors.INTERNAL_ERROR) from e
@@ -477,3 +482,799 @@ async def rollback_model(
     except Exception as e:
         logger.error("rollback model failed: %s", e)
         raise HTTPException(status_code=500, detail=AiErrors.INTERNAL_ERROR) from e
+
+
+# --- AI Enhanced 端点：A/B 测试 / 热切换 / 预后处理 / 缓存 / 资源 / 批量 ---
+
+import json as _json
+import uuid as _uuid
+from datetime import UTC as _UTC, datetime as _datetime
+
+from fastapi import Body as _Body
+from fastapi import Query as _Query
+
+_AB_TEST_TABLE = "ai_ab_tests"
+_HOT_SWAP_TABLE = "ai_hot_swaps"
+_PREPOST_TABLE = "ai_model_prepost"
+
+_AB_TEST_DDL = (
+    f"CREATE TABLE IF NOT EXISTS {_AB_TEST_TABLE} ("
+    "id TEXT PRIMARY KEY, "
+    "name TEXT NOT NULL, "
+    "model_a TEXT NOT NULL, "
+    "model_b TEXT NOT NULL, "
+    "split_ratio REAL NOT NULL DEFAULT 0.5, "
+    "traffic REAL NOT NULL DEFAULT 1.0, "
+    "status TEXT NOT NULL DEFAULT 'running', "
+    "promoted_model TEXT, "
+    "created_at TEXT NOT NULL, "
+    "updated_at TEXT NOT NULL)"
+)
+
+_HOT_SWAP_DDL = (
+    f"CREATE TABLE IF NOT EXISTS {_HOT_SWAP_TABLE} ("
+    "id TEXT PRIMARY KEY, "
+    "model_id TEXT NOT NULL, "
+    "target_device TEXT, "
+    "status TEXT NOT NULL DEFAULT 'active', "
+    "created_at TEXT NOT NULL)"
+)
+
+_PREPOST_DDL = (
+    f"CREATE TABLE IF NOT EXISTS {_PREPOST_TABLE} ("
+    "model_id TEXT PRIMARY KEY, "
+    "preprocess TEXT, "
+    "postprocess TEXT, "
+    "updated_at TEXT NOT NULL)"
+)
+
+_PREPROCESS_STEPS = [
+    {"name": "normalize", "description": "标准化（zero mean, unit variance）"},
+    {"name": "min_max_scale", "description": "线性缩放到 [0,1]"},
+    {"name": "clip_outliers", "description": "基于 3σ 截断离群值"},
+    {"name": "fill_missing", "description": "缺失值填充（前向/均值）"},
+    {"name": "resample", "description": "重采样到固定频率"},
+    {"name": "fft_filter", "description": "FFT 频域滤波"},
+    {"name": "window_slice", "description": "滑动窗口切片"},
+]
+
+_POSTPROCESS_STEPS = [
+    {"name": "denormalize", "description": "反标准化到原始量纲"},
+    {"name": "threshold", "description": "阈值化（二值化）"},
+    {"name": "smooth", "description": "结果平滑（移动平均）"},
+    {"name": "clip", "description": "结果裁剪到合理区间"},
+    {"name": "aggregate", "description": "多模型结果聚合"},
+    {"name": "format_output", "description": "格式化输出结构"},
+]
+
+
+async def _ensure_ai_tables() -> None:
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            return
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            await session.execute(text(_AB_TEST_DDL))
+            await session.execute(text(_HOT_SWAP_DDL))
+            await session.execute(text(_PREPOST_DDL))
+            await session.commit()
+    except Exception as e:
+        logger.error("ai enhanced ensure tables failed: %s", e)
+
+
+def _get_inference_cache() -> Any | None:
+    try:
+        from edgelite.app import _app_state
+
+        svc = getattr(_app_state, "ai_service", None)
+        if svc is None:
+            return None
+        return getattr(svc, "inference_cache", None) or getattr(svc, "_inference_cache", None)
+    except Exception as e:
+        logger.error("ai get inference cache failed: %s", e)
+        return None
+
+
+class AbTestCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    model_a: str = Field(..., min_length=1, max_length=128)
+    model_b: str = Field(..., min_length=1, max_length=128)
+    split_ratio: float | None = Field(default=0.5, ge=0.0, le=1.0)
+    traffic: float | None = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class AbTestSplitRequest(BaseModel):
+    ratio: float = Field(..., ge=0.0, le=1.0)
+
+
+class AbTestPromoteRequest(BaseModel):
+    model: str = Field(..., min_length=1, max_length=128)
+
+
+class HotSwapRequest(BaseModel):
+    model_id: str = Field(..., min_length=1, max_length=128)
+    target_device: str | None = Field(default=None, max_length=128)
+
+
+class PrePostProcessRequest(BaseModel):
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.post("/ab-test", response_model=ApiResponse)
+async def create_ab_test(
+    req: AbTestCreateRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        test_id = str(_uuid.uuid4())
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            await session.execute(
+                text(
+                    f"INSERT INTO {_AB_TEST_TABLE} "
+                    "(id, name, model_a, model_b, split_ratio, traffic, status, created_at, updated_at) "
+                    "VALUES (:id, :name, :a, :b, :split, :traffic, 'running', :ts, :ts)"
+                ),
+                {
+                    "id": test_id,
+                    "name": req.name,
+                    "a": req.model_a,
+                    "b": req.model_b,
+                    "split": float(req.split_ratio or 0.5),
+                    "traffic": float(req.traffic or 1.0),
+                    "ts": now,
+                },
+            )
+            await session.commit()
+        return ApiResponse(
+            data={
+                "id": test_id,
+                "name": req.name,
+                "model_a": req.model_a,
+                "model_b": req.model_b,
+                "split_ratio": req.split_ratio or 0.5,
+                "traffic": req.traffic or 1.0,
+                "status": "running",
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai ab-test create failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/ab-test", response_model=PagedResponse)
+async def list_ab_tests(
+    page: int = _Query(default=1, ge=1),
+    size: int = _Query(default=20, ge=1, le=100),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            return PagedResponse(data=[], total=0, page=page, size=size)
+        await _ensure_ai_tables()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            total_result = await session.execute(text(f"SELECT COUNT(*) FROM {_AB_TEST_TABLE}"))
+            total = int(total_result.scalar() or 0)
+            offset = (page - 1) * size
+            result = await session.execute(
+                text(
+                    f"SELECT id, name, model_a, model_b, split_ratio, traffic, status, "
+                    "promoted_model, created_at, updated_at "
+                    f"FROM {_AB_TEST_TABLE} ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                {"limit": size, "offset": offset},
+            )
+            rows = result.fetchall()
+        items = [
+            {
+                "id": r[0],
+                "name": r[1],
+                "model_a": r[2],
+                "model_b": r[3],
+                "split_ratio": r[4],
+                "traffic": r[5],
+                "status": r[6],
+                "promoted_model": r[7],
+                "created_at": r[8],
+                "updated_at": r[9],
+            }
+            for r in rows
+        ]
+        return PagedResponse(data=items, total=total, page=page, size=size)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai ab-test list failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/ab-test/{test_id}", response_model=ApiResponse)
+async def get_ab_test(
+    test_id: str,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            return ApiResponse(data=None)
+        await _ensure_ai_tables()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            result = await session.execute(
+                text(
+                    f"SELECT id, name, model_a, model_b, split_ratio, traffic, status, "
+                    "promoted_model, created_at, updated_at "
+                    f"FROM {_AB_TEST_TABLE} WHERE id=:id"
+                ),
+                {"id": test_id},
+            )
+            r = result.fetchone()
+        if not r:
+            raise HTTPException(status_code=404, detail=AiErrors.MODEL_NOT_FOUND)
+        return ApiResponse(
+            data={
+                "id": r[0],
+                "name": r[1],
+                "model_a": r[2],
+                "model_b": r[3],
+                "split_ratio": r[4],
+                "traffic": r[5],
+                "status": r[6],
+                "promoted_model": r[7],
+                "created_at": r[8],
+                "updated_at": r[9],
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai ab-test get failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/ab-test/{test_id}/split", response_model=ApiResponse)
+async def update_ab_test_split(
+    test_id: str,
+    req: AbTestSplitRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            result = await session.execute(
+                text(f"UPDATE {_AB_TEST_TABLE} SET split_ratio=:r, updated_at=:ts WHERE id=:id"),
+                {"r": req.ratio, "ts": now, "id": test_id},
+            )
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail=AiErrors.MODEL_NOT_FOUND)
+            await session.commit()
+        return ApiResponse(data={"id": test_id, "split_ratio": req.ratio, "updated_at": now})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai ab-test split failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/ab-test/{test_id}/promote", response_model=ApiResponse)
+async def promote_ab_test(
+    test_id: str,
+    req: AbTestPromoteRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            result = await session.execute(
+                text(
+                    f"UPDATE {_AB_TEST_TABLE} SET promoted_model=:m, status='promoted', updated_at=:ts "
+                    "WHERE id=:id"
+                ),
+                {"m": req.model, "ts": now, "id": test_id},
+            )
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail=AiErrors.MODEL_NOT_FOUND)
+            await session.commit()
+        return ApiResponse(
+            data={"id": test_id, "promoted_model": req.model, "status": "promoted", "updated_at": now}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai ab-test promote failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/ab-test/{test_id}/rollback", response_model=ApiResponse)
+async def rollback_ab_test(
+    test_id: str,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            result = await session.execute(
+                text(
+                    f"UPDATE {_AB_TEST_TABLE} SET status='rolled_back', promoted_model=NULL, "
+                    "updated_at=:ts WHERE id=:id"
+                ),
+                {"ts": now, "id": test_id},
+            )
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail=AiErrors.MODEL_NOT_FOUND)
+            await session.commit()
+        return ApiResponse(data={"id": test_id, "status": "rolled_back", "updated_at": now})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai ab-test rollback failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/hot-swap", response_model=ApiResponse)
+async def create_hot_swap(
+    req: HotSwapRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        swap_id = str(_uuid.uuid4())
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            await session.execute(
+                text(
+                    f"INSERT INTO {_HOT_SWAP_TABLE} (id, model_id, target_device, status, created_at) "
+                    "VALUES (:id, :mid, :dev, 'active', :ts)"
+                ),
+                {"id": swap_id, "mid": req.model_id, "dev": req.target_device, "ts": now},
+            )
+            await session.commit()
+        return ApiResponse(
+            data={
+                "id": swap_id,
+                "model_id": req.model_id,
+                "target_device": req.target_device,
+                "status": "active",
+                "created_at": now,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai hot-swap create failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/hot-swap", response_model=PagedResponse)
+async def list_hot_swaps(
+    page: int = _Query(default=1, ge=1),
+    size: int = _Query(default=20, ge=1, le=100),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            return PagedResponse(data=[], total=0, page=page, size=size)
+        await _ensure_ai_tables()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            total_result = await session.execute(text(f"SELECT COUNT(*) FROM {_HOT_SWAP_TABLE}"))
+            total = int(total_result.scalar() or 0)
+            offset = (page - 1) * size
+            result = await session.execute(
+                text(
+                    f"SELECT id, model_id, target_device, status, created_at "
+                    f"FROM {_HOT_SWAP_TABLE} ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                {"limit": size, "offset": offset},
+            )
+            rows = result.fetchall()
+        items = [
+            {
+                "id": r[0],
+                "model_id": r[1],
+                "target_device": r[2],
+                "status": r[3],
+                "created_at": r[4],
+            }
+            for r in rows
+        ]
+        return PagedResponse(data=items, total=total, page=page, size=size)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai hot-swap list failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/models/{model_id}/preprocess", response_model=ApiResponse)
+async def set_preprocess(
+    model_id: str,
+    req: PrePostProcessRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            await session.execute(
+                text(
+                    f"INSERT INTO {_PREPOST_TABLE} (model_id, preprocess, postprocess, updated_at) "
+                    "VALUES (:id, :pre, NULL, :ts) "
+                    "ON CONFLICT(model_id) DO UPDATE SET preprocess=:pre, updated_at=:ts"
+                ),
+                {"id": model_id, "pre": _json.dumps(req.steps, ensure_ascii=False), "ts": now},
+            )
+            await session.commit()
+        return ApiResponse(data={"model_id": model_id, "preprocess": req.steps, "updated_at": now})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai set preprocess failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/models/{model_id}/preprocess", response_model=ApiResponse)
+async def get_preprocess(
+    model_id: str,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            return ApiResponse(data=None)
+        await _ensure_ai_tables()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            result = await session.execute(
+                text(f"SELECT preprocess FROM {_PREPOST_TABLE} WHERE model_id=:id"),
+                {"id": model_id},
+            )
+            r = result.fetchone()
+        steps = []
+        if r and r[0]:
+            try:
+                steps = _json.loads(r[0])
+            except Exception:
+                steps = []
+        return ApiResponse(data={"model_id": model_id, "preprocess": steps})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai get preprocess failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/models/{model_id}/postprocess", response_model=ApiResponse)
+async def set_postprocess(
+    model_id: str,
+    req: PrePostProcessRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+        await _ensure_ai_tables()
+        now = _datetime.now(_UTC).isoformat()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            await session.execute(
+                text(
+                    f"INSERT INTO {_PREPOST_TABLE} (model_id, preprocess, postprocess, updated_at) "
+                    "VALUES (:id, NULL, :post, :ts) "
+                    "ON CONFLICT(model_id) DO UPDATE SET postprocess=:post, updated_at=:ts"
+                ),
+                {"id": model_id, "post": _json.dumps(req.steps, ensure_ascii=False), "ts": now},
+            )
+            await session.commit()
+        return ApiResponse(data={"model_id": model_id, "postprocess": req.steps, "updated_at": now})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai set postprocess failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/models/{model_id}/postprocess", response_model=ApiResponse)
+async def get_postprocess(
+    model_id: str,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        db = getattr(_app_state, "database", None)
+        if db is None:
+            return ApiResponse(data=None)
+        await _ensure_ai_tables()
+        async with db.get_session() as session:
+            from sqlalchemy import text
+
+            result = await session.execute(
+                text(f"SELECT postprocess FROM {_PREPOST_TABLE} WHERE model_id=:id"),
+                {"id": model_id},
+            )
+            r = result.fetchone()
+        steps = []
+        if r and r[0]:
+            try:
+                steps = _json.loads(r[0])
+            except Exception:
+                steps = []
+        return ApiResponse(data={"model_id": model_id, "postprocess": steps})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai get postprocess failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/preprocess/steps", response_model=ApiResponse)
+async def list_preprocess_steps(
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        return ApiResponse(data=_PREPROCESS_STEPS)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai preprocess steps failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/postprocess/steps", response_model=ApiResponse)
+async def list_postprocess_steps(
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        return ApiResponse(data=_POSTPROCESS_STEPS)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai postprocess steps failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/cache/stats", response_model=ApiResponse)
+async def get_cache_stats(
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        cache = _get_inference_cache()
+        if cache is None:
+            return ApiResponse(data={"enabled": False, "size": 0, "hits": 0, "misses": 0})
+        stats = {
+            "enabled": True,
+            "size": int(getattr(cache, "size", 0) or 0),
+            "max_size": int(getattr(cache, "max_size", 0) or 0),
+            "hits": int(getattr(cache, "hits", 0) or 0),
+            "misses": int(getattr(cache, "misses", 0) or 0),
+        }
+        return ApiResponse(data=stats)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai cache stats failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/cache/clear", response_model=ApiResponse)
+async def clear_cache(
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    try:
+        cache = _get_inference_cache()
+        cleared = 0
+        if cache is not None:
+            clear_method = getattr(cache, "clear", None)
+            if callable(clear_method):
+                import asyncio as _asyncio
+
+                if _asyncio.iscoroutinefunction(clear_method):
+                    await clear_method()
+                else:
+                    clear_method()
+                cleared = int(getattr(cache, "size", 0) or 0)
+        return ApiResponse(data={"cleared": cleared})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai cache clear failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/resources", response_model=ApiResponse)
+async def get_resources(
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        try:
+            import psutil
+        except ImportError:
+            psutil = None  # type: ignore
+
+        data: dict[str, Any] = {"cpu_percent": None, "memory": None, "gpu": None}
+        if psutil is not None:
+            data["cpu_percent"] = psutil.cpu_percent(interval=0.1)
+            mem = psutil.virtual_memory()
+            data["memory"] = {
+                "total": mem.total,
+                "available": mem.available,
+                "used": mem.used,
+                "percent": mem.percent,
+            }
+        # GPU 状态探测
+        try:
+            import pynvml
+
+            pynvml.nvmlInit()
+            count = pynvml.nvmlDeviceGetCount()
+            gpus = []
+            for i in range(count):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                gpus.append({"index": i, "gpu_util": util.gpu, "memory_util": util.memory})
+            data["gpu"] = gpus
+        except Exception:
+            data["gpu"] = []
+        return ApiResponse(data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai resources failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/latency/{model_id}", response_model=ApiResponse)
+async def get_latency_stats(
+    model_id: str,
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        svc = getattr(_app_state, "ai_service", None)
+        if svc is None:
+            return ApiResponse(
+                data={"model_id": model_id, "count": 0, "avg_ms": 0.0, "p95_ms": 0.0, "p99_ms": 0.0}
+            )
+        getter = getattr(svc, "get_latency_stats", None)
+        if callable(getter):
+            import asyncio as _asyncio
+
+            data = await getter(model_id) if _asyncio.iscoroutinefunction(getter) else getter(model_id)
+            if isinstance(data, dict):
+                data.setdefault("model_id", model_id)
+                return ApiResponse(data=data)
+        return ApiResponse(
+            data={"model_id": model_id, "count": 0, "avg_ms": 0.0, "p95_ms": 0.0, "p99_ms": 0.0}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai latency stats failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/devices", response_model=PagedResponse)
+async def list_inference_devices(
+    page: int = _Query(default=1, ge=1),
+    size: int = _Query(default=20, ge=1, le=100),
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        devices = [
+            {"name": "cpu", "type": "cpu", "available": True},
+            {"name": "cuda:0", "type": "gpu", "available": False},
+            {"name": "cuda:1", "type": "gpu", "available": False},
+        ]
+        total = len(devices)
+        start_idx = (page - 1) * size
+        page_items = devices[start_idx : start_idx + size]
+        return PagedResponse(data=page_items, total=total, page=page, size=size)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai devices list failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.get("/batch/stats", response_model=ApiResponse)
+async def get_batch_stats(
+    user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
+):
+    try:
+        from edgelite.app import _app_state
+
+        svc = getattr(_app_state, "ai_service", None)
+        if svc is None:
+            return ApiResponse(
+                data={"total_batches": 0, "total_inferences": 0, "avg_batch_size": 0.0, "avg_latency_ms": 0.0}
+            )
+        getter = getattr(svc, "get_batch_stats", None)
+        if callable(getter):
+            import asyncio as _asyncio
+
+            data = await getter() if _asyncio.iscoroutinefunction(getter) else getter()
+            if isinstance(data, dict):
+                return ApiResponse(data=data)
+        return ApiResponse(
+            data={"total_batches": 0, "total_inferences": 0, "avg_batch_size": 0.0, "avg_latency_ms": 0.0}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("ai batch stats failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None

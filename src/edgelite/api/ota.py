@@ -125,3 +125,91 @@ async def list_ota_backups(
         raise HTTPException(
             status_code=500, detail=OtaErrors.LIST_BACKUPS_FAILED
         ) from None  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+
+
+# --- OTA 状态与取消端点 ---
+
+
+@router.get("/status", response_model=ApiResponse)
+async def get_ota_status(
+    mgr: OtaManagerDep,
+    user: CurrentUser = require_permission(Permission.SYSTEM_READ),
+):
+    """返回当前升级状态"""
+    try:
+        if not mgr:
+            return ApiResponse(
+                data={
+                    "enabled": False,
+                    "in_progress": False,
+                    "state": "not_configured",
+                }
+            )
+        # 探测 OTA manager 实际暴露的状态属性
+        in_progress = bool(getattr(mgr, "in_progress", False) or getattr(mgr, "_in_progress", False))
+        state = getattr(mgr, "state", None) or getattr(mgr, "_state", None)
+        if state is None:
+            state = "in_progress" if in_progress else "idle"
+        current_version = getattr(mgr, "current_version", None) or getattr(mgr, "_current_version", None)
+        target_version = getattr(mgr, "target_version", None) or getattr(mgr, "_target_version", None)
+        progress = getattr(mgr, "progress", None)
+        try:
+            last_error = getattr(mgr, "last_error", None) or getattr(mgr, "_last_error", None)
+        except Exception:
+            last_error = None
+        return ApiResponse(
+            data={
+                "enabled": True,
+                "in_progress": in_progress,
+                "state": state,
+                "current_version": current_version,
+                "target_version": target_version,
+                "progress": progress,
+                "last_error": str(last_error) if last_error else None,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("OTA status failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+
+
+@router.post("/cancel", response_model=ApiResponse)
+async def cancel_ota(
+    mgr: OtaManagerDep,
+    user: CurrentUser = require_permission(Permission.SYSTEM_MANAGE),
+):
+    """取消进行中的升级"""
+    try:
+        if not mgr:
+            raise HTTPException(status_code=503, detail=OtaErrors.NOT_ENABLED)
+        # 优先调用 cancel 方法
+        cancel_method = getattr(mgr, "cancel", None)
+        if callable(cancel_method):
+            import asyncio as _asyncio
+
+            if _asyncio.iscoroutinefunction(cancel_method):
+                result = await cancel_method()
+            else:
+                result = await asyncio.to_thread(cancel_method)
+        else:
+            # 兼容：标记 in_progress = False
+            if hasattr(mgr, "in_progress"):
+                mgr.in_progress = False
+            elif hasattr(mgr, "_in_progress"):
+                mgr._in_progress = False
+            result = True
+        return ApiResponse(
+            data={
+                "cancelled": bool(result),
+                "in_progress": bool(
+                    getattr(mgr, "in_progress", False) or getattr(mgr, "_in_progress", False)
+                ),
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("OTA cancel failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None

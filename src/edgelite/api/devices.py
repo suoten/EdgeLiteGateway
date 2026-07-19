@@ -1453,6 +1453,10 @@ async def write_device_point(
         return ApiResponse()
     except HTTPException:
         raise
+    except (ConnectionError, RuntimeError) as e:
+        # 500-修复: 驱动连接断开/未连接等 RuntimeError/ConnectionError 转为 503，而非 500
+        logger.error("write_device_point driver error: %s", e)
+        raise HTTPException(status_code=503, detail=DeviceErrors.DRIVER_UNAVAILABLE) from None
     except Exception as e:
         logger.error("write_device_point failed: %s", e)
         # FIXED: 原问题：中文硬编码detail
@@ -1632,6 +1636,10 @@ async def probe_primary_link(
         return ApiResponse(data={"reachable": reachable})
     except HTTPException:
         raise
+    except (ConnectionError, RuntimeError) as e:
+        # 500-修复: 驱动探测时连接异常转为 503，而非 500
+        logger.error("probe_primary_link driver error: %s", e)
+        raise HTTPException(status_code=503, detail=DeviceErrors.DRIVER_UNAVAILABLE) from None
     except Exception as e:
         logger.error("probe_primary_link failed: %s", e)
         raise HTTPException(status_code=500, detail=DeviceErrors.GET_FAILED) from e

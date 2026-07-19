@@ -35,12 +35,22 @@ async def _check_alarm_device_access(device_id: str | None, user) -> None:
     from edgelite.storage.sqlite_repo import ResourceShareRepo
 
     device_svc = _app_state.device_service
-    device = await device_svc.get_device(device_id)
+    try:
+        device = await device_svc.get_device(device_id)
+    except Exception as e:
+        # 500-修复: 设备查询 DB 异常不冒泡为 500，转换为 503
+        logger.error("get_device DB failed for alarm access check %s: %s", device_id, e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_DB_NOT_READY") from None
     if device and device.get("created_by") == user["user_id"]:
         return
     container = _app_state
     share_repo = ResourceShareRepo(container.database, container.database.write_lock)
-    has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
+    try:
+        has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
+    except Exception as e:
+        # 500-修复: 共享权限查询 DB 异常不冒泡为 500，转换为 503
+        logger.error("check_user_has_access DB failed for alarm %s: %s", device_id, e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_DB_NOT_READY") from None
     if has_access:
         return
     raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
@@ -54,10 +64,20 @@ async def _get_accessible_device_ids_for_alarms(user) -> set[str] | None:
     from edgelite.storage.sqlite_repo import ResourceShareRepo
 
     device_svc = _app_state.device_service
-    owned_ids = set(await device_svc.list_device_ids_by_owner(user["user_id"]))
+    try:
+        owned_ids = set(await device_svc.list_device_ids_by_owner(user["user_id"]))
+    except Exception as e:
+        # 500-修复: 设备列表 DB 异常不冒泡为 500，转换为 503
+        logger.error("list_device_ids_by_owner DB failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_DB_NOT_READY") from None
     container = _app_state
     share_repo = ResourceShareRepo(container.database, container.database.write_lock)
-    shared_ids = await share_repo.get_shared_resource_ids(user["user_id"], "device")
+    try:
+        shared_ids = await share_repo.get_shared_resource_ids(user["user_id"], "device")
+    except Exception as e:
+        # 500-修复: 共享资源 DB 异常不冒泡为 500，转换为 503
+        logger.error("get_shared_resource_ids DB failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_DB_NOT_READY") from None
     return owned_ids | shared_ids
 
 
@@ -662,3 +682,81 @@ async def delete_alarm_silence(
     except Exception as e:
         logger.error("Delete alarm silence failed: %s", e)
         raise HTTPException(status_code=500, detail=AlarmErrors.SILENCE_UPDATE_FAILED) from e
+
+
+# --- 批量告警确认端点 ---
+
+
+class BatchAckRequest(BaseModel):
+    alarm_ids: list[str] = Field(..., min_length=1, max_length=500)
+    comment: str | None = Field(default=None, max_length=512)
+
+
+@router.post("/batch-ack", response_model=ApiResponse)
+async def batch_ack_alarms(
+    req: BatchAckRequest,
+    user: Annotated[dict[str, str], Depends(require_permission(Permission.ALARM_ACK))],
+    request: Request = None,  # type: ignore[assignment]
+    alarm_svc: AlarmServiceDep = None,  # type: ignore[assignment]
+    audit_svc: AuditServiceDep = None,  # type: ignore[assignment]
+):
+    """批量确认告警
+
+    逐个调用 alarm_svc.ack_alarm，对不存在的告警 ID 返回 failed 列表。
+    全部失败的告警 ID 不阻断整体流程，仍返回成功列表。
+    """
+    try:
+        succeeded: list[dict[str, str | bool]] = []
+        failed: list[dict[str, str]] = []
+        for alarm_id in req.alarm_ids:
+            try:
+                result = await alarm_svc.ack_alarm(alarm_id, user["username"])
+                if result:
+                    succeeded.append({"alarm_id": alarm_id, "acked": True})
+                else:
+                    failed.append({"alarm_id": alarm_id, "error": "alarm not found"})
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.warning("batch_ack single alarm %s failed: %s", alarm_id, e)
+                failed.append({"alarm_id": alarm_id, "error": str(e)})
+
+        # 审计日志（失败也不阻断）
+        try:
+            from edgelite.api.auth import _get_client_ip
+            from edgelite.services.audit_service import AuditAction
+
+            client_ip = _get_client_ip(request) if request else ""
+            user_agent = request.headers.get("User-Agent") if request else None
+            await audit_svc.log(
+                AuditAction.ALARM_ACK,
+                user_id=user["user_id"],
+                username=user["username"],
+                resource_type="alarm",
+                resource_id=",".join(req.alarm_ids[:10]),
+                ip_address=client_ip,
+                user_agent=user_agent,
+                details={
+                    "alarm_ids": req.alarm_ids,
+                    "comment": req.comment,
+                    "succeeded_count": len(succeeded),
+                    "failed_count": len(failed),
+                },
+            )
+        except Exception as e:
+            logger.warning("Audit log failed for batch-ack: %s", e)
+
+        return ApiResponse(
+            data={
+                "succeeded": succeeded,
+                "failed": failed,
+                "total": len(req.alarm_ids),
+                "succeeded_count": len(succeeded),
+                "failed_count": len(failed),
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_ack_alarms failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None

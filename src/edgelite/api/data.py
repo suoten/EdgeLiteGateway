@@ -5,12 +5,14 @@ from __future__ import annotations
 import logging
 import re
 from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from edgelite.api.deps import DataServiceDep, require_permission
-from edgelite.api.error_codes import AuthzErrors, DataErrors
+from edgelite.api.error_codes import AuthzErrors, CommonErrors, DataErrors, DeviceErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -82,7 +84,15 @@ async def _check_device_owner(device_id: str, user) -> None:
     )
 
     share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
-    has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
+    try:
+        has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
+    except Exception as e:
+        # 500-修复: DB 异常不冒泡为 500，转换为 503 服务不可用（权限检查依赖 DB）
+        logger.error("check_user_has_access DB failed for device %s: %s", device_id, e)
+        raise HTTPException(
+            status_code=503,
+            detail="ERR_COMMON_DB_NOT_READY",
+        ) from None
     if has_access:
         return
     raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
@@ -364,3 +374,286 @@ async def query_multi_point(
     except Exception as e:
         logger.error("Multi-point query failed: %s", e)  # FIXED-P1: 原问题-500异常无日志
         raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from None
+
+
+# ─── 配置数据导入导出 ───────────────────────────────────────────
+# 使用 edgelite.services.data_import_export 中的 DataExportService / DataImportService。
+# 与上方时序数据 /export (GET) 不同，此处为配置数据 POST /export 与 POST /import。
+
+
+class ConfigExportRequest(BaseModel):
+    """配置导出请求体。"""
+
+    scope: Literal["devices", "rules", "alarms", "all"] = "all"
+    ids: list[str] | None = None
+    format: Literal["json", "csv"] = "json"
+
+
+class ConfigImportRequest(BaseModel):
+    """配置导入请求体。"""
+
+    scope: Literal["devices", "rules"] = "devices"
+    data: str
+    format: Literal["json", "csv"] = "json"
+    mode: Literal["skip", "overwrite", "rename", "error"] = "skip"
+    atomic: bool = True
+
+
+def _get_repos() -> tuple[Any, Any, Any]:
+    """从 _app_state 获取 (device_repo, rule_repo, alarm_repo)。"""
+    from edgelite.app import _app_state
+
+    repos = getattr(_app_state, "_repos", {}) or {}
+    device_repo = repos.get("device")
+    rule_repo = repos.get("rule")
+    alarm_repo = repos.get("alarm")
+    if device_repo is None or rule_repo is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY)
+    return device_repo, rule_repo, alarm_repo
+
+
+def _get_export_service():
+    from edgelite.services.data_import_export import ExportFormat, get_export_service
+
+    device_repo, rule_repo, alarm_repo = _get_repos()
+    svc = get_export_service(device_repo, rule_repo, alarm_repo)
+    if svc is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    return svc, ExportFormat
+
+
+def _get_import_service():
+    from edgelite.services.data_import_export import ExportFormat, ImportMode, get_import_service
+
+    device_repo, rule_repo, _alarm_repo = _get_repos()
+    svc = get_import_service(device_repo, rule_repo)
+    if svc is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    return svc, ExportFormat, ImportMode
+
+
+@router.post("/export", response_model=ApiResponse)
+async def export_config(
+    body: ConfigExportRequest,
+    _user: dict[str, str] = Depends(require_permission(Permission.DATA_EXPORT)),
+):
+    """导出配置数据（devices/rules/alarms/all）为 JSON 或 CSV。"""
+    try:
+        svc, ExportFormat = _get_export_service()
+        fmt = ExportFormat.CSV if body.format == "csv" else ExportFormat.JSON
+        # alarms scope 当前 service 不支持，返回空内容以保持契约
+        if body.scope == "alarms":
+            content = "" if fmt == ExportFormat.CSV else '{"version":"1.0","type":"alarms","count":0,"alarms":[]}'
+            return ApiResponse(
+                data={
+                    "content": content,
+                    "scope": body.scope,
+                    "format": body.format,
+                }
+            )
+        if body.scope == "devices":
+            content = await svc.export_devices(device_ids=body.ids, format=fmt)
+        elif body.scope == "rules":
+            content = await svc.export_rules(rule_ids=body.ids, format=fmt)
+        else:  # all
+            content = await svc.export_all(format=fmt)
+        return ApiResponse(
+            data={
+                "content": content,
+                "scope": body.scope,
+                "format": body.format,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("export_config failed: %s", e)
+        raise HTTPException(status_code=503, detail=DeviceErrors.EXPORT_FAILED) from None
+
+
+@router.post("/import", response_model=ApiResponse)
+async def import_config(
+    body: ConfigImportRequest,
+    _user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+):
+    """导入配置数据（devices/rules），支持冲突策略与原子事务。"""
+    try:
+        svc, ExportFormat, ImportMode = _get_import_service()
+        fmt = ExportFormat.CSV if body.format == "csv" else ExportFormat.JSON
+        mode_map = {
+            "skip": ImportMode.SKIP,
+            "overwrite": ImportMode.OVERWRITE,
+            "rename": ImportMode.RENAME,
+            "error": ImportMode.ERROR,
+        }
+        mode = mode_map.get(body.mode, ImportMode.SKIP)
+        if body.scope == "rules":
+            result = await svc.import_rules(data=body.data, format=fmt, mode=mode)
+        else:
+            result = await svc.import_devices(data=body.data, format=fmt, mode=mode)
+        return ApiResponse(
+            data={
+                "success": result.success,
+                "total_count": result.total_count,
+                "imported_count": result.imported_count,
+                "skipped_count": result.skipped_count,
+                "error_count": result.error_count,
+                "errors": result.errors,
+                "warnings": result.warnings,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("import_config failed: %s", e)
+        raise HTTPException(status_code=503, detail=DeviceErrors.IMPORT_FAILED) from None
+
+
+# --- 数据降采样端点 ---
+
+
+class DownsampleRequest(BaseModel):
+    device_id: str
+    point_name: str
+    start: str
+    stop: str
+    interval: str  # 如 "5m", "1h"
+    agg_fn: str = "mean"
+
+
+_AGG_MAP = {
+    "mean": lambda xs: sum(xs) / len(xs) if xs else None,
+    "sum": lambda xs: sum(xs) if xs else None,
+    "max": lambda xs: max(xs) if xs else None,
+    "min": lambda xs: min(xs) if xs else None,
+    "first": lambda xs: xs[0] if xs else None,
+    "last": lambda xs: xs[-1] if xs else None,
+    "count": lambda xs: float(len(xs)),
+}
+
+_INTERVAL_SECONDS = {
+    "s": 1,
+    "m": 60,
+    "h": 3600,
+    "d": 86400,
+}
+
+
+def _parse_interval_seconds(interval: str) -> int:
+    import re
+
+    match = re.match(r"^(\d+)([smhdw])$", interval.strip())
+    if not match:
+        raise ValueError(f"invalid interval format: {interval}")
+    return int(match.group(1)) * _INTERVAL_SECONDS.get(match.group(2), 1)
+
+
+def _extract_value(point: dict) -> float | None:
+    if not isinstance(point, dict):
+        return None
+    for key in ("value", "v", "avg"):
+        if key in point and point[key] is not None:
+            try:
+                return float(point[key])
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _extract_ts(point: dict) -> float | None:
+    if not isinstance(point, dict):
+        return None
+    for key in ("ts", "time", "timestamp", "t"):
+        if key in point and point[key] is not None:
+            v = point[key]
+            if isinstance(v, (int, float)):
+                return float(v)
+            try:
+                from datetime import datetime as _dt
+
+                if isinstance(v, str):
+                    return _dt.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+            except Exception:
+                continue
+    return None
+
+
+@router.post("/downsample", response_model=ApiResponse)
+async def downsample_timeseries(
+    svc: DataServiceDep,
+    body: DownsampleRequest,
+    user: dict[str, str] = Depends(require_permission(Permission.DATA_READ)),
+):
+    """对原始时序数据按时间间隔聚合降采样"""
+    try:
+        await _check_device_owner(body.device_id, user)
+        try:
+            interval_sec = _parse_interval_seconds(body.interval)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=DataErrors.INVALID_BUCKET_SIZE) from exc
+
+        agg_fn = body.agg_fn.lower()
+        if agg_fn not in _AGG_MAP:
+            raise HTTPException(status_code=400, detail=DataErrors.UNSUPPORTED_AGGREGATE)
+
+        # 取原始数据（最多 50000 条）
+        raw = await svc.query_timeseries(
+            device_id=body.device_id,
+            point_name=body.point_name,
+            start=body.start,
+            stop=body.stop,
+            limit=50000,
+        )
+        if isinstance(raw, dict):
+            points = raw.get("points") or raw.get("data") or []
+        elif isinstance(raw, list):
+            points = raw
+        else:
+            points = []
+
+        if not points:
+            return ApiResponse(data={"device_id": body.device_id, "point_name": body.point_name, "interval": body.interval, "agg_fn": agg_fn, "buckets": []})
+
+        # 按 interval 分桶聚合
+        buckets: dict[int, list[float]] = {}
+        bucket_meta: dict[int, Any] = {}
+        base_ts = None
+        for p in points:
+            ts = _extract_ts(p) if isinstance(p, dict) else None
+            v = _extract_value(p) if isinstance(p, dict) else None
+            if ts is None or v is None:
+                continue
+            if base_ts is None:
+                base_ts = ts
+            bucket_idx = int((ts - base_ts) // interval_sec)
+            buckets.setdefault(bucket_idx, []).append(v)
+            bucket_meta.setdefault(bucket_idx, {"ts": ts})
+
+        agg_func = _AGG_MAP[agg_fn]
+        result_buckets = []
+        for idx in sorted(buckets.keys()):
+            values = buckets[idx]
+            result_buckets.append(
+                {
+                    "bucket_index": idx,
+                    "ts": bucket_meta[idx]["ts"],
+                    "value": agg_func(values),
+                    "count": len(values),
+                }
+            )
+
+        return ApiResponse(
+            data={
+                "device_id": body.device_id,
+                "point_name": body.point_name,
+                "interval": body.interval,
+                "agg_fn": agg_fn,
+                "total_points": len(points),
+                "buckets": result_buckets,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("downsample failed: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None

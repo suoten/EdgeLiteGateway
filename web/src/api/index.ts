@@ -1,6 +1,27 @@
 import http from './http'
 import type { ApiResponse, PagedData } from './http'
 
+// URL 常量统一收口，禁止在组件中硬编码 API 路径
+// 注：本次仅收口被修改的 API 路径，未修改部分保持原样以避免引入 bug
+const URL = {
+  RESOURCE_SHARES: {
+    // 后端 prefix=/api/v1/resource-shares
+    BASE: '/resource-shares',
+    RESOURCE: (type: string, id: string) =>
+      `/resource-shares/resource/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,
+    TRANSFER: '/resource-shares/transfer',
+  },
+  OTA: {
+    // 后端 prefix=/api/v1/ota
+    CHECK: '/ota/check',
+    APPLY: '/ota/apply',
+    ROLLBACK: '/ota/rollback',
+    BACKUPS: '/ota/backups',
+    STATUS: '/ota/status',
+    CANCEL: '/ota/cancel',
+  },
+} as const
+
 // FIXED: 原问题-API返回结构不一致，list函数返回完整PagedData(含total/page/size)，get/create/update/delete函数返回r.data.data(仅业务对象)
 
 // ─── 认证 ───
@@ -193,11 +214,10 @@ export const deviceApi = {
   batchStopCollect: (deviceIds: string[]) =>
     http.post<ApiResponse<{ success_count: number; failed: Record<string, string> }>>('/devices/batch/stop-collect', { device_ids: deviceIds }).then((r) => r.data.data),  // FIXED-P1: failed类型改为Record对齐后端dict
 
-  selfTest: (deviceId: string) =>
-    http.post<ApiResponse<any>>('/self-test/run', { device_id: deviceId }).then((r) => r.data.data),
+  // FIXED: 自检功能后端模块已移除且不实现，前端不再调用后端，直接返回业务错误（保持函数签名不变）
+  selfTest: (deviceId: string) => Promise.reject(new Error('自检功能尚未启用')),
 
-  acceptanceReport: (deviceId: string) =>
-    http.post<ApiResponse<any>>('/self-test/acceptance-report', { device_id: deviceId }).then((r) => r.data.data),
+  acceptanceReport: (deviceId: string) => Promise.reject(new Error('自检功能尚未启用')),
 
   // FIXED-ATOMIC-IMPORT: 批量导入设备（支持事务模式）
   batchImport: (data: any[], overwrite: boolean = false, atomic: boolean = false) =>
@@ -1062,23 +1082,24 @@ export const mcpApi = {
 // NOTE: For industrial device firmware OTA, see firmwareApi above
 
 export const appUpdateApi = {
+  // FIXED: 路径前缀由 /app-update/ 改为 /ota/，对齐后端 prefix=/api/v1/ota
   check: () =>
-    http.get<ApiResponse<any>>('/app-update/check').then((r) => r.data.data),
+    http.get<ApiResponse<any>>(URL.OTA.CHECK).then((r) => r.data.data),
 
   apply: () =>
-    http.post<ApiResponse>('/app-update/apply').then((r) => r.data.data),
+    http.post<ApiResponse>(URL.OTA.APPLY).then((r) => r.data.data),
 
   rollback: (version?: string) =>
-    http.post<ApiResponse>('/app-update/rollback', null, { params: version ? { version } : undefined }).then((r) => r.data.data),
+    http.post<ApiResponse>(URL.OTA.ROLLBACK, null, { params: version ? { version } : undefined }).then((r) => r.data.data),
 
   backups: () =>
-    http.get<ApiResponse<any>>('/app-update/backups').then((r) => r.data.data),
+    http.get<ApiResponse<any>>(URL.OTA.BACKUPS).then((r) => r.data.data),
 
   status: () =>
-    http.get<ApiResponse<any>>('/app-update/status').then((r) => r.data.data),
+    http.get<ApiResponse<any>>(URL.OTA.STATUS).then((r) => r.data.data),
 
   cancel: () =>
-    http.post<ApiResponse>('/app-update/cancel').then((r) => r.data.data),
+    http.post<ApiResponse>(URL.OTA.CANCEL).then((r) => r.data.data),
 }
 
 // ─── Grafana集成 ───
@@ -1775,32 +1796,38 @@ export interface TransferResult {
 }
 
 export const resourceShareApi = {
+  // FIXED: 路径对齐后端 prefix=/api/v1/resource-shares
+  //   POST ""        → 创建共享 (ShareRequest)
+  //   DELETE ""      → 取消共享 (UnshareRequest，通过 body 传)
+  //   GET  /resource/{resource_type}/{resource_id} → 查询指定资源的共享记录
   share: (data: {
     resource_type: ResourceType
     resource_id: string
     shared_with_user_id: string
     permission_level?: PermissionLevel
   }) =>
-    http.post<ApiResponse<ResourceShare>>('/resources/share', data).then((r) => r.data.data),
+    http.post<ApiResponse<ResourceShare>>(URL.RESOURCE_SHARES.BASE, data).then((r) => r.data.data),
 
   unshare: (data: {
     resource_type: ResourceType
     resource_id: string
     shared_with_user_id: string
   }) =>
-    http.post<ApiResponse<{ removed: boolean }>>('/resources/unshare', data).then((r) => r.data.data),
+    // FIXED: 后端为 DELETE ""，方法由 POST 改为 DELETE；返回字段对齐为 { deleted: boolean }
+    http.delete<ApiResponse<{ deleted: boolean }>>(URL.RESOURCE_SHARES.BASE, { data }).then((r) => r.data.data),
 
   listShares: (resourceType: ResourceType, resourceId: string) =>
-    http.get<ApiResponse<{ shares: ResourceShare[] }>>('/resources/shares', {
-      params: { resource_type: resourceType, resource_id: resourceId },
-    }).then((r) => r.data.data?.shares ?? []),
+    // FIXED: 后端为 GET /resource/{resource_type}/{resource_id}，由 query 参数改为 path 参数
+    http.get<ApiResponse<{ shares: ResourceShare[] }>>(
+      URL.RESOURCE_SHARES.RESOURCE(resourceType, resourceId)
+    ).then((r) => r.data.data?.shares ?? []),
 
   transfer: (data: {
     resource_type: ResourceType
     resource_id: string
     new_owner_id: string
   }) =>
-    http.post<ApiResponse<TransferResult>>('/resources/transfer', data).then((r) => r.data.data),
+    http.post<ApiResponse<TransferResult>>(URL.RESOURCE_SHARES.TRANSFER, data).then((r) => r.data.data),
 }
 
 // ─── 脚本引擎 ───
