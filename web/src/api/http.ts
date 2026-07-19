@@ -65,8 +65,15 @@ http.interceptors.request.use((config) => {
   if (config.url === '/auth/login') {
     refreshFailed = false
   }
-  // LP-02: 认证完全依赖 HttpOnly Cookie（withCredentials 自动携带）
-  // FIXED-Severe: 移除 sessionStorage token 回退，避免 XSS 窃取 token
+  // LP-02: 优先依赖 HttpOnly Cookie（withCredentials 自动携带）
+  // [FIX] 当浏览器不支持 HttpOnly Cookie 时（如内嵌 WebView / 部分隐私模式），
+  // 使用内存中的 token 作为 Authorization 头后备通道。
+  // 内存 token 不持久化到 storage，页面刷新后丢失，不存在 XSS 窃取持久化 token 的风险。
+  // 后端 deps.py _extract_token_from_request 优先读取 Authorization header，与 Cookie 互补。
+  const auth = useAuthStore()
+  if (auth.token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${auth.token}`
+  }
   const csrfToken = _getItem('edgelite_csrf_token')
   if (csrfToken && ['post', 'put', 'patch', 'delete'].includes((config.method || '').toLowerCase())) {
     config.headers['X-CSRF-Token'] = csrfToken

@@ -185,7 +185,7 @@ def mask_json(data: dict, sensitive_keys: list[str] | None = None) -> dict:
     sensitive_set = {k.lower() for k in sensitive_keys}
 
     # 深拷贝以避免修改原数据
-    result = {}
+    result: dict[Any, Any] = {}
     for key, value in data.items():
         key_lower = key.lower()
 
@@ -312,8 +312,8 @@ def redact_ip(ip: str, preserve_subnet: int = 2) -> str:
             # exploded 展开为 8 个 hextet 的标准形式
             hextets = addr.exploded.split(":")
             # 保留前 4 个 hextet，其余替换为 ffff
-            redacted = [h if i < 4 else "ffff" for i, h in enumerate(hextets)]
-            return ":".join(redacted)
+            redacted_hextets = [h if i < 4 else "ffff" for i, h in enumerate(hextets)]
+            return ":".join(redacted_hextets)
         except ValueError:
             # 非合法 IPv6，降级到 IPv4 分支或原样返回
             pass
@@ -435,7 +435,7 @@ class DataMasker:
 
     def _mask_dict(self, data: dict, strategy: str) -> dict:
         """脱敏字典"""
-        result = {}
+        result: dict[Any, Any] = {}
         for key, value in data.items():
             key_lower = key.lower()
 

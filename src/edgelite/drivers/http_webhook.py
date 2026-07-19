@@ -95,11 +95,11 @@ class _WriteAuditEntry:
 class _CachedResolver:
     def __init__(self, ttl: float = _DNS_CACHE_TTL):
         self._ttl = ttl
-        self._cache: dict[str, list[tuple[int, int, int, int, str]]] = {}
+        self._cache: dict[str, list[tuple[Any, ...]]] = {}
         self._timestamps: dict[str, float] = {}
         self._lock = asyncio.Lock()  # FIXED-P2: 添加异步锁保护并发访问
 
-    async def resolve(self, host: str, port: int = 0) -> list[tuple[int, int, int, int, str]]:
+    async def resolve(self, host: str, port: int = 0) -> list[tuple[Any, ...]]:
         now = time.monotonic()  # FIXED-P1: 使用monotonic时钟
         async with self._lock:  # FIXED-P2: 锁内读取缓存快照
             cached = self._cache.get(host)
@@ -454,7 +454,8 @@ class HttpWebhookDriver(DriverPlugin):
 
         if resolver is not None:
             with contextlib.suppress(TypeError):
-                client_kwargs["transport"] = httpx.AsyncHTTPTransport(resolver=resolver.resolve)
+                # httpx 运行时支持 resolver kwarg 用于自定义 DNS 解析，但类型存根未暴露该参数
+                client_kwargs["transport"] = httpx.AsyncHTTPTransport(resolver=resolver.resolve)  # type: ignore[call-arg]
 
         auth_type = config.get("auth_type", "None")
         if auth_type == "Bearer":
@@ -525,9 +526,9 @@ class HttpWebhookDriver(DriverPlugin):
             self._pinned_dns.clear()
             logger.info("HTTP Webhook driver stopped")
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         self._device_configs[device_id] = config
-        self._device_points[device_id] = points
+        self._device_points[device_id] = points if points is not None else []
         self._latest_values[device_id] = {}
         self._last_receive[device_id] = 0
         self._last_emitted[device_id] = {}
@@ -870,7 +871,7 @@ class HttpWebhookDriver(DriverPlugin):
             except Exception as e:
                 self._log_error(device_id, "ERR_WEBHOOK_DATA_PROCESS_FAILED", str(e))
         # FIXED-P1: 回调在锁外执行，避免回调中获取同一把锁导致死锁
-        if data_to_emit:
+        if data_to_emit and self._data_callback is not None:
             await self._data_callback(*data_to_emit)
 
     def _parse_payload(self, data: dict[str, Any], device_id: str = "") -> dict[str, Any]:
@@ -1123,7 +1124,7 @@ class HttpWebhookDriver(DriverPlugin):
             try:
                 # 重新解析 DNS
                 if self._dns_resolver:
-                    addrs = await self._dns_resolver.resolve(parsed.hostname)
+                    addrs: list[tuple[Any, ...]] = await self._dns_resolver.resolve(parsed.hostname)
                 else:
                     # FIXED-P1: 同时检查IPv4和IPv6，防止IPv6绕过SSRF防护
                     # FIXED-P1: DNS回退路径使用asyncio.to_thread，防止阻塞事件循环
@@ -1279,7 +1280,8 @@ class HttpWebhookDriver(DriverPlugin):
             "last_value": ph.last_value,
         }
 
-    def get_health_stats(self, device_id: str) -> dict[str, Any] | None:
+    # 子类返回扩展dict格式（含avg_latency_ms/online_rate/state等额外字段），与父类DriverHealthStats返回类型不兼容；修改父类签名需改动base.py（不在本次修复范围）
+    def get_health_stats(self, device_id: str) -> dict[str, Any] | None:  # type: ignore[override]
         base = self._health_stats.get(device_id)
         connected = self.is_device_connected(device_id)
         latency = self._health_latency.get(
@@ -1304,7 +1306,7 @@ class HttpWebhookDriver(DriverPlugin):
             "online_rate": online_rate,
             "state": "connected" if connected else "disconnected",
             # #[AUDIT-FIX] FATAL: 使用 wall-clock 时间戳替代 monotonic，monotonic 不可用于 fromtimestamp
-            "last_receive_time": self._last_receive_wall_ts.get(device_id).isoformat()
+            "last_receive_time": self._last_receive_wall_ts[device_id].isoformat()
             if device_id in self._last_receive_wall_ts
             else None,
             "health_latency_s": latency,

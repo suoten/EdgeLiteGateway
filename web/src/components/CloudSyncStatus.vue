@@ -8,12 +8,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, shallowRef, onMounted } from 'vue'
 import { NSpace, NIcon, NText } from 'naive-ui'
 import { CloudDoneOutline, CloudOfflineOutline } from '@vicons/ionicons5'
 import { t } from '@/i18n'
 
-const syncIcon = ref(CloudDoneOutline)
+// [FIX] 使用 shallowRef 而非 ref 存储组件引用，避免 Vue 将组件对象变为响应式对象导致性能开销
+const syncIcon = shallowRef(CloudDoneOutline)
 const syncColor = ref('#52c41a')
 const statusText = ref(t('cloudSync.synced'))
 

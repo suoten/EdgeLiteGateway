@@ -21,8 +21,7 @@ router = APIRouter(prefix="/api/v1/audit", tags=["Audit"])
 async def query_audit_logs(
     svc: AuditServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_READ)),
-    pagination: PaginationDep
-    | None = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
+    pagination: PaginationDep = None,  # FIXED: 原问题-使用 | None 导致 FastAPI 无法解析 Annotated 依赖，返回 None。改为与其他 API 一致的写法。  # noqa: E501
     user_id: str | None = None,
     action: str | None = None,
     resource_type: str | None = None,

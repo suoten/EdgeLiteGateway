@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from edgelite.api.deps import (
     AlarmServiceDep,
     AuditServiceDep,
+    DatabaseDep,
     PaginationDep,
     require_permission,
 )
@@ -150,7 +151,8 @@ async def get_alarm_trend(
 async def list_alarms(
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_READ)),
-    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
+    # FastAPI Depends() 运行时注入非 None 值，类型存根无法表达此语义
+    pagination: PaginationDep = None,  # type: ignore[assignment]
     # FIXED(一般): 枚举值未校验，恶意用户可传任意字符串绕过过滤；改为 Literal 校验
     status: Literal["firing", "acknowledged", "recovered"] | None = None,
     severity: Literal["critical", "major", "warning", "minor", "info"] | None = None,
@@ -161,7 +163,7 @@ async def list_alarms(
         owned_device_ids = None
         if user["role"] != "admin":
             owned_device_ids = await _get_accessible_device_ids_for_alarms(user)
-            if device_id and device_id not in owned_device_ids:
+            if device_id and owned_device_ids is not None and device_id not in owned_device_ids:
                 raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
         alarms, total = await svc.list_alarms(
             pagination.page, pagination.size, status, severity, device_id, search, device_ids=owned_device_ids
@@ -179,7 +181,9 @@ async def list_alarms(
 @router.get("/silence", response_model=PagedResponse)
 async def list_alarm_silences(
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_READ)),
-    pagination: PaginationDep = None,
+    # FastAPI Depends() 运行时注入非 None 值，类型存根无法表达此语义
+    pagination: PaginationDep = None,  # type: ignore[assignment]
+    db: DatabaseDep = None,  # type: ignore[assignment]
     device_id: str = Query("", description="Filter by device ID"),
     rule_id: str = Query("", description="Filter by rule ID"),
     status: Literal["active", "expired", "cancelled"] | None = Query(
@@ -190,11 +194,11 @@ async def list_alarm_silences(
     try:
         from edgelite.services.alarm_silence import get_alarm_silence_manager
 
-        manager = get_alarm_silence_manager()
+        manager = get_alarm_silence_manager(db)
         # SEC-FIX(R7-S-08): 原问题-status=expired/cancelled 时 active_only=False 返回全部，过滤失效;
         # 修复-按 status 三态过滤：active→仅活跃，expired→仅过期，cancelled→仅已取消
         active_only = status == "active"
-        silences = manager.list_silences(
+        silences = await manager.list_silences(
             device_id=device_id,
             rule_id=rule_id,
             active_only=active_only,
@@ -205,13 +209,15 @@ async def list_alarm_silences(
             silences = [
                 s
                 for s in silences
-                if _parse_silence_end_time(s.get("end_time")) is not None
-                and _parse_silence_end_time(s.get("end_time")) < now
+                if (end_dt := _parse_silence_end_time(s.get("end_time"))) is not None
+                and end_dt < now
             ]
         elif status == "cancelled":
             silences = [s for s in silences if s.get("cancelled_at") is not None]
         if user["role"] != "admin":
             accessible_device_ids = await _get_accessible_device_ids_for_alarms(user)
+            if accessible_device_ids is None:
+                accessible_device_ids = set()
             silences = [s for s in silences if not s.get("device_id") or s.get("device_id") in accessible_device_ids]
         total = len(silences)
         start = (pagination.page - 1) * pagination.size
@@ -232,6 +238,7 @@ async def list_alarm_silences(
 @router.get("/correlation", response_model=ApiResponse)
 async def get_alarm_correlations(
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_READ)),
+    db: DatabaseDep = None,  # type: ignore[assignment]
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -239,10 +246,12 @@ async def get_alarm_correlations(
     try:
         from edgelite.services.alarm_correlation import get_alarm_correlation_manager
 
-        manager = get_alarm_correlation_manager()
+        manager = get_alarm_correlation_manager(db)
         groups = manager.get_groups(limit=limit, offset=offset)
         if user["role"] != "admin":
             accessible_device_ids = await _get_accessible_device_ids_for_alarms(user)
+            if accessible_device_ids is None:
+                accessible_device_ids = set()
             groups = [
                 g for g in groups if not g.get("root_device_id") or g.get("root_device_id") in accessible_device_ids
             ]
@@ -306,8 +315,8 @@ async def ack_alarm(
     alarm_id: Annotated[str, Path(max_length=128)],
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
-    audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
     request: Request = None,
+    audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
         if user["role"] != "admin":
@@ -352,8 +361,8 @@ async def recover_alarm(
     alarm_id: Annotated[str, Path(max_length=128)],
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
-    audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
     request: Request = None,
+    audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
         if user["role"] != "admin":
@@ -400,8 +409,8 @@ async def delete_alarm(
     alarm_id: Annotated[str, Path(max_length=128)],
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_DELETE)),
-    audit_svc: AuditServiceDep = None,
     request: Request = None,
+    audit_svc: AuditServiceDep = None,
 ):
     """FIXED(严重): 物理删除告警记录（仅 admin）。
 
@@ -569,6 +578,7 @@ class SilenceCreateRequest(BaseModel):
 async def create_alarm_silence(
     req: SilenceCreateRequest,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
+    db: DatabaseDep = None,  # type: ignore[assignment]
     request: Request = None,
     audit_svc: AuditServiceDep = None,
 ):
@@ -581,8 +591,8 @@ async def create_alarm_silence(
             await _check_alarm_device_access(req.device_id, user)
         from edgelite.services.alarm_silence import get_alarm_silence_manager
 
-        manager = get_alarm_silence_manager()
-        result = manager.create_silence(
+        manager = get_alarm_silence_manager(db)
+        result = await manager.create_silence(
             device_id=req.device_id,
             rule_id=req.rule_id,
             start_time=req.start_time,
@@ -630,6 +640,7 @@ async def create_alarm_silence(
 async def delete_alarm_silence(
     silence_id: Annotated[str, Path(max_length=128)],
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
+    db: DatabaseDep = None,  # type: ignore[assignment]
     request: Request = None,
     audit_svc: AuditServiceDep = None,
 ):
@@ -637,12 +648,12 @@ async def delete_alarm_silence(
     try:
         from edgelite.services.alarm_silence import get_alarm_silence_manager
 
-        manager = get_alarm_silence_manager()
+        manager = get_alarm_silence_manager(db)
         # 第四轮修复: 记录被删除的静默规则信息用于审计
         _silence_info = None
         if user["role"] != "admin":
             # R8-G-01: 改用 get_silence_by_id 直接查询，避免 list_silences 分页导致漏查
-            target = manager.get_silence_by_id(silence_id)
+            target = await manager.get_silence_by_id(silence_id)
             # FIXED(致命): 原问题-target.get("device_id")为空字符串时为 falsy，
             # 导致全局静默跳过权限检查，非 admin 可删除 admin 创建的全局静默（权限提升漏洞）
             # 修复：全局静默（device_id 为空）必须 admin 权限，与 create 逻辑对称
@@ -659,8 +670,8 @@ async def delete_alarm_silence(
             _silence_info = target
         else:
             # admin 用户也获取静默信息用于审计
-            _silence_info = manager.get_silence_by_id(silence_id)
-        deleted = manager.delete_silence(silence_id)
+            _silence_info = await manager.get_silence_by_id(silence_id)
+        deleted = await manager.delete_silence(silence_id)
         if not deleted:
             raise HTTPException(status_code=404, detail=AlarmErrors.SILENCE_NOT_FOUND)
         # 第四轮修复: 审计日志记录告警静默删除

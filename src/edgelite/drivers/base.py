@@ -244,7 +244,7 @@ class DriverPlugin(ABC):
     _failure_threshold: int = 5
     _recovery_timeout: float = 30.0
     _half_open_max_calls: int = 3
-    _half_open_calls: int = 0
+    _half_open_calls: dict[str, int] = {}
 
     _VALID_STATE_TRANSITIONS: dict[str, set[str]] = {
         ConnectionState.DISCONNECTED.value: {
@@ -326,7 +326,7 @@ class DriverPlugin(ABC):
         self._executor_max_workers: int = 4
         self._executor_name_prefix: str = "driver_io"
         # BASE-MED-001: 追踪正在运行的 Future 以便正确清理
-        self._executor_futures: set[concurrent.futures.Future] = set()
+        self._executor_futures: set[asyncio.Future] = set()
         # FIXED-P1: _executor_futures 集合无上限，添加大小上限告警阈值
         # 原问题：_executor_futures 集合无大小限制，若大量并发任务提交且未及时清理（如超时未触发finally），
         #         集合可能无限增长导致内存泄漏，且无法感知异常堆积
@@ -435,7 +435,7 @@ class DriverPlugin(ABC):
                     self._executor = self._create_executor()
 
         loop = asyncio.get_running_loop()
-        future: concurrent.futures.Future | None = None
+        future: asyncio.Future | None = None
 
         def _wrapped_func():
             """包装函数：检查 shutdown 标志，避免线程残留"""
@@ -460,7 +460,7 @@ class DriverPlugin(ABC):
                             func.__name__ if hasattr(func, "__name__") else str(func),
                         )
                 try:
-                    result = await asyncio.wait_for(future, timeout=timeout)
+                    result: Any = await asyncio.wait_for(future, timeout=timeout)
                     return result
                 except TimeoutError:
                     func_name = func.__name__ if hasattr(func, "__name__") else str(func)
@@ -815,8 +815,8 @@ class DriverPlugin(ABC):
             # FIXED-P0: 原问题-同步回退路径先获取_circuit_lock再获取_stats_lock，与异步路径顺序相反构成ABBA死锁；
             # 统一锁获取顺序为_stats_lock→_circuit_lock，先复制数据再获取_circuit_lock
             with self._stats_lock:
-                stats = self._health_stats.get(device_id)
-                consecutive = stats.consecutive_failures if stats else 0
+                cur_stats: DriverHealthStats | None = self._health_stats.get(device_id)
+                consecutive = cur_stats.consecutive_failures if cur_stats else 0
             with self._circuit_lock:
                 state = self._circuit_states.get(device_id, "closed")
                 # FIXED-P2: 同步回退路径补充half_open→open转换，与异步路径_record_circuit_failure一致

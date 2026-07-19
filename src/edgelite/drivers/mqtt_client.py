@@ -51,7 +51,7 @@ def _is_broker_host_safe(host: str) -> bool:
     if not host:
         return False
 
-    def _check_ip(ip: ipaddress._BaseAddress) -> bool:
+    def _check_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         """单个 IP 地址安全校验：loopback 放行，其余危险地址拦截。"""
         if ip.is_loopback:
             return True
@@ -494,9 +494,9 @@ class MqttClientDriver(DriverPlugin):
         else:
             logger.info("[mqtt] code=RECONNECT_RESET msg=Reconnect state already active for device=%s", device_id)
 
-    async def add_device(self, device_id: str, config: dict, points: list[dict]) -> None:
+    async def add_device(self, device_id: str, config: dict, points: list[dict] | None = None) -> None:
         self._device_configs[device_id] = config
-        self._device_points[device_id] = points
+        self._device_points[device_id] = points if points is not None else []
         self._latest_values[device_id] = {}
 
     async def remove_device(self, device_id: str) -> None:
@@ -732,7 +732,7 @@ class MqttClientDriver(DriverPlugin):
                         if cert_reqs_str in ("optional", "none"):
                             ssl_context.check_hostname = False
 
-                        client_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_context)
+                        client_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_context)  # type: ignore[call-arg]  # aiomqtt 类型存根缺失 ssl_context 字段
                         logger.info(
                             "[mqtt] device= code=TLS_OK TLS enabled, cert_reqs=%s", cert_reqs_str
                         )  # FIXED-P2: TLS成功时code应为TLS_OK
@@ -776,7 +776,7 @@ class MqttClientDriver(DriverPlugin):
                                 cert_reqs=getattr(tls_config, "cert_reqs", "required"),
                             )
                             if ssl_context:
-                                client_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_context)
+                                client_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_context)  # type: ignore[call-arg]  # aiomqtt 类型存根缺失 ssl_context 字段
                                 logger.info(
                                     "[mqtt] device= code=TLS_OK TLS enabled (global config)"
                                 )  # FIXED-P2: TLS成功时code应为TLS_OK
@@ -989,21 +989,24 @@ class MqttClientDriver(DriverPlugin):
 
         回调仅做入队，由独立的 _message_consumer 协程处理。
         """
+        msg_queue = self._msg_queue
+        if msg_queue is None:
+            return
         try:
             async for message in client.messages:
                 if not self._running:
                     break
                 # MQTT-MED-001: 快速入队，立即返回，不阻塞
                 try:
-                    self._msg_queue.put_nowait(message)
+                    msg_queue.put_nowait(message)
                 except asyncio.QueueFull:
                     # FIXED-P1: 队列满时先get腾出空间再put，保证新消息入队
                     # 原问题：get_nowait可能抛QueueEmpty被泛Exception捕获，后续put_nowait可能不执行
                     # 修复：get_nowait用contextlib.suppress(QueueEmpty)包裹，确保put执行
                     with contextlib.suppress(asyncio.QueueEmpty):
-                        self._msg_queue.get_nowait()
+                        msg_queue.get_nowait()
                     try:
-                        self._msg_queue.put_nowait(message)
+                        msg_queue.put_nowait(message)
                     except asyncio.QueueFull:
                         logger.warning("[mqtt] message_loop: queue still full after get, dropping message")
         except asyncio.CancelledError:
@@ -1016,10 +1019,13 @@ class MqttClientDriver(DriverPlugin):
     async def _message_consumer(self) -> None:
         """MQTT-MED-001: 消息消费者协程（从队列取出消息并处理）"""
         # FIXED-P2: _message_consumer异常处理层次混乱，简化为两层try/except
+        msg_queue = self._msg_queue
+        if msg_queue is None:
+            return
         while self._running:
             try:
                 try:
-                    message = await asyncio.wait_for(self._msg_queue.get(), timeout=1.0)
+                    message = await asyncio.wait_for(msg_queue.get(), timeout=1.0)
                 except TimeoutError:
                     continue
 

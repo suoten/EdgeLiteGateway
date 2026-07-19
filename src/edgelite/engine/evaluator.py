@@ -7,6 +7,7 @@ import contextlib
 import logging
 import time
 from datetime import UTC, datetime
+from typing import cast
 
 from edgelite.constants import _POINT_VALUE_CACHE_MAX, _POINT_VALUE_CACHE_TTL, _RULE_CACHE_TTL
 from edgelite.engine.event_bus import AlarmEvent, EventBus, PointUpdateEvent
@@ -45,7 +46,7 @@ class RuleEvaluator:
             0  # FIXED-BugR4X: 缓存世代标记，invalidate_cache递增，回填时校验以避免in-flight查询回填陈旧数据
         )
         self._task: asyncio.Task | None = None
-        self._point_value_cache: dict[str, tuple[float, float]] = {}
+        self._point_value_cache: dict[str, tuple[float | None, float]] = {}
         self._point_cache_ttl: float = _POINT_VALUE_CACHE_TTL
         self._point_cache_max_size: int = _POINT_VALUE_CACHE_MAX
         self._tracker_cleanup_interval: float = 600.0  # FIXED: P2-3 duration_tracker无限增长，每10分钟清理过期条目
@@ -130,9 +131,9 @@ class RuleEvaluator:
                 del self._duration_tracker[k]
             # R6-S-06: 同时清理 _condition_first_met 中以 rule_id: 为前缀的键，防止规则删除后内存泄漏
             prefix = f"{rule_id}:"
-            cond_keys_to_remove = [k for k in self._condition_first_met if k.startswith(prefix)]
-            for k in cond_keys_to_remove:
-                del self._condition_first_met[k]
+            cond_keys_to_remove = [ck for ck in self._condition_first_met if ck.startswith(prefix)]
+            for ck in cond_keys_to_remove:
+                del self._condition_first_met[ck]
 
     async def invalidate_cache(
         self, device_id: str | None = None, point_name: str | None = None
@@ -344,7 +345,7 @@ class RuleEvaluator:
     async def _check_conditions(
         self,
         conditions: list[dict],
-        point_values: dict[str, float],
+        point_values: dict[str, float | None],
         logic: str,
         device_id: str = "",
         rule_id: str = "",
@@ -375,7 +376,7 @@ class RuleEvaluator:
                 ):
                     all_available = False
                     break
-                value = point_values.get(point)
+                value = point_values.get(cast(str, point))
                 if value is None or not point:
                     all_available = False
                     break
@@ -416,12 +417,12 @@ class RuleEvaluator:
                 value = ai_result.get(cond.get("field", "anomaly_score"), 0)
             # 窗口聚合条件：从流计算引擎或InfluxDB获取聚合值
             elif window_seconds > 0 and aggregate and device_id:
-                value = await self._get_window_aggregate(device_id, point, window_seconds, aggregate)
+                value = await self._get_window_aggregate(device_id, cast(str, point), window_seconds, aggregate)
                 if value is None:
                     results.append(False)
                     continue
             else:
-                value = point_values.get(point)
+                value = point_values.get(cast(str, point))
 
             if value is None or not point:
                 results.append(False)
@@ -472,7 +473,7 @@ class RuleEvaluator:
     async def _evaluate_ai_conditions(
         self,
         conditions: list[dict],
-        point_values: dict[str, float],
+        point_values: dict[str, float | None],
         logic: str,
         device_id: str,
     ) -> bool:
@@ -621,7 +622,7 @@ class RuleEvaluator:
         return None
 
     @staticmethod
-    async def _eval_script(script: str, point_values: dict[str, float]) -> bool:
+    async def _eval_script(script: str, point_values: dict[str, float | None]) -> bool:
         """在安全沙箱中执行脚本规则。
 
         FIXED-P0: 原实现使用 RestrictedPython+exec() 同步阻塞事件循环，无超时和资源限制，
@@ -668,7 +669,7 @@ class RuleEvaluator:
                 return
             self._recent_firings[rule_id] = now
             if len(self._recent_firings) > self._recent_firings_max:  # FIXED-P1: 超限时淘汰最旧条目
-                oldest_key = min(self._recent_firings, key=self._recent_firings.get)
+                oldest_key = min(self._recent_firings, key=lambda k: self._recent_firings[k])
                 del self._recent_firings[oldest_key]
 
         # FIXED: 原问题-告警收敛查询和创建无异常保护，数据库异常导致评估循环崩溃
