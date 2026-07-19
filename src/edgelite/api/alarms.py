@@ -220,6 +220,10 @@ async def list_alarm_silences(
         return PagedResponse(data=page_items, total=total, page=pagination.page, size=pagination.size)
     except HTTPException:
         raise
+    except (ImportError, AttributeError) as e:
+        # 500-修复: alarm_silence 模块未加载/未初始化时返回 503 而非 500
+        logger.error("alarm_silence manager not available: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
     except Exception as e:
         logger.error("List alarm silences failed: %s", e)
         raise HTTPException(status_code=500, detail=AlarmErrors.LIST_FAILED) from e
@@ -243,6 +247,12 @@ async def get_alarm_correlations(
                 g for g in groups if not g.get("root_device_id") or g.get("root_device_id") in accessible_device_ids
             ]
         return ApiResponse(data={"groups": groups, "limit": limit, "offset": offset})
+    except HTTPException:
+        raise
+    except (ImportError, AttributeError) as e:
+        # 500-修复: alarm_correlation 模块未加载/未初始化时返回 503 而非 500
+        logger.error("alarm_correlation manager not available: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
     except Exception as e:
         logger.error("Get alarm correlations failed: %s", e)
         raise HTTPException(status_code=500, detail=AlarmErrors.LIST_FAILED) from e

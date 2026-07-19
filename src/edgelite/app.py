@@ -729,6 +729,7 @@ def create_app() -> FastAPI:
 
     # A-03: 请求耗时记录中间件 - 记录每个请求的处理时长到日志，并在响应头返回 X-Response-Time(ms)
     # 便于客户端与服务端排查慢请求；慢请求（>1s）以 warning 级别记录，便于监控告警
+    # 可观测性加固: 同时记录 HTTP 请求计数 + 5xx 计数 + 延迟直方图到 Prometheus 指标
     import time as _time_mod
 
     @app.middleware("http")
@@ -736,34 +737,52 @@ def create_app() -> FastAPI:
         """记录每个请求的处理耗时，注入 ``X-Response-Time`` 响应头。
 
         超过 1 秒的请求以 warning 级别记录，便于监控慢请求。
+        所有响应（含 5xx）自动记录到 ``edgelite_http_requests_total`` 和
+        ``edgelite_http_requests_5xx_total`` 指标，便于 Prometheus 告警。
+        5xx 的详细结构化日志（含 request_id）由异常处理器写入，避免本中间件
+        在 RequestIdMiddleware 之外执行导致 request_id 丢失。
         """
         _start_ts = _time_mod.perf_counter()
+        response = None
+        status_code = 500  # 防御性默认值，异常路径下使用
         try:
             response = await call_next(request)
+            status_code = response.status_code
             return response
         finally:
             _elapsed_ms = (_time_mod.perf_counter() - _start_ts) * 1000.0
+            _elapsed_s = _elapsed_ms / 1000.0
             try:
                 # 注入响应头（仅对已构造的 response 有效；异常路径由全局 handler 重新构造响应，此处跳过）
-                if "response" in locals() and response is not None:
+                if response is not None:
                     response.headers["X-Response-Time"] = f"{_elapsed_ms:.2f}"
             except Exception as header_err:
                 # R11-DRV-11: 原问题-except Exception: pass 完全静默吞没异常；改为 debug 日志记录，便于排查响应头注入失败  # noqa: E501
                 logger.debug("Response header injection failed: %s", header_err)
+            # 可观测性: 记录 HTTP 请求指标（计数 + 5xx 计数 + 延迟直方图）
+            try:
+                from edgelite.api.metrics import record_http_request
+
+                record_http_request(request.method, request.url.path, status_code, _elapsed_s)
+            except Exception as metrics_err:
+                logger.debug("record_http_request failed: %s", metrics_err)
             # 慢请求 warning，正常请求 debug，避免日志噪音
-            if _elapsed_ms > 1000.0:
+            # 5xx 的详细日志由异常处理器写入（含 request_id + exception details）
+            if status_code < 500 and _elapsed_ms > 1000.0:
                 logger.warning(
-                    "Slow request: %s %s %.2fms",
+                    "Slow request: %s %s %.2fms status=%d",
                     request.method,
                     request.url.path,
                     _elapsed_ms,
+                    status_code,
                 )
-            else:
+            elif status_code < 500:
                 logger.debug(
-                    "Request: %s %s %.2fms",
+                    "Request: %s %s %.2fms status=%d",
                     request.method,
                     request.url.path,
                     _elapsed_ms,
+                    status_code,
                 )
 
     # FIXED(G-02): 注册 RequestIdFilter 到根 logger，将 contextvar 中的 request_id
@@ -906,6 +925,9 @@ def create_app() -> FastAPI:
         Starlette 和 FastAPI 的 HTTPException 都继承自 starlette.exceptions.HTTPException。
         FastAPI 内置的 HTTPException 处理器返回 {"detail": "..."} 格式，
         必须显式注册此处理器才能统一格式。
+
+        可观测性加固: 5xx HTTPException 写结构化日志（含 request_id、error_code），
+        便于通过 request_id 串联请求链路；request_id 由 RequestIdFilter 自动附加。
         """
         from enum import Enum
 
@@ -936,7 +958,18 @@ def create_app() -> FastAPI:
             if warnings:
                 parts.extend(str(w) for w in warnings)
             message = "; ".join(parts) if parts else str(detail)
-        logger.warning("HTTPException: %s %s -> %s %s", request.method, request.url.path, status_code, message)
+        # 可观测性: 5xx 写 error 级别结构化日志（request_id 由 RequestIdFilter 自动附加）
+        if status_code >= 500:
+            logger.error(
+                "HTTP_5XX exception: method=%s path=%s status=%d error_code=%s message=%s",
+                request.method,
+                request.url.path,
+                status_code,
+                error_code or "UNKNOWN",
+                message,
+            )
+        else:
+            logger.warning("HTTPException: %s %s -> %s %s", request.method, request.url.path, status_code, message)
         return JSONResponse(
             status_code=status_code,
             content=ApiResponse(code=status_code, message=message, data=None, error_code=error_code).model_dump(),
@@ -944,16 +977,27 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        """全局未捕获异常处理器，返回 500 统一响应格式，避免堆栈泄露。"""
+        """全局未捕获异常处理器，返回 500 统一响应格式，避免堆栈泄露。
+
+        可观测性加固: 写结构化日志（含 request_id、exception type、message），
+        便于通过 request_id 串联请求链路；request_id 由 RequestIdFilter 自动附加。
+        堆栈只写日志不外泄给客户端。
+        """
         if getattr(config.server, "debug_api_enabled", False):
-            logger.exception("Unhandled exception: %s %s -> %s", request.method, request.url.path, exc)
-        else:
-            logger.error(
-                "Unhandled exception: %s %s -> %s: [%s]",
+            logger.exception(
+                "HTTP_5XX unhandled exception: method=%s path=%s exc_type=%s message=%s",
                 request.method,
                 request.url.path,
-                exc,
                 type(exc).__name__,
+                exc,
+            )
+        else:
+            logger.error(
+                "HTTP_5XX unhandled exception: method=%s path=%s exc_type=%s message=%s",
+                request.method,
+                request.url.path,
+                type(exc).__name__,
+                exc,
             )
 
         return JSONResponse(

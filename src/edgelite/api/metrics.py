@@ -316,6 +316,10 @@ _driver_read_errors: Any = None
 _driver_write_total: Any = None
 _driver_write_errors: Any = None
 _driver_reconnect_total: Any = None
+# 可观测性-5xx 计数器：所有 HTTP 5xx 响应自动累加，便于 Prometheus 告警
+_http_requests_total: Any = None
+_http_requests_5xx_total: Any = None
+_http_request_duration_seconds: Any = None
 
 
 def _init_prometheus_client_metrics() -> None:
@@ -324,6 +328,7 @@ def _init_prometheus_client_metrics() -> None:
     global _collect_duration_seconds, _rules_active, _alarms_firing
     global _mqtt_forward_total, _mqtt_forward_errors, _influxdb_fallback_mode
     global _driver_read_total, _driver_read_errors, _driver_write_total, _driver_write_errors, _driver_reconnect_total
+    global _http_requests_total, _http_requests_5xx_total, _http_request_duration_seconds
 
     assert _PROMETHEUS_CLIENT_AVAILABLE  # 仅当 prometheus_client 可用时调用
     assert CollectorRegistry is not None
@@ -429,6 +434,85 @@ def _init_prometheus_client_metrics() -> None:
         ["driver"],
         registry=_registry,
     )
+    # 可观测性: HTTP 请求计数器（按方法/路径/状态码），路径已归一化避免高基数
+    _http_requests_total = Counter(
+        "edgelite_http_requests_total",
+        "Total HTTP requests by method, path template and status code",
+        ["method", "path", "status_code"],
+        registry=_registry,
+    )
+    # 可观测性: 5xx 响应计数器（按方法/路径），方便 Prometheus 告警规则
+    # 仅 5xx 单独计数，便于 alert: rate(edgelite_http_requests_5xx_total[5m]) > 0
+    _http_requests_5xx_total = Counter(
+        "edgelite_http_requests_5xx_total",
+        "Total HTTP 5xx responses by method and path (server errors)",
+        ["method", "path"],
+        registry=_registry,
+    )
+    # 可观测性: HTTP 请求耗时直方图（按方法/路径），便于 P50/P95/P99 延迟监控
+    _http_request_duration_seconds = Histogram(
+        "edgelite_http_request_duration_seconds",
+        "HTTP request duration in seconds by method and path",
+        ["method", "path"],
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+        registry=_registry,
+    )
+
+
+def record_http_request(method: str, path: str, status_code: int, duration_seconds: float) -> None:
+    """记录一次 HTTP 请求的指标（5xx 计数 + 总计数 + 延迟）。
+
+    供 app.py 中的中间件 / 异常处理器调用。对路径做归一化：
+    - 路径参数替换为 {param}（避免高基数）
+    - 查询字符串剥离
+    - 长度截断到 200 字符以内
+
+    若 prometheus_client 不可用，则记到自定义 PrometheusExporter。
+    """
+    # 路径归一化：剥离查询字符串 + 路径参数替换
+    normalized = path.split("?", 1)[0].split("#", 1)[0]
+    # 将 /api/v1/devices/123 转为 /api/v1/devices/{id}
+    import re
+
+    normalized = re.sub(r"/\d+(?=/|$)", "/{id}", normalized)
+    # UUID 路径参数
+    normalized = re.sub(r"/[0-9a-fA-F]{8}-[0-9a-fA-F-]+(?=/|$)", "/{uuid}", normalized)
+    # 长度截断
+    if len(normalized) > 200:
+        normalized = normalized[:197] + "..."
+
+    try:
+        if _PROMETHEUS_CLIENT_AVAILABLE and _http_requests_total is not None:
+            _http_requests_total.labels(method=method, path=normalized, status_code=str(status_code)).inc()
+            if status_code >= 500:
+                _http_requests_5xx_total.labels(method=method, path=normalized).inc()
+            if _http_request_duration_seconds is not None:
+                _http_request_duration_seconds.labels(method=method, path=normalized).observe(duration_seconds)
+        else:
+            # 降级到自定义导出器
+            exporter = get_exporter()
+            exporter.counter(
+                "edgelite_http_requests_total",
+                1,
+                {"method": method, "path": normalized, "status_code": str(status_code)},
+                "Total HTTP requests by method, path and status code",
+            )
+            if status_code >= 500:
+                exporter.counter(
+                    "edgelite_http_requests_5xx_total",
+                    1,
+                    {"method": method, "path": normalized},
+                    "Total HTTP 5xx responses by method and path",
+                )
+            exporter.histogram(
+                "edgelite_http_request_duration_seconds",
+                duration_seconds,
+                {"method": method, "path": normalized},
+                "HTTP request duration in seconds",
+            )
+    except Exception as e:
+        # 指标采集失败不应影响请求本身，仅 debug 日志
+        logger.debug("record_http_request failed: %s", e)
 
 
 if _PROMETHEUS_CLIENT_AVAILABLE:

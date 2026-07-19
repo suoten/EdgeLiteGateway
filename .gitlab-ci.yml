@@ -36,6 +36,8 @@ lint:
     - ruff format --check .
     - python scripts/check_deps_consistency.py
     - python scripts/compare_config.py
+    - python scripts/check_architecture.py
+    - python scripts/check_api_contract.py
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH =~ /^(main|master|develop)$/

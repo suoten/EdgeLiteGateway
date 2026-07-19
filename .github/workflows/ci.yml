@@ -44,6 +44,8 @@ jobs:
         run: python scripts/compare_config.py
       - name: Architecture dependency check
         run: python scripts/check_architecture.py
+      - name: API contract check (frontend/backend alignment)
+        run: python scripts/check_api_contract.py
       - name: Docker Compose config validation
         run: docker compose -f docker/docker-compose.yml --profile monitoring config --quiet
 

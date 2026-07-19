@@ -257,6 +257,12 @@ async def get_collect_stats(
             "success_rate": round(online_devices / total_devices, 4) if total_devices > 0 else 0.0,
         }
         return ApiResponse(data=stats)
+    except HTTPException:
+        raise
+    except (AttributeError, RuntimeError, ConnectionError) as e:
+        # 500-修复: 设备服务未初始化/DB 未就绪时返回 503 而非 500
+        logger.error("collect stats service not ready: %s", e)
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
     except Exception as e:
         logger.error("Failed to get collection stats: %s", e)
         raise HTTPException(status_code=500, detail=DataErrors.QUERY_FAILED) from e

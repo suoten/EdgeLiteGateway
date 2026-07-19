@@ -201,18 +201,24 @@ def test_ai_models_enhanced_endpoints_exist():
 
 
 def test_all_new_modules_registered_in_app():
-    """404修复: create_app() 后所有新模块路由可访问"""
+    """404修复: create_app() 后所有新模块路由可访问
+
+    FastAPI 0.110+ 中 include_router 会将子 router 包成 _IncludedRouter 实例，
+    需通过 original_router 属性解包才能拿到子 APIRouter 的 routes。
+    """
     from edgelite.app import create_app
 
     app = create_app()
-    # FastAPI include_router 后，路由以 APIRoute 形式加入 app.routes，path 含完整前缀
     all_paths = set()
     for route in app.routes:
+        # 解包 _IncludedRouter → 拿到原始 APIRouter
+        inner = getattr(route, "original_router", None) or route
+        # 直接挂在 app 上的 APIRoute/APIWebSocketRoute/Mount 有 path
         if hasattr(route, "path"):
             all_paths.add(route.path)
-        # 嵌套路由（Mount）
-        if hasattr(route, "routes"):
-            for sub in route.routes:
+        # 解包后的 APIRouter.routes 含具体子路由
+        if hasattr(inner, "routes"):
+            for sub in inner.routes:
                 if hasattr(sub, "path"):
                     all_paths.add(sub.path)
 
@@ -304,6 +310,39 @@ def test_ai_inference_runtime_error_returns_503():
     assert "503" in source, "inference 未将 RuntimeError 转为 503"
 
 
+def test_alarms_silence_import_error_returns_503():
+    """500修复: alarms /silence 端点在 alarm_silence 模块未加载时返回 503 而非 500"""
+    import inspect
+    from edgelite.api.alarms import list_alarm_silences
+
+    source = inspect.getsource(list_alarm_silences)
+    assert "ImportError" in source, "list_alarm_silences 未捕获 ImportError"
+    assert "AttributeError" in source, "list_alarm_silences 未捕获 AttributeError"
+    assert "503" in source, "list_alarm_silences 未将 ImportError 转为 503"
+
+
+def test_alarms_correlation_import_error_returns_503():
+    """500修复: alarms /correlation 端点在 alarm_correlation 模块未加载时返回 503"""
+    import inspect
+    from edgelite.api.alarms import get_alarm_correlations
+
+    source = inspect.getsource(get_alarm_correlations)
+    assert "ImportError" in source, "get_alarm_correlations 未捕获 ImportError"
+    assert "AttributeError" in source, "get_alarm_correlations 未捕获 AttributeError"
+    assert "503" in source, "get_alarm_correlations 未将 ImportError 转为 503"
+
+
+def test_data_stats_service_not_ready_returns_503():
+    """500修复: data /stats 端点在设备服务未就绪时返回 503 而非 500"""
+    import inspect
+    from edgelite.api.data import get_collect_stats
+
+    source = inspect.getsource(get_collect_stats)
+    assert "AttributeError" in source, "get_collect_stats 未捕获 AttributeError"
+    assert "RuntimeError" in source, "get_collect_stats 未捕获 RuntimeError"
+    assert "503" in source, "get_collect_stats 未将服务未就绪异常转为 503"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Part 7: 前端路径对齐验证
 # ═══════════════════════════════════════════════════════════════════════════
@@ -325,13 +364,14 @@ def test_frontend_no_app_update_api_call():
     """404修复: 前端 index.ts 不再调用 /app-update/* 路径（注释除外）"""
     import re
     content = _read_frontend_index()
-    # 移除注释和字符串中的提及，只检查实际 API 调用
     # 实际调用形式：http.get('/app-update/...') 或 http.post('/app-update/...')
-    api_call_pattern = r"http\.(get|post|put|delete)\(\s*['\"`]/app-update/"
+    # 兼容 TypeScript 泛型：http.get<ApiResponse<any>>('/app-update/...')
+    api_call_pattern = r"http\.(get|post|put|delete)(?:<[^>]*>)?\(\s*['\"`]/app-update/"
     matches = re.findall(api_call_pattern, content)
     assert not matches, f"前端仍存在 /app-update/ API 调用: {matches}"
-    # 验证已对齐 /ota/
-    assert re.search(r"http\.(get|post)\(\s*(?:URL\.OTA\.|['\"`]/ota/)", content), "前端未对齐 /ota/ 路径"
+    # 验证已对齐 /ota/（直接 /ota/ 或 URL.OTA.xxx）
+    ota_pattern = r"http\.(get|post)(?:<[^>]*>)?\(\s*(?:URL\.OTA\.|['\"`]/ota/)"
+    assert re.search(ota_pattern, content), "前端未对齐 /ota/ 路径"
 
 
 def test_frontend_no_resources_api_call():

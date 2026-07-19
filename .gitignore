@@ -102,6 +102,9 @@ docs/images/
 # ---------- 一次性修复脚本 ----------
 scripts/fix_api_detail.py
 
+# ---------- API 契约校验临时产物 ----------
+scripts/contract_report.json
+
 # ---------- 验证/测试临时文件 ----------
 _*.py
 _*.txt

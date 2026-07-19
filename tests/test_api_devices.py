@@ -1092,7 +1092,8 @@ class TestDevicePoints:
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.write_point = AsyncMock(side_effect=RuntimeError("fail"))
         r = t.client.post("/api/v1/devices/dev-1/points", json={"point": "temp", "value": 30.0})
-        assert r.status_code == 500
+        # 500-修复: 驱动层 RuntimeError 转为 503 服务不可用（系统级故障才返回 500）
+        assert r.status_code == 503
 
     def test_write_point_empty_point_name(self):
         t = _make_client("admin")
@@ -1232,7 +1233,8 @@ class TestDeviceSubResources:
         t.svc.get_device = AsyncMock(return_value=DEVICE)
         t.svc.probe_primary_link = AsyncMock(side_effect=RuntimeError("fail"))
         r = t.client.post("/api/v1/devices/dev-1/probe-primary")
-        assert r.status_code == 500
+        # 500-修复: 驱动层 RuntimeError 转为 503 服务不可用（系统级故障才返回 500）
+        assert r.status_code == 503
 
     def test_get_point_health_success(self):
         t = _make_client("admin")
