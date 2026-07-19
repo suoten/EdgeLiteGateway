@@ -460,7 +460,10 @@ export function onStatus(channel: ChannelName, handler: StatusHandler): void {
   if (!connections.has(channel)) {
     connections.set(channel, createConnection(channel))
   }
-  connections.get(channel)!.statusHandlers.add(handler)
+  const conn = connections.get(channel)!
+  conn.statusHandlers.add(handler)
+  // 立即通知当前状态，避免组件挂载后 UI 显示错误状态
+  try { handler(conn.lastStatus) } catch (e) { console.error('[WS] Status handler init error:', e) }
 }
 
 // FIXED-P0: 新增offStatus函数，允许组件单独注销status handler，防止匿名handler泄漏
