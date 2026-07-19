@@ -333,6 +333,10 @@ function connectChannel(channel: ChannelName): void {
           notifyStatus(conn, 'connected')
           return
         }
+        // 心跳 pong 响应仅更新 lastPongTime，不分发给业务 handler
+        if (data && data.type === 'pong') {
+          return
+        }
         conn.handlers.forEach((handler) => {
           try { handler(data) } catch (e) { console.error('[WS] Message handler error:', e) }
         })

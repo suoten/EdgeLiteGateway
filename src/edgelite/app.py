@@ -397,11 +397,14 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 if len(data) > 1024 * 1024:
                     await websocket.close(code=1009, reason="消息过大")
                     break
-                # FIXED(一般): 处理客户端 pong 响应，更新心跳记录
+                # FIXED(一般): 处理客户端心跳：ping→pong 响应 + pong 记时
                 try:
                     msg = json.loads(data)
-                    if isinstance(msg, dict) and msg.get("type") == "pong":
-                        _app_state.ws_manager.record_pong(websocket)
+                    if isinstance(msg, dict):
+                        if msg.get("type") == "pong":
+                            _app_state.ws_manager.record_pong(websocket)
+                        elif msg.get("type") == "ping":
+                            await websocket.send_json({"type": "pong", "ts": msg.get("ts", 0)})
                 except (json.JSONDecodeError, TypeError):
                     pass
         except WebSocketDisconnect:
@@ -433,11 +436,14 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 if len(data) > 1024 * 1024:
                     await websocket.close(code=1009, reason="消息过大")
                     break
-                # FIXED(一般): 处理客户端 pong 响应
+                # FIXED(一般): 处理客户端心跳：ping→pong 响应 + pong 计时
                 try:
                     msg = json.loads(data)
-                    if isinstance(msg, dict) and msg.get("type") == "pong":
-                        _app_state.ws_manager.record_pong(websocket)
+                    if isinstance(msg, dict):
+                        if msg.get("type") == "pong":
+                            _app_state.ws_manager.record_pong(websocket)
+                        elif msg.get("type") == "ping":
+                            await websocket.send_json({"type": "pong", "ts": msg.get("ts", 0)})
                 except (json.JSONDecodeError, TypeError):
                     pass
         except WebSocketDisconnect:
@@ -468,11 +474,14 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 if len(data) > 1024 * 1024:
                     await websocket.close(code=1009, reason="消息过大")
                     break
-                # FIXED(一般): 处理客户端 pong 响应
+                # FIXED(一般): 处理客户端心跳：ping→pong 响应 + pong 计时
                 try:
                     msg = json.loads(data)
-                    if isinstance(msg, dict) and msg.get("type") == "pong":
-                        _app_state.ws_manager.record_pong(websocket)
+                    if isinstance(msg, dict):
+                        if msg.get("type") == "pong":
+                            _app_state.ws_manager.record_pong(websocket)
+                        elif msg.get("type") == "ping":
+                            await websocket.send_json({"type": "pong", "ts": msg.get("ts", 0)})
                 except (json.JSONDecodeError, TypeError):
                     pass
         except WebSocketDisconnect:
@@ -553,9 +562,11 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 try:
                     data_parsed = _json.loads(data)
                     _last_msg_type = data_parsed.get("type") if isinstance(data_parsed, dict) else None
-                    # FIXED: 处理客户端 pong 响应，更新心跳记录，防止60秒后心跳超时误杀连接
-                    if isinstance(data_parsed, dict) and data_parsed.get("type") == "pong":
-                        _app_state.ws_manager.record_pong(websocket)
+                    if isinstance(data_parsed, dict):
+                        if data_parsed.get("type") == "pong":
+                            _app_state.ws_manager.record_pong(websocket)
+                        elif data_parsed.get("type") == "ping":
+                            await websocket.send_text(_json.dumps({"type": "pong", "ts": data_parsed.get("ts", 0)}))
                 except _json.JSONDecodeError:
                     _last_msg_type = "(invalid JSON)"
                 result = await _app_state.integration_endpoint.handle_message(session_id or "", data)
@@ -606,11 +617,14 @@ def _register_websocket_routes(app: FastAPI) -> None:
                 if len(data) > 1024 * 1024:
                     await websocket.close(code=1009, reason="消息过大")
                     break
-                # FIXED(一般): 处理客户端 pong 响应
+                # FIXED(一般): 处理客户端心跳：ping→pong 响应 + pong 计时
                 try:
                     msg = json.loads(data)
-                    if isinstance(msg, dict) and msg.get("type") == "pong":
-                        _app_state.ws_manager.record_pong(websocket)
+                    if isinstance(msg, dict):
+                        if msg.get("type") == "pong":
+                            _app_state.ws_manager.record_pong(websocket)
+                        elif msg.get("type") == "ping":
+                            await websocket.send_json({"type": "pong", "ts": msg.get("ts", 0)})
                 except (json.JSONDecodeError, TypeError):
                     pass
         except WebSocketDisconnect:
