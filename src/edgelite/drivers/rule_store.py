@@ -84,23 +84,26 @@ class RuleStore:
         snap = rule.to_dict()
         snap_json = json.dumps(snap, ensure_ascii=False, default=str)
         with self._lock:
+            db = self._db
+            assert db is not None
             try:
-                self._db.execute(
+                db.execute(
                     "INSERT INTO rules(rule_id, snapshot, updated_at) VALUES(?,?,?) ON CONFLICT(rule_id) DO UPDATE SET snapshot=excluded.snapshot, updated_at=excluded.updated_at",
                     (rule.rule_id, snap_json, _now_iso()),
                 )
                 version = self._next_version(rule.rule_id)
-                self._db.execute(
+                db.execute(
                     "INSERT INTO rule_versions(rule_id, version, snapshot, created_at) VALUES(?,?,?,?)",
                     (rule.rule_id, version, snap_json, _now_iso()),
                 )
-                self._db.commit()
+                db.commit()
             except sqlite3.Error as e:
                 logger.error("save_rule failed for %s: %s", rule.rule_id, e)
-                self._db.rollback()
+                db.rollback()
 
     def delete_rule(self, rule_id: str) -> None:
         with self._lock:
+            assert self._db is not None
             try:
                 self._db.execute("DELETE FROM rules WHERE rule_id=?", (rule_id,))
                 self._db.commit()
@@ -112,6 +115,7 @@ class RuleStore:
         from edgelite.drivers.edge_rule_engine import EdgeRule, EdgeRuleOperator, EdgeRuleType
 
         with self._lock:
+            assert self._db is not None
             try:
                 row = self._db.execute(
                     "SELECT snapshot FROM rule_versions WHERE rule_id=? AND version=?", (rule_id, target_version)
@@ -146,6 +150,7 @@ class RuleStore:
 
     def get_versions(self, rule_id: str) -> list[dict]:
         with self._lock:
+            assert self._db is not None
             try:
                 rows = self._db.execute(
                     "SELECT version, created_at FROM rule_versions WHERE rule_id=? ORDER BY version DESC", (rule_id,)
@@ -159,6 +164,7 @@ class RuleStore:
         if not valid_ids:
             return 0
         with self._lock:
+            assert self._db is not None
             try:
                 placeholders = ",".join("?" * len(valid_ids))
                 cur = self._db.execute(f"DELETE FROM rules WHERE rule_id NOT IN ({placeholders})", tuple(valid_ids))

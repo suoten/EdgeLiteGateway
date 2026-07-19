@@ -167,7 +167,7 @@ class HistoricalDataService:
             # FIXED(严重): 原问题-非数值value导致sum()抛TypeError;
             # 修复-过滤非数值类型
             values = [
-                d.get("value") for d in data if d.get("value") is not None and isinstance(d.get("value"), (int, float))
+                v for d in data if (v := d.get("value")) is not None and isinstance(v, (int, float))
             ]
             if values:
                 result.statistics = self._calculate_statistics(values, data)
@@ -175,7 +175,7 @@ class HistoricalDataService:
         result.query_ms = (time.time() - start_time) * 1000
         return result
 
-    def _calculate_statistics(self, values: list[float], data: list[dict]) -> dict[str, Any]:
+    def _calculate_statistics(self, values: list[float | int], data: list[dict]) -> dict[str, Any]:
         """Calculate statistical summary of values"""
         if not values:
             return {}
@@ -265,7 +265,7 @@ class HistoricalDataService:
             if isinstance(pair, Exception):
                 logger.warning("query_multi_point partial failure: %s", pair)
                 continue
-            point_name, result = pair
+            point_name, result = cast("tuple[str, QueryResult]", pair)
             results[point_name] = result
 
         return results
@@ -371,7 +371,7 @@ class HistoricalDataService:
 
         # Calculate trend using linear regression
         # FIXED-P1: 原问题-d["value"]可能KeyError；改为d.get("value")安全访问
-        values = [d.get("value") for d in hourly_data if d.get("value") is not None]
+        values = [v for d in hourly_data if (v := d.get("value")) is not None]
         times = list(range(len(values)))
 
         if len(values) < 2:
@@ -623,13 +623,13 @@ class DeviceShadowService:
             self._touch_shadow(device_id)
         return shadow
 
-    async def register_update_callback(self, callback: callable) -> None:
+    async def register_update_callback(self, callback: Callable[..., Any]) -> None:
         """Register callback for shadow updates"""
         # FIXED(一般): 原问题-修改_update_callbacks无锁保护导致数据竞争; 修复-加锁保护
         async with self._lock:
             self._update_callbacks.append({"fn": callback})
 
-    async def unregister_update_callback(self, callback: callable) -> None:
+    async def unregister_update_callback(self, callback: Callable[..., Any]) -> None:
         """Unregister shadow update callback"""
         # FIXED(一般): 原问题-修改_update_callbacks无锁保护导致数据竞争; 修复-加锁保护
         async with self._lock:
@@ -728,7 +728,7 @@ _historical_service: HistoricalDataService | None = None
 _shadow_service: DeviceShadowService | None = None
 
 
-def get_historical_service(influx_storage: InfluxDBStorage | None = None) -> HistoricalDataService:
+def get_historical_service(influx_storage: InfluxDBStorage | None = None) -> HistoricalDataService | None:
     """Get or create historical data service"""
     global _historical_service
     if _historical_service is None:
@@ -741,7 +741,7 @@ def get_historical_service(influx_storage: InfluxDBStorage | None = None) -> His
     return _historical_service
 
 
-def get_shadow_service(influx_storage: InfluxDBStorage | None = None) -> DeviceShadowService:
+def get_shadow_service(influx_storage: InfluxDBStorage | None = None) -> DeviceShadowService | None:
     """Get or create device shadow service"""
     global _shadow_service
     if _shadow_service is None:

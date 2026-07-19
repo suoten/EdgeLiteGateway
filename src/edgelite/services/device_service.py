@@ -9,10 +9,10 @@ import json
 import logging
 import time
 from datetime import UTC, datetime  # FIXED-P1: read_points归一化需要
-from typing import Any
+from typing import Any, cast
 
 from edgelite.constants import _MAX_QUERY_SIZE
-from edgelite.drivers.base import DriverHealthStats
+from edgelite.drivers.base import DriverHealthStats, DriverPlugin
 from edgelite.drivers.registry import get_driver_registry
 from edgelite.drivers.simulator import SimulatorDriver
 from edgelite.engine.lifecycle import DeviceLifecycleManager
@@ -110,7 +110,7 @@ class DeviceService:
                 # FIXED-P0: 原代码调用 _get_simulator_driver() 会再次获取 self._lock，
                 # 但 asyncio.Lock 不可重入，导致死锁。改为调用 _get_simulator_driver_unlocked()，
                 # 因为 _create_device_unlocked 的调用者 create_device 已持有 self._lock。
-                driver = await self._get_simulator_driver_unlocked()
+                driver: DriverPlugin = await self._get_simulator_driver_unlocked()
                 await driver.add_device(
                     device["device_id"], {}, data.get("points", [])
                 )  # FIXED: 补充 await 并修正参数顺序
@@ -207,8 +207,11 @@ class DeviceService:
         created_by: str | None = None,
         collect_status: str | None = None,
     ) -> tuple[list[dict], int]:
-        return await self._repo.list_all(
-            page, size, status, protocol, search, created_by, collect_status=collect_status
+        return cast(
+            tuple[list[dict], int],
+            await self._repo.list_all(
+                page, size, status, protocol, search, created_by, collect_status=collect_status
+            ),
         )
 
     async def list_device_ids_by_owner(self, created_by: str) -> list[str]:
@@ -320,7 +323,7 @@ class DeviceService:
 
     async def _delete_device_unlocked(self, device_id: str) -> tuple[bool, str | None]:
         # 检查规则关联
-        rules, _ = await self._rule_repo.list_all(device_id=device_id)
+        rules, _, *_ = await self._rule_repo.list_all(device_id=device_id)
         active_rules = [r for r in rules if r.get("enabled", False)]
         if active_rules:
             rule_names = ", ".join(r["name"] for r in active_rules[:3])
@@ -1144,7 +1147,7 @@ class DeviceService:
         FIXED: 不再使用 self._lock，避免因其他操作持锁导致删除超时。
         DB 层的 delete_with_owner_check 已有原子性保证，不需要应用层互斥锁。
         """
-        rules, _ = await self._rule_repo.list_all(device_id=device_id)
+        rules, _, *_ = await self._rule_repo.list_all(device_id=device_id)
         active_rules = [r for r in rules if r.get("enabled", False)]
         if active_rules:
             rule_names = ", ".join(r["name"] for r in active_rules[:3])
@@ -1270,7 +1273,7 @@ class DeviceService:
                     )
 
         while True:
-            devices, total = await self._repo.list_all(page=page, size=size)
+            devices, total, *_ = await self._repo.list_all(page=page, size=size)
             # 并行启动当前页所有设备
             await asyncio.gather(*[_start_one_device(device) for device in devices])
             if page * size >= total:
@@ -1386,7 +1389,7 @@ class DeviceService:
             size = _MAX_QUERY_SIZE
             devices = []
             while True:
-                batch, total = await self._repo.list_all(page=page, size=size)
+                batch, total, *_ = await self._repo.list_all(page=page, size=size)
                 devices.extend(batch)
                 if page * size >= total:
                     break

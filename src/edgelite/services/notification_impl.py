@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import cast
 from urllib.parse import urlparse, urlunparse
 
 import aiohttp
@@ -190,6 +191,7 @@ class NotificationChannel(ABC):
         self._config = config
         self._enabled = config.enabled
         self._last_sent: dict[str, float] = {}  # key -> last sent timestamp
+        self._last_minute_key: str = ""  # tracks current minute for rate limit reset
         self._rate_limiter: dict[str, int] = {}  # key -> count in current minute
         # R6-S-08: 基类统一重试参数（指数退避+抖动），覆盖 DingTalk/WeCom/Email 渠道
         # WebhookChannel 已有内部重试逻辑，在其 __init__ 中将此值置为 1 以避免双重重试
@@ -231,9 +233,9 @@ class NotificationChannel(ABC):
         minute_key = str(int(now / 60))
 
         # Reset counter if minute changed
-        if minute_key != self._last_sent.get("_minute"):
+        if minute_key != self._last_minute_key:
             self._rate_limiter.clear()
-            self._last_sent["_minute"] = minute_key
+            self._last_minute_key = minute_key
             # R6-S-07: 清理 _last_sent 中过期的 per-key 条目，防止内存无限增长
             # 保留 _minute 键；移除已超过 cooldown_seconds 的条目（冷却已过，不再需要判断）
             cooldown = self._config.cooldown_seconds
@@ -767,6 +769,7 @@ Time: {notification.timestamp}
         """Synchronous email send (runs in thread pool)"""
         # FIXED-P1: 原代码无超时控制，SMTP 连接可能长时间阻塞线程池
         # 添加 30 秒超时
+        server: smtplib.SMTP
         if self._use_ssl:
             server = smtplib.SMTP_SSL(self._smtp_host, self._smtp_port, timeout=30)
         else:
@@ -803,6 +806,7 @@ Time: {notification.timestamp}
     def _test_connection(self) -> None:
         """Test SMTP connection (runs in thread pool)"""
         # FIXED-P1: 原代码无超时控制，添加 30 秒超时
+        server: smtplib.SMTP
         if self._use_ssl:
             server = smtplib.SMTP_SSL(self._smtp_host, self._smtp_port, timeout=30)
         else:
@@ -1177,7 +1181,7 @@ class NotificationManager:
                 await t
 
         # 收集结果：已完成渠道取实际返回值，超时未完成渠道记为失败
-        results_list = []
+        results_list: list[bool | Exception] = []
         for t in task_objs:
             if t in done:
                 try:
@@ -1385,7 +1389,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
     dingtalk_configs = config.get("dingtalk", [])
     for i, cfg in enumerate(dingtalk_configs):
         if cfg.get("enabled"):
-            channel_config = DingTalkConfig(
+            channel_config: NotificationChannelConfig = DingTalkConfig(
                 enabled=True,
                 name=cfg.get("name", f"DingTalk-{i + 1}"),
                 webhook_url=cfg.get("webhook_url", ""),
@@ -1396,7 +1400,7 @@ async def init_notification_manager(config: dict) -> NotificationManager:
                 cooldown_seconds=cfg.get("cooldown_seconds", 60.0),
                 message_template=cfg.get("message_template", ""),
             )
-            channel = DingTalkChannel(channel_config)
+            channel: NotificationChannel = DingTalkChannel(cast(DingTalkConfig, channel_config))
             await manager.register_channel(f"dingtalk-{i}", channel)
 
     # Load WeCom channels

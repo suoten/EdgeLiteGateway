@@ -7,9 +7,10 @@ import contextlib
 import logging
 import random
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from edgelite.drivers.base import DriverPlugin
 
@@ -71,7 +72,7 @@ class DriverWatchdog:
         self._reconnecting: set[str] = set()  # FIXED-P2: 防止同一设备并发重连
         self._lock = asyncio.Lock()
         self._event_bus: Any = None
-        self._on_status_change: callable | None = None
+        self._on_status_change: Callable[..., Any] | None = None
 
         self._reconnect_backoff: dict[str, dict] = {}  # device_id -> {attempt, base_interval, max_interval}
         self._stale_counters: dict[str, int] = {}  # device_id -> consecutive stale cycles
@@ -105,7 +106,7 @@ class DriverWatchdog:
         """设置事件总线"""
         self._event_bus = event_bus
 
-    def set_status_change_callback(self, callback: callable) -> None:
+    def set_status_change_callback(self, callback: Callable[..., Any]) -> None:
         """设置状态变更回调"""
         self._on_status_change = callback
 
@@ -152,7 +153,7 @@ class DriverWatchdog:
             if asyncio.iscoroutinefunction(driver.health_check):
                 healthy = await driver.health_check(device_id)
             else:
-                healthy = driver.health_check(device_id)
+                healthy = cast(bool, driver.health_check(device_id))
 
             latency_ms = (
                 asyncio.get_running_loop().time() - start_time
@@ -207,7 +208,7 @@ class DriverWatchdog:
         tasks = [_check_with_limit(device_id) for device_id in device_ids]
         completed = await asyncio.gather(*tasks, return_exceptions=True)
         for device_id, result in zip(device_ids, completed, strict=False):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 results[device_id] = HeartbeatResult(
                     device_id=device_id,
                     success=False,

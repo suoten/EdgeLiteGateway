@@ -32,6 +32,11 @@ async def query_audit_logs(
         # FIXED: 原问题-中文硬编码detail，改为error_code
         raise HTTPException(status_code=501, detail=AuditErrors.NOT_ENABLED)
 
+    # FIXED: pagination 可能为 None（Annotated + = None 在某些 FastAPI 版本下不注入依赖）
+    if pagination is None:
+        from edgelite.models.common import PaginationParams
+        pagination = PaginationParams()
+
     # FIXED(一般): 原问题-user_id 查询参数未做归属校验，任何认证用户可查询任意其他 user_id 的审计日志;
     # 修复-非 admin 用户强制 user_id 为自身，admin 可查询任意 user_id
     if user["role"] != "admin":

@@ -62,6 +62,7 @@ class OfflineQueue:
     async def enqueue(self, topic: str, payload: Any = None) -> int:
         """入队一条记录。返回记录 id。"""
         await self._ensure_started()
+        assert self._db is not None
         payload_json = json.dumps(payload, ensure_ascii=False, default=str) if not isinstance(payload, str) else payload
         now = _now_iso()
         cur = await self._db.execute(
@@ -75,6 +76,7 @@ class OfflineQueue:
     async def dequeue_batch(self, size: int = 1000) -> list[dict]:
         """批量取出最早入队的记录（不删除，待 acknowledge 确认后删除）。"""
         await self._ensure_started()
+        assert self._db is not None
         _cur = await self._db.execute(
             "SELECT id, topic, payload, retries FROM offline_records ORDER BY id ASC LIMIT ?",
             (int(size),),
@@ -94,6 +96,7 @@ class OfflineQueue:
         if not ids:
             return
         await self._ensure_started()
+        assert self._db is not None
         now = _now_iso()
         placeholders = ",".join("?" * len(ids))
         await self._db.execute(
@@ -107,6 +110,7 @@ class OfflineQueue:
         if not ids:
             return
         await self._ensure_started()
+        assert self._db is not None
         placeholders = ",".join("?" * len(ids))
         await self._db.execute(f"DELETE FROM offline_records WHERE id IN ({placeholders})", tuple(ids))
         await self._db.commit()
@@ -145,6 +149,7 @@ class OfflineQueue:
     async def purge_expired(self, max_age_days: int = 7) -> int:
         """删除超过最大保留天数的记录，防止离线队列无限增长"""
         await self._ensure_started()
+        assert self._db is not None
         cutoff = (datetime.now(UTC).timestamp()) - (max_age_days * 86400)
         cur = await self._db.execute(
             "DELETE FROM offline_records WHERE unixepoch(created_at) < ?",
@@ -156,6 +161,7 @@ class OfflineQueue:
     async def purge_max_retries(self, max_retries: int = 10) -> int:
         """删除超过最大重试次数的记录，防止毒丸消息堆积"""
         await self._ensure_started()
+        assert self._db is not None
         cur = await self._db.execute("DELETE FROM offline_records WHERE retries >= ?", (int(max_retries),))
         await self._db.commit()
         return cur.rowcount or 0
@@ -163,6 +169,7 @@ class OfflineQueue:
     async def count(self) -> int:
         """返回离线队列中的待重发记录总数。"""
         await self._ensure_started()
+        assert self._db is not None
         _cur = await self._db.execute("SELECT COUNT(*) FROM offline_records")
         row = await _cur.fetchone()
         return row[0] if row else 0
@@ -176,6 +183,7 @@ class OfflineQueue:
         if size <= self._max_size_bytes:
             return
         excess = size - self._max_size_bytes
+        assert self._db is not None
         await self._db.execute(
             "DELETE FROM offline_records WHERE id IN (SELECT id FROM offline_records ORDER BY id ASC LIMIT ?)",
             (max(1, excess // 512),),

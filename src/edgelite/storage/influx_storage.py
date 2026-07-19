@@ -641,10 +641,7 @@ class InfluxDBStorage:
                 predicate='_measurement="device_points"',
             )
             await asyncio.to_thread(
-                delete_api.delete,
-                predicate_raw,
-                self._bucket,
-                self._org,
+                lambda: delete_api.delete(predicate_raw, bucket=self._bucket, org=self._org)
             )
 
             # 2. 删除降采样数据（device_points_downsampled），按更长保留期删除
@@ -655,10 +652,7 @@ class InfluxDBStorage:
                 predicate='_measurement="device_points_downsampled"',
             )
             await asyncio.to_thread(
-                delete_api.delete,
-                predicate_downsampled,
-                self._bucket,
-                self._org,
+                lambda: delete_api.delete(predicate_downsampled, bucket=self._bucket, org=self._org)
             )
 
             logger.info(

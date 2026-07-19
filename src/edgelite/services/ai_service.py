@@ -284,7 +284,7 @@ class AiModelService:
             },
         }
         # Persist inference log
-        log_entry = return_dict.get("log", {})
+        log_entry = cast(dict, return_dict.get("log", {}))
         # FIXED(严重): 原问题-_inference_logs/_pending_db_logs的append/截断/刷写任务创建无锁保护，并发推理导致日志丢失和刷写任务竞争;  # noqa: E501
         # 修复-使用_log_lock保护所有日志操作
         async with self._log_lock:

@@ -17,6 +17,7 @@ except ImportError:
     psutil = None
 
 import contextlib
+from typing import cast
 
 from edgelite.config import get_config
 from edgelite.constants import _DEFAULT_PAGE_SIZE, _EXPORT_QUERY_SIZE
@@ -114,14 +115,15 @@ class SystemService:
             disk_total, disk_used, disk_pct = 0, 0, 0.0
 
         # 设备统计
-        _devices, device_total = await self._device_repo.list_all(
-            page=1, size=1
+        _devices, device_total = cast(
+            "tuple[list[dict], int]",
+            await self._device_repo.list_all(page=1, size=1),
         )  # FIXED(P3): 原问题-解包变量devices未使用; 修复-改为_devices前缀
         # FIXED-P0: get_active_devices改为async，需await
         online_devices = len(await self._scheduler.get_active_devices())
 
         # 规则统计
-        _, rule_total = await self._rule_repo.list_all(page=1, size=1)
+        _, rule_total = cast("tuple[list[dict], int]", await self._rule_repo.list_all(page=1, size=1))
         from sqlalchemy import func as sa_func
         from sqlalchemy import select
 
@@ -140,7 +142,7 @@ class SystemService:
             rule_enabled = 0
 
         # 告警统计
-        _, firing_count = await self._alarm_repo.list_all(page=1, size=1, status="firing")
+        _, firing_count = cast("tuple[list[dict], int]", await self._alarm_repo.list_all(page=1, size=1, status="firing"))
 
         uptime = int(time.time() - self._start_time)
 
@@ -322,7 +324,7 @@ class SystemService:
                     dev_id = dev.get("device_id")
                     if dev_id is None:
                         continue
-                    existing = await self._device_repo.get_by_id(dev_id)
+                    existing = await self._device_repo.get(dev_id)
                     if existing:
                         await self._device_repo.update(dev_id, dev)
                         restored_device_ids.append((dev_id, "update"))
@@ -337,7 +339,7 @@ class SystemService:
                     rule_id = rule.get("rule_id")
                     if rule_id is None:
                         continue
-                    existing = await self._rule_repo.get_by_id(rule_id)
+                    existing = await self._rule_repo.get(rule_id)
                     if existing:
                         await self._rule_repo.update(rule_id, rule)
                         restored_rule_ids.append((rule_id, "update"))
@@ -352,7 +354,7 @@ class SystemService:
                     user_id = user.get("user_id")
                     if user_id is None:
                         continue
-                    existing = await self._user_repo.get_by_id(user_id)
+                    existing = await self._user_repo.get(user_id)
                     if existing:
                         await self._user_repo.update(user_id, user)
                         restored_user_ids.append((user_id, "update"))
@@ -413,7 +415,7 @@ class SystemService:
         devices: list[dict] = []
         page = 1
         while True:
-            batch, total = await self._device_repo.list_all(page=page, size=_EXPORT_QUERY_SIZE)
+            batch, total = cast("tuple[list[dict], int]", await self._device_repo.list_all(page=page, size=_EXPORT_QUERY_SIZE))
             devices.extend(batch)
             if len(devices) >= total or not batch:
                 break
@@ -422,7 +424,7 @@ class SystemService:
         rules: list[dict] = []
         page = 1
         while True:
-            batch, total = await self._rule_repo.list_all(page=page, size=_EXPORT_QUERY_SIZE)
+            batch, total = cast("tuple[list[dict], int]", await self._rule_repo.list_all(page=page, size=_EXPORT_QUERY_SIZE))
             rules.extend(batch)
             if len(rules) >= total or not batch:
                 break
@@ -431,7 +433,7 @@ class SystemService:
         users: list[dict] = []
         page = 1
         while True:
-            batch, total = await self._user_repo.list_all(page=page, size=_EXPORT_QUERY_SIZE)
+            batch, total = cast("tuple[list[dict], int]", await self._user_repo.list_all(page=page, size=_EXPORT_QUERY_SIZE))
             users.extend(batch)
             if len(users) >= total or not batch:
                 break
