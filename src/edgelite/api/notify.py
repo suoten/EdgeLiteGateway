@@ -268,8 +268,8 @@ async def list_channels(
 @router.post("/channels/dingtalk", response_model=ApiResponse)
 async def update_dingtalk(
     cfg: DingTalkConfigUpdate,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置钉钉通知渠道"""
@@ -336,8 +336,8 @@ async def update_dingtalk(
 @router.post("/channels/wecom", response_model=ApiResponse)
 async def update_wecom(
     cfg: WeComConfigUpdate,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置企业微信通知渠道"""
@@ -398,8 +398,8 @@ async def update_wecom(
 @router.post("/channels/email", response_model=ApiResponse)
 async def update_email(
     cfg: EmailConfigUpdate,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置邮件通知渠道"""
@@ -471,8 +471,8 @@ async def update_email(
 @router.post("/channels/webhook", response_model=ApiResponse)
 async def update_webhook(
     cfg: WebhookConfigUpdate,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """配置自定义Webhook渠道"""
@@ -545,9 +545,9 @@ async def update_webhook(
 @router.post("/channels/{channel_id}/test", response_model=ApiResponse)
 async def test_channel(
     channel_id: str,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
     req: ChannelTestRequest | None = None,
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """测试通知渠道。支持传入 config_override 使用表单数据测试（无需先保存）。"""
@@ -687,9 +687,9 @@ async def test_channel(
 @router.post("/channels/{channel_id}/enable", response_model=ApiResponse)
 async def enable_channel(
     channel_id: str,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
     req: ChannelEnableRequest | None = None,
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """启用/禁用通知渠道"""
@@ -735,8 +735,8 @@ async def enable_channel(
 @router.delete("/channels/{channel_id}", response_model=ApiResponse)
 async def delete_channel(
     channel_id: str,
+    request: Request,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
-    request: Request | None = None,
     audit_svc: AuditServiceDep = None,
 ):
     """删除/禁用通知渠道配置"""

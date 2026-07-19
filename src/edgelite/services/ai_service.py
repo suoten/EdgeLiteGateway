@@ -7,8 +7,9 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
-from edgelite.engine.edge_ai_inference import AiInferenceEngine
+from edgelite.engine.edge_ai_inference import AiInferenceEngine, OnnxModelWrapper
 from edgelite.models.ai_model import (
     AiInferenceLogORM,
     AiModelDetailResponse,
@@ -148,6 +149,9 @@ class AiModelService:
         wrapper = self._engine.get_model(model_id)
         if not wrapper:
             return None
+        # 注：preprocess_config/postprocess_config/batch_size/max_concurrent/timeout_ms/device_preference
+        # 仅 OnnxModelWrapper 支持，对其他类型 cast 缩窄类型
+        wrapper = cast(OnnxModelWrapper, wrapper)
         if update_data.get("model_name"):
             wrapper.model_name = update_data["model_name"]
         if update_data.get("input_schema"):

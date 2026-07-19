@@ -45,7 +45,8 @@ configs/config.local.yaml
 # data/ 目录包含所有运行时数据库、日志、备份和测试输出文件
 # 测试输出文件（pytest_*.txt, pytest_*.xml, co_err.txt 等）不应提交到版本控制
 data/
-.initial_admin_password  # FIXED-P0: 明文初始管理员密码文件，禁止提交
+# FIXED-P0: 明文初始管理员密码文件，禁止提交
+.initial_admin_password
 !web/src/views/data/
 logs/
 backups/
@@ -187,3 +188,9 @@ target/
 *.exe
 *.bin
 .convergeloop/
+
+# ---------- 推广文章和临时分析文件 ----------
+docs/articles/
+mypy_*.txt
+*_mypy.txt
+mypy_out.txt

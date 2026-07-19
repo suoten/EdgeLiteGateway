@@ -21,7 +21,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Callable, cast
 
 from edgelite.constants import _EXPORT_MAX_RECORDS
 from edgelite.storage.influx_storage import InfluxDBStorage
