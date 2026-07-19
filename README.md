@@ -133,7 +133,7 @@ cd docker && docker compose --profile nginx up -d
 | `INFLUXDB_TOKEN is not set` | 没复制 `.env` 文件 | 执行 `cp docker/.env.example docker/.env` |
 | `port 8080 is already in use` | 端口被占用 | 关闭占用端口的程序，或修改 docker-compose.yml 端口 |
 | 页面打开白屏/一直在加载 | 前端没构建或其他原因 | 见下方逐步诊断 |
-| 登录时提示"用户名或密码错误" | 忘了密码 | 首次启动查看日志获取临时密码，如修改过请删除 `data/edgelite.db` 重新启动 |
+| 登录时提示"用户名或密码错误" | 忘了密码 | 首次启动查看日志获取随机生成的密码，或检查 `docker/.env` 中 `ADMIN_PASSWORD` 设置；如需重置请设置 `ADMIN_RESET_PASSWORD=true` |
 
 <details>
 <summary>🔍 页面打不开怎么办？（逐步诊断）</summary>
@@ -159,7 +159,7 @@ curl http://localhost:8086/health
 ```
 > ✅ 正常：返回 `{"status":"pass"}`
 
-**以上 3 步全部通过后**，浏览器打开 `http://localhost:8080`，用 `admin` / `admin123` 登录。
+**以上 3 步全部通过后**，浏览器打开 `http://localhost:8080`，用 `admin` 及你在 `docker/.env` 中设置的 `ADMIN_PASSWORD` 登录。
 
 > 💡 **还不行？** 终极重装法（注意这会**清空所有数据**）：
 >
@@ -289,7 +289,7 @@ flowchart LR
 | 模块 | 能力 |
 |------|------|
 | **JWT认证** | Access(30min) + Refresh(7天), HS256/384/512 |
-| **RBAC** | 3角色(admin/operator/viewer) × 22权限 |
+| **RBAC** | 3角色(admin/operator/viewer) × 30权限 |
 | **密码安全** | bcrypt(rounds=13, OWASP 2023) |
 | **Token撤销** | 内存撤销列表, 上限100000 |
 | **登录保护** | 5次失败锁定15分钟 |
@@ -335,15 +335,15 @@ flowchart LR
 |------|------|
 | 南向协议驱动 | 13 个 |
 | 北向平台适配器 | 6 个 |
-| API路由模块 | 41 个 |
-| 前端页面 | 42 个 |
+| API路由模块 | 45 个 |
+| 前端页面 | 35 个 |
 | 预置AI模型 | 3 个（均支持自学习） |
 | 安全模块 | 12 个 |
-| 核心引擎模块 | 32 个 |
-| 业务服务模块 | 27 个 |
+| 核心引擎模块 | 33 个 |
+| 业务服务模块 | 24 个 |
 | 告警通知渠道 | 4 个 |
-| RBAC权限项 | 22 个 |
-| 测试文件 | 44 个 |
+| RBAC权限项 | 30 个 |
+| 测试文件 | 196 个 |
 
 ---
 
@@ -417,7 +417,7 @@ git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
 cd web && npm install && npm run build && cd ..
 cp docker/.env.example docker/.env
 cd docker && docker compose --profile nginx up -d
-# 浏览器打开 http://localhost:3000，账号 admin，密码 admin123
+# 浏览器打开 http://localhost:3000，账号 admin，密码为 docker/.env 中设置的 ADMIN_PASSWORD
 ```
 
 | 端口 | 服务 | 说明 |

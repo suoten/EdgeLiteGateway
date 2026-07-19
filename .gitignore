@@ -167,6 +167,12 @@ cov_*.txt
 !coverage.xml
 .git_commit_msg.txt
 
+# ---------- 运行时报告/审计产物（不应纳入版本控制） ----------
+audit_reports/
+edgelite-bugfix-report/
+reports/*.json
+smoke_test_results.xml
+
 # ConvergeLoop 自动补充（防止 git add -A 卡死）
 site-packages/
 .tox/

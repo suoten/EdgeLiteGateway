@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial community release of EdgeLite Gateway
-- 13 industrial protocol drivers: Modbus TCP/RTU, OPC UA (client + server), BACnet, IEC 60870-5-104, EtherNet/IP (Allen-Bradley), FINS (Omron), MC Protocol (Mitsubishi), ABB Robot, Siemens S7, DNP3, MQTT, SNMP
+- 13 industrial protocol drivers: Modbus TCP/RTU, Siemens S7, Mitsubishi MC, Omron FINS, Allen-Bradley CIP, OPC UA Client, OPC DA Client, MQTT Client, HTTP Webhook, ONVIF Camera, Modbus Slave, MQTT Server, Simulator
 - ONNX Runtime AI inference engine with model hot-loading
 - Vue 3 + Naive UI frontend with dashboard, device management, rule engine, and alarm system
 - FastAPI backend with JWT authentication, RBAC (admin/operator/viewer), and audit logging

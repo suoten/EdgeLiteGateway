@@ -155,7 +155,7 @@ curl http://localhost:8086/health
 
 > ✅ Normal: Returns `{"status":"pass"}`
 
-**Once all 3 checks pass**, open `http://localhost:8080` and log in with `admin` / `admin123`.
+**Once all 3 checks pass**, open `http://localhost:8080` and log in with `admin` and the `ADMIN_PASSWORD` you set in `docker/.env`.
 
 > 💡 **Still not working?** Nuclear reset (⚠️ **this wipes all data**):
 >
@@ -288,7 +288,7 @@ flowchart LR
 | Module                          | Capability                                                         |
 | ------------------------------- | ------------------------------------------------------------------ |
 | **JWT Auth**                    | Access(30min) + Refresh(7 days), HS256/384/512                     |
-| **RBAC**                        | 3 roles (admin/operator/viewer) × 22 permissions                   |
+| **RBAC**                        | 3 roles (admin/operator/viewer) × 30 permissions                   |
 | **Password Security**           | bcrypt(rounds=13, OWASP 2023)                                      |
 | **Token Revocation**            | In-memory revocation list, max 100000                              |
 | **Login Protection**            | 5 failed attempts → lock for 15 minutes                            |
@@ -334,15 +334,15 @@ flowchart LR
 | ---------------------------- | ----------------------------- |
 | Southbound Protocol Drivers  | 13                            |
 | Northbound Platform Adapters | 6                             |
-| API Route Modules            | 41                            |
-| Frontend Pages               | 42                            |
+| API Route Modules            | 45                            |
+| Frontend Pages               | 35                            |
 | Preset AI Models             | 3 (all support self-learning) |
 | Security Modules             | 12                            |
-| Core Engine Modules          | 32                            |
-| Business Service Modules     | 27                            |
+| Core Engine Modules          | 33                            |
+| Business Service Modules     | 24                            |
 | Alarm Notification Channels  | 4                             |
-| RBAC Permission Items        | 22                            |
-| Test Files                   | 44                            |
+| RBAC Permission Items        | 30                            |
+| Test Files                   | 196                           |
 
 ***
 
@@ -415,7 +415,7 @@ git clone https://gitee.com/suoten/EdgeLiteGateway.git && cd EdgeLiteGateway
 cd web && npm install && npm run build && cd ..
 cp docker/.env.example docker/.env
 cd docker && docker compose --profile nginx up -d
-# Open http://localhost:3000, username admin, password admin123
+# Open http://localhost:3000, username admin, password is ADMIN_PASSWORD set in docker/.env
 ```
 
 | Port   | Service           | Description                           |
