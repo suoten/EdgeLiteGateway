@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OTA `/backups` 和 `/check` 端点未启用时返回 503 → 改为 200 + 空数据
 - DEV_MODE 下 SecretManager 自动生成并持久化主密钥，修复 Windows ACL 函数名错误
 - README.md 中 bcrypt rounds 描述与实际代码不一致（13 → 12）
+- 日志深度分析修复：7 类问题（2338+ERROR, 76+WARNING）→ 0 ERROR, 1 WARNING
+  - influx_storage: 备份跳过/token明文/retention更新失败/cleanup失败 日志级别合理化
+  - edge_ai_inference: 3 个 AI 可选模块不可用 WARNING→DEBUG
+  - registry: opc_da 依赖缺失 WARNING→DEBUG
+  - bootstrap: App updater 不可用 WARNING→DEBUG, MQTT 无认证 DEV_MODE 降为 INFO
+  - bootstrap: pymodbus 弃用警告 logger 级别设为 ERROR
+  - __main__: 早期抑制 RequestsDependencyWarning
 
 ## [1.0.0] - 2026-07-09
 
