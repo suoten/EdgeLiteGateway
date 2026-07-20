@@ -114,9 +114,8 @@ async def list_ota_backups(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     if not mgr:
-        raise HTTPException(
-            status_code=503, detail=OtaErrors.NOT_ENABLED
-        )  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        # FIXED: OTA 未启用时返回 200 + 空列表，与 /status 端点行为一致，避免 5xx ERROR 日志
+        return ApiResponse(data={"backups": [], "enabled": False})
     try:
         result = await asyncio.to_thread(mgr.list_backups)
         return ApiResponse(data={"backups": result})

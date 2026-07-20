@@ -5,7 +5,9 @@ import hashlib
 
 import bcrypt
 
-_BCRYPT_ROUNDS = 14
+# FIXED: rounds 从 14 降至 12，每次验证 ~400ms（14 rounds 需 ~1.5s 导致登录 3 秒超时）
+# OWASP 推荐 10+，12 在安全性与性能间取得平衡
+_BCRYPT_ROUNDS = 12
 # FIXED-P0: bcrypt 最多处理 72 字节密码，超长密码被静默截断导致碰撞
 # （如 "password123" + 任意后缀 与 "password123" 产生相同哈希）
 _BCRYPT_MAX_PASSWORD_BYTES = 72

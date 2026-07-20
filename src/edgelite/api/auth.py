@@ -290,8 +290,8 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
         if user is None:
             # FIXED(严重): 原问题-dummy hash含非法字符X，verify_password立即返回False不做bcrypt计算，
             # 导致时序攻击可枚举用户名; 修复-使用合法bcrypt hash确保执行完整bcrypt比较
-            # 合法bcrypt hash: $2b$14$开头的60字符hash（对"dummy"密码的bcrypt哈希）
-            verify_password(req.password, "$2b$14$LZUQcaDskZGqC9KWXaQs5O1Ry0LXdI.vEBRexe77byPJe3dYhKpsC")
+            # FIXED: dummy hash rounds 从 14 降至 12，与 _BCRYPT_ROUNDS 保持一致
+            verify_password(req.password, "$2b$12$ZBP805SGZW0QRcRcsW.zsut8YqXWlWbTeN5ysRCixbPEyTW/IUYEW")
             await RateLimitRepo.record_global_failure(req.username, client_ip)
             await RateLimitRepo.record_global_account_failure(req.username)
             await _record_login_attempt(client_ip)
