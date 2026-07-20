@@ -21,7 +21,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from edgelite.config import get_config
 from edgelite.constants import (
@@ -378,7 +378,7 @@ class MqttForwarder:
                     "keepalive": _MQTT_KEEPALIVE,
                 }
                 if ssl_ctx:
-                    connect_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_ctx)
+                    connect_kwargs["tls_params"] = aiomqtt.TLSParameters(ssl_context=ssl_ctx)  # type: ignore[call-arg]
 
                 async with aiomqtt.Client(**connect_kwargs) as client:
                     self._connected = True
@@ -396,7 +396,7 @@ class MqttForwarder:
                                 )
                                 return True
 
-                            flushed = await self._offline_queue.flush(send_callback=_offline_send)
+                            flushed = await self._offline_queue.flush(send_callback=_offline_send)  # type: ignore[arg-type]
                             if flushed > 0:
                                 logger.info("OfflineQueue重传完成: %d条", flushed)
                         except Exception as e:
@@ -443,6 +443,7 @@ class MqttForwarder:
                 err_str = str(e)
                 self._consecutive_failures += 1
                 # FIXED: 连续失败过多时延长重试间隔，避免日志刷屏和资源浪费
+                delay: float
                 if self._consecutive_failures > 100:
                     delay = 300  # 超过100次失败，每5分钟重试一次
                 else:
@@ -740,7 +741,9 @@ class MqttForwarder:
             if not self._connected or not self._running:
                 # 中断时将已取出的 syncing 记录回退为 pending（断点续传）
                 failed_ring_ids.extend(
-                    r.get("_id") for r in records if r.get("_id") is not None and r.get("_id") not in synced_ring_ids
+                    cast(int, r["_id"])
+                    for r in records
+                    if r.get("_id") is not None and r.get("_id") not in synced_ring_ids
                 )
                 break
             try:
@@ -770,6 +773,8 @@ class MqttForwarder:
                 async with self._offline_db_lock:  # FIXED-P1: SQLite删除操作加锁，与_persist_message_from_data互斥
                     # R11-ENG-03: SQLite execute/commit 是同步操作，用 to_thread 包装避免阻塞事件循环
                     def _delete_synced_records() -> None:
+                        if not self._offline_db:
+                            return
                         try:
                             self._offline_db.execute(
                                 "DELETE FROM offline_queue WHERE id IN ({})".format(

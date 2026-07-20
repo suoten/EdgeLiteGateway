@@ -325,7 +325,9 @@ class AlarmService:
             from edgelite.services.alarm_silence import get_alarm_silence_manager
 
             _silence_mgr = get_alarm_silence_manager()
-            _is_silenced = await asyncio.to_thread(_silence_mgr.is_silenced, device_id, rule_id)
+            # FIXED-mypy: is_silenced 需要 silences 参数，先异步获取静默规则列表再传入
+            _silences = await _silence_mgr.list_silences(device_id=device_id, rule_id=rule_id)
+            _is_silenced = await asyncio.to_thread(_silence_mgr.is_silenced, _silences, device_id, rule_id)
             if _is_silenced:
                 logger.info("Alarm %s silenced by silence rule (device=%s, rule=%s)", alarm_id, device_id, rule_id)
                 # R11-SVC-03: silenced 路径直接 return，需清理已加入的 alarm_id，
@@ -1015,7 +1017,8 @@ class AlarmService:
         if device_ids is not None:
             # FIXED(一般): 原问题-传入device_ids时先加载_MAX_QUERY_SIZE条再内存过滤，结果可能不完整;
             # 修复-将device_ids下推到SQL，由数据库完成过滤与分页，避免截断
-            alarms, total = await self._repo.list_all(
+            # FIXED-mypy: list_all 返回 tuple[list, int] | tuple[list, int, str|None] 联合类型，使用索引避免解包歧义
+            _result = await self._repo.list_all(
                 page,
                 size,
                 status,
@@ -1024,10 +1027,11 @@ class AlarmService:
                 search,
                 device_ids=list(device_ids),
             )
-            return alarms, total
+            return _result[0], _result[1]
 
-        alarms, total = await self._repo.list_all(page, size, status, severity, device_id, search)
-        return alarms, total
+        # FIXED-mypy: list_all 返回 tuple[list, int] | tuple[list, int, str|None] 联合类型，使用索引避免解包歧义
+        _result = await self._repo.list_all(page, size, status, severity, device_id, search)
+        return _result[0], _result[1]
 
     async def get_alarm(self, alarm_id: str) -> dict | None:
         return await self._repo.get(alarm_id)

@@ -267,6 +267,9 @@ class DriverRegistry:
             }
             return self._make_error_plugin_info(label, module_path, class_name, f"Class not found: {e}")
         except Exception as e:
+            # Save outer exception reference: inner `except Exception as e:` (line 317)
+            # shadows and deletes `e` after its block exits, making outer `e` inaccessible.
+            saved_e = e
             # UnicodeDecodeError usually caused by corrupted .pyc cache or source file
             if isinstance(e, UnicodeDecodeError):
                 logger.warning(
@@ -353,14 +356,14 @@ class DriverRegistry:
                 except Exception as retry_err:
                     logger.warning("[registry] %s driver retry after cache clear also failed: %s", label, retry_err)
             # FIXED-P2: 记录error日志包含异常堆栈信息，原问题-仅记录warning无堆栈且静默返回False
-            logger.error("[registry] %s driver load failed: %s", label, e, exc_info=True)
+            logger.error("[registry] %s driver load failed: %s", label, saved_e, exc_info=True)
             self._load_status[label] = {
                 "loaded": False,
-                "error": str(e),
+                "error": str(saved_e),
                 "module": module_path,
                 "class": class_name,
             }
-            return self._make_error_plugin_info(label, module_path, class_name, str(e))
+            return self._make_error_plugin_info(label, module_path, class_name, str(saved_e))
 
     def _make_error_plugin_info(self, label: str, module_path: str, class_name: str, error: str) -> Any:
         """FIXED-P2: 创建包含错误信息的PluginInfo对象
@@ -546,7 +549,8 @@ class DriverRegistry:
                 restricted_builtins = dict(builtins.__dict__)
                 restricted_builtins["__import__"] = _restricted_import
                 # exec_module 前设置 module.__builtins__，使模块级 import 和运行时延迟 import 均受限
-                module.__builtins__ = restricted_builtins
+                # 使用 setattr 而非直接赋值：typeshed 的 ModuleType 未将 __builtins__ 声明为可写属性
+                setattr(module, "__builtins__", restricted_builtins)
                 spec.loader.exec_module(module)
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)

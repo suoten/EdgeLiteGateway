@@ -336,7 +336,7 @@ function connectChannel(channel: ChannelName): void {
         // FIXED: 收到服务端 ping 后立即回复 pong，防止后端 _heartbeat_loop 判定连接为死连接
         // 后端 record_pong() 仅在收到 {"type":"pong"} 时调用，不回复会导致 60s 后连接被断开
         if (data && data.type === 'ping') {
-          try { conn.ws.send(JSON.stringify({ type: 'pong', ts: data.ts || Date.now() })) } catch { /* ignore */ }
+          try { conn.ws?.send(JSON.stringify({ type: 'pong', ts: data.ts || Date.now() })) } catch { /* ignore */ }
           return
         }
         // 心跳 pong 响应仅更新 lastPongTime，不分发给业务 handler

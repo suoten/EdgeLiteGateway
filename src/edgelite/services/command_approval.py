@@ -16,7 +16,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from edgelite.services.notification import get_notification_manager
 
@@ -100,7 +100,7 @@ class CommandApprovalService:
         self._approval_chains: dict[str, ApprovalChain] = {}  # chain_id -> ApprovalChain
         self._user_roles: dict[str, str] = {}  # username -> role
         self._pending_tasks: dict[str, asyncio.Task] = {}  # request_id -> task
-        self._executed_callbacks: list[callable] = []
+        self._executed_callbacks: list[Callable[..., Any]] = []
         self._notification_manager = get_notification_manager()
         self._lock = asyncio.Lock()  # FIXED(安全): 保护 _requests 状态的并发访问
 
@@ -726,11 +726,11 @@ Approvers: {", ".join(approvers) if approvers else "none"}
         results.sort(key=lambda r: r.created_at, reverse=True)
         return results[:limit]
 
-    def register_executed_callback(self, callback: callable) -> None:
+    def register_executed_callback(self, callback: Callable[..., Any]) -> None:
         """Register callback for command execution"""
         self._executed_callbacks.append(callback)
 
-    def unregister_executed_callback(self, callback: callable) -> None:
+    def unregister_executed_callback(self, callback: Callable[..., Any]) -> None:
         """Unregister command execution callback"""
         if callback in self._executed_callbacks:
             self._executed_callbacks.remove(callback)

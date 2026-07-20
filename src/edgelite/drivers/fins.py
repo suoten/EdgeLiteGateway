@@ -1522,7 +1522,7 @@ class OmronFinsDriver(DriverPlugin):
             logger.info("FINS驱动已停止")
 
     async def read_points(self, device_id: str, points: list[str]) -> dict[str, Any]:
-        quality = self.get_connection_quality(device_id)
+        quality: Any = self.get_connection_quality(device_id)
         if quality < 60:
             self._log_error(FinsDriverErrors.CONN_LOST, device_id, f"quality={quality:.1f}")
             try:
@@ -3198,7 +3198,7 @@ class OmronFinsDriver(DriverPlugin):
         timeout = float(config.get("timeout", 3.0))
         source_node = int(config.get("source_node", 0))
 
-        discovered = []
+        discovered: list[dict] = []
         sock = None
 
         try:

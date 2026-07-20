@@ -495,13 +495,13 @@ async def bootstrap_integration(c: ServiceContainer, config) -> None:
 
         # FIX: 将 device_service 和 backhaul_manager 绑定到 endpoint，
         # 使 RPC 反向控制 API 和缓冲区刷新功能可用
-        integration_endpoint._device_service = c.device_service
+        integration_endpoint._device_service = c.device_service  # type: ignore[attr-defined]
 
         backhaul_manager = BackhaulManager(event_bus=c.event_bus, endpoint=integration_endpoint, buffer_size=1000)
         c.backhaul_manager = backhaul_manager
 
         # FIX: 回填 backhaul_manager 引用（必须在创建后赋值）
-        integration_endpoint._backhaul = backhaul_manager
+        integration_endpoint._backhaul = backhaul_manager  # type: ignore[attr-defined]
 
         await backhaul_manager.start()
         c.track("backhaul_manager", backhaul_manager)
@@ -704,8 +704,8 @@ async def bootstrap_log_rotation(c: ServiceContainer, config) -> None:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await self._task
 
-    c._cert_monitor = _TaskWrapper(asyncio.create_task(_cert_expiry_monitor(), name="cert-expiry-monitor"))
-    c.track("cert_monitor", c._cert_monitor)
+    c._cert_monitor = _TaskWrapper(asyncio.create_task(_cert_expiry_monitor(), name="cert-expiry-monitor"))  # type: ignore[attr-defined]
+    c.track("cert_monitor", c._cert_monitor)  # type: ignore[attr-defined]
 
 
 async def _verify_startup_chain(c: ServiceContainer, config) -> list[tuple[str, bool, str]]:
@@ -900,6 +900,7 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     # FIXED: 支持结构化 JSON 日志输出 [2026-06-29]
     # 原 config.logging.json_format 定义但从未生效，运维设 EDGELITE_LOGGING__JSON_FORMAT=true 无效果
     _use_json = bool(getattr(config.logging, "json_format", False))
+    _log_formatter: logging.Formatter
     if _use_json:
         try:
             from edgelite.engine.structured_logger import StructuredFormatter

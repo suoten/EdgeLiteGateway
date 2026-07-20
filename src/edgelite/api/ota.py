@@ -25,9 +25,8 @@ async def check_update(
     user: CurrentUser = require_permission(Permission.SYSTEM_READ),
 ):
     if not mgr:
-        raise HTTPException(
-            status_code=503, detail=OtaErrors.NOT_ENABLED
-        )  # FIXED: 原问题-硬编码错误码字符串，改为集中管理
+        # FIXED: OTA 未启用时返回 200 + not_configured 状态，避免 5xx ERROR 日志
+        return ApiResponse(data={"enabled": False, "update_available": False})
     try:
         result = await mgr.check_update()
         return ApiResponse(data=result)

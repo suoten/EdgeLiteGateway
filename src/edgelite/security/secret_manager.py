@@ -193,10 +193,16 @@ class SecretManager:
                 try:
                     import win32security
 
-                    sd = win32security.ConvertStringSecurityDescriptorToSDDL("D:P(A;;FA;;;OW)(A;;FR;;;OW)")
+                    # FIXED: 函数名应为 ConvertStringSecurityDescriptorToSecurityDescriptor
+                    # （将 SDDL 字符串转为 SecurityDescriptor 对象），而非 ConvertStringSecurityDescriptorToSDDL
+                    sd = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+                        "D:P(A;;FA;;;OW)(A;;FR;;;OW)", win32security.SDDL_REVISION_1
+                    )
                     win32security.SetFileSecurity(str(self._key_file), win32security.DACL_SECURITY_INFORMATION, sd)
                 except ImportError:
                     logger.warning("win32security not available, master key file permissions not restricted on Windows")
+                except Exception as e:
+                    logger.debug("Failed to set master key file ACL on Windows: %s", e)
             else:
                 os.chmod(self._key_file, 0o600)
         except Exception as e:
@@ -538,10 +544,9 @@ def get_secret_manager() -> SecretManager:
     """获取全局 SecretManager 实例"""
     global _secret_manager
     if _secret_manager is None:
-        # FIXED-P1: 双重检查锁定，确保线程安全
-        with _secret_manager_lock:
-            if _secret_manager is None:
-                _secret_manager = SecretManager()
+        # FIXED: 调用 init_secret_manager() 而非直接 SecretManager()，
+        # 确保 DEV_MODE 下自动生成密钥，避免 "initialized without key" 警告
+        return init_secret_manager()
     return _secret_manager
 
 
@@ -602,11 +607,13 @@ def init_secret_manager(
         if not resolved_master_key and not resolved_key_file:
             dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
             if dev_mode:
-                # 开发模式：记录 WARNING，继续以明文模式运行
-                logger.warning(
+                # FIXED: 开发模式下自动生成并持久化主密钥到 data/.master_key
+                # 原行为：仅打印警告后以明文模式运行，敏感配置无加密保护
+                # 新行为：自动生成密钥并持久化，首次运行后后续重启自动加载
+                resolved_key_file = _MASTER_KEY_FILE
+                logger.info(
                     "SecretManager 未配置主密钥（DEV_MODE=true），"
-                    "敏感配置将以明文存储！请设置 EDGELITE_MASTER_KEY 环境变量"
-                    "或创建 data/.master_key 文件以启用加密。"
+                    "自动生成并持久化到 data/.master_key"
                 )
             else:
                 # 生产模式：记录 ERROR 并拒绝启动

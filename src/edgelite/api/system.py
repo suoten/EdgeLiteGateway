@@ -9,7 +9,7 @@ import logging
 import re
 import socket
 import time
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
 from pydantic import BaseModel, Field
@@ -400,7 +400,7 @@ async def trigger_backup(
         for r in results:
             results_dict.append(
                 {
-                    "component": r.component,
+                    "component": r.source,
                     "success": r.success,
                     "backup_path": r.backup_path,
                     "error": r.error,
@@ -1423,18 +1423,18 @@ async def rotate_cert(user: dict[str, str] = Depends(require_permission(Permissi
     except Exception:
         pass
 
-    results = {}
+    results: dict[str, dict[str, Any]] = {}
     cert_mgr = CertManager()
     for label, path in cert_paths:
         try:
             if not _Path(path).exists():
                 results[label] = {"status": "missing", "path": path}
                 continue
-            validation = cert_mgr.validate_cert(path)
+            validation = cert_mgr.validate_cert(_Path(path))
             results[label] = {
-                "status": "valid" if validation.get("valid") else "expired",
-                "expires_at": validation.get("not_after"),
-                "days_remaining": validation.get("days_remaining"),
+                "status": "valid" if validation else "expired",
+                "expires_at": None,
+                "days_remaining": None,
             }
         except Exception as e:
             results[label] = {"status": "error", "error": str(e)}

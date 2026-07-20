@@ -495,7 +495,7 @@ class DataPreprocessor:
                     filled = interpolate_average(result, i, config.get("interpolate_window", 3))
                 elif interp_method == "spline":
                     filled = interpolate_spline(result, i)
-                result[i] = filled if filled is not None else config.get("interpolate_fallback")
+                result[i] = filled if filled is not None else config.get("interpolate_fallback")  # type: ignore[assignment]
         return result
 
     def _interp_linear(self, values: list[float], idx: int) -> float | None:
@@ -512,7 +512,7 @@ class DataPreprocessor:
             if v is not None and not (isinstance(v, float) and math.isnan(v)):
                 next_val, next_idx = v, i
                 break
-        if prev_val is None or next_val is None:
+        if prev_val is None or next_val is None or prev_idx is None or next_idx is None:
             return None
         ratio = (idx - prev_idx) / (next_idx - prev_idx)
         return interpolate_linear(prev_val, next_val, ratio)
@@ -630,7 +630,7 @@ class DataPreprocessor:
         self._ema_state[point_key] = ema
         return ema
 
-    def _apply_kalman(self, point_key: str, value: float, config: dict) -> float | None:
+    def _apply_kalman(self, point_key: str, value: float, config: dict) -> float:
         """一维Kalman滤波"""
         q = config.get("kalman_process_noise", 0.001)  # 过程噪声
         r = config.get("kalman_measurement_noise", 0.01)  # 测量噪声

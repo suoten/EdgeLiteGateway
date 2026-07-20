@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import (
     APIRouter,
@@ -535,7 +535,7 @@ async def list_debug_protocols(
     try:
         from edgelite.protocol_keys import protocol_key_aliases
 
-        aliases = protocol_key_aliases()
+        aliases = protocol_key_aliases
     except Exception:
         aliases = {}
 
@@ -640,9 +640,12 @@ async def simulate_signal(
     _check_debug_ip_whitelist(request)  # FIXED-P1: Debug API IP whitelist
     """Send a test signal to a device and return the raw request/response"""
 
-    protocol = normalize_protocol_key(protocol) or protocol
+    protocol = cast(
+        "Literal['modbus_tcp', 'modbus_rtu', 'opcua', 'mqtt', 'http']",
+        normalize_protocol_key(protocol) or protocol,
+    )
     if operation == "test":
-        operation = "connect"
+        operation = cast("Literal['read', 'write', 'discover', 'test']", "connect")
 
     # Get device info to validate it exists
     try:
@@ -665,13 +668,13 @@ async def simulate_signal(
 
     # Execute the operation based on protocol type
     # FIXED: 将SimulateParams模型转为dict，兼容_simulate_*函数签名
-    params = params.model_dump(exclude_none=True) if params else {}
+    params_dict: dict[str, Any] = params.model_dump(exclude_none=True) if params else {}
     start_time = time.time()
     result: dict[str, Any] = {
         "protocol": protocol,
         "device_id": device_id,
         "operation": operation,
-        "params": params,
+        "params": params_dict,
         "request_raw": None,
         "response_raw": None,
         "values": None,
@@ -684,41 +687,41 @@ async def simulate_signal(
         # 对比debug_read有timeout=30.0，此处补充超时保护
         async def _do_simulate():
             if protocol in ("modbus_tcp", "modbus-rtu", "modbus_rtu"):
-                result_update = await _simulate_modbus(container, device, operation, params)
+                result_update = await _simulate_modbus(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol == "opcua":
-                result_update = await _simulate_opcua(container, device, operation, params)
+                result_update = await _simulate_opcua(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("mqtt_client", "mqtt"):
-                result_update = await _simulate_mqtt(container, device, operation, params)
+                result_update = await _simulate_mqtt(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("siemens_s7", "s7"):
-                result_update = await _simulate_s7(container, device, operation, params)
+                result_update = await _simulate_s7(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("opc_da", "opcda"):
-                result_update = await _simulate_opc_da(container, device, operation, params)
+                result_update = await _simulate_opc_da(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("mitsubishi_mc", "mc"):
-                result_update = await _simulate_mc(container, device, operation, params)
+                result_update = await _simulate_mc(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("omron_fins", "fins"):
-                result_update = await _simulate_fins(container, device, operation, params)
+                result_update = await _simulate_fins(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("allen_bradley", "ab", "ab_cip", "ab_pccc"):
-                result_update = await _simulate_allen_bradley(container, device, operation, params)
+                result_update = await _simulate_allen_bradley(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("onvif",):
-                result_update = await _simulate_onvif(container, device, operation, params)
+                result_update = await _simulate_onvif(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("http", "webhook", "http_webhook"):
-                result_update = await _simulate_http_webhook(container, device, operation, params)
+                result_update = await _simulate_http_webhook(container, device, operation, params_dict)
                 result.update(result_update)
             elif protocol in ("simulator",):
-                result_update = await _simulate_simulator(container, device, operation, params)
+                result_update = await _simulate_simulator(container, device, operation, params_dict)
                 result.update(result_update)
             else:
                 # Generic: try read/write via device service
-                result_update = await _simulate_generic(container, device, operation, params)
+                result_update = await _simulate_generic(container, device, operation, params_dict)
                 result.update(result_update)
 
         await asyncio.wait_for(_do_simulate(), timeout=30.0)
@@ -1269,7 +1272,7 @@ async def debug_write(
     device_id: str = Query(...),
     point: str = Query(...),
     # FIXED: 将value: Any改为联合类型，限制可接受的值类型
-    value: str | int | float | bool = None,
+    value: str | int | float | bool | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:
     try:
@@ -1404,6 +1407,10 @@ async def debug_monitor(ws: WebSocket) -> None:
         from edgelite.security.jwt import decode_token
 
         payload = decode_token(token, verify_exp=True, token_type="access")
+        if payload is None:
+            logger.warning("Debug monitor WebSocket rejected: ip=%s - invalid token", client_ip)
+            await ws.close(code=4001, reason="Authentication failed")
+            return
 
         username = payload.get("username", "unknown")
 

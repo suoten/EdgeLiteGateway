@@ -793,7 +793,9 @@ def create_app() -> FastAPI:
                 logger.debug("record_http_request failed: %s", metrics_err)
             # 慢请求 warning，正常请求 debug，避免日志噪音
             # 5xx 的详细日志由异常处理器写入（含 request_id + exception details）
-            if status_code < 500 and _elapsed_ms > 1000.0:
+            # FIXED: 认证端点因 bcrypt 哈希耗时长（~1s），排除在慢请求告警外
+            _SLOW_PATH_WHITELIST = {"/api/v1/auth/login", "/api/v1/auth/change-password"}
+            if status_code < 500 and _elapsed_ms > 1000.0 and request.url.path not in _SLOW_PATH_WHITELIST:
                 logger.warning(
                     "Slow request: %s %s %.2fms status=%d",
                     request.method,

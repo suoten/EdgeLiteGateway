@@ -22,7 +22,7 @@ from typing import Any
 try:
     import httpx
 except ImportError:
-    httpx = None
+    httpx: Any = None
 
 from edgelite.config import get_config
 from edgelite.constants import (  # FIXED: 原问题-散落timeout魔法数字

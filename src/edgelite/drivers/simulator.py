@@ -234,7 +234,7 @@ class SimulatorDriver(DriverPlugin):
     def __init__(self):
         super().__init__()
         self._running = False
-        self._devices: dict[str, dict[str, dict]] = {}
+        self._devices: dict[str, dict[str, Any]] = {}
         self._walk_state: dict[str, float] = {}
         self._phase_state: dict[str, float] = {}
         self._last_values: dict[str, Any] = {}

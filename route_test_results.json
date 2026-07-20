@@ -1,0 +1,170 @@
+[
+  {
+    "route": "/",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/devices",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/rules",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/alarms",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/data",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/services",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/drivers",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/platforms",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/expressions",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/preprocess",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/audit",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/serial-bridge",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/mqtt-server",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/modbus-slave",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/app-update",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/grafana",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/mcp",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/ai-model",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/notify",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/system/integration",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/users",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/digital-twin",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  },
+  {
+    "route": "/scada",
+    "status": "OK",
+    "console_errors": [],
+    "network_404s": [],
+    "body_preview": "跳到主要内容 EdgeLiteGateway  轻量级边缘AI物联网网关  请输入用户名 请输入密码 登 录 首次登录请使用管理员账号 v1.0.0 Community Edition"
+  }
+]

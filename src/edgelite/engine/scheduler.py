@@ -9,7 +9,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from edgelite.constants import _CACHE_BATCH_LIMIT, _SCHEDULER_INTERVAL
 from edgelite.drivers.base import PointValue
@@ -523,7 +523,7 @@ class CollectScheduler:
         collect_interval: int,
     ) -> None:
         """采集循环协程"""
-        point_names = [p.get("name") for p in points if p.get("name")]
+        point_names = [cast(str, p.get("name")) for p in points if p.get("name")]
         point_defs_map = {p.get("name"): p for p in points if p.get("name")}
         timeout = DEFAULT_TIMEOUT
 
@@ -1042,13 +1042,16 @@ class CollectScheduler:
 
     async def _flush_from_ring_buffer(self) -> None:
         """从 RingBuffer 增量同步缓存数据到 InfluxDB（批量写入）"""
-        records = await self._cache.get_pending_from_ring_buffer(limit=_CACHE_BATCH_LIMIT)
+        cache = self._cache
+        if cache is None:
+            return
+        records = await cache.get_pending_from_ring_buffer(limit=_CACHE_BATCH_LIMIT)
         if not records:
             return
 
         # 将缓存记录转换为 write_points_batch 所需格式
         batch: list[dict] = []
-        rec_index: list[tuple[int, int | None]] = []  # (ring_id, sqlite_id) per record
+        rec_index: list[tuple[int | None, int | None]] = []  # (ring_id, sqlite_id) per record
         for rec in records:
             tags = rec.get("tags", {})
             fields = rec.get("fields", {})
@@ -1086,17 +1089,20 @@ class CollectScheduler:
             synced_ring_ids = [rid for rid, _ in rec_index if rid is not None]
             synced_sqlite_ids = [sid for _, sid in rec_index if sid is not None]
             if synced_ring_ids:
-                await self._cache.mark_synced(synced_ring_ids, synced_sqlite_ids or None)
+                await cache.mark_synced(synced_ring_ids, synced_sqlite_ids or None)
                 logger.info("Cache flush (RingBuffer): %d records written to InfluxDB", len(synced_ring_ids))
         else:
             failed_ring_ids = [rid for rid, _ in rec_index if rid is not None]
             if failed_ring_ids:
-                await self._cache.mark_failed(failed_ring_ids)
+                await cache.mark_failed(failed_ring_ids)
             logger.warning("Cache flush batch write failed (%d records), marking as failed", len(batch))
 
     async def _flush_from_sqlite(self) -> None:
         """从 SQLite 回写缓存数据到 InfluxDB（回退路径，批量写入）"""
-        records = await self._cache.get_cached_records(limit=_CACHE_BATCH_LIMIT)
+        cache = self._cache
+        if cache is None:
+            return
+        records = await cache.get_cached_records(limit=_CACHE_BATCH_LIMIT)
         if not records:
             return
 
@@ -1142,7 +1148,7 @@ class CollectScheduler:
             ok = await self._influx.write_points_batch(batch)
             if ok:
                 if rec_ids:
-                    await self._cache.delete_cached(rec_ids)
+                    await cache.delete_cached(rec_ids)
                 logger.info("Cache flush (SQLite): %d records written to InfluxDB", len(batch))
             else:
                 logger.warning("Cache flush batch write failed (%d records from SQLite)", len(batch))

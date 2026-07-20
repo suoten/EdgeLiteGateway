@@ -42,7 +42,7 @@ _PYMODBUS_MAJOR, _PYMODBUS_MINOR = _parse_pymodbus_version()
 _PYMODBUS_37_PLUS = _PYMODBUS_MAJOR > 3 or (_PYMODBUS_MAJOR == 3 and _PYMODBUS_MINOR >= 7)
 try:
     if _PYMODBUS_37_PLUS:
-        from pymodbus.datastore import SimData, SimDevice
+        from pymodbus.datastore import SimData, SimDevice  # type: ignore[attr-defined]
         from pymodbus.server import ModbusTcpServer
 
         _PYMODBUS_37_PLUS = True
@@ -136,7 +136,7 @@ class ModbusSlaveServer:
         self, host: str, port: int, coils_size: int, discrete_size: int, holding_size: int, input_size: int
     ) -> None:
         """pymodbus 3.7+ 新API: SimData/SimDevice/ModbusTcpServer"""
-        from pymodbus.datastore import SimData, SimDevice
+        from pymodbus.datastore import SimData, SimDevice  # type: ignore[attr-defined]
         from pymodbus.server import ModbusTcpServer
 
         coils = SimData.create([0] * coils_size)
@@ -164,7 +164,7 @@ class ModbusSlaveServer:
         from pymodbus.server import StartAsyncTcpServer
 
         try:
-            from pymodbus.datastore import ModbusSlaveContext as _SlaveCtx
+            from pymodbus.datastore import ModbusSlaveContext as _SlaveCtx  # type: ignore[attr-defined]
         except ImportError:
             from pymodbus.datastore import ModbusDeviceContext as _SlaveCtx
 
@@ -180,7 +180,7 @@ class ModbusSlaveServer:
             ir=input_block,
         )
         if _PYMODBUS_MAJOR < 3:
-            self._context = ModbusServerContext(slaves=slave_context, single=True)
+            self._context = ModbusServerContext(slaves=slave_context, single=True)  # type: ignore[call-arg]
         else:
             self._context = ModbusServerContext(devices=slave_context, single=True)
 

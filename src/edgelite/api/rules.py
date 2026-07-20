@@ -53,7 +53,7 @@ async def _check_rule_access(rule: dict, user) -> None:
 async def list_rules(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_READ)),
-    pagination: PaginationDep = None,  # FIXED: 原问题：默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
+    pagination: PaginationDep = None,  # type: ignore[assignment]  # FIXED: FastAPI 依赖注入需要 = None 语法，但实际类型非 Optional  # noqa: E501
     device_id: str | None = None,
     search: str | None = None,
     # FIXED(一般): 枚举值未校验，恶意用户可传任意字符串绕过过滤；改为 Literal 校验
@@ -96,7 +96,7 @@ async def create_rule(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_CREATE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request = None,
+    request: Request | None = None,
 ):
     try:
         logger.info(
@@ -345,7 +345,7 @@ async def update_rule(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_UPDATE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request = None,
+    request: Request | None = None,
 ):
     try:
         data = body.model_dump(exclude_none=True)
@@ -398,7 +398,7 @@ async def delete_rule(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_DELETE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request = None,
+    request: Request | None = None,
 ):
     try:
         before_rule = await svc.get_rule(rule_id)
