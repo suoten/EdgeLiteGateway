@@ -20,7 +20,7 @@ pyserial>=3.5,<4.0
 pymcprotocol>=0.3.0,<1.0
 fins>=1.0.5,<2.0
 pylogix>=1.1.5,<2.0
-python-snap7>=1.3.0,<2.0
+python-snap7>=1.3.0,<4.0
 # amqtt>=0.11.0b0  # FIXED-P1: beta版+不活跃，移至可选依赖。内置MQTT Server需手动安装: pip install amqtt>=0.11.0b0
 onvif-zeep>=0.2.0,<1.0
 cryptography>=42.0.0,<44.0
