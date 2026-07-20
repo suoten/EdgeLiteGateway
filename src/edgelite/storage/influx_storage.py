@@ -375,11 +375,20 @@ class InfluxDBStorage:
         """
         # FIXED(安全) R5-S-10: 校验 URL 协议，若配置了 token 但使用 HTTP 明文传输则记录警告
         # InfluxDB token 相当于长期凭据，明文 HTTP 传输可被中间人嗅探
+        # DEV_MODE 下 localhost 连接使用 HTTP 是正常的，降为 DEBUG 避免日志噪音
         if self._token and not str(self._url).startswith("https://"):
-            logger.warning(
-                "InfluxDB token sent over plaintext HTTP - use HTTPS in production (url=%s)",
-                str(self._url).split("?")[0],
-            )
+            url_str = str(self._url).split("?")[0]
+            is_localhost = "localhost" in url_str or "127.0.0.1" in url_str
+            if is_localhost:
+                logger.debug(
+                    "InfluxDB token sent over plaintext HTTP (localhost, acceptable in dev) - use HTTPS in production (url=%s)",
+                    url_str,
+                )
+            else:
+                logger.warning(
+                    "InfluxDB token sent over plaintext HTTP - use HTTPS in production (url=%s)",
+                    url_str,
+                )
         try:
             self._client = InfluxDBClient(
                 url=self._url,
@@ -603,7 +612,7 @@ class InfluxDBStorage:
                 expected_secs // 86400,
             )
         except Exception as e:
-            logger.error("Failed to update InfluxDB retention policy: %s", e)
+            logger.warning("Failed to update InfluxDB retention policy: %s (non-critical, using existing policy)", e)
 
     async def cleanup_expired_data(self) -> int:
         """Clean up expired data older than retention_days via Flux query + delete"""
@@ -663,7 +672,7 @@ class InfluxDBStorage:
             )
             return 1
         except Exception as e:
-            logger.error("InfluxDB expired data cleanup failed: %s", e)
+            logger.warning("InfluxDB expired data cleanup failed: %s (non-critical, will retry next cycle)", e)
             return 0
 
     async def close(self) -> None:
@@ -709,11 +718,15 @@ class InfluxDBStorage:
             self._fallback_mode = False
 
     async def backup(self, backup_dir: str = "data/backups") -> None:
-        """备份时序数据 — 委托给内部 SqliteTimeSeriesStorage"""
+        """备份时序数据 — 委托给内部 SqliteTimeSeriesStorage。
+
+        当 InfluxDB 可用（未降级到 SQLite）时，_sqlite_ts 为 None，
+        此时无 SQLite 时序数据需要备份，属于正常行为，降为 DEBUG 级别。
+        """
         if self._sqlite_ts and hasattr(self._sqlite_ts, "backup"):
             await self._sqlite_ts.backup(backup_dir)
         else:
-            logger.warning("时序存储备份跳过：SQLite降级存储未初始化")
+            logger.debug("时序存储备份跳过：SQLite降级存储未初始化（InfluxDB可用或尚未降级）")
 
     async def available(self) -> bool:
         """返回 InfluxDB 当前是否可用（通过状态锁保护读取）。"""

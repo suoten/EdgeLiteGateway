@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
@@ -369,9 +370,11 @@ async def bootstrap_mqtt(c: ServiceContainer, config) -> None:
         mqtt_pass = getattr(mqtt_server_config, "password", "")
         allow_no_auth = getattr(mqtt_server_config, "allow_no_auth", False)
         if not mqtt_user or not mqtt_pass:
+            _dev_mode = os.environ.get("DEV_MODE", "").lower() in ("true", "1", "yes")
             if not allow_no_auth:
                 # 兼容模式：无认证时自动降级为仅本地绑定，不阻止启动
-                logger.warning(
+                log_fn = logger.info if _dev_mode else logger.warning
+                log_fn(
                     "SECURITY: MQTT Server enabled without authentication! "
                     "Auto-fallback to localhost-only binding (127.0.0.1). "
                     "Set mqtt_server.username and mqtt_server.password for production use."
@@ -517,9 +520,9 @@ async def bootstrap_app_updater(c: ServiceContainer, config) -> None:
         c.app_updater = AppUpdater()
         logger.info("App updater initialized")
     except ImportError:
-        logger.warning("App updater module not available")
+        logger.debug("App updater module not available (optional in community edition)")
     except Exception as e:
-        logger.warning("App updater init failed: %s", e)
+        logger.debug("App updater init failed: %s (optional)", e)
 
 
 def _get_project_root() -> Path:
@@ -857,6 +860,15 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
     import warnings as _warnings
 
     _warnings.filterwarnings("ignore", message=r".*deprecated and will be removed in v4.*", category=DeprecationWarning)
+    # FIXED: 抑制 pymodbus 通过 logging 模块输出的弃用警告（v3 API 在当前版本是正确的）
+    logging.getLogger("pymodbus.logging").setLevel(logging.ERROR)
+    # FIXED: 抑制 requests 库的 urllib3/chardet 版本不匹配警告（无害，第三方库版本兼容性问题）
+    try:
+        from requests.exceptions import RequestsDependencyWarning
+
+        _warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
+    except ImportError:
+        pass
 
     # FIXED-P0: 注册 SensitiveFilter 到根 logger，自动脱敏日志中的密码/Token/密钥
     try:

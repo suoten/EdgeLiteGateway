@@ -419,8 +419,8 @@ class DriverRegistry:
             }
 
             if not is_available:
-                logger.warning(
-                    "[registry] Driver %s has missing dependencies: %s, marking as unavailable",
+                logger.debug(
+                    "[registry] Driver %s has missing dependencies: %s, marking as unavailable (optional)",
                     plugin_name,
                     missing,
                 )

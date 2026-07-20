@@ -4,7 +4,16 @@ import argparse
 import os
 import signal
 import sys
+import warnings as _warnings
 from pathlib import Path
+
+# FIXED: 在任何可能触发 requests 库的 import 之前抑制版本兼容性警告
+try:
+    from requests.exceptions import RequestsDependencyWarning
+
+    _warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
+except ImportError:
+    pass
 
 import uvicorn
 from dotenv import load_dotenv

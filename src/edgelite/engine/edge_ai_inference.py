@@ -593,7 +593,7 @@ class AiInferenceEngine:
             self._version_manager = ModelVersionManager()
             self._hot_swap_manager = HotSwapManager(self)
         except ImportError:
-            logger.warning("ai_version_manager not available, hot-swap/version features disabled")
+            logger.debug("ai_version_manager not available, hot-swap/version features disabled (optional module)")
             self._version_manager = None
             self._hot_swap_manager = None
         try:
@@ -601,7 +601,7 @@ class AiInferenceEngine:
 
             self._resource_monitor = ResourceMonitor(self)
         except ImportError:
-            logger.warning("ai_resource_monitor not available, resource monitoring disabled")
+            logger.debug("ai_resource_monitor not available, resource monitoring disabled (optional module)")
             self._resource_monitor = None
         if self._config.get("cloud_inference_enabled", False):
             try:
@@ -622,7 +622,7 @@ class AiInferenceEngine:
                 self._execution_provider = provider_name
                 logger.info("Auto-detected best execution provider: %s (%s)", provider_name, provider)
             except ImportError:
-                logger.warning("ai_device_detector not available, using default execution provider")
+                logger.debug("ai_device_detector not available, using default execution provider (optional module)")
         await self.load_preset_models()
         logger.info("AI inference engine initialized, %d models loaded", len(self._loaded_models))
         # FIXED: 启动模型热加载定时检查任务，原 check_model_updates() 为死代码从未调用 [2026-06-29]
