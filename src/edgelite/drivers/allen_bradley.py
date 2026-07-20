@@ -1456,8 +1456,9 @@ class AllenBradleyDriver(DriverPlugin):
                 result[p] = PointValue(value=None, quality="bad", timestamp=now)
                 self._record_point_failure(p)
             elif not isinstance(result[p], PointValue):
-                quality = "uncertain" if isinstance(result[p], dict) else "good"
-                result[p] = PointValue(value=result[p], quality=quality, timestamp=now)
+                # FIXED: 引入 pv_quality 局部变量避免与 line 1271 的 float 类型 quality 冲突
+                pv_quality = "uncertain" if isinstance(result[p], dict) else "good"
+                result[p] = PointValue(value=result[p], quality=pv_quality, timestamp=now)
 
         for p in points:
             pv = result[p]
@@ -1834,7 +1835,7 @@ class AllenBradleyDriver(DriverPlugin):
         # 之后：直接获取锁，锁内检查连接状态，若已连接则跳过重连
         async with self._reconnect_lock:
             # 锁内检查：若其他协程已成功重连，则跳过
-            if self._client is not None and self._conn_state.get(device_id) == AbConnState.CONNECTED.value:
+            if self._client is not None and self._conn_state == AbConnState.CONNECTED.value:
                 logger.debug("[ab] Another reconnect already succeeded for %s, skipping", device_id)
                 return
             target_ip = self._active_ip

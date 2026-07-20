@@ -749,7 +749,7 @@ class PrometheusExporter:
     @staticmethod
     def _parse_labels(labels_key: str) -> dict[str, str]:
         """解析标签键为字典"""
-        labels = {}
+        labels: dict[str, str] = {}
         if not labels_key:
             return labels
         for pair in labels_key.split(","):
@@ -1019,7 +1019,7 @@ _last_ai_stats: dict[str, dict[str, int]] = {}
 # R8-F-01 修复: 记录上次采集的协议累计统计值，用于计算 delta
 # 驱动 get_all_health_stats 返回的 total_reads/failed_reads 等是累计值，
 # 而 exporter.counter() 是累加操作，直接传累计值会导致协议指标虚高 N 倍
-_last_protocol_stats: dict[str, dict[str, int]] = {}
+_last_protocol_stats: dict[str, dict[str, float]] = {}
 
 
 def _collect_ai_metrics(exporter: PrometheusExporter) -> None:

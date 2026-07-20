@@ -154,11 +154,11 @@ async def lifespan(app: FastAPI):
         for name, res in reversed(_post_bootstrap_resources):
             try:
                 if name == "rate_limit_repo":
-                    await res.stop_cleanup_task()
+                    await getattr(res, "stop_cleanup_task")()
                 elif name == "backup_svc":
-                    await res.stop_scheduler()
+                    await getattr(res, "stop_scheduler")()
                 elif name == "db_scheduler":
-                    await res.stop()
+                    await getattr(res, "stop")()
             except Exception as e:
                 logger.warning(
                     "Post-bootstrap cleanup of %s failed: %s", name, e

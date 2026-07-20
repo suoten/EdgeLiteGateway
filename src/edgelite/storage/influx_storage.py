@@ -21,7 +21,7 @@ import threading
 import time
 from collections import deque
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from influxdb_client.client.influxdb_client import InfluxDBClient
 from influxdb_client.client.write.point import Point
@@ -161,7 +161,8 @@ class InfluxDBStorage:
         async with self._emergency_buffer_lock:
             # FIXED-P0: 原问题-len(deque)>maxlen永远为False(deque maxlen自动淘汰)，overflow永远为0。
             # 改为append前检查是否已满，满时append会淘汰1条旧数据。
-            overflow = 1 if len(self._emergency_buffer) >= self._emergency_buffer.maxlen else 0
+            # deque 在 __init__ 中以 maxlen=10000 创建，maxlen 运行时永不为 None
+            overflow = 1 if len(self._emergency_buffer) >= cast(int, self._emergency_buffer.maxlen) else 0
             self._emergency_buffer.append(item)
             if overflow > 0:
                 logger.warning(
@@ -228,7 +229,7 @@ class InfluxDBStorage:
             self._emergency_buffer.extend(items)
             len_after = len(self._emergency_buffer)
             actual_added = len_after - len_before
-            is_full = len(self._emergency_buffer) >= self._emergency_buffer.maxlen
+            is_full = len(self._emergency_buffer) >= cast(int, self._emergency_buffer.maxlen)
             if is_full:
                 logger.warning(
                     "紧急缓冲区已满(maxlen=%d)，数据可能已溢出",
@@ -1550,7 +1551,8 @@ from(bucket: {safe_bucket})
                     # R5-G-12: 复用 connect() 中创建的 _sync_write_api，避免每次同步批次创建新实例
                     if self._sync_write_api is None:
                         # 防御性兜底：连接恢复路径未重建时按需创建
-                        self._sync_write_api = self._client.write_api(write_options=SYNCHRONOUS)
+                        # available() 已校验 self._client 非 None
+                        self._sync_write_api = cast(InfluxDBClient, self._client).write_api(write_options=SYNCHRONOUS)
                     try:
                         await asyncio.to_thread(self._sync_write_api.write, bucket=self._bucket, record=points)
                     except Exception as write_err:

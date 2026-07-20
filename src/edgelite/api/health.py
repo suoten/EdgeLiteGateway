@@ -24,7 +24,7 @@ import logging
 import os
 import time
 from collections import defaultdict, deque
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -226,6 +226,12 @@ async def _run_full_check() -> dict[str, Any]:
         mqtt_r = {"status": "unhealthy", "error": str(mqtt_r)}
     if isinstance(drivers_r, Exception):
         drivers_r = {"status": "unhealthy", "error": str(drivers_r)}
+    # asyncio.gather 返回类型为 dict[str, Any] | BaseException，isinstance 仅排除 Exception 子类，
+    # 残留 BaseException 子类(如 CancelledError)使 mypy 无法收窄为 dict，需 cast 明确类型
+    sqlite_r = cast(dict[str, Any], sqlite_r)
+    influx_r = cast(dict[str, Any], influx_r)
+    mqtt_r = cast(dict[str, Any], mqtt_r)
+    drivers_r = cast(dict[str, Any], drivers_r)
 
     # 磁盘空间检查（同步、快速）
     disk_r = _check_disk_space()
@@ -296,6 +302,9 @@ async def health_ready(request: Request) -> JSONResponse:
         sqlite_r = {"status": "unhealthy", "error": str(sqlite_r)}
     if isinstance(influx_r, Exception):
         influx_r = {"status": "unhealthy", "error": str(influx_r)}
+    # asyncio.gather 返回类型为 dict[str, Any] | BaseException，需 cast 明确为 dict
+    sqlite_r = cast(dict[str, Any], sqlite_r)
+    influx_r = cast(dict[str, Any], influx_r)
 
     # 磁盘空间检查（同步、快速，不纳入 async gather）
     disk_r = _check_disk_space()

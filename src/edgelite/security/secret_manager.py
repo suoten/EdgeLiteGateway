@@ -132,7 +132,7 @@ class SecretManager:
         """
         self._auto_encrypt = auto_encrypt
         self._sensitive_fields = sensitive_fields or DEFAULT_SENSITIVE_FIELDS.copy()
-        self._fernet = None
+        self._fernet: Any = None
         self._initialized = False
 
         # 加载或生成密钥
@@ -469,7 +469,7 @@ class SecretManager:
         if not isinstance(config, dict):
             return config
 
-        masked = {}
+        masked: dict[Any, Any] = {}
         for key, value in config.items():
             if self.is_sensitive_field(key):
                 if (

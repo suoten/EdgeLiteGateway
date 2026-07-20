@@ -56,7 +56,7 @@ class ProtocolConverter:
     """数据转换器 - 处理数据类型转换"""
 
     @staticmethod
-    def convert(value: Any, conversion_type: str, scale: float = 1.0, offset: float = 0.0) -> float | int | bool:
+    def convert(value: Any, conversion_type: str, scale: float = 1.0, offset: float = 0.0) -> float | int | bool | None:
         """转换数据值
 
         Args:
@@ -352,7 +352,7 @@ class ModbusToOpcUaConverter:
     def __init__(self, opcua_server_url: str = "opc.tcp://localhost:4840"):
         self._server_url = opcua_server_url
         self._node_map: dict[str, dict] = {}  # node_id -> {address, data_type, value}
-        self._modbus_data: dict[str, Any] = {}
+        self._modbus_data: dict[int, Any] = {}
 
     async def add_mapping(
         self,
@@ -428,7 +428,7 @@ class ModbusToOpcUaConverter:
         适用于周期性轮询场景，返回当前缓存值，无需等待异步操作。
         若需获取最新值（包含从 Modbus 设备实时读取），请使用 await_all_nodes()。
         """
-        result = {}
+        result: dict[str, Any] = {}
         for node_id in self._node_map:
             mapping = self._node_map.get(node_id, {})
             address = mapping.get("address")

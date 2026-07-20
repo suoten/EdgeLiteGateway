@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 try:
     import pywintypes
 
-    _COM_ERROR_TYPES = (pywintypes.com_error,)
+    _COM_ERROR_TYPES: tuple[type, ...] = (pywintypes.com_error,)
 except ImportError:
     _COM_ERROR_TYPES = ()
 
@@ -478,6 +478,10 @@ class OpcDaDriver(DriverPlugin):
             return False
         try:
             current_tid = threading.current_thread().ident
+            # FIXED: threading.current_thread().ident 在极端情况下可能为 None (线程尚未启动或已退出)
+            if current_tid is None:
+                logger.error("[opc_da] ODA-MED-001: cannot get thread id, CoInitialize skipped")
+                return False
             # ODA-MED-001: 使用 threading.local() 存储线程本地状态
             if (
                 getattr(_thread_local, "com_initialized", False)
@@ -639,7 +643,7 @@ class OpcDaDriver(DriverPlugin):
         if isinstance(value, allowed_types):
             return True
         if isinstance(value, (int, float)):
-            numeric_types = set()
+            numeric_types: set[type] = set()
             for types in _VT_TYPE_MAP.values():
                 numeric_types.update(types)
             if int in numeric_types and isinstance(value, int):
@@ -1406,7 +1410,10 @@ class OpcDaDriver(DriverPlugin):
         if isinstance(result, int) and result < 0:
             raise OpcDaComError(result, context)
         if _COM_ERROR_TYPES and isinstance(result, _COM_ERROR_TYPES):
-            hr = result.args[0] if result.args else 0
+            # FIXED: _COM_ERROR_TYPES 为动态 tuple，mypy 无法对 isinstance 做类型 narrowing，
+            # 使用 getattr 安全访问 args 属性，逻辑等价于原 result.args
+            result_args: tuple[Any, ...] = getattr(result, "args", ())
+            hr = result_args[0] if result_args else 0
             raise OpcDaComError(hr, context)
         return result
 

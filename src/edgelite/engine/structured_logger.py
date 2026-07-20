@@ -127,7 +127,7 @@ class StructuredLogger:
         else:
             console_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
         console_handler.addFilter(self._context_filter)
-        console_handler._edgelite_handler = True  # FIXED-P2: 标记edgelite自己的handler，便于后续只移除自己的
+        setattr(console_handler, "_edgelite_handler", True)  # FIXED-P2: 标记edgelite自己的handler，便于后续只移除自己的
         root_logger.addHandler(console_handler)
 
         app_log = self._log_dir / "edgelite.log"
@@ -139,7 +139,7 @@ class StructuredLogger:
         )
         file_handler.setFormatter(StructuredFormatter())
         file_handler.addFilter(self._context_filter)
-        file_handler._edgelite_handler = True
+        setattr(file_handler, "_edgelite_handler", True)
         root_logger.addHandler(file_handler)
 
         error_log = self._log_dir / "edgelite-error.log"
@@ -152,7 +152,7 @@ class StructuredLogger:
         error_handler.setFormatter(StructuredFormatter())
         error_handler.setLevel(logging.ERROR)
         error_handler.addFilter(self._context_filter)
-        error_handler._edgelite_handler = True
+        setattr(error_handler, "_edgelite_handler", True)
         root_logger.addHandler(error_handler)
 
     def set_context(self, **kwargs: Any) -> None:

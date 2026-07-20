@@ -1105,7 +1105,7 @@ class OnvifDriver(DriverPlugin):
             for point in points:
                 try:
                     record_packet("tx", "onvif", device_id, f"ONVIF SOAP: {point}")
-                    raw = None
+                    raw: Any = None
                     if point == "rtsp":
                         raw = await self._get_rtsp_url(device_id)
                     elif point.startswith("rtsp:"):
@@ -1441,8 +1441,8 @@ class OnvifDriver(DriverPlugin):
                                 transport = soap_client.get_transport()
                                 if transport is not None:
                                     await asyncio.to_thread(transport.close)
-                    except Exception as e:
-                        logger.warning("[onvif] operation failed: %s", e)
+                    except Exception as inner_e:
+                        logger.warning("[onvif] operation failed: %s", inner_e)
                     self._cams[device_id] = None
                 if self._is_auth_error(e):
                     self._log_error(device_id, "ERR_ONVIF_AUTH_FAILED", str(e))

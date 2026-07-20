@@ -22,7 +22,7 @@ from typing import Any
 try:
     import httpx
 except ImportError:
-    httpx: Any = None
+    httpx = None  # type: ignore[assignment]
 
 from edgelite.config import get_config
 from edgelite.constants import (  # FIXED: 原问题-散落timeout魔法数字
@@ -127,7 +127,7 @@ async def _validate_webhook_url(url: str) -> bool:
     # 校验所有解析到的 IP 地址，并优先选取 IPv4 作为缓存值
     resolved_ip: str | None = None
     for _family, _, _, _, sockaddr in addrs:
-        ip_str = sockaddr[0]
+        ip_str = str(sockaddr[0])
         try:
             ip = ipaddress.ip_address(ip_str)
         except ValueError:
@@ -139,7 +139,7 @@ async def _validate_webhook_url(url: str) -> bool:
 
     if resolved_ip is None:
         # 无 IPv4 地址时回退到第一个可用地址
-        resolved_ip = addrs[0][4][0]
+        resolved_ip = str(addrs[0][4][0])
 
     # 缓存 hostname -> resolved_ip，发送请求时使用
     with _webhook_ip_cache_lock:
@@ -335,6 +335,7 @@ class NotifyService:
     @staticmethod
     def _smtp_send(email_config: Any, msg: MIMEMultipart) -> None:
         """同步SMTP发送"""
+        server: smtplib.SMTP
         if email_config.use_tls:
             server = smtplib.SMTP_SSL(
                 email_config.smtp_host, email_config.smtp_port, timeout=_NOTIFY_SMTP_TIMEOUT

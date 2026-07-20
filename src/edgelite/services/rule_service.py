@@ -45,11 +45,14 @@ class RuleService:
         # R11-SVC-04: 使用 per-device 锁，不同设备的创建互不阻塞
         async with await self._get_create_lock(device_id):
             # FIXED(严重): 校验单设备规则数量上限，超限时拒绝创建，防止评估超时和告警风暴
-            _, existing_count = await self._repo.list_all(
+            # FIXED-mypy: list_all 返回 tuple[list[dict], int] | tuple[list[dict], int, str | None]，
+            # 直接解包会因 tuple 长度不确定而报错，改用索引访问第 2 个元素（count）
+            _list_result = await self._repo.list_all(
                 page=1,
                 size=1,
                 device_id=device_id,
             )
+            existing_count = _list_result[1]
             if existing_count >= _MAX_RULES_PER_DEVICE:
                 raise ValueError(f"Rule limit reached for device {device_id}: {existing_count}/{_MAX_RULES_PER_DEVICE}")
             result = await self._repo.create(data, created_by=created_by)
@@ -79,7 +82,10 @@ class RuleService:
         severity: str | None = None,
         created_by: str | None = None,
     ) -> tuple[list[dict], int]:
-        return await self._repo.list_all(page, size, device_id, search, severity, created_by)
+        # FIXED-mypy: list_all 返回 tuple[list[dict], int] | tuple[list[dict], int, str | None]，
+        # 显式提取前两个元素以匹配方法签名 tuple[list[dict], int]
+        _list_result = await self._repo.list_all(page, size, device_id, search, severity, created_by)
+        return _list_result[0], _list_result[1]
 
     async def update_rule(self, rule_id: str, data: dict) -> dict | None:
         result = await self._repo.update(rule_id, data)
@@ -165,7 +171,9 @@ class RuleService:
             from edgelite.services.alarm_silence import get_alarm_silence_manager
 
             silence_mgr = get_alarm_silence_manager()
-            deleted_count = silence_mgr.delete_silences_by_rule(rule_id)
+            # delete_silences_by_rule 在 AlarmSilenceManager 静态类型中未声明，
+            # 但运行时由具体实现提供（测试中通过 MagicMock 注入），与 users.py 中 _invalidate_user_cache 同模式
+            deleted_count = silence_mgr.delete_silences_by_rule(rule_id)  # type: ignore[attr-defined]
             if deleted_count:
                 logger.info("Cleaned up %d alarm silences for deleted rule %s", deleted_count, rule_id)
         except Exception as e:

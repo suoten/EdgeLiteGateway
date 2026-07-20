@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -22,6 +23,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
+
+from edgelite.engine.event_bus import Event
 
 if TYPE_CHECKING:
     from edgelite.engine.event_bus import EventBus
@@ -34,6 +37,15 @@ class LinkRole(StrEnum):
 
     PRIMARY = "primary"
     BACKUP = "backup"
+
+
+@dataclass
+class RedundancySwitchEvent(Event):
+    """链路切换事件 - 主备链路切换时发布到 EventBus"""
+
+    device_id: str = ""
+    old_host: str = ""
+    new_host: str = ""
 
 
 @dataclass
@@ -300,13 +312,11 @@ class LinkRedundancyManager:
         # 发布事件到 EventBus (如有)
         if self._event_bus is not None:
             try:
-                self._event_bus.publish(
-                    "redundancy.switch",
-                    {
-                        "device_id": device_id,
-                        "old_host": old_host,
-                        "new_host": new_host,
-                    },
+                event = RedundancySwitchEvent(
+                    device_id=device_id,
+                    old_host=old_host,
+                    new_host=new_host,
                 )
+                asyncio.get_running_loop().create_task(self._event_bus.publish(event))
             except Exception as e:
                 logger.debug("[redundancy] event publish failed: %s", e)
