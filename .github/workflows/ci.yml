@@ -90,7 +90,7 @@ jobs:
                  -p no:cacheprovider
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.xml
@@ -114,7 +114,7 @@ jobs:
       - name: Verify metadata
         run: twine check dist/*
       - name: Upload distributions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -251,7 +251,7 @@ jobs:
           cyclonedx-py environment -o sbom.json --schema-version 1.5
       - name: Upload SBOM artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom.json
@@ -261,7 +261,7 @@ jobs:
         run: |
           pip freeze --exclude-editable > requirements.lock
       - name: Upload lockfile artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: requirements-lock
           path: requirements.lock
