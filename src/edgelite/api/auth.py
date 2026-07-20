@@ -615,7 +615,7 @@ async def change_password(
     new_password: str = Body(..., embed=True),
     user: dict = Depends(get_current_user),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request | None = None,
+    request: Request = None,
 ):
     """Change the current user's password.
 
@@ -722,7 +722,7 @@ async def change_password(
 async def forgot_password(
     db: DatabaseDep,
     username: str = Body(..., embed=True),
-    request: Request | None = None,
+    request: Request = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     """Send password reset email to user (requires email configuration).
@@ -982,7 +982,7 @@ async def reset_password(
     db: DatabaseDep,
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
-    request: Request | None = None,
+    request: Request = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     """Reset password using token from email.
