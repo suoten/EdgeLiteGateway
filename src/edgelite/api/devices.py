@@ -7,7 +7,7 @@ import hmac
 import ipaddress
 import logging
 import socket
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
@@ -104,7 +104,7 @@ async def _check_device_access(device: dict, user) -> None:
     raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
 
 
-async def _get_accessible_device_ids(svc, user) -> set[str]:
+async def _get_accessible_device_ids(svc, user) -> set[str] | None:
     """Get device IDs accessible by user (owned + shared)."""
     if user["role"] == "admin":
         return None
@@ -122,7 +122,7 @@ async def _get_accessible_device_ids(svc, user) -> set[str]:
 async def list_devices(
     svc: DeviceServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
-    pagination: PaginationDep = None,  # noqa: E501
+    pagination: PaginationDep = None,  # type: ignore[assignment]  # noqa: E501
     # FIXED(一般): 枚举值未校验，恶意用户可传任意字符串绕过过滤；改为 Literal 校验
     status: Literal["online", "offline", "error", "unknown"] | None = None,
     protocol: str | None = None,
@@ -170,7 +170,7 @@ async def create_device(
     svc: DeviceServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.DEVICE_CREATE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request = None,
+    request: Request = None,  # type: ignore[assignment]
 ):
     try:
         # Validate device config against driver schema
@@ -524,7 +524,8 @@ async def get_collect_stats(
         stats = await scheduler.get_collect_stats()
         if user["role"] != "admin":
             accessible_ids = await _get_accessible_device_ids(svc, user)
-            stats = {k: v for k, v in stats.items() if k in accessible_ids}
+            if accessible_ids is not None:
+                stats = {k: v for k, v in stats.items() if k in accessible_ids}
         return ApiResponse(
             data={
                 k: {
@@ -555,7 +556,8 @@ async def get_device_quality_stats(
         stats = await scheduler.get_device_quality_stats()
         if user["role"] != "admin":
             accessible_ids = await _get_accessible_device_ids(svc, user)
-            stats = {k: v for k, v in stats.items() if k in accessible_ids}
+            if accessible_ids is not None:
+                stats = {k: v for k, v in stats.items() if k in accessible_ids}
         return ApiResponse(
             data={
                 k: {
@@ -698,7 +700,7 @@ async def batch_deploy_config(
                 if target:
                     await _check_device_access(target, user)
 
-        results = {"success": [], "failed": []}
+        results: dict[str, list[Any]] = {"success": [], "failed": []}
         # SEC-FIX: 提取模板 points 用于敏感字段比对
         template_points = template.get("points", []) if isinstance(template, dict) else getattr(template, "points", [])
         template_points_map = {
@@ -789,7 +791,7 @@ async def batch_deploy_config(
         # 收集并行部署结果
         deploy_audit_records: list[dict] = []
         for res in deploy_results:
-            if isinstance(res, Exception):
+            if isinstance(res, BaseException):
                 # _deploy_one 内部已捕获异常，此处为未预期异常的安全兜底
                 results["failed"].append({"device_id": "unknown", "error": str(res)})
                 continue
@@ -951,8 +953,8 @@ async def export_devices(
     try:
         if user["role"] != "admin":
             accessible_ids = await _get_accessible_device_ids(svc, user)
-            for did in body.device_ids:
-                if did not in accessible_ids:
+            for did in (body.device_ids or []):
+                if accessible_ids is not None and did not in accessible_ids:
                     raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
         # R9-S-07 修复: 直接使用字典列表传递，避免 json.dumps/loads 往返
         devices_data = await svc.export_devices(body.device_ids)
@@ -1403,7 +1405,7 @@ async def write_device_point(
 
             registry = get_driver_registry()
             if registry:
-                driver = registry.get_driver_instance(device_id)
+                driver = cast(Any, registry).get_driver_instance(device_id)
                 if driver and not driver.check_write_allowed(device_id, body.point):
                     raise HTTPException(status_code=403, detail=DeviceErrors.WRITE_NOT_ALLOWED)
         except HTTPException:
@@ -1419,7 +1421,7 @@ async def write_device_point(
 
             approval_svc = get_approval_service()
             # 记录写入意图到审批服务（不阻塞，仅留痕）
-            approval_svc.record_intent(
+            cast(Any, approval_svc).record_intent(
                 device_id=device_id,
                 point=body.point,
                 value=body.value,
@@ -1471,7 +1473,7 @@ async def push_device_data(
     svc: DeviceServiceDep,
     x_api_key: str = Header(default=""),
     current_user: OptionalCurrentUser = None,
-    request: Request = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     # FIXED-M02: 使用 get_current_user 获取最新角色而非 Token payload
@@ -1703,7 +1705,7 @@ async def get_device_metrics(
 
         registry = get_driver_registry()
         if registry:
-            driver = registry.get_driver_instance(device_id)
+            driver = cast(Any, registry).get_driver_instance(device_id)
             if driver and hasattr(driver, "get_observability_metrics"):
                 metrics = driver.get_observability_metrics(device_id)
                 return ApiResponse(data=metrics)

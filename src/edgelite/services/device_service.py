@@ -1223,7 +1223,7 @@ class DeviceService:
                         return
 
                     if protocol == "simulator":
-                        driver = await self._get_simulator_driver()
+                        driver: DriverPlugin = await self._get_simulator_driver()
                         await driver.add_device(device["device_id"], device.get("points", []))
                         self._driver_instances[device["device_id"]] = driver
                         await self._scheduler.start_collect(
@@ -1734,7 +1734,7 @@ class DeviceService:
         # 与 create_device/delete_device/read_points 等持锁操作并发时会产生数据竞争。
         # 此处将 driver 实例化与 start()/add_device() 放在锁外（避免长时间持锁阻塞
         # 其他设备操作，与 R8-S-01 原则一致），仅将 _driver_instances 的写入放入锁内保护。
-        driver = None
+        driver: DriverPlugin | None = None
         if protocol == "simulator":
             driver = await self._get_simulator_driver()
             await driver.add_device(

@@ -25,10 +25,11 @@ from typing import Any
 
 from edgelite.engine.event_bus import EventBus, PointUpdateEvent, StreamResultEvent
 
+record_packet: Callable[..., Any] | None = None
 try:
-    from edgelite.packet_recorder import record_packet
+    from edgelite.packet_recorder import record_packet  # type: ignore[assignment]
 except ImportError:
-    record_packet = None
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class TumblingWindow:
         if self._window_start is None:
             self._window_start = now_ts
 
-        if len(self._buffer) >= self._buffer.maxlen and not self._maxlen_warned:  # FIXED-P2: W15 缓冲区满时告警
+        if self._buffer.maxlen is not None and len(self._buffer) >= self._buffer.maxlen and not self._maxlen_warned:  # FIXED-P2: W15 缓冲区满时告警
             logger.warning("TumblingWindow buffer full (maxlen=%d), data may be dropped", self._buffer.maxlen)
             self._maxlen_warned = True
         self._buffer.append(event)
@@ -227,7 +228,7 @@ class StreamProcessor:
         self._id = processor_id
         self._operators: list[Callable] = []
         self._running = False
-        self._stats = {
+        self._stats: dict[str, Any] = {
             "processed": 0,
             "errors": 0,
             "last_process_time": None,
@@ -690,7 +691,7 @@ class StreamComputeEngine:
 
     async def _process_rule(self, rule_id: str, rule: dict, event: StreamEvent) -> list[StreamEvent]:
         """执行规则"""
-        results = []
+        results: list[StreamEvent] = []
 
         rule_type = rule.get("type", "filter")
         point_filter = rule.get("point_filter", "")

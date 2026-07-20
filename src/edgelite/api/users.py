@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 
@@ -33,12 +33,13 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 async def list_users(
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_READ)),
-    pagination: PaginationDep = None,  # FIXED: 原问题-默认值None导致类型检查误判，但Python语法要求有默认值（前参有默认值）  # noqa: E501
+    # FastAPI Depends() 运行时注入非 None 值，类型存根无法表达此语义
+    pagination: PaginationDep = None,  # type: ignore[assignment]
 ):
     try:
         async with db.get_session() as session:
             repo = UserRepo(session, db.write_lock)
-            users, total = await repo.list_all(pagination.page, pagination.size)
+            users, total = cast("tuple[list[dict], int]", await repo.list_all(pagination.page, pagination.size))
         return PagedResponse(data=users, total=total, page=pagination.page, size=pagination.size)
     except HTTPException:
         raise
@@ -53,7 +54,7 @@ async def create_user(
     body: UserCreate,
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_CREATE)),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
@@ -125,7 +126,7 @@ async def update_user(
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_UPDATE)),
     config: ConfigDep = None,
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     # FIXED-M04: Protect admin role users from sensitive field modifications
@@ -186,7 +187,7 @@ async def update_user(
         # FIXED: Invalidate token renewal cache when user role or enabled status changes
         if target_username and ("role" in data or "enabled" in data):
             try:
-                from edgelite.middleware.token_renewal import _invalidate_user_cache
+                from edgelite.middleware.token_renewal import _invalidate_user_cache  # type: ignore[attr-defined]
 
                 _invalidate_user_cache(target_username)
                 logger.info("Token renewal cache invalidated for user %s after role/enabled update", target_username)
@@ -264,7 +265,7 @@ async def delete_user(
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_DELETE)),
     config: ConfigDep = None,
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
@@ -295,7 +296,7 @@ async def delete_user(
                 device_repo = DeviceRepo(session, db.write_lock)
                 rule_repo = RuleRepo(session, db.write_lock)
                 owned_device_ids = await device_repo.list_device_ids_by_owner(user_id)
-                _, rule_total = await rule_repo.list_all(page=1, size=1, created_by=user_id)
+                _, rule_total = cast("tuple[list[dict], int]", await rule_repo.list_all(page=1, size=1, created_by=user_id))
                 if owned_device_ids or rule_total > 0:
                     raise HTTPException(status_code=409, detail=UserErrors.HAS_RESOURCES)
 
@@ -310,7 +311,7 @@ async def delete_user(
         # FIXED: Invalidate token renewal cache when user is deleted
         if target_username:
             try:
-                from edgelite.middleware.token_renewal import _invalidate_user_cache
+                from edgelite.middleware.token_renewal import _invalidate_user_cache  # type: ignore[attr-defined]
 
                 _invalidate_user_cache(target_username)
                 logger.info("Token renewal cache invalidated for deleted user %s", target_username)

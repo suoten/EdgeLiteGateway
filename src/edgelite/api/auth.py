@@ -7,6 +7,7 @@ import ipaddress
 import logging
 import os
 import time
+from typing import Literal
 
 # FIXED(P3): 原问题-F401未使用导入collections.defaultdict; 修复-删除该导入行
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
@@ -47,7 +48,7 @@ def _set_token_cookies(response: Response, access_token: str, refresh_token: str
     refresh_token: path=/api/v1/auth 限制仅 auth 路径可访问
     """
     secure = not _is_dev_mode()
-    samesite = "lax" if _is_dev_mode() else "strict"
+    samesite: Literal["lax", "strict", "none"] = "lax" if _is_dev_mode() else "strict"
     config = get_config()
     access_max_age = config.security.access_token_expire_minutes * 60
     refresh_max_age = config.security.refresh_token_expire_days * 86400
@@ -438,7 +439,7 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
-async def refresh_token(request: Request, db: DatabaseDep, refresh: str = Body(None, embed=True)):
+async def refresh_token(request: Request, db: DatabaseDep, refresh: str | None = Body(None, embed=True)):
     """刷新 access_token。
 
     使用 refresh_token 换取新的 access_token，支持从请求体或 HttpOnly Cookie 读取。
@@ -614,7 +615,7 @@ async def change_password(
     new_password: str = Body(..., embed=True),
     user: dict = Depends(get_current_user),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request = None,
+    request: Request | None = None,
 ):
     """Change the current user's password.
 
@@ -721,7 +722,7 @@ async def change_password(
 async def forgot_password(
     db: DatabaseDep,
     username: str = Body(..., embed=True),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     """Send password reset email to user (requires email configuration).
@@ -935,7 +936,7 @@ async def forgot_password(
             msg.attach(MIMEText(msg_body, "html"))
 
             if smtp_port == 465:
-                server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10)
+                server: smtplib.SMTP = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10)
             else:
                 server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
                 if use_starttls:
@@ -981,7 +982,7 @@ async def reset_password(
     db: DatabaseDep,
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
-    request: Request = None,
+    request: Request | None = None,
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     """Reset password using token from email.
@@ -1182,6 +1183,8 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
             try:
                 # FIXED: 验证 token_type 为 access
                 payload = decode_token(raw_token, verify_exp=False, token_type="access")
+                if payload is None:
+                    continue
                 jti = payload.get("jti")
                 exp = payload.get("exp")
                 if jti:
@@ -1208,6 +1211,8 @@ async def logout(request: Request, user: CurrentUser, audit_svc: AuditServiceDep
             try:
                 # FIXED: 验证 token_type 为 refresh
                 payload = decode_token(raw_token, verify_exp=False, token_type="refresh")
+                if payload is None:
+                    continue
                 jti = payload.get("jti")
                 exp = payload.get("exp")
                 if jti:
