@@ -371,11 +371,17 @@ async def login(req: LoginRequest, request: Request, db: DatabaseDep, audit_svc:
         )
 
         # LP-09: 并发登录控制 - 撤销该用户旧 session，注册新 session
+        import warnings
+
         from edgelite.security.jwt import decode_token
         from edgelite.security.session_manager import revoke_old_sessions
 
-        access_payload = decode_token(access_token, verify_exp=False, token_type="access")
-        refresh_payload = decode_token(refresh_token, verify_exp=False, token_type="refresh")
+        # FIXED: 抑制 decode_token(verify_exp=False) 的 UserWarning
+        # 此处提取 jti 的 token 刚在上方毫秒前创建，不可能过期，verify_exp=False 是合法用途
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            access_payload = decode_token(access_token, verify_exp=False, token_type="access")
+            refresh_payload = decode_token(refresh_token, verify_exp=False, token_type="refresh")
         new_jtis = []
         if access_payload and access_payload.get("jti"):
             new_jtis.append(access_payload["jti"])
