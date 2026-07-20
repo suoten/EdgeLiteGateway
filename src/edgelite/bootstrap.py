@@ -852,6 +852,12 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
 
     logging.basicConfig(level=config.logging.level, format=config.logging.format)
 
+    # FIXED: 抑制 pymodbus v3 弃用警告（ModbusDeviceContext/ModbusServerContext 等）
+    # 这些 API 在 v4 中将被移除，当前版本使用 v3 API 是正确的
+    import warnings as _warnings
+
+    _warnings.filterwarnings("ignore", message=r".*deprecated and will be removed in v4.*", category=DeprecationWarning)
+
     # FIXED-P0: 注册 SensitiveFilter 到根 logger，自动脱敏日志中的密码/Token/密钥
     try:
         from edgelite.security.data_masking import SensitiveFilter
@@ -860,6 +866,26 @@ async def bootstrap_all(c: ServiceContainer, config) -> None:
         logging.getLogger().addFilter(_sensitive_filter)
     except Exception as _sf_err:
         logger.warning("SensitiveFilter registration failed: %s", _sf_err)
+
+    # FIXED: 抑制 amqtt 库在 Windows 上的已知噪音日志
+    # on_socket_unregister_write / "No data from" / "Failed to initialize client session: No more data"
+    # 这些是客户端断开时的正常清理过程，amqtt 库错误地以 ERROR 级别记录
+    class _AmqttNoiseFilter(logging.Filter):
+        _SUPPRESSED_FRAGMENTS = (
+            "on_socket_unregister_write",
+            "No data from",
+            "Failed to initialize client session: No more data",
+        )
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            msg = record.getMessage()
+            for frag in self._SUPPRESSED_FRAGMENTS:
+                if frag in msg:
+                    return False
+            return True
+
+    for _logger_name in ("mqtt", "amqtt.broker", "amqtt"):
+        logging.getLogger(_logger_name).addFilter(_AmqttNoiseFilter())
 
     # FIXED: 日志目录优先使用 config.logging.log_dir，回退到 _LOG_DIR 常量 [2026-06-29]
     # 原硬编码 _LOG_DIR，运维修改 config.logging.log_dir 无效

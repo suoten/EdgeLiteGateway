@@ -23,6 +23,17 @@ from __future__ import annotations
 import asyncio  # FIXED-P2: WS首帧认证需要asyncio.wait_for
 import json  # FIXED-P2: WS首帧认证需要json.loads
 import logging
+
+# FIXED-P0: Windows上amqtt需要SelectorEventLoop（ProactorEventLoop不支持add_reader/add_writer）
+# 必须在app模块导入时设置，确保通过 `uvicorn edgelite.app:create_app` 直接启动时也生效
+# （__main__.py 中已有相同设置，但直接通过 uvicorn 启动时不经过 __main__.py）
+import sys as _sys
+
+if _sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    except AttributeError:
+        pass
 import os  # FIXED-P0: os.environ.get("DEV_MODE")需要import os
 from contextlib import asynccontextmanager
 
