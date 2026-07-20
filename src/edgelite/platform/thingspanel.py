@@ -142,7 +142,7 @@ class ThingsPanelHandler(PlatformHandler):
     async def _connect_loop(self, broker: str, port: int, username: str, password: str, device_token: str) -> None:
         import aiomqtt
 
-        backoff = 1
+        backoff: float = 1
         max_backoff = _PLATFORM_RECONNECT_MAX_BACKOFF  # FIXED-P2: 原问题-硬编码 max_backoff=60，改为使用常量
 
         while self._running:

@@ -458,7 +458,7 @@ class BackpressureController:
                 callbacks_snapshot = list(self._callbacks)
             for callback in callbacks_snapshot:
                 try:
-                    if asyncio.iscoroutine_function(callback):
+                    if asyncio.iscoroutinefunction(callback):
                         await callback(old_state, new_state, overall_ratio)
                     else:
                         callback(old_state, new_state, overall_ratio)

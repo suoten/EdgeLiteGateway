@@ -53,7 +53,7 @@ async def get_preprocess_config(
 ):
     # FIXED: 整个函数无异常保护
     try:
-        point_configs = {}
+        point_configs: dict[str, dict] = {}
         if preprocessor:
             point_configs = getattr(preprocessor, "_configs", {})
 

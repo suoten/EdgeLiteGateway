@@ -261,7 +261,7 @@ class CacheManager:
             try:
                 # FIXED-BugR4X: 原问题-add_to_cache写入RingBuffer的记录缺少sqlite_id字段，导致增量同步后无法删除SQLite源记录，SQLite无限增长  # noqa: E501
                 # 修复-如果sqlite_record_id不为None，将其加入ring_record字典
-                ring_record = {
+                ring_record: dict[str, Any] = {
                     "measurement": measurement,
                     "tags": tags,
                     "fields": fields,

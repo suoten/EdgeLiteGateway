@@ -202,7 +202,7 @@ async def create_sse_ticket(
 @router.get("/sse")
 async def mcp_sse(
     event_bus: EventBusDep,
-    request: Request = None,
+    request: Request = None,  # type: ignore[assignment]
     ticket: str | None = Query(None),  # R11-API-05: 改为接收短期 ticket，避免 JWT 通过 URL 泄露
 ):
     # R11-API-05: 优先校验一次性 ticket；保留 Authorization header 作为备选认证方式

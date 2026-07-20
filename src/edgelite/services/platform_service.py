@@ -1091,7 +1091,7 @@ class PlatformService:
             adapter = self._adapters.get(name)
             if adapter:
                 label = registry.get(name, {}).get("label", name)
-                result.append(await adapter.get_dashboard_data(label))  # FIXED-P0: await async方法
+                result.append(await getattr(adapter, "get_dashboard_data")(label))  # FIXED-P0: await async方法
             else:
                 handler = self._handlers.get(name)
                 if handler:
@@ -1305,7 +1305,7 @@ class PlatformService:
         """获取所有北向适配器的 Prometheus 格式指标。"""
         lines = []
         for adapter in self._adapters.values():
-            lines.append(adapter.get_prometheus_metrics())
+            lines.append(getattr(adapter, "get_prometheus_metrics")())
         return "\n".join(lines)
 
     async def reload_config(self, platform_name: str, config: dict) -> dict[str, Any]:

@@ -286,8 +286,8 @@ class SerialTcpBridge:
                         dead_clients.append(reader)
 
                 for reader in dead_clients:
-                    writer = self._clients.pop(reader, None)
-                    if writer:
+                    if reader in self._clients:
+                        writer = self._clients.pop(reader)
                         try:
                             writer.close()
                             await writer.wait_closed()

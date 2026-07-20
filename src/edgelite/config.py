@@ -12,7 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, model_validator
 
@@ -731,8 +731,9 @@ def _load_env_overrides() -> dict[str, Any]:
         if not key.startswith(prefix):
             continue
         raw = key[len(prefix) :]
+        parsed_value: str | list[str] = value
         if ";" in value:
-            value = [v.strip() for v in value.split(";") if v.strip()]
+            parsed_value = [v.strip() for v in value.split(";") if v.strip()]
         if "__" in raw:
             parts = raw.lower().split("__")
             d = overrides
@@ -740,9 +741,9 @@ def _load_env_overrides() -> dict[str, Any]:
                 if part not in d or not isinstance(d[part], dict):
                     d[part] = {}
                 d = d[part]
-            d[parts[-1]] = value
+            d[parts[-1]] = parsed_value
         else:
-            overrides[raw.lower()] = value
+            overrides[raw.lower()] = parsed_value
     return overrides
 
 

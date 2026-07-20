@@ -28,7 +28,7 @@ class S7ConfigVersionManager:
 
     def __init__(self) -> None:
         self._versions: dict[str, list[dict[str, Any]]] = {}
-        self._audit_trail: dict[str, list[dict[str, Any]]] = []
+        self._audit_trail: dict[str, list[dict[str, Any]]] = {}
         self._lock = threading.Lock()
 
     async def save_version(

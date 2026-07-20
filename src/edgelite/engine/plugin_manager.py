@@ -110,9 +110,9 @@ class PluginManager:
         spec.loader.exec_module(module)
         return module
 
-    def _find_driver_subclasses(self, module) -> list[type]:
+    def _find_driver_subclasses(self, module) -> list[type[DriverPlugin]]:
         """查找模块中所有DriverPlugin的子类"""
-        classes = []
+        classes: list[type[DriverPlugin]] = []
         for _name, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, DriverPlugin) and obj is not DriverPlugin:
                 classes.append(obj)

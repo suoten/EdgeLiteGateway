@@ -46,7 +46,7 @@ def _ensure_event_registry() -> None:
 
 def _serialize_event(event: Any) -> str:
     """序列化 dataclass 事件为 JSON (含 __type__ 字段)。"""
-    if not is_dataclass(event):
+    if not is_dataclass(event) or isinstance(event, type):
         # 非 dataclass 事件退化为 dict 表示，反序列化时无法重建为对象
         return json.dumps(
             {"__type__": type(event).__name__, "__raw__": str(event)},

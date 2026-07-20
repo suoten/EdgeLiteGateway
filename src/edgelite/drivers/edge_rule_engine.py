@@ -16,13 +16,14 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -246,8 +247,8 @@ class ModbusEdgeRuleEngine:
             return
         try:
             result = self._on_action_callback(record)
-            if hasattr(result, "__await__"):
-                await result
+            if inspect.isawaitable(result):
+                await cast("Awaitable[Any]", result)
         except Exception as e:
             logger.error("rule action callback failed for %s: %s", record.rule_id, e)
 

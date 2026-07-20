@@ -150,7 +150,7 @@ class CascadeManager:
             await self._zeroconf.async_register_service(info)
             self._registration = info
 
-            self._browser = ServiceBrowser(self._zeroconf, _MDNS_SERVICE_TYPE, self._on_service_state_change)
+            self._browser = ServiceBrowser(self._zeroconf, _MDNS_SERVICE_TYPE, [self._on_service_state_change])
 
             if self._parent_host:
                 self._topology.status = TopologyStatus.CHILD

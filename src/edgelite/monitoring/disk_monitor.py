@@ -84,11 +84,12 @@ class DiskSpaceMonitor:
         """
         if not self._db_path or not os.path.exists(self._db_path):
             return
+        db_path = self._db_path
         try:
             import sqlite3
 
             def _do_checkpoint() -> str:
-                conn = sqlite3.connect(self._db_path, timeout=10)
+                conn = sqlite3.connect(db_path, timeout=10)
                 try:
                     cursor = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                     row = cursor.fetchone()

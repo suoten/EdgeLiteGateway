@@ -93,8 +93,8 @@ class AlarmSilenceManager:
                     now = datetime.now(UTC)
                     silences = [
                         s for s in silences
-                        if _parse_iso_time(s.get("end_time", "")) is not None
-                        and _parse_iso_time(s["end_time"]) > now
+                        if (end_dt := _parse_iso_time(s.get("end_time", ""))) is not None
+                        and end_dt > now
                         and not s.get("cancelled_at")
                     ]
                 return silences
@@ -161,7 +161,7 @@ class AlarmSilenceManager:
                 stmt = delete(AlarmSilenceORM).where(AlarmSilenceORM.id == silence_id)
                 result = await session.execute(stmt)
                 await session.commit()
-                deleted = result.rowcount > 0
+                deleted = getattr(result, "rowcount", 0) > 0
                 if deleted:
                     logger.info("Alarm silence deleted: id=%s", silence_id)
                 return deleted

@@ -25,7 +25,7 @@ from typing import Any
 try:
     import resource  # Unix-only
 except ImportError:
-    resource = None  # Windows 无此模块
+    resource = None  # type: ignore[assignment]  # Windows 无此模块
 
 logger = logging.getLogger(__name__)
 

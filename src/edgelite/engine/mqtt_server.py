@@ -26,7 +26,7 @@ except ImportError:
     _BaseAuthPlugin = None  # type: ignore[assignment,misc]
 
 
-class _MqttAuthPlugin(_BaseAuthPlugin if _AMQTT_AVAILABLE else object):
+class _MqttAuthPlugin(_BaseAuthPlugin if _AMQTT_AVAILABLE else object):  # type: ignore[misc]
     """MQTT Server 认证插件 - 基于 username/password 的简单认证。"""
 
     @dataclass

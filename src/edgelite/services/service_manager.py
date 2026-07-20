@@ -733,6 +733,9 @@ class ServiceManager:
         config = get_config()
         section_config = getattr(config, svc_def["config_section"], None)
 
+        # 显式声明为 Any 以兼容不同服务实例类型（MqttServer/ModbusSlaveServer/SerialTcpBridge）
+        instance: Any
+
         if service_name == "mqtt_server":
             from edgelite.engine.mqtt_server import MqttServer
 

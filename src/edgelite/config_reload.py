@@ -158,7 +158,7 @@ class ConfigHotReloader:
                     if file_path.endswith(".json"):
                         _parsed = json.loads(content)
                     else:
-                        import yaml
+                        import yaml  # type: ignore[import-untyped]
 
                         _parsed = yaml.safe_load(content)
                     self._watched_files[f"_old_{file_path}"] = _parsed

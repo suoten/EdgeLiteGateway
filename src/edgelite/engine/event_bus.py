@@ -205,7 +205,7 @@ class EventBus:
             # FIXED-BugR4X: 原问题-重名订阅静默覆盖导致前一个订阅者队列丢失且事件丢失；修复-重名订阅时抛出ValueError
             if name in self._subscribers:
                 raise ValueError(f"Event bus subscriber name already exists: {name}")
-            queue = asyncio.Queue(maxsize=self._max_size)
+            queue: asyncio.Queue = asyncio.Queue(maxsize=self._max_size)
             self._subscribers[name] = queue
         logger.info("Event bus subscriber registered: %s", name)
         return queue

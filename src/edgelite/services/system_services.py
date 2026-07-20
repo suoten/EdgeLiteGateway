@@ -595,6 +595,8 @@ class ConfigBackupService:
         all_rules: list[dict] = []
         for bid in restore_order:
             f = await self.get_backup(bid)
+            if f is None:
+                continue
             all_devices.extend(f.get("data", {}).get("devices", []))
             all_rules.extend(f.get("data", {}).get("rules", []))
 

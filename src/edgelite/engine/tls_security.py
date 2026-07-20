@@ -124,7 +124,7 @@ class TlsConfigBuilder:
         ca_cert: str | None = None,
         client_cert: str | None = None,
         client_key: str | None = None,
-        verify_mode: int = ssl.CERT_REQUIRED,
+        verify_mode: ssl.VerifyMode = ssl.CERT_REQUIRED,
     ) -> ssl.SSLContext | None:
         """构建MQTT SSL上下文
 
