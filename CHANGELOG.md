@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 4 处 `except Exception: pass` 静默吞没异常改为 `logger.debug/warning` 记录（engine/lifecycle.py、engine/graceful_restarter.py、engine/edge_ai_inference.py、engine/alarm_outbox.py）
 - .gitignore 增加 data/ 目录测试输出文件的额外保护规则
+- FastAPI 路由参数类型注解 `Request | None = None` 导致启动崩溃，全量修复为 `Request = None`（涉及 alarms.py、rules.py、users.py、auth.py 共 15 处）
+- bcrypt rounds 从 14 降至 12，解决登录耗时 >3s 超时问题
+- WebSocket 心跳机制：前端收到 `ping` 后回复 `pong`，防止连接反复断开
+- OTA `/backups` 和 `/check` 端点未启用时返回 503 → 改为 200 + 空数据
+- DEV_MODE 下 SecretManager 自动生成并持久化主密钥，修复 Windows ACL 函数名错误
+- README.md 中 bcrypt rounds 描述与实际代码不一致（13 → 12）
 
 ## [1.0.0] - 2026-07-09
 

@@ -315,7 +315,7 @@ async def ack_alarm(
     alarm_id: Annotated[str, Path(max_length=128)],
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
@@ -361,7 +361,7 @@ async def recover_alarm(
     alarm_id: Annotated[str, Path(max_length=128)],
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
@@ -409,7 +409,7 @@ async def delete_alarm(
     alarm_id: Annotated[str, Path(max_length=128)],
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_DELETE)),
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,
 ):
     """FIXED(严重): 物理删除告警记录（仅 admin）。
@@ -493,7 +493,7 @@ async def suppress_alarm(
     req: SuppressRequest,
     svc: AlarmServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,
 ):
     try:
@@ -579,7 +579,7 @@ async def create_alarm_silence(
     req: SilenceCreateRequest,
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
     db: DatabaseDep = None,  # type: ignore[assignment]
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,
 ):
     """Set an alarm silence period"""
@@ -641,7 +641,7 @@ async def delete_alarm_silence(
     silence_id: Annotated[str, Path(max_length=128)],
     user: dict[str, str] = Depends(require_permission(Permission.ALARM_ACK)),
     db: DatabaseDep = None,  # type: ignore[assignment]
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,
 ):
     """Cancel an alarm silence period"""

@@ -96,7 +96,7 @@ async def create_rule(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_CREATE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
 ):
     try:
         logger.info(
@@ -345,7 +345,7 @@ async def update_rule(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_UPDATE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
 ):
     try:
         data = body.model_dump(exclude_none=True)
@@ -398,7 +398,7 @@ async def delete_rule(
     svc: RuleServiceDep,
     user: dict[str, str] = Depends(require_permission(Permission.RULE_DELETE)),
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
 ):
     try:
         before_rule = await svc.get_rule(rule_id)

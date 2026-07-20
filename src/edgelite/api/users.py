@@ -54,7 +54,7 @@ async def create_user(
     body: UserCreate,
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_CREATE)),
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:
@@ -126,7 +126,7 @@ async def update_user(
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_UPDATE)),
     config: ConfigDep = None,
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     # FIXED-M04: Protect admin role users from sensitive field modifications
@@ -265,7 +265,7 @@ async def delete_user(
     db: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.USER_DELETE)),
     config: ConfigDep = None,
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     audit_svc: AuditServiceDep = None,  # FIXED-M03: FastAPI dependency injection provides the value
 ):
     try:

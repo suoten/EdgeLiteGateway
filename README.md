@@ -290,7 +290,7 @@ flowchart LR
 |------|------|
 | **JWT认证** | Access(30min) + Refresh(7天), HS256/384/512 |
 | **RBAC** | 3角色(admin/operator/viewer) × 30权限 |
-| **密码安全** | bcrypt(rounds=13, OWASP 2023) |
+| **密码安全** | bcrypt(rounds=12, OWASP 2023) |
 | **Token撤销** | 内存撤销列表, 上限100000 |
 | **登录保护** | 5次失败锁定15分钟 |
 | **TLS安全** | 双向TLS(mTLS), CA自签名, 证书轮换 |
