@@ -181,6 +181,54 @@ jobs:
         if: always()
         run: docker rm -f edgelite-smoke || true
 
+  acceptance:
+    name: Acceptance gate (合并必过检查)
+    runs-on: ubuntu-latest
+    needs: [docker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install httpx for acceptance check
+        run: pip install httpx
+      # 启动 EdgeLite 容器（参考 smoke-test job 的启动方式）
+      - name: Start EdgeLite container
+        run: |
+          docker run -d --name edgelite-acceptance \
+            -p 8080:8080 \
+            -e EDGELITE_SECURITY__SECRET_KEY="${{ env.EDGELITE_SECURITY__SECRET_KEY }}" \
+            -e EDGELITE_ADMIN_PASSWORD="smoke-test-admin-pass" \
+            -e DEV_MODE=true \
+            edgelite:ci
+      # 等待健康检查通过
+      - name: Wait for health check
+        run: |
+          echo "⏳ Waiting for EdgeLite to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+              echo "✅ EdgeLite is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ EdgeLite did not become healthy in 150s"
+          docker logs edgelite-acceptance --tail=50
+          exit 1
+      # 运行验收门禁脚本（CI 环境无法启动前端 dev server，用 --skip-frontend 跳过前端检查）
+      - name: Run acceptance gate
+        run: |
+          python scripts/acceptance_check.py \
+            --base-url http://localhost:8080 \
+            --skip-frontend \
+            --user admin \
+            --pass "smoke-test-admin-pass"
+      # 清理容器
+      - name: Cleanup
+        if: always()
+        run: docker rm -f edgelite-acceptance || true
+
   security:
     name: Security scan (trivy + pip-audit + SBOM)
     runs-on: ubuntu-latest
