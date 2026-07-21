@@ -130,7 +130,10 @@ async def push_device(
         return ApiResponse(data=device)
     except ValueError as e:
         err_msg = str(e).lower()
-        if "already exists" in err_msg or "duplicate" in err_msg:
+        # FIX: 增加 err_repo_device_exists 匹配 — DeviceRepo.create() 在 IntegrityError 时
+        # raise ValueError(RepoErrors.DEVICE_EXISTS) 即 "ERR_REPO_DEVICE_EXISTS"，
+        # 原代码仅检查 "already exists"/"duplicate" 文本，导致此错误落入 422 而非 409
+        if "already exists" in err_msg or "duplicate" in err_msg or "err_repo_device_exists" in err_msg:
             raise HTTPException(status_code=409, detail=DeviceErrors.ALREADY_EXISTS) from e
         elif "unsupported protocol" in err_msg:
             raise HTTPException(status_code=422, detail=DeviceErrors.DRIVER_UNAVAILABLE) from e

@@ -623,8 +623,10 @@ class S7Driver(DriverPlugin):
             if self._is_s7_200_smart:
                 local_tsap = config.get("local_tsap", 0x1000)
                 remote_tsap = config.get("remote_tsap", 0x0200)
-                timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
-                self._client.set_connection_params(ip, local_tsap, remote_tsap, timeout)
+                # FIX: snap7 set_connection_params(address, local_tsap, remote_tsap) 只接受 3 个参数，
+                # 原代码多传了 timeout 导致 "takes 4 positional arguments but 5 were given"。
+                # timeout 由 _s7_connect_with_timeout 中的 asyncio.wait_for 单独控制。
+                self._client.set_connection_params(ip, local_tsap, remote_tsap)
                 logger.info(
                     "[s7] device=%s code=S7_200_SMART msg=使用S7-200 SMART TSAP连接模式 (local_tsap=0x%04X, remote_tsap=0x%04X)",
                     ip,
@@ -632,8 +634,7 @@ class S7Driver(DriverPlugin):
                     remote_tsap,
                 )
             else:
-                timeout = self._config.get("connect_timeout", self._DEFAULT_CONNECT_TIMEOUT)
-                self._client.set_connection_params(ip, 0, 0, timeout)
+                self._client.set_connection_params(ip, 0, 0)
 
             await self._s7_connect_with_timeout(self._client, ip, rack, slot)
             self._running = True
@@ -1716,7 +1717,7 @@ class S7Driver(DriverPlugin):
                 client = None
                 try:
                     client = snap7.client.Client()
-                    client.set_connection_params(ip_addr, 0, 0, timeout)  # type: ignore[call-arg]  # snap7 stubs inaccurate
+                    client.set_connection_params(ip_addr, 0, 0)  # type: ignore[call-arg]  # snap7 stubs inaccurate
                     await asyncio.wait_for(
                         asyncio.to_thread(client.connect, ip_addr, rack, slot),
                         timeout=timeout + 1,
