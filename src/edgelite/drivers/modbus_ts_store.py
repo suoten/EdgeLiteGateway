@@ -79,7 +79,9 @@ class ModbusTsStore:
 
             await self._db.execute("PRAGMA journal_mode=WAL")
             await self._db.execute("PRAGMA synchronous=NORMAL")
-            await self._db.execute("PRAGMA busy_timeout=5000")
+            await self._db.execute("PRAGMA busy_timeout=15000")
+            # FIXED: 禁用自动 WAL 检查点，防止检查点在写入事务进行时触发 "database is locked"
+            await self._db.execute("PRAGMA wal_autocheckpoint=0")
 
             await self._db.execute(_CREATE_TABLE_SQL)
             await self._db.execute(_CREATE_INDEX_SQL)
@@ -221,19 +223,36 @@ class ModbusTsStore:
                 break
             device_id, rows = item
             try:
-                async with self._db_lock:
-                    await self._db.executemany(
-                        """INSERT OR REPLACE INTO device_points
-                           (device_id, point_name, quality, value_real, value_int,
-                            value_str, value_bool, timestamp_ns, created_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        rows,
-                    )
-                    self._write_count += len(rows)
-                    self._pending_writes += len(rows)
-                    if self._pending_writes >= self._max_pending:
-                        await self._db.commit()
-                        self._pending_writes = 0
+                # FIXED: 添加 "database is locked" 重试逻辑，使用指数退避
+                # 原问题：SQLite WAL 模式下并发写入仍可能遇到 "database is locked"，
+                # busy_timeout=5000 在高并发场景下不够，导致写入失败并持续报错
+                max_retries = 5
+                for attempt in range(max_retries):
+                    try:
+                        async with self._db_lock:
+                            await self._db.executemany(
+                                """INSERT OR REPLACE INTO device_points
+                                   (device_id, point_name, quality, value_real, value_int,
+                                    value_str, value_bool, timestamp_ns, created_at)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                rows,
+                            )
+                            self._write_count += len(rows)
+                            self._pending_writes += len(rows)
+                            if self._pending_writes >= self._max_pending:
+                                await self._db.commit()
+                                self._pending_writes = 0
+                        break  # 写入成功，退出重试循环
+                    except Exception as write_err:
+                        err_str = str(write_err)
+                        is_locked = "database is locked" in err_str.lower()
+                        if is_locked and attempt < max_retries - 1:
+                            # 指数退避：0.2s, 0.4s, 0.8s, 1.6s, 3.2s
+                            logger.debug("[modbus_ts_store] retry %d/%d for 'database is locked'", attempt + 1, max_retries)
+                            await asyncio.sleep(0.2 * (2 ** attempt))
+                            continue
+                        # 非锁错误或重试次数用尽，重新抛出
+                        raise
                 # 周期性清理过期数据
                 if self._write_count % self._cleanup_every < len(rows):
                     await self._cleanup_old()
@@ -248,7 +267,7 @@ class ModbusTsStore:
                     pass
                 raise
             except Exception as e:
-                logger.error("[modbus_ts_store] 后台写入失败: %s", e)
+                logger.error("[modbus_ts_store] 后台写入失败: %s: %s", type(e).__name__, e)
                 try:
                     async with self._db_lock:
                         await self._db.rollback()

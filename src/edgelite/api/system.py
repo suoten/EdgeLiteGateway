@@ -1564,7 +1564,13 @@ async def get_ntp_config(user: dict[str, str] = Depends(require_permission(Permi
         config = await asyncio.to_thread(_load_ntp_config)
         # FIXED-P2: _get_ntp_sync_status 已改为 async，内部使用 asyncio.create_subprocess_exec
         # 异步执行子进程，不再阻塞事件循环，无需线程池包裹
-        sync_status = await _get_ntp_sync_status()
+        # FIXED: Windows 上 chronyc/ntpq 不存在时 _get_ntp_sync_status 可能抛出异常，
+        # 增加 try/except 降级返回 "unknown"，避免 500 错误阻断前端页面
+        try:
+            sync_status = await _get_ntp_sync_status()
+        except Exception as sync_err:
+            logger.warning("get_ntp_sync_status failed, falling back to 'unknown': %s: %s", type(sync_err).__name__, sync_err)
+            sync_status = "unknown"
         from datetime import datetime
 
         current_time = datetime.now(UTC).isoformat()
@@ -1577,7 +1583,7 @@ async def get_ntp_config(user: dict[str, str] = Depends(require_permission(Permi
             }
         )
     except Exception as e:
-        logger.error("get_ntp_config failed: %s", e)
+        logger.error("get_ntp_config failed: %s: %s", type(e).__name__, repr(e))
         raise HTTPException(status_code=500, detail=SystemErrors.STATUS_FAILED) from e
 
 
