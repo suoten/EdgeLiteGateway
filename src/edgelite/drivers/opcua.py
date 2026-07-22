@@ -2681,14 +2681,31 @@ class OpcUaDriver(DriverPlugin):
         return result
 
     def _get_security_policy_map(self):
+        # FIX: asyncua 新版本中 SecurityPolicy 基类不再有 Basic128Rsa15 等类属性，
+        # 而是将它们拆分为独立类：SecurityPolicyBasic128Rsa15、SecurityPolicyBasic256、SecurityPolicyBasic256Sha256
+        # 兼容新旧版本：先尝试从模块直接导入独立类，回退到基类属性
         try:
-            from asyncua.crypto.security_policies import SecurityPolicy
-
+            from asyncua.crypto.security_policies import (
+                SecurityPolicyBasic128Rsa15,
+                SecurityPolicyBasic256,
+                SecurityPolicyBasic256Sha256,
+            )
             return {
                 "None": None,
-                "Basic128Rsa15": SecurityPolicy.Basic128Rsa15,
-                "Basic256": SecurityPolicy.Basic256,
-                "Basic256Sha256": SecurityPolicy.Basic256Sha256,
+                "Basic128Rsa15": SecurityPolicyBasic128Rsa15,
+                "Basic256": SecurityPolicyBasic256,
+                "Basic256Sha256": SecurityPolicyBasic256Sha256,
+            }
+        except ImportError:
+            pass
+        # 回退：尝试旧版 API（SecurityPolicy.Basic128Rsa15 类属性）
+        try:
+            from asyncua.crypto.security_policies import SecurityPolicy
+            return {
+                "None": None,
+                "Basic128Rsa15": getattr(SecurityPolicy, "Basic128Rsa15", None),
+                "Basic256": getattr(SecurityPolicy, "Basic256", None),
+                "Basic256Sha256": getattr(SecurityPolicy, "Basic256Sha256", None),
             }
         except ImportError:
             return {"None": None}

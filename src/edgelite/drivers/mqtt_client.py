@@ -644,13 +644,18 @@ class MqttClientDriver(DriverPlugin):
                 client_kwargs: dict[str, Any] = {
                     "hostname": broker,
                     "port": port,
-                    "username": username,
-                    "password": password,
                     "keepalive": _MQTT_KEEPALIVE,
                     "clean_session": clean_session,
                 }
+                # FIX: aiomqtt v2.x 使用 identifier 而非 client_id；
+                # username/password 仅在非空时传入，避免 None 值导致认证异常
+                if username:
+                    client_kwargs["username"] = username
+                if password:
+                    client_kwargs["password"] = password
                 if client_id:
-                    client_kwargs["client_id"] = client_id
+                    # aiomqtt v2.x: Client.__init__ 参数名为 identifier，非 client_id
+                    client_kwargs["identifier"] = client_id
 
                 # ── 遗嘱消息 ──
                 # FIXED: 添加 Will 消息长度限制和 QoS 校验（Layer 2 - MQTT 协议规范）

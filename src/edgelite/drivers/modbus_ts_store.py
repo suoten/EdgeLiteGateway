@@ -64,6 +64,9 @@ class ModbusTsStore:
         self._pending_writes = 0
         self._max_pending = 200
         self._cleanup_every = 500  # 每 500 次写入触发一次过期清理
+        # FIX: 后台写入队列，避免 SQLite 写入阻塞采集循环导致 asyncio.wait_for 超时
+        self._write_queue: asyncio.Queue[tuple[str, list[tuple]] | None] = asyncio.Queue(maxsize=1000)
+        self._writer_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         """初始化数据库连接和表"""
@@ -93,9 +96,19 @@ class ModbusTsStore:
                 await self._db.close()
                 self._db = None
             raise
+        # FIX: 启动后台写入协程，将 SQLite 写入从采集循环中解耦
+        self._writer_task = asyncio.create_task(self._writer_loop(), name="modbus-ts-writer")
 
     async def stop(self) -> None:
         """关闭数据库连接"""
+        # FIX: 先停止后台写入任务
+        if self._writer_task:
+            await self._write_queue.put(None)  # 发送停止信号
+            try:
+                await asyncio.wait_for(self._writer_task, timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                self._writer_task.cancel()
+            self._writer_task = None
         if self._db is not None:
             try:
                 async with self._db_lock:
@@ -158,10 +171,14 @@ class ModbusTsStore:
         return value_real, value_int, value_str, value_bool
 
     async def write_read_result(self, device_id: str, result: dict[str, Any]) -> None:
-        """写入一次读取结果
+        """写入一次读取结果（非阻塞，放入后台队列）
 
         result 是 dict[str, PointValue | 裸值]，key 为 point_name。
         TCP 调用：await self._ts_store.write_read_result(device_id, result)
+
+        FIX: 原实现在 read_points 内同步调用 executemany，当 SQLite 写入慢时
+        会被调度器的 asyncio.wait_for(timeout=5s) 取消，导致 CancelledError。
+        改为将行数据放入后台队列，由 _writer_loop 异步消费，不阻塞采集循环。
         """
         if not self._db or not result:
             return
@@ -180,29 +197,63 @@ class ModbusTsStore:
             return
 
         try:
-            async with self._db_lock:
-                await self._db.executemany(
-                    """INSERT OR REPLACE INTO device_points
-                       (device_id, point_name, quality, value_real, value_int,
-                        value_str, value_bool, timestamp_ns, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    rows,
-                )
-                self._write_count += len(rows)
-                self._pending_writes += len(rows)
-                if self._pending_writes >= self._max_pending:
-                    await self._db.commit()
-                    self._pending_writes = 0
-            # 周期性清理过期数据
-            if self._write_count % self._cleanup_every < len(rows):
-                await self._cleanup_old()
-        except Exception as e:
-            logger.error("[modbus_ts_store] 写入失败: %s", e)
+            self._write_queue.put_nowait((device_id, rows))
+        except asyncio.QueueFull:
+            # 队列满时丢弃最旧数据，防止内存溢出
+            logger.warning("[modbus_ts_store] 写入队列已满，丢弃数据")
+            try:
+                self._write_queue.get_nowait()
+                self._write_queue.put_nowait((device_id, rows))
+            except asyncio.QueueEmpty:
+                pass
+
+    async def _writer_loop(self) -> None:
+        """FIX: 后台写入协程，从队列消费数据并写入 SQLite。
+
+        将 SQLite executemany 从采集循环中解耦：
+        - 采集循环只需 put_nowait 到队列，立即返回
+        - 本协程在后台逐批消费，即使 SQLite 慢也不阻塞采集
+        """
+        while True:
+            item = await self._write_queue.get()
+            if item is None:
+                # 停止信号
+                break
+            device_id, rows = item
             try:
                 async with self._db_lock:
-                    await self._db.rollback()
+                    await self._db.executemany(
+                        """INSERT OR REPLACE INTO device_points
+                           (device_id, point_name, quality, value_real, value_int,
+                            value_str, value_bool, timestamp_ns, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        rows,
+                    )
+                    self._write_count += len(rows)
+                    self._pending_writes += len(rows)
+                    if self._pending_writes >= self._max_pending:
+                        await self._db.commit()
+                        self._pending_writes = 0
+                # 周期性清理过期数据
+                if self._write_count % self._cleanup_every < len(rows):
+                    await self._cleanup_old()
+            except asyncio.CancelledError:
+                # 优雅退出：尝试提交未写入的数据
+                try:
+                    async with self._db_lock:
+                        if self._pending_writes > 0:
+                            await self._db.commit()
+                            self._pending_writes = 0
+                except Exception:
+                    pass
+                raise
             except Exception as e:
-                logger.debug("[modbus_ts_store] rollback failed: %s", e)
+                logger.error("[modbus_ts_store] 后台写入失败: %s", e)
+                try:
+                    async with self._db_lock:
+                        await self._db.rollback()
+                except Exception as rollback_err:
+                    logger.debug("[modbus_ts_store] rollback failed: %s", rollback_err)
 
     async def _cleanup_old(self) -> None:
         """清理超过 retention_days 的过期数据"""
