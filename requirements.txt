@@ -10,7 +10,7 @@ httpx>=0.27.0,<0.29
 pyyaml>=6.0,<7.0
 PyJWT>=2.8.0,<3.0
 bcrypt>=4.1.0,<5.0
-psutil>=5.9.0,<7.0
+psutil>=5.9.0,<8.0
 aiomqtt>=2.1.0,<3.0
 # pymqtt 在 Windows/GBK 环境下可能因编码问题安装失败（setup.py 读取文件默认编码导致 UnicodeDecodeError）
 # 如需启用 MQTT 5.0 properties，可在 UTF-8 环境单独安装：pip install "aiomqtt[pymqtt]" 或 pip install pymqtt
