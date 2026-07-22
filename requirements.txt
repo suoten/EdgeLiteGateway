@@ -15,7 +15,8 @@ aiomqtt>=2.1.0,<3.0
 # pymqtt 在 Windows/GBK 环境下可能因编码问题安装失败（setup.py 读取文件默认编码导致 UnicodeDecodeError）
 # 如需启用 MQTT 5.0 properties，可在 UTF-8 环境单独安装：pip install "aiomqtt[pymqtt]" 或 pip install pymqtt
 # pymqtt>=0.0.14
-asyncua>=1.1.0,<2.0
+# FIXED: asyncua updated to <3.0 to allow asyncua 2.x (requires type stubs in ./stubs/asyncua/)
+asyncua>=1.1.0,<3.0
 pyserial>=3.5,<4.0
 pymcprotocol>=0.3.0,<1.0
 fins>=1.0.5,<2.0
