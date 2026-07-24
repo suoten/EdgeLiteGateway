@@ -596,7 +596,7 @@ class CollectScheduler:
                     values = {}
 
                 if values:
-                    now = datetime.now(UTC)
+                    now = datetime.now().astimezone()  # 本地时间，确保显示时间与当前时间一致
                     records = []
                     for point_name, value in values.items():
                         if isinstance(value, PointValue):

@@ -307,7 +307,11 @@ const aggregateOptions = computed(() => [
 
 const stats = computed(() => {
   if (!queryResult.value.length) return null
-  const values = queryResult.value.map(d => d.value ?? d._value ?? 0)
+  // FIXED: 将 boolean 值转换为 number，避免 toFixed 崩溃
+  const values = queryResult.value.map(d => {
+    const v = d.value ?? d._value ?? 0
+    return typeof v === 'boolean' ? (v ? 1 : 0) : v
+  })
   if (!values.length) return null
   const count = values.length
   const max = values.reduce((a, b) => Math.max(a, b), -Infinity)
@@ -397,7 +401,10 @@ function clearAllAnnotations() {
 function computeAnomalyMarks(data: any[]) {
   if (data.length < 3) return { markAreas: [] as any[], markPoints: [] as any[] }
   const times = data.map(d => new Date(d.time || d._time || '').getTime()).filter(t => !isNaN(t))
-  const values = data.map(d => d.value ?? d._value ?? 0)
+  const values = data.map(d => {
+    const v = d.value ?? d._value ?? 0
+    return typeof v === 'boolean' ? (v ? 1 : 0) : v
+  })
   const markAreas: any[] = []
   const markPoints: any[] = []
 
@@ -502,7 +509,11 @@ const chartOption = computed(() => {
   // FIXED-Downsample: 图表数据降采样，保留原始数据用于表格展示
   const { data: chartData } = downsampleData(queryResult.value)
   const times = chartData.map(d => (d.time || d._time || '').substring(11, 19))
-  const values = chartData.map(d => d.value ?? d._value ?? 0)
+  const values = chartData.map(d => {
+    const v = d.value ?? d._value ?? 0
+    // FIXED: bool 值转换为 number，避免 ECharts 和后续计算异常
+    return typeof v === 'boolean' ? (v ? 1 : 0) : v
+  })
   // 修复10: 根据 chartType 构建不同 series
   const isBar = chartType.value === 'bar'
   const isStep = chartType.value === 'step'
@@ -536,7 +547,10 @@ const chartOption = computed(() => {
   if (compareEnabled.value && compareResult.value.length) {
     // 对比数据也降采样
     const { data: cmpChartData } = downsampleData(compareResult.value)
-    const cmpValues = cmpChartData.map(d => d.value ?? d._value ?? 0)
+    const cmpValues = cmpChartData.map(d => {
+      const v = d.value ?? d._value ?? 0
+      return typeof v === 'boolean' ? (v ? 1 : 0) : v
+    })
     compareSeries.push({
       type: isBar ? 'bar' : 'line',
       name: t('dataQuery.compareSeries'),
@@ -566,7 +580,10 @@ const dataColumns = [
   { title: t('dataQuery.colTime'), key: 'time', width: 200, render: (r: any) => formatDateTime(r.time || r._time) },  // FIXED: 原问题-中文硬编码
   { title: t('dataQuery.colValue'), key: 'value', render: (r: any) => {  // FIXED: 原问题-中文硬编码
     const v = r.value ?? r._value
-    return v != null ? (typeof v === 'number' ? v.toFixed(4) : v) : '-'
+    if (v == null) return '-'
+    // FIXED: bool 值直接显示 true/false，避免 toFixed 崩溃
+    if (typeof v === 'boolean') return v ? 'true' : 'false'
+    return typeof v === 'number' ? v.toFixed(4) : v
   }},
   { title: t('dataQuery.colQuality'), key: 'quality', width: 80, render: (r: any) => r.quality || '-' },  // FIXED: 原问题-中文硬编码
 ]
@@ -814,7 +831,10 @@ const multiPointChartOption = computed(() => {
   const series = names.map((name, i) => ({
     name,
     type: 'line' as const,
-    data: pointMap[name].map(d => d.value ?? d._value ?? 0),
+    data: pointMap[name].map(d => {
+      const v = d.value ?? d._value ?? 0
+      return typeof v === 'boolean' ? (v ? 1 : 0) : v
+    }),
     smooth: true,
     symbol: 'none',
     itemStyle: { color: COLORS[i % COLORS.length] },
@@ -939,7 +959,10 @@ const multiDeviceChartOption = computed(() => {
     const valueMap = new Map<string, number>()
     for (const d of r.data) {
       const ts = (d.time || d._time || '').substring(11, 19)
-      valueMap.set(ts, d.value ?? d._value ?? 0)
+      valueMap.set(ts, (() => {
+        const v = d.value ?? d._value ?? 0
+        return typeof v === 'boolean' ? (v ? 1 : 0) : v
+      })())
     }
     return {
       name: r.deviceName,

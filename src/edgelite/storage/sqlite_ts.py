@@ -486,15 +486,16 @@ class SqliteTimeSeriesStorage:
 
         window_ns = window_seconds * 1_000_000_000
         # FIXED-P2: 原问题-聚合仅用value_real，value_int数据被忽略；改为COALESCE(value_real, value_int)
+        # FIXED: bool 数据存储在 value_bool 列，聚合查询需包含 COALESCE(value_bool, value_real, value_int)
         agg_map = {
-            "mean": "AVG(COALESCE(value_real, value_int))",
-            "avg": "AVG(COALESCE(value_real, value_int))",
-            "max": "MAX(COALESCE(value_real, value_int))",
-            "min": "MIN(COALESCE(value_real, value_int))",
-            "sum": "SUM(COALESCE(value_real, value_int))",
-            "count": "COUNT(COALESCE(value_real, value_int))",
+            "mean": "AVG(COALESCE(value_real, value_int, value_bool))",
+            "avg": "AVG(COALESCE(value_real, value_int, value_bool))",
+            "max": "MAX(COALESCE(value_real, value_int, value_bool))",
+            "min": "MIN(COALESCE(value_real, value_int, value_bool))",
+            "sum": "SUM(COALESCE(value_real, value_int, value_bool))",
+            "count": "COUNT(COALESCE(value_real, value_int, value_bool))",
         }
-        agg_expr = agg_map.get(aggregate.lower(), "AVG(COALESCE(value_real, value_int))")
+        agg_expr = agg_map.get(aggregate.lower(), "AVG(COALESCE(value_real, value_int, value_bool))")
 
         try:
             async with self._db_lock:  # FIXED-P1: 原问题-聚合查询使用_write_lock导致读读互斥；改为_read_lock
@@ -505,7 +506,7 @@ class SqliteTimeSeriesStorage:
                        FROM device_points
                        WHERE device_id = ? AND point_name = ?
                          AND timestamp_ns BETWEEN ? AND ?
-                         AND (value_real IS NOT NULL OR value_int IS NOT NULL)
+                         AND (value_real IS NOT NULL OR value_int IS NOT NULL OR value_bool IS NOT NULL)
                        GROUP BY (timestamp_ns / ?)
                        ORDER BY window_start ASC
                        LIMIT ?""",

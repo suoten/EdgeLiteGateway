@@ -44,7 +44,7 @@ class PointUpdateEvent(Event):
 
     device_id: str = ""
     point_name: str = ""
-    value: float | None = None  # FIXED: 原问题-默认0.0掩盖数据缺失，None表示无值
+    value: float | bool | None = None  # FIXED: 支持 bool 值，原 float | None 类型标注不完整
     quality: str = "unknown"  # FIXED: 原问题-默认"good"掩盖数据缺失，unknown表示未确认
 
 

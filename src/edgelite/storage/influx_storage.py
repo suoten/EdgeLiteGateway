@@ -637,32 +637,34 @@ class InfluxDBStorage:
         try:
             from datetime import timedelta
 
-            from influxdb_client import DeletePredicateRequest
-
             delete_api = self._client.delete_api()
             # 降采样数据保留期更长（至少90天），避免误删降采样数据
             downsample_retention_days = max(self._retention_days, 90)
 
             # 1. 删除原始点位数据（device_points），按 retention_days 保留
+            # FIXED: 使用字符串 predicate + start/stop 参数，兼容所有 influxdb_client 版本
+            # 原代码使用 DeletePredicateRequest 对象，但不同版本 delete() 签名不一致导致 'bucket' 参数缺失
             cutoff_raw = datetime.now(UTC) - timedelta(days=self._retention_days)
-            predicate_raw = DeletePredicateRequest(
-                start="1970-01-01T00:00:00Z",
-                stop=cutoff_raw.isoformat(),
-                predicate='_measurement="device_points"',
-            )
             await asyncio.to_thread(
-                lambda: delete_api.delete(predicate_raw, bucket=self._bucket, org=self._org)
+                lambda: delete_api.delete(
+                    start="1970-01-01T00:00:00Z",
+                    stop=cutoff_raw.isoformat(),
+                    predicate='_measurement="device_points"',
+                    bucket=self._bucket,
+                    org=self._org,
+                )
             )
 
             # 2. 删除降采样数据（device_points_downsampled），按更长保留期删除
             cutoff_downsampled = datetime.now(UTC) - timedelta(days=downsample_retention_days)
-            predicate_downsampled = DeletePredicateRequest(
-                start="1970-01-01T00:00:00Z",
-                stop=cutoff_downsampled.isoformat(),
-                predicate='_measurement="device_points_downsampled"',
-            )
             await asyncio.to_thread(
-                lambda: delete_api.delete(predicate_downsampled, bucket=self._bucket, org=self._org)
+                lambda: delete_api.delete(
+                    start="1970-01-01T00:00:00Z",
+                    stop=cutoff_downsampled.isoformat(),
+                    predicate='_measurement="device_points_downsampled"',
+                    bucket=self._bucket,
+                    org=self._org,
+                )
             )
 
             logger.info(
@@ -860,6 +862,22 @@ class InfluxDBStorage:
         try:
             import math
 
+            # FIXED: bool 值直接写入 InfluxDB boolean 类型，不强制转为 float
+            if isinstance(value, bool):
+                point = (
+                    Point("device_points")
+                    .tag("device_id", device_id)
+                    .tag("point_name", point_name)
+                    .tag("quality", quality)
+                    .field("value", value)
+                )
+                if timestamp:
+                    point = point.time(timestamp)
+                await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=point)
+                async with self._state_lock:
+                    self._fail_count = 0
+                return True
+
             float_val = float(value)
             if math.isnan(float_val) or math.isinf(float_val):
                 logger.warning(
@@ -1035,6 +1053,19 @@ class InfluxDBStorage:
                 raw_value = rec.get("value")
                 if not device_id or not point_name or raw_value is None:
                     logger.warning("批量写入跳过: 缺少必填字段 (device_id/point_name/value)")
+                    continue
+                # FIXED: bool 值直接写入 InfluxDB 的 boolean 类型，不强制转为 float
+                if isinstance(raw_value, bool):
+                    p = (
+                        Point("device_points")
+                        .tag("device_id", device_id)
+                        .tag("point_name", point_name)
+                        .tag("quality", rec.get("quality", "good"))
+                        .field("value", raw_value)
+                    )
+                    if rec.get("timestamp"):
+                        p = p.time(rec["timestamp"])
+                    points.append(p)
                     continue
                 float_val = float(raw_value)
                 if math.isnan(float_val) or math.isinf(float_val):

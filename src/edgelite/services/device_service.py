@@ -226,14 +226,16 @@ class DeviceService:
         return await self._repo.get_status_counts(device_ids)
 
     async def update_device(self, device_id: str, data: dict) -> dict | None:
-        """更新设备，若配置/点位变更且设备运行中则重载驱动。
+        """更新设备，若配置/点位/采集间隔变更且设备运行中则重载驱动或重启采集。
 
         R9-S-01 修复: 原实现仅更新数据库，不重载运行中的驱动实例，
         导致配置/点位变更不生效。现检测 config/points 变化，若设备处于
         运行状态（有驱动实例）则重载驱动。使用 self._lock 保护检查，
         防止并发更新竞态。
+
+        修复: 检测 collect_interval 变化，若变化则重启采集任务以应用新间隔。
         """
-        # 获取变更前设备数据，用于判断 config/points 是否变化及失败回滚
+        # 获取变更前设备数据，用于判断 config/points/collect_interval 是否变化及失败回滚
         old_device = await self._repo.get(device_id)
 
         # 更新数据库
@@ -243,11 +245,14 @@ class DeviceService:
 
         # 判断 config/points 是否发生变化
         config_changed = False
+        interval_changed = False
         if old_device is not None:
             if "config" in data and data["config"] != old_device.get("config"):
                 config_changed = True
             if "points" in data and data["points"] != old_device.get("points"):
                 config_changed = True
+            if "collect_interval" in data and data["collect_interval"] != old_device.get("collect_interval"):
+                interval_changed = True
 
         # 若配置/点位变化且设备处于运行状态，重载驱动
         if config_changed and old_device is not None:
@@ -256,6 +261,34 @@ class DeviceService:
                 has_driver = device_id in self._driver_instances
             if has_driver:
                 await self._reload_driver_for_device(device_id, old_device)
+        elif interval_changed and old_device is not None:
+            # 仅采集间隔变化，无需重载驱动，只需重启采集任务以应用新间隔
+            async with self._lock:
+                has_driver = device_id in self._driver_instances
+            if has_driver:
+                new_interval = data.get("collect_interval", 5)
+                logger.info(
+                    "collect_interval changed for %s: %s -> %s, restarting collect task",
+                    device_id,
+                    old_device.get("collect_interval", 5),
+                    new_interval,
+                )
+                try:
+                    await asyncio.wait_for(self._scheduler.stop_collect(device_id), timeout=5.0)
+                except Exception as e:
+                    logger.warning("重启采集-停止旧任务失败 %s: %s", device_id, e)
+                try:
+                    async with self._lock:
+                        driver = self._driver_instances.get(device_id)
+                    if driver is not None:
+                        await self._scheduler.start_collect(
+                            device_id,
+                            driver,
+                            updated.get("points", []),
+                            new_interval,
+                        )
+                except Exception as e:
+                    logger.error("重启采集-启动新任务失败 %s: %s", device_id, e)
 
         return updated
 
@@ -436,7 +469,7 @@ class DeviceService:
                 # 将缓存中的原始值包装为PointValue，与驱动路径返回类型一致
                 from edgelite.drivers.base import PointValue
 
-                now = datetime.now(UTC)
+                now = datetime.now().astimezone()  # 本地时间，确保显示时间与当前时间一致
                 return {
                     k: v
                     if isinstance(v, PointValue)
@@ -460,7 +493,7 @@ class DeviceService:
             # 归一化：将驱动返回中的原始值包装为PointValue
             from edgelite.drivers.base import PointValue
 
-            now = datetime.now(UTC)
+            now = datetime.now().astimezone()  # 本地时间，确保显示时间与当前时间一致
             return {
                 k: v
                 if isinstance(v, PointValue)
