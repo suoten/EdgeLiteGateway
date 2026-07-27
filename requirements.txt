@@ -1,6 +1,6 @@
 # EdgeLiteGateway 核心依赖
 fastapi>=0.110.0,<0.116
-uvicorn[standard]>=0.29.0,<0.35
+uvicorn[standard]>=0.29.0,<0.52
 pydantic>=2.6.0,<3.0
 python-dotenv>=1.0.0,<2.0
 aiosqlite>=0.20.0,<0.21
