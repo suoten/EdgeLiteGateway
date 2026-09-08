@@ -640,4 +640,29 @@ Thanks to the following contributors for their important contributions to the Ed
 
 ***
 
+## ☕ Sponsor & Donate
+
+> EdgeLite Gateway is an open-source project. If you find it helpful, consider buying the author a coffee ☕
+
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/images/weixin.jpg" width="200" alt="WeChat Pay" />
+      <br />
+      <sub>WeChat</sub>
+    </td>
+    <td align="center">
+      <img src="docs/images/zfb.jpg" width="200" alt="Alipay" />
+      <br />
+      <sub>Alipay</sub>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
+
 ***Made with ❤️ for the Industrial IoT Community***

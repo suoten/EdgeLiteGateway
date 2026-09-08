@@ -651,4 +651,29 @@ EdgeLite Gateway V1.0 Community 采用 [GPL-3.0](LICENSE) 协议开源。简单�
 
 ---
 
+## ☕ 赞助 & 打赏
+
+> EdgeLite Gateway 是一个开源项目，如果你觉得它对你有帮助，可以考虑请作者喝杯咖啡 ☕
+
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/images/weixin.jpg" width="200" alt="微信打赏" />
+      <br />
+      <sub>微信赞赏</sub>
+    </td>
+    <td align="center">
+      <img src="docs/images/zfb.jpg" width="200" alt="支付宝打赏" />
+      <br />
+      <sub>支付宝赞赏</sub>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
+
 ***Made with ❤️ for the Industrial IoT Community***
