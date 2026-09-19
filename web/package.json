@@ -28,7 +28,7 @@
     "@types/node": "^20.0.0",
     "@types/three": "^0.184.0",
     "@vitejs/plugin-vue": "^5.0.0",
-    "typescript": "^5.4.0",
+    "typescript": "^7.0.2",
     "vite": "^5.2.0",
     "vue-tsc": "^2.0.0"
   },
