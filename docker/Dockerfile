@@ -10,7 +10,7 @@ RUN npm ci --registry $NPM_REGISTRY
 COPY web/ ./
 RUN npm run build
 
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
 
@@ -28,7 +28,7 @@ RUN if [ "$INSTALL_AI" = "true" ]; then \
         pip install --no-cache-dir --prefix=/install "."; \
     fi
 
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
