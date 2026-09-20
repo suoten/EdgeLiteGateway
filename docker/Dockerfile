@@ -1,4 +1,4 @@
-FROM node:18-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
 # FIXED-P2: npm 镜像可参数化，国内默认 npmmirror，海外构建可用：
 #   docker build --build-arg NPM_REGISTRY=https://registry.npmjs.org -f docker/Dockerfile .
