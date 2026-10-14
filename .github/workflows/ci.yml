@@ -141,7 +141,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Build edgelite image (no push)
         # FIXED-CI: 原先 push:false 本地构建后镜像留在本 runner，下游 smoke/
         # acceptance/security 在另一台 runner 上 docker run edgelite:ci 直接
