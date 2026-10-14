@@ -1430,6 +1430,13 @@ class ModbusRtuDriver(DriverPlugin):
                     await asyncio.sleep(self._WRITE_VERIFY_DELAY)
                     verify_value = await self._read_point_raw(device_id, client, pt_def, config)
                     await self._apply_turnaround_delay(device_id)
+                    # FIXED-P2: 写后回读失败(None)时静默放行缺日志，加 warning 便于运维感知
+                    if verify_value is None:
+                        logger.warning(
+                            "[modbus_rtu] write verify readback failed (None): device=%s point=%s, accepting write without verification",
+                            device_id,
+                            point,
+                        )
                     if verify_value is not None and not self._verify_write_value(value, verify_value, pt_def):
                         self._log_error(
                             device_id, "WRITE_VERIFY_MISMATCH", f"{point}: written={value}, readback={verify_value}"
@@ -1460,20 +1467,37 @@ class ModbusRtuDriver(DriverPlugin):
         # FIXED-P0: 归一化工业前缀地址（HR100/C0/IR10/DI5）
         pt_def = normalize_modbus_point_def(pt_def)
         # FIXED-JOINT: IR/DI 只读区与 access_mode="r" 拒绝下写，防静默跨区写
+        # FIXED-P2: 原问题-raise ValueError 使上层 write_point 记 "write error" 且无明确原因；
+        #           改为 log warning + 返回 False（对齐 TCP 驱动行为，写失败而非异常中断）
         readonly_reason = assert_modbus_point_writable(pt_def)
         if readonly_reason:
-            raise ValueError(f"{readonly_reason}")
+            logger.warning(
+                "[modbus_rtu] write rejected: device=%s point=%s reason=%s", device_id, point, readonly_reason
+            )
+            return False
         address = int(pt_def.get("address", 0))
         # 协议边界校验: Modbus 寄存器地址有效范围为 0-65535
         if not 0 <= address <= 65535:
-            raise ValueError(f"Modbus 寄存器地址超出有效范围 0-65535: {address}")
+            logger.warning(
+                "[modbus_rtu] write rejected: device=%s point=%s register address %d out of range 0-65535",
+                device_id,
+                point,
+                address,
+            )
+            return False
         data_type = pt_def.get("data_type", "float32")
         # FIXED-P1: 起始地址+数量不越界校验，与读取路径和TCP驱动一致
         _write_reg_count = DATA_TYPE_REGS.get(data_type, 1)
         if address + _write_reg_count > 65536:
-            raise ValueError(
-                f"Modbus 寄存器地址+数量越界: addr={address} count={_write_reg_count} (addr+count={address + _write_reg_count} > 65536)"
+            logger.warning(
+                "[modbus_rtu] write rejected: device=%s point=%s addr=%d count=%d (addr+count=%d > 65536)",
+                device_id,
+                point,
+                address,
+                _write_reg_count,
+                address + _write_reg_count,
             )
+            return False
 
         _set_client_slave_id(client, slave_id)
 
@@ -1887,11 +1911,12 @@ class ModbusRtuDriver(DriverPlugin):
         port_lock = self._port_reconnect_locks.setdefault(port_path, asyncio.Lock())
         exceeded = False
         should_failover = False
+        wait_time = 0.0
 
-        # FIXED-P2: 将整个重连逻辑放在单次port_lock获取中，消除TOCTOU窗口
-        # 之前：backoff检查与连接操作分两次获取port_lock，中间sleep期间状态可能变化
-        # 之后：单次port_lock获取内完成backoff检查、sleep、连接操作；exceeded路径因需调用
-        #       _try_failover（会获取同一port_lock）故放在锁外处理
+        # FIXED-P2: 第一段 port_lock 仅快速计算退避时长并登记本次尝试，不做 sleep——
+        # 原问题：退避 sleep 在 port_lock 内执行（最长 BACKOFF_MAX 秒），同一串口的
+        #         其他设备重连/读写全部被阻塞；修复-先算出退避时长，锁外 sleep 后
+        #         再拿锁执行真正的重连
         async with port_lock:
             port_state = self._port_backoff.setdefault(port_path, {"attempt": 0, "last_attempt_time": 0.0})
             attempt = port_state["attempt"]
@@ -1914,108 +1939,13 @@ class ModbusRtuDriver(DriverPlugin):
                     self._log_error(
                         device_id, "BACKOFF_RETRY", f"attempt={attempt + 1}, delay={wait_time:.2f}s, port={port_path}"
                     )
-                    await asyncio.sleep(wait_time)
-
+                # 登记本次尝试（原实现 sleep 后登记，语义一致：每次重连尝试计数+1）
                 port_state["attempt"] = attempt + 1
                 port_state["last_attempt_time"] = time.monotonic()
 
                 stats = self._health_stats.get(device_id)
                 if stats:
                     stats.total_reconnects += 1
-
-                client = self._clients.get(device_id)
-                # FIXED-P0: 检查是否已被其他协程成功重连，避免关闭已恢复的连接
-                if client and self._connected.get(device_id, False) and client.connected:
-                    return
-                if client:
-                    try:
-                        client.close()
-                    except Exception as e:
-                        logger.debug("Modbus RTU reconnect close failed [%s]: %s", device_id, e)
-
-                self._connected[device_id] = False
-
-                if not _PYMODBUS_AVAILABLE:
-                    return
-
-                active_port = self._active_port.get(device_id, config.get("port", "/dev/ttyUSB0"))
-                tcp_gateway = config.get("tcp_gateway")
-
-                if tcp_gateway and isinstance(tcp_gateway, dict):
-                    active_host = self._active_port.get(device_id, tcp_gateway.get("host", ""))
-                    new_client = AsyncModbusTcpClient(
-                        host=active_host,
-                        port=tcp_gateway.get("port", 502),
-                        timeout=config.get("timeout", 3.0),
-                    )
-                else:
-                    new_client = AsyncModbusSerialClient(
-                        port=active_port,
-                        baudrate=config.get("baudrate", 9600),
-                        parity=config.get("parity", "N"),
-                        stopbits=config.get("stopbits", 1),
-                        bytesize=config.get("bytesize", 8),
-                        timeout=config.get("timeout", 3.0),
-                    )
-                    # FIXED-P0: 重连时也传递RS485配置参数
-                    if config.get("rs485_mode", False):
-                        try:
-                            new_client.comm_params.rs485_mode = True
-                            new_client.comm_params.rs485_rts_on_send = config.get("rs485_rts_on_send", True)
-                            new_client.comm_params.rs485_rts_on_recv = config.get("rs485_rts_on_recv", False)
-                            new_client.comm_params.rs485_delay_before_send = (
-                                config.get("rs485_delay_before_send", 0) / 1000.0
-                            )
-                            new_client.comm_params.rs485_delay_after_send = (
-                                config.get("rs485_delay_after_send", 0) / 1000.0
-                            )
-                        except Exception as e:
-                            logger.warning(
-                                "[modbus_rtu] operation failed: %s", e
-                            )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                try:
-                    try:
-                        connected = await asyncio.wait_for(new_client.connect(), timeout=config.get("timeout", 3.0))
-                    except TimeoutError:
-                        connected = False
-                        self._log_error(device_id, "CONN_FAILED", f"reconnect timeout to {active_port}")
-                    if connected:
-                        self._clients[device_id] = new_client
-                        self._connected[device_id] = True
-                        self._retry_count[device_id] = 0
-                        self._watchdog_fail_count[device_id] = 0
-                        self._health_check_fail_count[device_id] = 0
-                        self._port_fail_count[device_id] = 0
-                        self._port_backoff.pop(active_port, None)
-                        self._device_port_map[device_id] = active_port
-                        await self._set_connection_state(device_id, ConnectionState.CONNECTED.value)
-                        self._log_error(
-                            device_id, "RECONNECT_OK", f"reconnected to {active_port}@{config.get('baudrate')}"
-                        )
-                    else:
-                        try:
-                            new_client.close()
-                        except Exception as _close_err:  # FIXED-P1
-                            logger.debug("[modbus_rtu] close error: %s", _close_err)
-                        self._connected[device_id] = False
-                        await self._set_connection_state(
-                            device_id, ConnectionState.DISCONNECTED.value, "connect failed"
-                        )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    try:
-                        new_client.close()
-                    except Exception as _close_err:  # FIXED-P1
-                        logger.debug("[modbus_rtu] close error: %s", _close_err)
-                    self._connected[device_id] = False
-                    err_msg = str(e)
-                    if "Permission denied" in err_msg or "Device or resource busy" in err_msg:
-                        self._log_error(device_id, "PORT_LOCKED", f"Serial port {active_port} is already in use")
-                    else:
-                        self._log_error(device_id, "CONN_FAILED", str(e))
-                    await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, str(e))
-                return
 
         if exceeded:
             if should_failover:
@@ -2024,6 +1954,101 @@ class ModbusRtuDriver(DriverPlugin):
                     return
             self._log_error(device_id, "CONN_FAILED", f"exceeded max reconnect attempts ({max_attempts})")
             await self._set_connection_state(device_id, ConnectionState.OFFLINE.value, "max reconnect attempts reached")
+            return
+
+        # FIXED-P2: 退避 sleep 在 port_lock 之外执行，不阻塞同口其他设备
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
+
+        # FIXED-P2: 第二段 port_lock 执行真正重连（sleep 期间其他协程可能已完成重连，需复检，
+        #           消除 TOCTOU 窗口：避免关闭其他协程刚恢复的连接）
+        async with port_lock:
+            client = self._clients.get(device_id)
+            # FIXED-P0: 检查是否已被其他协程成功重连，避免关闭已恢复的连接
+            if client and self._connected.get(device_id, False) and client.connected:
+                return
+            if client:
+                try:
+                    client.close()
+                except Exception as e:
+                    logger.debug("Modbus RTU reconnect close failed [%s]: %s", device_id, e)
+
+            self._connected[device_id] = False
+
+            if not _PYMODBUS_AVAILABLE:
+                return
+
+            active_port = self._active_port.get(device_id, config.get("port", "/dev/ttyUSB0"))
+            tcp_gateway = config.get("tcp_gateway")
+
+            if tcp_gateway and isinstance(tcp_gateway, dict):
+                active_host = self._active_port.get(device_id, tcp_gateway.get("host", ""))
+                new_client = AsyncModbusTcpClient(
+                    host=active_host,
+                    port=tcp_gateway.get("port", 502),
+                    timeout=config.get("timeout", 3.0),
+                )
+            else:
+                new_client = AsyncModbusSerialClient(
+                    port=active_port,
+                    baudrate=config.get("baudrate", 9600),
+                    parity=config.get("parity", "N"),
+                    stopbits=config.get("stopbits", 1),
+                    bytesize=config.get("bytesize", 8),
+                    timeout=config.get("timeout", 3.0),
+                )
+                # FIXED-P0: 重连时也传递RS485配置参数
+                if config.get("rs485_mode", False):
+                    try:
+                        new_client.comm_params.rs485_mode = True
+                        new_client.comm_params.rs485_rts_on_send = config.get("rs485_rts_on_send", True)
+                        new_client.comm_params.rs485_rts_on_recv = config.get("rs485_rts_on_recv", False)
+                        new_client.comm_params.rs485_delay_before_send = (
+                            config.get("rs485_delay_before_send", 0) / 1000.0
+                        )
+                        new_client.comm_params.rs485_delay_after_send = config.get("rs485_delay_after_send", 0) / 1000.0
+                    except Exception as e:
+                        logger.warning(
+                            "[modbus_rtu] operation failed: %s", e
+                        )  # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
+            try:
+                try:
+                    connected = await asyncio.wait_for(new_client.connect(), timeout=config.get("timeout", 3.0))
+                except TimeoutError:
+                    connected = False
+                    self._log_error(device_id, "CONN_FAILED", f"reconnect timeout to {active_port}")
+                if connected:
+                    self._clients[device_id] = new_client
+                    self._connected[device_id] = True
+                    self._retry_count[device_id] = 0
+                    self._watchdog_fail_count[device_id] = 0
+                    self._health_check_fail_count[device_id] = 0
+                    self._port_fail_count[device_id] = 0
+                    self._port_backoff.pop(active_port, None)
+                    self._device_port_map[device_id] = active_port
+                    await self._set_connection_state(device_id, ConnectionState.CONNECTED.value)
+                    self._log_error(device_id, "RECONNECT_OK", f"reconnected to {active_port}@{config.get('baudrate')}")
+                else:
+                    try:
+                        new_client.close()
+                    except Exception as _close_err:  # FIXED-P1
+                        logger.debug("[modbus_rtu] close error: %s", _close_err)
+                    self._connected[device_id] = False
+                    await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, "connect failed")
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                try:
+                    new_client.close()
+                except Exception as _close_err:  # FIXED-P1
+                    logger.debug("[modbus_rtu] close error: %s", _close_err)
+                self._connected[device_id] = False
+                err_msg = str(e)
+                if "Permission denied" in err_msg or "Device or resource busy" in err_msg:
+                    self._log_error(device_id, "PORT_LOCKED", f"Serial port {active_port} is already in use")
+                else:
+                    self._log_error(device_id, "CONN_FAILED", str(e))
+                await self._set_connection_state(device_id, ConnectionState.DISCONNECTED.value, str(e))
             return
 
     def _start_watchdog(self, device_id: str) -> None:

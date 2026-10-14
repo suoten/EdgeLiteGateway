@@ -797,11 +797,16 @@ class ModbusTcpDriver(DriverPlugin):
                                 # 避免嵌套获取_lease_lock导致与_stale_client_cleanup_loop的ABBA死锁
                                 if pooled_client not in self._leased_clients:
                                     pooled_client.close()
+                                    # FIXED-P1: stale 标记只在"本次真正关闭了 client"的路径清理。
+                                    # 原问题：无条件 pop 会把上方延迟关闭分支刚加入的 _stale_clients
+                                    # 标记立即抵消，5 分钟强关清理永远看不到该 client，
+                                    # 在飞读完成后 socket/FD 泄漏
+                                    self._stale_clients.pop(pooled_client, None)
                                     logger.info(
                                         "Modbus TCP pool connection closed: %s (pool_key=%s)", device_id, pool_key
                                     )
                                 else:
-                                    # client 正在被使用，延迟关闭
+                                    # client 正在被使用，延迟关闭（保留标记交给 _cleanup_stale_clients）
                                     # MTCP-MED-002: 记录stale client的添加时间
                                     self._stale_clients[pooled_client] = time.monotonic()
                                     logger.warning(
@@ -810,20 +815,11 @@ class ModbusTcpDriver(DriverPlugin):
                                     )
                         except Exception:
                             logger.debug("Modbus TCP: pooled_client already closed or invalid: %s", device_id)
-                    self._stale_clients.pop(pooled_client, None)  # MTCP-002/MTCP-MED-002: 清理过期标记
                     del self._connection_pool[pool_key]
                 else:
                     self._connection_pool[pool_key] = (pooled_client, ref_count - 1)
-                    # MTCP-002: 如果该client被标记为过期且这是最后一次引用，关闭）
-                    if pooled_client in self._stale_clients and ref_count - 1 == 0:
-                        # FIXED-P0: 修复连接池TOCTOU竞态和引用计数虚高 — 加try-except防已关闭
-                        try:
-                            if pooled_client.connected:
-                                pooled_client.close()
-                        except Exception:
-                            logger.debug("Modbus TCP: stale client already closed: %s", device_id)
-                        self._stale_clients.pop(pooled_client, None)
-                        logger.info("Modbus TCP stale client closed after last reference released: %s", device_id)
+                    # FIXED-P1: 删除 MTCP-002 死代码块——本分支 ref_count>1，原 `ref_count - 1 == 0`
+                    # 恒 False，永不执行；stale client 的最终关闭由 _cleanup_stale_clients 兜底
                     logger.info(
                         "Modbus TCP pool connection kept: %s (pool_key=%s, ref_count=%d)",
                         device_id,
@@ -1197,6 +1193,7 @@ class ModbusTcpDriver(DriverPlugin):
         seg_start: int | None = None
         seg_end: int = 0
         seg_items: list[tuple[str, dict]] = []
+        seg_reg_type: str | None = None  # FIXED-P1: 跟踪当前段寄存器类型，防止input/holding混段读取（对齐RTU修复）
 
         for name, pt_def in sorted_points:
             addr = int(pt_def.get("address", 0))
@@ -1210,21 +1207,24 @@ class ModbusTcpDriver(DriverPlugin):
                 raise ValueError(
                     f"Modbus 寄存器地址+数量越界: addr={addr} count={n_regs} (addr+count={addr + n_regs} > 65536)"
                 )
+            pt_reg_type = pt_def.get("register_type", "holding")
 
             if seg_start is None:
                 seg_start = addr
                 seg_end = addr + n_regs
                 seg_items = [(name, pt_def)]
-            elif addr <= seg_end and (addr + n_regs - seg_start) <= MAX_REGS:
-                # 可以合并到当前段
+                seg_reg_type = pt_reg_type
+            elif addr <= seg_end and (addr + n_regs - seg_start) <= MAX_REGS and pt_reg_type == seg_reg_type:
+                # 可以合并到当前段（地址相邻且寄存器类型相同）
                 seg_end = max(seg_end, addr + n_regs)
                 seg_items.append((name, pt_def))
             else:
-                # 保存当前段，开始新段
+                # 保存当前段，开始新段（寄存器类型不同或地址不相邻均不合并）
                 segments.append((seg_start, seg_end - seg_start, seg_items))
                 seg_start = addr
                 seg_end = addr + n_regs
                 seg_items = [(name, pt_def)]
+                seg_reg_type = pt_reg_type
 
         if seg_start is not None:
             segments.append((seg_start, seg_end - seg_start, seg_items))
@@ -1373,11 +1373,13 @@ class ModbusTcpDriver(DriverPlugin):
                     failed_points[name] = e
 
         # 判断每个测点的register_type，input类型需要单独读取
+        # FIXED-P1: 段合并已按 seg_reg_type 跟踪寄存器类型，段内类型必然一致，
+        #           混合段落入 holding 分支用 FC03 读 input 测点的静默错数据问题已消除
         holding_segments: list[tuple[int, int, list[tuple[str, dict]]]] = []
         input_items: list[tuple[str, dict]] = []
 
         for start, count, items in sub_segments:
-            # 检查是否全部为 input 类型
+            # 段内寄存器类型一致（seg_reg_type 跟踪），首点类型即代表整段
             all_input = all(pt_def.get("register_type", "holding") == "input" for _, pt_def in items)
             if all_input:
                 input_items.extend(items)
@@ -1634,7 +1636,7 @@ class ModbusTcpDriver(DriverPlugin):
 
                 if write_verify:
                     verified = await self._read_verify_write(
-                        client, slave_id, address, data_type, byte_order, value, device_id
+                        client, slave_id, address, data_type, byte_order, value, device_id, pt_def=pt_def
                     )
                     if not verified:
                         self._record_write_failure(device_id)
@@ -1770,7 +1772,9 @@ class ModbusTcpDriver(DriverPlugin):
                 else:
                     batch_candidates.append((point_name, address, data_type, value))
 
-            results: dict[str, bool] = {}
+            # FIXED-P2: 初始化 results 为全部点 False，成功才置 True（对齐 RTU _batch_write_inner 兜底），
+            #           原问题：被拒点（NaN/Inf、越界、限流、只读）缺键返回，调用方无法得知写入失败
+            results: dict[str, bool] = {name: False for name in points}
 
             for point_name, value in single_writes.items():
                 # MTCP-MED-001: 这里复用 client 租用，但 write_point 会先尝试租用
@@ -1860,7 +1864,7 @@ class ModbusTcpDriver(DriverPlugin):
                             addr_v = int(pt_def.get("address", 0))
                             dtype_v = pt_def.get("data_type", "float32")
                             verified = await self._read_verify_write(
-                                client, slave_id, addr_v, dtype_v, byte_order, val, device_id
+                                client, slave_id, addr_v, dtype_v, byte_order, val, device_id, pt_def=pt_def
                             )
                             if not verified:
                                 results[point_name] = False
@@ -1947,7 +1951,7 @@ class ModbusTcpDriver(DriverPlugin):
             await asyncio.wait_for(_do_write(), timeout=write_timeout)
             if write_verify:
                 verified = await self._read_verify_write(
-                    client, slave_id, address, data_type, byte_order, value, device_id
+                    client, slave_id, address, data_type, byte_order, value, device_id, pt_def=pt_def
                 )
                 if not verified:
                     self._record_write_failure(device_id)
@@ -2580,6 +2584,7 @@ class ModbusTcpDriver(DriverPlugin):
         byte_order: str,
         expected_value: Any,
         device_id: str,
+        pt_def: dict | None = None,
     ) -> bool:
         await asyncio.sleep(self._WRITE_VERIFY_DELAY_MS / 1000.0)
         _set_client_slave_id(client, slave_id)
@@ -2608,7 +2613,12 @@ class ModbusTcpDriver(DriverPlugin):
                     return False
                 read_value = self._decode_point_value(result.registers, data_type, byte_order)
                 if isinstance(expected_value, float) and isinstance(read_value, float):
-                    return abs(read_value - expected_value) < 1e-6
+                    # FIXED-P2: float 绝对容差(1e-6)对大数值误报（如 1e9 的 float32 精度约 64），
+                    #           改相对容差（对齐 modbus_rtu._verify_write_value 实现）
+                    tolerance = (pt_def or {}).get("write_tolerance", 0.01)
+                    if abs(expected_value) > 1e-10:
+                        return abs(read_value - expected_value) / abs(expected_value) <= tolerance
+                    return abs(read_value - expected_value) <= tolerance
                 return read_value == expected_value
         except Exception as e:
             logger.warning("[modbus_tcp] write verify failed: %s", e)  # FIXED-P1: 原问题：写入验证异常返回False无日志

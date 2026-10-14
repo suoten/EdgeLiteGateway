@@ -2861,7 +2861,9 @@ class OmronFinsDriver(DriverPlugin):
     def get_edge_alarm_history(self, limit: int = 100) -> list[dict]:
         if not self._edge_rule_engine:
             return []
-        records = self._edge_rule_engine._alarm_history[-limit:]
+        # FIXED-P2: _alarm_history 已改为 deque(maxlen)，deque 不支持切片，
+        # 改用公共 get_alarm_history(limit) 接口（内部已做 list 转换）
+        records = self._edge_rule_engine.get_alarm_history(limit)
         return [
             {
                 "alarm_id": r.alarm_id,

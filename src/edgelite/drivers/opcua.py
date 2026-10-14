@@ -2088,7 +2088,10 @@ class OpcUaDriver(DriverPlugin):
                     return result
 
         # FIXED-P1: _session_rebuilding Event的clear移入锁保护范围，消除与_connect_device的竞态
-        async with self._session_locks[device_id]:
+        # FIXED-P2: 安全获取会话锁——设备可能在读取期间被 remove_device 移除锁条目，
+        #           直接下标访问会抛 KeyError 使整次读取失败；改 setdefault，
+        #           锁缺失时（已移除/未注册）创建临时锁兜底，不抛异常
+        async with self._session_locks.setdefault(device_id, asyncio.Lock()):
             self._session_expired[device_id] = False
             if device_id in self._session_rebuilding:
                 # FIXED-P1: clear之前重新检查session状态，仅当当前client仍然有效时才清除重建标记
@@ -2483,6 +2486,17 @@ class OpcUaDriver(DriverPlugin):
                             node_id = point_def.get("address", "")
                             fallback_value = validated_map.get(point_name, value)
                             node = client.get_node(node_id)
+                            # FIXED-P2: 与主路径(FIXED-JOINT)一致，回退单点写同样显式携带节点
+                            # 声明类型的 VariantType，防 asyncua 把 int/float 默认推断为
+                            # Int64/Double 导致 BadTypeMismatch（validated_map 中已是带类型
+                            # Variant 的条目无需重复包装）
+                            from asyncua import ua as asyncua_ua
+
+                            if not isinstance(fallback_value, asyncua_ua.Variant):
+                                fb_data_type = self._node_data_types.get(device_id, {}).get(node_id, "Unknown")
+                                fb_vt = self._variant_type_for(fb_data_type)
+                                if fb_vt is not None:
+                                    fallback_value = asyncua_ua.Variant(fallback_value, fb_vt)
                             await asyncio.wait_for(node.write_value(fallback_value), timeout=self._WRITE_TIMEOUT)
                             result[point_name] = True
                             self._record_write_time(device_id, point_name)  # FIXED: 速率限制时间戳在写入成功后更新

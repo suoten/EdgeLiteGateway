@@ -1038,6 +1038,12 @@ class S7Driver(DriverPlugin):
                     and isinstance(ph.last_value, (int, float))
                 ):
                     if abs(raw - ph.last_value) <= pt_deadband:
+                        # FIXED-P2: deadband 命中时结果 dict 补键，返回上次缓存值（对齐 modbus 系
+                        #           驱动 _apply_deadband 行为），原问题：直接 continue 导致
+                        #           该点在本次结果中缺键，下游无法区分"未采集"与"被死区过滤"
+                        processed[name] = PointValue(
+                            value=ph.last_value, timestamp=now, quality="good", source="device"
+                        )
                         ph.record_success()
                         good_count += 1
                         continue
@@ -1265,9 +1271,13 @@ class S7Driver(DriverPlugin):
         if type_char == "X":
             return bool(data[offset] & (1 << bit_offset))
         elif type_char == "B":
-            return int.from_bytes(data[offset : offset + 1], byteorder="big", signed=True)
+            # FIXED-P1: 按点配置 data_type 决定符号——data_type 以 "uint" 开头(uint8/uint16/uint32)
+            # 时按无符号解码；默认（无 data_type 或 int/dint）保持有符号（向后兼容）
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            return int.from_bytes(data[offset : offset + 1], byteorder="big", signed=signed)
         elif type_char == "W":
-            return int.from_bytes(data[offset : offset + 2], byteorder="big", signed=True)
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            return int.from_bytes(data[offset : offset + 2], byteorder="big", signed=signed)
         elif type_char == "D":
             # FIXED-P0: 地址记法 D(DWORD) 决定读取长度，但值解释应尊重点定义的 data_type——
             # 点 data_type=float32/real 且地址为 D 区(4字节)时按大端 float 解码，
@@ -1277,7 +1287,9 @@ class S7Driver(DriverPlugin):
                 if math.isnan(val) or math.isinf(val):
                     raise ValueError(f"NaN/Inf detected: {val}")
                 return val
-            return int.from_bytes(data[offset : offset + 4], byteorder="big", signed=True)
+            # FIXED-P1: uint32 配置按无符号解码（40000 不再错解为 -25536 的 32 位同型值）
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            return int.from_bytes(data[offset : offset + 4], byteorder="big", signed=signed)
         elif type_char == "R":
             val = struct.unpack(">f", data[offset : offset + 4])[0]
             if math.isnan(val) or math.isinf(val):
@@ -1324,13 +1336,17 @@ class S7Driver(DriverPlugin):
             # FIXED-P2: 验证返回数据长度，防止截断数据导致解析异常
             if len(data) < 1:
                 raise ValueError(f"Insufficient data for {address}: need 1, got {len(data)}")
-            return int.from_bytes(data, byteorder="big", signed=True)
+            # FIXED-P1: 与 _extract_value 一致——uint 配置按无符号解码
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            return int.from_bytes(data, byteorder="big", signed=signed)
         elif type_char == "W":
             data = self._sync_db_read(db_number, byte_offset, 2)
             # FIXED-P2: 验证返回数据长度，防止截断数据导致解析异常
             if len(data) < 2:
                 raise ValueError(f"Insufficient data for {address}: need 2, got {len(data)}")
-            return int.from_bytes(data, byteorder="big", signed=True)
+            # FIXED-P1: 与 _extract_value 一致——uint 配置按无符号解码
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            return int.from_bytes(data, byteorder="big", signed=signed)
         elif type_char == "D":
             data = self._sync_db_read(db_number, byte_offset, 4)
             # FIXED-P2: 验证返回数据长度，防止截断数据导致解析异常
@@ -1344,7 +1360,9 @@ class S7Driver(DriverPlugin):
                 if math.isnan(val) or math.isinf(val):
                     raise ValueError(f"NaN/Inf detected: {val}")
                 return val
-            return int.from_bytes(data, byteorder="big", signed=True)
+            # FIXED-P1: 与 _extract_value 一致——uint 配置按无符号解码
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            return int.from_bytes(data, byteorder="big", signed=signed)
         elif type_char == "R":
             data = self._sync_db_read(db_number, byte_offset, 4)
             # FIXED-P2: 验证返回数据长度，防止截断数据导致解析异常
@@ -1368,18 +1386,32 @@ class S7Driver(DriverPlugin):
     class WriteRateLimitedError(Exception):
         pass
 
-    def _validate_write_value(self, type_char: str, value: Any, bit_offset: int = 0) -> None:
+    def _validate_write_value(
+        self, type_char: str, value: Any, bit_offset: int = 0, data_type: str | None = None
+    ) -> None:
+        # FIXED-P1: uint 配置走无符号范围校验，与读取侧无符号解码语义对齐；
+        #           默认（无 data_type 或 int/dint）保持有符号范围（向后兼容）
+        unsigned = bool(data_type and str(data_type).lower().startswith("uint"))
         if type_char == "X":
             if value not in (0, 1, True, False):
                 raise self.WriteValueInvalidError(f"BOOL value must be 0/1, got {value}")
         elif type_char == "B":
-            if not isinstance(value, int) or value < -128 or value > 127:
+            if unsigned:
+                if not isinstance(value, int) or value < 0 or value > 255:
+                    raise self.WriteValueInvalidError(f"BYTE(uint8) value must be 0~255, got {value}")
+            elif not isinstance(value, int) or value < -128 or value > 127:
                 raise self.WriteValueInvalidError(f"BYTE value must be -128~127, got {value}")
         elif type_char == "W":
-            if not isinstance(value, int) or value < -32768 or value > 32767:
+            if unsigned:
+                if not isinstance(value, int) or value < 0 or value > 65535:
+                    raise self.WriteValueInvalidError(f"WORD(uint16) value must be 0~65535, got {value}")
+            elif not isinstance(value, int) or value < -32768 or value > 32767:
                 raise self.WriteValueInvalidError(f"WORD value must be -32768~32767, got {value}")
         elif type_char == "D":
-            if not isinstance(value, int) or value < -2147483648 or value > 2147483647:
+            if unsigned:
+                if not isinstance(value, int) or value < 0 or value > 4294967295:
+                    raise self.WriteValueInvalidError(f"DWORD(uint32) value must be 0~4294967295, got {value}")
+            elif not isinstance(value, int) or value < -2147483648 or value > 2147483647:
                 raise self.WriteValueInvalidError(f"DWORD value must be -2147483648~2147483647, got {value}")
         elif type_char == "R":
             if not isinstance(value, (int, float)):
@@ -1412,11 +1444,19 @@ class S7Driver(DriverPlugin):
         self._write_audit_log.append(entry)
 
     async def _verify_write(
-        self, point: str, value: Any, type_char: str, db_number: int, byte_offset: int, bit_offset: int
+        self,
+        point: str,
+        value: Any,
+        type_char: str,
+        db_number: int,
+        byte_offset: int,
+        bit_offset: int,
+        data_type: str | None = None,
     ) -> None:
         await asyncio.sleep(self._WRITE_VERIFY_DELAY_MS / 1000.0)
+        # FIXED-P1: 回读携带 data_type，uint 配置按无符号解码，避免 40000 被错解为 -25536 误报 verify 失败
         read_back = await asyncio.wait_for(
-            self._run_in_s7_thread_async(self._read_point, point),
+            self._run_in_s7_thread_async(self._read_point, point, data_type),
             timeout=2.0,
         )
         if type_char == "R":
@@ -1457,9 +1497,12 @@ class S7Driver(DriverPlugin):
             return False
         type_char = parts[1][0].upper()
         bit_offset = int(parts[2]) if len(parts) > 2 else 0
+        # FIXED-P1: 取点配置 data_type，uint16/uint32 写入走无符号校验/编码语义
+        _pt_cfg = (self._devices.get(device_id) or {}).get("points", {}).get(point) or {}
+        pt_data_type = _pt_cfg.get("data_type")
 
         try:
-            self._validate_write_value(type_char, value, bit_offset)
+            self._validate_write_value(type_char, value, bit_offset, pt_data_type)
         except self.WriteValueInvalidError as e:
             self._record_write_failure(device_id)
             self._log_error(device_id, S7DriverErrors.WRITE_VALUE_INVALID, str(e))
@@ -1488,7 +1531,7 @@ class S7Driver(DriverPlugin):
                         old_value = None
                 record_packet("tx", "s7", device_id, f"S7 Write: {point}={value}")
                 await asyncio.wait_for(
-                    self._run_in_s7_thread_async(self._write_point, address, value),
+                    self._run_in_s7_thread_async(self._write_point, address, value, pt_data_type),
                     timeout=self._WRITE_TIMEOUT,
                 )
                 record_packet("rx", "s7", device_id, f"S7 Write OK: {point}")
@@ -1496,7 +1539,9 @@ class S7Driver(DriverPlugin):
                     try:
                         db_number = int(parts[0][2:])
                         byte_offset = int(parts[1][1:])
-                        await self._verify_write(address, value, type_char, db_number, byte_offset, bit_offset)
+                        await self._verify_write(
+                            address, value, type_char, db_number, byte_offset, bit_offset, data_type=pt_data_type
+                        )
                     except self.WriteVerifyError as e:
                         self._record_write_failure(device_id)
                         self._log_error(device_id, S7DriverErrors.WRITE_VERIFY_FAILED, str(e))
@@ -1508,6 +1553,9 @@ class S7Driver(DriverPlugin):
             self._audit_write(device_id, point, old_value, value, "ok")
             return True
         except TimeoutError:  # FIXED-P1: 兼容Python<3.11
+            # FIXED-P2: 原问题-超时分支只记审计未调 _record_write_failure，写健康统计漏计
+            self._record_write_failure(device_id)
+            self._log_error(device_id, S7DriverErrors.WRITE_TIMEOUT, f"{point}: write timeout")
             self._audit_write(device_id, point, old_value, value, "timeout", S7DriverErrors.WRITE_TIMEOUT)
             return False
         except asyncio.CancelledError:
@@ -1520,7 +1568,7 @@ class S7Driver(DriverPlugin):
                 await self._try_reconnect(device_id)
             return False
 
-    def _write_point(self, address: str, value: Any) -> None:
+    def _write_point(self, address: str, value: Any, data_type: str | None = None) -> None:
         """同步写入单个测点"""
         parts = address.split(".")
         try:  # FIXED: 原问题-_write_point同样存在硬索引问题
@@ -1562,10 +1610,14 @@ class S7Driver(DriverPlugin):
             data = bytearray([int(value) & 0xFF])
             self._sync_db_write(db_number, byte_offset, data)
         elif type_char == "W":
-            data = value.to_bytes(2, byteorder="big", signed=True)
+            # FIXED-P1: uint 配置按无符号编码（与读取侧解码语义一致），
+            #           否则 uint16 值 40000 在 signed=True 编码时抛 OverflowError
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            data = value.to_bytes(2, byteorder="big", signed=signed)
             self._sync_db_write(db_number, byte_offset, data)
         elif type_char == "D":
-            data = value.to_bytes(4, byteorder="big", signed=True)
+            signed = not (data_type and str(data_type).lower().startswith("uint"))
+            data = value.to_bytes(4, byteorder="big", signed=signed)
             self._sync_db_write(db_number, byte_offset, data)
         elif type_char == "R":
             import struct

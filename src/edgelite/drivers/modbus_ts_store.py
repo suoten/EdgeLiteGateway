@@ -105,7 +105,13 @@ class ModbusTsStore:
         """关闭数据库连接"""
         # FIX: 先停止后台写入任务
         if self._writer_task:
-            await self._write_queue.put(None)  # 发送停止信号
+            # FIXED-P2: 原问题-`await put(None)` 在队列满(1000)时永久阻塞 stop，
+            #           网关停不掉；改为 put_nowait，队列满时退出逻辑由 writer 消费
+            #           完剩余数据后随任务取消兜底
+            try:
+                self._write_queue.put_nowait(None)  # 发送停止信号
+            except asyncio.QueueFull:
+                logger.warning("[modbus_ts_store] 写入队列已满，跳过停止信号，直接取消 writer 任务")
             try:
                 await asyncio.wait_for(self._writer_task, timeout=5.0)
             except (TimeoutError, asyncio.CancelledError):

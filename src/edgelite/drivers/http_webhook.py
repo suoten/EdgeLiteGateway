@@ -402,6 +402,9 @@ class HttpWebhookDriver(DriverPlugin):
         self._last_receive_wall_ts: dict[str, datetime] = {}
         self._http_client: Any = None
         self._lock = asyncio.Lock()
+        # FIXED-P2: 并发首次建连保护锁，防止两个协程同时通过 `if not self._http_client`
+        #           检查后各自 _build_client，先建者被覆盖且永不关闭（连接池泄漏）
+        self._http_client_lock = asyncio.Lock()
         self._last_emitted: dict[str, dict[str, Any]] = {}
         self._dns_resolver: _CachedResolver | None = None
         self._health_latency: dict[str, float] = {}
@@ -696,13 +699,17 @@ class HttpWebhookDriver(DriverPlugin):
         try:
             import httpx
 
+            # FIXED-P2: 双检查锁保护并发首建 client——两个协程同时通过外层检查时，
+            #           只有第一个真正 _build_client，后到者在锁内二次检查后发现已建好直接复用
             if not self._http_client:
-                # FIXED-P0: 重建前关闭旧实例连接池，防止连接池泄漏
-                old_client = self._http_client
-                self._http_client = self._build_client(config)
-                if old_client is not None:
-                    with contextlib.suppress(Exception):
-                        await old_client.aclose()
+                async with self._http_client_lock:
+                    if not self._http_client:
+                        # FIXED-P0: 重建前关闭旧实例连接池，防止连接池泄漏
+                        old_client = self._http_client
+                        self._http_client = self._build_client(config)
+                        if old_client is not None:
+                            with contextlib.suppress(Exception):
+                                await old_client.aclose()
 
             custom_headers = {}
             with contextlib.suppress(Exception):
@@ -806,7 +813,9 @@ class HttpWebhookDriver(DriverPlugin):
                     else:
                         raise
 
-            ok = resp is not None and last_status == 200
+            # FIXED-P2: 成功判断改为 2xx 区间（201 Created/204 No Content 等均为成功），
+            #           原问题：仅 last_status == 200 导致其他 2xx 状态被误判为写入失败
+            ok = resp is not None and last_status is not None and 200 <= last_status < 300
             result_str = "success" if ok else f"failed:status={last_status}"
 
             # FIXED-P0: 缩小锁范围，仅保护共享数据结构更新

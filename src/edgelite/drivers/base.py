@@ -193,9 +193,14 @@ class DriverHealthStats:
 
     @property
     def p95_latency_ms(self) -> float:
-        if not self._latency_samples:
+        # FIXED-P2: 迭代前在 _stats_lock 内对 _latency_samples 做快照，
+        # 原问题：无锁遍历 deque，_record_latency 并发 append 时抛
+        # "deque mutated during iteration" RuntimeError
+        with self._stats_lock:
+            samples = list(self._latency_samples)
+        if not samples:
             return 0.0
-        sorted_samples = sorted(self._latency_samples)
+        sorted_samples = sorted(samples)
         idx = int(len(sorted_samples) * 0.95)
         return sorted_samples[min(idx, len(sorted_samples) - 1)]
 
@@ -336,6 +341,10 @@ class DriverPlugin(ABC):
         self._shutdown_requested: Event = Event()
         # FIXED-P2: 区分executor关闭与重建，避免重建期间并发任务被静默丢弃
         self._executor_shutting_down: bool = False
+        # FIXED-P2: executor 超时重建次数上限（实例生命周期），防止半开连接场景下
+        #           每次超时重建 4 线程池导致线程线性泄漏（mc.py 半开连接场景）
+        self._executor_rebuild_max: int = 3
+        self._executor_rebuild_count: int = 0
         # BASE-MED-001: executor 超时等待上限（秒）
         self._executor_shutdown_timeout: float = 10.0
         # CROSS-004: 后台任务追踪
@@ -464,17 +473,34 @@ class DriverPlugin(ABC):
                     return result
                 except TimeoutError:
                     func_name = func.__name__ if hasattr(func, "__name__") else str(func)
+                    # FIXED-P2: 重建次数上限（实例生命周期），超限后不再重建 executor，
+                    #           直接向调用方抛超时错误——防止半开连接场景下每次超时重建
+                    #           4 线程池导致线程线性泄漏
+                    if self._executor_rebuild_count >= self._executor_rebuild_max:
+                        logger.error(
+                            "[driver] BASE-MED-001: executor timeout after %.1fs but rebuild limit "
+                            "reached (%d/%d), NOT rebuilding executor (func=%s). "
+                            "Possible half-open connection; stop/restart the driver to recover.",
+                            timeout,
+                            self._executor_rebuild_count,
+                            self._executor_rebuild_max,
+                            func_name,
+                        )
+                        raise
                     logger.warning(
                         "[driver] BASE-MED-001: executor timeout after %.1fs, "
-                        "rebuilding executor to prevent deadlock: func=%s",
+                        "rebuilding executor to prevent deadlock: func=%s (rebuild %d/%d)",
                         timeout,
                         func_name,
+                        self._executor_rebuild_count + 1,
+                        self._executor_rebuild_max,
                     )
                     # FIXED-P2: 超时后重建executor，不再设置_shutdown_requested以避免并发任务被静默丢弃
                     # 原问题：set()后并发协程的_wrapped_func检测到is_set()直接return None
                     async with self._executor_lock:
                         old_executor = self._executor
                         self._executor = self._create_executor()
+                        self._executor_rebuild_count += 1
                         # FIXED-P2: 仅清除当前超时的Future，保留其他并发调用的Future追踪
                         self._executor_futures.discard(future)
                     if old_executor:

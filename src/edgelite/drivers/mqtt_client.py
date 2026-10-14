@@ -602,6 +602,26 @@ class MqttClientDriver(DriverPlugin):
         return len(pattern_parts) == len(topic_parts)
 
     @staticmethod
+    def _is_valid_subscribe_topic(topic: str) -> bool:
+        """FIXED-P2: 订阅主题通配符位置校验（MQTT 协议规范 §4.7）
+
+        原问题：订阅侧不校验通配符位置，`a/#/b`、`a+/b` 等非法 TopicFilter 原样发给
+        broker，会被 broker 判定协议错误并断开连接，形成断连循环。
+        规则：`#` 必须独占且仅能位于最后一段；`+` 必须独占一段。
+        """
+        if not topic:
+            return False
+        levels = topic.split("/")
+        for i, level in enumerate(levels):
+            if "#" in level and level != "#":
+                return False
+            if level == "#" and i != len(levels) - 1:
+                return False
+            if "+" in level and level != "+":
+                return False
+        return True
+
+    @staticmethod
     def _extract_from_topic(pattern: str, topic: str) -> dict:
         """Extract variables from topic based on pattern, e.g. {device_id}"""
         result: dict[str, str] = {}
@@ -828,8 +848,16 @@ class MqttClientDriver(DriverPlugin):
                                 f"topic too long ({len(topic.encode('utf-8'))} bytes, max 65535)",
                             )
                             continue
+                        # FIXED-P2: 通配符位置校验（MQTT 规范 §4.7），非法主题记 error 并跳过，
+                        #           不发给 broker，防止 broker 判定协议错误后断连循环
+                        if not self._is_valid_subscribe_topic(topic):
+                            self._log_error(
+                                device_id, "SUBSCRIBE_FAILED", f"invalid wildcard position in topic: {topic}"
+                            )
+                            continue
                         try:
-                            await client.subscribe(topic)
+                            # P3: 显式传 qos=1，与发布侧 _publish_qos 保持一致（订阅 QoS 为可接收的最大 QoS）
+                            await client.subscribe(topic, qos=1)
                             self._subscribed_topics.add(topic)
                             _subscribe_success_count += 1
                         except asyncio.CancelledError:
@@ -843,8 +871,15 @@ class MqttClientDriver(DriverPlugin):
                     for route in topic_routes:
                         route_topic = route.get("topic", "")
                         if route_topic and route_topic not in subscribed_route_topics:
+                            # FIXED-P2: 路由主题同样做通配符位置校验，非法主题跳过不发 broker
+                            if not self._is_valid_subscribe_topic(route_topic):
+                                self._log_error(
+                                    "", "SUBSCRIBE_FAILED", f"invalid wildcard position in route topic: {route_topic}"
+                                )
+                                continue
                             try:
-                                await client.subscribe(route_topic)
+                                # P3: 显式传 qos=1，与设备主题订阅及发布侧一致
+                                await client.subscribe(route_topic, qos=1)
                                 subscribed_route_topics.add(route_topic)
                                 self._subscribed_topics.add(route_topic)
                                 _subscribe_success_count += 1
@@ -875,8 +910,36 @@ class MqttClientDriver(DriverPlugin):
                     pub_task = asyncio.create_task(self._publish_loop(client), name="mqtt-client-publish")
 
                     try:
-                        while self._running:
-                            await asyncio.sleep(1)
+                        # FIXED-P0: 原问题-`while self._running: await asyncio.sleep(1)` 从不检查
+                        #           msg_task/pub_task 存活；断线后 _message_loop 记日志即退出，
+                        #           主循环永远睡眠不触发重连，采集数据静默冻结（read_points 持续
+                        #           返回旧值且 quality=good）。
+                        # 修复：用 asyncio.wait 监控两个任务，任一 task done（无论正常退出还是
+                        #       异常退出）即跳出循环，走既有 finally 清理 + 外层重连逻辑；
+                        #       任务若带异常退出则重抛给外层 except 走统一退避。CancelledError
+                        #       正常向上传播，不被吞没。
+                        _pending: set[asyncio.Task[None]] = {msg_task, pub_task}
+                        _died_exc: BaseException | None = None
+                        while self._running and _pending:
+                            _done, _pending = await asyncio.wait(
+                                _pending, timeout=1.0, return_when=asyncio.FIRST_COMPLETED
+                            )
+                            for _t in _done:
+                                if _t.cancelled():
+                                    continue
+                                _exc = _t.exception()
+                                if _exc is not None:
+                                    logger.error(
+                                        "[mqtt] code=TASK_DIED msg=%s exited with error: %s, triggering reconnect",
+                                        _t.get_name(),
+                                        _exc,
+                                    )
+                                    _died_exc = _exc
+                            if _done:
+                                # 任一任务退出（含 _message_loop 断线后正常 return）都触发重连
+                                break
+                        if _died_exc is not None:
+                            raise _died_exc
                     finally:
                         # FIXED-P2: _message_consumer任务在连接断开时未取消
                         if self._msg_consumer_task and not self._msg_consumer_task.done():
@@ -1164,11 +1227,14 @@ class MqttClientDriver(DriverPlugin):
                     device_id = extracted.get("device_id", "")
                     if not device_id:
                         # 回退：遍历设备配置匹配
+                        # FIXED-P2: 原问题-`topic.endswith(sub_topic)` 为纯后缀匹配，
+                        #           `sensor/1/data` 会误配 `2/data` 等主题导致写错设备；
+                        #           修复-改用主路径同款 MQTT 通配符匹配 _topic_matches
                         for did, dev_config in list(self._device_configs.items()):  # FIXED-P1: 快照遍历防止竞态
                             sub_topic = dev_config.get("topic") or dev_config.get(
                                 "subscribe_topic", f"edgelite/{did}/data"
                             )
-                            if topic == sub_topic or topic.endswith(sub_topic):
+                            if topic == sub_topic or self._topic_matches(sub_topic, topic):
                                 device_id = did
                                 break
 

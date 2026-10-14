@@ -107,6 +107,9 @@ class LinkRedundancyManager:
         self._devices: dict[str, _DeviceState] = {}
         self._lock = threading.Lock()
         self._on_switch_callback: Callable[[str, str, str], None] | None = None
+        # FIXED-P2: 保存 create_task 引用（实例集合 + done callback 丢弃），
+        #           原问题：裸 create_task 的任务可能被 GC 中途取消，事件丢失
+        self._pending_tasks: set[asyncio.Task] = set()
 
     def set_on_switch_callback(self, callback: Callable[[str, str, str], None]) -> None:
         """设置链路切换回调函数
@@ -317,6 +320,10 @@ class LinkRedundancyManager:
                     old_host=old_host,
                     new_host=new_host,
                 )
-                asyncio.get_running_loop().create_task(self._event_bus.publish(event))
+                # FIXED-P2: 保存 create_task 引用，防止任务被垃圾回收中断；
+                #           完成后通过 done callback 自动从集合丢弃
+                task = asyncio.get_running_loop().create_task(self._event_bus.publish(event))
+                self._pending_tasks.add(task)
+                task.add_done_callback(self._pending_tasks.discard)
             except Exception as e:
                 logger.debug("[redundancy] event publish failed: %s", e)

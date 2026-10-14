@@ -10,7 +10,7 @@
 
 设计要点:
 - ``ModbusEdgeRuleEngine`` 名称保留历史命名（虽被多协议共用），变更会破坏既有导入。
-- 驱动代码直接访问 ``_rules`` / ``_alarm_history`` 私有属性，必须保持为真实 dict / list。
+- 驱动代码直接访问 ``_rules`` / ``_alarm_history`` 私有属性，必须保持为真实 dict / deque。
 - ``evaluate_point`` / ``remove_rule`` / ``update_rule`` 为协程；其余方法同步。
 """
 
@@ -20,6 +20,7 @@ import inspect
 import logging
 import time
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -122,9 +123,14 @@ class AlarmRecord:
 
 
 class ModbusEdgeRuleEngine:
+    # FIXED-P2: 告警历史上限（deque 自动淘汰最旧记录），告警风暴下防止内存无界增长
+    _ALARM_HISTORY_MAX = 1000
+
     def __init__(self, event_bus: EventBus | None = None) -> None:
         self._rules: dict[str, EdgeRule] = {}
-        self._alarm_history: list[AlarmRecord] = []
+        # FIXED-P2: 原问题-_alarm_history 为无上限 list，告警风暴下内存无界增长；
+        # 修复-改为 deque(maxlen=1000)，注意 deque 不支持切片，读取侧统一走 get_alarm_history()
+        self._alarm_history: deque[AlarmRecord] = deque(maxlen=self._ALARM_HISTORY_MAX)
         self._active_alarms: dict[str, AlarmRecord] = {}
         self._last_fire_ts: dict[str, float] = {}
         self._breach_start_ts: dict[str, float] = {}
@@ -287,9 +293,11 @@ class ModbusEdgeRuleEngine:
         return [r.to_dict() for r in self._active_alarms.values()]
 
     def get_alarm_history(self, limit: int = 100) -> list[AlarmRecord]:
+        # FIXED-P2: deque 不支持切片，先转 list 再取尾部 limit 条
         if limit <= 0:
             return list(self._alarm_history)
-        return list(self._alarm_history[-limit:])
+        history = list(self._alarm_history)
+        return history[-limit:]
 
     def get_stats(self) -> dict:
         stats = dict(self._stats)
