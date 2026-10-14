@@ -3,7 +3,7 @@
 支持脚本的创建、更新、启停、测试、审批流（提交评审 / 通过 / 拒绝）。
 - SQLite 表 ``scripts`` 持久化脚本元数据
 - SQLite 表 ``script_logs`` 持久化测试执行日志
-- test 端点用受限内建函数的 exec 沙箱执行（仅 Python 子集）
+- test 端点统一走 engine/sandbox.run_script_safely（AST 静态分析 + 线程隔离 + 超时保护）
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import require_permission
+from edgelite.engine.sandbox import run_script_safely
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.security.rbac import Permission
 
@@ -53,32 +54,15 @@ _LOGS_DDL = (
     "created_at TEXT NOT NULL)"
 )
 
-# exec 沙箱白名单内建函数
-_SAFE_BUILTINS = {
-    "abs": abs,
-    "all": all,
-    "any": any,
-    "bool": bool,
-    "dict": dict,
-    "enumerate": enumerate,
-    "filter": filter,
-    "float": float,
-    "int": int,
-    "len": len,
-    "list": list,
-    "map": map,
-    "max": max,
-    "min": min,
-    "print": print,
-    "range": range,
-    "round": round,
-    "set": set,
-    "sorted": sorted,
-    "str": str,
-    "sum": sum,
-    "tuple": tuple,
-    "zip": zip,
-}
+# FIXED(安全-P1): 原问题-test 端点曾用本地 exec + _SAFE_BUILTINS 白名单"沙箱"，
+# 白名单含 print，print.__self__ 即 builtins 模块，可一行逃逸（__import__('os')）实现 RCE，
+# 且无超时保护（while True: pass 挂死服务）。修复-移除本地 exec 路径，
+# 统一走 engine/sandbox.run_script_safely（AST 静态分析 + 受限内建 + 线程隔离 + 超时）。
+_SCRIPT_TEST_TIMEOUT_SECONDS = 3.0  # 与规则脚本沙箱默认超时一致
+# 仅这些审批状态的脚本允许测试执行（draft/pending_review/rejected 一律 409）
+_SCRIPT_TEST_ALLOWED_STATUSES = {"approved", "enabled"}
+# 与 error_codes.ScriptErrors 命名风格一致（error_codes.py 不归本模块维护，故本地常量）
+_ERR_SCRIPT_NOT_TESTABLE = "ERR_SCRIPT_NOT_TESTABLE"
 
 
 async def _ensure_tables() -> None:
@@ -374,13 +358,51 @@ async def _toggle_script(script_id: str, enabled: bool) -> ApiResponse:
     return ApiResponse(data={"id": script_id, "enabled": enabled, "updated_at": now})
 
 
+def _assert_script_testable(status: str) -> None:
+    """FIXED(安全-P1): 仅 approved/enabled 状态的脚本允许测试执行。
+
+    原问题-test 端点不检查脚本 status，draft 脚本可直接执行（未经审批的代码即时运行）。
+    """
+    if status not in _SCRIPT_TEST_ALLOWED_STATUSES:
+        raise HTTPException(status_code=409, detail=_ERR_SCRIPT_NOT_TESTABLE)
+
+
+async def _execute_in_sandbox(
+    content: str,
+    inputs: dict[str, Any],
+    output_lines: list[str],
+    script_id: str,
+    timeout: float = _SCRIPT_TEST_TIMEOUT_SECONDS,
+) -> tuple[Any, str]:
+    """FIXED(安全-P1): 在 engine/sandbox 沙箱中执行脚本，返回 (result_value, error_text)。
+
+    沙箱提供 AST 静态拦截（import/exec/eval/dunder 属性链）+ 受限内建 + 线程隔离 + 超时。
+    """
+    try:
+        namespace: dict[str, Any] = {"input": inputs, "output": output_lines.append, "result": None}
+        result_value = await run_script_safely(
+            content,
+            namespace,
+            timeout=timeout,
+            filename=f"<script:{script_id}>",
+        )
+        return result_value, ""
+    except TimeoutError:
+        return None, f"script execution timed out after {timeout}s"
+    except ValueError as exc:
+        # AST 静态检查未通过（危险代码/语法错误）
+        return None, f"script blocked by sandbox safety check: {exc}"
+    except Exception as exc:
+        return None, "".join(traceback.format_exception_only(type(exc), exc))
+
+
 @router.post("/{script_id}/test", response_model=ApiResponse)
 async def test_script(
     req: ScriptTestRequest,
     script_id: str = Path(..., max_length=128),
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
-    """在受限 exec 沙箱中执行脚本测试"""
+    """在 engine/sandbox 安全沙箱中执行脚本测试（AST 检查 + 超时保护）"""
     import time
 
     try:
@@ -394,30 +416,20 @@ async def test_script(
             from sqlalchemy import text
 
             result = await session.execute(
-                text(f"SELECT content FROM {_SCRIPTS_TABLE} WHERE id=:id"),
+                text(f"SELECT content, status FROM {_SCRIPTS_TABLE} WHERE id=:id"),
                 {"id": script_id},
             )
             row = result.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
-        content = row[0]
+        content, status = row[0], row[1]
+        _assert_script_testable(status)
         inputs = req.input or {}
 
         start = time.perf_counter()
         output_lines: list[str] = []
-        error_text = ""
-        try:
-            sandbox_globals: dict[str, Any] = {
-                "__builtins__": _SAFE_BUILTINS,
-                "input": inputs,
-                "output": output_lines.append,
-            }
-            code_obj = compile(content, f"<script:{script_id}>", "exec")
-            exec(code_obj, sandbox_globals)  # noqa: S102 - 受限内建沙箱
-            output_value = sandbox_globals.get("result")
-        except Exception as exc:
-            error_text = "".join(traceback.format_exception_only(type(exc), exc))
-            output_value = None
+        # FIXED(安全-P1): 统一走 engine/sandbox.run_script_safely（见 _execute_in_sandbox）
+        result_value, error_text = await _execute_in_sandbox(content, inputs, output_lines, script_id)
         duration_ms = int((time.perf_counter() - start) * 1000)
 
         log_id = str(uuid.uuid4())
@@ -450,7 +462,7 @@ async def test_script(
                 "log_id": log_id,
                 "success": not error_text,
                 "output": "\n".join(output_lines),
-                "result": output_value,
+                "result": result_value,
                 "error": error_text,
                 "duration_ms": duration_ms,
             }

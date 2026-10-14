@@ -316,12 +316,13 @@ class DeviceService:
                 interval_changed = True
 
         # 若配置/点位变化且设备处于运行状态，重载驱动
+        rolled_back = False
         if config_changed and old_device is not None:
             # 使用锁保护检查，防止并发更新竞态
             async with self._lock:
                 has_driver = device_id in self._driver_instances
             if has_driver:
-                await self._reload_driver_for_device(device_id, old_device)
+                rolled_back = await self._reload_driver_for_device(device_id, old_device)
         elif interval_changed and old_device is not None:
             # 仅采集间隔变化，无需重载驱动，只需重启采集任务以应用新间隔
             async with self._lock:
@@ -351,13 +352,28 @@ class DeviceService:
                 except Exception as e:
                     logger.error("重启采集-启动新任务失败 %s: %s", device_id, e)
 
+        # FIXED(P2): 驱动重载失败回滚后返回诚实结果——重新读取回滚后的实际生效配置，
+        # 并标记 rolled_back=True，由 API 层透传给调用方（不再谎报"新配置已生效"）
+        if rolled_back:
+            actual = await self._repo.get(device_id)
+            if actual is not None:
+                actual = dict(actual)
+                actual["rolled_back"] = True
+                return actual
+            updated = dict(updated)
+            updated["rolled_back"] = True
+            return updated
+
         return updated
 
-    async def _reload_driver_for_device(self, device_id: str, old_device: dict) -> None:
+    async def _reload_driver_for_device(self, device_id: str, old_device: dict) -> bool:
         """重载设备驱动：停止旧驱动 → 移除实例 → 用新配置加载并启动。
 
         R9-S-01: 在锁保护下执行关键步骤，防止并发更新竞态。
         失败时回滚到旧配置并重启旧驱动，记录错误日志。
+
+        Returns:
+            bool - 驱动重载失败并已回滚到旧配置时返回 True，正常重载返回 False。
         """
         # 1. 锁保护下移除旧驱动实例
         async with self._lock:
@@ -384,9 +400,10 @@ class DeviceService:
             new_device = await self._repo.get(device_id)
             if new_device is None:
                 logger.error("重载驱动失败-设备不存在 %s", device_id)
-                return
+                return False
             await self._load_driver_for_device(new_device)
             logger.info("设备驱动重载成功 %s", device_id)
+            return False
         except Exception as e:
             # 3. 重载失败，回滚到旧配置
             logger.error("设备驱动重载失败，回滚到旧配置 %s: %s", device_id, e)
@@ -405,6 +422,7 @@ class DeviceService:
                 await self._load_driver_for_device(old_device)
             except Exception as restart_err:
                 logger.error("回滚-重启旧驱动失败 %s: %s", device_id, restart_err)
+            return True
 
     async def delete_device(self, device_id: str) -> tuple[bool, str | None]:
         """删除设备，返回(成功, 错误信息)
@@ -489,6 +507,17 @@ class DeviceService:
                     await self._repo.cleanup_sidecar_data(device_id)
                 except Exception as e:
                     logger.warning("Sidecar cleanup failed for %s (compensation will retry): %s", device_id, e)
+
+                # FIXED(P3): 删除设备时同步清理影子记录，避免幽灵 shadow 残留
+                # （ShadowService 为内存态，无独立 SQLite 表，直接调用其 delete_shadow）
+                try:
+                    from edgelite.app import _app_state
+
+                    shadow_service = getattr(_app_state, "shadow_service", None)
+                    if shadow_service is not None:
+                        shadow_service.delete_shadow(device_id)
+                except Exception as e:
+                    logger.warning("Shadow cleanup failed for %s: %s", device_id, e)
 
                 # R11-DRV-02: 清理设备级采集锁，防止设备删除后 _collect_locks 字典残留造成内存泄漏
                 self._collect_locks.pop(device_id, None)

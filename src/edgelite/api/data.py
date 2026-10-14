@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -98,6 +99,89 @@ async def _check_device_owner(device_id: str, user) -> None:
     raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
 
 
+# FIX-EL-R2-SEVERE: 查询时间范围上限（防止 start="-10y" 等超大范围导致全表扫描 DoS）
+_MAX_QUERY_RANGE = timedelta(days=90)
+
+
+def _validate_time_range(start: str, stop: str | None) -> None:
+    """公共时间范围校验（FIX-EL-R2-SEVERE）。
+
+    规则与 /query 的既有实现一致：
+    - stop 提供且两者均可解析时，必须满足 start < stop，且范围不超过 90 天；
+    - stop 未提供时默认为 now，start 不得早于 90 天前。
+    校验失败抛出 400（INVALID_TIME_RANGE / RANGE_TOO_LARGE）。
+    """
+    if stop:
+        start_dt = _parse_time_to_datetime(start)
+        stop_dt = _parse_time_to_datetime(stop)
+        if start_dt is not None and stop_dt is not None and start_dt >= stop_dt:
+            raise HTTPException(
+                status_code=400,
+                detail=DataErrors.INVALID_TIME_RANGE,
+            )
+        if start_dt is not None and stop_dt is not None and (stop_dt - start_dt) > _MAX_QUERY_RANGE:
+            raise HTTPException(
+                status_code=400,
+                detail=DataErrors.RANGE_TOO_LARGE,
+            )
+    else:
+        # stop 未提供时默认为 now，校验 start 不超过 90 天前
+        start_dt = _parse_time_to_datetime(start)
+        if start_dt is not None:
+            _now = datetime.now(UTC)
+            if (_now - start_dt) > _MAX_QUERY_RANGE:
+                raise HTTPException(
+                    status_code=400,
+                    detail=DataErrors.RANGE_TOO_LARGE,
+                )
+
+
+def _get_access_repos():
+    """非 admin 数据导出过滤所需的 (device_service, share_repo)。"""
+    from edgelite.app import _app_state
+    from edgelite.storage.sqlite_repo import ResourceShareRepo
+
+    device_svc = getattr(_app_state, "device_service", None)
+    database = getattr(_app_state, "database", None)
+    if device_svc is None or database is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    return device_svc, ResourceShareRepo(database, database.write_lock)
+
+
+async def _get_accessible_device_ids_for_export(user) -> set[str] | None:
+    """获取用户可访问（own + shared）的设备 ID 集合；admin 返回 None 表示无限制。"""
+    if user["role"] == "admin":
+        return None
+    device_svc, share_repo = _get_access_repos()
+    owned_ids = set(await device_svc.list_device_ids_by_owner(user["user_id"]))
+    shared_ids = await share_repo.get_shared_resource_ids(user["user_id"], "device")
+    return owned_ids | shared_ids
+
+
+async def _get_accessible_rule_ids_for_export(user) -> set[str] | None:
+    """获取用户可访问（own + shared）的规则 ID 集合；admin 返回 None 表示无限制。"""
+    if user["role"] == "admin":
+        return None
+    from edgelite.app import _app_state
+    from edgelite.storage.sqlite_repo import ResourceShareRepo
+
+    rule_svc = getattr(_app_state, "rule_service", None)
+    database = getattr(_app_state, "database", None)
+    if rule_svc is None or database is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    owned_ids: set[str] = set()
+    page = 1
+    while True:
+        rules, total = await rule_svc.list_rules(page=page, size=500, created_by=user["user_id"])
+        owned_ids.update(r["rule_id"] for r in rules if r.get("rule_id"))
+        if page * 500 >= total or not rules:
+            break
+        page += 1
+    share_repo = ResourceShareRepo(database, database.write_lock)
+    shared_ids = await share_repo.get_shared_resource_ids(user["user_id"], "rule")
+    return owned_ids | shared_ids
+
+
 @router.get("/query", response_model=ApiResponse)
 async def query_timeseries(
     svc: DataServiceDep,
@@ -121,34 +205,9 @@ async def query_timeseries(
             detail=DataErrors.UNSUPPORTED_AGGREGATE,
         )
     # FIXED: 校验时间范围 start < stop，防止无效范围查询浪费资源
-    # 当 stop 提供且两者均可解析为时间时，必须满足 start < stop，否则返回 400
-    if stop:
-        start_dt = _parse_time_to_datetime(start)
-        stop_dt = _parse_time_to_datetime(stop)
-        if start_dt is not None and stop_dt is not None and start_dt >= stop_dt:
-            raise HTTPException(
-                status_code=400,
-                detail=DataErrors.INVALID_TIME_RANGE,
-            )
-        # FIX-EL-R2-SEVERE: 限制最大查询时间范围为 90 天，防止 start="-10y" 等超大范围
-        # 导致 InfluxDB 全表扫描 CPU/内存耗尽（DoS）。即使有 limit 限制返回行数，
-        # InfluxDB 仍需扫描整个时间范围再取前 N 条。
-        _MAX_QUERY_RANGE = timedelta(days=90)
-        if start_dt is not None and stop_dt is not None and (stop_dt - start_dt) > _MAX_QUERY_RANGE:
-            raise HTTPException(
-                status_code=400,
-                detail=DataErrors.RANGE_TOO_LARGE,
-            )
-    else:
-        # stop 未提供时默认为 now，校验 start 不超过 90 天前
-        start_dt = _parse_time_to_datetime(start)
-        if start_dt is not None:
-            _now = datetime.now(UTC)
-            if (_now - start_dt) > timedelta(days=90):
-                raise HTTPException(
-                    status_code=400,
-                    detail=DataErrors.RANGE_TOO_LARGE,
-                )
+    # FIX-EL-R2-SEVERE: 限制最大查询时间范围为 90 天（公共 helper，与 trend/correlation/
+    # statistics/multi-point/downsample/export 共用）
+    _validate_time_range(start, stop)
     # FIXED-Bug31: aggregate 是聚合函数名，interval 是窗口大小（如 "5m"、"1h"）
     # 之前：API 校验 aggregate 为函数名，但存储层期望窗口大小（^\d+[smh]$），两条路径都不可用
     # 现在：传给存储层的 aggregate 参数使用 interval（窗口大小），函数名通过 agg_fn 传入
@@ -189,6 +248,8 @@ async def export_data(
 ):
     """导出设备时序数据为 CSV 或 JSON 格式，支持流式输出防止 OOM。"""
     _fmt = _format
+    # FIX-EL-R2-SEVERE(P2): export 同样受 90 天范围上限约束，防止超大范围导出拖垮存储层
+    _validate_time_range(start, stop)
     await _check_device_owner(device_id, user)
 
     # R9-S-16 修复: 原问题-export_data 加载所有结果到 BytesIO，非真正流式;
@@ -288,6 +349,8 @@ async def query_trend(
     # FIXED(一般): 原问题-bucket_size无格式校验,恶意值可注入Flux查询;修复-校验为合法时间窗口格式
     if not re.match(r"^\d+[smhdwMy]$", bucket_size):
         raise HTTPException(status_code=400, detail=DataErrors.INVALID_BUCKET_SIZE)
+    # FIX-EL-R2-SEVERE(P2): 补齐 90 天范围上限（与 /query 公用 helper）
+    _validate_time_range(start, stop)
     try:
         await _check_device_owner(device_id, user)
         data = await svc.query_trend(device_id, point_name, start, stop, bucket_size)
@@ -310,6 +373,8 @@ async def query_correlation(
     user: dict[str, str] = Depends(require_permission(Permission.DATA_READ)),
 ):
     """Calculate correlation between two data points"""
+    # FIX-EL-R2-SEVERE(P2): 补齐 90 天范围上限（与 /query 公用 helper）
+    _validate_time_range(start, stop)
     try:
         await _check_device_owner(device_id, user)
         data = await svc.query_correlation(device_id, point1, point2, start, stop)
@@ -336,6 +401,8 @@ async def get_statistics(
     valid_aggregates = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
     if aggregate and aggregate.lower() not in valid_aggregates:
         raise HTTPException(status_code=400, detail=DataErrors.UNSUPPORTED_AGGREGATE)
+    # FIX-EL-R2-SEVERE(P2): 补齐 90 天范围上限（与 /query 公用 helper）
+    _validate_time_range(start, stop)
     try:
         await _check_device_owner(device_id, user)
         data = await svc.get_statistics(device_id, point_name, start, stop, aggregate)
@@ -362,6 +429,8 @@ async def query_multi_point(
     valid_aggregates = {"mean", "max", "min", "last", "first", "sum", "count", "median", "stddev"}
     if aggregate and aggregate.lower() not in valid_aggregates:
         raise HTTPException(status_code=400, detail=DataErrors.UNSUPPORTED_AGGREGATE)
+    # FIX-EL-R2-SEVERE(P2): 补齐 90 天范围上限（与 /query 公用 helper）
+    _validate_time_range(start, stop)
     await _check_device_owner(device_id, user)
     try:
         names = [n.strip() for n in point_names.split(",") if n.strip()]
@@ -441,9 +510,14 @@ def _get_import_service():
 @router.post("/export", response_model=ApiResponse)
 async def export_config(
     body: ConfigExportRequest,
-    _user: dict[str, str] = Depends(require_permission(Permission.DATA_EXPORT)),
+    user: dict[str, str] = Depends(require_permission(Permission.DATA_EXPORT)),
 ):
-    """导出配置数据（devices/rules/alarms/all）为 JSON 或 CSV。"""
+    """导出配置数据（devices/rules/alarms/all）为 JSON 或 CSV。
+
+    FIXED(P1-1 导出越权): 非 admin 用户的导出范围必须以可访问资源为边界——
+    device_ids/rule_ids 为 None/空时按 accessible（own + shared）过滤，
+    不再允许空 ids 一笔带出全租户配置（含驱动明文凭据）。
+    """
     try:
         svc, ExportFormat = _get_export_service()
         fmt = ExportFormat.CSV if body.format == "csv" else ExportFormat.JSON
@@ -457,12 +531,51 @@ async def export_config(
                     "format": body.format,
                 }
             )
+        accessible_device_ids = await _get_accessible_device_ids_for_export(user)
+        accessible_rule_ids = (
+            await _get_accessible_rule_ids_for_export(user) if body.scope in ("rules", "all") else None
+        )
+
+        def _filter_ids(requested: list[str] | None, accessible: set[str] | None) -> list[str] | None:
+            """请求 ids 与可访问集合求交；admin（accessible=None）保持原语义。"""
+            if accessible is None:
+                return requested
+            if requested:
+                for rid in requested:
+                    if rid not in accessible:
+                        raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
+                return requested
+            return sorted(accessible)
+
         if body.scope == "devices":
-            content = await svc.export_devices(device_ids=body.ids, format=fmt)
+            device_ids = _filter_ids(body.ids, accessible_device_ids)
+            content = await svc.export_devices(device_ids=device_ids, format=fmt)
         elif body.scope == "rules":
-            content = await svc.export_rules(rule_ids=body.ids, format=fmt)
+            rule_ids = _filter_ids(body.ids, accessible_rule_ids)
+            content = await svc.export_rules(rule_ids=rule_ids, format=fmt)
         else:  # all
-            content = await svc.export_all(format=fmt)
+            if accessible_device_ids is None:
+                # admin: 保持原 export_all 全量语义
+                content = await svc.export_all(format=fmt)
+            else:
+                # 非 admin: 以可访问设备/规则组合出 full_backup 形状（export_all 无法传 ids，
+                # 在调用方过滤——设备凭据绝不带出可访问范围之外）
+                devices_json = json.loads(
+                    await svc.export_devices(device_ids=sorted(accessible_device_ids), format=ExportFormat.JSON)
+                )
+                rules_json = json.loads(
+                    await svc.export_rules(rule_ids=sorted(accessible_rule_ids or set()), format=ExportFormat.JSON)
+                )
+                merged = {
+                    "version": "1.0",
+                    "type": "full_backup",
+                    "exported_at": datetime.now(UTC).isoformat(),
+                    "devices": devices_json.get("devices", []),
+                    "rules": rules_json.get("rules", []),
+                    "device_count": len(devices_json.get("devices", [])),
+                    "rule_count": len(rules_json.get("rules", [])),
+                }
+                content = json.dumps(merged, indent=2, ensure_ascii=False)
         return ApiResponse(
             data={
                 "content": content,
@@ -510,6 +623,14 @@ async def import_config(
         )
     except HTTPException:
         raise
+    except (ValueError, KeyError) as e:
+        # FIXED(P3): 请求体内容解析错误（非法 JSON/CSV、缺字段）属于客户端错误，
+        # 返回 400 而非 503——503 语义是服务端暂不可用，会误导调用方重试
+        logger.warning("import_config invalid payload: %s", e)
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": CommonErrors.VALIDATION_FAILED, "message": DeviceErrors.IMPORT_VALIDATION_FAILED},
+        ) from None
     except Exception as e:
         logger.error("import_config failed: %s", e)
         raise HTTPException(status_code=503, detail=DeviceErrors.IMPORT_FAILED) from None
@@ -592,11 +713,16 @@ async def downsample_timeseries(
 ):
     """对原始时序数据按时间间隔聚合降采样"""
     try:
+        # FIX-EL-R2-SEVERE(P2): 补齐 90 天范围上限（与 /query 公用 helper）
+        _validate_time_range(body.start, body.stop)
         await _check_device_owner(body.device_id, user)
         try:
             interval_sec = _parse_interval_seconds(body.interval)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=DataErrors.INVALID_BUCKET_SIZE) from exc
+        # FIXED(P3): interval="0s" 等零间隔会导致分桶除零，直接 400 而非返回误导性 503
+        if interval_sec <= 0:
+            raise HTTPException(status_code=400, detail=DataErrors.INVALID_BUCKET_SIZE)
 
         agg_fn = body.agg_fn.lower()
         if agg_fn not in _AGG_MAP:

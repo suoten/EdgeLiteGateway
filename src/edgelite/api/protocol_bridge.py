@@ -128,7 +128,11 @@ def _bridge_to_config(bridge) -> dict[str, Any]:
 
 
 def _find_bridge(manager, name: str):
-    """从 manager 内部 _bridges 字典获取 ProtocolBridge 实例。"""
+    """从 manager 获取 ProtocolBridge 实例（走锁内快照，FIXED-P2: 与后台同步循环互斥）。"""
+    getter = getattr(manager, "get_bridge_by_id", None)
+    if callable(getter):
+        return getter(name)
+    # 兼容降级：manager 无新接口时回退直读
     bridges: dict[str, Any] = getattr(manager, "_bridges", {}) or {}
     return bridges.get(name)
 
@@ -160,7 +164,8 @@ async def list_bridges(
     """列出所有协议桥接配置。"""
     try:
         manager = _get_manager()
-        bridges: dict[str, Any] = getattr(manager, "_bridges", {}) or {}
+        snapshot = getattr(manager, "get_bridges_snapshot", None)
+        bridges: dict[str, Any] = snapshot() if callable(snapshot) else (getattr(manager, "_bridges", {}) or {})
         items = [_bridge_to_config(b) for b in bridges.values()]
         total = len(items)
         page = pagination.page
@@ -204,9 +209,12 @@ async def create_bridge(
     try:
         manager = _get_manager()
         if _find_bridge(manager, body.name) is not None:
-            raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED)
+            # FIXED-P3: 重名创建返回 409 语义（资源已存在）而非 400
+            raise HTTPException(status_code=409, detail=CommonErrors.VALIDATION_FAILED)
         bridge = _create_bridge_from_config(body)
         manager.add_bridge(bridge)
+        # FIXED-P2: 变更落盘，网关重启后自动恢复
+        getattr(manager, "save_config", lambda: None)()
         return ApiResponse(data=_bridge_to_config(bridge))
     except HTTPException:
         raise
@@ -224,22 +232,40 @@ async def update_bridge(
     """更新指定桥接配置。
 
     支持部分更新：mappings 替换映射规则；enabled 启停；source/target_protocol 修改协议。
+    FIXED-P2: 字段更新走 manager 锁内方法，避免直接改共享 dataclass 与后台同步循环竞态。
     """
     try:
         manager = _get_manager()
-        bridge = _find_bridge(manager, name)
+        if _find_bridge(manager, name) is None:
+            raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
+        updater = getattr(manager, "update_bridge_fields", None)
+        if callable(updater):
+            bridge = updater(
+                name,
+                source_protocol=body.source_protocol,
+                target_protocol=body.target_protocol,
+                enabled=body.enabled,
+                mapping_rules=[_mapping_to_rule(m) for m in body.mappings] if body.mappings is not None else None,
+                source_config=body.config,
+            )
+        else:
+            bridge = _find_bridge(manager, name)
+            if bridge is None:
+                raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
+            if body.source_protocol is not None:
+                bridge.source_protocol = body.source_protocol
+            if body.target_protocol is not None:
+                bridge.target_protocol = body.target_protocol
+            if body.enabled is not None:
+                bridge.enabled = body.enabled
+            if body.mappings is not None:
+                bridge.mapping_rules = [_mapping_to_rule(m) for m in body.mappings]
+            if body.config is not None:
+                bridge.source_config = body.config
         if bridge is None:
             raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
-        if body.source_protocol is not None:
-            bridge.source_protocol = body.source_protocol
-        if body.target_protocol is not None:
-            bridge.target_protocol = body.target_protocol
-        if body.enabled is not None:
-            bridge.enabled = body.enabled
-        if body.mappings is not None:
-            bridge.mapping_rules = [_mapping_to_rule(m) for m in body.mappings]
-        if body.config is not None:
-            bridge.source_config = body.config
+        # FIXED-P2: 变更落盘，网关重启后自动恢复
+        getattr(manager, "save_config", lambda: None)()
         return ApiResponse(data=_bridge_to_config(bridge))
     except HTTPException:
         raise
@@ -256,10 +282,17 @@ async def enable_bridge(
     """启用指定桥接。"""
     try:
         manager = _get_manager()
-        bridge = _find_bridge(manager, name)
+        updater = getattr(manager, "update_bridge_fields", None)
+        if callable(updater):
+            bridge = updater(name, enabled=True)
+        else:
+            bridge = _find_bridge(manager, name)
+            if bridge is not None:
+                bridge.enabled = True
         if bridge is None:
             raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
-        bridge.enabled = True
+        # FIXED-P2: 变更落盘，网关重启后自动恢复
+        getattr(manager, "save_config", lambda: None)()
         return ApiResponse(data={"name": name, "enabled": True})
     except HTTPException:
         raise
@@ -276,10 +309,17 @@ async def disable_bridge(
     """禁用指定桥接。"""
     try:
         manager = _get_manager()
-        bridge = _find_bridge(manager, name)
+        updater = getattr(manager, "update_bridge_fields", None)
+        if callable(updater):
+            bridge = updater(name, enabled=False)
+        else:
+            bridge = _find_bridge(manager, name)
+            if bridge is not None:
+                bridge.enabled = False
         if bridge is None:
             raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
-        bridge.enabled = False
+        # FIXED-P2: 变更落盘，网关重启后自动恢复
+        getattr(manager, "save_config", lambda: None)()
         return ApiResponse(data={"name": name, "enabled": False})
     except HTTPException:
         raise

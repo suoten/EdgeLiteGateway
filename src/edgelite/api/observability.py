@@ -259,7 +259,7 @@ async def resolve_alert_event(
             from sqlalchemy import text
 
             now = datetime.now(UTC).isoformat()
-            await session.execute(
+            result = await session.execute(
                 text(
                     f"UPDATE {_ALERT_EVENTS_TABLE} SET status='resolved', resolved_at=:now "
                     "WHERE name=:name AND raised_at=:ts"
@@ -267,6 +267,9 @@ async def resolve_alert_event(
                 {"name": name, "ts": ts, "now": now},
             )
             await session.commit()
+            # FIXED(P3): UPDATE rowcount=0 说明事件不存在，返回 404 而非伪造 resolved=true
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
         return ApiResponse(data={"name": name, "raised_at": ts, "resolved": True, "resolved_at": now})
     except HTTPException:
         raise

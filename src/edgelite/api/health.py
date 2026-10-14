@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from collections import defaultdict, deque
+from pathlib import Path
 from typing import Any, cast
 
 from fastapi import APIRouter, Request
@@ -96,6 +96,9 @@ def _check_rate_limit(request: Request) -> bool:
 
 
 # ── 依赖检查函数 ──
+# FIXED(P3): 各 _check_* 的异常信息不再把 str(e) 放进响应（健康端点无需认证，
+# str(e) 可能向未认证调用方泄漏内部路径/驱动异常细节），响应统一给通用 "error"，
+# 详细异常通过 logger.error 落服务端日志。
 async def _check_sqlite() -> dict[str, Any]:
     """检查 SQLite 主库可用性。"""
     try:
@@ -110,7 +113,8 @@ async def _check_sqlite() -> dict[str, Any]:
             await session.execute(text("SELECT 1"))
         return {"status": "healthy"}
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        logger.error("health check sqlite failed: %s", e, exc_info=True)
+        return {"status": "unhealthy", "error": "sqlite check failed"}
 
 
 async def _check_influxdb() -> dict[str, Any]:
@@ -133,7 +137,8 @@ async def _check_influxdb() -> dict[str, Any]:
             return {"status": "unhealthy"}
         return {"status": "healthy"}
     except Exception as e:
-        return {"status": "degraded", "error": str(e)}
+        logger.error("health check influxdb failed: %s", e, exc_info=True)
+        return {"status": "degraded", "error": "influxdb check failed"}
 
 
 async def _check_mqtt() -> dict[str, Any]:
@@ -151,7 +156,8 @@ async def _check_mqtt() -> dict[str, Any]:
             return {"status": "healthy"}
         return {"status": "unhealthy", "error": f"connected={connected}, running={running}"}
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        logger.error("health check mqtt failed: %s", e, exc_info=True)
+        return {"status": "unhealthy", "error": "mqtt check failed"}
 
 
 async def _check_drivers() -> dict[str, Any]:
@@ -165,22 +171,51 @@ async def _check_drivers() -> dict[str, Any]:
         protocols = registry.get_all_protocol_keys() if hasattr(registry, "get_all_protocol_keys") else []
         return {"status": "healthy", "protocols": len(protocols)}
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        logger.error("health check drivers failed: %s", e, exc_info=True)
+        return {"status": "unhealthy", "error": "drivers check failed"}
+
+
+def _get_data_dir() -> str:
+    r"""获取数据目录（磁盘检查目标）。
+
+    优先从 config 读取数据目录配置；未配置时回退到进程工作目录下的 data/，
+    不再硬编码 C:\（Windows 开发机数据常在 D/E 盘，硬编码会检查错误的目标盘）。
+    """
+    try:
+        from edgelite.app import _app_state
+
+        cfg = getattr(_app_state, "config", None)
+        for attr in ("data_dir", "database_path"):
+            path_val = getattr(cfg, attr, None) if cfg is not None else None
+            if path_val:
+                parent = Path(str(path_val))
+                # database_path 指向文件时取其所在目录
+                if attr == "database_path" and parent.suffix:
+                    parent = parent.parent
+                parent.mkdir(parents=True, exist_ok=True)
+                return str(parent.resolve())
+    except Exception as e:
+        logger.debug("resolve data dir from config failed: %s", e)
+    return str(Path("data").resolve())
 
 
 def _check_disk_space() -> dict[str, Any]:
-    """检查磁盘空间是否充足。
+    r"""检查磁盘空间是否充足。
 
     当磁盘使用率超过 90% 或可用空间低于 1GB 时返回 unhealthy。
     readiness 探针据此返回 503，防止 K8s 向磁盘不足的节点调度流量。
+
+    FIXED(P3): 检查目标从硬编码 C:\（Windows）/ / 改为数据目录所在盘
+    （从 config 或 Path("data").resolve() 取），确保检查的是真正存储数据的磁盘。
     """
     if psutil is None:
         return {"status": "degraded", "error": "psutil not available"}
     try:
-        disk_path = "C:\\" if os.name == "nt" else "/"
+        disk_path = _get_data_dir()
         usage = psutil.disk_usage(disk_path)
         result = {
             "status": "healthy",
+            "disk_path": disk_path,
             "disk_total": usage.total,
             "disk_used": usage.used,
             "disk_free": usage.free,
@@ -194,7 +229,8 @@ def _check_disk_space() -> dict[str, Any]:
             result["error"] = f"disk free space {usage.free / 1024 / 1024:.0f}MB below 1GB threshold"
         return result
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        logger.error("health check disk space failed: %s", e, exc_info=True)
+        return {"status": "unhealthy", "error": "disk space check failed"}
 
 
 async def _run_full_check() -> dict[str, Any]:

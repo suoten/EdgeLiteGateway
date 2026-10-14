@@ -298,7 +298,9 @@ async def delete_backup(
             except Exception as e:
                 logger.warning("Audit log failed: %s", e)
             raise HTTPException(status_code=404, detail=SystemErrors.BACKUP_NOT_FOUND)
-        logger.info("Backup deleted by user %s: %s", getattr(user, "username", "?"), backup_id)
+        # FIXED(P3): 原问题-getattr(user, "username", "?")——user 是 dict，
+        # getattr 恒返回 "?" 导致审计日志用户名丢失；改用 dict.get
+        logger.info("Backup deleted by user %s: %s", user.get("username", "?"), backup_id)
         try:
             await audit_svc.log(
                 AuditAction.BACKUP_DELETE,
@@ -793,7 +795,19 @@ async def update_config_section(
         from edgelite.config import update_config_section as _update_config_section
 
         # FIXED-LP06: 敏感配置节白名单校验，防止通过 API 修改 security/database 等关键配置
-        _DENIED_SECTIONS = {"security", "database", "webhook_auth", "mqtt_server", "server", "influxdb"}
+        # FIXED(安全-P2): 补充 mqtt/notify/grafana——operator 含 CONFIG_EDIT 权限，
+        # 原黑名单缺这三节时 operator 可把 MQTT broker/告警 webhook/Grafana 改指攻击者服务器
+        _DENIED_SECTIONS = {
+            "security",
+            "database",
+            "webhook_auth",
+            "mqtt_server",
+            "server",
+            "influxdb",
+            "mqtt",
+            "notify",
+            "grafana",
+        }
         if section in _DENIED_SECTIONS:
             raise HTTPException(status_code=403, detail=ConfigErrors.SECTION_NOT_ALLOWED)
 
@@ -815,7 +829,9 @@ async def update_config_section(
             except Exception:
                 before_value = {"section": section}
 
-        _update_config_section(section, values)
+        # FIXED(P3): _update_config_section 内部为同步 save_config 文件 IO，
+        # 包 asyncio.to_thread 避免阻塞事件循环
+        await asyncio.to_thread(_update_config_section, section, values)
 
         # 通知相关服务
         await _notify_services_reload(request, [f"{section}.*"])
@@ -1292,12 +1308,16 @@ async def update_retention_policy(
         config = get_config()
         before_value = {"history_retention_days": getattr(config.influxdb, "retention_days", 30)}
 
-        # 校验 days 范围 1-3650（Pydantic模型已通过ge/le约束校验，此处保留防御性检查）
+        # FIXED(安全-P2): 补充 mqtt/notify/grafana，防止 operator 修改数据外发相关配置节
+        # FIXED(P3): _update_config_section 内部为同步 save_config 文件 IO，
+        # 包 asyncio.to_thread 避免阻塞事件循环
+        persisted_history = False
         if history_days is not None:
             if not isinstance(history_days, int) or not (1 <= history_days <= 3650):
                 raise HTTPException(status_code=400, detail=ConfigErrors.VALIDATION_FAILED)
-            # 写入 influxdb.retention_days
-            _update_config_section("influxdb", {"retention_days": history_days})
+            # 写入 influxdb.retention_days（同步文件 IO 移入线程池）
+            await asyncio.to_thread(_update_config_section, "influxdb", {"retention_days": history_days})
+            persisted_history = True
 
         # alarm_retention_days 暂无对应配置字段，仅校验不持久化
         if alarm_days is not None:
@@ -1321,11 +1341,23 @@ async def update_retention_policy(
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
+        # FIXED(P3) 诚实化: 原响应笼统返回 "Retention policy updated"，但
+        # alarm_retention_days 配置中并无对应字段，从未持久化——操作员会误以为已生效。
+        # 修复-响应明确各字段的持久化状态与说明文案，不再声称全部 "updated"。
         return ApiResponse(
             data={
                 "history_retention_days": history_days if history_days is not None else 30,
                 "alarm_retention_days": alarm_days if alarm_days is not None else 365,
-                "message": "Retention policy updated",
+                "persisted": {
+                    "history_retention_days": persisted_history,
+                    "alarm_retention_days": False,
+                },
+                "message": (
+                    "history_retention_days written to influxdb.retention_days"
+                    if persisted_history
+                    else "history_retention_days not provided, unchanged"
+                )
+                + "; alarm_retention_days validated only - no config field yet, NOT persisted",
             }
         )
     except HTTPException:

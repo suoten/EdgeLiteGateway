@@ -185,9 +185,11 @@ async def update_user(
             raise HTTPException(status_code=404, detail=UserErrors.USER_NOT_FOUND)
 
         # FIXED: Invalidate token renewal cache when user role or enabled status changes
+        # FIXED(P3): 移除 type: ignore[attr-defined]——_invalidate_user_cache 已在
+        # token_renewal.py 中真实实现（清除续签记录并吊销续签出的 jti）
         if target_username and ("role" in data or "enabled" in data):
             try:
-                from edgelite.middleware.token_renewal import _invalidate_user_cache  # type: ignore[attr-defined]
+                from edgelite.middleware.token_renewal import _invalidate_user_cache
 
                 _invalidate_user_cache(target_username)
                 logger.info("Token renewal cache invalidated for user %s after role/enabled update", target_username)
@@ -311,9 +313,10 @@ async def delete_user(
             raise HTTPException(status_code=404, detail=UserErrors.USER_NOT_FOUND)
 
         # FIXED: Invalidate token renewal cache when user is deleted
+        # FIXED(P3): 移除 type: ignore[attr-defined]——_invalidate_user_cache 已真实实现
         if target_username:
             try:
-                from edgelite.middleware.token_renewal import _invalidate_user_cache  # type: ignore[attr-defined]
+                from edgelite.middleware.token_renewal import _invalidate_user_cache
 
                 _invalidate_user_cache(target_username)
                 logger.info("Token renewal cache invalidated for deleted user %s", target_username)

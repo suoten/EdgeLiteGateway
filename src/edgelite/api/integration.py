@@ -232,6 +232,18 @@ async def execute_rpc_command(
 
         device_service = getattr(endpoint, "_device_service", None)
 
+        # FIXED(P1-3 IDOR): RPC 执行前加设备归属校验，对齐 devices.py write_device_point
+        # 的 _check_device_owner 模式（admin 直通；owner 或共享用户放行）。
+        # 原问题：仅校验 DEVICE_WRITE_POINT 权限，operator 可对任意 device_id 下发
+        # 反向控制指令（横向越权写工业点位）。
+        if user.get("role") != "admin":
+            if device_service is None:
+                # 归属校验依赖 device_service，不可用时 fail-closed
+                raise HTTPException(status_code=503, detail=IntegrationErrors.BACKHAUL_NOT_READY)
+            from edgelite.api.devices import _check_device_owner
+
+            await _check_device_owner(device_service, req.device_id, user)
+
         command = RpcCommand(
             method=req.method,
             device_id=req.device_id,

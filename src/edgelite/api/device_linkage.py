@@ -134,6 +134,32 @@ def _safe_json_loads(text_value: str | None) -> Any:
         return text_value
 
 
+async def _validate_linkage_devices(source_device: str, target_device: str) -> None:
+    """校验联动规则的 source/target 设备存在（FIXED P3：防止规则指向幽灵设备）。
+
+    不存在返回 400，错误信息标明是 source 还是 target 设备缺失。
+    """
+    from edgelite.app import _app_state
+
+    device_svc = getattr(_app_state, "device_service", None)
+    if device_svc is None:
+        raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY")
+    for role, device_id in (("source", source_device), ("target", target_device)):
+        try:
+            device = await device_svc.get_device(device_id)
+        except Exception as e:
+            logger.error("linkage device existence check failed (%s): %s", device_id, e)
+            raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
+        if device is None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": "ERR_LINKAGE_DEVICE_NOT_FOUND",
+                    "message": f"{role} device does not exist: {device_id}",
+                },
+            )
+
+
 @router.get("/rules", response_model=PagedResponse)
 async def list_rules(
     page: int = Query(default=1, ge=1),
@@ -184,6 +210,8 @@ async def create_rule(
         db = getattr(_app_state, "database", None)
         if db is None:
             raise HTTPException(status_code=503, detail="ERR_COMMON_DB_NOT_READY")
+        # FIXED(P3): 创建前校验 source/target 设备存在，防止联动规则指向幽灵设备
+        await _validate_linkage_devices(req.source_device, req.target_device)
         await _ensure_tables()
         rule_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
@@ -297,6 +325,13 @@ async def update_rule(
             if not r:
                 raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
             current = _rule_row_to_dict(r)
+            # FIXED(P3): 更新时若变更 source/target 设备，同样校验目标设备存在
+            # （FIXED: 原实现引用了此处才定义的 current，F821 运行时必现 NameError）
+            if req.source_device is not None or req.target_device is not None:
+                await _validate_linkage_devices(
+                    req.source_device or current["source_device"],
+                    req.target_device or current["target_device"],
+                )
             now = datetime.now(UTC).isoformat()
             new_values = {
                 "name": req.name if req.name is not None else current["name"],

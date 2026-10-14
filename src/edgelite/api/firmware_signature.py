@@ -13,12 +13,14 @@ import hmac
 import logging
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from edgelite.api.deps import require_permission
+from edgelite.api.error_codes import CommonErrors
 from edgelite.models.common import ApiResponse
 from edgelite.security.rbac import Permission
 
@@ -38,6 +40,52 @@ _SUPPORTED_HASH_ALGORITHMS = {
 }
 
 _DEFAULT_CHUNK_SIZE = 64 * 1024
+
+# FIXED(安全-P2): 固件路径白名单根目录。
+# 默认仅允许 OTA 升级目录 data/ota（与 engine/ota_manager.py 的 _upgrade_dir 一致）；
+# 可通过环境变量 EDGELITE_OTA_DIR 追加自定义 OTA 固件目录（不新增配置键）。
+_FIRMWARE_BASE_DIR = Path("data/ota")
+
+
+def _allowed_firmware_dirs() -> list[Path]:
+    """返回允许读取固件的目录白名单（resolve 后的绝对路径列表）"""
+    dirs = [_FIRMWARE_BASE_DIR.resolve()]
+    custom = os.environ.get("EDGELITE_OTA_DIR", "").strip()
+    if custom:
+        dirs.append(Path(custom).resolve())
+    return dirs
+
+
+def _validate_firmware_path(firmware_path: str) -> Path:
+    """FIXED(安全-P2): 校验 firmware_path 位于白名单目录内，防路径遍历/任意文件探测。
+
+    原问题-4 个端点接收任意 firmware_path（如 /etc/shadow、data/.master_key），
+    响应中的哈希/大小字段构成本地文件 oracle。
+    校验逻辑与 ai_models.py 的模型路径防护一致：拒绝绝对路径/盘符/UNC/父目录引用，
+    再将 resolve() 结果与白名单目录做 is_relative_to 比对。
+    """
+    if not firmware_path:
+        raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED)
+    resolved = Path(firmware_path).resolve()
+    custom_dir = os.environ.get("EDGELITE_OTA_DIR", "").strip()
+    custom_base = Path(custom_dir).resolve() if custom_dir else None
+    if (
+        Path(firmware_path).is_absolute()
+        or ".." in firmware_path
+        or ":" in firmware_path[:3]
+        or "\\\\" in firmware_path
+    ):
+        # FIXED: 绝对路径/盘符/UNC/父目录引用默认拒绝；但 EDGELITE_OTA_DIR 显式配置的
+        # 自定义 OTA 目录本身是绝对路径，其下的固件文件以绝对路径传入属合法场景——
+        # 仅当路径落在该显式目录内时放行
+        if custom_base is not None and (resolved == custom_base or resolved.is_relative_to(custom_base)):
+            return resolved
+        raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED)
+    for base in _allowed_firmware_dirs():
+        if resolved == base or resolved.is_relative_to(base):
+            return resolved
+    # 白名单外路径一律 404（不区分"存在但越权"，避免差分探测）
+    raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
 
 
 class SignatureVerifyRequest(BaseModel):
@@ -87,7 +135,9 @@ async def verify_signature(
     则返回 503 ERR_COMMON_SERVICE_NOT_READY。
     """
     try:
-        if not os.path.isfile(req.firmware_path):
+        # FIXED(安全-P2): 统一路径白名单校验（4 个入口共用）
+        firmware_path = _validate_firmware_path(req.firmware_path)
+        if not firmware_path.is_file():
             raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
 
         # 优先尝试非对称验签（若 cryptography 可用且提供 public_key）
@@ -104,7 +154,7 @@ async def verify_signature(
             try:
                 pub_pem = req.public_key.encode("utf-8")
                 public_key = serialization.load_pem_public_key(pub_pem)
-                with open(req.firmware_path, "rb") as fh:
+                with open(firmware_path, "rb") as fh:
                     data = fh.read()
                 try:
                     sig_bytes = base64.b64decode(req.signature)
@@ -150,7 +200,7 @@ async def verify_signature(
         if not secret:
             raise HTTPException(status_code=503, detail="ERR_COMMON_SERVICE_NOT_READY") from None
 
-        with open(req.firmware_path, "rb") as fh:
+        with open(firmware_path, "rb") as fh:
             data = fh.read()
         expected = hmac.new(secret, data, hashlib.sha256).hexdigest()
         try:
@@ -182,10 +232,12 @@ async def verify_hash(
 ):
     """验证固件哈希"""
     try:
-        if not os.path.isfile(req.firmware_path):
+        # FIXED(安全-P2): 统一路径白名单校验
+        firmware_path = _validate_firmware_path(req.firmware_path)
+        if not firmware_path.is_file():
             raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
         try:
-            actual = _compute_file_hash(req.firmware_path, req.algorithm)
+            actual = _compute_file_hash(str(firmware_path), req.algorithm)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="ERR_COMMON_VALIDATION_FAILED") from exc
         verified = hmac.compare_digest(actual.lower(), req.expected_hash.strip().lower())
@@ -213,19 +265,21 @@ async def generate_manifest(
 ):
     """生成固件清单（路径、大小、多算法哈希、生成时间）"""
     try:
-        if not os.path.isfile(req.firmware_path):
+        # FIXED(安全-P2): 统一路径白名单校验
+        firmware_path = _validate_firmware_path(req.firmware_path)
+        if not firmware_path.is_file():
             raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND")
         algorithm = (req.algorithm or "sha256").lower()
         try:
-            primary_hash = _compute_file_hash(req.firmware_path, algorithm)
+            primary_hash = _compute_file_hash(str(firmware_path), algorithm)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="ERR_COMMON_VALIDATION_FAILED") from exc
 
         # 附加 sha256 作为通用 fallback
-        sha256_hash = primary_hash if algorithm == "sha256" else _compute_file_hash(req.firmware_path, "sha256")
+        sha256_hash = primary_hash if algorithm == "sha256" else _compute_file_hash(str(firmware_path), "sha256")
         manifest: dict[str, Any] = {
             "firmware_path": req.firmware_path,
-            "size_bytes": _file_size(req.firmware_path),
+            "size_bytes": _file_size(str(firmware_path)),
             "algorithm": algorithm,
             "hash": primary_hash,
             "sha256": sha256_hash,

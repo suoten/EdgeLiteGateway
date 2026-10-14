@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import hmac
-import ipaddress
 import logging
-import socket
+from datetime import datetime
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request
@@ -68,12 +67,20 @@ async def _check_device_owner(svc, device_id: str, user) -> None:
     3. Non-admin: can access devices shared with them via resource_shares table
     4. Non-admin: CANNOT access devices where created_by is None or belongs to another user
        and is not shared with them
+
+    FIXED(P3 防枚举): 设备不存在时对非 admin 统一返回 403（与 data.py 的
+    _check_device_owner 防枚举策略对齐），不再以 404/403 差异泄露设备 ID 是否存在；
+    admin 仍返回 404 以便运维排查。
     """
     if user["role"] == "admin":
+        device = await svc.get_device(device_id)
+        if device is None:
+            raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         return
     device = await svc.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
+        # FIXED-P3: 设备不存在也返回403而非404，防止攻击者通过404/403差异枚举设备ID
+        raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
     if device.get("created_by") == user["user_id"]:
         return
     from edgelite.app import _app_state
@@ -116,6 +123,32 @@ async def _get_accessible_device_ids(svc, user) -> set[str] | None:
     share_repo = ResourceShareRepo(container.database, container.database.write_lock)
     shared_ids = await share_repo.get_shared_resource_ids(user["user_id"], "device")
     return owned_ids | shared_ids
+
+
+# SEC-FIX-V11: 写保护字段白名单——只能通过独立的 write-policy 端点（DEVICE_WRITE_POLICY_EDIT
+# 权限，仅 ADMIN）修改。所有设备配置写入口（create/import/batch-deploy/update）统一剥离，
+# 防止拥有普通设备权限的用户在任意入口夹带写保护配置越权降级。
+_WRITE_POLICY_KEYS = {"write_verify", "write_rate_limit", "write_audit", "write_whitelist"}
+
+
+def _strip_write_policy_keys(config: Any, context: str, user_id: str | None = None) -> Any:
+    """从设备 config 中剥离写保护策略键（SEC-FIX-V11）。
+
+    仅用于 create/import/batch-deploy 等整体写入口；update 路径因需合并数据库中
+    已有写保护字段，保留其专用实现。剥离的键记录服务端告警日志。
+    """
+    if not isinstance(config, dict):
+        return config
+    stripped = {k: v for k, v in config.items() if k in _WRITE_POLICY_KEYS}
+    if not stripped:
+        return config
+    logger.warning(
+        "%s stripped write-policy keys from config: %s (user=%s) — use PUT /devices/{id}/write-policy instead",
+        context,
+        list(stripped.keys()),
+        user_id,
+    )
+    return {k: v for k, v in config.items() if k not in _WRITE_POLICY_KEYS}
 
 
 @router.get("", response_model=PagedResponse[DeviceResponse])
@@ -197,7 +230,12 @@ async def create_device(
         except Exception as e:
             logger.debug("Driver validation skipped: %s", e)
 
-        device = await svc.create_device(body.model_dump(), created_by=user["user_id"])
+        # SEC-FIX-V11(P2): create 入口统一剥离写保护策略键，防止夹带越权降级
+        create_data = body.model_dump()
+        create_data["config"] = _strip_write_policy_keys(
+            create_data.get("config"), "create_device", user.get("user_id")
+        )
+        device = await svc.create_device(create_data, created_by=user["user_id"])
         try:
             from edgelite.services.audit_service import AuditAction
 
@@ -212,7 +250,7 @@ async def create_device(
                 resource_id=body.device_id,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                after_value=body.model_dump(),
+                after_value=create_data,
             )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
@@ -321,31 +359,14 @@ def _is_host_safe_for_device_test(host: str) -> bool:
     FIXED(安全): 设备连通性测试场景，允许 is_private（内网设备测试是合理场景），
     但拦截 is_loopback 和 is_link_local（云元数据 169.254.x.x）等危险地址。
     域名先通过 socket.getaddrinfo 解析为 IP，再校验每个解析结果。
+
+    FIXED(P3 SSRF-DNS-rebinding): 校验逻辑收敛到 utils.resolve_and_validate_host，
+    该函数同时返回解析出的安全 IP，调用方用该 IP 直连（Host/SNI 保持原域名），
+    消除"先校验再重新解析"的 TOCTOU 窗口。
     """
-    if not host:
-        return False
-    # 直接作为 IP 解析
-    try:
-        ip = ipaddress.ip_address(host)
-        return not (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved)
-    except ValueError:
-        pass
-    # 域名：解析为 IP 后校验每个地址
-    try:
-        addrs = socket.getaddrinfo(host, None)
-    except (socket.gaierror, OSError):
-        return False
-    if not addrs:
-        return False
-    for _family, _stype, _proto, _canon, sockaddr in addrs:
-        ip_str = sockaddr[0]
-        try:
-            ip = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        if ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved:
-            return False
-    return True
+    from edgelite.utils import resolve_and_validate_host
+
+    return resolve_and_validate_host(host) is not None
 
 
 @router.post("/test-connection", response_model=ApiResponse)
@@ -422,11 +443,16 @@ async def test_device_connection(
         # 3 秒超时
         # FIXED(安全): SSRF 防护 - 校验 host，至少拦截 loopback/link_local（云元数据 169.254.x.x）
         # 允许 is_private（内网设备连通性测试是合理场景）
-        if not _is_host_safe_for_device_test(host):
+        # FIXED(P3 SSRF-DNS-rebinding): 使用解析出的安全 IP 直连，消除校验后重新解析的
+        # TOCTOU 窗口（域名第二次解析可能返回内网/元数据地址）；响应中仍展示原始 host
+        from edgelite.utils import resolve_and_validate_host
+
+        connect_ip = resolve_and_validate_host(host)
+        if connect_ip is None:
             raise HTTPException(status_code=400, detail=DeviceErrors.SSRF_BLOCKED)
         try:
             _reader, writer = await asyncio.wait_for(  # FIXED(P3): 原问题-解包变量reader未使用; 修复-改为_reader前缀
-                asyncio.open_connection(host, int(port)),
+                asyncio.open_connection(connect_ip, int(port)),
                 timeout=3.0,
             )
             writer.close()
@@ -453,13 +479,16 @@ async def test_device_connection(
                     "message": f"Connection to {host}:{port} failed: {type(ce).__name__}",
                 }
             )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("test_device_connection failed: %s", e)
+        # FIXED(P3): 兜底分支不再把内部异常文本原样返回给客户端，详细信息仅落服务端日志
+        logger.error("test_device_connection failed: %s", e, exc_info=True)
         return ApiResponse(
             data={
                 "success": False,
                 "supported": False,
-                "message": f"Test failed: {e}",
+                "message": "Test failed due to an internal error.",
             }
         )
 
@@ -765,7 +794,13 @@ async def batch_deploy_config(
                     else getattr(template, "collect_interval", 60),
                 }
                 if req.override_config:
-                    update_data["config"] = req.override_config
+                    # SEC-FIX-V11(P2): batch-deploy override_config 入口统一剥离写保护策略键
+                    update_data["config"] = _strip_write_policy_keys(
+                        req.override_config, "batch_deploy", user.get("user_id")
+                    )
+                # FIXED(P2 乐观锁): 从目标设备当前行注入 version，防止并发更新丢失
+                if isinstance(target, dict) and "version" in target:
+                    update_data["_version"] = target["version"]
 
                 # SEC-FIX: 保存变更前快照用于审计
                 before_snapshot = (
@@ -773,7 +808,16 @@ async def batch_deploy_config(
                     if isinstance(target, dict)
                     else (target.model_dump() if hasattr(target, "model_dump") else dict(target.__dict__))
                 )
-                await device_service.update_device(target_id, update_data)
+                try:
+                    await device_service.update_device(target_id, update_data)
+                except StaleDataError:
+                    # FIXED(P2 乐观锁): 单设备版本冲突只计入批量失败结果，不中断其余设备部署
+                    logger.warning(
+                        "batch_deploy stale version for device %s (expected v%s), skipped",
+                        target_id,
+                        target.get("version") if isinstance(target, dict) else "?",
+                    )
+                    return target_id, False, "Device was modified concurrently (stale version), retry", None
                 audit_record = {
                     "device_id": target_id,
                     "before": before_snapshot,
@@ -951,13 +995,24 @@ async def export_devices(
     user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
 ):
     try:
+        # FIXED(P1-1 导出越权): 非 admin 用户的导出范围必须以可访问设备为边界。
+        # 原问题-body.device_ids 为 None/空时不做任何归属校验，svc.export_devices(None)
+        # 导出全表（含驱动明文凭据），viewer 一个空 {} 请求即可拿下全租户 PLC 凭据。
+        # 修复-非 admin 时 device_ids 为 None/空 → 以 _get_accessible_device_ids 结果
+        # （own + shared）作为导出范围；accessible_ids 为 None 仅表示 admin 无限制。
         if user["role"] != "admin":
             accessible_ids = await _get_accessible_device_ids(svc, user)
-            for did in body.device_ids or []:
-                if accessible_ids is not None and did not in accessible_ids:
-                    raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
+            if body.device_ids:
+                for did in body.device_ids:
+                    if accessible_ids is not None and did not in accessible_ids:
+                        raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
+                export_ids = body.device_ids
+            else:
+                export_ids = sorted(accessible_ids) if accessible_ids is not None else None
+        else:
+            export_ids = body.device_ids
         # R9-S-07 修复: 直接使用字典列表传递，避免 json.dumps/loads 往返
-        devices_data = await svc.export_devices(body.device_ids)
+        devices_data = await svc.export_devices(export_ids)
         return ApiResponse(data=devices_data)
     except HTTPException:
         raise
@@ -973,13 +1028,18 @@ async def import_devices(
     user: dict[str, str] = Depends(require_permission(Permission.DEVICE_CREATE)),
 ):
     try:
+        # SEC-FIX-V11(P2): import 入口统一剥离写保护策略键，防止导入数据夹带越权降级
+        import_data = [
+            {**item, "config": _strip_write_policy_keys(item.get("config"), "import_devices", user.get("user_id"))}
+            for item in body.data
+        ]
         # R9-S-07 修复: 直接传递字典列表，避免 json.dumps/loads 往返
         # FIXED-Bug22: 事务模式批量导入添加超时保护，避免大量设备导入超过反向代理超时（通常 60s）
         # 之前：无超时保护，100+ 设备事务导入可能挂起直到 Nginx 502/504
         import_timeout = 120.0 if body.atomic else 300.0
         try:
             result = await asyncio.wait_for(
-                svc.import_devices(body.data, body.overwrite, atomic=body.atomic, created_by=user["user_id"]),
+                svc.import_devices(import_data, body.overwrite, atomic=body.atomic, created_by=user["user_id"]),
                 timeout=import_timeout,
             )
         except TimeoutError as exc:  # FIXED(P3): 原问题-B904 异常链丢失; 修复-添加 from exc
@@ -1013,6 +1073,10 @@ async def get_device(
     try:
         device = await svc.get_device(device_id)
         if device is None:
+            # FIXED(P3 防枚举): 设备不存在时非 admin 返回 403（与 data.py 策略对齐，
+            # 消除 404/403 差异导致的设备 ID 枚举面），admin 仍返回 404 便于运维排查
+            if user["role"] != "admin":
+                raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         await _check_device_access(device, user)
         return ApiResponse(data=device)
@@ -1051,8 +1115,7 @@ async def update_device(
             logger.warning("update_device rejected unknown keys: %s (user=%s)", rejected_keys, user.get("user_id"))
             data = {k: v for k, v in data.items() if k in _ALLOWED_UPDATE_KEYS}
         # SEC-FIX-V11: 写保护字段从 config 中剥离——必须通过独立的 write-policy 端点修改
-        # 防止拥有 DEVICE_UPDATE 权限的用户越权关闭写保护
-        _WRITE_POLICY_KEYS = {"write_verify", "write_rate_limit", "write_audit", "write_whitelist"}
+        # 防止拥有 DEVICE_UPDATE 权限的用户越权关闭写保护（复用模块级 _WRITE_POLICY_KEYS 白名单）
         if "config" in data and isinstance(data["config"], dict):
             stripped = {k: v for k, v in data["config"].items() if k in _WRITE_POLICY_KEYS}
             if stripped:
@@ -1313,7 +1376,23 @@ async def delete_device(
             logger.error("审计日志写入失败(pending)，删除操作已中止: %s", e)
             raise HTTPException(status_code=500, detail=DeviceErrors.DELETE_FAILED) from e  # FIXED-B904
 
-        success, error = await svc.delete_device(device_id)
+        try:
+            success, error = await svc.delete_device(device_id)
+        except Exception as del_err:
+            # FIXED(P3): 删除抛异常时不能让 pending 审计悬挂——置为 failed 再上抛
+            try:
+                await audit_svc.log(
+                    AuditAction.DEVICE_DELETE,
+                    user_id=user["user_id"],
+                    username=user["username"],
+                    resource_type="device",
+                    resource_id=device_id,
+                    status="failed",
+                    error_message=str(del_err),
+                )
+            except Exception as audit_err:
+                logger.warning("审计日志写入失败(failed): %s", audit_err)
+            raise
         if not success:
             # 删除失败，记录审计状态为 failed
             try:
@@ -1501,6 +1580,25 @@ async def push_device_data(
             except HTTPException:
                 err = make_error_response(AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
                 return JSONResponse(content=err, status_code=403)
+            # FIXED(P3): 共享级别校验——数据推送是写操作，read 级共享用户拒绝推送（403），
+            # owner 或 write/admin 级共享放行（级别枚举: read(0) < write(1) < admin(2)）
+            if device.get("created_by") != current_user.get("user_id"):
+                from edgelite.app import _app_state
+                from edgelite.storage.sqlite_repo import ResourceShareRepo
+
+                container = _app_state
+                share_repo = ResourceShareRepo(container.database, container.database.write_lock)
+                try:
+                    can_write = await share_repo.check_user_has_access(
+                        "device", device_id, current_user.get("user_id", ""), permission_level="write"
+                    )
+                except Exception as e:
+                    logger.error("push_device_data: check share permission failed for %s: %s", device_id, e)
+                    err = make_error_response(CommonErrors.SERVICE_NOT_READY)
+                    return JSONResponse(content=err, status_code=503)
+                if not can_write:
+                    err = make_error_response(AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
+                    return JSONResponse(content=err, status_code=403)
     elif api_key_configured and x_api_key:
         # FIXED-M02: 仅当无 Bearer Token 且提供了 API Key 时才使用 API Key 认证
         # 如果提供了 Bearer Token 但认证失败，get_optional_current_user 已抛出异常
@@ -1681,6 +1779,20 @@ async def get_write_audit(
     user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
 ):
     try:
+        # FIXED(P3): start_time/end_time 用 datetime.fromisoformat 严格校验，
+        # 非法时间字符串直接 400，而不是透传给驱动层做不可靠的字符串比较
+        for label, value in (("start_time", start_time), ("end_time", end_time)):
+            if value is not None:
+                try:
+                    datetime.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError as ve:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "error_code": CommonErrors.VALIDATION_FAILED,
+                            "message": f"{label} must be a valid ISO8601 datetime",
+                        },
+                    ) from ve
         await _check_device_owner(svc, device_id, user)
         data = await svc.get_write_audit(device_id, limit, result, start_time, end_time, point_name)
         if data is None:
@@ -1708,36 +1820,30 @@ async def get_device_metrics(
         # 但 DriverRegistry 只维护驱动类、从未维护实例，该调用恒抛 AttributeError，
         # 导致设备可观测性指标永远返回默认零值。改由 DeviceService 提供实例。
         driver = await svc.get_driver_instance(device_id)
-        if driver and hasattr(driver, "get_observability_metrics"):
-            metrics = driver.get_observability_metrics(device_id)
-            return ApiResponse(data=metrics)
+        if driver is None or not hasattr(driver, "get_observability_metrics"):
+            # FIXED(P3): 无驱动实例/驱动不支持指标时返回 503，
+            # 不再伪造全零/100 分的"完美"指标误导运维判断
+            raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+        metrics = driver.get_observability_metrics(device_id)
+        return ApiResponse(data=metrics)
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to get metrics for %s: %s", device_id, e)
-    return ApiResponse(
-        data={
-            "read_error_rate": 0.0,
-            "write_error_rate": 0.0,
-            "consecutive_failures": 0,
-            "connection_quality_score": 100.0,
-            "total_downtime_seconds": 0.0,
-            "last_online_at": None,
-            "last_offline_at": None,
-            "avg_latency_ms": 0.0,
-            "reconnect_count": 0,
-        }
-    )
+        # FIXED(P3): 获取指标异常时返回 503，不伪造全零/100 分指标
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY) from e
 
 
 class ConfigVersionSaveRequest(BaseModel):
     config: dict
     change_summary: str = ""
+    # FIXED(P3): operator 字段已被服务端忽略——强制使用认证用户 username，仅为兼容保留
     operator: str = ""
 
 
 class ConfigRollbackRequest(BaseModel):
     target_version: int
+    # FIXED(P3): operator 字段已被服务端忽略——强制使用认证用户 username，仅为兼容保留
     operator: str = ""
 
 
@@ -1825,11 +1931,13 @@ async def save_config_version(
 ):
     try:
         await _check_device_owner(svc, device_id, user)
+        # FIXED(P3): 服务端强制以认证用户的 username 覆盖请求体 operator，
+        # 防止客户端伪造操作人字段污染配置版本审计链
         new_ver = await svc.save_config_version(
             device_id,
             body.config,
             body.change_summary,
-            body.operator,
+            user["username"],
         )
         if new_ver == 0:
             raise HTTPException(status_code=400, detail=DeviceErrors.UPDATE_FAILED)
@@ -1869,7 +1977,8 @@ async def rollback_config_version(
 ):
     try:
         await _check_device_owner(svc, device_id, user)
-        result = await svc.rollback_config(device_id, body.target_version, body.operator)
+        # FIXED(P3): 服务端强制以认证用户的 username 覆盖请求体 operator，防伪造操作人
+        result = await svc.rollback_config(device_id, body.target_version, user["username"])
         if result is None:
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         if audit:
@@ -1925,8 +2034,8 @@ async def get_config_audit_trail(
 @router.get("/{device_id}/config-versions/diff", response_model=ApiResponse)
 async def diff_config_versions(
     device_id: Annotated[str, Path(max_length=128)],
-    version_a: int = Query(...),
-    version_b: int = Query(...),
+    version_a: int = Query(..., ge=1),  # FIXED-P3: 版本号必须为正整数，负数/0 直接 422
+    version_b: int = Query(..., ge=1),
     svc: DeviceServiceDep = None,
     user: dict[str, str] = Depends(require_permission(Permission.CONFIG_EDIT)),
 ):

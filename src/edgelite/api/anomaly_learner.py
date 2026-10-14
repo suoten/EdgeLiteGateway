@@ -17,6 +17,7 @@ edgelite.engine.edge_ai_inference.AiInferenceEngine 提供异常检测自学习�
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -35,7 +36,13 @@ _MODEL_ID = "elg-anomaly-v1"
 _INPUT_DIM = 100
 
 # 模块级 learner 实例缓存：model_id -> AnomalySelfLearner
-_learners: dict[str, Any] = {}
+# FIXED(P2): 加 LRU 上限——原实现按任意客户端 model_id 永久缓存，viewer 可脚本打爆内存。
+# OrderedDict LRU（maxlen=100，淘汰最久未用）。
+_LEARNER_CACHE_MAX = 100
+_learners: OrderedDict[str, Any] = OrderedDict()
+
+# FIXED(P2): initial_data 长度上限——防止超大数组导致内存/CPU 放大
+_MAX_INITIAL_DATA_LEN = 10000
 
 
 class AnomalyInitRequest(BaseModel):
@@ -96,13 +103,17 @@ def _get_models_dir() -> str:
 
 
 def _get_or_create_learner(model_id: str):
-    """获取或创建 AnomalySelfLearner 实例。"""
+    """获取或创建 AnomalySelfLearner 实例（LRU 缓存：命中移到队尾，超限淘汰最久未用）。"""
     if model_id in _learners:
+        _learners.move_to_end(model_id)
         return _learners[model_id]
     from edgelite.engine.anomaly_self_learner import AnomalySelfLearner
 
     learner = AnomalySelfLearner(models_dir=_get_models_dir(), ai_engine=_get_ai_engine())
     _learners[model_id] = learner
+    while len(_learners) > _LEARNER_CACHE_MAX:
+        evicted_id, _ = _learners.popitem(last=False)
+        logger.debug("LRU evicted anomaly learner: %s", evicted_id)
     return learner
 
 
@@ -113,6 +124,15 @@ async def initialize(
 ):
     """初始化异常自学习器，可选注入初始样本并触发训练。"""
     try:
+        # FIXED(P2): initial_data 长度上限校验（超出 400），防止超大数组打爆内存
+        if body.initial_data is not None and len(body.initial_data) > _MAX_INITIAL_DATA_LEN:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": CommonErrors.VALIDATION_FAILED,
+                    "message": f"initial_data exceeds maximum length {_MAX_INITIAL_DATA_LEN}",
+                },
+            )
         model_id = body.model_id or _MODEL_ID
         learner = _get_or_create_learner(model_id)
         if body.initial_data:

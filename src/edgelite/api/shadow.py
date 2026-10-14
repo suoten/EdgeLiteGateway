@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 
 from edgelite.api.deps import PaginationDep, require_permission
-from edgelite.api.error_codes import CommonErrors, DeviceErrors
+from edgelite.api.error_codes import AuthzErrors, CommonErrors, DeviceErrors
 from edgelite.models.common import ApiResponse, PagedResponse
 from edgelite.security.rbac import Permission
 
@@ -44,6 +44,52 @@ def _get_shadow_service():
     if svc is None:
         raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
     return svc
+
+
+async def _check_device_owner(device_id: str, user) -> None:
+    """设备归属校验（FIXED P3: 对齐 data.py 的 _check_device_owner 模式）。
+
+    原问题：shadow 全部端点无归属校验，任何持有 DEVICE_READ/UPDATE 权限的用户
+    可读写任意设备的影子。规则：
+    - admin 直通；
+    - 设备不存在（或非本人且未共享）统一 403，防止 404/403 差异枚举设备 ID。
+    """
+    if user["role"] == "admin":
+        return
+    from edgelite.app import _app_state
+
+    device_svc = getattr(_app_state, "device_service", None)
+    if device_svc is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    device = await device_svc.get_device(device_id)
+    if device is None or device.get("created_by") != user["user_id"]:
+        raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
+    from edgelite.storage.sqlite_repo import ResourceShareRepo
+
+    share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
+    try:
+        has_access = await share_repo.check_user_has_access("device", device_id, user["user_id"])
+    except Exception as e:
+        logger.error("shadow check_user_has_access DB failed for device %s: %s", device_id, e)
+        raise HTTPException(status_code=503, detail=CommonErrors.DB_NOT_READY) from None
+    if not has_access:
+        raise HTTPException(status_code=403, detail=AuthzErrors.RESOURCE_OWNERSHIP_DENIED)
+
+
+async def _get_accessible_device_ids(user) -> set[str] | None:
+    """获取用户可访问（own + shared）的设备 ID 集合；admin 返回 None 表示无限制。"""
+    if user["role"] == "admin":
+        return None
+    from edgelite.app import _app_state
+    from edgelite.storage.sqlite_repo import ResourceShareRepo
+
+    device_svc = getattr(_app_state, "device_service", None)
+    if device_svc is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    owned_ids = set(await device_svc.list_device_ids_by_owner(user["user_id"]))
+    share_repo = ResourceShareRepo(_app_state.database, _app_state.database.write_lock)
+    shared_ids = await share_repo.get_shared_resource_ids(user["user_id"], "device")
+    return owned_ids | shared_ids
 
 
 def _compute_delta(reported: dict[str, Any], desired: dict[str, Any]) -> dict[str, Any]:
@@ -94,17 +140,23 @@ def _build_shadow_detail(device_id: str, shadow: dict[str, Any]) -> dict[str, An
 @router.get("", response_model=ApiResponse)
 async def list_shadows(
     pagination: PaginationDep,
-    device_id: str | None = Query(default=None, description="按设备 ID 过滤"),
-    _user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
+    device_id: str | None = Query(default=None, description="按设备 ID 过滤", max_length=128),
+    user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
 ):
     """列出所有设备影子（支持按 device_id 过滤与分页）。"""
     try:
         svc = _get_shadow_service()
+        # FIXED(P3): 非 admin 只能看到自己可访问（own + shared）设备的影子
+        accessible_ids = await _get_accessible_device_ids(user)
+        if device_id:
+            await _check_device_owner(device_id, user)
         # ShadowService 使用内存 dict 存储影子，直接遍历 _shadows
         shadows_map: dict[str, dict[str, Any]] = getattr(svc, "_shadows", {}) or {}
         items: list[dict[str, Any]] = []
         for dev_id, shadow in shadows_map.items():
             if device_id and dev_id != device_id:
+                continue
+            if accessible_ids is not None and dev_id not in accessible_ids:
                 continue
             items.append(_build_shadow_info(dev_id, shadow))
         total = len(items)
@@ -123,11 +175,12 @@ async def list_shadows(
 
 @router.get("/{device_id}", response_model=ApiResponse)
 async def get_shadow(
-    device_id: str,
-    _user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
+    device_id: Annotated[str, Path(max_length=128)],
+    user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
 ):
     """获取指定设备的影子详情。"""
     try:
+        await _check_device_owner(device_id, user)
         svc = _get_shadow_service()
         shadow = svc.get_shadow(device_id)
         if shadow is None:
@@ -142,16 +195,20 @@ async def get_shadow(
 
 @router.put("/{device_id}/desired", response_model=ApiResponse)
 async def update_desired(
-    device_id: str,
+    device_id: Annotated[str, Path(max_length=128)],
     body: ShadowStateUpdate,
-    _user: dict[str, str] = Depends(require_permission(Permission.DEVICE_UPDATE)),
+    user: dict[str, str] = Depends(require_permission(Permission.DEVICE_UPDATE)),
 ):
     """更新设备 desired 状态（应用层下发）。"""
     try:
+        await _check_device_owner(device_id, user)
         svc = _get_shadow_service()
         state = body.state if body.state is not None else (body.desired or {})
         if not isinstance(state, dict):
             raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED)
+        # FIXED(P3): 对不存在的设备返回 404，而不是静默为幽灵设备创建影子记录
+        if svc.get_shadow(device_id) is None:
+            raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
         svc.update_desired(device_id, state)
         shadow = svc.get_shadow(device_id) or {}
         return ApiResponse(
@@ -170,12 +227,13 @@ async def update_desired(
 
 @router.post("/{device_id}/reported", response_model=ApiResponse)
 async def update_reported(
-    device_id: str,
+    device_id: Annotated[str, Path(max_length=128)],
     body: ShadowStateUpdate,
-    _user: dict[str, str] = Depends(require_permission(Permission.DEVICE_UPDATE)),
+    user: dict[str, str] = Depends(require_permission(Permission.DEVICE_UPDATE)),
 ):
     """更新设备 reported 状态（设备上报）。"""
     try:
+        await _check_device_owner(device_id, user)
         svc = _get_shadow_service()
         state = body.state if body.state is not None else (body.reported or {})
         if not isinstance(state, dict):
@@ -197,11 +255,12 @@ async def update_reported(
 
 @router.get("/{device_id}/delta", response_model=ApiResponse)
 async def get_delta(
-    device_id: str,
-    _user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
+    device_id: Annotated[str, Path(max_length=128)],
+    user: dict[str, str] = Depends(require_permission(Permission.DEVICE_READ)),
 ):
     """获取设备 desired 与 reported 的差异。"""
     try:
+        await _check_device_owner(device_id, user)
         svc = _get_shadow_service()
         shadow = svc.get_shadow(device_id)
         if shadow is None:

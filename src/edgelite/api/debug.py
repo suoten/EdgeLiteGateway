@@ -161,6 +161,15 @@ def _check_debug_ip_whitelist(request: Request) -> None:
     FIXED(一般-R2): 原问题-空列表时 `if not allowed_ips: return` 跳过检查=允许所有IP，
     与配置注释"空列表=拒绝所有"矛盾; 修复-空列表时拒绝所有请求。
     """
+    _ensure_debug_ip_allowed(_get_real_client_ip(request))
+
+
+def _ensure_debug_ip_allowed(client_ip: str | None) -> None:
+    """Debug API IP 白名单核心判断（HTTP 与 WS 端点共用）。空列表=拒绝所有。
+
+    FIXED: WS 端点不能用 starlette Request 包装 websocket scope（断言 scope.type=="http"
+    直接崩溃），故拆出本函数，WS 侧直接传对端 IP。
+    """
     from edgelite.config import get_config
 
     config = get_config()
@@ -168,8 +177,7 @@ def _check_debug_ip_whitelist(request: Request) -> None:
     if not allowed_ips:
         # 空列表=拒绝所有，与配置注释一致
         raise HTTPException(status_code=403, detail=DebugErrors.IP_NOT_ALLOWED)
-    client_ip = _get_real_client_ip(request)
-    if client_ip not in allowed_ips:
+    if client_ip is None or client_ip not in allowed_ips:
         raise HTTPException(status_code=403, detail=DebugErrors.IP_NOT_ALLOWED)
 
 
@@ -1152,12 +1160,14 @@ async def _simulate_opc_da(container: dict, device: str, operation: str, params:
 
 @router.get("/packets", response_model=ApiResponse)
 async def get_recent_packets(
+    request: Request,
     protocol: str | None = None,
     device_id: str | None = None,
     limit: int = Query(100, ge=1, le=1000),
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:
     """Get recent protocol packets for sniffing"""
+    _check_debug_ip_whitelist(request)  # FIXED-P2: Debug API IP whitelist 全端点覆盖
     # FIXED-P1: 移除失效的按用户隔离查询逻辑（record_packet 从未写入 _user_packet_buffers），
     # 直接使用全局 _packet_buffers——所有 admin 用户共享同一缓冲区。
     buffer = _get_buffer(protocol) if protocol else _get_buffer("__all__")
@@ -1176,10 +1186,12 @@ async def get_recent_packets(
 
 @router.delete("/packets", response_model=ApiResponse)
 async def clear_packets(
+    request: Request,
     protocol: str | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:
     """Clear packet buffer"""
+    _check_debug_ip_whitelist(request)  # FIXED-P2: Debug API IP whitelist 全端点覆盖
     key = protocol or "__all__"
 
     # FIXED-P1: 移除失效的按用户隔离分支（record_packet 从未写入 _user_packet_buffers）。
@@ -1194,10 +1206,12 @@ async def clear_packets(
 
 @router.get("/devices", response_model=ApiResponse)
 async def list_debug_devices(
+    request: Request,
     protocol: str | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:
     """List devices available for debugging"""
+    _check_debug_ip_whitelist(request)  # FIXED-P2: Debug API IP whitelist 全端点覆盖
     try:
         from edgelite.app import _app_state
 
@@ -1229,11 +1243,13 @@ async def list_debug_devices(
 
 @router.post("/read", response_model=ApiResponse)
 async def debug_read(
+    request: Request,
     protocol: str = Query(...),
     device_id: str = Query(...),
     points: list[str] = Query([]),
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:
+    _check_debug_ip_whitelist(request)  # FIXED-P2: Debug API IP whitelist 全端点覆盖（读工业点位属高危操作）
     try:
         from edgelite.app import _app_state
 
@@ -1268,6 +1284,7 @@ async def debug_read(
 
 @router.post("/write", response_model=ApiResponse)
 async def debug_write(
+    request: Request,
     protocol: str = Query(...),
     device_id: str = Query(...),
     point: str = Query(...),
@@ -1275,6 +1292,7 @@ async def debug_write(
     value: str | int | float | bool | None = None,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ) -> ApiResponse:
+    _check_debug_ip_whitelist(request)  # FIXED-P2: Debug API IP whitelist 全端点覆盖（直写工业点位，最高危）
     try:
         from edgelite.app import _app_state
 
@@ -1375,6 +1393,15 @@ async def debug_monitor(ws: WebSocket) -> None:
     client_ip = "unknown"
     if ws.client:
         client_ip = ws.client.host or "unknown"
+
+    # FIXED-P2: WS 端点同样受 Debug API IP 白名单约束（与 HTTP 端点对齐）。
+    # FIXED: 不能用 Request(ws.scope) 复用 HTTP 版检查（starlette 断言 scope.type=="http"
+    # 直接崩溃），改用共用核心判断函数，传 WS 对端 IP（WS 不经 HTTP 中间件，无 XFF 语义）
+    try:
+        _ensure_debug_ip_allowed(ws.client.host if ws.client else None)
+    except HTTPException:
+        await ws.close(code=1008, reason="IP not allowed by debug whitelist")
+        return
 
     await ws.accept()
 

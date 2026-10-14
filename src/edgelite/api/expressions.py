@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +16,9 @@ from edgelite.security.rbac import Permission
 
 _MAX_EXPR_LEN = _EXPRESSION_MAX_LENGTH  # FIXED: 原问题-硬编码魔法数字，现引用constants.py
 _MAX_BATCH_SIZE = _EXPRESSION_BATCH_LIMIT
+# FIXED(P3): 单条表达式硬上限 10000 字符——evaluate-batch 的 dict 值没有 Pydantic 约束，
+# 批量接口可夹带超长表达式绕过 /evaluate 的 2048 上限；超出返回 400
+_MAX_EXPR_HARD_LIMIT = 10000
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,19 @@ def _get_engine():
     return _engine_instance
 
 
+def _validate_batch_expression_lengths(expressions: dict[str, str]) -> None:
+    """批量表达式逐条长度校验（FIXED P3：超出硬上限返回 400）。"""
+    for name, expr in expressions.items():
+        if len(expr) > _MAX_EXPR_HARD_LIMIT:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": ExpressionErrors.EVALUATE_FAILED,
+                    "message": f"expression '{name}' exceeds maximum length {_MAX_EXPR_HARD_LIMIT}",
+                },
+            )
+
+
 @router.post("/evaluate", response_model=ApiResponse)
 async def evaluate_expression(
     req: ExpressionTestRequest,
@@ -52,7 +69,8 @@ async def evaluate_expression(
 ):
     engine = _get_engine()
     try:
-        result = engine.evaluate(req.expression, req.variables or {})
+        # FIXED(P3): engine.evaluate 是同步 CPU 操作，包 asyncio.to_thread 避免阻塞事件循环
+        result = await asyncio.to_thread(engine.evaluate, req.expression, req.variables or {})
     except Exception as e:
         # FIXED: 原问题-中文硬编码detail，改为error_code
         raise HTTPException(status_code=400, detail=ExpressionErrors.EVALUATE_FAILED) from e
@@ -66,9 +84,11 @@ async def evaluate_batch(
         require_permission(Permission.CONFIG_EDIT)
     ),  # SEC-FIX: 权限从 SYSTEM_READ 提升为 CONFIG_EDIT（viewer 无此权限）
 ):
+    _validate_batch_expression_lengths(req.expressions)
     engine = _get_engine()
     try:
-        results = engine.evaluate_batch(req.expressions, req.variables or {})
+        # FIXED(P3): engine.evaluate_batch 是同步 CPU 操作，包 asyncio.to_thread 避免阻塞事件循环
+        results = await asyncio.to_thread(engine.evaluate_batch, req.expressions, req.variables or {})
     except Exception as e:
         # FIXED: 原问题-中文硬编码detail，改为error_code
         raise HTTPException(status_code=400, detail=ExpressionErrors.BATCH_EVALUATE_FAILED) from e

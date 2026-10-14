@@ -216,6 +216,13 @@ def _get_client_ip(request: Request) -> str:
     is from a trusted proxy. This prevents IP spoofing attacks that could bypass
     rate limiting and account lockout mechanisms.
 
+    FIXED-P1(安全): XFF 改为标准右向左（right-to-left）遍历。
+    原问题-取 XFF 最左侧值：最左段是客户端可伪造的字段（nginx $proxy_add_x_forwarded_for
+    只会向右侧追加），配了可信代理时攻击者可伪造最左 IP 轮换绕过限流/锁定并污染审计 IP。
+    修复-按 X-Forwarded-For 规范语义解析：直连方必须是可信代理；从最右往左跳过所有
+    可信代理条目，返回第一个非可信 IP（即真实客户端）；若全部条目均为可信代理则返回
+    最左值。X-Real-IP 逻辑保留在 XFF 之后作为回退。
+
     Args:
         request: FastAPI Request object
 
@@ -235,18 +242,27 @@ def _get_client_ip(request: Request) -> str:
 
     # Only trust proxy headers if direct client is a trusted proxy
     if trusted_proxies and direct_client and _is_trusted_proxy(direct_client, trusted_proxies):
-        # Check X-Forwarded-For
+        # Check X-Forwarded-For（右向左遍历，跳过所有可信代理条目）
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
-            ip_str = forwarded.split(",")[0].strip()
-            if ip_str:
+            entries = [seg.strip() for seg in forwarded.split(",") if seg.strip()]
+            for ip_str in reversed(entries):
+                try:
+                    ipaddress.ip_address(ip_str)
+                except ValueError:
+                    continue  # 非法条目（伪造垃圾数据）直接跳过
+                if _is_trusted_proxy(ip_str, trusted_proxies):
+                    continue  # 链路上的可信代理条目，继续向左
+                return ip_str  # 第一个非可信 IP 即真实客户端
+            # 全部条目均为可信代理（或全部非法）：回退最左合法值
+            for ip_str in entries:
                 try:
                     ipaddress.ip_address(ip_str)
                     return ip_str
                 except ValueError:
-                    pass
+                    continue
 
-        # Check X-Real-IP
+        # Check X-Real-IP（保留在 XFF 之后作为回退）
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
             try:

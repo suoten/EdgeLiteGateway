@@ -559,7 +559,10 @@ async def browse_opcua_nodes(
         if not device_svc:
             raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
 
-        driver = getattr(device_svc, "_drivers", {}).get(req.device_id)
+        # FIXED(P2 死端点): 原代码 getattr(device_svc, "_drivers", {}) 引用不存在的属性
+        # 恒为空 dict → 端点恒 404。DeviceService 的真实实例表是 _driver_instances，
+        # 使用公开访问器 get_driver_instance（锁保护），确保返回的是运行中的驱动实例。
+        driver = await device_svc.get_driver_instance(req.device_id)
         if not driver or not isinstance(driver, driver_cls):
             raise HTTPException(status_code=404, detail=DeviceErrors.NOT_FOUND)
 
@@ -589,17 +592,54 @@ async def browse_opcua_nodes(
 async def get_opcua_certificate_status(
     user: dict[str, str] = Depends(require_permission(Permission.DRIVER_READ)),
 ):
-    """Query OPC UA certificate status for all devices"""
+    """Query OPC UA certificate status for all devices
+
+    FIXED(P2): 原实现用 ``OpcUaDriver.__new__`` 构造假驱动并强制空状态 → 恒报 0 证书，
+    掩盖真实证书告警。改为遍历 DeviceService 中真实运行中的 OPC UA 驱动实例聚合结果；
+    数据库中配置了 OPC UA 但没有活跃驱动实例的设备，在 ``devices_without_driver``
+    中明确标注，不再返回全空假象。
+    """
     try:
+        from edgelite.app import _app_state
         from edgelite.drivers.opcua import OpcUaDriver
 
-        # FIXED: get_certificate_status is an instance method; use __new__ to avoid
-        # calling with self=None. The method only reads _certificate_status which
-        # defaults to {} in __init__, so a bare instance is safe for this read-only query.
-        _instance = OpcUaDriver.__new__(OpcUaDriver)
-        _instance._certificate_status = {}
-        status = _instance.get_certificate_status()
-        return ApiResponse(data={"certificates": status, "device_count": len(status)})
+        device_svc = getattr(_app_state, "device_service", None)
+        certificates: dict[str, dict] = {}
+        devices_without_driver: list[str] = []
+        opcua_instance_count = 0
+        if device_svc is not None:
+            # 数据库中登记的 OPC UA 设备（canonical protocol key: "opcua"）
+            try:
+                opcua_devices, _total = await device_svc.list_devices(page=1, size=1000, protocol="opcua")
+            except Exception as e:
+                logger.warning("list opcua devices failed: %s", e)
+                opcua_devices = []
+            # 真实运行中的驱动实例（快照后遍历，避免迭代中变更）
+            instances = dict(getattr(device_svc, "_driver_instances", {}) or {})
+            for device in opcua_devices:
+                device_id = device.get("device_id") if isinstance(device, dict) else None
+                if not device_id:
+                    continue
+                driver = instances.get(device_id)
+                if not isinstance(driver, OpcUaDriver):
+                    devices_without_driver.append(device_id)
+                    continue
+                opcua_instance_count += 1
+                try:
+                    status = driver.get_certificate_status()
+                except Exception as e:
+                    logger.warning("get_certificate_status failed for %s: %s", device_id, e)
+                    status = {}
+                for dev_key, info in (status or {}).items():
+                    certificates[dev_key] = info
+        return ApiResponse(
+            data={
+                "certificates": certificates,
+                "device_count": len(certificates),
+                "opcua_instance_count": opcua_instance_count,
+                "devices_without_driver": devices_without_driver,
+            }
+        )
     except Exception as e:
         logger.error("Failed to get OPC UA certificate status: %s", e)
         raise HTTPException(status_code=500, detail=DriverErrors.GET_FAILED) from e
@@ -626,13 +666,20 @@ async def list_opc_da_servers(
 
     if not _is_cascade_parent_host_safe(host):
         raise HTTPException(status_code=400, detail=DriverErrors.GET_FAILED)
+    # FIXED(P3 SSRF-DNS-rebinding): 使用解析出的安全 IP 直连（消除校验后二次解析的
+    # TOCTOU 窗口），响应中仍展示用户请求的原始 host
+    from edgelite.utils import resolve_and_validate_host
+
+    connect_host = resolve_and_validate_host(host)
+    if connect_host is None:
+        raise HTTPException(status_code=400, detail=DriverErrors.GET_FAILED)
     try:
         # 获取OPC DA驱动实例
         driver = plugin_manager.get_driver("opc_da")
         if driver is None:
             raise HTTPException(status_code=404, detail=DriverErrors.NOT_FOUND)
 
-        servers = await driver.list_servers(host)
+        servers = await driver.list_servers(connect_host)
         return ApiResponse(data={"servers": servers, "host": host})
     except HTTPException:
         raise

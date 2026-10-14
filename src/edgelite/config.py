@@ -113,6 +113,9 @@ _INSECURE_DEFAULT_VALUES: set[str] = {
     "edgelite",
     "edgelite-secret",
     "admin@2026",
+    # FIXED(P3): .gitlab-ci.yml / .github/workflows/ci.yml 中的 CI 专用 JWT 密钥——
+    # 标注 ci-only 但曾入仓，加入黑名单防止被复制复用到生产环境
+    "ci-only-not-secret-key-do-not-use-in-prod-32bytes!",
 }
 
 
@@ -1074,12 +1077,31 @@ def reload_config(config_path: str | Path | None = None) -> tuple[AppConfig, lis
     return config, changed_sensitive
 
 
+def _force_mask_sensitive(data: dict[str, Any], sm: Any) -> None:
+    """递归将敏感字段的值强制替换为固定掩码 "***"
+
+    FIXED(P3): 原问题-SecretManager 初始化后 mask_config() 对敏感字段返回 encrypt()
+    的 Fernet 密文（gAAAA...），GET /system/config 会把密文下发给 operator——
+    密文可被重放/替换，仍属敏感信息泄漏。脱敏接口必须返回不可逆的固定掩码。
+    """
+    for key, value in list(data.items()):
+        if isinstance(value, dict):
+            _force_mask_sensitive(value, sm)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _force_mask_sensitive(item, sm)
+        elif value and sm.is_sensitive_field(key):
+            data[key] = "***"
+
+
 def get_sanitized_config() -> dict[str, Any]:
     """获取脱敏后的当前运行配置
 
     使用 SecretManager.mask_config() 对密码、密钥、Token等敏感字段进行脱敏：
-    - SecretManager 已初始化（配置了 master key）时，敏感字段返回加密密文（完全不可读）；
-    - 未初始化时，敏感字段返回字符掩码（如 "ab****cd"）。
+    - FIXED(P3): 无论 SecretManager 是否初始化，敏感字段一律返回固定掩码 "***"。
+      原实现在初始化后返回 encrypt() 密文，密文随配置 API 泄漏给 operator 仍可被利用；
+    - 未初始化时，敏感字段返回字符掩码（如 "ab****cd"），同样强制为 "***" 统一语义。
     若 mask_config 异常，回退到按 _SENSITIVE_MASK_PATHS 手动掩码。
 
     Returns:
@@ -1091,6 +1113,7 @@ def get_sanitized_config() -> dict[str, Any]:
     try:
         sm = get_secret_manager()
         data = sm.mask_config(data)
+        _force_mask_sensitive(data, sm)
     except Exception as e:
         logger.warning("mask_config 脱敏失败，回退到手动掩码: %s", e)
         for path in _SENSITIVE_MASK_PATHS:

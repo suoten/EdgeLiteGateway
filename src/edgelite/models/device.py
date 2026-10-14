@@ -133,9 +133,8 @@ class DeviceUpdate(BaseModel):
     config: dict[str, Any] | None = None
     points: list[PointDef] | None = None
     collect_interval: int | None = Field(default=None, ge=1)
-    # SEC-FIX(修复3): 强制更新标志——绕过运行中配置锁定。仅 admin/有权限用户可设 true，
-    # 审计 details 会标记 forced_update=True。默认 False。
-    force: bool = False
+    # FIXED(P3): 删除死字段 force——更新端点的字段级白名单（_ALLOWED_UPDATE_KEYS）
+    # 从未放行该字段，历史注释描述的"强制更新"链路不存在，保留只会误导调用方。
 
 
 class DeviceWritePolicyUpdate(BaseModel):
@@ -173,6 +172,9 @@ class DeviceResponse(BaseModel):
     created_at: str
     updated_at: str
     version: int = 1
+    # FIXED(P2): 驱动重载失败回滚后的诚实标记——True 表示本次更新已被回滚，
+    # config/points 为回滚后实际生效的旧配置，而非请求的新配置
+    rolled_back: bool = False
 
 
 class SimulatorCreate(BaseModel):

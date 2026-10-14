@@ -61,15 +61,62 @@ def _repo(database) -> ResourceShareRepo:
     return ResourceShareRepo(database, database.write_lock)
 
 
+# FIXED(P3): 资源存在性校验的 repo 映射——variable 无独立 repo，跳过存在性校验
+_RESOURCE_REPO_KEYS = {"device": "device", "rule": "rule", "alarm": "alarm"}
+
+
+async def _validate_resource_exists(resource_type: str, resource_id: str) -> None:
+    """创建共享前校验资源存在性，不存在返回 404（FIXED P3：防止为幽灵资源建立共享）。"""
+    from edgelite.app import _app_state
+
+    repo_key = _RESOURCE_REPO_KEYS.get(resource_type)
+    if repo_key is None:
+        return  # variable 等无 repo 的资源类型暂不校验
+    repos = getattr(_app_state, "_repos", {}) or {}
+    repo = repos.get(repo_key)
+    if repo is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    try:
+        resource = await repo.get(resource_id)
+    except Exception as e:
+        logger.error("resource existence check failed (%s/%s): %s", resource_type, resource_id, e)
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY) from None
+    if resource is None:
+        raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
+
+
+async def _validate_user_exists(user_id: str) -> None:
+    """创建共享前校验目标用户存在性，不存在返回 404。"""
+    from edgelite.app import _app_state
+
+    repos = getattr(_app_state, "_repos", {}) or {}
+    user_repo = repos.get("user")
+    if user_repo is None:
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY)
+    try:
+        user = await user_repo.get(user_id)
+    except Exception as e:
+        logger.error("user existence check failed (%s): %s", user_id, e)
+        raise HTTPException(status_code=503, detail=CommonErrors.SERVICE_NOT_READY) from None
+    if user is None:
+        raise HTTPException(status_code=404, detail=CommonErrors.NOT_FOUND)
+
+
 @router.post("", response_model=ApiResponse)
 async def share_resource(
     req: ShareRequest,
     database: DatabaseDep,
     user: dict[str, str] = Depends(require_permission(Permission.SYSTEM_MANAGE)),
 ):
-    """共享一个资源给指定用户（已存在则更新权限级别）。"""
+    """共享一个资源给指定用户（已存在则更新权限级别）。
+
+    FIXED(P3): 创建共享前校验 resource_id 与 shared_with_user_id 存在性，
+    不存在分别返回 404，不再为幽灵资源/幽灵用户写入共享记录。
+    """
     _validate_resource_type(req.resource_type)
     _validate_permission_level(req.permission_level)
+    await _validate_resource_exists(req.resource_type, req.resource_id)
+    await _validate_user_exists(req.shared_with_user_id)
     try:
         repo = _repo(database)
         result = await repo.share_resource(
