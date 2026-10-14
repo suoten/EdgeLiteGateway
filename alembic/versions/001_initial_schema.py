@@ -77,7 +77,8 @@ def upgrade() -> None:
     # alarms
     _create_table_if_not_exists(
         "alarms",
-        sa.Column("alarm_id", sa.String(16), primary_key=True),
+        # FIXED-P3: 与ORM String(64)对齐（UUID主键），SQLite不受影响，MySQL/PG路径避免插入截断
+        sa.Column("alarm_id", sa.String(64), primary_key=True),
         sa.Column("rule_id", sa.String(16), nullable=False),
         sa.Column("device_id", sa.String(64), nullable=True),
         sa.Column("severity", sa.String(16), nullable=False),

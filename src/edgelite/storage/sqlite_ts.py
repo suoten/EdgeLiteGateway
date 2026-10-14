@@ -728,7 +728,12 @@ class SqliteTimeSeriesStorage:
 
                 except Exception as inner_err:
                     # Rollback on any error - both offset and deletion are rolled back
-                    await self._db.execute("ROLLBACK")
+                    # FIXED-P3: BEGIN IMMEDIATE 自身失败（如 busy 超时）时无活动事务，
+                    # ROLLBACK 会抛新异常覆盖原始 busy 异常误导排障
+                    try:
+                        await self._db.execute("ROLLBACK")
+                    except Exception as rb_err:
+                        logger.debug("ROLLBACK after sync failure also failed: %s", rb_err)
                     raise inner_err
 
         except Exception as e:

@@ -112,6 +112,29 @@ class CertManager:
             logger.warning("证书校验失败: %s err=%s", cert_path, e)
             return False
 
+    def days_until_expiry(self, cert_path: Path) -> int | None:
+        """返回证书距过期的剩余天数（FIXED-P2: 供证书过期巡检使用）。
+
+        原问题: bootstrap 的巡检对 validate_cert() 的 bool 返回值调用 .get("days_remaining")，
+        必然 AttributeError 且被 logger.debug 吞掉，证书过期巡检功能从未生效。
+        Returns: 剩余天数（已过期为负数）；文件不存在/解析失败返回 None。
+        """
+        try:
+            if not cert_path.exists():
+                return None
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+
+            cert = x509.load_pem_x509_certificate(cert_path.read_bytes(), default_backend())
+            not_after = getattr(cert, "not_valid_after_utc", None)
+            if not_after is None:
+                naive_after = cert.not_valid_after
+                not_after = naive_after.replace(tzinfo=UTC) if naive_after.tzinfo is None else naive_after
+            return (not_after - datetime.now(UTC)).days
+        except Exception as e:
+            logger.debug("证书有效期解析失败: %s err=%s", cert_path, e)
+            return None
+
 
 class TlsConfigBuilder:
     """TLS配置构建器 - 构建各种协议的TLS配置"""

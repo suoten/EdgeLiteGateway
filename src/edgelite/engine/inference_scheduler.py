@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections import deque
@@ -46,6 +47,7 @@ class _InferenceRequest:
     priority: InferencePriority
     future: asyncio.Future
     enqueue_time: float = field(default_factory=time.monotonic)
+    cancelled: bool = False  # FIXED-P2: 调用方超时放弃后置位，调度器跳过执行
 
 
 class InferenceScheduler:
@@ -161,14 +163,6 @@ class InferenceScheduler:
             if model_id not in self._model_infer_fn:
                 raise RuntimeError(f"Model not registered in scheduler: {model_id}")
 
-        # 检查队列是否已满
-        async with self._queue_lock:
-            if len(self._pending_queue) >= self._max_queue_size:
-                self._total_rejected += 1
-                raise RuntimeError(
-                    f"Inference queue full (max={self._max_queue_size}), rejecting request for model {model_id}"
-                )
-
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         req = _InferenceRequest(
@@ -178,13 +172,25 @@ class InferenceScheduler:
             future=future,
         )
 
+        # FIXED-P2: 队列满检查与入队合并到同一次加锁。原实现分两次加锁（TOCTOU），
+        # 并发提交可在"检查通过"与"append"之间相互穿插导致小幅超限
         async with self._queue_lock:
+            if len(self._pending_queue) >= self._max_queue_size:
+                self._total_rejected += 1
+                raise RuntimeError(
+                    f"Inference queue full (max={self._max_queue_size}), rejecting request for model {model_id}"
+                )
             self._pending_queue.append(req)
             self._total_submitted += 1
 
         try:
             return await asyncio.wait_for(future, timeout=timeout)
         except TimeoutError:
+            # FIXED-P2: 调用方已超时放弃，标记请求取消，调度器出队时跳过不再执行，
+            # 避免超时请求仍占用推理并发额度
+            req.cancelled = True
+            if not future.done():
+                future.cancel()
             raise TimeoutError(f"Inference request timed out after {timeout}s for model {model_id}") from None
 
     async def _dispatch_loop(self) -> None:
@@ -200,7 +206,15 @@ class InferenceScheduler:
                         req = self._pending_queue.popleft()
 
                 if req is None:
-                    await asyncio.sleep(0.001)
+                    # FIXED-P2: 空转 sleep 从 1ms 放宽到 20ms——原值每秒 1000 次抢锁，
+                    # 空闲时纯耗 CPU；推理请求对 20ms 的调度延迟不敏感（超时默认 30s）
+                    await asyncio.sleep(0.02)
+                    continue
+
+                # FIXED-P2: 调用方已超时放弃的请求直接跳过，不再占用推理并发额度
+                if req.cancelled:
+                    with contextlib.suppress(asyncio.InvalidStateError):
+                        req.future.cancel()
                     continue
 
                 # 获取信号量限制并发

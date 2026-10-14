@@ -453,7 +453,9 @@ class CacheManager:
                         "measurement": r.measurement,
                         "tags": _safe_json_loads(r.tags, {}),
                         "fields": _safe_json_loads(r.fields, {}),
-                        "timestamp": r.timestamp,
+                        # FIXED-P2: 原样返回 epoch float，消费方 fromisoformat 解析失败后静默
+                        # 用补偿时刻替换，时序数据时间失真；与其他查询路径一致转 ISO
+                        "timestamp": _epoch_to_iso(r.timestamp),
                         "status": "orphan",
                     }
                     for r in rows

@@ -883,6 +883,19 @@ def create_app() -> FastAPI:
                     )
             except ValueError:
                 pass
+        # FIXED-P2: 仅校验 Content-Length 可被 chunked 传输绕过——chunked 请求无该头，
+        # Starlette 仍会整包读入内存。对"无 Content-Length 且带 Transfer-Encoding"的请求
+        # 一律 413（正常 API 客户端均携带 Content-Length）
+        if not content_length and request.headers.get("transfer-encoding"):
+            return JSONResponse(
+                status_code=413,
+                content=ApiResponse(
+                    code=413,
+                    message="Request body too large",
+                    data=None,
+                    error_code="ERR_COMMON_REQUEST_TOO_LARGE",
+                ).model_dump(),
+            )
         return await call_next(request)
 
     @app.middleware("http")

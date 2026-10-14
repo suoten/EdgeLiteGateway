@@ -1228,6 +1228,11 @@ class Database:
             ("rules", "rule_type", "VARCHAR(16)", "'threshold'"),
             # R7-S-15: 补充 devices.created_by，与 rules.created_by 保持一致，防止旧库缺少该列导致写入失败
             ("devices", "created_by", "VARCHAR(64)", None),
+            # FIXED-P3: 补充 alarms 表新列——绕过 alembic 的直连升级路径（旧库缺列导致
+            # evaluator 写入触发告警失败）；与 AlarmORM 的 message/rule_type/version 对齐
+            ("alarms", "message", "VARCHAR(256)", "''"),
+            ("alarms", "rule_type", "VARCHAR(32)", "'threshold'"),
+            ("alarms", "version", "INTEGER", "1"),
         ]
 
         def _check_and_add(sync_conn):

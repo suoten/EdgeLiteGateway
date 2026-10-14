@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -143,6 +142,15 @@ class OfflineQueue:
             if failed_ids:
                 await self.increment_retry(failed_ids, "flush send returned failure")
             if len(batch) < 1000:
+                # 不满批说明队列已取空，正常结束
+                break
+            if not success_ids:
+                # P1-1: 满批且本轮零成功 — 继续循环只会重复取到同一批记录形成死循环，
+                # break 结束本轮 flush（记录已 increment_retry，由下轮触发重试）
+                logger.warning(
+                    "flush: full batch (%d records) with zero successes, stopping to avoid infinite loop",
+                    len(batch),
+                )
                 break
         return sent
 
@@ -175,20 +183,32 @@ class OfflineQueue:
         return row[0] if row else 0
 
     async def _enforce_max_size(self) -> None:
-        """超过容量上限时按 FIFO 丢弃最旧记录"""
+        """超过容量上限时按 FIFO 丢弃最旧记录
+
+        P1-2: 改用 SELECT COUNT(*) 记录数计数淘汰（不再依赖文件大小）。
+        原实现基于 os.path.getsize 判断容量，但 SQLite DELETE 只在文件内打空闲标记、
+        并不收缩文件，导致文件大小持续高于阈值而记录数已很少时仍被 perpetual 误删。
+        max_records = max_size_bytes // 512（每条记录按 512 字节估算）。
+        """
         try:
-            size = os.path.getsize(self._db_path)
-        except OSError:
-            return
-        if size <= self._max_size_bytes:
-            return
-        excess = size - self._max_size_bytes
-        assert self._db is not None
-        await self._db.execute(
-            "DELETE FROM offline_records WHERE id IN (SELECT id FROM offline_records ORDER BY id ASC LIMIT ?)",
-            (max(1, excess // 512),),
-        )
-        await self._db.commit()
+            assert self._db is not None
+            _cur = await self._db.execute("SELECT COUNT(*) FROM offline_records")
+            row = await _cur.fetchone()
+            count = row[0] if row else 0
+            max_records = self._max_size_bytes // 512
+            excess = count - max_records
+            if excess <= 0:
+                return
+            await self._db.execute(
+                "DELETE FROM offline_records WHERE id IN (SELECT id FROM offline_records ORDER BY id ASC LIMIT ?)",
+                (excess,),
+            )
+            await self._db.commit()
+            logger.info(
+                "offline queue: evicted %d oldest records (count=%d > max_records=%d)", excess, count, max_records
+            )
+        except Exception as e:
+            logger.warning("offline queue enforce max size failed: %s", e)
 
     async def close(self) -> None:
         """关闭数据库连接"""

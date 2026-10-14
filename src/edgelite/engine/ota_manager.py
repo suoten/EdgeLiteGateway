@@ -31,6 +31,8 @@ class OTAManager:
         self._backup_dir = Path("data/ota/backups")
         self._current_version = self._get_current_version()
         self._lock = asyncio.Lock()
+        # FIXED(安全-P1): 下载与应用分别持锁——并发下载同一版本会交错写同一个 .part 文件
+        self._download_lock = asyncio.Lock()
 
     def _get_current_version(self) -> str:
         """获取当前版本"""
@@ -67,49 +69,73 @@ class OTAManager:
             return None
 
     async def download_update(self, version: str, download_url: str) -> Path | None:
-        """下载更新包"""
+        """下载更新包（支持断点续传：失败保留 .part，重试时从已下载字节处继续）"""
         self._upgrade_dir.mkdir(parents=True, exist_ok=True)
         temp_file = self._upgrade_dir / f"update-{version}.zip"
+        partial_file = self._upgrade_dir / f"update-{version}.zip.part"
 
-        try:
-            logger.info("Downloading update package: %s", download_url)
-            async with self._client.stream("GET", download_url) as response:
-                if response.status_code != 200:
-                    raise Exception(f"Download failed: HTTP {response.status_code}")
+        # FIXED(安全-P1): 下载持专用锁，防止并发下载交错写同一 .part 文件产生损坏包
+        async with self._download_lock:
+            try:
+                # FIXED(P2): 断点续传——已有部分文件时尝试 Range 续传；服务端不支持则重头
+                resume_from = 0
+                if partial_file.exists():
+                    try:
+                        resume_from = partial_file.stat().st_size
+                    except OSError:
+                        resume_from = 0
+                headers: dict[str, str] = {}
+                if resume_from > 0:
+                    headers["Range"] = f"bytes={resume_from}-"
+                    logger.info("Resuming download from byte %d: %s", resume_from, download_url)
 
-                # FIXED: P3-1 content-length may be non-numeric
-                try:
-                    total_size = int(response.headers.get("content-length", 0))
-                except (ValueError, TypeError):
-                    total_size = 0
-                downloaded = 0
+                logger.info("Downloading update package: %s", download_url)
+                async with self._client.stream("GET", download_url, headers=headers) as response:
+                    # FIXED: 非 200/206（404/500 等）必须显式报错——原重构中丢失该分支，
+                    # 会把错误响应体当作更新包写入
+                    if response.status_code not in (200, 206):
+                        raise Exception(f"Download failed: HTTP {response.status_code}")
+                    # 206 = 服务端支持续传；200 = 不支持（含 Range 头仍返回全量），需重头写
+                    if response.status_code == 206 and resume_from > 0:
+                        write_mode = "ab"
+                        downloaded = resume_from
+                    else:
+                        write_mode = "wb"
+                        downloaded = 0
 
-                # FIXED: 原问题-下载写入无异常保护，部分写入后崩溃导致文件损坏
-                # 现先写入临时文件，下载完成后才重命名为目标文件
-                partial_file = self._upgrade_dir / f"update-{version}.zip.part"
-                try:
-                    with open(partial_file, "wb") as f:
-                        async for chunk in response.aiter_bytes(
-                            chunk_size=_OTA_DOWNLOAD_CHUNK
-                        ):  # FIXED: 原问题-chunk_size=8192魔法数字
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            if total_size:
-                                progress = downloaded / total_size * 100
-                                logger.debug("Download progress: %.1f%%", progress)
-                    partial_file.rename(temp_file)
-                except Exception:
-                    if partial_file.exists():
-                        partial_file.unlink()
-                    raise
+                    # FIXED: P3-1 content-length may be non-numeric
+                    try:
+                        total_size = int(response.headers.get("content-length", 0))
+                        if response.status_code == 206 and resume_from > 0:
+                            total_size += resume_from
+                    except (ValueError, TypeError):
+                        total_size = 0
 
-            logger.info("Update package downloaded: %s", temp_file)
-            return temp_file
-        except Exception as e:
-            logger.error("Download update package failed: %s", e)
-            if temp_file.exists():
-                temp_file.unlink()
-            return None
+                    # FIXED: 原问题-下载写入无异常保护，部分写入后崩溃导致文件损坏
+                    # 现先写入 .part 文件且失败时保留（供下次续传），完成后才 replace 为目标文件
+                    try:
+                        with open(partial_file, write_mode) as f:
+                            async for chunk in response.aiter_bytes(
+                                chunk_size=_OTA_DOWNLOAD_CHUNK
+                            ):  # FIXED: 原问题-chunk_size=8192魔法数字
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total_size:
+                                    progress = downloaded / total_size * 100
+                                    logger.debug("Download progress: %.1f%%", progress)
+                        # FIXED(P2): Path.replace 在 Windows/POSIX 上都是原子覆盖，rename 在
+                        # Windows 目标存在时会抛 FileExistsError
+                        partial_file.replace(temp_file)
+                    except Exception:
+                        # 保留 .part 供断点续传；仅在写入模式为重头且文件损坏风险高时清理由下次决定
+                        raise
+
+                logger.info("Update package downloaded: %s", temp_file)
+                return temp_file
+            except Exception as e:
+                logger.error("Download update package failed: %s", e)
+                # FIXED(P2): 失败时不再误删已完成的历史包 temp_file，.part 保留供续传
+                return None
 
     async def verify_update(self, file_path: Path, expected_sha256: str) -> bool:
         """验证更新包完整性"""
@@ -175,6 +201,12 @@ class OTAManager:
                     if not is_valid:
                         logger.error("SHA256 verification failed, update package may be tampered")
                         return False
+                else:
+                    # FIXED(安全-P1): 无完整性校验直接覆盖应用目录是危险路径，至少显式告警
+                    logger.warning(
+                        "apply_update called without expected_sha256 - "
+                        "integrity verification skipped (caller should fail-closed instead)"
+                    )
 
                 backup_path = await self.backup_current()
                 if backup_path is None:
@@ -218,12 +250,39 @@ class OTAManager:
                                 dest.parent.mkdir(parents=True, exist_ok=True)
                                 shutil.copy2(str(item), str(dest))
 
-                        for item in staging_dir.rglob("*"):
-                            if item.is_file():
-                                rel = item.relative_to(staging_dir)
-                                dest = app_dir / rel
-                                dest.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(str(item), str(dest))
+                        # FIXED(安全-P1): 逐文件覆盖前备份原文件，任一复制失败（磁盘满/权限）
+                        # 时恢复全部已覆盖文件，避免应用目录处于半新半旧导致下次无法启动
+                        overwrite_backup_dir = Path(tempfile.mkdtemp(prefix="edgelite_overwrite_bak_"))
+                        applied_files: list[tuple[Path, Path | None]] = []  # (dest, 备份路径或 None=新增文件)
+                        try:
+                            for item in staging_dir.rglob("*"):
+                                if item.is_file():
+                                    rel = item.relative_to(staging_dir)
+                                    dest = app_dir / rel
+                                    dest.parent.mkdir(parents=True, exist_ok=True)
+                                    backup_file: Path | None = None
+                                    if dest.exists():
+                                        backup_file = overwrite_backup_dir / rel
+                                        backup_file.parent.mkdir(parents=True, exist_ok=True)
+                                        shutil.copy2(str(dest), str(backup_file))
+                                    shutil.copy2(str(item), str(dest))
+                                    applied_files.append((dest, backup_file))
+                        except Exception:
+                            # 逆序恢复：被覆盖的还原备份，新增的删除
+                            for dest, backup_file in reversed(applied_files):
+                                try:
+                                    if backup_file is not None and backup_file.exists():
+                                        shutil.copy2(str(backup_file), str(dest))
+                                    elif backup_file is None and dest.exists():
+                                        dest.unlink()
+                                except Exception as restore_err:
+                                    logger.error(
+                                        "Overwrite rollback failed for %s: %s (backup: %s)",
+                                        dest,
+                                        restore_err,
+                                        backup_file,
+                                    )
+                            raise
                     finally:
                         shutil.rmtree(str(staging_dir), ignore_errors=True)
 
@@ -257,6 +316,8 @@ class OTAManager:
                 logger.info("Starting rollback to: %s", backup_path)
 
                 # FIXED: P3-1 Atomic rollback operation
+                # FIXED(安全-P1): 不再先 rmtree 再复制——复制中途失败会导致代码目录丢失且
+                # 无自动恢复。改为先把现有目录改名挪走（原子），复制成功再清理，失败则挪回
                 for item in ["src", "configs", "requirements.txt", "pyproject.toml"]:
                     src = backup_path / item
                     dst = Path(item)
@@ -267,15 +328,27 @@ class OTAManager:
                                 await asyncio.to_thread(shutil.copytree, src, staging / item)
                             else:
                                 shutil.copy2(str(src), str(staging / item))
+                            # 现有目标先挪到 trash（rename 原子操作），不直接删除
+                            trash_path: Path | None = None
                             if dst.exists():
-                                if dst.is_dir():
-                                    shutil.rmtree(dst)
+                                trash_path = staging / "_replaced_existing" / item
+                                trash_path.parent.mkdir(parents=True, exist_ok=True)
+                                dst.rename(trash_path)
+                            try:
+                                if (staging / item).is_dir():
+                                    await asyncio.to_thread(shutil.copytree, staging / item, dst)
                                 else:
-                                    dst.unlink()
-                            if (staging / item).is_dir():
-                                await asyncio.to_thread(shutil.copytree, staging / item, dst)
-                            else:
-                                shutil.copy2(str(staging / item), str(dst))
+                                    shutil.copy2(str(staging / item), str(dst))
+                            except Exception:
+                                # 恢复被挪走的现有目录，保持回滚前的状态
+                                if trash_path is not None and trash_path.exists():
+                                    if dst.exists():
+                                        if dst.is_dir():
+                                            shutil.rmtree(dst, ignore_errors=True)
+                                        else:
+                                            dst.unlink()
+                                    trash_path.rename(dst)
+                                raise
                         finally:
                             shutil.rmtree(str(staging), ignore_errors=True)
 
@@ -307,3 +380,10 @@ class OTAManager:
     @property
     def current_version(self) -> str:
         return self._current_version
+
+    async def close(self) -> None:
+        """释放 HTTP 客户端连接池（进程退出/服务停用时调用，防止资源泄漏）"""
+        try:
+            await self._client.aclose()
+        except Exception as e:
+            logger.debug("OTA httpx client close failed: %s", e)

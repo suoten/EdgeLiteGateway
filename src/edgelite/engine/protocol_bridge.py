@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib  # FIXED-P2: 原import在文件末尾(行463)，移至顶部与其他标准库import一起，避免维护混乱
+import json
 import logging
 import struct
+import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -146,6 +150,11 @@ class ProtocolBridgeManager:
     def __init__(self):
         self._running = False
         self._bridges: dict[str, ProtocolBridge] = {}
+        # FIXED-P2: _bridges 变更保护——API 的 update/enable/disable 与 _sync_loop 后台读
+        # 并发修改同一 dataclass 属性会产生撕裂读；变更走锁，读走快照
+        self._bridge_lock = threading.Lock()
+        # FIXED-P2: 桥接配置持久化路径——原实现纯内存态，网关重启后全部桥接丢失
+        self._persist_path = Path("data/protocol_bridges.json")
         self._source_data: dict[str, dict[str, Any]] = {}  # device_id -> {point -> value}
         self._conversion = ProtocolConverter()
         self._task: asyncio.Task | None = None
@@ -156,6 +165,9 @@ class ProtocolBridgeManager:
     async def start(self) -> None:
         """启动桥接管理器"""
         self._running = True
+        loaded = self.load_config()
+        if loaded:
+            logger.info("协议桥接配置从磁盘恢复 %d 个桥接", loaded)
         self._task = asyncio.create_task(self._sync_loop())
         logger.info("协议桥接管理器启动，共 %d 个桥接", len(self._bridges))
 
@@ -168,21 +180,116 @@ class ProtocolBridgeManager:
                 await self._task
         logger.info("协议桥接管理器停止")
 
+    # ── 持久化（FIXED-P2: 重启恢复） ──
+
+    def save_config(self) -> None:
+        """桥接配置原子落盘（tmp + replace）。API 每次变更后调用；失败仅告警不阻断。"""
+        try:
+            with self._bridge_lock:
+                payload = {
+                    "version": 1,
+                    "saved_at": datetime.now(UTC).isoformat(),
+                    "bridges": [asdict(b) for b in self._bridges.values()],
+                }
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self._persist_path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(self._persist_path)
+        except Exception as e:
+            logger.error("协议桥接配置持久化失败: %s", e)
+
+    def load_config(self) -> int:
+        """启动时从磁盘恢复桥接配置，返回加载数量；文件缺失/损坏返回 0（不抛异常）。"""
+        try:
+            if not self._persist_path.exists():
+                return 0
+            data = json.loads(self._persist_path.read_text(encoding="utf-8"))
+            bridges_raw = data.get("bridges", []) if isinstance(data, dict) else []
+            loaded = 0
+            with self._bridge_lock:
+                for item in bridges_raw:
+                    try:
+                        if not isinstance(item, dict) or not item.get("bridge_id"):
+                            continue
+                        rules = [MappingRule(**r) for r in item.get("mapping_rules", []) if isinstance(r, dict)]
+                        bridge = ProtocolBridge(
+                            bridge_id=str(item["bridge_id"]),
+                            source_protocol=str(item.get("source_protocol", "")),
+                            target_protocol=str(item.get("target_protocol", "")),
+                            source_config=item.get("source_config", {}) or {},
+                            target_config=item.get("target_config", {}) or {},
+                            mapping_rules=rules,
+                            enabled=bool(item.get("enabled", True)),
+                        )
+                        self._bridges[bridge.bridge_id] = bridge
+                        loaded += 1
+                    except Exception as e:
+                        logger.warning("跳过损坏的桥接配置条目: %s", e)
+            return loaded
+        except FileNotFoundError:
+            return 0
+        except Exception as e:
+            logger.error("协议桥接配置加载失败: %s", e)
+            return 0
+
+    # ── 配置变更（加锁 + 落盘） ──
+
     def add_bridge(self, bridge: ProtocolBridge) -> None:
         """添加协议桥接"""
-        self._bridges[bridge.bridge_id] = bridge
+        with self._bridge_lock:
+            self._bridges[bridge.bridge_id] = bridge
         logger.info("添加协议桥接: %s (%s → %s)", bridge.bridge_id, bridge.source_protocol, bridge.target_protocol)
 
     def remove_bridge(self, bridge_id: str) -> None:
         """移除协议桥接"""
-        self._bridges.pop(bridge_id, None)
+        with self._bridge_lock:
+            self._bridges.pop(bridge_id, None)
         logger.info("移除协议桥接: %s", bridge_id)
+
+    def get_bridges_snapshot(self) -> dict[str, ProtocolBridge]:
+        """获取 _bridges 快照（浅拷贝 dict；ProtocolBridge 实例共享，仅读场景使用）"""
+        with self._bridge_lock:
+            return dict(self._bridges)
+
+    def get_bridge_by_id(self, bridge_id: str) -> ProtocolBridge | None:
+        """按 ID 获取桥接实例（读锁快照）"""
+        with self._bridge_lock:
+            return self._bridges.get(bridge_id)
+
+    def update_bridge_fields(
+        self,
+        bridge_id: str,
+        *,
+        source_protocol: str | None = None,
+        target_protocol: str | None = None,
+        enabled: bool | None = None,
+        mapping_rules: list[MappingRule] | None = None,
+        source_config: dict | None = None,
+    ) -> ProtocolBridge | None:
+        """在锁内更新桥接字段（避免 API 直接改共享 dataclass 与 _sync_loop 竞态）"""
+        with self._bridge_lock:
+            bridge = self._bridges.get(bridge_id)
+            if bridge is None:
+                return None
+            if source_protocol is not None:
+                bridge.source_protocol = source_protocol
+            if target_protocol is not None:
+                bridge.target_protocol = target_protocol
+            if enabled is not None:
+                bridge.enabled = enabled
+            if mapping_rules is not None:
+                bridge.mapping_rules = mapping_rules
+            if source_config is not None:
+                bridge.source_config = source_config
+            return bridge
 
     def add_mapping_rule(self, bridge_id: str, rule: MappingRule) -> None:
         """添加映射规则"""
-        bridge = self._bridges.get(bridge_id)
+        with self._bridge_lock:
+            bridge = self._bridges.get(bridge_id)
+            if bridge:
+                bridge.mapping_rules.append(rule)
         if bridge:
-            bridge.mapping_rules.append(rule)
             logger.info(
                 "添加映射规则: %s.%s → %s.%s",
                 rule.source_device,
@@ -193,9 +300,10 @@ class ProtocolBridgeManager:
 
     def remove_mapping_rule(self, bridge_id: str, rule_id: str) -> None:
         """移除映射规则"""
-        bridge = self._bridges.get(bridge_id)
-        if bridge:
-            bridge.mapping_rules = [r for r in bridge.mapping_rules if r.rule_id != rule_id]
+        with self._bridge_lock:
+            bridge = self._bridges.get(bridge_id)
+            if bridge:
+                bridge.mapping_rules = [r for r in bridge.mapping_rules if r.rule_id != rule_id]
 
     async def update_source_data(self, device_id: str, point: str, value: Any, quality: str = "good") -> None:
         """更新源数据，自动触发转换"""
@@ -211,7 +319,8 @@ class ProtocolBridgeManager:
 
         # 触发所有相关桥接的转换
         # R11-ENG-05: 迭代 dict 前取快照，避免 await 期间 dict 被修改导致 RuntimeError
-        for bridge in list(self._bridges.values()):
+        # FIXED-P2: 快照经 _bridge_lock 获取，与 API 变更互斥
+        for bridge in self.get_bridges_snapshot().values():
             if not bridge.enabled:
                 continue
             await self._process_bridge(bridge, device_id, point, value)
@@ -284,7 +393,7 @@ class ProtocolBridgeManager:
                     last_cleanup = now
 
                 # R11-ENG-05: 迭代 dict 前取快照，避免 await 期间 dict 被修改导致 RuntimeError
-                for bridge in list(self._bridges.values()):
+                for bridge in self.get_bridges_snapshot().values():
                     if not bridge.enabled:
                         continue
 
@@ -323,12 +432,12 @@ class ProtocolBridgeManager:
                 "enabled": b.enabled,
                 "rules_count": len(b.mapping_rules),
             }
-            for b in self._bridges.values()
+            for b in self.get_bridges_snapshot().values()
         ]
 
     def get_bridge_stats(self, bridge_id: str) -> dict | None:
         """获取桥接统计"""
-        bridge = self._bridges.get(bridge_id)
+        bridge = self.get_bridge_by_id(bridge_id)
         if not bridge:
             return None
 

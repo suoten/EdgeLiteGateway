@@ -338,6 +338,11 @@ async def bootstrap_ws(c: ServiceContainer, config) -> None:
             logger.info("Replayed %d pending alarm events from outbox", replayed)
     except Exception as e:
         logger.warning("Alarm outbox replay failed (best-effort): %s", e)
+    # FIXED-P2: 启动周期性重放，兜底 publish 持久化超时导致的"已落盘未投递"事件
+    try:
+        c.event_bus.start_periodic_replay()
+    except Exception as e:
+        logger.warning("Alarm outbox periodic replay start failed (best-effort): %s", e)
 
 
 async def bootstrap_drivers(c: ServiceContainer, config) -> None:
@@ -680,8 +685,10 @@ async def bootstrap_log_rotation(c: ServiceContainer, config) -> None:
                         path = getattr(mqtt_tls, attr, None)
                         if path and Path(path).exists():
                             try:
-                                result = cert_mgr.validate_cert(path)
-                                days = result.get("days_remaining")
+                                # FIXED-P2: 原实现对 validate_cert() 的 bool 返回值调用
+                                # .get("days_remaining")，必然 AttributeError 被 debug 日志
+                                # 吞掉，巡检从未生效；改用 CertManager.days_until_expiry
+                                days = cert_mgr.days_until_expiry(Path(path))
                                 if days is not None and days < 30:
                                     logger.warning(
                                         "TLS certificate %s expiring soon: %s (days_remaining=%d)",

@@ -212,7 +212,20 @@ class MqttForwarder:
                 await self._connect_task
 
         if self._offline_db:
-            self._offline_db.close()
+            # FIXED-P2: 与可能仍在执行的重放线程互斥（重放走 _offline_db_sync_lock），
+            # 防止连接在 SQL 执行中被关闭；2s 内拿不到锁则强制关闭（shutdown 不允许无限等待）
+            _stop_lock = getattr(self, "_offline_db_sync_lock", None)
+            _acquired = False
+            if _stop_lock is not None:
+                _acquired = await asyncio.to_thread(_stop_lock.acquire, timeout=2.0)
+                if not _acquired:
+                    logger.warning("MQTT forwarder stop: replay thread busy, forcing offline db close")
+            try:
+                self._offline_db.close()
+            finally:
+                if _stop_lock is not None and _acquired:
+                    with contextlib.suppress(Exception):
+                        _stop_lock.release()
             self._offline_db = None
 
         self._connected = False

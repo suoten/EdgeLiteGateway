@@ -25,7 +25,7 @@ from typing import Any, cast
 
 from influxdb_client.client.influxdb_client import InfluxDBClient
 from influxdb_client.client.write.point import Point
-from influxdb_client.client.write_api import SYNCHRONOUS, WriteOptions
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 from edgelite.config import get_config
 from edgelite.constants import _INFLUX_CONNECT_TIMEOUT_MS, _INFLUX_WRITE_TIMEOUT_S
@@ -45,7 +45,8 @@ class InfluxDBStorage:
         self._bucket = config.influxdb.bucket
         self._retention_days = config.influxdb.retention_days
         self._client: InfluxDBClient | None = None
-        self._write_api = None
+        # P1-3: 主写入路径统一使用 SYNCHRONOUS 的 _sync_write_api（错误同步传播，
+        # _fail_count/降级/断网缓存回写才能生效）；原缓冲式 _write_api 已移除。
         # R5-G-12: 同步写入专用 write_api，在 connect() 中创建一次复用，避免 _sync_batch 每次创建新实例
         self._sync_write_api = None
         self._query_api = None
@@ -422,25 +423,8 @@ class InfluxDBStorage:
                     logger.warning("InfluxDB ping verification failed: %s", ping_err)
 
             if self._available:
-                config = get_config()
-                # flush_interval=0 会导致缓冲区永不刷新；flush_interval 极大值会导致
-                # 数据在内存中无限积压。限制在合理范围 [100, 60000] ms
-                raw_flush = config.influxdb.flush_interval
-                flush_interval = max(100, min(60000, raw_flush))
-                if flush_interval != raw_flush:
-                    logger.warning(
-                        "InfluxDB flush_interval=%d (原始配置%d) 超出安全范围[100,60000]，已调整为%d",
-                        raw_flush,
-                        flush_interval,
-                        flush_interval,
-                    )
-                self._write_api = self._client.write_api(
-                    write_options=WriteOptions(
-                        batch_size=config.influxdb.batch_size,
-                        flush_interval=flush_interval,
-                    )
-                )
-                # R5-G-12: 创建同步写入专用 write_api 一次并复用，避免 _sync_batch 每次创建新实例
+                # P1-3: 仅创建 SYNCHRONOUS 写入 API，写入错误同步抛出，
+                # 使 _fail_count 递增/降级进入 SQLite/断网缓存回写逻辑生效
                 self._sync_write_api = self._client.write_api(write_options=SYNCHRONOUS)
                 self._query_api = self._client.query_api()
                 self._buckets_api = self._client.buckets_api()
@@ -682,12 +666,7 @@ class InfluxDBStorage:
         await self.stop_sync()
         # FIX-EL-R2-SEVERE: 每个 close 步骤独立 try/except，防止单步异常导致
         # 后续资源（_client/_sqlite_ts/_emergency_db）未关闭造成泄漏。
-        if self._write_api:
-            try:
-                await asyncio.to_thread(self._write_api.close)
-            except Exception as e:
-                logger.warning("关闭 InfluxDB write_api 失败: %s", e)
-        # R5-G-12: 关闭同步写入专用 write_api，防止资源泄漏
+        # P1-3: 原 _write_api（缓冲式）已移除，仅关闭同步写入 API
         if self._sync_write_api:
             try:
                 await asyncio.to_thread(self._sync_write_api.close)
@@ -766,20 +745,9 @@ class InfluxDBStorage:
                     if not self._available:
                         self._available = True
                         was_unavailable = True
-                        from influxdb_client.client.write_api import WriteOptions
 
-                        cfg = get_config()
-                        # FIXED-BugR4X: 原问题-重建_write_api时不关闭旧的，导致资源泄漏；修复-重建前先关闭旧的write_api
-                        old_write_api = self._write_api
-                        if old_write_api is not None:
-                            await asyncio.to_thread(old_write_api.close)
-                        self._write_api = self._client.write_api(
-                            write_options=WriteOptions(
-                                batch_size=cfg.influxdb.batch_size,
-                                flush_interval=max(100, min(60000, cfg.influxdb.flush_interval)),
-                            )
-                        )
-                        # R5-G-12: 连接恢复时同步重建 _sync_write_api 并复用
+                        # FIXED-BugR4X: 原问题-重建write_api时不关闭旧的，导致资源泄漏；修复-重建前先关闭旧的
+                        # P1-3: 连接恢复时仅重建 SYNCHRONOUS 写入 API
                         old_sync_write_api = self._sync_write_api
                         if old_sync_write_api is not None:
                             await asyncio.to_thread(old_sync_write_api.close)
@@ -814,7 +782,10 @@ class InfluxDBStorage:
         last_exc = None
         for attempt in range(max_retries):
             try:
-                self._write_api.write(record)
+                # P1-3: 主写入路径统一走 SYNCHRONOUS _sync_write_api
+                if self._sync_write_api is None:
+                    raise ConnectionError("InfluxDB sync write API is not available")
+                await asyncio.to_thread(self._sync_write_api.write, record)
                 return
             except (ConnectionError, TimeoutError, OSError) as e:
                 last_exc = e
@@ -850,7 +821,8 @@ class InfluxDBStorage:
         当InfluxDB不可用时，将数据写入SQLite降级存储以便后续同步恢复。
         """
         # FIXED-P0: _available读取通过await available()加锁保护
-        if not await self.available() or not self._write_api:
+        # P1-3: 主路径守卫改为 SYNCHRONOUS _sync_write_api，保证错误同步传播
+        if not await self.available() or not self._sync_write_api:
             # FIXED(严重): 原代码直接读 self._fallback_mode 未加锁，高并发下多协程
             # 同时通过检查导致重复调用 _enter_fallback_mode 和 _init_sqlite_fallback
             # 修复-使用 await self.fallback_mode() 加锁读取
@@ -873,7 +845,7 @@ class InfluxDBStorage:
                 )
                 if timestamp:
                     point = point.time(timestamp)
-                await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=point)
+                await asyncio.to_thread(self._sync_write_api.write, bucket=self._bucket, record=point)
                 async with self._state_lock:
                     self._fail_count = 0
                 return True
@@ -897,7 +869,7 @@ class InfluxDBStorage:
             if timestamp:
                 point = point.time(timestamp)
 
-            await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=point)
+            await asyncio.to_thread(self._sync_write_api.write, bucket=self._bucket, record=point)
             async with (
                 self._state_lock
             ):  # FIXED-P2: _fail_count修改移入_state_lock，与available()/check_health()锁保护读取一致
@@ -960,6 +932,8 @@ class InfluxDBStorage:
             await self._buffer_append_with_db(buf_item)  # FIXED-EMERGENCY-RACE
 
     def _emergency_db_write(self, buf_item: dict) -> None:  # FIXED-P2: 原问题-emergency_db同步操作无锁保护
+        """写入紧急缓冲 SQLite（带锁）。P2: 不再吞异常 — log 后 re-raise，
+        让 _buffer_append_with_db 的重试/deque 回滚/fallback 文件逻辑生效。"""
         with self._emergency_db_lock:
             if self._emergency_db is None:
                 return
@@ -970,12 +944,14 @@ class InfluxDBStorage:
                 )
                 self._emergency_db.commit()
             except Exception as e:
-                # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                logger.warning("紧急缓冲SQLite写入失败: %s", e)
+                logger.error("紧急缓冲SQLite写入失败: %s", e)
+                raise
 
     def _emergency_db_write_batch(
         self, batch_items: list[dict]
     ) -> None:  # FIXED-P2: 原问题-批量emergency_db同步操作无锁保护
+        """批量写入紧急缓冲 SQLite（带锁）。P2: 不再吞异常 — log 后 re-raise，
+        让 _buffer_extend_with_db 的重试/deque 回滚/fallback 文件逻辑生效。"""
         with self._emergency_db_lock:
             if self._emergency_db is None:
                 return
@@ -990,8 +966,8 @@ class InfluxDBStorage:
                 )
                 self._emergency_db.commit()
             except Exception as e:
-                # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
-                logger.warning("紧急缓冲批量SQLite写入失败: %s", e, exc_info=True)
+                logger.error("紧急缓冲批量SQLite写入失败: %s", e, exc_info=True)
+                raise
 
     async def _fallback_to_cache(
         self,
@@ -1036,7 +1012,8 @@ class InfluxDBStorage:
             logger.warning("write_points_batch truncated from %d to %d", len(records), MAX_WRITE_BATCH)
             records = records[:MAX_WRITE_BATCH]
         # FIXED-P0: _available读取通过await available()加锁保护
-        if not await self.available() or not self._write_api:
+        # P1-3: 主路径守卫改为 SYNCHRONOUS _sync_write_api
+        if not await self.available() or not self._sync_write_api:
             # FIXED(严重): 原代码直接读 self._fallback_mode 未加锁
             if not await self.fallback_mode():
                 await self._enter_fallback_mode("InfluxDB不可用")
@@ -1088,7 +1065,8 @@ class InfluxDBStorage:
 
             if not points:
                 return True
-            await asyncio.to_thread(self._write_api.write, bucket=self._bucket, record=points)
+            # P1-3: 同步写入 API，错误立即抛出触发降级/缓存回写
+            await asyncio.to_thread(self._sync_write_api.write, bucket=self._bucket, record=points)
             async with self._state_lock:  # FIXED-P2: _fail_count修改移入_state_lock
                 self._fail_count = 0
             return True
@@ -1473,7 +1451,9 @@ from(bucket: {safe_bucket})
             try:
                 # 降级模式下定期检查InfluxDB是否恢复
                 # FIXED-P0: _available读取通过await available()加锁保护
-                if self._fallback_mode and not await self.available():
+                # P2-17: _fallback_mode 读取改走既有 _state_lock（await fallback_mode()），
+                # 消除与 _enter/_exit_fallback_mode 并发时的无锁读竞态
+                if await self.fallback_mode() and not await self.available():
                     await self.check_health()
 
                 if await self.available() and self._sqlite_ts:
@@ -1544,7 +1524,8 @@ from(bucket: {safe_bucket})
     async def _sync_batch(self) -> int:
         """执行一批增量同步"""
         # FIXED-P0: _available读取通过await available()加锁保护
-        if not self._sqlite_ts or not await self.available() or not self._write_api:
+        # P1-3: _sync_batch 守卫同样使用 SYNCHRONOUS 写入 API
+        if not self._sqlite_ts or not await self.available() or not self._sync_write_api:
             return 0
 
         # R5-G-04: 使用同步锁防止force_sync与_sync_loop并发读取同一批未同步记录导致重复写入
@@ -1673,7 +1654,13 @@ from(bucket: {safe_bucket})
         """
         # FIXED(一般): 原问题-同步socket.create_connection阻塞事件循环;
         # 修复-用asyncio.to_thread包装同步DNS探测
-        dns_servers = ["8.8.8.8", "114.114.114.114", "1.1.1.1"]
+        # P2-16: 探测主机允许用环境变量 EDGELITE_NETWORK_CHECK_HOSTS 覆盖
+        # （逗号分隔），内网部署可设为内网网关，避免公网探测永远失败误报 offline
+        hosts_env = os.environ.get("EDGELITE_NETWORK_CHECK_HOSTS", "")
+        if hosts_env.strip():
+            dns_servers = [h.strip() for h in hosts_env.split(",") if h.strip()]
+        else:
+            dns_servers = ["8.8.8.8", "114.114.114.114", "1.1.1.1"]
         success_count = await asyncio.to_thread(self._check_dns_connectivity_sync, dns_servers)
 
         if success_count >= 2:

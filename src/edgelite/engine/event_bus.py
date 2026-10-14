@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import threading
+import time
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -104,7 +105,10 @@ class SystemAlertEvent(Event):
 
     def __post_init__(self):
         if not self.event_id:
-            self.event_id = f"system_alert:{self.alert_type}:{self.severity}"
+            # FIXED-P2: 原 event_id 为静态串（type+severity），第二次同类告警会被总线去重
+            # 缓存静默吞掉。告警发布方（如 disk_monitor）已在源头做防抖（变化≥2%才再发），
+            # 总线层应让每次发布都送达——event_id 加入时间戳保证唯一
+            self.event_id = f"system_alert:{self.alert_type}:{self.severity}:{time.time_ns()}"
 
 
 @dataclass
@@ -167,6 +171,8 @@ class EventBus:
         self._max_dedup_size = 10000
         # FIXED: 告警事件持久化 outbox（进程崩溃兜底），None 表示未启用 [2026-06-29]
         self._alarm_outbox: Any = None
+        # FIXED-P2: 周期性 outbox 重放任务（兜底 persist 超时后"已落盘未投递"的事件）
+        self._periodic_replay_task: asyncio.Task | None = None
 
     def enable_alarm_persistence(self, db_path: str = _DEFAULT_ALARM_OUTBOX_PATH) -> None:
         """启用告警事件持久化兜底（进程崩溃后重启可重放未投递告警）。
@@ -179,6 +185,37 @@ class EventBus:
         self._alarm_outbox = AlarmOutbox(db_path)
         if self._alarm_outbox._conn is not None:
             logger.info("Alarm outbox persistence enabled: %s", db_path)
+
+    def start_periodic_replay(self, interval_seconds: float = 300.0) -> None:
+        """启动周期性 outbox 重放（FIXED-P2: persist 超时路径的兜底）。
+
+        原问题: publish 对 AlarmEvent 的 persist 有 0.5s 超时保护，超时后放弃投递，
+        但 executor 线程中的 persist 仍会继续执行并最终落盘——事件留在 outbox 中却
+        没有任何投递记录，而 replay 只在进程重启时执行，等于该告警通知丢失。
+        周期性重放使这类"已落盘未投递"事件在下一个周期得到补发。
+        """
+        if self._alarm_outbox is None:
+            return
+        if self._periodic_replay_task is not None and not self._periodic_replay_task.done():
+            return  # 已在运行
+
+        async def _replay_loop() -> None:
+            try:
+                while True:
+                    await asyncio.sleep(interval_seconds)
+                    try:
+                        replayed = await self.replay_pending_alarms()
+                        if replayed > 0:
+                            logger.info("Periodic alarm outbox replay delivered %d events", replayed)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        logger.warning("Periodic alarm outbox replay failed: %s", e)
+            except asyncio.CancelledError:
+                pass
+
+        self._periodic_replay_task = asyncio.create_task(_replay_loop(), name="alarm-outbox-periodic-replay")
+        logger.info("Alarm outbox periodic replay started (interval=%.0fs)", interval_seconds)
 
     async def replay_pending_alarms(self) -> int:
         """重启后重放 outbox 中未投递的告警事件。
@@ -501,6 +538,12 @@ class EventBus:
         # 并发安全: 获取 _subscribers_lock 并设置 _shutting_down 标志，防止 shutdown 与 publish 竞态
         async with self._subscribers_lock:
             self._shutting_down = True
+        # FIXED-P2: 停止周期性 outbox 重放任务
+        if self._periodic_replay_task is not None and not self._periodic_replay_task.done():
+            self._periodic_replay_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._periodic_replay_task
+        self._periodic_replay_task = None
         # 并发安全: 取消所有重试任务，防止 fire-and-forget 任务在 shutdown 后继续运行
         retry_tasks = list(self._retry_tasks)
         for task in retry_tasks:

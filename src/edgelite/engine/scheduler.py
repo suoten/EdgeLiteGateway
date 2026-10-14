@@ -120,6 +120,9 @@ class DeviceQualityStats:
     error_count: int = 0
     total_count: int = 0
     error_rate: float = 0.0
+    # FIXED-P2: 连续成功计数（恢复判定用）与 degraded 已发布标记
+    consecutive_successes: int = 0
+    degraded_published: bool = False
 
 
 class CollectScheduler:
@@ -833,7 +836,8 @@ class CollectScheduler:
                 stats.timeout_count += 1
 
     async def _update_device_quality_stats(self, device_id: str, is_error: bool) -> None:
-        """更新帧错误率统计，超阈值时发布告警事件"""
+        """更新帧错误率统计，超阈值时发布告警事件；恢复后发布 healthy 并复位统计"""
+        publish_status: tuple[str, str] | None = None  # (old_status, new_status)
         async with self._state_lock:  # FIXED-P0: _device_quality_stats并发更新保护
             qs = self._device_quality_stats.get(device_id)
             if not qs:
@@ -842,42 +846,65 @@ class CollectScheduler:
             qs.total_count += 1
             if is_error:
                 qs.error_count += 1
+                qs.consecutive_successes = 0
             else:
                 qs.success_count += 1
+                qs.consecutive_successes += 1
             if qs.total_count > 0:
                 qs.error_rate = qs.error_count / qs.total_count
-            should_alarm = qs.total_count >= 10 and qs.error_rate > self._error_rate_threshold
-            alarm_error_rate = qs.error_rate
+            should_alarm = (
+                qs.total_count >= 10 and qs.error_rate > self._error_rate_threshold and not qs.degraded_published
+            )
+            # FIXED-P2: 原问题-error_rate 是累计值且从不复位，设备经历一段高失败期后即使
+            # 长期恢复也每周期持续发布 degraded，下游状态被永久污染且从不恢复 healthy。
+            # 修复-连续成功 20 次视为恢复：发布 healthy、复位错误统计重新累计
+            should_recover = qs.degraded_published and qs.consecutive_successes >= 20
+            if should_alarm:
+                qs.degraded_published = True
+                publish_status = ("healthy", "degraded")
+            elif should_recover:
+                qs.degraded_published = False
+                qs.total_count = 0
+                qs.error_count = 0
+                qs.success_count = 0
+                qs.error_rate = 0.0
+                publish_status = ("degraded", "healthy")
 
-        if should_alarm:
+        if publish_status is None:
+            return
+
+        old_status, new_status = publish_status
+        if new_status == "degraded":
             logger.warning(
                 "设备帧错误率超阈值: %s (%.1f%% > %.1f%%)",
                 device_id,
-                alarm_error_rate * 100,
+                qs.error_rate * 100,
                 self._error_rate_threshold * 100,
             )
-            try:
-                from edgelite.app import _app_state
+        else:
+            logger.info("设备帧错误率恢复: %s (连续成功 >= 20 次)，状态恢复 healthy", device_id)
+        try:
+            from edgelite.app import _app_state
 
-                if _app_state.event_bus:
-                    from edgelite.engine.event_bus import DeviceStatusEvent
+            if _app_state.event_bus:
+                from edgelite.engine.event_bus import DeviceStatusEvent
 
-                    event = DeviceStatusEvent(
-                        device_id=device_id,
-                        old_status="healthy",
-                        new_status="degraded",
-                    )
+                event = DeviceStatusEvent(
+                    device_id=device_id,
+                    old_status=old_status,
+                    new_status=new_status,
+                )
 
-                    # FIXED(一般): 原问题-lambda吞没异常，t.exception()仅返回不记录;
-                    # 修复-改为命名函数记录日志
-                    def _on_evt_done(t: asyncio.Task) -> None:
-                        if not t.cancelled() and t.exception():
-                            logger.warning("Event publish failed: %s", t.exception())
+                # FIXED(一般): 原问题-lambda吞没异常，t.exception()仅返回不记录;
+                # 修复-改为命名函数记录日志
+                def _on_evt_done(t: asyncio.Task) -> None:
+                    if not t.cancelled() and t.exception():
+                        logger.warning("Event publish failed: %s", t.exception())
 
-                    _evt_task = asyncio.create_task(_app_state.event_bus.publish(event))
-                    _evt_task.add_done_callback(_on_evt_done)
-            except Exception as e:
-                logger.debug("Frame error rate alarm event publish failed: %s", e)
+                _evt_task = asyncio.create_task(_app_state.event_bus.publish(event))
+                _evt_task.add_done_callback(_on_evt_done)
+        except Exception as e:
+            logger.debug("Frame error rate status event publish failed: %s", e)
 
     async def _adjust_adaptive_interval(self, device_id: str, is_error: bool, base_interval: int) -> int:
         """Adjust collection interval based on consecutive success/failure counts
@@ -963,13 +990,18 @@ class CollectScheduler:
                     device_items = list(self._device_info.items())
                     collect_times = dict(self._last_collect_time)
                     task_map = dict(self._tasks)
+                    adaptive_map = {k: dict(v) for k, v in self._adaptive_state.items()}
                 for device_id, info in device_items:
                     last_t = collect_times.get(device_id)
                     if last_t is None:
                         continue
                     driver, points, interval = info
                     elapsed = now - last_t
-                    stale_cycles = elapsed / max(interval, 1)
+                    # FIXED-P2: stale 阈值改用自适应后的有效间隔。原实现用基础间隔计算，
+                    # 与自适应退避互相抵消：P3 设备退避至 5×基础间隔后有效间隔=10×基础，
+                    # 恰好撞上重启阈值，断线恢复边缘期被反复误杀重启
+                    effective = adaptive_map.get(device_id, {}).get("effective_interval", interval)
+                    stale_cycles = elapsed / max(effective, 1)
 
                     if stale_cycles >= self._WATCHDOG_RESTART_CYCLES:
                         logger.warning(
@@ -997,13 +1029,10 @@ class CollectScheduler:
                             else:
                                 self._tasks[device_id] = new_task
                                 self._last_collect_time[device_id] = now
-                                # FIXED-P0: 重置 adaptive_state，防止 effective_interval 过大导致
-                                # "重启->超时->重启"死循环
-                                if device_id in self._adaptive_state:
-                                    state = self._adaptive_state[device_id]
-                                    state["consecutive_failures"] = 0
-                                    state["consecutive_successes"] = 0
-                                    state["effective_interval"] = interval
+                                # FIXED-P2: 不再重置 adaptive_state。原"重置防死循环"的顾虑
+                                # 已由上方改用有效间隔计算 stale 阈值消除——退避中的设备不会
+                                # 再被误判 stale；真挂死的设备重启后保留退避状态，避免以最高
+                                # 频率冲击已断线的设备
                         if abort_new:
                             new_task.cancel()
                             with contextlib.suppress(asyncio.CancelledError):
@@ -1073,6 +1102,7 @@ class CollectScheduler:
         # 将缓存记录转换为 write_points_batch 所需格式
         batch: list[dict] = []
         rec_index: list[tuple[int | None, int | None]] = []  # (ring_id, sqlite_id) per record
+        filtered_ring_ids: list[int] = []  # FIXED-P2: 被过滤的记录也要落定状态
         for rec in records:
             tags = rec.get("tags", {})
             fields = rec.get("fields", {})
@@ -1080,6 +1110,11 @@ class CollectScheduler:
             point_name = tags.get("point_name", "")
             value = fields.get("value")
             if not device_id or not point_name or value is None:
+                # FIXED-P2: 原问题-被过滤记录既不 mark_synced 也不 mark_failed，永久滞留
+                # syncing 状态导致计数漂移；修复-标记为 failed 落定
+                _rid = rec.get("_id")
+                if _rid is not None:
+                    filtered_ring_ids.append(_rid)
                 continue
 
             ts = rec.get("timestamp")
@@ -1101,6 +1136,12 @@ class CollectScheduler:
                 }
             )
             rec_index.append((rec.get("_id"), rec.get("sqlite_id")))
+
+        if filtered_ring_ids:
+            try:
+                await cache.mark_failed(filtered_ring_ids)
+            except Exception as e:
+                logger.warning("Cache flush: mark filtered records failed failed: %s", e)
 
         if not batch:
             return
@@ -1131,6 +1172,7 @@ class CollectScheduler:
         # 参考 _flush_from_ring_buffer 的批量写入模式
         batch: list[dict] = []
         rec_ids: list[int] = []
+        filtered_ids: list[int] = []  # FIXED-P2: 被过滤的坏行也要删除，否则每轮都被重复取出
         for rec in records:
             tags = rec.get("tags", {})
             fields = rec.get("fields", {})
@@ -1138,6 +1180,9 @@ class CollectScheduler:
             point_name = tags.get("point_name", "")
             value = fields.get("value")
             if not device_id or not point_name or value is None:
+                _fid = rec.get("id")
+                if _fid is not None:
+                    filtered_ids.append(_fid)
                 continue
 
             ts = rec.get("timestamp")
@@ -1161,6 +1206,12 @@ class CollectScheduler:
             rec_id = rec.get("id")
             if rec_id is not None:
                 rec_ids.append(rec_id)
+
+        if filtered_ids:
+            try:
+                await cache.delete_cached(filtered_ids)
+            except Exception as e:
+                logger.warning("Cache flush: delete filtered records failed: %s", e)
 
         if not batch:
             return

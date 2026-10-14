@@ -53,6 +53,11 @@ class RuleEvaluator:
         self._recent_firings: dict[str, float] = {}  # FIXED-P0: 规则循环触发保护，记录rule_id最近触发时间
         self._recent_firings_max: int = 10000  # FIXED-P1: _recent_firings上限，防止长期运行内存泄漏
         self._min_firing_interval: float = 5.0  # 同一规则两次触发的最小间隔秒数
+        # FIXED-P2: firing 状态查询 5s TTL 缓存。原问题：条件不满足路径每次评估都查一次 DB，
+        # 50 设备×10 点×5s 间隔 ≈ 每秒约 100 次 SQLite 查询的负载放大
+        self._firing_cache: dict[tuple[str, str], tuple[float, dict | None]] = {}
+        self._firing_cache_ttl: float = 5.0
+        self._firing_cache_max: int = 5000
         self._last_values: dict[str, float] = {}  # 死区过滤: point_key -> last_value
         self._condition_first_met: dict[str, float] = {}  # 条件持续时间追踪: condition_key -> first_met_time
         self._state_lock = asyncio.Lock()  # FIXED-P1: 共享状态并发保护（_duration_tracker/_rule_cache/_recent_firings/_last_values/_condition_first_met/_point_value_cache）  # noqa: E501
@@ -162,10 +167,19 @@ class RuleEvaluator:
                     await self._prune_duration_tracker()
                     last_tracker_cleanup = now
             except TimeoutError:
+                # FIXED-P2: Python 3.11 的 wait_for 存在"future 恰好在超时瞬间完成则结果
+                # 被丢弃"的竞态窗口（3.12 重写后修复）——超时后用 get_nowait 兜底取回
+                # 可能已被消费的事件，避免评估事件偶发丢失
+                recovered: object = None
+                with contextlib.suppress(asyncio.QueueEmpty):
+                    recovered = queue.get_nowait()
                 now = time.monotonic()
                 if now - last_tracker_cleanup >= self._tracker_cleanup_interval:
                     await self._prune_duration_tracker()
                     last_tracker_cleanup = now
+                if recovered is not None:
+                    if isinstance(recovered, PointUpdateEvent) and recovered.quality == "good":
+                        await self._evaluate(recovered)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -328,11 +342,8 @@ class RuleEvaluator:
 
             # 检查是否有firing告警需要恢复
             # FIXED: 原问题-数据库查询无异常保护，异常导致评估循环崩溃
-            try:
-                firing_alarm = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
-            except Exception as e:
-                logger.error("Query firing alarm failed %s/%s: %s", rule_id, device_id, e)  # FIXED-P3: 中文日志→英文
-                firing_alarm = None
+            # FIXED-P2: 查询走 5s TTL 缓存（_get_firing_cached），消除逐评估查 DB 的负载放大
+            firing_alarm = await self._get_firing_cached(rule_id, device_id)
             if firing_alarm:
                 alarm_id = firing_alarm.get("alarm_id")  # FIXED: 原问题-硬访问alarm_id可能KeyError
                 if alarm_id is None:
@@ -341,6 +352,32 @@ class RuleEvaluator:
                     )  # FIXED-P3: 中文日志→英文
                     return
                 await self._recover_alarm(alarm_id, rule)
+
+    async def _get_firing_cached(self, rule_id: str, device_id: str) -> dict | None:
+        """FIXED-P2: 查询规则 firing 告警状态，带 5s TTL 进程内缓存。
+
+        原问题：条件不满足路径每次评估都执行一次 DB 查询，点位更新事件数 × 启用规则数
+        的查询放大在规模化部署下成为稳定的 SQLite 负载源。TTL 5s 与 _min_firing_interval
+        对齐；告警触发/恢复时主动失效对应条目，最坏 5s 内读到陈旧状态，可接受。
+        """
+        key = (rule_id, device_id)
+        now = time.monotonic()
+        cached = self._firing_cache.get(key)
+        if cached is not None and (now - cached[0]) < self._firing_cache_ttl:
+            return cached[1]
+        try:
+            firing = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
+        except Exception as e:
+            logger.error("Query firing alarm failed %s/%s: %s", rule_id, device_id, e)  # FIXED-P3: 中文日志→英文
+            firing = None
+        # 超限防膨胀：淘汰最旧一半
+        if len(self._firing_cache) >= self._firing_cache_max:
+            half = self._firing_cache_max // 2
+            oldest = sorted(self._firing_cache.items(), key=lambda kv: kv[1][0])[:half]
+            for stale_key, _ in oldest:
+                self._firing_cache.pop(stale_key, None)
+        self._firing_cache[key] = (now, firing)
+        return firing
 
     async def _check_conditions(
         self,
@@ -672,6 +709,9 @@ class RuleEvaluator:
                 oldest_key = min(self._recent_firings, key=lambda k: self._recent_firings[k])
                 del self._recent_firings[oldest_key]
 
+        # FIXED-P2: 告警状态即将变化，失效 firing 缓存避免 TTL 内读到陈旧状态
+        self._firing_cache.pop((rule_id, device_id), None)
+
         # FIXED: 原问题-告警收敛查询和创建无异常保护，数据库异常导致评估循环崩溃
         try:
             existing = await self._alarm_repo.get_firing_by_rule_device(rule_id, device_id)
@@ -770,6 +810,11 @@ class RuleEvaluator:
         except Exception as e:
             logger.error("Alarm recovery failed %s: %s", alarm_id, e)  # FIXED-P3: 中文日志→英文
             return
+        # FIXED-P2: 告警状态已变化，失效 firing 缓存避免 TTL 内读到陈旧 firing 状态
+        _rule_id = rule.get("rule_id", "")
+        _device_id = rule.get("device_id", "")
+        if _rule_id and _device_id:
+            self._firing_cache.pop((_rule_id, _device_id), None)
         if alarm:
             alarm_event = AlarmEvent(
                 alarm_id=alarm_id,

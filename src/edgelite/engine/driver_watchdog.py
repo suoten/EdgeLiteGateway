@@ -7,6 +7,7 @@ import contextlib
 import logging
 import random
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -636,8 +637,12 @@ class DriverWatchdog:
             try:
                 from edgelite.engine.event_bus import AlarmEvent
 
+                # FIXED-P2: alarm_id 原为静态串，设备恢复后第二次超长离线的 event_id
+                # （alarm:{alarm_id}:{action} 派生）与上次相同，被事件总线去重缓存吞掉。
+                # 每次发布都对应一个独立的离线周期（_long_offline_alarmed 已在源头防抖），
+                # alarm_id 加入时间戳保证每次离线都是独立告警
                 event = AlarmEvent(
-                    alarm_id=f"long_offline_{device_id}",
+                    alarm_id=f"long_offline_{device_id}_{time.time_ns()}",
                     rule_id="system_long_offline",
                     device_id=device_id,
                     severity="critical",
