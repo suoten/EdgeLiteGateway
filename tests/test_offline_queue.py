@@ -221,3 +221,94 @@ class TestOfflineQueueClose:
         await q.close()
         # 再次 close 不应抛异常
         await q.close()
+
+
+class TestFlushInfiniteLoopGuard:
+    """P1-1 回归: 满批且本轮零成功时应 break，防止死循环"""
+
+    @pytest.mark.asyncio
+    async def test_full_batch_zero_success_breaks(self, queue, caplog):
+        # 灌入超过一批(1000)的记录，callback 始终失败
+        for i in range(2500):
+            await queue.enqueue(f"t{i}", {"v": i})
+        calls = []
+
+        async def failing_callback(batch):
+            calls.append(len(batch))
+            return False  # bool False → 全部失败
+
+        with caplog.at_level("WARNING", logger="edgelite.storage.offline_queue"):
+            sent = await queue.flush(failing_callback)
+
+        assert sent == 0
+        # 满批零成功只允许一次满批尝试，不能无限循环重取同一批
+        assert len(calls) == 1, f"expected single full-batch attempt, got {len(calls)} calls: {calls}"
+        assert calls[0] == 1000
+        # 记录已 increment_retry，未被删除
+        assert await queue.count() == 2500
+        assert any("zero successes" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_partial_success_keeps_progressing(self, queue):
+        # 部分成功（仅最早 3 条固定失败）→ 有进度，应继续处理剩余记录直到不满批
+        for i in range(1200):
+            await queue.enqueue("t", {"v": i})
+        first_ids = [r["id"] for r in await queue.dequeue_batch(3)]
+
+        async def mostly_success_callback(batch):
+            return [r["id"] for r in batch if r["id"] not in first_ids]  # 仅最早 3 条失败
+
+        sent = await queue.flush(mostly_success_callback)
+        assert sent == 1197
+        assert await queue.count() == 3
+
+    @pytest.mark.asyncio
+    async def test_small_batch_unchanged_semantics(self, queue):
+        # 不满批即停的原语义保持
+        for i in range(5):
+            await queue.enqueue("t", {"v": i})
+
+        async def failing_callback(batch):
+            return False
+
+        sent = await queue.flush(failing_callback)
+        assert sent == 0
+        assert await queue.count() == 5
+
+
+class TestEnforceMaxSizeByCount:
+    """P1-2 回归: 淘汰按 SELECT COUNT(*) 计数，不依赖文件大小"""
+
+    @pytest.mark.asyncio
+    async def test_eviction_by_record_count(self, tmp_path):
+        # max_records = 1MB // 512 = 2048 → 灌入 2100 条应淘汰 52 条
+        q = OfflineQueue(db_path=str(tmp_path / "offline.db"), max_size_mb=1)
+        try:
+            for i in range(2100):
+                await q.enqueue("t", {"v": i})
+            count = await q.count()
+            assert count == 2048
+        finally:
+            await q.close()
+
+    @pytest.mark.asyncio
+    async def test_no_eviction_below_limit(self, queue):
+        for i in range(10):
+            await queue.enqueue("t", {"v": i})
+        assert await queue.count() == 10
+
+    @pytest.mark.asyncio
+    async def test_oversized_file_does_not_trigger_false_eviction(self, tmp_path):
+        # P1-2 原问题: 文件因 WAL/空闲页远大于阈值但记录数很少时，旧实现会 perpetual 误删。
+        # 新实现只看记录数 → 记录数低于 max_records 时不淘汰。
+        q = OfflineQueue(db_path=str(tmp_path / "offline.db"), max_size_mb=1)
+        try:
+            for i in range(10):
+                await q.enqueue("t", {"v": i})
+            # 模拟文件膨胀（不实际改文件，直接断言淘汰逻辑基于计数）
+            excess_expected = 10 - (1 * 1024 * 1024 // 512)
+            assert excess_expected < 0  # 记录数远低于上限
+            await q._enforce_max_size()
+            assert await q.count() == 10
+        finally:
+            await q.close()

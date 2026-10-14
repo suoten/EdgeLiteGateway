@@ -195,12 +195,65 @@ class TestGetClientIp:
         assert ip == "10.0.0.1"
 
     def test_trusted_proxy_multiple_xff(self):
-        """XFF 含多个 IP 时应取第一个"""
+        """XFF 含多个 IP 时应右向左取第一个非可信 IP（最右段为最后一级代理追加的真实客户端）"""
         req = _make_request("10.0.0.1", {"X-Forwarded-For": "5.6.7.8, 9.8.7.6"})
         mock_config = SimpleNamespace(server=SimpleNamespace(trusted_proxies=["10.0.0.0/8"]))
         with patch("edgelite.api.auth.get_config", return_value=mock_config):
             ip = _get_client_ip(req)
-        assert ip == "5.6.7.8"
+        assert ip == "9.8.7.6"
+
+    # ── FIXED-P1(安全) XFF 右向左遍历回归测试 ──
+
+    def test_xff_forged_leftmost_with_single_trusted_proxy(self):
+        """P1-4 回归: 伪造最左值 + 单层可信代理场景应返回真实 IP。
+
+        攻击者直连 nginx（可信代理）伪造 X-Forwarded-For: 6.6.6.6，
+        nginx 以 $proxy_add_x_forwarded_for 追加攻击者真实 IP → "6.6.6.6, 9.9.9.9"。
+        右向左遍历：9.9.9.9 非可信代理 → 返回攻击者真实 IP，伪造的最左 6.6.6.6 被忽略。
+        """
+        req = _make_request("10.0.0.1", {"X-Forwarded-For": "6.6.6.6, 9.9.9.9"})
+        mock_config = SimpleNamespace(server=SimpleNamespace(trusted_proxies=["10.0.0.0/8"]))
+        with patch("edgelite.api.auth.get_config", return_value=mock_config):
+            ip = _get_client_ip(req)
+        assert ip == "9.9.9.9"
+        assert ip != "6.6.6.6"
+
+    def test_xff_rightmost_trusted_proxy_chain(self):
+        """P1-4 回归: XFF 最右为可信代理条目时应继续向左跳过。
+
+        链路 client(203.0.113.7) → 内层代理(10.0.0.2) → 边缘代理(10.0.0.1)，
+        XFF = "203.0.113.7, 10.0.0.2"，直连边缘代理（可信）→
+        右向左跳过 10.0.0.2（可信），返回真实客户端 203.0.113.7。
+        """
+        req = _make_request("10.0.0.1", {"X-Forwarded-For": "203.0.113.7, 10.0.0.2"})
+        mock_config = SimpleNamespace(server=SimpleNamespace(trusted_proxies=["10.0.0.0/8"]))
+        with patch("edgelite.api.auth.get_config", return_value=mock_config):
+            ip = _get_client_ip(req)
+        assert ip == "203.0.113.7"
+
+    def test_xff_all_entries_trusted_returns_leftmost(self):
+        """P1-4 回归: XFF 全部条目均为可信代理时应返回最左值。"""
+        req = _make_request("10.0.0.1", {"X-Forwarded-For": "10.0.0.2, 10.0.0.3"})
+        mock_config = SimpleNamespace(server=SimpleNamespace(trusted_proxies=["10.0.0.0/8"]))
+        with patch("edgelite.api.auth.get_config", return_value=mock_config):
+            ip = _get_client_ip(req)
+        assert ip == "10.0.0.2"
+
+    def test_xff_garbage_entries_skipped(self):
+        """P1-4 回归: XFF 含伪造垃圾段时应跳过非法条目继续向左。"""
+        req = _make_request("10.0.0.1", {"X-Forwarded-For": "not-an-ip, 9.9.9.9"})
+        mock_config = SimpleNamespace(server=SimpleNamespace(trusted_proxies=["10.0.0.0/8"]))
+        with patch("edgelite.api.auth.get_config", return_value=mock_config):
+            ip = _get_client_ip(req)
+        assert ip == "9.9.9.9"
+
+    def test_xff_all_garbage_falls_back_to_direct(self):
+        """P1-4 回归: XFF 全部非法时回退 X-Real-IP/直连 IP，不返回垃圾值。"""
+        req = _make_request("10.0.0.1", {"X-Forwarded-For": "junk1, junk2", "X-Real-IP": "9.8.7.6"})
+        mock_config = SimpleNamespace(server=SimpleNamespace(trusted_proxies=["10.0.0.0/8"]))
+        with patch("edgelite.api.auth.get_config", return_value=mock_config):
+            ip = _get_client_ip(req)
+        assert ip == "9.8.7.6"
 
     def test_no_client(self):
         """无 client 信息应返回 unknown"""

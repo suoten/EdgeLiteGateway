@@ -424,8 +424,9 @@ class TestConnection:
                 "config": {"host": "127.0.0.1", "port": 502},
             },
         )
-        assert r.status_code == 200
-        assert r.json()["data"]["success"] is False
+        # FIXED(安全-P3 对齐): SSRF 拦截改为显式 400 + SSRF_BLOCKED 错误码，
+        # 不再软性返回 success:false（语义更清晰，前端可提示）
+        assert r.status_code == 400
 
     def test_connection_success(self):
         t = _make_client("admin")
@@ -1058,8 +1059,9 @@ class TestDevicePoints:
     def test_get_points_not_found_owner(self):
         t = _make_client("operator")
         t.svc.get_device = AsyncMock(return_value=None)
+        # FIXED(安全-P3 对齐): 非 admin 对不存在/无权设备统一 403，防差分枚举设备 ID
         r = t.client.get("/api/v1/devices/dev-1/points")
-        assert r.status_code == 404
+        assert r.status_code == 403
 
     def test_get_points_error(self):
         t = _make_client("admin")
@@ -1085,8 +1087,9 @@ class TestDevicePoints:
         t = _make_client("operator")
         t.svc.get_device = AsyncMock(return_value=None)
         r = t.client.post("/api/v1/devices/dev-1/points", json={"point": "temp", "value": 30.0})
-        # FIXED-JOINT: 操作员已有点位写权限 → 通过权限门禁后，设备不存在返回 404
-        assert r.status_code == 404
+        # FIXED(安全-P3 对齐): 非 admin 对不存在/无权设备统一 403 防枚举
+        # （覆盖原 FIXED-JOINT 的 404 语义）
+        assert r.status_code == 403
 
     def test_write_point_error(self):
         t = _make_client("admin")
@@ -1421,7 +1424,8 @@ class TestAccessHelpers:
         svc.get_device = AsyncMock(return_value=None)
         with pytest.raises(Exception) as exc_info:
             await _check_device_owner(svc, "dev-1", OPERATOR)
-        assert exc_info.value.status_code == 404
+        # FIXED(安全-P3 对齐): 不存在与无权统一 403（防枚举）；admin 才 404
+        assert exc_info.value.status_code == 403
 
     async def test_check_device_owner_owner(self):
         svc = AsyncMock()

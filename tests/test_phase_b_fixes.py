@@ -318,6 +318,7 @@ async def influx_storage_with_mock_write():
     storage = InfluxDBStorage.__new__(InfluxDBStorage)
     storage._bucket = "test_bucket"
     storage._write_api = MagicMock()
+    storage._sync_write_api = storage._write_api
     storage._client = None
     return storage
 

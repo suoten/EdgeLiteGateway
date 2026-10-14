@@ -700,7 +700,8 @@ class TestOpcUaBrowse:
 
         reg = _make_registry(drivers={"opc_ua": FakeOpcUaDriver})
         device_svc = MagicMock()
-        device_svc._drivers = {}
+        # FIXED(P2 对齐): 端点改用 await device_svc.get_driver_instance() 获取运行中实例
+        device_svc.get_driver_instance = AsyncMock(return_value=None)
         app = _build_app(driver_registry=reg)
         client = TestClient(app)
         with patch("edgelite.app._app_state", SimpleNamespace(device_service=device_svc)):
@@ -715,7 +716,7 @@ class TestOpcUaBrowse:
         driver_instance = FakeOpcUaDriver()
         reg = _make_registry(drivers={"opc_ua": FakeOpcUaDriver})
         device_svc = MagicMock()
-        device_svc._drivers = {"d1": driver_instance}
+        device_svc.get_driver_instance = AsyncMock(return_value=driver_instance)
         app = _build_app(driver_registry=reg, role="admin")
         client = TestClient(app)
         with patch("edgelite.app._app_state", SimpleNamespace(device_service=device_svc)):
@@ -734,7 +735,7 @@ class TestOpcUaBrowse:
         driver_instance = FakeOpcUaDriver()
         reg = _make_registry(drivers={"opc_ua": FakeOpcUaDriver})
         device_svc = MagicMock()
-        device_svc._drivers = {"d1": driver_instance}
+        device_svc.get_driver_instance = AsyncMock(return_value=driver_instance)
         device_svc.get_device = AsyncMock(return_value={"created_by": "other-user"})
         app = _build_app(driver_registry=reg, role="viewer", user_id="viewer-1")
         client = TestClient(app)
@@ -756,7 +757,7 @@ class TestOpcUaBrowse:
         driver_instance = FakeOpcUaDriver()
         reg = _make_registry(drivers={"opc_ua": FakeOpcUaDriver})
         device_svc = MagicMock()
-        device_svc._drivers = {"d1": driver_instance}
+        device_svc.get_driver_instance = AsyncMock(return_value=driver_instance)
         device_svc.get_device = AsyncMock(return_value={"created_by": "other-user"})
         app = _build_app(driver_registry=reg, role="viewer", user_id="viewer-1")
         client = TestClient(app)
@@ -776,8 +777,7 @@ class TestOpcUaBrowse:
 
         reg = _make_registry(drivers={"opc_ua": FakeOpcUaDriver})
         device_svc = MagicMock()
-        device_svc._drivers = MagicMock()
-        device_svc._drivers.get.side_effect = RuntimeError("boom")
+        device_svc.get_driver_instance = AsyncMock(side_effect=RuntimeError("boom"))
         app = _build_app(driver_registry=reg)
         client = TestClient(app)
         with patch("edgelite.app._app_state", SimpleNamespace(device_service=device_svc)):
@@ -785,34 +785,60 @@ class TestOpcUaBrowse:
         assert resp.status_code == 500
 
 
+class _UnIterable:
+    """dict() 化即抛 TypeError 的占位对象（模拟实例表损坏，触发端点 500）"""
+
+
 class TestOpcUaCertificateStatus:
     def test_cert_status_success(self):
-        # FIXED(ci): 实现为 OpcUaDriver.__new__(OpcUaDriver) 裸实例 + 实例方法
-        # get_certificate_status()（只读 _certificate_status）。MagicMock 不支持
-        # __new__ 子 mock，改用真实替身类验证端点与实现的协作。
+        # FIXED(P2 对齐): 端点改为遍历 DeviceService 中真实运行的 OPC UA 驱动实例聚合，
+        # 不再用 OpcUaDriver.__new__ 构造假驱动。测试 mock：list_devices 返回一个 opcua
+        # 设备，_driver_instances 提供通过 isinstance 检查的替身实例。
         captured: dict = {}
 
         class _FakeOpcUaDriver:
+            _certificate_status: dict = {}
+
             def get_certificate_status(self):
                 captured["status"] = self._certificate_status
                 return {"d1": {"valid": True}}
 
-        with patch("edgelite.drivers.opcua.OpcUaDriver", _FakeOpcUaDriver):
+        device_svc = MagicMock()
+        device_svc.list_devices = AsyncMock(return_value=([{"device_id": "d1"}], 1))
+        fake_instance = _FakeOpcUaDriver()
+        device_svc._driver_instances = {"d1": fake_instance}
+
+        with (
+            patch("edgelite.drivers.opcua.OpcUaDriver", _FakeOpcUaDriver),
+            patch("edgelite.app._app_state", SimpleNamespace(device_service=device_svc)),
+        ):
             app = _build_app()
             client = TestClient(app)
             resp = client.get("/api/v1/drivers/opcua/certificate-status")
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["device_count"] == 1
+        assert data["opcua_instance_count"] == 1
+        assert data["certificates"] == {"d1": {"valid": True}}
         assert "certificates" in data
         assert captured["status"] == {}
 
     def test_cert_status_exception_500(self):
+        # FIXED(P2 对齐): 单个驱动 get_certificate_status 异常已被端点隔离（warning+空状态），
+        # 500 仅在上层聚合失败（如实例表不可迭代）时出现——mock _driver_instances 为
+        # 不可 dict 化的对象触发
         class _BoomOpcUaDriver:
             def get_certificate_status(self):
                 raise RuntimeError("boom")
 
-        with patch("edgelite.drivers.opcua.OpcUaDriver", _BoomOpcUaDriver):
+        device_svc = MagicMock()
+        device_svc.list_devices = AsyncMock(return_value=([{"device_id": "d1"}], 1))
+        device_svc._driver_instances = _UnIterable()
+
+        with (
+            patch("edgelite.drivers.opcua.OpcUaDriver", _BoomOpcUaDriver),
+            patch("edgelite.app._app_state", SimpleNamespace(device_service=device_svc)),
+        ):
             app = _build_app()
             client = TestClient(app)
             resp = client.get("/api/v1/drivers/opcua/certificate-status")

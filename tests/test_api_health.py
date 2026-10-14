@@ -163,14 +163,17 @@ class TestCheckSqlite:
 
     @pytest.mark.asyncio
     async def test_check_sqlite_exception(self):
-        """数据库异常应返回 unhealthy"""
+        """数据库异常应返回 unhealthy，且响应不含内部异常细节（FIXED-P2 对齐：脱敏）"""
         mock_db = MagicMock()
         mock_db.get_session.side_effect = RuntimeError("db error")
 
         with patch("edgelite.app._app_state", SimpleNamespace(database=mock_db)):
             result = await _check_sqlite()
             assert result["status"] == "unhealthy"
-            assert "db error" in result["error"]
+            # FIXED-P2: 原断言 "db error" in error 泄漏内部异常文本给未认证调用方，
+            # 现响应只含通用错误信息
+            assert "db error" not in result["error"]
+            assert result["error"]
 
 
 class TestCheckInfluxdb:

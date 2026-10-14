@@ -62,7 +62,9 @@ def mock_app_state(monkeypatch):
 @pytest.fixture
 def app(mock_app_state, monkeypatch):
     # Bypass IP whitelist for endpoint tests (tested directly in TestCheckIpWhitelist)
+    # FIXED: WS 端点改走 _ensure_debug_ip_allowed，需一并旁路
     monkeypatch.setattr("edgelite.api.debug._check_debug_ip_whitelist", lambda request: None)
+    monkeypatch.setattr("edgelite.api.debug._ensure_debug_ip_allowed", lambda ip: None)
     from edgelite.api.deps import get_current_user
 
     application = FastAPI()
@@ -85,6 +87,7 @@ def allowed_config(monkeypatch):
     fixture keeps that bypass in place so endpoint tests reach the handler.
     """
     monkeypatch.setattr("edgelite.api.debug._check_debug_ip_whitelist", lambda request: None)
+    monkeypatch.setattr("edgelite.api.debug._ensure_debug_ip_allowed", lambda ip: None)
     return None
 
 
@@ -98,7 +101,11 @@ def blocked_config(monkeypatch):
     def _block(request):
         raise HTTPException(status_code=403, detail=DebugErrors.IP_NOT_ALLOWED)
 
+    def _block_core(ip):
+        raise HTTPException(status_code=403, detail=DebugErrors.IP_NOT_ALLOWED)
+
     monkeypatch.setattr("edgelite.api.debug._check_debug_ip_whitelist", _block)
+    monkeypatch.setattr("edgelite.api.debug._ensure_debug_ip_allowed", _block_core)
     return None
 
 

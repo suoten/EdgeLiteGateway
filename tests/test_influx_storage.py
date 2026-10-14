@@ -157,7 +157,8 @@ class TestConnect:
         ):
             await storage.connect()
         assert storage._available is True
-        assert storage._write_api is not None
+        # FIXED(P1-3 对齐): 缓冲式 _write_api 已移除，主路径统一 _sync_write_api
+        assert storage._sync_write_api is not None
         assert storage._query_api is not None
 
     async def test_connect_health_fail_enters_fallback(self, storage):
@@ -301,6 +302,7 @@ class TestWritePoint:
         """InfluxDB 可用时写入成功"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_point("dev1", "temp", 23.5)
         assert result is True
@@ -309,6 +311,7 @@ class TestWritePoint:
         """NaN 值应被跳过"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
 
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_point("dev1", "temp", float("nan"))
@@ -318,6 +321,7 @@ class TestWritePoint:
         """Infinity 值应被跳过"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_point("dev1", "temp", float("inf"))
         assert result is False
@@ -326,6 +330,7 @@ class TestWritePoint:
         """写入失败应触发降级写入"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
 
         async def boom(*a, **kw):
             raise RuntimeError("write failed")
@@ -356,6 +361,7 @@ class TestWritePoint:
         """带时间戳的写入应成功"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         ts = datetime.now(UTC)
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_point("dev1", "temp", 23.5, timestamp=ts)
@@ -370,6 +376,7 @@ class TestWritePointsBatch:
         """批量写入成功"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [
             {"device_id": "d1", "point_name": "t", "value": 1.0},
             {"device_id": "d2", "point_name": "t", "value": 2.0},
@@ -382,6 +389,7 @@ class TestWritePointsBatch:
         """空批量应返回 True"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_points_batch([])
         assert result is True
@@ -390,6 +398,7 @@ class TestWritePointsBatch:
         """批量写入失败应走降级"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [{"device_id": "d1", "point_name": "t", "value": 1.0}]
 
         async def boom(*a, **kw):
@@ -650,6 +659,7 @@ class TestCleanupClose:
         """close 应清理资源"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_task = None
         await storage.close()
         # close 后 _client 仍存在但 write_api.close 被调用
@@ -659,6 +669,7 @@ class TestCleanupClose:
         """close 应取消同步任务"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         task = asyncio.create_task(asyncio.sleep(100))
         storage._sync_task = task
         storage._sync_running = True
@@ -791,6 +802,7 @@ class TestAdditionalCoverage:
         """写入成功应重置fail_count"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._fail_count = 2
         await storage.write_point("dev1", "temp", 25.5)
         assert storage._fail_count == 0
@@ -799,6 +811,7 @@ class TestAdditionalCoverage:
         """批量写入成功应重置fail_count"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._fail_count = 2
         await storage.write_points_batch([{"device_id": "d", "point_name": "p", "value": 1}])
         assert storage._fail_count == 0
@@ -807,6 +820,7 @@ class TestAdditionalCoverage:
         """批量写入连续3次失败应触发降级"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.write.side_effect = Exception("err")
         storage._fail_count = 2
         with (
@@ -820,6 +834,7 @@ class TestAdditionalCoverage:
         """批量写入带时间戳"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         ts = datetime(2024, 1, 1, tzinfo=UTC)
         records = [{"device_id": "d", "point_name": "p", "value": 1, "timestamp": ts}]
         assert await storage.write_points_batch(records) is True
@@ -868,6 +883,7 @@ class TestAdditionalCoverage:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         ts_str = datetime(2024, 1, 1, tzinfo=UTC).isoformat()
         storage._buffer_drain_all = AsyncMock(
@@ -887,6 +903,7 @@ class TestAdditionalCoverage:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(
             return_value=[
@@ -905,6 +922,7 @@ class TestAdditionalCoverage:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(
             return_value=[{"device_id": None, "point_name": "temp", "value": object(), "quality": "good"}]
@@ -921,6 +939,7 @@ class TestAdditionalCoverage:
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._sqlite_ts.write_points_batch.side_effect = Exception("write err")
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(
             return_value=[{"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good", "timestamp": None}]
@@ -933,6 +952,7 @@ class TestAdditionalCoverage:
         """增量同步跳过NaN值"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -947,6 +967,7 @@ class TestAdditionalCoverage:
         """增量同步跳过无法转换为float的值"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -961,6 +982,7 @@ class TestAdditionalCoverage:
         """增量同步使用last_uploaded_max_id作为偏移"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._last_uploaded_max_id = 10
@@ -978,6 +1000,7 @@ class TestAdditionalCoverage:
         """增量同步使用记录中的measurement"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -999,30 +1022,29 @@ class TestAdditionalCoverage:
         """强制同步无数据时返回0"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = []
         assert await storage.force_sync() == 0
 
     async def test_check_health_rebuilds_write_api(self, storage):
-        """check_health恢复时应重建write_api"""
+        """check_health恢复时应关闭并重建 _sync_write_api（FIXED(P1-3 对齐): 仅保留同步写入 API）"""
         client = MagicMock()
         client.health.return_value = SimpleNamespace(status="pass")
         new_write_api = MagicMock()
         client.write_api.return_value = new_write_api
         client.query_api.return_value = MagicMock()
         client.buckets_api.return_value = MagicMock()
-        old_write_api = MagicMock()
+        old_sync_write_api = MagicMock()
         storage._client = client
         storage._available = False
-        storage._write_api = old_write_api
-        storage._sync_write_api = None
+        storage._sync_write_api = old_sync_write_api
         storage._fallback_mode = True
         with patch.object(storage, "_exit_fallback_mode", new_callable=AsyncMock):
             await storage.check_health()
-        old_write_api.close.assert_called_once()
-        assert storage._write_api is new_write_api
-        assert storage._sync_write_api is not None
+        old_sync_write_api.close.assert_called_once()
+        assert storage._sync_write_api is not old_sync_write_api
 
     async def test_connect_ping_timeout(self, storage):
         """ping超时应进入降级模式"""
@@ -1209,6 +1231,7 @@ class TestWriteWithRetry:
     async def test_write_retry_success_first_try(self, storage):
         """_write_with_retry 首次成功"""
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         with patch("edgelite.storage.influx_storage.asyncio.sleep", new=AsyncMock()):
             await storage._write_with_retry(record=MagicMock())
         storage._write_api.write.assert_called_once()
@@ -1216,6 +1239,7 @@ class TestWriteWithRetry:
     async def test_write_retry_connection_error_then_success(self, storage):
         """ConnectionError 重试后成功"""
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.write.side_effect = [ConnectionError("net err"), None]
         with patch("edgelite.storage.influx_storage.asyncio.sleep", new=AsyncMock()):
             await storage._write_with_retry(record=MagicMock(), max_retries=3)
@@ -1224,6 +1248,7 @@ class TestWriteWithRetry:
     async def test_write_retry_timeout_then_success(self, storage):
         """TimeoutError 重试后成功"""
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.write.side_effect = [TimeoutError(), None]
         with patch("edgelite.storage.influx_storage.asyncio.sleep", new=AsyncMock()):
             await storage._write_with_retry(record=MagicMock(), max_retries=3)
@@ -1231,6 +1256,7 @@ class TestWriteWithRetry:
     async def test_write_retry_oserror_then_success(self, storage):
         """OSError 重试后成功"""
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.write.side_effect = [OSError("os err"), None]
         with patch("edgelite.storage.influx_storage.asyncio.sleep", new=AsyncMock()):
             await storage._write_with_retry(record=MagicMock(), max_retries=3)
@@ -1238,6 +1264,7 @@ class TestWriteWithRetry:
     async def test_write_retry_all_fail_raises(self, storage):
         """全部重试失败应抛出最后异常"""
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.write.side_effect = ConnectionError("persistent")
         with (
             patch("edgelite.storage.influx_storage.asyncio.sleep", new=AsyncMock()),
@@ -1248,6 +1275,7 @@ class TestWriteWithRetry:
     async def test_write_retry_value_error_no_retry(self, storage):
         """ValueError 不重试立即抛出"""
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.write.side_effect = ValueError("bad data")
         with pytest.raises(ValueError):
             await storage._write_with_retry(record=MagicMock(), max_retries=3)
@@ -1633,6 +1661,7 @@ class TestSyncBatchMore:
         """值为 None 的记录应跳过"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -1648,6 +1677,7 @@ class TestSyncBatchMore:
         """写入 InfluxDB 失败应保留源数据并返回 0"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -1666,6 +1696,7 @@ class TestSyncBatchMore:
         """sync_completed 失败应记录 last_uploaded_max_id"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -1681,6 +1712,7 @@ class TestSyncBatchMore:
         """所有点都被过滤但仍应标记 sync_completed"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = [
@@ -1696,6 +1728,7 @@ class TestSyncBatchMore:
         """_sync_batch 异常应返回 0 并增加失败计数"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.side_effect = RuntimeError("db err")
@@ -1703,10 +1736,10 @@ class TestSyncBatchMore:
         assert result == 0
         assert storage._stats_sync_fail == 1
 
-    async def test_sync_batch_creates_sync_write_api_if_none(self, storage):
-        """_sync_write_api 为 None 时应按需创建"""
+    async def test_sync_batch_returns_zero_without_sync_write_api(self, storage):
+        """FIXED(P1-3 对齐): _sync_write_api 改为 connect() 时创建后，_sync_batch 守卫
+        在其缺失时直接返回 0，不再按需创建"""
         storage._available = True
-        storage._write_api = MagicMock()
         storage._sync_write_api = None
         storage._client = MagicMock()
         storage._sqlite_ts = AsyncMock()
@@ -1714,10 +1747,8 @@ class TestSyncBatchMore:
             {"id": 1, "value": 25.5, "device_id": "d", "point_name": "t"},
         ]
         storage._sqlite_ts.sync_completed.return_value = True
-        with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
-            result = await storage._sync_batch()
-        assert result == 1
-        assert storage._sync_write_api is not None
+        result = await storage._sync_batch()
+        assert result == 0
 
 
 # ───────────────────────── 网络状态 ─────────────────────────
@@ -1859,6 +1890,7 @@ class TestForceSyncMore:
         """force_sync 应循环调用直到无数据"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         call_count = {"n": 0}
@@ -1878,6 +1910,7 @@ class TestForceSyncMore:
         storage._sqlite_ts = AsyncMock()
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts.get_unsynced_records.return_value = []
         result = await storage.force_sync()
@@ -1887,6 +1920,7 @@ class TestForceSyncMore:
         """_sync_from_sqlite 应委托 _sync_batch"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_records.return_value = []
@@ -1986,6 +2020,7 @@ class TestWritePointFailCount:
         """写入失败应递增 fail_count 但不立即降级"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
 
         async def boom(*a, **kw):
             raise RuntimeError("write err")
@@ -2004,6 +2039,7 @@ class TestWritePointFailCount:
         """fail_count 达到 3 应触发降级"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._fail_count = 2
 
         async def boom(*a, **kw):
@@ -2027,6 +2063,7 @@ class TestWritePointsBatchMore:
         """超过 10000 条应截断"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [{"device_id": "d", "point_name": "p", "value": float(i)} for i in range(10001)]
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_points_batch(records)
@@ -2036,6 +2073,7 @@ class TestWritePointsBatchMore:
         """缺少必填字段的记录应跳过"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [
             {"device_id": "", "point_name": "p", "value": 1.0},
             {"device_id": "d", "point_name": "", "value": 2.0},
@@ -2050,6 +2088,7 @@ class TestWritePointsBatchMore:
         """所有记录被跳过后 points 为空应返回 True"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [{"device_id": "", "point_name": "p", "value": 1.0}]
         with patch("edgelite.storage.influx_storage.asyncio.to_thread", new=AsyncMock()):
             result = await storage.write_points_batch(records)
@@ -2059,6 +2098,7 @@ class TestWritePointsBatchMore:
         """NaN 值的记录应跳过"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [
             {"device_id": "d", "point_name": "p", "value": float("nan")},
             {"device_id": "d", "point_name": "p", "value": 3.0},
@@ -2071,6 +2111,7 @@ class TestWritePointsBatchMore:
         """批量写入失败但 fail_count < 3 不触发降级"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         records = [{"device_id": "d", "point_name": "p", "value": 1.0}]
 
         async def boom(*a, **kw):
@@ -2095,6 +2136,7 @@ class TestCloseMore:
         """close 应停止 sqlite_ts"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_write_api = MagicMock()
         sqlite_mock = AsyncMock()
         storage._sqlite_ts = sqlite_mock
@@ -2107,6 +2149,7 @@ class TestCloseMore:
         """close 应关闭 sync_write_api"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         sync_write_mock = MagicMock()
         storage._sync_write_api = sync_write_mock
         storage._sync_task = None
@@ -2118,6 +2161,7 @@ class TestCloseMore:
         """write_api.close 异常应被捕获"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._write_api.close.side_effect = RuntimeError("close err")
         storage._sync_task = None
         await storage.close()
@@ -2127,6 +2171,7 @@ class TestCloseMore:
         storage._client = MagicMock()
         storage._client.close.side_effect = RuntimeError("close err")
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._sync_task = None
         await storage.close()
         assert storage._client is None
@@ -2135,6 +2180,7 @@ class TestCloseMore:
         """sqlite_ts.stop 异常应被捕获"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         sqlite_mock = AsyncMock()
         sqlite_mock.stop.side_effect = RuntimeError("stop err")
         storage._sqlite_ts = sqlite_mock
@@ -2146,6 +2192,7 @@ class TestCloseMore:
         """emergency_db.close 异常应被捕获"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         db_mock = MagicMock()
         db_mock.close.side_effect = RuntimeError("close err")
         storage._emergency_db = db_mock
@@ -2157,6 +2204,7 @@ class TestCloseMore:
         """close 应通过 stop_sync 关闭 probe_client"""
         storage._client = MagicMock()
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         probe_mock = MagicMock()
         storage._probe_client = probe_mock
         storage._sync_task = None
@@ -2248,10 +2296,14 @@ class TestEmergencyDbWriteMore:
         storage._emergency_db_write({"v": 1})
 
     def test_emergency_db_write_exception(self, storage):
-        """_emergency_db_write 异常应被捕获"""
+        """FIXED(P2 对齐): _emergency_db_write 异常不再吞掉，log 后 re-raise，
+        让上层重试/回滚/fallback 文件逻辑生效"""
+        import pytest
+
         storage._emergency_db = MagicMock()
         storage._emergency_db.execute.side_effect = RuntimeError("write err")
-        storage._emergency_db_write({"v": 1})
+        with pytest.raises(RuntimeError, match="write err"):
+            storage._emergency_db_write({"v": 1})
 
     def test_emergency_db_write_batch_no_db(self, storage):
         """无 emergency_db 时批量写入应直接返回"""
@@ -2259,10 +2311,13 @@ class TestEmergencyDbWriteMore:
         storage._emergency_db_write_batch([{"v": 1}])
 
     def test_emergency_db_write_batch_exception(self, storage):
-        """批量写入异常应被捕获"""
+        """FIXED(P2 对齐): 批量写入异常不再吞掉，log 后 re-raise"""
+        import pytest
+
         storage._emergency_db = MagicMock()
         storage._emergency_db.executemany.side_effect = RuntimeError("batch err")
-        storage._emergency_db_write_batch([{"v": 1}])
+        with pytest.raises(RuntimeError, match="batch err"):
+            storage._emergency_db_write_batch([{"v": 1}])
 
     def test_emergency_db_delete_restored_no_db(self, storage):
         """无 emergency_db 时删除应直接返回"""
@@ -2281,6 +2336,7 @@ class TestCheckHealthRecovery:
         storage._client = client
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         result = await storage.check_health()
         assert result is True
 
@@ -2306,6 +2362,7 @@ class TestSyncLoopCleanup:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time() - 100000  # 超过24小时
         storage._buffer_drain_all = AsyncMock(return_value=[])
         storage.cleanup_expired_data = AsyncMock(return_value=1)
@@ -2321,6 +2378,7 @@ class TestSyncLoopCleanup:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time() - 100000
         storage._buffer_drain_all = AsyncMock(return_value=[])
         storage.cleanup_expired_data = AsyncMock(side_effect=RuntimeError("cleanup err"))
@@ -2335,6 +2393,7 @@ class TestSyncLoopCleanup:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(return_value=[])
         storage.check_health = AsyncMock(return_value=False)
@@ -2350,6 +2409,7 @@ class TestSyncLoopCleanup:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.side_effect = RuntimeError("boom")
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(return_value=[])
         with patch("edgelite.storage.influx_storage.asyncio.sleep", make_sleep_cancel_after(1)):
@@ -2436,6 +2496,7 @@ class TestEdgeBranches:
         """fail_count 达到 3 但已处于降级模式时不重复进入"""
         storage._available = True
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._fail_count = 2
         storage._fallback_mode = True
 
@@ -2583,6 +2644,7 @@ class TestEdgeBranches:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         ts_str = datetime(2024, 1, 1, tzinfo=UTC).isoformat()
         storage._buffer_drain_all = AsyncMock(
@@ -2603,6 +2665,7 @@ class TestEdgeBranches:
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._sqlite_ts.write_points_batch.side_effect = RuntimeError("write err")
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(
             return_value=[{"device_id": "d1", "point_name": "temp", "value": 42, "quality": "good"}]
@@ -2618,6 +2681,7 @@ class TestEdgeBranches:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 10
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(return_value=[])
         storage._sync_batch = AsyncMock(return_value=5)
@@ -2633,6 +2697,7 @@ class TestEdgeBranches:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time() - 100000
         storage._buffer_drain_all = AsyncMock(return_value=[])
         storage.cleanup_expired_data = AsyncMock(return_value=5)
@@ -2647,6 +2712,7 @@ class TestEdgeBranches:
         storage._sqlite_ts = AsyncMock()
         storage._sqlite_ts.get_unsynced_count.return_value = 0
         storage._write_api = MagicMock()
+        storage._sync_write_api = storage._write_api
         storage._last_cleanup_time = time.time()
         storage._buffer_drain_all = AsyncMock(return_value=[])
 
