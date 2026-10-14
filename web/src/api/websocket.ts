@@ -52,6 +52,16 @@ const POLL_API_MAP: Record<string, string> = {
   integration: '/api/v1/system/status',
 }
 
+// FIXED-P3: 降级轮询的请求基准此前固定为页面 origin，与 axios 的 baseURL
+// （VITE_API_BASE_URL，见 http.ts）不一致——前后端分域部署时轮询会打到页面自身
+// 域名而 404/被 SPA fallback 吞掉，降级期间告警通知失效。此处从同一环境变量推导
+const API_ORIGIN: string = (() => {
+  const base = import.meta.env.VITE_API_BASE_URL as string | undefined
+  if (base && base.includes('/api/v1')) return base.replace(/\/api\/v1\/?$/, '')
+  if (base) return base.replace(/\/$/, '')
+  return location.origin
+})()
+
 // FIXED-P0: HTTP 轮询降级时用 Set 去重，避免同一报警 ID 被重复推送
 // 超过 500 条时保留最近 250 条，防止内存无限增长
 const seenAlarmIds: Set<string> = new Set()
@@ -135,7 +145,7 @@ function startHttpPolling(channel: ChannelName): void {
   conn.pollingActive = true
   const pollOnce = async () => {
     try {
-      const resp = await fetch(`${location.origin}${pollUrl}`, {
+      const resp = await fetch(`${API_ORIGIN}${pollUrl}`, {
         headers: { 'Authorization': `Bearer ${getToken()}` },
       })
       if (resp.ok) {

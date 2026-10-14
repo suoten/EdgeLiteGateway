@@ -1,0 +1,17 @@
+# FIXED-P2: deployment.yaml 引用的 PVC 此前缺失，kubectl apply -f k8s/ 后 Pod 因
+# PVC 不存在而 Pending；补充使裸清单路径可直接部署
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: edgelite-data
+  namespace: edgelite
+  labels:
+    app: edgelite
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # 留空使用集群默认 StorageClass；如需指定请取消注释并按环境修改
+  # storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi

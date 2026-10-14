@@ -79,8 +79,16 @@ class Client:
         return self.request("DELETE", path)
 
 
+# FIXED(安全-P2): 口令不再硬编码，通过环境变量注入（EL_PASS 必填）
+_EL_PASS = os.environ.get("EL_PASS", "")
+if not _EL_PASS:
+    print(
+        "ERROR: environment variable EL_PASS is required (EdgeLite admin password for acceptance testing)",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 pf = Client(PF, "admin", "admin")
-el = Client(EL, "admin", "EdgeLite@2026")
+el = Client(EL, "admin", _EL_PASS)
 pf.login()
 el.login()
 
@@ -232,7 +240,7 @@ env["PF_USER"] = "admin"
 env["PF_PASS"] = "admin"
 env["EL_URL"] = EL
 env["EL_USER"] = "admin"
-env["EL_PASS"] = "EdgeLite@2026"
+env["EL_PASS"] = _EL_PASS
 
 script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "joint_acceptance.py")
 report = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "joint_acceptance_report.json")

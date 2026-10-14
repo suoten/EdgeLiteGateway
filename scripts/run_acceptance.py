@@ -12,7 +12,15 @@ env["PF_USER"] = "admin"
 env["PF_PASS"] = "admin"
 env["EL_URL"] = "http://127.0.0.1:8180/api/v1"
 env["EL_USER"] = "admin"
-env["EL_PASS"] = "EdgeLite@2026"
+# FIXED(安全-P2): 口令不再硬编码，必须通过环境变量注入（缺省报错退出）
+el_pass = os.environ.get("EL_PASS", "")
+if not el_pass:
+    print(
+        "ERROR: environment variable EL_PASS is required (EdgeLite admin password for acceptance testing)",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+env["EL_PASS"] = el_pass
 
 script = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),

@@ -102,18 +102,46 @@ jobs:
           mkdir -p $HOME/.kube
           mv kubeconfig.yaml $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+      - name: Resolve required secrets (fail fast)
+        env:
+          SECRET_KEY: ${{ secrets.EDGELITE_SECRET_KEY }}
+          ADMIN_PASSWORD: ${{ secrets.EDGELITE_ADMIN_PASSWORD }}
+          INFLUXDB_TOKEN: ${{ secrets.EDGELITE_INFLUXDB_TOKEN }}
+          MQTT_PASSWORD: ${{ secrets.EDGELITE_MQTT_PASSWORD }}
+        run: |
+          # FIXED(安全-P2): 密钥从 GitHub Environment secrets 注入而非 values.yaml 的
+          # CHANGE_ME 占位符（后端 fail-closed 会拒绝启动，流水线此前实际不可用）；
+          # 缺失任一必需密钥立即失败并给出明确提示，绝不部署占位符配置
+          missing=0
+          for var in SECRET_KEY ADMIN_PASSWORD INFLUXDB_TOKEN MQTT_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "❌ Missing required environment secret: ${var} (configure it in the GitHub Environment 'staging')"
+              missing=1
+            fi
+          done
+          exit $missing
       - name: Deploy via Helm
+        env:
+          SECRET_KEY: ${{ secrets.EDGELITE_SECRET_KEY }}
+          ADMIN_PASSWORD: ${{ secrets.EDGELITE_ADMIN_PASSWORD }}
+          INFLUXDB_TOKEN: ${{ secrets.EDGELITE_INFLUXDB_TOKEN }}
+          MQTT_PASSWORD: ${{ secrets.EDGELITE_MQTT_PASSWORD }}
         run: |
           if [ -d "helm/edgelite" ]; then
+            # FIXED(安全-P2): 移除 --debug——失败时它会将含 stringData 明文的完整渲染
+            # 清单打印进 CI 日志
             helm upgrade --install edgelite ./helm/edgelite \
               --namespace edgelite-staging \
               --create-namespace \
               --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
               --set image.tag=${{ needs.validate.outputs.image_tag }} \
               --set environment=staging \
+              --set-string edgelite.security.secretKey="$SECRET_KEY" \
+              --set-string edgelite.adminPassword="$ADMIN_PASSWORD" \
+              --set-string edgelite.influxdb.token="$INFLUXDB_TOKEN" \
+              --set-string edgelite.mqtt.password="$MQTT_PASSWORD" \
               --wait --timeout 300s \
-              --atomic \
-              --debug
+              --atomic
             echo "✅ Staging deployment complete"
           else
             echo "⚠️ No Helm chart found, applying raw K8s manifests"
@@ -158,18 +186,43 @@ jobs:
           mkdir -p $HOME/.kube
           mv kubeconfig.yaml $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+      - name: Resolve required secrets (fail fast)
+        env:
+          SECRET_KEY: ${{ secrets.EDGELITE_SECRET_KEY }}
+          ADMIN_PASSWORD: ${{ secrets.EDGELITE_ADMIN_PASSWORD }}
+          INFLUXDB_TOKEN: ${{ secrets.EDGELITE_INFLUXDB_TOKEN }}
+          MQTT_PASSWORD: ${{ secrets.EDGELITE_MQTT_PASSWORD }}
+        run: |
+          # FIXED(安全-P2): 与 staging 相同——密钥从 Environment secrets 注入，缺失即失败
+          missing=0
+          for var in SECRET_KEY ADMIN_PASSWORD INFLUXDB_TOKEN MQTT_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "❌ Missing required environment secret: ${var} (configure it in the GitHub Environment 'production')"
+              missing=1
+            fi
+          done
+          exit $missing
       - name: Deploy via Helm
+        env:
+          SECRET_KEY: ${{ secrets.EDGELITE_SECRET_KEY }}
+          ADMIN_PASSWORD: ${{ secrets.EDGELITE_ADMIN_PASSWORD }}
+          INFLUXDB_TOKEN: ${{ secrets.EDGELITE_INFLUXDB_TOKEN }}
+          MQTT_PASSWORD: ${{ secrets.EDGELITE_MQTT_PASSWORD }}
         run: |
           if [ -d "helm/edgelite" ]; then
+            # FIXED(安全-P2): 移除 --debug，防止渲染后的明文 Secret 进 CI 日志
             helm upgrade --install edgelite ./helm/edgelite \
               --namespace edgelite-production \
               --create-namespace \
               --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
               --set image.tag=${{ needs.validate.outputs.image_tag }} \
               --set environment=production \
+              --set-string edgelite.security.secretKey="$SECRET_KEY" \
+              --set-string edgelite.adminPassword="$ADMIN_PASSWORD" \
+              --set-string edgelite.influxdb.token="$INFLUXDB_TOKEN" \
+              --set-string edgelite.mqtt.password="$MQTT_PASSWORD" \
               --wait --timeout 600s \
-              --atomic \
-              --debug
+              --atomic
             echo "✅ Production deployment complete"
           else
             echo "⚠️ No Helm chart found, applying raw K8s manifests"

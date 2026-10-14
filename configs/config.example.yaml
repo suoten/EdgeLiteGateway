@@ -22,6 +22,9 @@ server:
     - "127.0.0.1"
     - "::1"
   trusted_proxies: []        # 可信代理 IP 列表（支持 CIDR），用于 X-Forwarded-For 解析，空列表=不信任任何代理
+                             # FIXED-P1: 后端按"右向左跳过可信代理"解析真实客户端 IP。
+                             # nginx 若使用 $proxy_add_x_forwarded_for（追加语义），必须把所有
+                             # 中间代理层都列入本清单，否则客户端可伪造 XFF 头绕过限流/锁定；
   allowed_hosts: []          # TrustedHostMiddleware 允许的 Host 头列表，生产环境配置后启用 Host 头校验
 
 # ── 数据库配置 ────────────────────────────────────────────

@@ -70,4 +70,4 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD python -c "import urllib.request; exit(0 if urllib.request.urlopen('http://localhost:8080/health/live', timeout=5).status == 200 else 1)"
 
-CMD ["python", "-m", "edgelite", "--host", "0.0.0.0"]
+CMD ["python", "-m", "edgelite", "--host", "0.0.0.0", "--port", "8080"]

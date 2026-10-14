@@ -186,6 +186,9 @@ services:
       - edgelite-net
 
   # ── Monitoring: Alertmanager for alert routing ──────────────────────
+  # FIXED-P3: alertmanager 不做环境变量展开，原直接挂载含 ${SMTP_USER}/${SMTP_PASSWORD}
+  # 占位符的配置会以字面量作为 SMTP 凭据导致邮件告警静默失败；改为启动时 sed 渲染后运行
+  # 注意: SMTP_PASSWORD 请避免包含 |、\、& 字符（sed 替换语义限制）
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: edgelite-alertmanager
@@ -196,10 +199,15 @@ services:
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
-      - "--web.external-url=http://localhost:9093"
+      - |
+        sed -e "s|\$\${SMTP_USER}|$$SMTP_USER|g" \
+            -e "s|\$\${SMTP_PASSWORD}|$$SMTP_PASSWORD|g" \
+            -e "s|\$\${SMTP_FROM}|$$SMTP_FROM|g" \
+            -e "s|\$\${ALERT_EMAIL_TO}|$$ALERT_EMAIL_TO|g" \
+            /etc/alertmanager/alertmanager.yml > /tmp/alertmanager-rendered.yml
+        exec /bin/alertmanager --config.file=/tmp/alertmanager-rendered.yml --storage.path=/alertmanager --web.external-url=http://localhost:9093
     environment:
       - SMTP_HOST=${SMTP_HOST:-localhost}
       - SMTP_PORT=${SMTP_PORT:-465}
@@ -287,11 +295,18 @@ services:
       - edgelite-net
 
   # ── Log Aggregation: Promtail log collector ─────────────────────────
+  # 安全注记: promtail 配置使用 docker_sd_configs 需要访问 docker.sock；
+  # `:ro` 只限制文件系统挂载，不限制通过 socket 的 Docker API 权限（查询全部容器/
+  # 读取任意容器日志）。promtail 一旦被攻破（日志解析攻击面）可作宿主机提权跳板。
+  # 如环境允许，建议改用文件抓取（static_configs 扫描 /var/lib/docker/containers）
+  # 并移除本 socket 挂载；保守起见此处至少启用 no-new-privileges。
   promtail:
     image: grafana/promtail:2.9.8
     container_name: edgelite-promtail
     profiles:
       - monitoring
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

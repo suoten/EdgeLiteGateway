@@ -98,7 +98,11 @@ web/public/gen_demo_gif.html
 
 # ---------- 推广文章与截图 ----------
 docs/articles/
-docs/images/
+# FIXED-P3: 原规则忽略整个 docs/images/，但 README 引用的 weixin.jpg/zfb.jpg 已被
+# 跟踪，规则与现实矛盾；改为仅忽略目录内其他文件并豁免这两张
+docs/images/*
+!docs/images/weixin.jpg
+!docs/images/zfb.jpg
 
 # ---------- 一次性修复脚本 ----------
 scripts/fix_api_detail.py
