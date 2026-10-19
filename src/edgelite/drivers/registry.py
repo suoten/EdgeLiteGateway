@@ -1,4 +1,86 @@
-"""Driver Registry - Manages protocol to driver class mappings"""
+"""Driver Registry - 协议驱动注册表
+
+本模块维护「协议名称 → 驱动类」的全局映射，是 EdgeLiteGateway
+扩展新协议驱动的统一入口。
+
+=================================================================
+如何注册一个新驱动（新贡献者指南）
+=================================================================
+
+方式一：内置驱动（改动源码，随系统发布）
+-------------------------------------------------
+1. 在 ``edgelite/drivers/`` 下新建驱动文件，例如 ``my_protocol.py``，
+   实现一个继承 :class:`edgelite.drivers.base.DriverPlugin` 的类，
+   并设置三个必填类属性：
+
+   - ``plugin_name``: 驱动唯一名称（如 ``"my_protocol"``）
+   - ``plugin_version``: 版本号（如 ``"1.0.0"``）
+   - ``supported_protocols``: 该驱动支持的协议键元组
+     （如 ``("my_protocol", "my_proto")``，可含别名）
+
+   同时实现抽象方法 ``start() / stop() / read_points() / write_point()``。
+
+2. 在 :meth:`DriverRegistry.auto_discover` 的 ``_driver_modules``
+   列表中追加一行::
+
+       ("My Protocol", "edgelite.drivers.my_protocol", "MyProtocolDriver"),
+
+3. 在 :data:`DRIVER_DISPLAY_NAMES` 中登记显示名称（中/英文），
+   并将协议键加入 :data:`_BUILTIN_PROTOCOLS`，防止被自定义驱动覆盖。
+
+方式二：自定义驱动（不改源码，运行时热加载）
+-------------------------------------------------
+1. 在配置项 ``drivers.custom_dir`` 指向的目录中放入 ``*.py`` 文件
+   （文件名不能以 ``_`` 开头）。
+2. 文件中同样定义一个 ``DriverPlugin`` 子类，注册表在
+   :meth:`DriverRegistry.auto_discover` 阶段会自动扫描、校验并注册。
+
+   注意：自定义驱动受安全沙箱约束——只能 import 白名单内的标准库模块，
+   且不能覆盖 :data:`_BUILTIN_PROTOCOLS` 中的内置协议。
+
+驱动类最小示例
+-------------------------------------------------
+::
+
+    from edgelite.drivers.base import DriverPlugin
+
+    class MyProtocolDriver(DriverPlugin):
+        plugin_name = "my_protocol"
+        plugin_version = "1.0.0"
+        supported_protocols = ("my_protocol", "my_proto")
+
+        async def start(self, config: dict) -> None:
+            await super().start(config)
+            # 建立协议连接 ...
+
+        async def stop(self) -> None:
+            # 断开连接、释放资源 ...
+            await super().stop()
+
+        async def read_points(self, device_id: str, points: list[str]) -> dict:
+            ...  # 返回 {point_name: value}
+
+        async def write_point(self, device_id: str, point: str, value) -> bool:
+            ...  # 写入成功返回 True
+
+手动注册（一般用于测试）
+-------------------------------------------------
+::
+
+    from edgelite.drivers.registry import get_driver_registry
+
+    registry = get_driver_registry()      # 获取全局单例（首次调用触发 auto_discover）
+    registry.register(MyProtocolDriver)   # 手动注册驱动类
+    cls = registry.get_driver_class("my_protocol")  # 按协议键取回驱动类
+
+常用查询接口
+-------------------------------------------------
+- :meth:`DriverRegistry.get_supported_protocols`  已注册驱动名（去重）
+- :meth:`DriverRegistry.get_all_protocol_keys`    全部协议键（含别名）
+- :meth:`DriverRegistry.get_load_status`          各驱动的加载成败状态
+- :meth:`DriverRegistry.get_dependency_results`   可选依赖检查结果
+- :func:`get_driver_display_name`                 驱动的中/英文显示名
+"""
 
 from __future__ import annotations
 
@@ -60,13 +142,42 @@ _BUILTIN_PROTOCOLS = frozenset(
 
 
 def get_driver_display_name(plugin_name: str, language: str = "en") -> str:
-    """Get the display name for a driver in the specified language"""
+    """获取驱动在指定语言下的显示名称（用于 UI 国际化展示）。
+
+    Args:
+        plugin_name: 驱动的唯一名称，即驱动类的 ``plugin_name`` 属性
+            （如 ``"modbus_tcp"``）。需在 :data:`DRIVER_DISPLAY_NAMES` 中登记。
+        language: 语言代码，目前支持 ``"en"``（英文）和 ``"zh"``（中文），
+            默认 ``"en"``。
+
+    Returns:
+        对应语言的显示名称。若该语言未登记则回退到英文；
+        若驱动完全未登记，则原样返回 ``plugin_name``。
+
+    Raises:
+        本函数不抛出异常，所有未命中场景均回退处理。
+    """
     name_info = DRIVER_DISPLAY_NAMES.get(plugin_name, {})
     return name_info.get(language, name_info.get("en", plugin_name))
 
 
 class DriverRegistry:
-    """驱动注册表，管理协议→驱动类的映射"""
+    """驱动注册表，管理「协议键 → 驱动类」的映射关系。
+
+    全局唯一实例通过 :func:`get_driver_registry` 获取（单例 + 首次调用时
+    自动执行 :meth:`auto_discover` 加载全部内置与自定义驱动）。
+
+    内部数据结构：
+
+    - ``_drivers``: ``dict[协议键, 驱动类]``，包含 ``supported_protocols``
+      中的别名键以及 ``plugin_name`` 键；
+    - ``_registered_drivers``: 已注册驱动类的集合，用于去重；
+    - ``_load_status``: 各驱动模块的加载结果（成功/失败原因）；
+    - ``_dependency_results``: 各驱动可选依赖的检查结果。
+
+    线程安全性：:meth:`auto_discover` 与 :func:`get_driver_registry` 均持锁；
+    其余方法在启动期（单线程初始化阶段）调用，运行期只读。
+    """
 
     def __init__(self):
         self._drivers: dict[str, type[DriverPlugin]] = {}
@@ -79,7 +190,30 @@ class DriverRegistry:
         self._dependency_results: dict[str, dict] = {}
 
     def register(self, driver_class: type[DriverPlugin]) -> None:
-        """注册驱动类"""
+        """注册一个驱动类，将其协议键映射到该类。
+
+        注册成功后，``driver_class.supported_protocols`` 中的每个协议键
+        以及 ``driver_class.plugin_name`` 都会指向该驱动类。
+
+        Args:
+            driver_class: 待注册的驱动类。必须满足：
+                1. 继承自 :class:`~edgelite.drivers.base.DriverPlugin`；
+                2. 定义了非空的 ``plugin_name``、``plugin_version``、
+                   ``supported_protocols`` 三个类属性。
+
+        Returns:
+            None。注册结果通过日志体现：
+            重复注册同一类会跳过（debug 日志）；校验失败会跳过（warning 日志）。
+
+        Raises:
+            本方法不抛出异常。以下情况只会记录日志并跳过，保证单个
+            驱动的问题不影响其他驱动的加载：
+
+            - 未继承 ``DriverPlugin`` 或缺少必填属性 → 跳过注册；
+            - 自定义驱动试图覆盖 :data:`_BUILTIN_PROTOCOLS` 中的
+              内置协议 → 该协议键拒绝覆盖（error 日志），其余键正常注册；
+            - 非内置协议被重复注册 → 允许覆盖并记录 warning 日志。
+        """
         if driver_class in self._registered_drivers:
             logger.debug("Driver %s already registered, skipping", driver_class.plugin_name)
             return
@@ -133,11 +267,31 @@ class DriverRegistry:
         self._registered_drivers.add(driver_class)
 
     def get_driver_class(self, protocol: str) -> type[DriverPlugin] | None:
-        """按协议类型获取驱动类"""
+        """按协议键获取对应的驱动类。
+
+        Args:
+            protocol: 协议键，可以是驱动的 ``plugin_name``（如 ``"siemens_s7"``
+                或 ``"s7"``），也可以是 ``supported_protocols`` 中登记的别名。
+
+        Returns:
+            匹配的驱动类；未注册时返回 ``None``，调用方需自行判空。
+
+        Raises:
+            本方法不抛出异常。
+        """
         return self._drivers.get(protocol)
 
     def get_supported_protocols(self) -> list[str]:
-        """获取所有支持的唯一驱动名称（去重）"""
+        """获取所有已注册驱动的唯一名称列表（按 ``plugin_name`` 去重）。
+
+        Returns:
+            排序后的驱动名称列表，例如 ``["modbus_tcp", "mqtt_client", ...]``。
+            每个驱动类只出现一次，不包含协议别名；
+            如需包含别名的完整协议键列表，请使用 :meth:`get_all_protocol_keys`。
+
+        Raises:
+            本方法不抛出异常。
+        """
         # 返回已注册的驱动类的 plugin_name（去重）
         return sorted([cls.plugin_name for cls in self._registered_drivers])
 
@@ -146,11 +300,32 @@ class DriverRegistry:
 
         与 get_supported_protocols() 不同，此方法返回 _drivers 字典中的所有键，
         包含 supported_protocols 中的别名（如 's7', 'mqtt', 'mc' 等）。
+
+        Returns:
+            排序后的协议键列表，每个键都可以通过
+            :meth:`get_driver_class` 取回对应的驱动类。
+
+        Raises:
+            本方法不抛出异常。
         """
         return sorted(self._drivers.keys())
 
     def unregister(self, protocol: str) -> bool:
-        """注销指定协议驱动"""
+        """注销指定协议键对应的驱动映射。
+
+        只移除 ``protocol`` 这一个键的映射；如果该驱动类还注册了
+        其他协议键，其余键不受影响，驱动类仍保留在注册表中。
+
+        Args:
+            protocol: 要注销的协议键（如 ``"modbus_tcp"``）。
+
+        Returns:
+            ``True`` 表示该协议键存在且已移除；
+            ``False`` 表示协议键未注册，无操作。
+
+        Raises:
+            本方法不抛出异常。
+        """
         if protocol in self._drivers:
             driver_cls = self._drivers[protocol]
             del self._drivers[protocol]
@@ -162,7 +337,17 @@ class DriverRegistry:
         return False
 
     def unregister_driver(self, driver_cls: type) -> int:
-        """注销指定驱动类的所有协议，返回移除数量"""
+        """注销指定驱动类的全部协议键映射（整体移除该驱动）。
+
+        Args:
+            driver_cls: 要移除的驱动类（按对象身份匹配）。
+
+        Returns:
+            实际移除的协议键数量。若该驱动类未注册，返回 ``0``。
+
+        Raises:
+            本方法不抛出异常。
+        """
         if driver_cls not in self._registered_drivers:
             return 0
         to_remove = [p for p, cls in self._drivers.items() if cls is driver_cls]
@@ -172,7 +357,15 @@ class DriverRegistry:
         return len(to_remove)
 
     def items(self) -> list[tuple[str, type[DriverPlugin]]]:
-        """获取所有已注册的协议-驱动对（去重）"""
+        """获取所有已注册的「协议键, 驱动类」对（按驱动类去重）。
+
+        Returns:
+            ``[(protocol, driver_class), ...]`` 列表。同一个驱动类只出现一次，
+            使用其第一个注册的协议键作为代表；别名键不会重复出现。
+
+        Raises:
+            本方法不抛出异常。
+        """
         # 去重：只返回每个驱动类第一个注册的协议
         seen = set()
         result = []
@@ -183,7 +376,27 @@ class DriverRegistry:
         return result
 
     def auto_discover(self) -> None:
-        """自动发现并注册所有内置驱动及自定义驱动"""
+        """自动发现并注册所有内置驱动及自定义驱动。
+
+        执行流程：
+            1. 逐个加载 ``_driver_modules`` 列表中的内置驱动模块
+               （单个失败不影响其他驱动，失败原因记入 ``_load_status``）；
+            2. 扫描配置项 ``drivers.custom_dir`` 指向的目录，
+               在安全沙箱约束下加载自定义驱动；
+            3. 检查所有已注册驱动的可选依赖（``_required_dependencies``），
+               结果记入 ``_dependency_results``。
+
+        本方法幂等：重复调用会直接跳过（warning 日志）。
+        首次调用通常由 :func:`get_driver_registry` 自动触发，
+        业务代码一般无需手动调用。
+
+        Returns:
+            None。
+
+        Raises:
+            本方法不向外抛出异常；所有驱动级错误均被捕获并记录到
+            日志和 :meth:`get_load_status` 的状态字典中。
+        """
         # FIXED-P1: 整个方法体在锁内执行，消除TOCTOU竞态
         with self._discover_lock:
             if self._discovered:
@@ -386,7 +599,23 @@ class DriverRegistry:
             return {"name": label, "module_path": module_path, "class_name": class_name, "error": error}
 
     def get_load_status(self) -> dict[str, dict]:
-        """获取所有驱动的加载状态（已加载/因依赖缺失跳过）"""
+        """获取所有驱动的加载状态（成功/失败及原因），用于运维诊断。
+
+        Returns:
+            以驱动标签（如 ``"Modbus TCP"``）为键的字典，每项形如::
+
+                {
+                    "loaded": True,                 # 是否加载成功
+                    "error": None,                  # 失败原因（成功时为 None）
+                    "module": "edgelite.drivers.modbus_tcp",  # 模块路径
+                    "class": "ModbusTcpDriver",     # 驱动类名
+                }
+
+            返回的是内部字典的浅拷贝，修改返回值不会影响注册表。
+
+        Raises:
+            本方法不抛出异常。
+        """
         return dict(self._load_status)
 
     def _check_all_dependencies(self) -> None:
@@ -426,7 +655,27 @@ class DriverRegistry:
                 )
 
     def get_dependency_results(self) -> dict[str, dict]:
-        """Get dependency check results for all drivers"""
+        """获取所有已注册驱动的可选依赖检查结果。
+
+        驱动类可通过 ``_required_dependencies`` 类属性声明可选的第三方
+        依赖（如 ``["pymodbus"]``），:meth:`auto_discover` 完成后会逐一
+        尝试 import 并记录结果。
+
+        Returns:
+            以 ``plugin_name`` 为键的字典，每项形如::
+
+                {
+                    "available": False,             # 依赖是否全部满足
+                    "missing_deps": ["pymodbus"],   # 缺失的依赖
+                    "checked_deps": ["pymodbus"],   # 实际检查过的依赖
+                }
+
+            未声明依赖的驱动 ``available`` 恒为 ``True``。
+            返回的是内部字典的浅拷贝。
+
+        Raises:
+            本方法不抛出异常。
+        """
         return dict(self._dependency_results)
 
     def _discover_custom_drivers(self) -> None:
@@ -596,7 +845,25 @@ _registry_lock = threading.Lock()
 
 
 def get_driver_registry() -> DriverRegistry:
-    """获取全局驱动注册表"""
+    """获取全局驱动注册表单例。
+
+    首次调用时在锁内创建 :class:`DriverRegistry` 实例并自动执行
+    :meth:`~DriverRegistry.auto_discover`（加载全部内置与自定义驱动），
+    之后的调用直接返回同一实例，线程安全。
+
+    Returns:
+        全局唯一的 :class:`DriverRegistry` 实例。
+
+    Raises:
+        本函数本身不抛出异常；但首次触发 ``auto_discover`` 时，
+        驱动级的加载错误会记录到日志和
+        :meth:`~DriverRegistry.get_load_status` 中，不会中断返回。
+
+    Example:
+        >>> registry = get_driver_registry()
+        >>> registry.get_driver_class("modbus_tcp")  # doctest: +SKIP
+        <class 'edgelite.drivers.modbus_tcp.ModbusTcpDriver'>
+    """
     global _registry
     with _registry_lock:
         if _registry is None:
