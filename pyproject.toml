@@ -266,6 +266,10 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "@(abc\\.)?abstractmethod",
+    # FIXED-CI: 平台专属分支在任何单一 OS 的 CI 上都无法覆盖另一侧，按惯例排除，
+    # 避免 Linux CI 与 Windows 本地的覆盖率系统性偏差（win32 分支仅在 Windows 被执行）
+    "sys\\.platform == .win32.",
+    "os\\.name == .nt.",
 ]
 # 完美版基线：核心包行+分支覆盖率下限（从60%提升至80%，匹配≥95分成熟度目标）
 fail_under = 80

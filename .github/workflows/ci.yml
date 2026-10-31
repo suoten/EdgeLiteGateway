@@ -97,12 +97,20 @@ jobs:
           EDGELITE_SECURITY__SECRET_KEY: ${{ env.EDGELITE_SECURITY__SECRET_KEY }}
           EDGELITE_DB__PATH: ":memory:"
         run: |
+          set -o pipefail
           pytest --cov=edgelite \
                  --cov-report=xml:coverage.xml \
                  --cov-report=term-missing \
                  --cov-fail-under=58 \
                  --timeout=60 -q \
-                 -p no:cacheprovider
+                 -p no:cacheprovider 2>&1 | tee pytest-output.log
+      # FIXED-CI(诊断): 失败时把 pytest 关键尾部输出（失败用例/覆盖率合计）作为
+      # error annotation 暴露——注解经 API 匿名可读，解决无 token 时无法取日志的问题
+      - name: Emit failure tail as annotations
+        if: failure()
+        run: |
+          grep -E "^FAILED|^ERROR|passed|failed|Required test coverage|^TOTAL" pytest-output.log | tail -n 8 \
+            | while IFS= read -r line; do echo "::error::$line"; done
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
