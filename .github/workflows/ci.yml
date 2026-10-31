@@ -332,6 +332,51 @@ jobs:
           path: /tmp
       - name: Load image
         run: docker load -i /tmp/edgelite-image.tar
+      # FIXED-CI(诊断): 先跑一份永不失败的 JSON 扫描，把 CRITICAL/HIGH findings 以
+      # error annotation 暴露（匿名可读），解决无 token 看不到 trivy 输出的问题；
+      # 随后的强制扫描（exit-code 1）保持门槛不变
+      - name: Trivy fs scan (diagnostic JSON)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: 0
+          format: json
+          output: trivy-fs.json
+      - name: Emit trivy fs findings as annotations
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import json, os
+          try:
+              with open("trivy-fs.json", encoding="utf-8") as f:
+                  d = json.load(f)
+          except Exception as e:
+              print(f"trivy-fs.json 不可读: {e}")
+              raise SystemExit(0)
+          results = d.get("Results", []) or []
+          rows = []
+          for res in results:
+              target = res.get("Target", "")
+              for v in res.get("Vulnerabilities") or []:
+                  rows.append((v.get("Severity",""), v.get("VulnerabilityID",""),
+                               v.get("PkgName",""), v.get("InstalledVersion",""),
+                               (v.get("FixedVersion") or "-"), target))
+              for s in res.get("Secrets") or []:
+                  rows.append((s.get("Severity",""), "SECRET:"+s.get("RuleID",""),
+                               target, s.get("StartLine",""), "-", target))
+              for m in res.get("Misconfigurations") or []:
+                  if m.get("Severity") in ("CRITICAL", "HIGH"):
+                      rows.append((m.get("Severity",""), m.get("ID",""),
+                                   m.get("Title","")[:60], target, "-", target))
+          order = {"CRITICAL": 0, "HIGH": 1}
+          rows.sort(key=lambda r: order.get(r[0], 9))
+          print(f"共 {len(rows)} 条 CRITICAL/HIGH findings")
+          for sev, vid, pkg, inst, fixed, target in rows[:10]:
+              print(f"::error::{sev} {vid} pkg={pkg} installed={inst} fixed={fixed} target={target}")
+          PYEOF
       - name: Run Trivy filesystem scan
         # FIXED-CI: @0.24.0 无 v 前缀，该仓库 tag 实际为 v0.24.0 起，
         # 无法解析导致 security job 首步即败；升级到 v0.36.0 [2026-09-19]
