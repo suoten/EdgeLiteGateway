@@ -14,7 +14,7 @@ stages:
 variables:
   PYTHON_VERSION: "3.11"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  EDGELITE_SECURITY__SECRET_KEY: "ci-only-not-secret-key-do-not-use-in-prod-32bytes!"
+  EDGELITE_SECURITY__SECRET_KEY: "ci-only-not-a-production-key-0123456789abcdef-rotate-me"  # FIXED-CI: 旧 ci-only 值已进 config 弱密钥黑名单，换用新值（勿用于生产）
 
 # ── Cache configuration ──────────────────────────────────────────────
 cache:
