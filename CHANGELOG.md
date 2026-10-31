@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config_version` 配置回滚从"假回滚"（直接返回成功）改为真实逐条回滚 + 失败计数 + 不支持段明确 501；快照修复 devices/rules 存 coroutine 字符串的损坏
 
 ### Fixed
+- 【CI-137】沙箱彻底移除进程内 resource.setrlimit：POSIX rlimit 是进程属性，对已长跑的宿主进程设置低于现状的 CPU(2s)/AS(256MB)/FSIZE(0) 限制会立刻 SIGXCPU/SIGKILL——Linux CI 的 pytest 在新增沙箱测试首次真跑该路径时被杀（exit 137）；Windows 本地因跳过该分支而未暴露。防护收敛为 AST 白名单 + 受限内建 + 外层超时，硬性资源上限留待未来子进程隔离方案
 - 【P0】MQTT 驱动断线后永不重连、数据静默冻结：连接主循环改为 `asyncio.wait` 感知 msg/pub 任务死亡并触发重连
 - Modbus TCP 批量读混段（input/holding 用 FC03 读 input 测点数据错乱）：段合并跟踪寄存器类型（对齐 RTU 已有修复）
 - S7 无符号数据类型（uint16/uint32）按有符号解码：按 data_type 决定符号，写入校验补无符号范围

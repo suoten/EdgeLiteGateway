@@ -8,11 +8,17 @@
   1. AST 静态分析: 白名单模式 — 仅放行常见语句/表达式节点，其余一律拒绝；
      Attribute/方法调用拒绝 dunder 属性与 format/format_map（参考 expression_engine
      的白名单范式，修复黑名单可被 "{0.__class__}".format(()) 等手段绕过的问题）
-  2. resource.setrlimit: 限制 CPU 时间(2s)/内存(256MB)/文件写入/进程数，
-     执行前保存旧值、finally 中恢复（恢复失败记录 error）
-  3. asyncio.wait_for: 超时强制取消
-  4. 线程隔离: 脚本在独立线程中执行，不阻塞事件循环
-  5. 受控命名空间: 仅暴露 point_values 和 result，移除 __builtins__ 危险函数
+  2. asyncio.wait_for: 超时强制取消
+  3. 线程隔离: 脚本在独立线程中执行，不阻塞事件循环
+  4. 受控命名空间: 仅暴露 point_values 和 result，移除 __builtins__ 危险函数
+
+关于 resource.setrlimit（FIXED-CI-137）:
+  早期实现曾在线程内对**整个进程**施加 RLIMIT_CPU(2s)/AS(256MB)/FSIZE(0) 等限制
+  （POSIX rlimit 是进程属性而非线程属性）。对本进程这是自杀式的：宿主进程运行中
+  累计 CPU 早已超过 2s、地址空间早已超过 256MB，设置瞬间即触发 SIGXCPU/SIGKILL
+  （CPU 超硬限内核直接 SIGKILL）或令所有线程的分配/文件写入失败——CI 的 pytest
+  正是在此被杀（exit 137）。因此**有意不使用进程内 rlimit**；如需硬性资源上限，
+  未来应改为 fork/spawn 子进程隔离，在子进程内施加 rlimit。
 """
 
 from __future__ import annotations
@@ -20,21 +26,11 @@ from __future__ import annotations
 import ast
 import asyncio
 import logging
-import sys
 import traceback
 from types import CodeType
 from typing import Any
 
-try:
-    import resource  # Unix-only
-except ImportError:
-    resource = None  # type: ignore[assignment]  # Windows 无此模块
-
 logger = logging.getLogger(__name__)
-
-# ── 资源限制参数 ─────────────────────────────────────────────────────
-_CPU_LIMIT_SECONDS = 2
-_MEM_LIMIT_BYTES = 256 * 1024 * 1024
 
 # ── AST 白名单 ──────────────────────────────────────────────────────
 # 白名单模式: 仅允许常见语句/表达式节点，未列出的节点类型一律拒绝。
@@ -298,94 +294,39 @@ def _validate_script_ast(script: str) -> bool:
     return True
 
 
-def _limit_specs() -> list[tuple[int, tuple[int, int]]]:
-    """构建需要施加的 rlimit 清单 (resource, (soft, hard))，仅 Unix 可用"""
-    if resource is None:
-        return []
-    specs = [
-        (resource.RLIMIT_CPU, (_CPU_LIMIT_SECONDS, _CPU_LIMIT_SECONDS)),  # CPU 时间限制 2 秒
-        (resource.RLIMIT_AS, (_MEM_LIMIT_BYTES, _MEM_LIMIT_BYTES)),  # 内存限制 256MB
-        (resource.RLIMIT_FSIZE, (0, 0)),  # 文件大小限制 0（禁止写文件）
-    ]
-    if hasattr(resource, "RLIMIT_NPROC"):
-        specs.append((resource.RLIMIT_NPROC, (0, 0)))  # 进程数限制 0（禁止 fork）
-    return specs
-
-
-def _apply_resource_limits() -> dict[int, tuple[int, int]]:
-    """执行前保存旧限制并施加新限制，返回旧值映射供 finally 恢复。
-
-    任一项施加失败时回滚已生效的限制（避免限制半生效泄漏到工作线程池），
-    并返回空映射（无需恢复）。
-    """
-    if sys.platform == "win32" or resource is None:
-        return {}
-    saved: dict[int, tuple[int, int]] = {}
-    applied: list[int] = []
-    try:
-        for res, limits in _limit_specs():
-            saved[res] = resource.getrlimit(res)  # 先保存旧值
-            resource.setrlimit(res, limits)
-            applied.append(res)
-    except (ValueError, OSError, AttributeError, OverflowError) as e:
-        logger.warning("sandbox: resource limit set failed: %s", e)
-        for res in applied:
-            try:
-                resource.setrlimit(res, saved[res])
-            except Exception as restore_err:
-                logger.error("sandbox: rollback rlimit %s failed: %s", res, restore_err)
-        return {}
-    return saved
-
-
-def _restore_resource_limits(saved: dict[int, tuple[int, int]]) -> None:
-    """恢复执行前保存的 rlimit 旧值；恢复失败记录 error（限制残留会影响线程池中后续任务）"""
-    if not saved or resource is None:
-        return
-    for res, old in saved.items():
-        try:
-            resource.setrlimit(res, old)
-        except Exception as e:
-            logger.error("sandbox: restore rlimit %s to %s failed: %s", res, old, e)
-
-
 def _execute_script_sync(script: str, namespace: dict[str, Any], filename: str) -> Any:
     """同步执行脚本（在 to_thread 中调用）
 
-    在执行前保存并设置资源限制，使用受限 __builtins__，
-    finally 中恢复资源限制，执行后返回 namespace["result"]。
+    使用受限 __builtins__ 执行（FIXED-CI-137: 不再施加进程级 rlimit，见模块 docstring），
+    执行后返回 namespace["result"]。
     """
-    saved_limits = _apply_resource_limits()
+    # 构建受限命名空间
+    safe_builtins = dict(_ALLOWED_BUILTINS)
+    safe_namespace: dict[str, Any] = {
+        "__builtins__": safe_builtins,
+        **namespace,
+    }
+
+    code: CodeType
     try:
-        # 构建受限命名空间
-        safe_builtins = dict(_ALLOWED_BUILTINS)
-        safe_namespace: dict[str, Any] = {
-            "__builtins__": safe_builtins,
-            **namespace,
-        }
-
-        code: CodeType
-        try:
-            code = compile(script, filename, "exec")
-        except SyntaxError as e:
-            logger.warning("sandbox: compile failed: %s", e)
-            namespace["result"] = False
-            return namespace.get("result", False)
-
-        try:
-            exec(code, safe_namespace)  # noqa: S102 — 受控沙箱执行
-        except Exception as e:
-            logger.warning("sandbox: script execution error: %s\n%s", e, traceback.format_exc())
-            safe_namespace["result"] = False
-
-        # 将可能被脚本修改的 namespace 键回写
-        for key in namespace:
-            if key in safe_namespace:
-                namespace[key] = safe_namespace[key]
-
+        code = compile(script, filename, "exec")
+    except SyntaxError as e:
+        logger.warning("sandbox: compile failed: %s", e)
+        namespace["result"] = False
         return namespace.get("result", False)
-    finally:
-        _restore_resource_limits(saved_limits)
+
+    try:
+        exec(code, safe_namespace)  # noqa: S102 — 受控沙箱执行
+    except Exception as e:
+        logger.warning("sandbox: script execution error: %s\n%s", e, traceback.format_exc())
+        safe_namespace["result"] = False
+
+    # 将可能被脚本修改的 namespace 键回写
+    for key in namespace:
+        if key in safe_namespace:
+            namespace[key] = safe_namespace[key]
+
+    return namespace.get("result", False)
 
 
 async def run_script_safely(
