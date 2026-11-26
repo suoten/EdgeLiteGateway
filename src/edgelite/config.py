@@ -984,14 +984,21 @@ def save_config(config: AppConfig, config_path: str | Path | None = None) -> Non
     import json as _json
 
     config_json = _json.dumps(config_dict, ensure_ascii=False, default=str)
+    # FIXED(P1): edgelite.services.config_version（文件级版本管理器）只随企业版提供，社区版仓库中
+    # 并不存在。此前 import 失败被当成"快照失败"而中止保存，导致所有落盘路径恒失败：
+    # 通知渠道配置保存 500、内置服务（MQTT Server / Modbus Slave / 串口桥接）无法启用。
+    # 模块缺失视为"无此可选组件"并跳过快照；组件存在但快照失败时仍然中止保存。
     try:
         from edgelite.services.config_version import get_config_version_manager
-
-        cvm = get_config_version_manager()
-        cvm.save_version_sync(config_json)
-    except Exception as cv_err:
-        logger.error("save_config: version snapshot failed, aborting save: %s", cv_err)
-        raise
+    except ImportError:
+        get_config_version_manager = None  # type: ignore[assignment]
+    if get_config_version_manager is not None:
+        try:
+            cvm = get_config_version_manager()
+            cvm.save_version_sync(config_json)
+        except Exception as cv_err:
+            logger.error("save_config: version snapshot failed, aborting save: %s", cv_err)
+            raise
 
     # FIXED-P0: 原问题-save_config直接覆写文件，断电/磁盘满导致配置截断丢失
     # 改为写临时文件+os.replace原子替换，确保配置文件要么完整更新要么保持原状
