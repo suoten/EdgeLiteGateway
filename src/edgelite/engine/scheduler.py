@@ -133,6 +133,8 @@ class CollectScheduler:
     _WATCHDOG_INTERVAL = 30
     _WATCHDOG_STALE_CYCLES = 3
     _WATCHDOG_RESTART_CYCLES = 10
+    # _stop_task 重新发起取消的间隔（秒）
+    _RE_CANCEL_INTERVAL = 0.25
 
     def __init__(
         self,
@@ -156,6 +158,10 @@ class CollectScheduler:
         self._ai_virtual_devices: set[str] = set()
         self._watchdog_task: asyncio.Task | None = None
         self._driver_classes: dict[str, type] = {}
+        # FIXED: 采集任务 -> 协作式停止标记（取消异常可能被吞，见 _stop_task 说明）
+        self._stop_events: dict[asyncio.Task, asyncio.Event] = {}
+        # FIXED: 超时仍未结束的采集任务，保留引用防止被 GC 中途销毁，并在 stop_all 时再次终止
+        self._stuck_tasks: set[asyncio.Task] = set()
         # FIXED-P0: 共享状态并发保护锁（_last_values, _collect_stats, _device_quality_stats, _adaptive_state）
         self._state_lock = asyncio.Lock()
 
@@ -257,10 +263,7 @@ class CollectScheduler:
             self._collect_stats.setdefault(device_id, CollectStats(device_id=device_id))
             self._device_quality_stats.setdefault(device_id, DeviceQualityStats(device_id=device_id))
         try:
-            task = asyncio.create_task(
-                self._collect_loop(device_id, driver, points, effective_interval),
-                name=f"collect-{device_id}",
-            )
+            task = self._spawn_collect_task(device_id, driver, points, effective_interval)
             # FIXED-P0: _tasks写入需要加锁，防止与stop_collect/_watchdog_loop竞态
             async with self._state_lock:
                 self._tasks[device_id] = task
@@ -278,6 +281,61 @@ class CollectScheduler:
             len(points),
         )
 
+    def _spawn_collect_task(self, device_id: str, driver: Any, points: list[dict], interval: int) -> asyncio.Task:
+        """创建采集任务并为其绑定协作式停止标记"""
+        stop_event = asyncio.Event()
+        task = asyncio.create_task(
+            self._collect_loop(device_id, driver, points, interval, stop_event=stop_event),
+            name=f"collect-{device_id}",
+        )
+        self._stop_events[task] = stop_event
+        task.add_done_callback(self._forget_stop_event)
+        return task
+
+    def _forget_stop_event(self, task: asyncio.Task) -> None:
+        self._stop_events.pop(task, None)
+
+    async def _stop_task(self, task: asyncio.Task, timeout: float = 5.0) -> bool:
+        """请求采集任务停止并等待其真正结束；返回是否在 timeout 内结束
+
+        不能用 ``await asyncio.wait_for(task, timeout)`` 等待采集任务：
+        - Python <=3.11 的 ``Task.cancel()`` 在"任务等待的 Future 刚完成、协程尚未恢复"的
+          窗口内会被丢弃；若任务此刻停在读取用的 ``asyncio.wait_for`` 里，CancelledError
+          还会被吞成正常返回，采集循环继续轮询，变成脱离 ``_tasks`` 跟踪的"僵尸"任务。
+        - ``wait_for`` 超时后只再取消一次并**无限等待**任务结束（无超时）。重试的取消若再次
+          落入上述窗口，stop_collect / stop_all 就永久挂死（Windows 时钟粒度 ~15.6ms，
+          多个 5s 定时器同一轮到期时必现）。
+
+        做法：置协作式停止标记（任务最迟在本次读取后自行退出）→ 取消 → 用 ``asyncio.wait``
+        限时等待（超时不会取消、也不会无限等）→ 未结束则重新取消，直到超时。
+        """
+        if task.done():
+            return True
+        stop_event = self._stop_events.get(task)
+        if stop_event is not None:
+            stop_event.set()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        task.cancel()
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            # 不一次等满超时：被吞掉的取消必须再次 cancel 才生效（否则任务会在长睡眠里
+            # 一直待到超时），每隔一小段时间检查并重新取消
+            done, _pending = await asyncio.wait({task}, timeout=min(remaining, self._RE_CANCEL_INTERVAL))
+            if done:
+                return True
+            task.cancel()
+        logger.error(
+            "Collection task %s did not stop within %.1fs (stuck in driver I/O?); will retry cancelling on stop_all",
+            task.get_name(),
+            timeout,
+        )
+        self._stuck_tasks.add(task)
+        task.add_done_callback(self._stuck_tasks.discard)
+        return False
+
     async def stop_collect(self, device_id: str) -> None:
         """停止设备采集任务"""
         # FIXED-P0: _tasks.pop移入锁内，与_watchdog_loop/start_collect竞态
@@ -294,13 +352,10 @@ class CollectScheduler:
             self._last_ai_inference_time.pop(device_id, None)
         await self._circuit_breaker_manager.remove_breaker(device_id)  # FIXED-P0: remove_breaker是async，需要await
         if task and not task.done():
-            task.cancel()
-            try:
-                # 超时保护：采集任务可能卡在同步I/O（如Modbus读取），
-                # cancel()无法中断run_in_executor中的线程，需等待其自然完成
-                await asyncio.wait_for(task, timeout=5.0)
-            except (asyncio.CancelledError, TimeoutError):
-                pass
+            # 超时保护：采集任务可能卡在同步I/O（如Modbus读取），
+            # cancel()无法中断run_in_executor中的线程，需等待其自然完成
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._stop_task(task)
             logger.info("Collection task stopped: %s", device_id)
 
     async def stop_all(self) -> None:
@@ -320,6 +375,9 @@ class CollectScheduler:
             device_ids = list(self._tasks.keys())
         for device_id in device_ids:
             await self.stop_collect(device_id)
+        # FIXED: 此前超时未结束的任务再取消一次（卡住的驱动 I/O 可能已返回）
+        for stuck in list(self._stuck_tasks):
+            stuck.cancel()
         logger.info("All collection tasks stopped")
 
     async def get_active_devices(self) -> list[str]:
@@ -545,13 +603,23 @@ class CollectScheduler:
         driver: Any,
         points: list[dict],
         collect_interval: int,
+        stop_event: asyncio.Event | None = None,
     ) -> None:
-        """采集循环协程"""
+        """采集循环协程
+
+        ``stop_event`` 为协作式停止标记：置位后循环最迟在本次读取结束即退出，不依赖
+        CancelledError 的传播（Python <=3.11 下取消可能被读取用的 wait_for 吞掉，见 _stop_task）。
+        """
         point_names = [cast(str, p.get("name")) for p in points if p.get("name")]
         point_defs_map = {p.get("name"): p for p in points if p.get("name")}
         timeout = DEFAULT_TIMEOUT
 
+        def _stop_requested() -> bool:
+            return stop_event is not None and stop_event.is_set()
+
         while True:
+            if _stop_requested():
+                break
             start_time = time.monotonic()
             is_error = False
             try:
@@ -612,6 +680,12 @@ class CollectScheduler:
                 finally:
                     if gate:
                         await gate.release()
+
+                # FIXED: 已请求停止则不再发布/落库本轮数据并退出循环。不能只靠 cancel()：
+                # 取消恰好落在"读取已完成、协程尚未恢复"的窗口时，Python <=3.11 的
+                # wait_for 会吞掉 CancelledError 并正常返回，循环会继续轮询已停止的设备。
+                if _stop_requested():
+                    break
 
                 # R8-S-02 修复: 命中 fallback（熔断器拒绝或读取异常）时标记为采集错误，
                 # 并将 values 归一化为空字典以跳过后续数据记录逻辑。
@@ -817,6 +891,8 @@ class CollectScheduler:
             # Adaptive frequency adjustment
             adaptive_interval = await self._adjust_adaptive_interval(device_id, is_error, collect_interval)
 
+            if _stop_requested():
+                break
             await asyncio.sleep(adaptive_interval)
 
     async def _update_collect_stats(self, device_id: str, latency_ms: float, is_error: bool) -> None:
@@ -1012,13 +1088,10 @@ class CollectScheduler:
                         )
                         old_task = task_map.get(device_id)
                         if old_task and not old_task.done():
-                            old_task.cancel()
-                            with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError):
-                                await asyncio.wait_for(old_task, timeout=5.0)
-                        new_task = asyncio.create_task(
-                            self._collect_loop(device_id, driver, points, interval),
-                            name=f"collect-{device_id}",
-                        )
+                            # FIXED: 原 wait_for(old_task, 5.0) 在取消被吞后无限等待，看门狗随之永久卡死
+                            with contextlib.suppress(asyncio.CancelledError):
+                                await self._stop_task(old_task)
+                        new_task = self._spawn_collect_task(device_id, driver, points, interval)
                         # FIXED(严重): TOCTOU 竞态 - 写入前检查任务是否已被 start_collect/stop_collect 修改
                         # 若已变更则放弃新任务，避免覆盖产生僵尸任务（旧引用泄漏且仍在运行）
                         abort_new = False

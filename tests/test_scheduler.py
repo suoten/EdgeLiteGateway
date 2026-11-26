@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import sys
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -419,6 +420,61 @@ class TestStartStopCollect:
         assert await scheduler.get_task_count() == 0
         assert scheduler._watchdog_task is None
         assert scheduler._cache_flush_task is None
+
+    async def test_stop_all_immediately_after_start(self, scheduler):
+        """启动后不让出事件循环就 stop_all，必须在限时内完成。
+
+        回归：Python <=3.11 下 cancel() 恰逢采集任务停在读取用的 wait_for 且读取刚完成时，
+        CancelledError 被 wait_for 吞掉；随后的 wait_for(task, 5.0) 超时后重试的取消再次被吞，
+        于是 stop_all 永久挂死（Windows 上必现）。
+        """
+        driver = _make_driver({"temp": 1.0})
+        await scheduler.start_collect("dev1", driver, [{"name": "temp"}])
+        await scheduler.start_collect("dev2", driver, [{"name": "temp"}])
+        await asyncio.wait_for(scheduler.stop_all(), timeout=3.0)
+        assert await scheduler.get_task_count() == 0
+        assert not scheduler._stuck_tasks
+        assert not scheduler._stop_events
+
+    async def test_stop_collect_ends_loop_when_cancel_is_swallowed(self, scheduler, mock_event_bus):
+        """取消落在"读取已完成、协程尚未恢复"的窗口时，采集循环仍须退出且不再发布数据。"""
+        stop_event = asyncio.Event()
+        task: asyncio.Task | None = None
+
+        async def _read_points(device_id, point_names):
+            # 模拟取消恰好在读取协程内部到达：此时外层任务正停在读取用的 wait_for 上
+            stop_event.set()
+            task.cancel()
+            return {"temp": 1.0}
+
+        driver = _make_driver()
+        driver.read_points = AsyncMock(side_effect=_read_points)
+        task = asyncio.create_task(
+            scheduler._collect_loop("dev1", driver, [{"name": "temp"}], 5, stop_event=stop_event)
+        )
+        done, _pending = await asyncio.wait({task}, timeout=3.0)
+        assert task in done, "采集循环在请求停止后仍在运行"
+        mock_event_bus.publish.assert_not_awaited()
+
+    async def test_stop_task_recancels_when_first_cancel_is_swallowed(self, scheduler):
+        """首个取消被目标任务吞掉时，_stop_task 会重新取消并在限时内等到任务结束。"""
+        swallowed = {"n": 0}
+
+        async def _stubborn():
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                swallowed["n"] += 1
+                await asyncio.sleep(30)  # 吞掉第一次取消后继续运行
+
+        t = asyncio.create_task(_stubborn())
+        await asyncio.sleep(0)  # 让任务真正开始运行并停在 sleep 上
+        started = time.monotonic()
+        assert await scheduler._stop_task(t, timeout=5.0) is True
+        assert swallowed["n"] == 1  # 第一次取消确实被吞掉，是第二次取消才结束任务
+        assert t.cancelled()
+        assert time.monotonic() - started < 2.0
+        assert not scheduler._stuck_tasks
 
 
 class TestGettersSetters:
@@ -940,25 +996,28 @@ class TestWatchdog:
         assert any("marked stale" in r.message for r in caplog.records)
 
     async def test_watchdog_restart_stale_task(self, scheduler):
-        """stale_cycles >= RESTART_CYCLES 时重启采集任务。"""
+        """stale_cycles >= RESTART_CYCLES 时重启采集任务：旧任务被真正终止，而不是只调用过 cancel()。"""
         import time
 
         scheduler._WATCHDOG_INTERVAL = 0
         scheduler._WATCHDOG_STALE_CYCLES = 3
         scheduler._WATCHDOG_RESTART_CYCLES = 10
-        scheduler._device_info["dev1"] = (_make_driver(), [{"name": "p"}], 1)
+        driver = _make_driver()
+        scheduler._device_info["dev1"] = (driver, [{"name": "p"}], 1)
         scheduler._last_collect_time["dev1"] = time.monotonic() - 100
-        old_task = MagicMock()
-        old_task.done = MagicMock(return_value=False)
-        old_task.cancel = MagicMock()
+        old_task = asyncio.create_task(asyncio.Event().wait(), name="stale-collect-dev1")
         scheduler._tasks["dev1"] = old_task
-        with (
-            _patch_sleep_cancel(after=2),
-            patch("edgelite.engine.scheduler.asyncio.wait_for", new=AsyncMock()),
-        ):
-            with contextlib.suppress(asyncio.CancelledError):
-                await scheduler._watchdog_loop()
-        old_task.cancel.assert_called()
+        try:
+            with _patch_sleep_cancel(after=2):
+                with contextlib.suppress(asyncio.CancelledError):
+                    await scheduler._watchdog_loop()
+            # 旧任务必须已结束，否则会残留一个仍在运行且脱离 _tasks 跟踪的采集任务
+            assert old_task.done()
+            assert old_task.cancelled()
+            assert scheduler._tasks["dev1"] is not old_task
+        finally:
+            old_task.cancel()
+            await scheduler.stop_all()
 
     async def test_watchdog_no_last_time_skips(self, scheduler):
         """无 last_collect_time 的设备被跳过。"""
