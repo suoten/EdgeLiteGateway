@@ -54,6 +54,54 @@ _BROKER_PATTERN = re.compile(
     r"^(\d{1,3}\.){3}\d{1,3}$"
 )
 
+# FIXED(P1): platform.mqtt_utils / platform.js_sandbox 只随企业版提供，社区版仓库中不存在。
+# 此前这里直接 import，任何带 topic_template 的平台配置在校验时都会 ModuleNotFoundError → 500，
+# 模板/脚本校验接口同样 500（测试全绿是因为 tests/conftest.py 注入了桩模块）。
+_FEATURE_UNAVAILABLE = "ERR_FEATURE_UNAVAILABLE"
+_TOPIC_VARIABLE_RE = re.compile(r"\{(\w+)\}")
+
+
+def _load_topic_template_engine() -> Any:
+    """企业版的 TopicTemplateEngine；社区版缺失时返回 None（改用内置校验）"""
+    try:
+        from edgelite.platform.mqtt_utils import TopicTemplateEngine
+    except ImportError:
+        return None
+    return TopicTemplateEngine
+
+
+def _builtin_validate_topic_template(template: str) -> tuple[bool, list[str]]:
+    """社区版内置的 MQTT 主题模板校验
+
+    规则：花括号成对且变量名（{device_id} 等）为合法标识符；不含空白字符；MQTT 通配符
+    `+` 必须独占一层，`#` 必须独占最后一层。空模板视为"未配置"（与企业版引擎约定一致）。
+    """
+    if not template:
+        return True, []
+    errors: list[str] = []
+    if len(template) > 512:
+        errors.append("template too long")
+    if any(ch.isspace() for ch in template):
+        errors.append("whitespace not allowed")
+    if template.startswith("/"):
+        errors.append("must not start with '/'")
+    if template.count("{") != template.count("}"):
+        errors.append("unbalanced braces")
+    for name in re.findall(r"\{([^{}]*)\}", template):
+        if not name.isidentifier():
+            errors.append(f"invalid variable name {{{name}}}")
+    levels = template.split("/")
+    for idx, level in enumerate(levels):
+        if not level:
+            errors.append("empty topic level")
+            continue
+        if "#" in level and (level != "#" or idx != len(levels) - 1):
+            errors.append("'#' must occupy the last level")
+        if "+" in level and level != "+":
+            errors.append("'+' must occupy a whole level")
+    return not errors, errors
+
+
 _MQTT_COMMON_FIELDS = [
     {
         "name": "broker",
@@ -775,9 +823,7 @@ class PlatformService:
 
         topic_template = config.get("topic_template")
         if topic_template:
-            from edgelite.platform.mqtt_utils import TopicTemplateEngine
-
-            valid, template_errors = TopicTemplateEngine.validate_template(topic_template)
+            valid, template_errors = self._check_topic_template(str(topic_template))
             if not valid:
                 for te in template_errors:
                     errors.append(f"ERR_PLATFORM_VALIDATION_TOPIC:{te}")
@@ -1004,12 +1050,25 @@ class PlatformService:
             "samples": 0,
         }
 
+    @staticmethod
+    def _check_topic_template(template: str) -> tuple[bool, list[str]]:
+        """校验主题模板：优先使用企业版引擎，缺失时使用内置规则"""
+        engine = _load_topic_template_engine()
+        if engine is not None:
+            return engine.validate_template(template)
+        return _builtin_validate_topic_template(template)
+
+    @staticmethod
+    def _template_variables(template: str) -> list[str]:
+        engine = _load_topic_template_engine()
+        if engine is not None and hasattr(engine, "extract_variables"):
+            return list(engine.extract_variables(template))
+        return _TOPIC_VARIABLE_RE.findall(template)
+
     def validate_topic_template(self, template: str) -> dict:
         """校验 MQTT 主题模板语法并提取变量列表。"""
-        from edgelite.platform.mqtt_utils import TopicTemplateEngine
-
-        valid, errors = TopicTemplateEngine.validate_template(template)
-        variables = TopicTemplateEngine.extract_variables(template)
+        valid, errors = self._check_topic_template(template)
+        variables = self._template_variables(template)
         return {
             "valid": valid,
             "errors": errors,
@@ -1232,7 +1291,16 @@ class PlatformService:
 
     def validate_advanced_template(self, template: str, template_type: str = "payload") -> dict:
         """校验高级模板（payload/topic/batch）语法并提取变量。"""
-        from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
+        try:
+            from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
+        except ImportError:
+            # 社区版不含高级模板引擎：返回明确的不支持结果，而不是抛 ModuleNotFoundError → 500
+            return {
+                "valid": False,
+                "errors": [f"{_FEATURE_UNAVAILABLE}: advanced template engine is not available in this edition"],
+                "variables": [],
+                "template_type": template_type,
+            }
 
         valid, errors = AdvancedTemplateEngine.validate_template(template)
         variables = AdvancedTemplateEngine.extract_variables(template)
@@ -1245,7 +1313,10 @@ class PlatformService:
 
     def preview_template(self, template: str, test_data: dict, template_type: str = "payload") -> dict:
         """使用测试数据预览模板渲染结果。"""
-        from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
+        try:
+            from edgelite.platform.mqtt_utils import AdvancedTemplateEngine
+        except ImportError:
+            return {"success": False, "error": f"{_FEATURE_UNAVAILABLE}: advanced template engine is not available"}
 
         engine = AdvancedTemplateEngine(gateway_id=test_data.get("gateway_id", ""))
         try:
@@ -1263,7 +1334,10 @@ class PlatformService:
 
     def validate_script(self, script: str) -> dict:
         """校验 JavaScript 脚本语法是否合法。"""
-        from edgelite.platform.js_sandbox import JsSandbox
+        try:
+            from edgelite.platform.js_sandbox import JsSandbox
+        except ImportError:
+            return {"valid": False, "errors": [f"{_FEATURE_UNAVAILABLE}: JavaScript scripting is not available"]}
 
         sandbox = JsSandbox()
         valid, errors = sandbox.validate_script(script)
@@ -1271,7 +1345,15 @@ class PlatformService:
 
     async def test_script(self, script: str, test_payload: dict, test_context: dict | None = None) -> dict:
         """在沙箱中执行 JavaScript 脚本并返回测试结果。"""
-        from edgelite.platform.js_sandbox import JsSandbox
+        try:
+            from edgelite.platform.js_sandbox import JsSandbox
+        except ImportError:
+            return {
+                "success": False,
+                "data": None,
+                "error": f"{_FEATURE_UNAVAILABLE}: JavaScript scripting is not available",
+                "execution_ms": 0.0,
+            }
 
         sandbox = JsSandbox()
         result = await sandbox.execute(script, test_payload, test_context or {})
