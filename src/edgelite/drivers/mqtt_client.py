@@ -1202,8 +1202,10 @@ class MqttClientDriver(DriverPlugin):
                     )
                     return
             except UnicodeDecodeError as decode_err:
+                # FIXED: 格式串只有 1 个占位符却传了 2 个参数，logging 内部格式化会抛 TypeError，
+                # 这条告警永远打不出来（输出的是 "--- Logging error ---"）
                 logger.warning(
-                    "[mqtt] code=PAYLOAD_DECODE_ERROR msg=UTF-8 decode failed for topic=%s, using base64",
+                    "[mqtt] code=PAYLOAD_DECODE_ERROR msg=UTF-8 decode failed for topic=%s, using base64: %s",
                     topic,
                     decode_err,
                 )

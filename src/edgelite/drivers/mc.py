@@ -2428,10 +2428,12 @@ class McDriver(DriverPlugin):
     def get_storage_stats(self) -> dict:
         stats = {"persist_enabled": self._persist_enabled, "storage_type": "none"}
         if self._ts_storage:
-            if hasattr(self._ts_storage, "get_stats"):
-                stats["ts"] = self._ts_storage.get_stats()
-            if hasattr(self._ts_storage, "get_fallback_stats"):
-                stats["fallback"] = self._ts_storage.get_fallback_stats()
+            # FIXED: InfluxDBStorage / SqliteTimeSeriesStorage 的统计方法是 async，而本方法是同步的——
+            # 直接调用只会把协程对象放进返回值（从未执行）。仅调用同步实现。
+            for stats_key, method_name in (("ts", "get_stats"), ("fallback", "get_fallback_stats")):
+                method = getattr(self._ts_storage, method_name, None)
+                if callable(method) and not asyncio.iscoroutinefunction(method):
+                    stats[stats_key] = method()
             stats["storage_type"] = type(self._ts_storage).__name__
         if self._offline_queue:
             try:
