@@ -22,6 +22,14 @@ scrape_configs:
   - job_name: "edgelite"
     metrics_path: /metrics
     scheme: http
+    # FIXED: 网关的 /metrics 要求认证（JWT 或带 METRICS_READ 权限的 Grafana API Key）。此前抓取请求
+    # 不带任何凭证，始终 401，自带的 Prometheus / Grafana 监控栈采集不到任何网关指标。
+    # prom/prometheus:v2.45 不支持自定义请求头，这里用标准的 Bearer 认证携带 Grafana API Key
+    # （网关的指标认证接受该 Key 作为 Bearer 凭证）。凭证文件由 docker-compose.yml 在容器启动时
+    # 从环境变量 GRAFANA_API_KEY 写入——Prometheus 自身不做环境变量展开。
+    authorization:
+      type: Bearer
+      credentials_file: /tmp/prometheus/metrics_credentials
     static_configs:
       - targets: ["edgelite:8080"]
         labels:

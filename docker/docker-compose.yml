@@ -41,6 +41,9 @@ services:
       - EDGELITE_SERVER__CORS_ALLOWED_ORIGINS=http://localhost:8080;http://localhost:3000
       - EDGELITE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in docker/.env}
       - EDGELITE_RESET_ADMIN_PASSWORD=${ADMIN_RESET_PASSWORD:-false}
+      # FIXED: 网关 /metrics 要求认证，configs/config.yaml 里 grafana.api_key 取 ${GRAFANA_API_KEY}；
+      # 该 Key 同时供 Prometheus 抓取时作为 Bearer 凭证使用（见 prometheus 服务）
+      - GRAFANA_API_KEY=${GRAFANA_API_KEY:-}
     depends_on:
       influxdb:
         condition: service_healthy
@@ -164,13 +167,18 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
+    # FIXED: 网关 /metrics 要求认证，此前抓取请求不带凭证、始终 401。Prometheus 自身不做环境变量
+    # 展开，这里在启动时把 GRAFANA_API_KEY 写入凭证文件（prometheus.yml 通过 credentials_file 读取）。
+    # 不用 sed 渲染配置文件：特殊字符（| \ & $）不会破坏配置。未在 docker/.env 设置
+    # GRAFANA_API_KEY 时凭证为空，抓取仍会被网关拒绝（401）。
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=15d"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
-      - "--web.enable-lifecycle"
+      - |
+        mkdir -p /tmp/prometheus
+        printf '%s' "$$GRAFANA_API_KEY" > /tmp/prometheus/metrics_credentials
+        exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles --web.enable-lifecycle
+    environment:
+      - GRAFANA_API_KEY=${GRAFANA_API_KEY:-}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -186,9 +194,8 @@ services:
       - edgelite-net
 
   # ── Monitoring: Alertmanager for alert routing ──────────────────────
-  # FIXED-P3: alertmanager 不做环境变量展开，原直接挂载含 ${SMTP_USER}/${SMTP_PASSWORD}
-  # 占位符的配置会以字面量作为 SMTP 凭据导致邮件告警静默失败；改为启动时 sed 渲染后运行
-  # 注意: SMTP_PASSWORD 请避免包含 |、\、& 字符（sed 替换语义限制）
+  # alertmanager 不做环境变量展开，alertmanager.yml 里的 SMTP_* / ALERT_EMAIL_TO 占位符在启动时
+  # 渲染后运行（渲染方式与此前 sed 写法的问题见下方 command 处的说明）
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: edgelite-alertmanager
@@ -199,14 +206,15 @@ services:
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
+    # FIXED: Alertmanager 自身不做环境变量展开，alertmanager.yml 里的占位符需在启动时渲染。
+    # 原写法 `s|\$\${SMTP_USER}|...|` 中的占位符会先被 docker compose 替换成环境变量的值，sed 实际
+    # 查找的是字面量 "$<值>"，占位符从未被替换——Alertmanager 一直拿字面量做 SMTP 认证，邮件告警
+    # 静默失败；SMTP_HOST / SMTP_PORT 也不在渲染列表里。现改用 awk + ENVIRON 渲染全部占位符：
+    # 值不进入命令文本，密码含 | \ & 等字符也不会破坏渲染（仍需避免 YAML 双引号不支持的 " 与 \）。
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        sed -e "s|\$\${SMTP_USER}|$$SMTP_USER|g" \
-            -e "s|\$\${SMTP_PASSWORD}|$$SMTP_PASSWORD|g" \
-            -e "s|\$\${SMTP_FROM}|$$SMTP_FROM|g" \
-            -e "s|\$\${ALERT_EMAIL_TO}|$$ALERT_EMAIL_TO|g" \
-            /etc/alertmanager/alertmanager.yml > /tmp/alertmanager-rendered.yml
+        awk 'BEGIN { n = split("SMTP_HOST SMTP_PORT SMTP_FROM SMTP_USER SMTP_PASSWORD ALERT_EMAIL_TO", names, " "); for (i = 1; i <= n; i++) { v = ENVIRON[names[i]]; gsub(/[\\&]/, "\\\\&", v); vals[names[i]] = v } } { line = $$0; for (i = 1; i <= n; i++) gsub("\\$$\\{" names[i] "\\}", vals[names[i]], line); print line }' /etc/alertmanager/alertmanager.yml > /tmp/alertmanager-rendered.yml
         exec /bin/alertmanager --config.file=/tmp/alertmanager-rendered.yml --storage.path=/alertmanager --web.external-url=http://localhost:9093
     environment:
       - SMTP_HOST=${SMTP_HOST:-localhost}
