@@ -981,7 +981,8 @@ async def _check_drivers(state) -> dict:
         return {"status": "not_configured"}
 
     try:
-        drivers = driver_registry.list_drivers() if hasattr(driver_registry, "list_drivers") else []
+        # FIXED: 注册表没有 list_drivers()，原 hasattr 恒为假，这里一直返回 0 个驱动
+        drivers = sorted({cls.plugin_name for _protocol, cls in driver_registry.items()})
         return {"status": "up", "registered_count": len(drivers), "drivers": drivers}
     except Exception:
         return {"status": "down", "error": "driver_error"}  # FIXED-P1: 不暴露异常详情

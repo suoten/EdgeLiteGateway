@@ -67,6 +67,33 @@ def _log_api_key_usage(request: Request, key_name: str, success: bool, action: s
         logger.debug("API Key使用审计日志记录失败: %s", e)
 
 
+async def _bearer_api_key_auth(token: str) -> dict[str, str] | None:
+    """Bearer 凭证若是 Grafana API Key，按 API Key 认证返回（仅 METRICS_READ 权限）；否则返回 None。
+
+    FIXED: /metrics 要求认证，但抓取方不一定能发 X-API-Key——仓库自带的 Prometheus
+    （prom/prometheus:v2.45）不支持自定义请求头，只支持 `Authorization: Bearer <凭证>`，
+    导致 docker 监控栈里的 Prometheus 抓取始终 401、采集不到任何网关指标。
+    这里允许把 Grafana API Key 直接作为 Bearer 凭证，权限与 X-API-Key 路径完全一致。
+    """
+    if not token:
+        return None
+    try:
+        from edgelite.config import get_config
+
+        grafana_api_key = getattr(getattr(get_config(), "grafana", None), "api_key", "") or ""
+        matched = bool(grafana_api_key) and hmac.compare_digest(token, grafana_api_key)
+    except Exception:  # 配置不可用或凭证含非 ASCII 字符：按不匹配处理，继续走 JWT 校验
+        matched = False
+    if not matched:
+        return None
+    return {
+        "auth_type": "api_key",
+        "username": "grafana",
+        "role": "api_key",
+        "api_key_scope": APIKeyPermission.METRICS_READ,
+    }
+
+
 # FIXED-H02: Authentication dependency supporting both JWT and API Key with scoped permissions
 async def _authenticate_metrics(request: Request) -> dict[str, str]:
     """Authenticate metrics endpoint access.
@@ -90,6 +117,9 @@ async def _authenticate_metrics(request: Request) -> dict[str, str]:
             auth_header = f"Bearer {cookie_token}"
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
+        api_key_auth = await _bearer_api_key_auth(token)
+        if api_key_auth is not None:
+            return api_key_auth
         try:
             # FIXED(严重): 原问题-使用decode_token不检查token撤销和session状态;
             # 修复-改用verify_token完整校验
@@ -868,14 +898,13 @@ async def _collect_device_metrics(exporter: PrometheusExporter) -> None:  # FIXE
         online_count = 0
         offline_count = 0
 
-        driver_registry = getattr(_app_state, "driver_registry", None)
-        if driver_registry and hasattr(driver_registry, "list_drivers"):
+        # FIXED: 原代码假设注册表有 list_drivers()/get_driver()——两者都不存在（注册表只存驱动类），
+        # hasattr 恒为假，protocol_counts 永远为空，指标的 protocol 标签恒为 "unknown"。
+        # 改为从设备服务按驱动实例统计。
+        device_service = getattr(_app_state, "device_service", None)
+        if device_service is not None and hasattr(device_service, "count_devices_by_driver"):
             try:
-                for driver_name in driver_registry.list_drivers():
-                    driver = driver_registry.get_driver(driver_name)
-                    if driver and hasattr(driver, "get_all_health_stats"):
-                        health_stats = driver.get_all_health_stats()
-                        protocol_counts[driver_name] = len(health_stats)
+                protocol_counts.update(device_service.count_devices_by_driver())
             except Exception as e:
                 # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                 logger.debug("驱动健康统计获取失败: %s", e)
@@ -1376,14 +1405,11 @@ async def _collect_prometheus_client_metrics() -> None:  # FIXED-P0: 改为async
 
             # 按协议统计设备总数
             protocol_counts: dict[str, int] = {}
-            driver_registry = getattr(_app_state, "driver_registry", None)
-            if driver_registry and hasattr(driver_registry, "list_drivers"):
+            # FIXED: 注册表没有 list_drivers()/get_driver()，原分支恒不执行（见 _collect_device_metrics）
+            device_service = getattr(_app_state, "device_service", None)
+            if device_service is not None and hasattr(device_service, "count_devices_by_driver"):
                 try:
-                    for driver_name in driver_registry.list_drivers():
-                        driver = driver_registry.get_driver(driver_name)
-                        if driver and hasattr(driver, "get_all_health_stats"):
-                            health_stats = driver.get_all_health_stats()
-                            protocol_counts[driver_name] = len(health_stats)
+                    protocol_counts.update(device_service.count_devices_by_driver())
                 except Exception as e:
                     # FIXED-P2: 原问题-异常被静默吞没，添加日志记录
                     logger.debug("prometheus_client驱动健康统计获取失败: %s", e)
