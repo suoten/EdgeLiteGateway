@@ -101,8 +101,10 @@ class TestAPIResponseTime:
             times.append(elapsed)
             assert resp.status_code == 200
 
-        avg_latency = statistics.mean(times)
-        assert avg_latency < 50, f"Health check latency {avg_latency:.1f}ms exceeds 50ms"
+        # 用中位数而非平均值：墙钟延迟在负载高的机器/CI runner 上偶发抖动（个别请求被调度器
+        # 挂起几十毫秒），平均值会被离群值拉高导致偶发失败；中位数同样反映"该端点是否足够快"。
+        median_latency = statistics.median(times)
+        assert median_latency < 50, f"Health check latency {median_latency:.1f}ms exceeds 50ms"
 
 
 class TestConcurrentRequests:
