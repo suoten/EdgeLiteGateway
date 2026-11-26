@@ -27,6 +27,7 @@ if _env_path.exists():
 # 必须在任何asyncio操作之前设置，否则RuntimeError: event loop is already running
 if sys.platform == "win32":
     import asyncio
+
     try:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except AttributeError:
@@ -49,11 +50,15 @@ def main():
         "--port",
         type=int,
         default=int(os.environ.get("EDGELITE_SERVER__PORT", "8180")),
-        help="监听端口（默认 8180，与 configs/config.yaml 及前端开发代理对齐；Docker 部署通过 EDGELITE_SERVER__PORT=8080 覆盖）",
+        help=(
+            "监听端口（默认 8180，与 configs/config.yaml 及前端开发代理对齐；"
+            "Docker 部署通过 EDGELITE_SERVER__PORT=8080 覆盖）"
+        ),
     )
     parser.add_argument("--config", default="configs/config.yaml", help="配置文件路径")
     parser.add_argument("--reload", action="store_true", help="开发模式热重载")
-    parser.add_argument("--reload-dir", action="append", dest="reload_dirs", help="热重载监控目录")  # FIXED: 原问题-docker-compose.dev.yml使用--reload-dir但argparse未定义
+    # FIXED: 原问题-docker-compose.dev.yml使用--reload-dir但argparse未定义
+    parser.add_argument("--reload-dir", action="append", dest="reload_dirs", help="热重载监控目录")
     args = parser.parse_args()
 
     if args.config:
@@ -64,6 +69,7 @@ def main():
 
     def _sigterm_handler(signum, frame):
         import logging
+
         logging.getLogger(__name__).info("SIGTERM received, initiating graceful shutdown")
         if callable(original_sigterm):
             original_sigterm(signum, frame)

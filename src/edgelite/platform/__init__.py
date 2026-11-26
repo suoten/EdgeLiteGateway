@@ -21,24 +21,31 @@ def __getattr__(name: str):
         try:
             if name == "BaseNorthAdapter":
                 from edgelite.platform.north_base import BaseNorthAdapter
+
                 return BaseNorthAdapter
             elif name == "IoTSharpHandler":
                 from edgelite.platform.iotsharp import IoTSharpHandler
+
                 return IoTSharpHandler
             elif name == "ThingsBoardHandler":
                 from edgelite.platform.thingsboard import ThingsBoardHandler
+
                 return ThingsBoardHandler
             elif name == "HuaweiIoTDAHandler":
                 from edgelite.platform.huawei_iotda import HuaweiIoTDAHandler
+
                 return HuaweiIoTDAHandler
             elif name == "ThingsCloudHandler":
                 from edgelite.platform.thingscloud import ThingsCloudHandler
+
                 return ThingsCloudHandler
             elif name == "ThingsPanelHandler":
                 from edgelite.platform.thingspanel import ThingsPanelHandler
+
                 return ThingsPanelHandler
             elif name == "CustomMqttHandler":
                 from edgelite.platform.custom_mqtt import CustomMqttHandler
+
                 return CustomMqttHandler
         except ImportError:
             return None

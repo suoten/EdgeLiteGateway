@@ -8,7 +8,10 @@ Cython编译的加速模块，提供CPU密集型操作的C层实现。
 """
 
 try:
-    from edgelite._cython.rule_compare import check_condition_fast, check_conditions_fast  # pyright: ignore[reportMissingImports]
+    from edgelite._cython.rule_compare import (  # pyright: ignore[reportMissingImports]
+        check_condition_fast,
+        check_conditions_fast,
+    )
 except ImportError:
     from edgelite._cython.rule_compare_py import check_condition_fast, check_conditions_fast
 

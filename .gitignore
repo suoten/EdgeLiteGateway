@@ -131,11 +131,15 @@ aa.txt
 scripts/contract_report.json
 
 # ---------- 验证/测试临时文件 ----------
-_*.py
-_*.txt
-_*.err
-_*.log
-_*.xml
+# FIXED: 一次性脚本/临时文件的模式一律锚定到具体目录。未锚定的 `_*.py` 会匹配所有
+# `__init__.py` / `__main__.py`，使这 13 个文件在 git 仓库内被 ruff / pyright 跳过
+# （CI 从未检查过它们，其中确有 lint 与格式问题），新增的包也容易因此漏提交
+# `__init__.py`；未锚定的 `test_api.py` 等则会遮蔽将来新增的 tests/ 同名测试文件。
+/_*.py
+/_*.txt
+/_*.err
+/_*.log
+/_*.xml
 pyright_*.log
 pyright_*.json
 pyright_*.txt
@@ -146,15 +150,15 @@ test_smoke_output.txt
 test_stdout.txt
 test_all*.txt
 test_result*.txt
-test_minimal_sqlite.py
-test_storage_smoke.py
-test_ts_debug*.py
-test_write.py
-test_api.py
-test_core.py
-test_patch.py
-run_test_patch.py
-.read_helper.py
+/test_minimal_sqlite.py
+/test_storage_smoke.py
+/test_ts_debug*.py
+/test_write.py
+/scripts/test_api.py
+/scripts/test_core.py
+/test_patch.py
+/run_test_patch.py
+/.read_helper.py
 failed_tests.txt
 fix_test.txt
 notif_part*.txt
@@ -171,7 +175,7 @@ count_docstrings.py
 parse_results.py
 fix_rbac.py
 fix_typo.py
-report.md
+/report.md
 FIX_PROMPTS.md
 .uploads/
 
