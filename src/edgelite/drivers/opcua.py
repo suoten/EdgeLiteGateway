@@ -1508,22 +1508,22 @@ class OpcUaDriver(DriverPlugin):
     async def get_config_current(self, device_id: str) -> dict | None:
         if not self._config_version_mgr:
             return None
-        return await self._config_version_mgr.get_current(device_id)  # type: ignore[attr-defined]
+        return await self._config_version_mgr.get_current(device_id)
 
     async def get_config_versions(self, device_id: str) -> list[dict]:
         if not self._config_version_mgr:
             return []
-        return await self._config_version_mgr.get_versions(device_id)  # type: ignore[attr-defined]
+        return await self._config_version_mgr.get_versions(device_id)
 
     async def get_config_version_config(self, device_id: str, version: int) -> dict | None:
         if not self._config_version_mgr:
             return None
-        return await self._config_version_mgr.get_version_config(device_id, version)  # type: ignore[attr-defined]
+        return await self._config_version_mgr.get_version_config(device_id, version)
 
     async def rollback_config(self, device_id: str, target_version: int, operator: str = "") -> dict | None:
         if not self._config_version_mgr:
             return None
-        result = await self._config_version_mgr.rollback(device_id, target_version, operator)  # type: ignore[attr-defined]
+        result = await self._config_version_mgr.rollback(device_id, target_version, operator)
         if result and self._audit:
             task = asyncio.create_task(
                 self._audit.log_config_version(
@@ -1547,12 +1547,13 @@ class OpcUaDriver(DriverPlugin):
     async def get_config_audit_trail(self, device_id: str, limit: int = 50) -> list[dict]:
         if not self._config_version_mgr:
             return []
-        return await self._config_version_mgr.get_audit_trail(device_id, limit)  # type: ignore[attr-defined]
+        return await self._config_version_mgr.get_audit_trail(device_id, limit)
 
-    def diff_config_versions(self, device_id: str, version_a: int, version_b: int) -> dict | None:
+    async def diff_config_versions(self, device_id: str, version_a: int, version_b: int) -> dict | None:
+        # FIXED: 配置版本管理器的 diff_versions 是 async（读取持久化存储），此前同步返回协程对象
         if not self._config_version_mgr:
             return None
-        return self._config_version_mgr.diff_versions(device_id, version_a, version_b)  # type: ignore[attr-defined]
+        return await self._config_version_mgr.diff_versions(device_id, version_a, version_b)
 
     async def ota_check_update(self, package_info: dict) -> dict:
         if not self._ota_mgr:

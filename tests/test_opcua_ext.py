@@ -1055,8 +1055,9 @@ class TestDelegationNoInit:
     async def test_get_config_audit_trail_no_mgr(self, driver):
         assert await driver.get_config_audit_trail("dev1") == []
 
-    def test_diff_config_versions_no_mgr(self, driver):
-        assert driver.diff_config_versions("dev1", 1, 2) is None
+    async def test_diff_config_versions_no_mgr(self, driver):
+        # diff_config_versions 读取持久化版本库，为 async 方法
+        assert await driver.diff_config_versions("dev1", 1, 2) is None
 
     async def test_ota_check_update_no_mgr(self, driver):
         result = await driver.ota_check_update({})
