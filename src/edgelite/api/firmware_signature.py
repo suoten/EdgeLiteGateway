@@ -66,21 +66,31 @@ def _validate_firmware_path(firmware_path: str) -> Path:
     """
     if not firmware_path:
         raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED)
-    resolved = Path(firmware_path).resolve()
+
+    # FIXED: 词法检查必须在 resolve() 之前。Windows 上 Path(UNC).resolve() 会真的去访问网络路径，
+    # 不可达时抛 FileNotFoundError（接口 500），且这是 async 端点里的同步调用——每个此类请求
+    # 都会阻塞整个事件循环直到网络查找超时，单请求即可冻结网关。
+    candidate = Path(firmware_path)
     custom_dir = os.environ.get("EDGELITE_OTA_DIR", "").strip()
-    custom_base = Path(custom_dir).resolve() if custom_dir else None
-    if (
-        Path(firmware_path).is_absolute()
-        or ".." in firmware_path
-        or ":" in firmware_path[:3]
-        or "\\\\" in firmware_path
-    ):
+    if candidate.is_absolute() or ".." in firmware_path or ":" in firmware_path[:3] or "\\\\" in firmware_path:
         # FIXED: 绝对路径/盘符/UNC/父目录引用默认拒绝；但 EDGELITE_OTA_DIR 显式配置的
         # 自定义 OTA 目录本身是绝对路径，其下的固件文件以绝对路径传入属合法场景——
-        # 仅当路径落在该显式目录内时放行
-        if custom_base is not None and (resolved == custom_base or resolved.is_relative_to(custom_base)):
-            return resolved
+        # 仅当路径落在该显式目录内时放行（先做不触网的词法比较，再 resolve 校验）
+        if custom_dir:
+            custom_base = Path(custom_dir).resolve()
+            if candidate.is_absolute() and candidate.is_relative_to(Path(custom_dir)):
+                try:
+                    resolved = candidate.resolve()
+                except OSError as e:
+                    raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED) from e
+                if resolved == custom_base or resolved.is_relative_to(custom_base):
+                    return resolved
         raise HTTPException(status_code=400, detail=CommonErrors.VALIDATION_FAILED)
+    try:
+        resolved = candidate.resolve()
+    except OSError as e:
+        # 路径无法解析（不存在且不可访问的父目录等）：与白名单外路径同样处理，不暴露细节
+        raise HTTPException(status_code=404, detail="ERR_COMMON_NOT_FOUND") from e
     for base in _allowed_firmware_dirs():
         if resolved == base or resolved.is_relative_to(base):
             return resolved
