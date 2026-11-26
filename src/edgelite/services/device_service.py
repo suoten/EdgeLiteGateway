@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import contextvars
+import inspect
 import json
 import logging
 import time
@@ -242,7 +243,8 @@ class DeviceService:
                 try:
                     _driver_instance = self._driver_instances.pop(device["device_id"], None)
                     if _driver_instance is not None:
-                        _driver_instance.remove_device(device["device_id"])
+                        # FIXED: SimulatorDriver.remove_device 是 async 方法，未 await 时模拟设备不会真正移除
+                        await _driver_instance.remove_device(device["device_id"])
                 except Exception as sim_err:
                     logger.debug("Simulator remove_device failed (during rollback): %s", sim_err)
             elif _driver_instance is not None:
@@ -1000,6 +1002,20 @@ class DeviceService:
             logs = [e for e in logs if e.get("timestamp", "") <= end_time]
         return logs[-limit:]
 
+    @staticmethod
+    async def _call_driver_method(method: Any, *args: Any) -> Any:
+        """调用驱动方法并返回其真实结果（协程则等待）。
+
+        FIXED: 各驱动的配置版本方法实现不一致——Modbus 系列是同步方法，FINS /
+        Allen-Bradley / MC / OPC UA / S7 是 async 方法。此前这里直接 return 驱动方法的
+        返回值，对 async 驱动等于把协程对象原样返回：版本从未保存、回滚时对协程取属性
+        直接 500、版本列表/审计轨迹返回的也是协程对象。
+        """
+        result = method(*args)
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
     async def save_config_version(
         self,
         device_id: str,
@@ -1010,25 +1026,25 @@ class DeviceService:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "save_config_version"):
             return 0
-        return driver.save_config_version(device_id, config, change_summary, operator)
+        return await self._call_driver_method(driver.save_config_version, device_id, config, change_summary, operator)
 
     async def get_config_current(self, device_id: str) -> dict | None:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "get_config_current"):
             return None
-        return driver.get_config_current(device_id)
+        return await self._call_driver_method(driver.get_config_current, device_id)
 
     async def get_config_versions(self, device_id: str) -> list[dict]:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "get_config_versions"):
             return []
-        return driver.get_config_versions(device_id)
+        return await self._call_driver_method(driver.get_config_versions, device_id)
 
     async def get_config_version_config(self, device_id: str, version: int) -> dict | None:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "get_config_version_config"):
             return None
-        return driver.get_config_version_config(device_id, version)
+        return await self._call_driver_method(driver.get_config_version_config, device_id, version)
 
     async def rollback_config(self, device_id: str, target_version: int, operator: str = "") -> dict | None:
         driver = self._driver_instances.get(device_id)
@@ -1080,7 +1096,7 @@ class DeviceService:
                 operator or "system",
             )
 
-        result = driver.rollback_config(device_id, target_version, operator)
+        result = await self._call_driver_method(driver.rollback_config, device_id, target_version, operator)
         if result and hasattr(driver, "_config"):
             driver._config.update(result.get("config", {}))
 
@@ -1114,13 +1130,22 @@ class DeviceService:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "get_config_audit_trail"):
             return []
-        return driver.get_config_audit_trail(device_id, limit)
+        return await self._call_driver_method(driver.get_config_audit_trail, device_id, limit)
 
     async def diff_config_versions(self, device_id: str, version_a: int, version_b: int) -> dict | None:
         driver = self._driver_instances.get(device_id)
         if driver is None or not hasattr(driver, "diff_config_versions"):
             return None
-        return driver.diff_config_versions(device_id, version_a, version_b)
+        return await self._call_driver_method(driver.diff_config_versions, device_id, version_a, version_b)
+
+    def count_devices_by_driver(self) -> dict[str, int]:
+        """按驱动名（plugin_name）统计当前已加载驱动实例的设备数，供监控指标按协议拆分"""
+        counts: dict[str, int] = {}
+        # FIXED: 取快照后再迭代，与 create_device/delete_device 的写入互斥（同 list_device_health）
+        for _device_id, driver in list(self._driver_instances.items()):
+            name = getattr(driver, "plugin_name", None) or "unknown"
+            counts[name] = counts.get(name, 0) + 1
+        return counts
 
     async def list_device_health(self) -> list[dict]:
         """返回所有设备的驱动健康统计摘要（用于列表页全量请求）"""
