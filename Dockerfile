@@ -35,7 +35,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# FIXED-SEC: 升级带安全修复的系统包（与 docker/Dockerfile 同步）。官方 python:3.11-slim 只在自身
+# 重建时才吸收 Debian 安全更新，补丁发布到镜像重建之间存在窗口（如 CVE-2026-124851 / libzstd1，
+# 2026-11-24 披露），期间 Trivy 镜像扫描因"存在修复版本"直接失败。
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /install /usr/local
+# FIXED-SEC: 与 docker/Dockerfile 同步——消灭 jaraco.context<6.1.0 / wheel<0.46.2 的残留
+# （基础镜像 setuptools 的 vendor、旧 dist-info 目录、与 /install 共存的另一套）
+RUN pip install --no-cache-dir --upgrade "setuptools>=80.9" \
+ && rm -rf /usr/local/lib/python3.11/site-packages/wheel-*.dist-info \
+            /usr/local/lib/python3.11/site-packages/jaraco_context-*.dist-info \
+            /usr/local/lib/python3.11/site-packages/jaraco.context-*.dist-info \
+ && pip install --no-cache-dir "jaraco.context>=6.1.0" "wheel>=0.46.2"
 COPY --from=frontend-builder /build/dist /app/frontend/dist
 COPY configs/ configs/
 COPY alembic/ alembic/

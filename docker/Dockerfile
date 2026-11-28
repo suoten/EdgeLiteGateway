@@ -32,6 +32,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# FIXED-SEC: 升级带安全修复的系统包。官方 python:3.11-slim 只在自身重建时才吸收 Debian 安全更新，
+# 补丁发布到镜像重建之间存在窗口（如 CVE-2026-124851 / libzstd1，2026-11-24 披露），期间 Trivy
+# 镜像扫描因"存在修复版本"直接让 CI 失败。apt-get upgrade 不会删除或新增包，随后清理 apt 列表。
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /install /usr/local
 # FIXED-SEC: 消灭 jaraco.context<6.1.0 / wheel<0.46.2 的三处残留源（.ci-sim 最小复现实测）：
 # 1) 基础镜像 setuptools 将旧版 vendor 进 setuptools/_vendor/（Trivy 实报 0.45.1 的来源）→ 升级 setuptools 换新 vendor
